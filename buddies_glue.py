@@ -11,7 +11,7 @@ The flow
    ``/buddies/join/<referral code>``. It is the same code the referral
    programme uses, so an invite that brings in a new student is also a
    referral.
-2. The friend opens it and taps "Send buddy request". That is their opt-in.
+2. The friend reads and accepts the sharing notice, then sends a request.
 3. The inviter confirms. That is theirs. Nothing is shared until both have
    said yes -- a leaked link can produce requests, never a buddy.
 
@@ -78,7 +78,7 @@ def _eligible(user: Any) -> tuple[bool, str]:
 
 def _sharing(user: Any) -> bool:
     """Opted in *and* still eligible. Age facts can change after opting in."""
-    return bool(getattr(user, "buddies_opt_in", False)) and _eligible(user)[0]
+    return bool(getattr(user, "buddies_opt_in", False)) and rules.has_consent(user) and _eligible(user)[0]
 
 
 def _tz(user: Any) -> tuple[str, int]:
@@ -247,7 +247,9 @@ def overview(me: Any, now: datetime | None = None) -> dict[str, Any]:
         "eligible": eligible,
         "reason": reason,
         "reason_text": _REASON_TEXT.get(reason, ""),
-        "enabled": bool(getattr(me, "buddies_opt_in", False)) and eligible,
+        "enabled": _sharing(me),
+        "consent_version": rules.CONSENT_VERSION,
+        "consent_required": not rules.has_consent(me),
         "max_buddies": rules.MAX_BUDDIES,
         "buddies": [],
         "incoming": [],
@@ -375,11 +377,21 @@ def api_buddies_settings():
     if me is None:
         return _err("Sign in to use Study Buddies.", 401)
     body = request.get_json(silent=True) or {}
-    enabled = bool(body.get("enabled"))
+    if not isinstance(body.get("enabled"), bool):
+        return _err("Choose whether to enable Study Buddies.")
+    enabled = body["enabled"]
     if enabled:
         ok, reason = _eligible(me)
         if not ok:
             return _err(_REASON_TEXT.get(reason, "Study Buddies is not available."), 403, reason=reason)
+    if enabled:
+        if body.get("consent_version") != rules.CONSENT_VERSION or body.get("sharing_acknowledged") is not True:
+            return _err("Read and agree to the Study Buddies sharing notice first.", 400, reason="consent_required")
+        me.buddies_consent_version = rules.CONSENT_VERSION
+        me.buddies_consent_at = utcnow()
+    else:
+        me.buddies_consent_version = None
+        me.buddies_consent_at = None
     me.buddies_opt_in = enabled
     db.session.commit()
     return jsonify(overview(me))
@@ -389,8 +401,8 @@ def api_buddies_settings():
 def api_buddies_request():
     """Ask the owner of an invite code to be study buddies.
 
-    Sending the request is the requester's opt-in, so it switches Study
-    Buddies on for them (the button says so). The inviter still confirms.
+    Both students must already have accepted the sharing notice.
+    The inviter still confirms each individual request.
     """
     from App import StudyBuddy, User, db
 
@@ -400,6 +412,8 @@ def api_buddies_request():
     ok, reason = _eligible(me)
     if not ok:
         return _err(_REASON_TEXT.get(reason, "Study Buddies is not available."), 403, reason=reason)
+    if not _sharing(me):
+        return _err("Read and agree to the Study Buddies sharing notice first.", 403, reason="consent_required")
     body = request.get_json(silent=True) or {}
     code = str(body.get("code") or session.get("pending_buddy_code") or "").strip().lower()[:16]
     inviter = User.query.filter_by(referral_code=code).first() if code else None
@@ -419,7 +433,6 @@ def api_buddies_request():
     if _active_count(inviter.id) >= rules.MAX_BUDDIES or _pending_incoming_count(inviter.id) >= rules.MAX_PENDING_INCOMING:
         return unavailable
     low, high = _pair(me.id, inviter.id)
-    me.buddies_opt_in = True
     db.session.add(StudyBuddy(user_low_id=low, user_high_id=high, requested_by_id=me.id, status="pending"))
     try:
         db.session.commit()
@@ -442,6 +455,8 @@ def api_buddies_confirm(link_id: int):
     ok, reason = _eligible(me)
     if not ok:
         return _err(_REASON_TEXT.get(reason, "Study Buddies is not available."), 403, reason=reason)
+    if not _sharing(me):
+        return _err("Read and agree to the Study Buddies sharing notice first.", 403, reason="consent_required")
     other = db.session.get(User, link.other(me.id))
     if other is None or not _sharing(other):
         return _err("That request is not available.", 404)
@@ -449,7 +464,6 @@ def api_buddies_confirm(link_id: int):
         return _err(f"You already have {rules.MAX_BUDDIES} study buddies. Remove one first.", 409)
     if _active_count(other.id) >= rules.MAX_BUDDIES:
         return _err("They already have the maximum number of buddies.", 409)
-    me.buddies_opt_in = True
     link.status = "active"
     link.accepted_at = utcnow()
     db.session.commit()

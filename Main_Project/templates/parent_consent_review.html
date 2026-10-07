@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block page_title %}Review parental approval | IntelliPlan{% endblock %}
+{% block head_extra %}<meta name="referrer" content="no-referrer">{% endblock %}
+{% block content %}
+<section class="settings-section" style="max-width:720px;margin:2rem auto;">
+  <h1>Review {{ 'parental approval' if decision == 'approve' else 'signup removal' }}</h1>
+  <p>Pending account: <strong>{{ child_email }}</strong></p>
+  {% for paragraph in notice_paragraphs %}<p>{{ paragraph }}</p>{% endfor %}
+  <p><a href="/legal#p-coppa">Read the full privacy policy</a>. Email approval is the current account gate; it does not independently verify adult identity.</p>
+  <form method="post">
+    <input type="hidden" name="token" value="{{ token }}">
+    <label><input type="checkbox" name="acknowledged" value="yes" required>
+      {% if decision == 'approve' %}I am this child's parent or authorized guardian, have read this notice, and approve the described account use.
+      {% else %}I want to remove this pending signup.{% endif %}
+    </label>
+    <p><button class="btn-primary" type="submit">{{ 'Approve account' if decision == 'approve' else 'Delete pending signup' }}</button></p>
+  </form>
+  <p>Opening this page has not changed the account. Notice: {{ notice_version }}.</p>
+</section>
+{% endblock %}

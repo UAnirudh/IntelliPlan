@@ -11,7 +11,7 @@ All mocked — these must not consume API quota.
 import pytest
 
 import ai_provider
-from ai_provider import AITruncatedError
+from ai_provider import AITruncatedError, MIN_USEFUL_THINKING, THINKING_SHARE, _supports_thinking
 
 
 class _FR:
@@ -29,19 +29,19 @@ class _Resp:
 
 @pytest.fixture
 def no_keys(monkeypatch):
-    monkeypatch.setattr(ai_provider, "gemini_api_key", lambda: None)
+    monkeypatch.setattr(ai_provider, "gemini_available", lambda: False)
     monkeypatch.setattr(ai_provider, "groq_api_key", lambda: None)
 
 
 @pytest.fixture
 def gemini_only(monkeypatch):
-    monkeypatch.setattr(ai_provider, "gemini_api_key", lambda: "g-key")
+    monkeypatch.setattr(ai_provider, "gemini_available", lambda: True)
     monkeypatch.setattr(ai_provider, "groq_api_key", lambda: None)
 
 
 @pytest.fixture
 def both_keys(monkeypatch):
-    monkeypatch.setattr(ai_provider, "gemini_api_key", lambda: "g-key")
+    monkeypatch.setattr(ai_provider, "gemini_available", lambda: True)
     monkeypatch.setattr(ai_provider, "groq_api_key", lambda: "q-key")
 
 
@@ -168,14 +168,6 @@ def test_no_backend_configured_raises_clearly(no_keys):
 # two rules are what stand between a short prompt and an empty response
 # that the provider chain misreads as a dead backend.
 
-import re as _re
-
-import ai_provider
-from ai_provider import (
-    MIN_USEFUL_THINKING,
-    THINKING_SHARE,
-    _supports_thinking,
-)
 
 
 def test_groq_defaults_use_supported_post_llama_models():

@@ -201,7 +201,11 @@ def test_pay_link_round_trips_and_rejects_tampering(client):
     with App.app.app_context():
         token = growth_glue.make_pay_token(42)
         assert growth_glue.read_pay_token(token) == 42
-        assert growth_glue.read_pay_token(token[:-2] + "xx") is None
+        # Change the first character of the signature. The last one carries
+        # unused base64 bits, so swapping it can decode to the same bytes.
+        body, signature = token.rsplit(".", 1)
+        swapped = ("B" if signature[0] == "A" else "A") + signature[1:]
+        assert growth_glue.read_pay_token(f"{body}.{swapped}") is None
 
 
 def test_minors_are_sent_to_the_parent_link(client, monkeypatch):

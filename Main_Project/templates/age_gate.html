@@ -128,7 +128,7 @@
     const block = document.getElementById('parentBlock');
     const input = document.getElementById('parentEmail');
     if (!block || !input) return;
-    const under13 = Number.isFinite(year) && ({{ current_year }} - year) < 13
+    const under13 = Number.isFinite(year) && ({{ current_year }} - year - 1) < 13
       && year > 1900;
     block.hidden = !under13;
     input.required = under13;

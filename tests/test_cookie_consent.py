@@ -272,15 +272,15 @@ def test_the_privacy_policy_promise_is_true_again(client):
     """It denied using session replay while Clarity was loading on every
     page. The tracker is gone, so the sentence stands."""
     html = client.get("/legal").data.decode("utf-8", "ignore")
-    assert "do <em>not</em> use session-replay" in html
+    assert "do not use session-replay" in html
     assert "No third-party analytics script runs in your browser" in html
 
 
-def test_the_privacy_policy_no_longer_lists_microsoft(client):
-    """Listing a sub-processor we do not use is the same class of error as
-    omitting one we do."""
+def test_policy_discloses_microsoft_integrations_without_clarity(client):
+    """Outlook/OneDrive use Microsoft; removed Clarity must stay absent."""
     html = client.get("/legal").data.decode("utf-8", "ignore")
-    assert "privacy.microsoft.com" not in html
+    assert "privacy.microsoft.com" in html
+    assert "Microsoft Clarity" not in html
 
 
 def test_the_privacy_policy_has_a_cookies_section(client):

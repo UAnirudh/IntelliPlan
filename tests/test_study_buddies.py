@@ -69,6 +69,8 @@ def _user(tag, *, age=16, opted_in=False, name=None, **extra):
             birth_year=(THIS_YEAR - age) if age is not None else None,
             parent_consent_granted=True,
             buddies_opt_in=opted_in,
+            buddies_consent_version=rules.CONSENT_VERSION if opted_in else None,
+            buddies_consent_at=utcnow() if opted_in else None,
             **extra,
         )
         db.session.add(u)
@@ -93,6 +95,7 @@ def _code(uid):
 def _pair(client, a, b):
     """a invites, b requests, a confirms. Returns the link id."""
     _as(client, b)
+    assert client.post("/api/buddies/settings", json={"enabled": True, "sharing_acknowledged": True, "consent_version": rules.CONSENT_VERSION}).status_code == 200
     r = client.post("/api/buddies/request", json={"code": _code(a)})
     assert r.status_code == 200, r.get_json()
     _as(client, a)
@@ -230,11 +233,11 @@ def test_the_join_link_remembers_the_invite_and_attributes_the_referral(client):
 
 def test_a_request_is_not_a_buddy_until_confirmed(client):
     a = _user("a", opted_in=True)
-    b = _user("b")
+    b = _user("b", opted_in=True)
     _as(client, b)
     body = client.post("/api/buddies/request", json={"code": _code(a)}).get_json()
     assert body["state"] == "pending"
-    assert body["enabled"] is True  # sending the request is b's opt-in
+    assert body["enabled"] is True  # b already accepted the notice
     assert body["buddies"] == [] and len(body["outgoing"]) == 1
     _as(client, a)
     body = client.get("/api/buddies").get_json()
@@ -265,7 +268,7 @@ def test_at_most_five_buddies(client):
     a = _user("a", opted_in=True)
     for i in range(rules.MAX_BUDDIES):
         _pair(client, a, _user(f"f{i}"))
-    late = _user("late")
+    late = _user("late", opted_in=True)
     _as(client, late)
     assert client.post("/api/buddies/request", json={"code": _code(a)}).status_code == 404
 
@@ -356,7 +359,7 @@ def test_an_under_13_invite_link_reaches_nobody(client):
     """Even a pre-existing opt-in flag does not make a child reachable, and
     the refusal does not say why."""
     kid = _user("kid", age=11, opted_in=True)
-    teen = _user("teen")
+    teen = _user("teen", opted_in=True)
     _as(client, teen)
     r = client.post("/api/buddies/request", json={"code": _code(kid)})
     assert r.status_code == 404
@@ -469,3 +472,80 @@ def test_the_pages_render_with_the_card(client):
 def test_buddies_page_needs_sign_in(client):
     r = client.get("/buddies")
     assert r.status_code == 302 and "/login" in r.headers["Location"]
+
+
+@pytest.mark.parametrize("payload", [
+    {"enabled": True},
+    {"enabled": True, "sharing_acknowledged": True, "consent_version": "old"},
+    {"enabled": True, "sharing_acknowledged": "true", "consent_version": rules.CONSENT_VERSION},
+    {"enabled": "true", "sharing_acknowledged": True, "consent_version": rules.CONSENT_VERSION},
+])
+def test_enabling_requires_explicit_current_notice(client, payload):
+    uid = _user("notice")
+    _as(client, uid)
+    assert client.post("/api/buddies/settings", json=payload).status_code == 400
+    with App.app.app_context():
+        assert db.session.get(User, uid).buddies_opt_in is False
+
+
+def test_request_does_not_enable_sharing(client):
+    a = _user("a", opted_in=True)
+    b = _user("b")
+    _as(client, b)
+    assert client.post("/api/buddies/request", json={"code": _code(a)}).status_code == 403
+    with App.app.app_context():
+        assert db.session.get(User, b).buddies_opt_in is False
+        assert StudyBuddy.query.filter_by(user_low_id=min(a, b), user_high_id=max(a, b)).first() is None
+
+
+def test_legacy_consent_is_paused_until_renewed(client):
+    a = _user("a", opted_in=True)
+    b = _user("b")
+    link = _pair(client, a, b)
+    _studied(a, [0])
+    with App.app.app_context():
+        u = db.session.get(User, a)
+        u.buddies_consent_version = None
+        u.buddies_consent_at = None
+        db.session.commit()
+    _as(client, b)
+    card = client.get("/api/buddies").get_json()["buddies"][0]
+    assert card["sharing"] is False and card["focus_minutes_today"] is None
+    assert client.post(f"/api/buddies/{link}/nudge").status_code == 409
+    _as(client, a)
+    assert client.get("/api/buddies").get_json()["enabled"] is False
+    assert client.post("/api/buddies/settings", json={"enabled": True}).status_code == 400
+    r = client.post("/api/buddies/settings", json={"enabled": True,
+        "sharing_acknowledged": True, "consent_version": rules.CONSENT_VERSION})
+    assert r.status_code == 200 and r.get_json()["enabled"] is True
+    with App.app.app_context():
+        assert db.session.get(User, a).buddies_consent_at is not None
+    assert client.post("/api/buddies/settings", json={"enabled": False}).status_code == 200
+    assert client.post("/api/buddies/settings", json={"enabled": True}).status_code == 400
+
+
+def test_confirmation_cannot_resume_sharing(client):
+    a = _user("a", opted_in=True)
+    b = _user("b", opted_in=True)
+    _as(client, b)
+    client.post("/api/buddies/request", json={"code": _code(a)})
+    _as(client, a)
+    link = client.get("/api/buddies").get_json()["incoming"][0]["id"]
+    client.post("/api/buddies/settings", json={"enabled": False})
+    assert client.post(f"/api/buddies/{link}/confirm").status_code == 403
+    with App.app.app_context():
+        assert db.session.get(StudyBuddy, link).status == "pending"
+
+
+def test_notice_and_policy_describe_sharing(client):
+    uid = _user("notice")
+    _as(client, uid)
+    page = client.get("/buddies").get_data(as_text=True)
+    assert 'aria-describedby="bpSharingNotice"' in page
+    assert 'sharing_acknowledged: e.target.checked' in page
+    assert 'longest shared streak' in page
+    assert 'Turning this on again resumes sharing' in page
+    policy = client.get("/legal").get_data(as_text=True)
+    assert 'id="p-buddies"' in policy
+    assert 'Older opt-ins' in policy
+    assert 'Student opt-in does not replace' in policy

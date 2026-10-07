@@ -279,9 +279,10 @@ def test_a_pending_policy_comes_with_a_tldr():
 def test_a_version_without_a_tldr_still_describes():
     """Older and future entries may not carry one; the notice must not break."""
     entry = {"version": 99, "effective": "2030-01-01", "summary": ["x"], "clauses": []}
+    accepted = policy_versions.current_version(policy_versions.TERMS)
     policy_versions.TERMS_VERSIONS.append(entry)
     try:
-        described = policy_versions.describe(policy_versions.TERMS, 1)
+        described = policy_versions.describe(policy_versions.TERMS, accepted)
     finally:
         policy_versions.TERMS_VERSIONS.remove(entry)
 

@@ -43,6 +43,8 @@ import request_guards
 import secret_box
 from intelliplan.integrations.document_content import CloudDocumentError
 import policy_versions
+import parental_notice
+from intelliplan.email.eligibility import age_from_birth_year
 import assistant_name
 import desktop_auth
 import app_link
@@ -648,6 +650,8 @@ class User(UserMixin, db.Model):
     birth_year = db.Column(db.Integer, nullable=True)          # collected at signup
     parent_email = db.Column(db.String(255), nullable=True)    # for under-13 accounts
     parent_consent_granted = db.Column(db.Boolean, default=False)
+    parent_consent_at = db.Column(db.DateTime, nullable=True)
+    parent_consent_notice_version = db.Column(db.String(32), nullable=True)
     parent_consent_token = db.Column(db.String(64), nullable=True)  # signed verification token
     # JSON: {"grade_source":"active|canvas|...", "assignment_sources":["active","google_classroom",...]}
     lms_preferences = db.Column(db.Text, default="{}")
@@ -720,6 +724,8 @@ class User(UserMixin, db.Model):
     #: and refused outright for under-13s and unknown ages -- see
     #: intelliplan/services/buddies.py for the rule.
     buddies_opt_in = db.Column(db.Boolean, default=False)
+    buddies_consent_version = db.Column(db.String(32), nullable=True)
+    buddies_consent_at = db.Column(db.DateTime, nullable=True)
     linked_accounts = db.relationship("LinkedAccount", backref="user", lazy=True, cascade="all, delete-orphan")
     dismissed = db.relationship("DismissedAssignment", backref="user", lazy=True, cascade="all, delete-orphan")
     descriptions = db.relationship("CustomDescription", backref="user", lazy=True, cascade="all, delete-orphan")
@@ -7076,7 +7082,7 @@ def register():
                 if birth_year_val < 1900 or birth_year_val > current_year:
                     error = "Please enter a valid birth year."
                 else:
-                    age = current_year - birth_year_val
+                    age = age_from_birth_year(birth_year_val, utcnow())
             except ValueError:
                 error = "Please enter a valid birth year."
         elif not error:
@@ -7128,30 +7134,23 @@ def register():
                     ),
                 )
                 db.session.add(user)
+                db.session.flush()
+                for doc in policy_versions.all_docs():
+                    db.session.add(PolicyAcknowledgement(
+                        user_id=user.id, doc=doc, version=policy_versions.current_version(doc),
+                        user_agent=(request.headers.get("User-Agent") or "")[:256],
+                    ))
                 db.session.commit()
                 # Fire the parental consent email out-of-band.
                 if under_13 and parent_email_raw:
                     try:
                         consent_url = f"{APP_BASE_URL}/parent/consent?token={consent_token}"
                         deny_url = f"{APP_BASE_URL}/parent/deny?token={consent_token}"
-                        body = (
-                            f"Hi,\n\nYour child ({email}) signed up for IntelliPlan, a free study "
-                            f"planner. Because they're under 13, COPPA requires your consent before "
-                            f"their account becomes active.\n\n"
-                            f"What IntelliPlan does: helps students plan homework, prioritize "
-                            f"assignments, and study with an AI tutor. No ads. No data sold. We collect "
-                            f"only what's needed to run the planner (email, grade level, assignments) "
-                            f"and you can request deletion at any time.\n\n"
-                            f"✅ Approve the account:\n{consent_url}\n\n"
-                            f"❌ Deny / delete this signup:\n{deny_url}\n\n"
-                            f"If you didn't expect this email, you can either click the deny link "
-                            f"above to remove the account, or simply ignore this message — the account "
-                            f"stays locked and inactive until you approve it.\n\n— IntelliPlan"
-                        )
+                        body = parental_notice.email_body(email, consent_url, deny_url, APP_BASE_URL)
                         # Send via SMTP if SMTP_HOST is set; otherwise log
                         # the link so it can still be delivered manually.
                         _send_email(parent_email_raw, "Consent needed: your child's IntelliPlan account", body)
-                        print(f"[coppa] consent link emailed to {parent_email_raw}: {consent_url}")
+                        print("[coppa] parental notice delivery attempted")
                     except Exception as _e:
                         print(f"[coppa] consent email failed: {_e}")
                 # Apply any pending referral (sets referred_by_id). Safe no-op if there's none.
@@ -10159,12 +10158,17 @@ def _account_delete_impl():
     except Exception as _ce:
         print(f"[account_delete] could not read current_user.id: {_ce}")
         return flask.jsonify({"status": "error", "message": "Session error"}), 500
-    # We capture the id first, then logout so Flask-Login doesn't try to
-    # re-load the about-to-be-deleted row at request teardown.
+    from account_uploads import owned_upload_paths, remove_uploads, quarantine_uploads, restore_uploads
     try:
-        logout_user()
-    except Exception as _e:
-        print(f"[account_delete] logout warning: {_e}")
+        uploads = owned_upload_paths(
+            user_id, app.config["NOTES_UPLOAD_FOLDER"], LESSON_UPLOAD_FOLDER,
+            [row.stored_filename for row in CourseNote.query.filter_by(user_id=user_id).all()],
+            [row.stored_filename for row in Lesson.query.filter_by(user_id=user_id).all()],
+        )
+        staged_uploads = quarantine_uploads(uploads)
+    except OSError:
+        app.logger.exception("Account upload staging failed for user id=%s", user_id)
+        return flask.jsonify({"status": "error", "message": "Could not remove your uploaded files. Please retry or contact support."}), 500
     # Every statement needed to remove this user, in an order that respects
     # foreign keys: children before parents, and the `users` row last.
     #
@@ -10376,45 +10380,36 @@ def _account_delete_impl():
         # ── Referrals: never cascade into another user's account ───────
         ("users.referred_by_id", "UPDATE users SET referred_by_id = NULL WHERE referred_by_id = :uid"),
     ]
-    # Per-statement connections so one failing table (missing on older DBs,
-    # or a constraint we haven't enumerated) can't poison the whole
-    # transaction. The previous attempt batched everything into one
-    # SQLAlchemy session and the very first missing-table error aborted
-    # the rest under Postgres semantics.
+    # Optional feature tables may not have been created on older installs.
+    # Inspect that explicitly; SQL errors on existing tables must roll back
+    # every database change rather than silently leaving personal data.
+    from sqlalchemy import inspect as _inspect
+    import re as _delete_re
+    db.session.close()
     try:
-        db.session.close()  # release any session-bound transaction
-    except Exception:
-        pass
-    skipped: list[str] = []
-    for label, statement in deletion_plan:
-        try:
-            with db.engine.connect() as conn:
+        with db.engine.begin() as conn:
+            existing = set(_inspect(conn).get_table_names())
+            for label, statement in deletion_plan:
+                referenced = set(_delete_re.findall(r"(?:FROM|UPDATE|JOIN)\s+(\w+)", statement, _delete_re.I))
+                if referenced - existing:
+                    continue
                 conn.execute(_t(statement), {"uid": user_id})
-                try: conn.commit()
-                except Exception: pass
-        except Exception as _de:
-            # Usually: the table does not exist on this database (an older
-            # deployment, or a feature whose models were never registered).
-            # Recorded rather than only printed, so the failure path below
-            # can say which tables were skipped when the user delete fails.
-            skipped.append(label)
-            print(f"[account_delete] skip {label}: {_de}")
-    # Finally drop the user row itself. This is the one delete we
-    # actually require to succeed.
-    try:
-        with db.engine.connect() as conn:
             conn.execute(_t("DELETE FROM users WHERE id = :uid"), {"uid": user_id})
-            try: conn.commit()
-            except Exception: pass
-    except Exception as e:
-        # If we get here it is almost always a foreign key from a table that
-        # is not in the plan above. Log the skips too — that list is where
-        # the missing table will be.
-        print(f"[account_delete] FAILED for user {user_id}: {e}; skipped={skipped}")
+    except Exception:
+        restore_uploads(staged_uploads)
+        app.logger.exception("Account database deletion failed for user id=%s", user_id)
         return flask.jsonify({
             "status": "error",
-            "message": "Could not delete your account right now. Try again or email support@intelliplan.tech.",
+            "message": "Could not delete your account right now. Try again or email uanirudh0811@gmail.com.",
         }), 500
+    try:
+        remove_uploads(quarantine for _, quarantine in staged_uploads)
+    except OSError:
+        app.logger.exception("Account deleted but quarantined upload cleanup needs retry for user id=%s", user_id)
+        logout_user()
+        session.clear()
+        return flask.jsonify({"status": "error", "message": "Your account was removed, but file cleanup needs support. Please email uanirudh0811@gmail.com."}), 500
+    logout_user()
     session.clear()
     return flask.jsonify({"status": "ok"})
 
@@ -10615,7 +10610,7 @@ def _analytics_allowed():
     try:
         if current_user.is_authenticated:
             if current_user.birth_year:
-                if (utcnow().year - int(current_user.birth_year)) < 13:
+                if age_from_birth_year(current_user.birth_year, utcnow()) < 13:
                     return False
             if current_user.parent_email and not current_user.parent_consent_granted:
                 return False
@@ -10735,6 +10730,9 @@ def _accepted_at_signup(described):
     them to re-accept a change that predates their account presents a
     "we've updated our terms" notice to a person for whom nothing updated.
     """
+    if ((described or {}).get("doc") != "privacy" or
+            (described or {}).get("version", 0) > 2):
+        return False
     effective = (described or {}).get("effective")
     created = getattr(current_user, "created_at", None)
     if not effective or not created:
@@ -10785,7 +10783,7 @@ def api_policy_acknowledge():
         return flask.jsonify({"status": "error", "message": "Missing version."}), 400
 
     current = policy_versions.current_version(doc)
-    if version > current:
+    if version < 1 or version > current:
         return flask.jsonify({"status": "error",
                               "message": "That version does not exist."}), 400
 
@@ -18480,8 +18478,8 @@ def _send_email_via_resend(to_addr, subject, body, html=None, headers=None, repl
 
 def _send_email(to_addr, subject, body, html=None, headers=None, reply_to=None):
     """Send an email. Tries Resend first (RESEND_API_KEY), then falls back to
-    SMTP. If neither is configured, logs the message so the parental-consent
-    link can still be delivered manually.
+    SMTP. If neither is configured, report failure without logging private
+    message bodies or bearer consent/reset links.
 
     ``body`` is always the plain-text part and is always required — an
     HTML-only email is a deliverability problem and unreadable in a text
@@ -18502,7 +18500,7 @@ def _send_email(to_addr, subject, body, html=None, headers=None, reply_to=None):
 
     host, port, user, pw, sender = _smtp_config()
     if not host:
-        print(f"[email] neither Resend nor SMTP configured — would send to {to_addr}: {subject}\n{body}")
+        print("[email] delivery unavailable: neither Resend nor SMTP configured")
         return False
     try:
         import smtplib
@@ -18713,7 +18711,7 @@ def account_age_gate():
             if birth_year_val < 1900 or birth_year_val > current_year:
                 error = "Please enter a valid birth year."
             else:
-                age = current_year - birth_year_val
+                age = age_from_birth_year(birth_year_val, utcnow())
         except ValueError:
             error = "Please enter a valid birth year."
 
@@ -18742,16 +18740,10 @@ def account_age_gate():
                                    f"?token={current_user.parent_consent_token}")
                     deny_url = (f"{APP_BASE_URL}/parent/deny"
                                 f"?token={current_user.parent_consent_token}")
-                    body = (
-                        f"Your child ({current_user.email}) signed up for IntelliPlan, a free "
-                        f"study planner. Because they're under 13, COPPA requires your consent "
-                        f"before their account is activated.\n\n"
-                        f"Approve the account:\n{consent_url}\n\n"
-                        f"Decline and delete it:\n{deny_url}\n"
-                    )
+                    body = parental_notice.email_body(current_user.email, consent_url, deny_url, APP_BASE_URL)
                     _send_email(current_user.parent_email,
                                 "Consent needed: your child's IntelliPlan account", body)
-                    print(f"[coppa] consent link emailed to {current_user.parent_email}")
+                    print("[coppa] parental notice delivery attempted")
                 except Exception as _e:
                     print(f"[coppa] consent email failed: {_e}")
                 return redirect("/account/age/pending")
@@ -18778,10 +18770,10 @@ def account_age_pending():
     )
 
 
-@app.route("/parent/consent")
+@app.route("/parent/consent", methods=["GET", "POST"])
 def parent_consent():
     """Public landing page for the COPPA parental-consent link."""
-    token = request.args.get("token", "").strip()
+    token = request.values.get("token", "").strip()
     if not token:
         return "Missing consent token.", 400
     user = User.query.filter_by(parent_consent_token=token).first()
@@ -18799,7 +18791,16 @@ def parent_consent():
             "get a fresh consent email.</p>"
             "<p><a href='/'>Back to IntelliPlan</a></p>"
         ), 404
+    if request.method == "GET":
+        return render_template("parent_consent_review.html", token=token,
+                               child_email=user.email, decision="approve",
+                               notice_paragraphs=parental_notice.NOTICE_PARAGRAPHS,
+                               notice_version=parental_notice.NOTICE_VERSION)
+    if request.form.get("acknowledged") != "yes":
+        return "Read the parental notice and explicitly choose to approve.", 400
     if not user.parent_consent_granted:
+        user.parent_consent_at = utcnow()
+        user.parent_consent_notice_version = parental_notice.NOTICE_VERSION
         user.parent_consent_granted = True
         user.parent_consent_token = None  # one-shot
         db.session.commit()
@@ -18818,14 +18819,14 @@ def parent_consent():
     )
 
 
-@app.route("/parent/deny")
+@app.route("/parent/deny", methods=["GET", "POST"])
 def parent_deny():
     """COPPA deny path. Hard-deletes the pending under-13 account so a
     rejected child can't sign in and we hold no PII on them. One-shot:
     the consent token is the only handle to the row, so once the
     account is deleted the link can't be replayed.
     """
-    token = request.args.get("token", "").strip()
+    token = request.values.get("token", "").strip()
     if not token:
         return "Missing consent token.", 400
     user = User.query.filter_by(parent_consent_token=token).first()
@@ -18851,11 +18852,19 @@ def parent_deny():
                 "this link.</p>"
                 f"<p>To remove <strong>{user.email}</strong>, email "
                 "<a href='mailto:uanirudh0811@gmail.com'>uanirudh0811@gmail.com</a>. We delete "
-                "the account and all associated data within 30 days, as COPPA requires.</p>"
+                "the account and associated account data within our stated 30-day period.</p>"
             )
         ), 409
+    if request.method == "GET":
+        return render_template("parent_consent_review.html", token=token,
+                               child_email=user.email, decision="deny",
+                               notice_paragraphs=parental_notice.NOTICE_PARAGRAPHS,
+                               notice_version=parental_notice.NOTICE_VERSION)
+    if request.form.get("acknowledged") != "yes":
+        return "Explicitly confirm removal of this pending signup.", 400
     child_email = user.email
     try:
+        PolicyAcknowledgement.query.filter_by(user_id=user.id).delete(synchronize_session=False)
         db.session.delete(user)
         db.session.commit()
         print(f"[coppa] denied + deleted pending account: {child_email}")
@@ -21810,6 +21819,10 @@ def _migrate_user_columns():
         ("users", "first_touch_json", "TEXT"),
         # users — Study Buddies opt-in (buddies_glue.py)
         ("users", "buddies_opt_in", "BOOLEAN DEFAULT FALSE"),
+        ("users", "buddies_consent_version", "VARCHAR(32)"),
+        ("users", "buddies_consent_at", "TIMESTAMP"),
+        ("users", "parent_consent_at", "TIMESTAMP"),
+        ("users", "parent_consent_notice_version", "VARCHAR(32)"),
         # active_sessions — sparks given up to focus enforcement
         ("active_sessions", "sparks_forfeited", "INTEGER DEFAULT 0"),
         # users — notification preferences. These are listed here as well as
@@ -22103,6 +22116,40 @@ def _check_session_stamp():
     except Exception as exc:
         print(f"[security] session stamp check failed: {exc}")
     return None
+
+
+@app.before_request
+def _enforce_pending_parental_consent():
+    """An OAuth session must not unlock the product before parental approval."""
+    if not current_user.is_authenticated:
+        return None
+    allowed = {"static", "legal", "privacy_alias_redirect", "terms_alias_redirect", "cookies_page", "logout",
+               "account_age_gate", "account_age_pending", "parent_consent", "parent_deny",
+               "account_delete", "delete_account_info", "api_policy_pending",
+               "api_policy_acknowledge", "api_cookie_consent_state", "api_cookie_consent_save"}
+    if request.endpoint in allowed:
+        return None
+    user = current_user._get_current_object()
+    try:
+        facts = (user.birth_year, user.parent_email, user.parent_consent_granted)
+    except Exception:
+        # The loaded user can be detached from the session (a hook above
+        # closed it). Re-read the row rather than 500 every request or,
+        # worse, wave a pending account through unchecked.
+        uid = str(session.get("_user_id") or "")
+        user = db.session.get(User, int(uid)) if uid.isdigit() else None
+        if user is None:
+            return None
+        facts = (user.birth_year, user.parent_email, user.parent_consent_granted)
+    birth_year, parent_email, consent_granted = facts
+    age = age_from_birth_year(birth_year, utcnow())
+    pending = (bool(parent_email) or (age is not None and age < 13)) and not consent_granted
+    if not pending:
+        return None
+    if request.path.startswith("/api/") or request.method != "GET":
+        return flask.jsonify({"status": "error", "reason": "parent_consent_required",
+                              "message": "A parent must approve your account before you can use this feature."}), 403
+    return redirect("/account/age/pending")
 
 
 @app.before_request

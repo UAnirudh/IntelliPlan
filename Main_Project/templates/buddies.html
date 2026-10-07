@@ -17,14 +17,21 @@
 
   <section class="settings-section bp-section" id="bpInvite" hidden>
     <h2 class="bp-h">You have an invite</h2>
-    <p class="bp-copy"><strong id="bpInviteName"></strong> invited you to be study buddies. Sending a request turns Study Buddies on for you; they confirm it on their side.</p>
+    <p class="bp-copy"><strong id="bpInviteName"></strong> invited you to be study buddies. Read the sharing notice and turn on Study Buddies below before sending a request. They must confirm before you share with each other.</p>
     <button type="button" class="btn-primary" id="bpSendRequest">Send buddy request</button>
   </section>
 
   <section class="settings-section bp-section" id="bpToggleSection" hidden>
+    <h2 class="bp-h" id="bpSharingTitle">Choose what you share</h2>
+    <div id="bpSharingNotice" class="bp-copy">
+      <p>Study Buddies is optional. Each friend you request or confirm can see your display name, whether you studied today, your focus minutes today (time recorded by your focus timer), and your shared streak: days you both studied, your longest shared streak, and whether it needs both of you to study today.</p>
+      <p>Your shared streak can include recorded study days from before you became buddies or resumed sharing. These numbers can show when you study and when you take a day off. Buddies can send limited reminders called nudges. Your grades, assignments, classes and email address are not shared.</p>
+      <p>Sharing starts only after you both turn this on and a buddy request is confirmed. Turning this on again resumes sharing with existing confirmed buddies. Turn it off here to pause activity sharing and stop new nudges immediately, or remove or block a buddy to stop sharing with that person. A reminder already queued may still arrive. They may remember or save what they already saw.</p>
+      <p>You can use IntelliPlan without sharing. Study Buddies is unavailable under 13, when your age is unknown, or while required parental consent is pending. <a href="/legal#p-buddies">Read the privacy policy</a>.</p>
+    </div>
     <label class="bp-toggle">
-      <input type="checkbox" id="bpEnabled">
-      <span><strong>Turn on Study Buddies</strong>
+      <input type="checkbox" id="bpEnabled" aria-describedby="bpSharingNotice">
+      <span><strong>I agree to share this activity with my confirmed buddies</strong>
         <span class="bp-hint">Buddies see whether you studied today, your focus minutes and your shared streak. Never grades, assignments or classes. Off by default; turning it off pauses sharing straight away.</span>
       </span>
     </label>
@@ -36,7 +43,7 @@
       <input type="text" id="bpLink" class="form-input" readonly aria-label="Your buddy invite link">
       <button type="button" class="btn-primary" id="bpCopy">Copy link</button>
     </div>
-    <p class="bp-hint">Anyone with this link can <em>ask</em> to be your buddy. Nothing is shared until you confirm them.</p>
+    <p class="bp-hint">Anyone with this link can <em>ask</em> to be your buddy. Activity is shared only after a request is confirmed and both of you have agreed to the sharing notice.</p>
   </section>
 
   <section class="settings-section bp-section" id="bpRequests" hidden>
@@ -103,6 +110,7 @@
     el('bpEnabled').checked = !!d.enabled;
 
     el('bpInvite').hidden = !(d.eligible && d.pending_invite);
+    el("bpSendRequest").disabled = !d.enabled;
     if (d.pending_invite) el('bpInviteName').textContent = d.pending_invite.name;
 
     el('bpLinkSection').hidden = !(d.enabled && d.invite_url);
@@ -112,7 +120,7 @@
     el('bpRequests').hidden = !(d.enabled && (incoming.length || outgoing.length));
     el('bpRequestList').innerHTML =
       incoming.map(function (r) {
-        return '<div class="bp-item"><span>' + esc(r.name) + ' wants to be study buddies</span>' +
+        return '<div class="bp-item"><span>' + esc(r.name) + ' wants to be study buddies. Confirm to share the activity described above with this friend.</span>' +
           '<button type="button" class="btn-primary" data-act="confirm" data-id="' + r.id + '">Confirm</button>' +
           '<button type="button" class="btn-secondary" data-act="remove" data-id="' + r.id + '">Decline</button>' +
           '<button type="button" class="btn-secondary" data-act="block" data-id="' + r.id + '">Block</button></div>';
@@ -144,7 +152,7 @@
   }
 
   el('bpEnabled').addEventListener('change', function (e) {
-    post('/api/buddies/settings', { enabled: e.target.checked }).then(function (d) {
+    post('/api/buddies/settings', { enabled: e.target.checked, sharing_acknowledged: e.target.checked, consent_version: state.consent_version }).then(function (d) {
       if (d.status === 'ok') { render(d); say(d.enabled ? 'Study Buddies is on.' : 'Sharing paused.'); }
       else { e.target.checked = false; say(d.message); }
     });
