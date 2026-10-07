@@ -722,6 +722,16 @@ class User(UserMixin, db.Model):
     #: failed with an AttributeError and "Sorry, I hit a snag".
     monthly_tutor_messages = db.Column(db.Integer, default=0)
     tutor_reset_date = db.Column(db.DateTime, nullable=True)
+    #: Which paid plan ``paid_until`` pays for: null or "pro" for the
+    #: original plan, "premium" or "premium_byok" (intelliplan/premium).
+    plan_tier = db.Column(db.String(16), nullable=True)
+    #: Premium tutor answer depth: auto | quick | balanced | deep.
+    premium_model_pref = db.Column(db.String(12), default="auto")
+    #: Whether the Premium tutor may ask clarifying questions first.
+    premium_clarify = db.Column(db.Boolean, default=True)
+    #: The month ("YYYY-MM") the low-budget warning was last sent, so it
+    #: goes out once a month at most.
+    ai_low_budget_notified = db.Column(db.String(7), nullable=True)
     #: First-touch attribution: {"channel","utm_source","utm_medium",
     #: "utm_campaign","landing"}. Written only for a visitor who accepted
     #: analytics, and holds a referrer *host* at most -- never a full URL.
@@ -2175,6 +2185,67 @@ class AIUsage(db.Model):
     period = db.Column(db.String(7), nullable=False)  # YYYY-MM
     count = db.Column(db.Integer, default=0, nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class AISpendEvent(db.Model):
+    """One priced model call. The Premium AI budget is the sum of these.
+
+    ``cost_micro`` is integer micro-dollars computed from the provider's own
+    usage report (intelliplan/premium/pricing.py). ``source`` is "platform"
+    when IntelliPlan paid for the call and "byok" when it ran on the
+    student's linked key; only platform calls draw on the budget.
+    """
+    __tablename__ = "ai_spend_events"
+    __table_args__ = (db.Index("ix_ai_spend_user_period", "user_id", "period"),)
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    period = db.Column(db.String(7), nullable=False)  # YYYY-MM, UTC
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    provider = db.Column(db.String(16), nullable=False)
+    model = db.Column(db.String(64), nullable=False)
+    source = db.Column(db.String(8), nullable=False, default="platform")
+    purpose = db.Column(db.String(16), nullable=False, default="tutor")
+    tier = db.Column(db.String(12), nullable=True)
+    input_tokens = db.Column(db.Integer, default=0)
+    output_tokens = db.Column(db.Integer, default=0)
+    cache_read_tokens = db.Column(db.Integer, default=0)
+    cache_write_tokens = db.Column(db.Integer, default=0)
+    cost_micro = db.Column(db.BigInteger, default=0, nullable=False)
+
+
+class AICreditGrant(db.Model):
+    """Budget added on top of a plan's monthly allowance: a top-up or an adjustment.
+
+    ``stripe_ref`` is unique so a retried webhook cannot credit twice.
+    """
+    __tablename__ = "ai_credit_grants"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    period = db.Column(db.String(7), nullable=False)
+    amount_micro = db.Column(db.BigInteger, nullable=False)
+    reason = db.Column(db.String(16), nullable=False, default="topup")
+    stripe_ref = db.Column(db.String(128), nullable=True, unique=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class LinkedAIAccount(db.Model):
+    """A student's own AI provider key (intelliplan/premium/byok.py).
+
+    The key is encrypted at rest and never returned to the browser; the
+    settings page shows ``key_hint`` (the last four characters) instead.
+    """
+    __tablename__ = "linked_ai_accounts"
+    __table_args__ = (db.UniqueConstraint("user_id", "provider", name="uq_linked_ai_user_provider"),)
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    provider = db.Column(db.String(16), nullable=False)
+    api_key = db.Column(secret_box.EncryptedText, nullable=False)
+    key_hint = db.Column(db.String(12), default="")
+    status = db.Column(db.String(12), default="active")  # active | invalid
+    last_error = db.Column(db.String(200), nullable=True)
+    verified_at = db.Column(db.DateTime, nullable=True)
+    last_used_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
 class PlaniPet(db.Model):
@@ -10359,6 +10430,9 @@ def _account_delete_impl():
         ("feature_requests", "DELETE FROM feature_requests WHERE user_id = :uid"),
         ("site_feedback", "DELETE FROM site_feedback WHERE user_id = :uid"),
         ("ai_usage", "DELETE FROM ai_usage WHERE user_id = :uid"),
+        ("ai_spend_events", "DELETE FROM ai_spend_events WHERE user_id = :uid"),
+        ("ai_credit_grants", "DELETE FROM ai_credit_grants WHERE user_id = :uid"),
+        ("linked_ai_accounts", "DELETE FROM linked_ai_accounts WHERE user_id = :uid"),
         ("product_events", "DELETE FROM product_events WHERE user_id = :uid"),
         ("insight_answers", "DELETE FROM insight_answers WHERE user_id = :uid"),
         ("client_error_logs", "DELETE FROM client_error_logs WHERE user_id = :uid"),
@@ -21790,6 +21864,13 @@ limiter.limit("20 per hour")(app.view_functions["calendar_feed.calendar_feed_rot
 # checkout. See growth_glue for why billing ships behind BILLING_ENABLED.
 from growth_glue import install as _install_growth
 _install_growth(app)
+# Premium: the metered Claude tutor, model routing and linked AI accounts.
+# Installed after growth so its ai_provider hooks sit beside the plan hooks.
+from premium_glue import install as _install_premium
+_install_premium(app)
+# Each link attempt makes a call to the provider with the pasted key: an
+# open endpoint would let anyone test stolen keys through us.
+limiter.limit("10 per hour")(app.view_functions["premium.api_ai_accounts_link"])
 # ── Consented product insight. Declares its own cookie in cookie_policy,
 # records nothing without consent, and never touches a child's account.
 from insight_glue import install as _install_insight
@@ -21955,6 +22036,11 @@ def _migrate_user_columns():
         # users — free-plan tutor message counter (chatbot_api.py)
         ("users", "monthly_tutor_messages", "INTEGER DEFAULT 0"),
         ("users", "tutor_reset_date", "TIMESTAMP"),
+        # users — Premium plan (intelliplan/premium, premium_glue.py)
+        ("users", "plan_tier", "VARCHAR(16)"),
+        ("users", "premium_model_pref", "VARCHAR(12) DEFAULT 'auto'"),
+        ("users", "premium_clarify", "BOOLEAN DEFAULT TRUE"),
+        ("users", "ai_low_budget_notified", "VARCHAR(7)"),
         # users — Study Buddies opt-in (buddies_glue.py)
         ("users", "buddies_opt_in", "BOOLEAN DEFAULT FALSE"),
         ("users", "buddies_consent_version", "VARCHAR(32)"),

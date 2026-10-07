@@ -50,9 +50,9 @@ _TIER_GROQ = {"standard": GROQ_STANDARD, "fast": GROQ_FAST, "vision": GROQ_VISIO
 
 # Claude is the paid-plan model. It is never reachable on a free account, and
 # an unset ANTHROPIC_API_KEY simply drops it out of the chain.
-CLAUDE_STANDARD = os.getenv("CLAUDE_STANDARD_MODEL", "claude-sonnet-5")
-CLAUDE_FAST = os.getenv("CLAUDE_FAST_MODEL", "claude-haiku-4-5-20251001")
-CLAUDE_VISION = os.getenv("CLAUDE_VISION_MODEL", "claude-sonnet-5")
+CLAUDE_STANDARD = os.getenv("CLAUDE_STANDARD_MODEL", "claude-sonnet-5-5")
+CLAUDE_FAST = os.getenv("CLAUDE_FAST_MODEL", "claude-haiku-5-5")
+CLAUDE_VISION = os.getenv("CLAUDE_VISION_MODEL", "claude-sonnet-5-5")
 _TIER_CLAUDE = {"standard": CLAUDE_STANDARD, "fast": CLAUDE_FAST, "vision": CLAUDE_VISION}
 
 
@@ -108,6 +108,47 @@ def set_account_hooks(
     _usage_gate = usage_gate
 
 
+# ── Premium hooks (premium_glue.py) ───────────────────────────────────
+#: () -> bool. False when this request may not use IntelliPlan's Claude key
+#: (a Premium student whose month's AI budget is spent).
+_claude_gate: Callable[[], bool] | None = None
+#: (provider, model, usage, source) -> None. Meters a Claude call.
+_spend_recorder: Callable[[str, str, Any, str], None] | None = None
+#: (tier) -> [(provider, model, api_key)]. The student's own keys, tried first.
+_byok_steps: Callable[[str], list[tuple[str, str, str]]] | None = None
+
+
+def set_premium_hooks(
+    claude_gate: Callable[[], bool] | None = None,
+    spend_recorder: Callable[[str, str, Any, str], None] | None = None,
+    byok_steps: Callable[[str], list[tuple[str, str, str]]] | None = None,
+) -> None:
+    global _claude_gate, _spend_recorder, _byok_steps
+    _claude_gate = claude_gate
+    _spend_recorder = spend_recorder
+    _byok_steps = byok_steps
+
+
+def _claude_allowed() -> bool:
+    if _claude_gate is None:
+        return True
+    try:
+        return bool(_claude_gate())
+    except Exception as exc:  # a broken gate must not take AI down
+        logger.warning("claude gate failed: %s", exc)
+        return True
+
+
+def _linked_steps(tier: str) -> list[tuple[str, str, str]]:
+    if _byok_steps is None:
+        return []
+    try:
+        return [s for s in (_byok_steps(tier) or []) if s[0] in _DISPATCH and s[2]]
+    except Exception as exc:
+        logger.warning("linked-account lookup failed: %s", exc)
+        return []
+
+
 def _apply_account_hooks(plan: str | None) -> str:
     """Resolve the effective plan, then charge the allowance for it."""
     effective = plan or "free"
@@ -137,7 +178,7 @@ def model_chain(tier: Tier = "standard", plan: str = "free") -> list[tuple[str, 
     an error. Providers with no key are dropped here rather than attempted.
     """
     chain: list[tuple[str, str]] = []
-    if plan == "paid" and anthropic_api_key():
+    if plan == "paid" and anthropic_api_key() and _claude_allowed():
         chain.append(("claude", _TIER_CLAUDE[tier]))
     chain.extend(_CHAINS.get(tier, _CHAINS["standard"]))
     have = {"gemini": gemini_available(), "groq": bool(groq_api_key()),
@@ -283,6 +324,44 @@ def _gemini_client():
     return _gemini_client_cache
 
 
+def _gemini_client_for_key(key: str):
+    """A Gemini Developer API client on a student's own key (premium_glue)."""
+    from google import genai
+
+    return genai.Client(api_key=key)
+
+
+def _openai_chat(
+    messages: list[dict],
+    tier: Tier,
+    temperature: float,
+    max_tokens: int,
+    response_format: dict | None,
+    model: str | None = None,
+    api_key: str | None = None,
+) -> str:
+    """Only ever runs on a student's own linked OpenAI key."""
+    import requests
+
+    if not api_key:
+        raise RuntimeError("OpenAI is only used with a linked key.")
+    body: dict[str, Any] = {"model": model, "messages": messages,
+                            "max_completion_tokens": max_tokens}
+    if response_format:
+        body["response_format"] = response_format
+    r = requests.post("https://api.openai.com/v1/chat/completions", json=body, timeout=120,
+                      headers={"Authorization": f"Bearer {api_key}"})
+    if r.status_code >= 400:
+        raise RuntimeError(f"OpenAI returned {r.status_code}")
+    choice = (r.json().get("choices") or [{}])[0]
+    content = ((choice.get("message") or {}).get("content") or "").strip()
+    if choice.get("finish_reason") == "length":
+        raise AITruncatedError(f"OpenAI hit max_tokens ({max_tokens}); response is partial.")
+    if not content:
+        raise RuntimeError("OpenAI returned an empty response.")
+    return content
+
+
 _groq_clients: dict[str, Any] = {}
 
 
@@ -348,6 +427,7 @@ def _gemini_chat(
     response_format: dict | None,
     thinking_budget: int | None = None,
     model: str | None = None,
+    api_key: str | None = None,
 ) -> str:
     from google.genai import types
 
@@ -391,7 +471,7 @@ def _gemini_chat(
             config_kwargs["max_output_tokens"] = max_tokens + budget
         config_kwargs["thinking_config"] = types.ThinkingConfig(thinking_budget=budget)
 
-    client = _gemini_client()
+    client = _gemini_client_for_key(api_key) if api_key else _gemini_client()
 
     def _call(cfg: dict):
         return client.models.generate_content(
@@ -446,8 +526,9 @@ def _groq_chat(
     max_tokens: int,
     response_format: dict | None,
     model: str | None = None,
+    api_key: str | None = None,
 ) -> str:
-    client = _groq_client()
+    client = _groq_client(api_key) if api_key else _groq_client()
     kwargs: dict[str, Any] = {
         "model": model or _TIER_GROQ[tier],
         "messages": messages,
@@ -492,31 +573,50 @@ def _claude_chat(
     max_tokens: int,
     response_format: dict | None,
     model: str | None = None,
+    api_key: str | None = None,
 ) -> str:
-    """Paid-plan path. The anthropic package is an optional dependency, so an
-    install without it drops Claude from the chain instead of erroring."""
+    """Paid-plan path, or a student's own Anthropic key when ``api_key`` is set.
+
+    No ``temperature``: current Claude models reject non-default sampling
+    parameters with a 400, which silently dropped every paid request to the
+    free models. Effort is the control instead; ``fast`` asks for low effort.
+    """
     try:
         import anthropic
     except ImportError as exc:
         raise RuntimeError("anthropic package is not installed") from exc
 
-    key = anthropic_api_key()
+    key = api_key or anthropic_api_key()
     if not key:
         raise RuntimeError("ANTHROPIC_API_KEY is not set.")
     system, chat_messages = _split_messages(messages)
     if not chat_messages:
         chat_messages = messages
     client = anthropic.Anthropic(api_key=key)
+    model = model or _TIER_CLAUDE[tier]
     kwargs: dict[str, Any] = {
-        "model": model or _TIER_CLAUDE[tier],
+        "model": model,
         "max_tokens": max_tokens,
-        "temperature": temperature,
-        "messages": [{"role": m["role"], "content": m["content"]} for m in chat_messages],
+        "messages": [{"role": m["role"], "content": m["content"]}
+                     for m in chat_messages if m.get("role") in ("user", "assistant")],
+        "output_config": {"effort": "low" if tier == "fast" else "medium"},
     }
     if system:
         kwargs["system"] = system
+    if response_format and response_format.get("type") == "json_object":
+        kwargs.setdefault("system", "")
+        kwargs["system"] = (kwargs["system"] + "\n\nRespond with a single JSON object and nothing else.").strip()
     resp = client.messages.create(**kwargs)
-    text = "".join(getattr(b, "text", "") for b in resp.content).strip()
+    if _spend_recorder is not None:
+        try:
+            _spend_recorder("anthropic", str(getattr(resp, "model", model)), resp.usage,
+                            "byok" if api_key else "platform")
+        except Exception as exc:
+            logger.warning("spend recorder failed: %s", exc)
+    text = "".join(getattr(b, "text", "") for b in resp.content
+                   if getattr(b, "type", "text") == "text").strip()
+    if resp.stop_reason == "refusal":
+        raise RuntimeError("Claude declined this request.")
     if resp.stop_reason == "max_tokens":
         raise AITruncatedError(f"Claude hit max_tokens ({max_tokens}); response is partial.")
     if not text:
@@ -526,7 +626,8 @@ def _claude_chat(
 
 #: Resolved by name at call time rather than bound here, so a test (or a
 #: caller) that patches ai_provider._gemini_chat actually changes what runs.
-_DISPATCH = {"gemini": "_gemini_chat", "groq": "_groq_chat", "claude": "_claude_chat"}
+_DISPATCH = {"gemini": "_gemini_chat", "groq": "_groq_chat", "claude": "_claude_chat",
+             "anthropic": "_claude_chat", "openai": "_openai_chat"}
 
 
 def chat(
@@ -556,7 +657,9 @@ def chat(
     AIUnavailable when nothing is configured or everything failed for some
     other reason. Callers can tell the student which of the two happened.
     """
-    chain = model_chain(tier, _apply_account_hooks(plan))
+    # The student's own keys first (premium_glue), then the platform chain.
+    chain: list[tuple[str, str, str | None]] = _linked_steps(tier) + [
+        (p, m, None) for p, m in model_chain(tier, _apply_account_hooks(plan))]
     if not chain:
         raise AIUnavailable(
             "No AI backend available. Configure a permitted provider; Gemini requires an express minor-use contract."
@@ -572,12 +675,14 @@ def chat(
     #: truncated again.
     skip_providers: set[str] = set()
 
-    for provider, model in chain:
+    for provider, model, key in chain:
         if provider in skip_providers:
             continue
         attempted += 1
         fn = globals()[_DISPATCH[provider]]
         kwargs: dict[str, Any] = {"response_format": response_format, "model": model}
+        if key:
+            kwargs["api_key"] = key
         if provider == "gemini":
             kwargs["thinking_budget"] = thinking_budget
         try:
