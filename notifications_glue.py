@@ -746,6 +746,54 @@ def recent_notifications():
     )
 
 
+#: How far back the desktop feed looks. Long enough to cover a laptop that
+#: slept through a tick, short enough that waking it does not replay the day.
+DESKTOP_FEED_WINDOW = timedelta(minutes=30)
+DESKTOP_FEED_LIMIT = 20
+
+
+@notifications_bp.route("/api/notifications/desktop-feed", methods=["GET"])
+def desktop_feed():
+    """Reminders that have come due, for the desktop app to show itself.
+
+    The desktop build cannot hold a Web Push subscription, so a push row
+    queued for one of its users has nowhere to go and dies with "no active
+    push subscriptions". The reminder was still due. This hands the app the
+    same rows so it can raise them as operating-system notifications.
+
+    Keyed on when a row was scheduled, not on whether delivery succeeded:
+    a row held back by quiet hours stays out until its time comes, and one
+    the dispatcher cancelled as stale is never shown.
+    """
+    if not current_user.is_authenticated:
+        return jsonify({"error": "login required"}), 401
+
+    from App import NotificationOutbox
+
+    now = utcnow()
+    rows = (
+        NotificationOutbox.query.filter(
+            NotificationOutbox.user_id == current_user.id,
+            NotificationOutbox.channel == Channel.PUSH.value,
+            NotificationOutbox.state != "cancelled",
+            NotificationOutbox.scheduled_for <= now,
+            NotificationOutbox.scheduled_for >= now - DESKTOP_FEED_WINDOW,
+        )
+        .order_by(NotificationOutbox.scheduled_for.asc())
+        .limit(DESKTOP_FEED_LIMIT)
+        .all()
+    )
+    return jsonify({
+        "status": "ok",
+        "notifications": [
+            {"id": r.id, "kind": r.kind, "title": r.title or "IntelliPlan",
+             "body": r.body or "", "url": r.url or "/"}
+            for r in rows
+            if not (r.expires_at and r.expires_at <= now)
+        ],
+    })
+
+
 @notifications_bp.route("/api/notifications/test", methods=["POST"])
 def send_test_notification():
     """Queue a real message through the real pipeline.

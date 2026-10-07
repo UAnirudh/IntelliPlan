@@ -5,6 +5,7 @@
    require discovering it twenty minutes into a session. #}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/ip-enforce.css') }}?v={{ asset_v }}">
 <script src="{{ url_for('static', filename='js/ip-enforce.js') }}?v={{ asset_v }}" defer></script>
+<script src="/static/js/ip-reminders.js?v={{ asset_v }}" defer></script>
 {% endblock %}
 {% block content %}
 <div class="settings-section" style="margin-bottom:1.25rem;">
@@ -2065,6 +2066,28 @@ function _urlBase64ToUint8Array(base64String) {
 async function enablePushNotifications() {
   const btn = document.getElementById('pushEnableBtn');
   const original = btn.textContent;
+  /* The desktop app raises reminders itself and has no push service to
+     subscribe to. Turning them on records this install and flips the
+     account switch. */
+  if (window.intelliplan && window.intelliplan.isDesktop) {
+    btn.disabled = true; btn.textContent = 'Setting up…';
+    try {
+      const registered = await window.IPReminders.registerDesktop();
+      if (!registered.ok) throw new Error('register failed');
+      const saved = await fetch('/api/profile/phone', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ push_reminders_opt_in: true }),
+      });
+      if (!saved.ok) throw new Error('save failed');
+      document.getElementById('pushOptIn').checked = true;
+      _phoneStatus('Desktop notifications enabled', true);
+    } catch(e) {
+      _phoneStatus('Could not turn on desktop notifications. Try again.', false);
+    } finally {
+      btn.disabled = false; btn.textContent = original;
+    }
+    return;
+  }
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
     _phoneStatus('This browser does not support push notifications.', false);
     return;
