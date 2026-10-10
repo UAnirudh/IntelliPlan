@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% block page_title %}Institution Settings | IntelliPlan{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/learning_hub.css') }}">
+<main class="learning-hub"><header class="learning-intro"><span class="learning-eyebrow">INSTITUTION SETTINGS</span>
+<h1>Set the boundaries for learning.</h1><p>District restrictions remain in force when a school allows a feature. A subscription cannot override these rules.</p><a href="/learning">Back to Learning Hub</a></header>
+<p id="admin-status" role="status" aria-live="polite"></p>
+<section class="learning-panel"><label for="admin-organization">Organization</label><select id="admin-organization"></select>
+<p id="admin-scope"></p><form id="admin-policy"><div id="admin-features" class="learning-policy-grid"></div>
+<fieldset><legend>Permitted text AI providers</legend><div id="admin-providers" class="learning-policy-grid"></div></fieldset>
+<label>Maximum course generation token reservation<input id="admin-budget" type="number" min="1000" max="100000" value="24000"></label>
+<button type="submit">Save policy</button></form></section>
+<section class="learning-panel"><h2>Members</h2><p>Use the ID of an existing account. Administrative authority is delegated by the platform owner.</p>
+<form id="admin-member"><label>Account ID<input id="admin-user-id" type="number" min="1" required></label><label>Role<select id="admin-role"><option value="student">Student</option><option value="teacher">Teacher</option></select></label><button type="submit">Add or update member</button></form><div id="admin-members"></div></section>
+<section class="learning-panel"><h2>Policy audit</h2><p>Administrative changes only. This dashboard does not expose students' private tutor conversations.</p><div id="admin-audit"></div></section>
+</main><script src="{{ url_for('static', filename='js/school_admin.js') }}" defer></script>{% endblock %}

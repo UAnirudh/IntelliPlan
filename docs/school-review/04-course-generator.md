@@ -1,0 +1,33 @@
+# Course generator technical report
+
+## Resource discovery and licensing
+
+`catalog.py` contains reviewed metadata with original URL, provider, topic keywords, license URL and check date. Python foundations uses PSF tutorial links and Harvard CS50 Python week pages, ordered in six lessons/two units. MIT linear algebra metadata is available for matching but does not make arbitrary curated math courses work. Topic matching is literal and bounded, not embedding retrieval or a web crawler. Unsupported curated topics return a clear validation error.
+
+Resources are source links. Course text, videos and transcripts are not copied, cached or rehosted. Harvard's material has noncommercial/share-alike conditions; MIT's terms also require attention before redistribution. Linking does not establish permission for later scraping, embedding or commercial reuse. Review [PSF license](https://docs.python.org/3/license.html), [CS50 license](https://cs50.harvard.edu/python/license/) and [MIT terms](https://ocw.mit.edu/pages/privacy-and-terms-of-use/) before expanding ingestion.
+
+## Original generation and validation
+
+An administrator confirms provider use for both the blueprint and lesson job. Only the supplied goal/lesson specification is sent; account profile and student records are not automatically attached. The blueprint includes title, overview, outcomes, prerequisites, units and sequenced lesson objectives/time. Validation accepts1–24 lessons and permits only earlier lesson keys as dependencies. Outline edits are allowed before generation begins.
+
+Original lessons require explanation, worked example, independent practice prompt, common mistakes, delayed review and a multiple-choice knowledge check with answer explanation. Field lengths, distinct options and answer indices are validated. Extra provider resource/link fields are discarded; lesson strings, including any HTML characters, render as inert plain text. This validates structure, not factual accuracy, curriculum alignment or age suitability. A human must inspect each lesson and key before scoring is unlocked. The current confirmation is an owner-admin attestation, not an independent teacher approval workflow.
+
+Real provider generation is **blocked in this environment** by existing Gemini contractual approval/Vertex configuration requirements. Fixture-backed generation, validation, persistence, review and scoring pass. No provider-quality benchmark has been completed.
+
+## Storage and jobs
+
+Courses, blueprints, generated lesson checkpoints and jobs persist in additive SQLAlchemy tables. Run `python -m flask --app App learning-worker --steps 25` in the correctly configured application environment. This processes a bounded batch; repeated scheduling/supervision is an operator responsibility. Browser refresh reads saved progress and does not generate content.
+
+States include queued/running/completed/failed/cancelled; completed jobs leave the course needing human review. Each lease lasts ten minutes. A worker saves one lesson, then requeues the job; one extra step marks completion. Failed/cancelled jobs can retry without discarding completed lessons. Retries preserve token reservations. Maximum48 lesson attempts prevents unbounded retry spending. Lowered policy budgets can cause retries to remain blocked; the UI preserves partial lessons and shows the failure class. Error classes are intentionally concise; a richer operator diagnostic interface is remaining work.
+
+## Cost and adaptation
+
+Each blueprint request permits one model attempt with4000 output tokens and is rate-limited10 requests/hour. Each generated lesson permits one model attempt with2500 output tokens; conservative input-byte reservations plus output ceilings are persisted before spending. Failed attempts retain their reservation. The default effective lesson-job ceiling is24000 tokens; organizations can restrict it further. The blueprint is a **separate** bounded call outside that lesson-job budget. There is no accurate currency-price ledger, provider reconciliation, monthly institution budget or distributed global spending cap yet. The existing provider's account allowance continues to apply where configured.
+
+Recommendations deterministically find missing or failed/assisted prerequisites and suggest different practice; delayed review suggestions are limited to recent evidence. Builders can see answer keys, so their attempts never qualify as independent mastery. Fresh assessment generation, error taxonomies, difficulty adaptation and educational outcome validation remain incomplete.
+
+## Access, video and future rollout
+
+All course APIs require authenticated administrator eligibility, institution permission, beta permission and explicit `school_course_generator` flag. Ordinary/Premium users cannot bypass these checks. Courses are owner-only: another school admin cannot automatically read a builder's course. Course sharing is not implemented.
+
+Existing educational videos are reached through original CS50 source-page links. No video is generated or stored. The internal-alpha video capability always denies with provider-not-integrated, even if its flag is switched on. The future `premium` entitlement is registry metadata only; there is no current Premium course rollout or billing promise. A future launch needs provider approval, stronger review, eligibility/consent, quotas, current price estimation, accessibility, monitoring and live validation before changing the admin gate.

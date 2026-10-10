@@ -1,0 +1,15 @@
+{
+  "provider": "gemini",
+  "data": "synthetic adult administrator and Python learning goal",
+  "requests_maximum": 2,
+  "video_requests": 0,
+  "status": "blocked",
+  "gemini_contract_flag_enabled": false,
+  "vertex_project_configured": false,
+  "vertex_location_configured": false,
+  "blueprint_latency_ms": 18,
+  "blueprint_http_status": 503,
+  "error_type": "provider_unavailable",
+  "external_generation_requests": 0,
+  "blocked_reason": "Existing Gemini contractual and Vertex configuration gate not satisfied"
+}

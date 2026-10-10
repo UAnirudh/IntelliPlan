@@ -1,0 +1,15 @@
+{
+  "provider": "mocked fixtures; no real provider generation",
+  "browser": "Chromium",
+  "workflows": [
+    "Protected concept teaching through live browser/API",
+    "Session start, pause, reload recovery, resume, paper checkpoint, completion without mastery",
+    "Curated multisource outline, worker generation, refresh, review",
+    "Fixture-backed original generation, answer-key review, scoring, shared progress",
+    "Institution policy change and audit via browser",
+    "Mobile layout, keyboard focus, student beta and direct API denial"
+  ],
+  "hub_load_ms": 4247,
+  "javascript_errors": [],
+  "status": "passed"
+}

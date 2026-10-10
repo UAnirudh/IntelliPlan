@@ -1357,6 +1357,10 @@ def tutor():
             {'role': 'system', 'content': TUTOR_SYSTEM_PROMPT + _assistant_name_line()},
             {'role': 'system', 'content': memory_prompt},
         ]
+        from intelliplan.learning.evidence import tutor_context
+        workspace_context = tutor_context(current_user)
+        if workspace_context:
+            system_messages.append({'role': 'system', 'content': workspace_context})
         if adaptive_turn:
             system_messages.append({'role': 'system', 'content': adaptive_turn['prompt']})
         if identity_prompt:

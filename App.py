@@ -2809,6 +2809,11 @@ MemoryChunk = _retrieval.init(db, CourseNote)
 from intelliplan.models import timetable as _timetable_models
 ClassMeeting, TimetableSettings = _timetable_models.register(db)
 
+# Additive institutional policy and learning tables, inside the existing
+# deployment schema lifecycle. Existing learning records are preserved.
+from intelliplan.learning.models import register as _register_learning_models
+learning_models = _register_learning_models(db)
+
 # Every gunicorn worker runs this at once; the lock makes them take turns so
 # two never race to CREATE the same new table (a loser kills gunicorn).
 with app.app_context(), _db_boot.schema_lock(db.engine) as _schema_work_is_ours:
@@ -5494,10 +5499,9 @@ def learn():
 @app.route("/study-and-learn")
 def study_and_learn_hub():
     """Landing page that replaces the cluttered Study & Learn sidebar group.
-    Renders a grid of cards with descriptions for every study/learn surface,
-    plus an AI chat bar at the top that recommends the best page for the
-    user's current need (and can redirect them to it)."""
-    return render_template("study_hub.html", active_page="study_hub")
+    Reuses the tutor and learning contracts in one activity workspace while
+    preserving links to existing reviewed practice and scheduled work."""
+    return render_template("learning_hub.html", active_page="study_hub")
 
 
 @app.route("/api/study-hub/recommend", methods=["POST"])
@@ -10184,6 +10188,13 @@ def _account_delete_impl():
     # `tests/test_account_deletion.py` walks the model registry and fails if
     # a table with such a foreign key is not named here.
     deletion_plan: list[tuple[str, str]] = [
+        ("learning_evidence", "DELETE FROM learning_evidence WHERE user_id = :uid"),
+        ("learning_generation_jobs", "DELETE FROM learning_generation_jobs WHERE course_id IN (SELECT id FROM learning_courses WHERE user_id = :uid)"),
+        ("learning_lessons", "DELETE FROM learning_lessons WHERE course_id IN (SELECT id FROM learning_courses WHERE user_id = :uid)"),
+        ("learning_courses", "DELETE FROM learning_courses WHERE user_id = :uid"),
+        ("learning_sittings", "DELETE FROM learning_sittings WHERE user_id = :uid"),
+        ("learning_memberships", "DELETE FROM learning_memberships WHERE user_id = :uid"),
+        ("learning_policy_audit", "UPDATE learning_policy_audit SET actor_id = NULL WHERE actor_id = :uid"),
         # ── Rows that reference *other* rows this user owns ────────────
         # Focus samples hang off active_sessions with ON DELETE CASCADE, but
         # only on databases that actually created the constraint. Deleting
@@ -20830,6 +20841,27 @@ def _transcribe_lesson(lesson):
 
 
 def _summarize_lesson_async(lesson_id):
+    from intelliplan.learning import policy as learning_policy
+    from intelliplan.learning.courses import provider_user
+    lesson = db.session.get(Lesson, lesson_id)
+    if not lesson:
+        return
+    owner = db.session.get(User, lesson.user_id) if lesson.user_id else None
+    if owner and (not learning_policy.decision(owner, 'study')[0] or
+                  not learning_policy.decision(owner, 'uploads')[0] or
+                  not learning_policy.permitted_providers(owner)):
+        lesson.summary_status = 'failed'
+        lesson.summary = 'Processing is disabled by institutional policy.'
+        db.session.commit()
+        return
+    token = provider_user.set(owner)
+    try:
+        _summarize_lesson_content(lesson_id)
+    finally:
+        provider_user.reset(token)
+
+
+def _summarize_lesson_content(lesson_id):
     """Two-stage pipeline:
 
     1. If we don't already have a transcript, transcribe the audio and persist.
@@ -20846,13 +20878,10 @@ def _summarize_lesson_async(lesson_id):
             db.session.commit()
     seed = transcript
     if not seed:
-        seed = (
-            f"Title: {lesson.title}\nCourse: {lesson.course or 'general'}\n"
-            f"Tags: {', '.join(lesson.tag_list())}\n"
-            "No transcript was available — produce a study-friendly placeholder "
-            "summary describing what a lesson with this title and tags likely "
-            "covers, and list 5 likely sub-topics."
-        )
+        lesson.summary_status = 'failed'
+        lesson.summary = 'No transcript is available. Retry transcription before requesting a summary.'
+        db.session.commit()
+        return
     try:
         summary = ai_chat(
             [
@@ -22567,6 +22596,11 @@ def api_save_session_message(msg_id):
     db.session.commit()
     return jsonify({"status": "ok", "note_id": note.id})
 
+
+from intelliplan.learning.api import install as _install_learning_hub
+from intelliplan.learning.enforcement import install as _install_learning_enforcement
+_install_learning_hub(app)
+_install_learning_enforcement(app)
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 3000))

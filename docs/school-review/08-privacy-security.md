@@ -1,0 +1,29 @@
+# Privacy and security report
+
+## Changes and verified mitigations
+
+- Admin beta is a server capability decision, not a CSS hiding rule or Premium entitlement. Unknown capabilities, invalid policy and policy-read failures deny.
+- Memberships and district parents constrain scope; admin role escalation requires platform ownership. Policy updates are versioned and audited. The audit endpoint does not expose student tutor conversations.
+- Route authentication identity matches cookie/token/extension handlers. Tests cover unrelated bearer headers and token-owner restrictions.
+- Shared provider routing intersects organization settings. Strict assessment protection removes allowed generative providers; deterministic concept support does not contact a model. Alternate generation/media/resummarization paths are blocked.
+- Job reservations survive failures; conditional lease updates prevent duplicate output/cancellation races. Policy is rechecked after provider return. In-flight provider transmission cannot be undone after permission is revoked; output is discarded.
+- Course output is schema-validated and rendered as text, including any HTML characters; extra model-provided resource/link fields are discarded. Reviewed catalog URLs are fixed source metadata. Source objectives are labeled untrusted data in prompts.
+- Raw answers are not stored in new evidence. Correctness is server compared, replay is rejected, and builder answer-key access always counts as assisted. Self-report/time never counts as mastery.
+- Personalization requires the existing explicit setting before tutor evidence is attached. New course provider confirmation applies to synthetic administrator-authored learning goals, not consent to send other students' records.
+- Owner-only export includes new learning data; existing account deletion targets the new tables and nulls audit actors. New sitting mutations reject stale revisions. Existing CSRF-origin controls remain active.
+
+## Data inventory and gaps
+
+New stored data: organization names/policy/version; user membership/role; scoped administrative actions; administrator course goals/blueprints/lesson content/jobs; user study objectives/methods/time; limited evidence correctness/assistance/date. Organization admins can view membership and policy/audit, not arbitrary learner conversations through these endpoints. Audit membership changes include target user IDs; deletion anonymizes the actor but does not automatically scrub every historical JSON membership reference. Retention and audit anonymization must be defined before a school pilot.
+
+There is no new model-training export or silent training job. This does not prove upstream providers never retain or train on submitted data. Provider contractual terms, approved regions, retention, subprocessors and minor-use eligibility require confirmation. Gemini's existing local approval/configuration gate remains closed; it was not relaxed for testing.
+
+Central gates cover explicitly mapped surfaces and shared AI adapters. Unmapped legacy integrations, background notification workers, already-cached offline extension data, anonymous demo paths and direct provider use outside shared adapters require further audit. A signed-out user has no organization membership to enforce. Do not describe this implementation as universal managed-device enforcement or complete school data isolation.
+
+Production additive schema creation, PostgreSQL FK deletion, independent backup/restore comparison, key management, distributed rate-limit storage, safe request logging, incident response, retention/deletion propagation, institutional SSO and device governance remain operational work. No production database or real student record was edited by this checkpoint's verification scripts.
+
+## Institutional/legal review boundary
+
+A school's use of third-party services has conditions beyond technical access controls; review the [U.S. Department of Education provider responsibilities](https://studentprivacy.ed.gov/resources/responsibilities-third-party-service-providers-under-ferpa) and [online educational services guidance](https://studentprivacy.ed.gov/sites/default/files/resource_document/file/Student%20Privacy%20and%20Online%20Educational%20Services%20%28February%202014%29_0.pdf). School-authorized consent has limits and does not establish unlimited commercial use of children's information; review the [FTC COPPA guidance](https://www.ftc.gov/business-guidance/resources/complying-coppa-frequently-asked-questions). Washington school-service obligations require separate owner/legal assessment under [RCW28A.604](https://app.leg.wa.gov/RCW/default.aspx?cite=28A.604).
+
+The product is not declared FERPA/COPPA/GDPR compliant, a school official, district-approved, or Lakeside-approved by this report. International-user legal analysis and provider-contract execution are incomplete.

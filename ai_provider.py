@@ -148,7 +148,8 @@ def model_chain(tier: Tier = "standard", plan: str = "free") -> list[tuple[str, 
         if have.get(step[0]) and step not in seen:
             seen.add(step)
             out.append(step)
-    return out
+    from intelliplan.learning.enforcement import filter_providers
+    return filter_providers(out)
 
 _gemini_client_cache = None
 _groq_client_cache = None
@@ -538,6 +539,7 @@ def chat(
     response_format: dict | None = None,
     thinking_budget: int | None = None,
     plan: str | None = None,
+    single_attempt: bool = False,
 ) -> str:
     """Chat completion, walking this tier's model chain until one answers.
 
@@ -557,6 +559,8 @@ def chat(
     other reason. Callers can tell the student which of the two happened.
     """
     chain = model_chain(tier, _apply_account_hooks(plan))
+    if single_attempt:
+        chain = chain[:1]
     if not chain:
         raise AIUnavailable(
             "No AI backend available. Configure a permitted provider; Gemini requires an express minor-use contract."
@@ -586,7 +590,7 @@ def chat(
             except Exception as exc:
                 # A 503 under load clears in seconds. One quick retry on the
                 # same model beats stepping down to a weaker one.
-                if not _is_transient_error(exc) or isinstance(exc, AITruncatedError):
+                if single_attempt or not _is_transient_error(exc) or isinstance(exc, AITruncatedError):
                     raise
                 logger.info("%s/%s transient error (%s), retrying once", provider, model, exc)
                 time.sleep(1.5)
@@ -646,7 +650,8 @@ def vision(
     attempted = 0
     retry_after: int | None = None
 
-    for gem_model in ([_TIER_GEMINI[tier], GEMINI_FAST] if gemini_available() else []):
+    from intelliplan.learning.enforcement import permitted_processing
+    for gem_model in ([_TIER_GEMINI[tier], GEMINI_FAST] if gemini_available() and permitted_processing('gemini') else []):
         attempted += 1
         try:
             from google.genai import types
@@ -683,7 +688,7 @@ def vision(
             else:
                 logger.warning("Gemini %s vision failed (%s), trying the next model", gem_model, exc)
 
-    if groq_vision_key():
+    if groq_vision_key() and permitted_processing('groq'):
         attempted += 1
         try:
             client = _groq_client(groq_vision_key())
@@ -790,6 +795,9 @@ def speak(text: str, *, voice: str | None = None,
     tutor that refuses to answer because a voice failed is worse than one that
     answers in writing.
     """
+    from intelliplan.learning.enforcement import permitted_processing
+    if not permitted_processing('fish_audio'):
+        raise AIUnavailable('Speech synthesis is disabled by institutional policy.')
     key = fish_audio_key()
     clean = (text or "").strip()
     if not clean:
@@ -870,7 +878,8 @@ def transcribe_audio(filename: str, audio_bytes: bytes) -> str:
     retry_after: int | None = None
     mime = _mime_for_audio(filename)
 
-    if gemini_available():
+    from intelliplan.learning.enforcement import permitted_processing
+    if gemini_available() and permitted_processing('gemini'):
         attempted += 1
         try:
             from google.genai import types
@@ -907,7 +916,7 @@ def transcribe_audio(filename: str, audio_bytes: bytes) -> str:
             else:
                 logger.warning("Gemini transcription failed (%s), trying Groq Whisper", exc)
 
-    if groq_audio_key():
+    if groq_audio_key() and permitted_processing('groq'):
         attempted += 1
         try:
             client = _groq_client(groq_audio_key())
@@ -946,6 +955,7 @@ def chat_json(
     tier: Tier = "standard",
     temperature: float = 0.3,
     max_tokens: int = 1200,
+    single_attempt: bool = False,
 ) -> dict:
     """Convenience wrapper that parses a JSON object response."""
     raw = chat(
@@ -954,6 +964,7 @@ def chat_json(
         temperature=temperature,
         max_tokens=max_tokens,
         response_format={"type": "json_object"},
+        **({'single_attempt': True} if single_attempt else {}),
     )
     raw = raw.strip()
     if raw.startswith("```"):
