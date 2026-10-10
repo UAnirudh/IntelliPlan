@@ -1,0 +1,120 @@
+{
+  "checked_at": "2026-10-10T08:17:51.429540+00:00",
+  "scope": "Public metadata links only; HTTP success is not redistribution permission or educational validation.",
+  "links": [
+    {
+      "url": "https://cs50.harvard.edu/python/license/",
+      "final_url": "https://cs50.harvard.edu/python/license/",
+      "status": 200,
+      "reachable": true
+    },
+    {
+      "url": "https://cs50.harvard.edu/python/weeks/0/",
+      "final_url": "https://cs50.harvard.edu/python/weeks/0/",
+      "status": 200,
+      "reachable": true
+    },
+    {
+      "url": "https://cs50.harvard.edu/python/weeks/2/",
+      "final_url": "https://cs50.harvard.edu/python/weeks/2/",
+      "status": 200,
+      "reachable": true
+    },
+    {
+      "url": "https://cs50.harvard.edu/python/weeks/5/",
+      "final_url": "https://cs50.harvard.edu/python/weeks/5/",
+      "status": 200,
+      "reachable": true
+    },
+    {
+      "url": "https://docs.python.org/3/license.html",
+      "final_url": "https://docs.python.org/3/license.html",
+      "status": 200,
+      "reachable": true
+    },
+    {
+      "url": "https://docs.python.org/3/tutorial/controlflow.html",
+      "final_url": "https://docs.python.org/3/tutorial/controlflow.html",
+      "status": 200,
+      "reachable": true
+    },
+    {
+      "url": "https://docs.python.org/3/tutorial/datastructures.html",
+      "final_url": "https://docs.python.org/3/tutorial/datastructures.html",
+      "status": 200,
+      "reachable": true
+    },
+    {
+      "url": "https://docs.python.org/3/tutorial/introduction.html",
+      "final_url": "https://docs.python.org/3/tutorial/introduction.html",
+      "status": 200,
+      "reachable": true
+    },
+    {
+      "url": "https://ocw.mit.edu/courses/18-06-linear-algebra-spring-2010/",
+      "final_url": "https://ocw.mit.edu/courses/18-06-linear-algebra-spring-2010/",
+      "status": 200,
+      "reachable": true
+    },
+    {
+      "url": "https://ocw.mit.edu/pages/privacy-and-terms-of-use/",
+      "final_url": "https://ocw.mit.edu/pages/privacy-and-terms-of-use/",
+      "status": 200,
+      "reachable": true
+    },
+    {
+      "url": "https://openstax.org/books/elementary-algebra-2e/pages/1-2-use-the-language-of-algebra",
+      "final_url": "https://openstax.org/books/elementary-algebra-2e/pages/1-2-use-the-language-of-algebra",
+      "status": 200,
+      "reachable": true
+    },
+    {
+      "url": "https://openstax.org/books/elementary-algebra-2e/pages/2-1-solve-equations-using-the-subtraction-and-addition-properties-of-equality",
+      "final_url": "https://openstax.org/books/elementary-algebra-2e/pages/2-1-solve-equations-using-the-subtraction-and-addition-properties-of-equality",
+      "status": 200,
+      "reachable": true
+    },
+    {
+      "url": "https://openstax.org/books/elementary-algebra-2e/pages/2-2-solve-equations-using-the-division-and-multiplication-properties-of-equality",
+      "final_url": "https://openstax.org/books/elementary-algebra-2e/pages/2-2-solve-equations-using-the-division-and-multiplication-properties-of-equality",
+      "status": 200,
+      "reachable": true
+    },
+    {
+      "url": "https://openstax.org/books/elementary-algebra-2e/pages/4-1-use-the-rectangular-coordinate-system",
+      "final_url": "https://openstax.org/books/elementary-algebra-2e/pages/4-1-use-the-rectangular-coordinate-system",
+      "status": 200,
+      "reachable": true
+    },
+    {
+      "url": "https://openstax.org/books/elementary-algebra-2e/pages/4-4-understand-slope-of-a-line",
+      "final_url": "https://openstax.org/books/elementary-algebra-2e/pages/4-4-understand-slope-of-a-line",
+      "status": 200,
+      "reachable": true
+    },
+    {
+      "url": "https://openstax.org/books/elementary-algebra-2e/pages/4-5-use-the-slope-intercept-form-of-an-equation-of-a-line",
+      "final_url": "https://openstax.org/books/elementary-algebra-2e/pages/4-5-use-the-slope-intercept-form-of-an-equation-of-a-line",
+      "status": 200,
+      "reachable": true
+    },
+    {
+      "url": "https://openstax.org/books/elementary-algebra-2e/pages/preface",
+      "final_url": "https://openstax.org/books/elementary-algebra-2e/pages/preface",
+      "status": 200,
+      "reachable": true
+    },
+    {
+      "url": "https://www.khanacademy.org/about/tos",
+      "final_url": "https://www.khanacademy.org/about/docs/khan-academy-terms-of-service",
+      "status": 200,
+      "reachable": true
+    },
+    {
+      "url": "https://www.khanacademy.org/math/algebra",
+      "final_url": "https://www.khanacademy.org/math/algebra",
+      "status": 200,
+      "reachable": true
+    }
+  ]
+}

@@ -5,6 +5,9 @@ eligibility. Missing experimental flags and failed policy reads deny access.
 """
 from dataclasses import dataclass
 from flask import g, has_request_context
+from datetime import datetime, timezone
+
+BETA_NOTICE_VERSION = 'learning_beta_v1'
 
 
 @dataclass(frozen=True)
@@ -26,6 +29,7 @@ FEATURES = {
     'calendar': Feature('stable'),
     'uploads': Feature('stable'),
     'notifications': Feature('stable'),
+    'practice_preview': Feature('opt_in_beta', 'Preview of existing reviewed practice. Results are limited evidence, not validated mastery.', 'school_practice_preview'),
     'course_generator': Feature('admin_only_beta', 'Administrator evaluation only. Content needs human review.',
                                 'school_course_generator', 'premium'),
     'generated_content': Feature('admin_only_beta', 'Model output is unverified until reviewed.',
@@ -44,7 +48,7 @@ def validate_policy(value):
     if not isinstance(value, dict):
         raise ValueError('Policy must be an object.')
     booleans = set(FEATURES) | {'allow_beta', 'third_party_processing', 'assessment_protection'}
-    unknown = set(value) - booleans - {'providers', 'max_generation_tokens'}
+    unknown = set(value) - booleans - {'providers', 'max_generation_tokens', 'monthly_generation_tokens', 'retention_days', 'assessment_windows'}
     if unknown:
         raise ValueError('Unknown policy setting: ' + ', '.join(sorted(unknown)))
     for key in booleans & value.keys():
@@ -57,7 +61,31 @@ def validate_policy(value):
         n = value['max_generation_tokens']
         if type(n) is not int or not 1000 <= n <= 100000:
             raise ValueError('Generation budget must be between 1000 and 100000 tokens.')
+    for key, minimum, maximum in [('monthly_generation_tokens', 1000, 1000000), ('retention_days', 0, 3650)]:
+        if key in value and (type(value[key]) is not int or not minimum <= value[key] <= maximum):
+            raise ValueError(f'{key} must be an integer between {minimum} and {maximum}.')
+    if 'assessment_windows' in value:
+        windows = value['assessment_windows']
+        if not isinstance(windows, list) or len(windows) > 20:
+            raise ValueError('Provide at most 20 assessment windows.')
+        for window in windows:
+            if not isinstance(window, dict) or set(window) != {'start', 'end'}:
+                raise ValueError('Assessment windows require start and end timestamps.')
+            if utc_timestamp(window['end']) <= utc_timestamp(window['start']):
+                raise ValueError('Assessment windows must end after they start.')
     return dict(value)
+
+
+def utc_timestamp(value):
+    if not isinstance(value, str) or len(value) > 40:
+        raise ValueError('Use an ISO timestamp with a timezone.')
+    try:
+        result = datetime.fromisoformat(value.replace('Z', '+00:00'))
+    except ValueError:
+        raise ValueError('Use an ISO timestamp with a timezone.') from None
+    if not result.tzinfo:
+        raise ValueError('Assessment timestamps need an explicit timezone.')
+    return result.astimezone(timezone.utc).replace(tzinfo=None)
 
 
 def organizations(user):
@@ -81,14 +109,22 @@ def effective(user):
     rows = organizations(user)
     policy = {key: True for key in FEATURES}
     policy.update(allow_beta=True, third_party_processing=True, assessment_protection=False,
-                  providers=set(PROVIDERS), max_generation_tokens=24000)
+                  providers=set(PROVIDERS), max_generation_tokens=24000, monthly_generation_tokens=100000,
+                  retention_days=0)
     for org in rows:
         data = validate_policy(org.policy)
         for key, value in data.items():
             if key == 'providers':
                 policy[key] &= set(value)
-            elif key == 'max_generation_tokens':
+            elif key in {'max_generation_tokens', 'monthly_generation_tokens'}:
                 policy[key] = min(policy[key], value)
+            elif key == 'retention_days':
+                if value:
+                    policy[key] = min(policy[key], value) if policy[key] else value
+            elif key == 'assessment_windows':
+                now = datetime.utcnow()
+                if any(utc_timestamp(w['start']) <= now < utc_timestamp(w['end']) for w in value):
+                    policy['assessment_protection'] = True
             elif key == 'assessment_protection':
                 policy[key] |= value
             else:
@@ -146,6 +182,13 @@ def decision(user, key):
             flag = FeatureFlag.query.filter_by(key=feature.flag).first()
             if not flag or not flag.enabled:
                 return False, 'feature_disabled'
+        if feature.maturity == 'opt_in_beta':
+            row = models()['BetaEnrollment'].query.filter_by(user_id=getattr(user, 'id', None), feature=key).first()
+            org_ids = {o.id for o in organizations(user)}
+            if not row or not row.approved or row.organization_id not in org_ids:
+                return False, 'beta_approval_required'
+            if row.consent_version != BETA_NOTICE_VERSION or not row.accepted_at:
+                return False, 'beta_consent_required'
         # Video stays unavailable even if an operator toggles an old flag.
         if key == 'video_generation':
             return False, 'provider_not_integrated'

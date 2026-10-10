@@ -1,15 +1,15 @@
 [
   {
     "path": "App.py",
-    "sha256": "13d0f5cba51fa2fc82be784ba87030446bf982a5448a19f02f7cb9c82213133f"
+    "sha256": "a45f40e4748c09988a9065f094ea05494f49b12e609ab1c802b934c7a8e4a0ae"
   },
   {
     "path": "Main_Project/templates/learning_hub.html",
-    "sha256": "8070a3eb518c8633f3efcd089d6316ac67e9c07ad1ac74fb5db1c49b75a69d30"
+    "sha256": "67397c3a7291ec18cda76adadd5ea6feba1d918744caab7c7888b85a695707aa"
   },
   {
     "path": "Main_Project/templates/school_admin.html",
-    "sha256": "7323fa3e41c6887c32915f41543566ebf037bd64c40bd9f64125cbb470ad8a3b"
+    "sha256": "ceaa86c1d2d59b739a31837105fe95e0b7ab8aab49cbd76ca7f7b616c1c8b648"
   },
   {
     "path": "ai_provider.py",
@@ -20,36 +20,52 @@
     "sha256": "e918dcf7c3383563243344626f5dc4190402290b77a534d882559f77fca1a125"
   },
   {
+    "path": "intelliplan/email/sender.py",
+    "sha256": "9f09e40de0f7a93257db7daf94c97f1f3a8e1895b49fb25a14b42206b90277bb"
+  },
+  {
     "path": "intelliplan/learning/__init__.py",
     "sha256": "54d2ad494e5a131c41515f74e2df2a2a974ab2b41a6b664c028f0924931fd91b"
   },
   {
     "path": "intelliplan/learning/api.py",
-    "sha256": "b303ad64439ddd210fc2763f7d1a89bdeb8b315fa65d8fbfd1d26525f5483b2f"
+    "sha256": "388f3be051a7399420fdd85a831c904a20df6d8602e14f363ef475e8cacff20d"
   },
   {
     "path": "intelliplan/learning/catalog.py",
-    "sha256": "372225788c8b14fc0c3bdae4fcac157cff0ffd3624cacb89c515d92b9aa1034a"
+    "sha256": "2ec38272085f2ad1d1c5f49c772b3ed21ac1f0a4185e91ea1e852f4a8bd9a9cd"
   },
   {
     "path": "intelliplan/learning/courses.py",
-    "sha256": "b25a137da6c6b1058701b68e816ae6edf51c7c0934f273d3126db64eec59dee3"
+    "sha256": "e67eee82abf2bf2934c05171beffae5fecc4398226faafb928949d3aa3174361"
   },
   {
     "path": "intelliplan/learning/enforcement.py",
-    "sha256": "d2e3a6a5438173fec493a7bea50f54a70fccef071048781928c532250de653e5"
+    "sha256": "050ce9dfe8ff8e273ba0c517aa35d0db16cfa522477f78a7564feec6e9571ddd"
   },
   {
     "path": "intelliplan/learning/evidence.py",
-    "sha256": "b4b31f85bfa19c361d6d762499ccf76071aa3d1848a224b88c3b283e314a466c"
+    "sha256": "813e605e48f3330c1ab97d8acf06f07b3123700a00343627c8337b2b84dfdb27"
+  },
+  {
+    "path": "intelliplan/learning/governance.py",
+    "sha256": "fa2a3ecb0b7848ea7449766a933c541f71f1c0bd9f54c8530ea0506a65309585"
+  },
+  {
+    "path": "intelliplan/learning/governance_api.py",
+    "sha256": "f0d23d3bcf544101a35480c171aa0f3a146c68cb310d31d92d96e75fb0f6e7be"
   },
   {
     "path": "intelliplan/learning/models.py",
-    "sha256": "1ec40f27a64a82eb9860dde920800440b223082c5c67787a21aa4b7dfa86e6ca"
+    "sha256": "b54493bd6faf49b31934dee8cbd04e02bd8d2dc244536efb454ca9dd4b8a9f14"
   },
   {
     "path": "intelliplan/learning/policy.py",
-    "sha256": "ea7b04127a0d5a8eb61951a5a2b5f5b03a6bddbdeb2c586e11cd0072902cfe74"
+    "sha256": "0adfcb3ab263086a67f49502c6ffa806820d2b0445c400d49bb25b47acdd107e"
+  },
+  {
+    "path": "notifications_glue.py",
+    "sha256": "af0d595b1141a4c83961e1219b6704f582008f5a7854ff5028658318c1e989ac"
   },
   {
     "path": "scripts/inventory_learning_routes.py",
@@ -57,11 +73,15 @@
   },
   {
     "path": "scripts/verify_learning_hub.py",
-    "sha256": "e1011ebe941645ea1c7c3f78841a20de95897a48d0134fb85d3538c045cf993d"
+    "sha256": "c7e930e1f12b14356da85f0c2f8335f22e841c33962083dd30e151cf072183ca"
   },
   {
     "path": "scripts/verify_learning_provider.py",
     "sha256": "83b52e9d84ee261e6f78487d52c0258c679c3e7af16046e514f083fbcb40178e"
+  },
+  {
+    "path": "scripts/verify_learning_resources.py",
+    "sha256": "32d779bf576cdd3fe0656c4e18c27d5348f9b7f582c3583c0e128b6678e0984e"
   },
   {
     "path": "static/css/learning_hub.css",
@@ -69,14 +89,14 @@
   },
   {
     "path": "static/js/learning_hub.js",
-    "sha256": "5460986c54e6cc66326a62dad72736473c8a45f5467e8758cfc8f5ad9e50f942"
+    "sha256": "a19b193c3cd76475fbae5967bbee6ccc8f6f917b502f562bfcc4080e1624fe0f"
   },
   {
     "path": "static/js/school_admin.js",
-    "sha256": "46b96698781c8694bdbdc47b3cfc40fe70470c0bbf69dcb115042c6ff4dcb448"
+    "sha256": "b3a1d9b022b2d637f547e04bc09f7ac5c4fa6fc0d53c21f786d74978597765f0"
   },
   {
     "path": "tests/test_learning_hub.py",
-    "sha256": "9d1c1e1564194dc44cf81251ad2a58f69c8474597f47dba04e256cb02836805c"
+    "sha256": "29c4d8068b89f3f7efc9e2ccc2592c6384a11028c91abd27ba1a268bcec9d292"
   }
 ]

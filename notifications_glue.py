@@ -132,6 +132,9 @@ def _send_email(row: Any) -> bool:
     from App import User, _send_email
 
     user = User.query.get(row.user_id)
+    from intelliplan.learning import policy
+    if user and not policy.decision(user, 'notifications')[0]:
+        raise PermanentDeliveryError('notifications restricted by institution')
     address = getattr(user, "email", None) if user else None
     if not address:
         raise PermanentDeliveryError("no email address on file")
@@ -265,6 +268,9 @@ def _started_block_ids(user_id: int) -> list[str]:
 
 def sweep_user(user: Any, now: datetime | None = None) -> int:
     """Raise every event this student's current plan warrants. Returns count."""
+    from intelliplan.learning import policy
+    if not policy.decision(user, 'notifications')[0]:
+        return 0
     now = now or utcnow()
     prefs = _preferences_for(user)
     if not prefs.channels:

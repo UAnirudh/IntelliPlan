@@ -23,7 +23,7 @@
   async function run(control, action) {
     control.disabled = true;
     try { await action(); } catch (error) { status(error.message); }
-    finally { control.disabled = false; }
+    finally { control.disabled = control.dataset.finished === 'true' || control.dataset.locked === 'true'; }
   }
   const messages = []; let conversationId, sittingId, started, timer, courseRequest = 0;
   function showSitting(data) {
@@ -82,6 +82,110 @@
     if (!data.evidence.length) node('p', 'Your new study activities and reviewed checks will appear here. Existing tutor progress remains in your practice path.', panel);
     for (const e of data.evidence) node('p', `${e.objective} · ${e.correct === null ? 'Reported activity' : e.correct ? 'Reviewed check passed' : 'Practice needs review'}${e.assisted ? ' · assisted or answer-key access' : ''}`, panel);
   }
+  let previewNoticeVersion, previewRequest = 0, previewBusy = false, previewAllowed = false, profileRequest = 0;
+  const profileForm = node('form'); profileForm.id = 'practice-preview-profile';
+  const profileLabel = node('label', 'Grade for reviewed practice', profileForm);
+  const gradeSelect = node('select', undefined, profileLabel); gradeSelect.required = true; gradeSelect.id = 'practice-preview-grade';
+  const grades = ['', 'Kindergarten', ...Array.from({length: 12}, (_, i) => `Grade ${i + 1}`), 'College'];
+  for (const grade of grades) { const option = node('option', grade || 'Choose your grade', gradeSelect); option.value = grade; }
+  const saveGrade = node('button', 'Save practice grade', profileForm); saveGrade.type = 'submit';
+  function setPreviewBusy(value) {
+    previewBusy = value;
+    for (const control of [saveGrade, gradeSelect, $('practice-preview-next')]) {
+      const locked = value || !previewAllowed;
+      control.dataset.locked = String(locked); control.disabled = locked;
+    }
+  }
+  gradeSelect.addEventListener('change', () => { ++profileRequest; });
+  $('practice-preview-controls').prepend(profileForm);
+  profileForm.addEventListener('submit', event => {
+    event.preventDefault(); run(event.submitter, async () => {
+      if (previewBusy) return;
+      ++profileRequest; setPreviewBusy(true);
+      try {
+        await post('/api/learning/practice-preview/profile', {grade_level: gradeSelect.value});
+        ++previewRequest; $('practice-preview-check').replaceChildren();
+        status('Practice grade saved. Start a fresh reviewed check.');
+      } finally { setPreviewBusy(false); }
+    });
+  });
+  async function loadPreview() {
+    const state = await api('/api/learning/beta/practice_preview');
+    $('practice-preview').hidden = !state.approved;
+    previewNoticeVersion = state.notice_version;
+    $('practice-preview-notice').textContent = state.notice + (state.allowed ? '' : ` Availability: ${state.reason.replaceAll('_', ' ')}.`);
+    $('practice-preview-consent').hidden = state.accepted || state.reason !== 'beta_consent_required';
+    $('practice-preview-controls').hidden = !state.accepted;
+    previewAllowed = state.allowed; setPreviewBusy(previewBusy);
+    const profileId = ++profileRequest;
+    if (state.allowed) api('/api/learning/practice-preview/profile').then(data => {
+      if (profileId === profileRequest && grades.includes(data.profile.grade_level)) gradeSelect.value = data.profile.grade_level;
+    }).catch(error => status(error.message));
+  }
+  $('practice-preview-consent').addEventListener('submit', event => {
+    event.preventDefault(); run(event.submitter, async () => {
+      await post('/api/learning/beta/practice_preview', {accept: true, notice_version: previewNoticeVersion});
+      await loadPreview(); status('You joined the optional practice preview. You can leave at any time.');
+    });
+  });
+  $('practice-preview-withdraw').addEventListener('click', event => run(event.currentTarget, async () => {
+    await post('/api/learning/beta/practice_preview', {accept: false});
+    ++previewRequest;
+    $('practice-preview-check').replaceChildren(); await loadPreview(); status('You left the preview. Existing practice evidence is preserved.');
+  }));
+  $('practice-preview-next').addEventListener('click', event => run(event.currentTarget, async () => {
+    if (previewBusy) return;
+    const requestId = ++previewRequest;
+    $('practice-preview-check').replaceChildren(); status('Preparing a reviewed check…');
+    let challenge; setPreviewBusy(true);
+    try { challenge = await post('/api/learning/practice-preview/check', {area: $('practice-preview-area').value}); }
+    finally { setPreviewBusy(false); }
+    if (requestId !== previewRequest) return;
+    const panel = $('practice-preview-check'); panel.replaceChildren();
+    node('h4', challenge.skill.title, panel); node('p', challenge.reason, panel); node('p', challenge.item.prompt, panel);
+    const controls = [];
+    let scoring = false, finished = false;
+    async function score(action) {
+      if (previewBusy || requestId !== previewRequest || scoring || finished) return;
+      scoring = true; setPreviewBusy(true);
+      for (const control of controls) control.disabled = true;
+      try { await action(); } finally {
+        scoring = false;
+        setPreviewBusy(false);
+        if (requestId === previewRequest) {
+          for (const control of controls) { control.disabled = finished; control.dataset.finished = String(finished); }
+        }
+      }
+    }
+    const submitAnswer = answer => score(async () => {
+      const result = await post('/api/learning/practice-preview/answer', {token: challenge.token, answer});
+      if (requestId !== previewRequest) return;
+      finished = true;
+      const feedback = `${result.correct ? 'Check passed.' : 'Try a different example after reviewing.'} ${result.feedback || ''}`;
+      node('p', feedback, panel);
+      status(`${feedback} Saved by the existing reviewed practice service. One result does not establish mastery.`);
+    });
+    if (challenge.item.options.length) {
+      for (const option of challenge.item.options) controls.push(button(option, panel, () => submitAnswer(option)));
+    } else {
+      const form = node('form', undefined, panel); const label = node('label', 'Your answer', form);
+      const input = node('input', undefined, label); input.required = true; input.maxLength = 200;
+      const submit = node('button', 'Check my answer', form); submit.type = 'submit'; controls.push(input, submit);
+      form.addEventListener('submit', event => { event.preventDefault(); run(submit, () => submitAnswer(input.value)); });
+    }
+    controls.push(button('Show a hint', panel, () => score(async () => {
+      const result = await post('/api/learning/practice-preview/hint', {token: challenge.token});
+      if (requestId !== previewRequest) return;
+      node('p', `Hint: ${result.hint}. This attempt will be recorded as assisted.`, panel);
+      status(`Hint: ${result.hint}. This attempt will be recorded as assisted.`);
+    })));
+  }));
+  $('practice-preview-feedback').addEventListener('submit', event => {
+    event.preventDefault(); run(event.submitter, async () => {
+      await post('/api/learning/beta/practice_preview/feedback', {category:'feedback', message:$('practice-preview-message').value});
+      $('practice-preview-message').value = ''; status('Feedback saved for your institution administrators.');
+    });
+  });
   $('hub-course-form').addEventListener('submit', event => {
     event.preventDefault(); run(event.submitter, async () => {
       const data = await post('/api/learning/courses', {goal: $('course-goal').value, mode: $('course-mode').value,
@@ -168,6 +272,7 @@
     }
   }
   api('/api/learning/capabilities').then(data => {
+    loadPreview().catch(() => { $('practice-preview').hidden = true; });
     for (const [activity, key] of [['tutor','tutor'], ['study','study'], ['review','review'], ['courses','course_generator']]) {
       const b = document.querySelector(`[data-activity="${activity}"]`); b.hidden = !data.features[key].allowed;
       if (!data.features[key].allowed && activity === 'tutor') {

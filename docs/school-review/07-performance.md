@@ -6,10 +6,10 @@ Measured locally on Windows using disposable SQLite and Chromium, not production
 |---|---|---|
 | Baseline complete regression suite |398.03s | Different workload than expanded suite; not user latency |
 | Intermediate expanded passing suite |275.83s,3997 tests | Not a valid product-speed improvement comparison |
-| Final full regression suite |228.41s,4005 passed /24 skipped | Different workload/runtime conditions; not a controlled speed comparison |
+| Final full regression suite |245.92s,4020 passed /24 skipped | Different workload/runtime conditions; not a controlled speed comparison |
 | Initial passing hub browser navigation |4324ms to networkidle | Includes shared assets/local startup effects |
 | Expanded passing browser navigation |1572ms to networkidle | Single local run, not P50/P95 or controlled improvement |
-| Final delivery browser navigation |4247ms to networkidle | Single local run; variation reinforces the need for controlled measurements |
+| Final delivery browser navigation |4198ms to networkidle | Single local run; variation reinforces the need for controlled measurements |
 | Live original-blueprint check |27ms initially,18ms on final repeat,503 | Configuration refusal, not AI generation latency |
 | Original course end-to-end generation |Not measured with real provider | Browser worker generations are fixtures |
 | AI tutor latency under real provider |Not measured | Protected concept path is deterministic; no model benchmark |

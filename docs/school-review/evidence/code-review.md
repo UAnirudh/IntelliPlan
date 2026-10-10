@@ -15,3 +15,10 @@ Final spec reviewer found no remaining HIGH/CRITICAL spec findings in the priori
 Explicitly deferred requirements remain in the acceptance ledger and are not converted to completed delivery by this approval. A fresh complete product-wide security audit was not performed.
 
 Summary: no unresolved high-severity findings in the reviewed implementation; the broader master brief remains partially delivered as documented. Standards review does not establish spec completeness, and spec review does not establish deployed reliability.
+
+
+## Continuation review — 2026-10-10
+
+Independent reviewers found and verified fixes for selected LMS source gates, Drive versus calendar OAuth callbacks, published calendar-feed revocation, legacy reminder polling, child budgets incorrectly limiting parent counters, lost completion timestamps across retention batches, stale beta notice reporting, and preview withdrawal/scoring/grade-selection races. Hint/answer feedback is announced in the status region. Recent scored history reuses the existing adaptive reducer, so an old failure no longer creates a stale review reminder after later independent success; delayed success retains its existing three-day interval. The focused regression passes. Final backend re-review reports no further actionable defects. No real student data was deleted; all review reproductions use disposable fixtures.
+
+Final deferred-response browser re-review verifies old controls cannot score while a replacement loads, stale profile responses cannot overwrite a grade choice, grade/save/next remain locked during scoring, and withdrawal failures preserve feedback. No remaining actionable findings in that focused review.

@@ -10188,6 +10188,9 @@ def _account_delete_impl():
     # `tests/test_account_deletion.py` walks the model registry and fails if
     # a table with such a foreign key is not named here.
     deletion_plan: list[tuple[str, str]] = [
+        ("learning_beta_enrollments", "DELETE FROM learning_beta_enrollments WHERE user_id = :uid"),
+        ("learning_beta_feedback", "DELETE FROM learning_beta_feedback WHERE user_id = :uid"),
+        ("learning_monthly_budgets", "DELETE FROM learning_monthly_budgets WHERE user_id = :uid"),
         ("learning_evidence", "DELETE FROM learning_evidence WHERE user_id = :uid"),
         ("learning_generation_jobs", "DELETE FROM learning_generation_jobs WHERE course_id IN (SELECT id FROM learning_courses WHERE user_id = :uid)"),
         ("learning_lessons", "DELETE FROM learning_lessons WHERE course_id IN (SELECT id FROM learning_courses WHERE user_id = :uid)"),
@@ -10405,6 +10408,9 @@ def _account_delete_impl():
                 if referenced - existing:
                     continue
                 conn.execute(_t(statement), {"uid": user_id})
+            if 'learning_policy_audit' in existing:
+                from intelliplan.learning.governance import anonymize_audit_targets
+                anonymize_audit_targets(conn, user_id)
             conn.execute(_t("DELETE FROM users WHERE id = :uid"), {"uid": user_id})
     except Exception:
         restore_uploads(staged_uploads)
@@ -19075,6 +19081,9 @@ def _sms_send_for_user(user, body):
     deliver SMS by emailing the carrier's gateway address (the carrier
     converts the email to an SMS at no cost to us).
     Returns (True, None) on success or (None, error_str) on failure."""
+    from intelliplan.learning import policy as learning_policy
+    if user and not learning_policy.decision(user, 'notifications')[0]:
+        return None, 'notifications restricted by institution'
     if not user or not user.phone:
         return None, "no phone on account"
     carrier = (getattr(user, "sms_carrier", None) or "tmobile").lower()
@@ -19606,6 +19615,10 @@ def api_snapshot():
 def _send_push_to_user(user_id, payload, ttl=None):
     """Send a webpush payload to every subscription tied to user_id.
     Returns the count of successful deliveries."""
+    from intelliplan.learning import policy as learning_policy
+    owner = db.session.get(User, user_id)
+    if not owner or not learning_policy.decision(owner, 'notifications')[0]:
+        return 0
     subs = PushSubscription.query.filter_by(user_id=user_id).all()
     if not subs:
         return 0

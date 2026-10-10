@@ -7,7 +7,7 @@
   "gemini_contract_flag_enabled": false,
   "vertex_project_configured": false,
   "vertex_location_configured": false,
-  "blueprint_latency_ms": 18,
+  "blueprint_latency_ms": 19,
   "blueprint_http_status": 503,
   "error_type": "provider_unavailable",
   "external_generation_requests": 0,

@@ -5,11 +5,14 @@
     "Protected concept teaching through live browser/API",
     "Session start, pause, reload recovery, resume, paper checkpoint, completion without mastery",
     "Curated multisource outline, worker generation, refresh, review",
+    "Algebra multisource course with subject filtering and persistent sequenced lessons",
     "Fixture-backed original generation, answer-key review, scoring, shared progress",
     "Institution policy change and audit via browser",
-    "Mobile layout, keyboard focus, student beta and direct API denial"
+    "Monthly budget, scheduled assessment windows, retention settings and scoped beta approval",
+    "Mobile layout, keyboard focus, student beta and direct API denial",
+    "Explicit preview consent, grade with tutor disabled, real reviewed scorer/hint, shared evidence, feedback, withdrawal and private export"
   ],
-  "hub_load_ms": 4247,
+  "hub_load_ms": 2140,
   "javascript_errors": [],
   "status": "passed"
 }

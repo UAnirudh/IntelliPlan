@@ -53,7 +53,9 @@ def validate_blueprint(value):
         raise ValueError('Provide 1 to 12 learning outcomes.')
     if not isinstance(prerequisites, list) or len(prerequisites) > 12:
         raise ValueError('Provide at most 12 course prerequisites.')
+    subject = value.get('subject')
     return dict(title=title, overview=overview, lessons=cleaned,
+                subject=subject if isinstance(subject, str) and subject in {'python', 'algebra'} else None,
                 outcomes=[text(x) for x in outcomes], prerequisites=[text(x) for x in prerequisites])
 
 
@@ -82,8 +84,10 @@ def validate_lesson(value):
 def create_blueprint(goal, mode):
     goal = text(goal, 2000)
     if mode == 'curated':
+        if 'algebra' in goal.lower() and 'linear algebra' not in goal.lower():
+            return validate_blueprint(catalog.algebra_blueprint(goal))
         if 'python' not in goal.lower():
-            raise ValueError('Curated beta currently supports Python foundations. Other catalogs need review.')
+            raise ValueError('Curated beta supports Python or elementary algebra foundations. Other catalogs need review.')
         return validate_blueprint(catalog.python_blueprint(goal))
     if mode != 'generated':
         raise ValueError('Choose curated or generated mode.')
@@ -168,11 +172,12 @@ def run_one_job():
         if job.attempts >= MAX_ATTEMPTS:
             raise ValueError('Retry limit reached; inspect the course before creating another job.')
         if course.mode == 'curated':
-            resources = catalog.rank(spec['objective'])
+            subject = course.blueprint.get('subject') or ('python' if 'python' in course.goal.lower() else None)
+            resources = catalog.rank(spec['objective'], subject)
             if not resources:
                 raise ValueError('No reviewed resource matches this objective.')
             content = dict(explanation='Study the linked lesson, then explain the idea in your own words.',
-                           practice='Write a small example and explain each step. Change one input and predict the result.',
+                           practice='Write a small example and explain each step. Change one input and predict the result.' if subject != 'algebra' else 'Solve a different example. Explain each operation, then check your result by substitution or plotting.',
                            review='Recall the main idea tomorrow without opening your notes.', resources=resources)
         else:
             import ai_provider
@@ -188,6 +193,8 @@ def run_one_job():
                 raise ValueError('Token budget exhausted; completed lessons are preserved.')
             job.reserved_tokens += reservation
             job.attempts += 1
+            from intelliplan.learning.governance import reserve_tokens
+            reserve_tokens(user, reservation)
             db.session.commit()  # reserve before spending, including failed requests
             value = ai_provider.chat_json([{'role': 'system', 'content': system},
                                            {'role': 'user', 'content': prompt}], max_tokens=LESSON_OUTPUT_TOKENS, temperature=0.3, single_attempt=True)

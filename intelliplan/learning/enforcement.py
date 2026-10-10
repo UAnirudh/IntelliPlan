@@ -1,19 +1,20 @@
 """Server-side policy gates for legacy surfaces and shared AI calls."""
-from flask import g, jsonify, request, has_request_context
+from flask import g, jsonify, request, session, has_request_context
+import json
 from flask_login import current_user
 from intelliplan.learning import policy
 
 SURFACES = {
     'tutor': ('/tutor', '/api/tutor', '/api/chatbot', '/api/plani', '/writing', '/math', '/api/writing', '/api/math', '/api/media', '/extractor', '/api/extractor'),
-    'study': ('/study', '/api/deepstudy', '/api/active', '/active', '/foundations', '/api/primer', '/api/lessons'),
+    'study': ('/study', '/api/study-hub', '/api/deepstudy', '/api/active', '/active', '/foundations', '/api/primer', '/api/lessons', '/lessons'),
     'review': ('/learn', '/api/flashcards', '/flashcards'),
     'focus': ('/focus', '/api/focus', '/api/focus-shield', '/extension/focus', '/uploads/focus-alarm'),
     'scheduler': ('/scheduler', '/schedule', '/generate_schedule', '/api/scheduler', '/api/adjust', '/api/v1/schedule', '/extension/schedule', '/api/followthrough'),
     'canvas': ('/login/canvas', '/oauth/canvas', '/api/canvas'),
     'studentvue': ('/login/studentvue', '/api/studentvue', '/oauth/studentvue'),
-    'calendar': ('/calendar', '/oauth/google', '/oauth2callback', '/api/calendar-feed', '/api/calendar/feed'),
-    'uploads': ('/notes/upload', '/api/syllabus/import', '/api/deepstudy/ingest', '/study/extract-pdf', '/study/analyze-image', '/analyze-image', '/api/tutor/vision', '/api/assignment/notes', '/api/lessons', '/api/timetable/photo'),
-    'notifications': ('/push', '/notifications', '/api/notifications', '/api/v1/push'),
+    'calendar': ('/calendar', '/login/calendar-feed', '/oauth/google', '/oauth/outlook', '/oauth2callback', '/api/calendar-feed', '/api/calendar/feed'),
+    'uploads': ('/notes/upload', '/api/syllabus/import', '/api/deepstudy/ingest', '/study/extract-pdf', '/study/analyze-image', '/analyze-image', '/api/tutor/vision', '/api/assignment/notes', '/api/lessons', '/api/timetable/photo', '/oauth/onedrive', '/oauth/google-drive'),
+    'notifications': ('/push', '/notifications', '/api/notifications', '/api/v1/push', '/api/reminders'),
 }
 
 
@@ -66,16 +67,38 @@ def install(app):
     def enforce():
         if request.method == 'OPTIONS' or request.endpoint == 'static':
             return None
+        if request.path.endswith('/disconnect') or request.path == '/api/calendar/feed/revoke':
+            return None  # Existing authenticated handlers must allow credential revocation.
         keys = [key for key, paths in SURFACES.items() if any(matches(request.path, p) for p in paths)]
+        if request.path == '/oauth/outlook/callback' and session.get('microsoft_oauth_purpose') == 'onedrive':
+            keys = ['uploads']
+        if request.path in {'/oauth2callback', '/oauth/google/callback'}:
+            purpose = session.get('oauth_purpose', 'calendar')
+            keys = ['uploads'] if purpose == 'drive' else ([] if purpose == 'login' else ['calendar'])
+        grade_data = request.path in {'/grades/data', '/gradebook/detail', '/api/v1/grades'}
+        live_data = grade_data or request.path in {'/live', '/gradebook', '/courses', '/missing/data', '/api/v1/courses', '/api/v1/assignments', '/extension/tasks', '/extension/grades'}
         if request.path.startswith('/notes/') and request.path.rsplit('/', 1)[-1] in {'study', 'quiz', 'summarize'}:
             keys.append('study')
-        if not keys:
+        if not keys and not live_data:
             return None
         try:
             user = actor()
             g.learning_actor = user
             if not user:
                 return None
+            if live_data:
+                from App import LinkedAccount
+                linked = LinkedAccount.query.filter_by(user_id=user.id, is_active=True).first()
+                if grade_data:
+                    raw = getattr(user, 'lms_preferences', None) or '{}'
+                    prefs = json.loads(raw) if isinstance(raw, str) else raw
+                    source = (prefs.get('grade_source') or 'active').strip().lower()
+                    if source in {'canvas', 'studentvue', 'schoology', 'hac'}:
+                        chosen = LinkedAccount.query.filter_by(user_id=user.id, login_type=source).order_by(
+                            LinkedAccount.is_active.desc(), LinkedAccount.id.desc()).first()
+                        linked = chosen or linked
+                if linked and linked.login_type in {'canvas', 'studentvue'}:
+                    keys.append(linked.login_type)
             for key in keys:
                 allowed, reason = policy.decision(user, key)
                 if not allowed:

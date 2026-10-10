@@ -92,5 +92,36 @@ def register(db):
             sqlite_where=sql_text("state IN ('active', 'paused')"),
             postgresql_where=sql_text("state IN ('active', 'paused')")),)
 
+    class BetaEnrollment(db.Model):
+        __tablename__ = 'learning_beta_enrollments'
+        id = db.Column(db.Integer, primary_key=True)
+        user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+        organization_id = db.Column(db.Integer, db.ForeignKey('learning_organizations.id'), nullable=False)
+        feature = db.Column(db.String(64), nullable=False)
+        approved = db.Column(db.Boolean, nullable=False, default=False)
+        consent_version = db.Column(db.String(64))
+        accepted_at = db.Column(db.DateTime)
+        __table_args__ = (db.UniqueConstraint('user_id', 'feature'),)
+
+    class Feedback(db.Model):
+        __tablename__ = 'learning_beta_feedback'
+        id = db.Column(db.Integer, primary_key=True)
+        user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+        organization_id = db.Column(db.Integer, db.ForeignKey('learning_organizations.id'), nullable=False)
+        feature = db.Column(db.String(64), nullable=False)
+        category = db.Column(db.String(16), nullable=False)
+        message = db.Column(db.String(1000), nullable=False)
+        created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    class Budget(db.Model):
+        __tablename__ = 'learning_monthly_budgets'
+        id = db.Column(db.Integer, primary_key=True)
+        organization_id = db.Column(db.Integer, db.ForeignKey('learning_organizations.id'))
+        user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'))
+        month = db.Column(db.String(7), nullable=False)
+        reserved_tokens = db.Column(db.Integer, nullable=False, default=0)
+        __table_args__ = (db.UniqueConstraint('organization_id', 'month'), db.UniqueConstraint('user_id', 'month'))
+
     return dict(Organization=Organization, Membership=Membership, Audit=Audit,
-                Course=Course, Lesson=Lesson, Job=Job, Evidence=Evidence, Sitting=Sitting)
+                Course=Course, Lesson=Lesson, Job=Job, Evidence=Evidence, Sitting=Sitting,
+                BetaEnrollment=BetaEnrollment, Feedback=Feedback, Budget=Budget)

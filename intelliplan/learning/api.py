@@ -182,8 +182,16 @@ def course_list():
     if M['Course'].query.filter_by(user_id=current_user.id, goal=goal, mode=mode).first():
         return jsonify(error='duplicate_course', message='This course already exists in your library.'), 409
     try:
+        if mode == 'generated':
+            from ai_provider import model_chain
+            from intelliplan.learning.governance import reserve_tokens
+            if not model_chain():
+                return jsonify(error='provider_unavailable', message='An approved provider must be configured before generation.'), 503
+            reserve_tokens(current_user, len(goal.encode('utf-8')) + 1000 + 4000)
+            db.session.commit()
         outline = courses.create_blueprint(goal, mode)
     except ValueError:
+        db.session.rollback()
         raise
     except Exception:
         return jsonify(error='provider_unavailable', message='The blueprint could not be generated. Try again later.'), 503
@@ -322,11 +330,9 @@ def progress():
     denied = gate('study')
     if denied:
         return denied
-    M = policy.models()
-    rows = M['Evidence'].query.filter_by(user_id=current_user.id).order_by(M['Evidence'].id.desc()).limit(100).all()
-    from intelliplan.learning.evidence import due_review
-    return jsonify(due_review=due_review(current_user), evidence=[dict(id=r.id, objective=r.objective, kind=r.kind, correct=r.correct,
-        assisted=r.assisted, created_at=r.created_at.isoformat()) for r in rows],
+    from intelliplan.learning.evidence import due_review, summary
+    rows = summary(current_user)
+    return jsonify(due_review=due_review(current_user, rows), evidence=rows,
         legacy_progress_url='/api/tutor/adaptive/dashboard',
         review_url='/api/flashcards/study', note='Elapsed time and self-reports do not establish mastery.')
 
@@ -404,7 +410,7 @@ def checkpoint(sid):
     if not changed:
         db.session.rollback()
         return jsonify(error='session_changed', message='The session changed in another request. Reload before continuing.'), 409
-    if kind in {'self_report', 'paper_work', 'retrieval_attempt'}:
+    if kind in {'self_report', 'paper_work', 'retrieval_attempt', 'complete'}:
         db.session.add(policy.models()['Evidence'](user_id=current_user.id, session_id=sid,
             objective=row.objective, kind=kind, correct=None))
     db.session.commit()
@@ -418,7 +424,13 @@ def export():
         abort(401)
     M = policy.models()
     course_rows = M['Course'].query.filter_by(user_id=current_user.id).all()
-    return jsonify(courses=[dict(id=r.id, mode=r.mode, goal=r.goal, blueprint=r.blueprint,
+    return jsonify(beta_enrollments=[dict(feature=r.feature, approved=r.approved,
+        consent_version=r.consent_version, accepted_at=r.accepted_at.isoformat() if r.accepted_at else None)
+        for r in M['BetaEnrollment'].query.filter_by(user_id=current_user.id)],
+        beta_feedback=[dict(feature=r.feature, category=r.category, message=r.message,
+            created_at=r.created_at.isoformat()) for r in
+            M['Feedback'].query.filter_by(user_id=current_user.id)],
+        courses=[dict(id=r.id, mode=r.mode, goal=r.goal, blueprint=r.blueprint,
                                  lessons=[lesson.content for lesson in M['Lesson'].query.filter_by(course_id=r.id)])
                             for r in course_rows],
         sessions=[dict(objective=r.objective, state=r.state, method=r.method) for r in
@@ -428,10 +440,14 @@ def export():
 
 
 def install(app):
+    from intelliplan.learning.governance_api import install as install_governance
+    install_governance(bp, app)
     app.register_blueprint(bp)
     from App import limiter
     endpoint = 'learning_hub.course_list'
     app.view_functions[endpoint] = limiter.limit('10/hour', methods=['POST'])(app.view_functions[endpoint])
+    endpoint = 'learning_hub.feedback'
+    app.view_functions[endpoint] = limiter.limit('20/hour', methods=['POST'])(app.view_functions[endpoint])
 
     @app.cli.command('learning-worker')
     @click.option('--steps', default=1, type=click.IntRange(1, 1000))

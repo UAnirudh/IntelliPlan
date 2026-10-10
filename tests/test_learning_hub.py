@@ -11,13 +11,19 @@ from intelliplan.learning.enforcement import filter_providers
 
 
 @pytest.fixture
-def client():
+def client(monkeypatch):
+    monkeypatch.setattr(
+        "ai_provider.model_chain", lambda *args, **kwargs: [("groq", "fixture")]
+    )
     previous = App.limiter.enabled
     App.limiter.enabled = False
     App.app.config["TESTING"] = True
     with App.app.app_context():
         App.db.create_all()
         for name in [
+            "BetaEnrollment",
+            "Feedback",
+            "Budget",
             "Evidence",
             "Job",
             "Lesson",
@@ -33,6 +39,9 @@ def client():
         yield client
     with App.app.app_context():
         for name in [
+            "BetaEnrollment",
+            "Feedback",
+            "Budget",
             "Evidence",
             "Job",
             "Lesson",
@@ -530,7 +539,7 @@ def test_export_survives_beta_revocation_and_account_deletion_cleans_new_records
     assert exported["evidence"][0]["correct"] is None
     user(client, monkeypatch, admin=True)
     assert client.get("/api/learning/export").json == dict(
-        courses=[], sessions=[], evidence=[]
+        courses=[], sessions=[], evidence=[], beta_enrollments=[], beta_feedback=[]
     )
     with App.app.test_request_context():
         login_user(App.db.session.get(App.User, uid))
@@ -786,3 +795,582 @@ def test_sessions_survive_reload_and_pause_resume_tracks_only_active_time(
         f"/api/learning/sessions/{sid}/checkpoint", json={"kind": "resume"}
     ).json
     assert resumed["state"] == "active"
+
+
+def test_assessment_windows_inherit_and_expired_windows_release(client, monkeypatch):
+    uid = user(client, monkeypatch)
+    now = datetime.utcnow()
+    oid = org(
+        uid,
+        {
+            "assessment_windows": [
+                {
+                    "start": (now - timedelta(minutes=1)).isoformat() + "Z",
+                    "end": (now + timedelta(minutes=1)).isoformat() + "Z",
+                }
+            ]
+        },
+    )
+    response = client.post(
+        "/api/tutor",
+        json={"messages": [{"role": "user", "content": "Explain a fraction."}]},
+    )
+    assert response.json["assessment_protection"] is True
+    with App.app.app_context():
+        row = App.db.session.get(policy.models()["Organization"], oid)
+        row.policy = {
+            "assessment_windows": [
+                {
+                    "start": (now - timedelta(minutes=2)).isoformat() + "Z",
+                    "end": (now - timedelta(minutes=1)).isoformat() + "Z",
+                }
+            ]
+        }
+        App.db.session.commit()
+        policy.invalidate_cache()
+        assert (
+            policy.effective(App.db.session.get(App.User, uid))["assessment_protection"]
+            is False
+        )
+    with pytest.raises(ValueError):
+        policy.validate_policy(
+            {
+                "assessment_windows": [
+                    {"start": "2026-10-09T10:00", "end": "2026-10-09T11:00"}
+                ]
+            }
+        )
+
+
+def test_opt_in_preview_needs_flag_approval_current_consent_and_policy(
+    client, monkeypatch
+):
+    uid = enable(monkeypatch, client)
+    oid = org(uid)
+    with App.app.app_context():
+        App.db.session.add(App.FeatureFlag(key="school_practice_preview", enabled=True))
+        App.db.session.commit()
+    endpoint = "/api/learning/beta/practice_preview"
+    assert (
+        client.post(
+            endpoint,
+            json={"accept": True, "notice_version": policy.BETA_NOTICE_VERSION},
+        ).status_code
+        == 403
+    )
+    approved = client.post(
+        f"/api/school-admin/organizations/{oid}/beta",
+        json={"user_id": uid, "feature": "practice_preview", "approved": True},
+    )
+    assert approved.status_code == 200
+    assert client.get(endpoint).json["reason"] == "beta_consent_required"
+    assert (
+        client.post(
+            endpoint, json={"accept": True, "notice_version": "old"}
+        ).status_code
+        == 400
+    )
+    assert client.post(
+        endpoint, json={"accept": True, "notice_version": policy.BETA_NOTICE_VERSION}
+    ).json["allowed"]
+    assert (
+        client.post(
+            endpoint + "/feedback",
+            json={
+                "category": "feedback",
+                "message": "The review instructions were clear.",
+            },
+        ).status_code
+        == 201
+    )
+    assert (
+        client.get(f"/api/school-admin/organizations/{oid}/operations").json[
+            "feedback"
+        ][0]["category"]
+        == "feedback"
+    )
+    # Use the same reviewed scorer and grade/age protections, without a second item store.
+    client.post("/api/tutor/adaptive/profile", json={"grade_level": "Grade 7"})
+    assert (
+        client.post(
+            "/api/learning/practice-preview/check", json={"area": "math"}
+        ).status_code
+        == 200
+    )
+    assert client.post(endpoint, json={"accept": False}).json["allowed"] is False
+    assert (
+        client.post(
+            "/api/learning/practice-preview/check", json={"area": "math"}
+        ).status_code
+        == 403
+    )
+    with App.app.app_context():
+        row = App.db.session.get(policy.models()["Organization"], oid)
+        row.policy = {"allow_beta": False}
+        App.db.session.commit()
+    assert (
+        client.post(
+            endpoint,
+            json={"accept": True, "notice_version": policy.BETA_NOTICE_VERSION},
+        ).status_code
+        == 403
+    )
+
+
+def test_shared_monthly_budget_reservations_are_atomic_and_inherited(
+    client, monkeypatch
+):
+    from intelliplan.learning.governance import reserve_tokens
+
+    uid = enable(monkeypatch, client)
+    oid = org(uid, {"monthly_generation_tokens": 1000})
+    with App.app.app_context():
+        owner = App.db.session.get(App.User, uid)
+        reserve_tokens(owner, 700)
+        App.db.session.commit()
+        with pytest.raises(ValueError):
+            reserve_tokens(owner, 301)
+        App.db.session.rollback()
+        assert (
+            policy.models()["Budget"]
+            .query.filter_by(organization_id=oid)
+            .first()
+            .reserved_tokens
+            == 700
+        )
+        second = App.User(
+            email=f"budget-{uuid4().hex}@example.test",
+            password_hash="x",
+            birth_year=2000,
+        )
+        App.db.session.add(second)
+        App.db.session.flush()
+        App.db.session.add(
+            policy.models()["Membership"](
+                user_id=second.id, organization_id=oid, role="admin"
+            )
+        )
+        App.db.session.commit()
+        with pytest.raises(ValueError):
+            reserve_tokens(second, 400)
+        App.db.session.rollback()
+
+
+def test_notification_policy_applies_to_background_delivery(client, monkeypatch):
+    import notifications_glue
+
+    uid = user(client, monkeypatch)
+    org(uid, {"notifications": False})
+    with App.app.app_context():
+        owner = App.db.session.get(App.User, uid)
+        monkeypatch.setattr(
+            App,
+            "_send_email",
+            lambda *args, **kwargs: pytest.fail("No notification may be delivered"),
+        )
+        assert App._send_push_to_user(uid, {"body": "test"}) == 0
+        assert "institution" in App._sms_send_for_user(owner, "test")[1]
+        assert notifications_glue.sweep_user(owner) == 0
+        from intelliplan.email.sender import send_lifecycle_email
+
+        for channel in ["marketing", "reminder"]:
+            assert (
+                send_lifecycle_email(
+                    owner, "policy-test", "unused", "Test", gate=channel
+                ).reason
+                == "institution_policy"
+            )
+        from types import SimpleNamespace
+
+        with pytest.raises(notifications_glue.PermanentDeliveryError):
+            notifications_glue._send_email(SimpleNamespace(user_id=uid))
+
+
+def test_retention_dry_run_preserves_accounts_courses_and_open_sessions(
+    client, monkeypatch
+):
+    from intelliplan.learning import governance
+
+    uid = enable(monkeypatch, client)
+    org(uid, {"retention_days": 7})
+    cid = create(client)
+    sid = client.post(
+        "/api/learning/sessions", json={"objective": "Recall loops"}
+    ).json["id"]
+    with App.app.app_context():
+        M = policy.models()
+        old = datetime.utcnow() - timedelta(days=8)
+        M["Sitting"].query.filter_by(id=sid).update(dict(created_at=old))
+        App.db.session.add(
+            M["Evidence"](
+                user_id=uid,
+                session_id=sid,
+                objective="Recall loops",
+                kind="paper_work",
+                created_at=old,
+            )
+        )
+        App.db.session.commit()
+        candidates = governance.retention_candidates()
+        assert not candidates["Evidence"] and not candidates["Sitting"]
+        assert App.db.session.get(App.User, uid) and App.db.session.get(
+            M["Course"], cid
+        )
+    # A newly finished, long-running session is retained from completion time.
+    client.post(f"/api/learning/sessions/{sid}/checkpoint", json={"kind": "complete"})
+    with App.app.app_context():
+        candidates = governance.retention_candidates()
+        assert candidates["Evidence"]
+        assert not candidates["Sitting"]
+        assert (
+            App.app.test_cli_runner()
+            .invoke(args=["learning-retention", "--apply"])
+            .exit_code
+            != 0
+        )
+        governance.apply_retention(candidates)  # disposable database only
+        assert M["Sitting"].query.filter_by(id=sid).first()
+
+
+def test_account_deletion_anonymizes_membership_audit_targets(client, monkeypatch):
+    from flask_login import login_user
+
+    uid = enable(monkeypatch, client)
+    oid = org(uid)
+    client.post(
+        f"/api/school-admin/organizations/{oid}/members",
+        json={"user_id": uid, "role": "student"},
+    )
+    with App.app.test_request_context():
+        login_user(App.db.session.get(App.User, uid))
+        assert App._account_delete_impl().json["status"] == "ok"
+        event = policy.models()["Audit"].query.filter_by(organization_id=oid).first()
+        assert event.actor_id is None
+        assert event.changes == {"role": "student", "deleted_account": True}
+
+
+def test_beta_saved_checks_share_evidence_without_copying_answers(client, monkeypatch):
+    uid = enable(monkeypatch, client)
+    oid = org(uid, {"tutor": False})
+    with App.app.app_context():
+        M = policy.models()
+        flag = App.FeatureFlag.query.filter_by(key="school_practice_preview").first()
+        if flag:
+            flag.enabled = True
+        else:
+            App.db.session.add(
+                App.FeatureFlag(key="school_practice_preview", enabled=True)
+            )
+        App.db.session.add(
+            M["BetaEnrollment"](
+                user_id=uid,
+                organization_id=oid,
+                feature="practice_preview",
+                approved=True,
+            )
+        )
+        App.db.session.commit()
+    enrollment = "/api/learning/beta/practice_preview"
+    assert (
+        client.post(
+            enrollment,
+            json={"accept": True, "notice_version": policy.BETA_NOTICE_VERSION},
+        ).status_code
+        == 200
+    )
+    prefix = "/api/learning/practice-preview/"
+    assert (
+        client.post(prefix + "profile", json={"grade_level": "Grade 7"}).status_code
+        == 200
+    )
+    challenge = client.post(prefix + "check", json={"area": "math"}).json
+    from primer.catalog import get_item
+
+    expected = get_item(challenge["item"]["id"]).answer
+    assert (
+        client.post(prefix + "hint", json={"token": challenge["token"]}).status_code
+        == 200
+    )
+    response = client.post(
+        prefix + "answer", json={"token": challenge["token"], "answer": expected}
+    )
+    assert response.json["correct"] and response.json["assisted"]
+    assert (
+        client.post(
+            prefix + "answer", json={"token": challenge["token"], "answer": expected}
+        ).status_code
+        == 409
+    )
+    progress = client.get("/api/learning/progress").json["evidence"]
+    assert progress[0]["source"] == "reviewed_practice" and progress[0]["correct"]
+    with App.app.app_context():
+        assert (
+            not M["Evidence"]
+            .query.filter_by(user_id=uid, kind="reviewed_check")
+            .count()
+        )
+    client.post(
+        enrollment + "/feedback",
+        json={"category": "feedback", "message": "Clear question."},
+    )
+    exported = client.get("/api/learning/export").json
+    assert exported["beta_feedback"][0]["message"] == "Clear question."
+    assert (
+        exported["beta_enrollments"][0]["consent_version"] == policy.BETA_NOTICE_VERSION
+    )
+    client.post(enrollment, json={"accept": False})
+    assert client.get("/api/learning/progress").json["evidence"][0]["correct"]
+
+
+def test_monthly_budget_children_do_not_reduce_shared_parent_ceiling(
+    client, monkeypatch
+):
+    from intelliplan.learning.governance import reserve_tokens
+
+    uid = enable(monkeypatch, client)
+    district = org(uid, {"monthly_generation_tokens": 100000})
+    school = org(uid, {"monthly_generation_tokens": 1000}, parent=district)
+    with App.app.app_context():
+        M = policy.models()
+        M["Organization"].query.filter_by(id=district).update(dict(kind="district"))
+        App.db.session.add(
+            M["Budget"](
+                organization_id=district,
+                month=datetime.utcnow().strftime("%Y-%m"),
+                reserved_tokens=2000,
+            )
+        )
+        App.db.session.commit()
+        reserve_tokens(App.db.session.get(App.User, uid), 300)
+        App.db.session.commit()
+        assert (
+            M["Budget"].query.filter_by(organization_id=school).first().reserved_tokens
+            == 300
+        )
+        assert (
+            M["Budget"]
+            .query.filter_by(organization_id=district)
+            .first()
+            .reserved_tokens
+            == 2300
+        )
+
+
+def test_retention_preserves_completion_clock_across_limited_batches(
+    client, monkeypatch
+):
+    from intelliplan.learning import governance
+
+    uid = enable(monkeypatch, client)
+    org(uid, {"retention_days": 7})
+    with App.app.app_context():
+        M = policy.models()
+        old = datetime.utcnow() - timedelta(days=8)
+        for _ in range(2):
+            sitting = M["Sitting"](
+                user_id=uid,
+                objective="Recall loops",
+                state="completed",
+                method="paper",
+                planned_minutes=25,
+                intervention="none",
+                created_at=old,
+            )
+            App.db.session.add(sitting)
+            App.db.session.flush()
+            App.db.session.add(
+                M["Evidence"](
+                    user_id=uid,
+                    session_id=sitting.id,
+                    kind="complete",
+                    objective="Recall loops",
+                    created_at=old,
+                )
+            )
+        App.db.session.commit()
+        first = governance.retention_candidates(limit=1)
+        assert not first["Evidence"] and len(first["Sitting"]) == 1
+        governance.apply_retention(first)
+        assert len(governance.retention_candidates(limit=1)["Sitting"]) == 1
+
+
+def test_live_grade_reads_obey_selected_source_and_reminder_policy(client, monkeypatch):
+    uid = user(client, monkeypatch)
+    org(uid, {"canvas": False, "studentvue": True, "notifications": False})
+    with App.app.app_context():
+        row = App.db.session.get(App.User, uid)
+        row.lms_preferences = '{"grade_source":"canvas"}'
+        App.db.session.add(
+            App.LinkedAccount(
+                user_id=uid, login_type="studentvue", is_active=True, credentials="{}"
+            )
+        )
+        App.db.session.add(
+            App.LinkedAccount(
+                user_id=uid, login_type="canvas", is_active=False, credentials="{}"
+            )
+        )
+        App.db.session.commit()
+    monkeypatch.setattr(
+        App,
+        "get_grade_account",
+        lambda: pytest.fail("A restricted source must not be read"),
+    )
+    for path in ["/gradebook/detail", "/grades/data"]:
+        response = client.get(path)
+        assert response.status_code == 403 and response.json["feature"] == "canvas"
+    assert client.get("/api/reminders/check").status_code == 403
+
+
+def test_shared_oauth_callback_respects_drive_purpose_and_allows_revocation(
+    client, monkeypatch
+):
+    uid = user(client, monkeypatch)
+    org(uid, {"calendar": False, "uploads": True})
+    for path, key, purpose in [
+        ("/oauth/outlook/callback", "microsoft_oauth_purpose", "onedrive"),
+        ("/oauth/google/callback", "oauth_purpose", "drive"),
+    ]:
+        with client.session_transaction() as session:
+            session[key] = purpose
+        assert client.get(path + "?error=access_denied").status_code != 403
+    with client.session_transaction() as session:
+        session["microsoft_oauth_purpose"] = "outlook"
+    assert client.get("/oauth/outlook/callback").status_code == 403
+    assert client.post("/oauth/outlook/disconnect").status_code == 200
+
+
+def test_curated_algebra_course_has_two_sources_and_subject_correct_sequence(
+    client, monkeypatch
+):
+    uid = enable(monkeypatch, client)
+    org(uid, {"third_party_processing": False})
+    monkeypatch.setattr(
+        "ai_provider.chat_json",
+        lambda *args, **kwargs: pytest.fail("Curated linking must not call AI"),
+    )
+    response = client.post(
+        "/api/learning/courses",
+        json={
+            "mode": "curated",
+            "goal": "Learn algebra from variables to slope-intercept graphs",
+        },
+    )
+    assert response.status_code == 201
+    cid = response.json["id"]
+    client.post(f"/api/learning/courses/{cid}/generation", json={})
+    with App.app.app_context():
+        for _ in range(7):
+            assert courses.run_one_job()
+        M = policy.models()
+        course = App.db.session.get(M["Course"], cid)
+        assert course.blueprint["subject"] == "algebra"
+        assert len({lesson["unit"] for lesson in course.blueprint["lessons"]}) == 2
+        for lesson in M["Lesson"].query.filter_by(course_id=cid):
+            resources = lesson.content["resources"]
+            assert {r["provider"] for r in resources} == {
+                "Khan Academy",
+                "OpenStax / Rice University",
+            }
+            assert all(
+                r["subject"] == "algebra" and r["access"] == "link_only"
+                for r in resources
+            )
+
+
+def test_shared_review_uses_latest_scored_state_and_existing_intervals(
+    client, monkeypatch
+):
+    from adaptive_tutor import checks
+
+    uid = user(client, monkeypatch)
+    with App.app.app_context():
+        checks.ensure_tables()
+        skill = checks._skill_ids(7, "Arithmetic")[0]
+        now = datetime.utcnow()
+        for sequence, correct, at in [
+            (0, False, now - timedelta(days=2)),
+            (1, True, now - timedelta(days=1, minutes=1)),
+            (2, True, now),
+        ]:
+            App.db.session.execute(
+                checks.ATTEMPT.insert().values(
+                    owner_id=uid,
+                    nonce=uuid4().hex,
+                    grade=7,
+                    skill_id=skill,
+                    sequence=sequence,
+                    item_id="synthetic-reviewed-test",
+                    correct=correct,
+                    assisted=False,
+                    created_at=at,
+                )
+            )
+        App.db.session.commit()
+    progress = client.get("/api/learning/progress").json
+    assert len(progress["evidence"]) == 3
+    assert not progress["due_review"]
+    due = datetime.fromisoformat(progress["evidence"][0]["review_after"])
+    assert timedelta(days=2, hours=23) < due - datetime.utcnow() <= timedelta(days=3)
+
+
+def test_preview_age_gate_and_revocation_apply_to_current_consent(client, monkeypatch):
+    uid = enable(monkeypatch, client)
+    oid = org(uid)
+    with App.app.app_context():
+        M = policy.models()
+        flag = App.FeatureFlag.query.filter_by(key="school_practice_preview").first()
+        if flag:
+            flag.enabled = True
+        else:
+            App.db.session.add(
+                App.FeatureFlag(key="school_practice_preview", enabled=True)
+            )
+        App.db.session.add(
+            M["BetaEnrollment"](
+                user_id=uid,
+                organization_id=oid,
+                feature="practice_preview",
+                approved=True,
+            )
+        )
+        App.db.session.get(App.User, uid).birth_year = datetime.utcnow().year - 10
+        App.db.session.commit()
+    endpoint = "/api/learning/beta/practice_preview"
+    assert (
+        client.post(
+            endpoint,
+            json={"accept": True, "notice_version": policy.BETA_NOTICE_VERSION},
+        ).status_code
+        == 403
+    )
+    with App.app.app_context():
+        App.db.session.get(App.User, uid).birth_year = 2000
+        App.db.session.commit()
+    assert (
+        client.post(
+            endpoint,
+            json={"accept": True, "notice_version": policy.BETA_NOTICE_VERSION},
+        ).status_code
+        == 200
+    )
+    with App.app.app_context():
+        M["BetaEnrollment"].query.filter_by(user_id=uid).update(
+            dict(consent_version="old_notice")
+        )
+        App.db.session.commit()
+    participants = client.get(f"/api/school-admin/organizations/{oid}/beta").json[
+        "participants"
+    ]
+    assert not participants[0]["accepted"]
+    assert client.get(endpoint).json["reason"] == "beta_consent_required"
+    client.post(
+        f"/api/school-admin/organizations/{oid}/beta",
+        json={"user_id": uid, "feature": "practice_preview", "approved": False},
+    )
+    assert (
+        client.post(
+            "/api/learning/practice-preview/check", json={"area": "math"}
+        ).status_code
+        == 403
+    )

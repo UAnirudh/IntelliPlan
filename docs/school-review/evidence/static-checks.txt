@@ -1,5 +1,1 @@
 All checks passed!
-learning_hub.js: node --check exit=0
-school_admin.js: node --check exit=0
-git diff --check exit=0
-git diff --cached --check exit=0
