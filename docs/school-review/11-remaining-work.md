@@ -39,7 +39,7 @@ Statuses refer to this local checkpoint. **Verified Working** is limited to the 
 | Student data appropriately protected | Partially Working |Scope, explicit provider confirmation, minimized evidence, export/deletion controls; new scoped retention command, beta export and direct audit-target anonymization verified; all-store retention/SSO/contract/privacy operations incomplete |
 | Critical automated workflows covered | Verified Working |New focused regressions + final full-suite evidence |
 | Actual end-to-end tests executed | Verified Working |Real browser/HTTP/storage with clearly mocked external generation; not production/provider end-to-end |
-| Security/accessibility reviewed | Partially Working |Independent code review/basic keyboard/mobile/gates; screen-reader/contrast/pentest pending |
+| Security/accessibility reviewed | Partially Working |Independent code review and sixteen scoped axe/responsive checks for changed learning/admin surfaces; shared/legacy-page audit, real screen-reader testing and penetration testing pending |
 | Accurate school documentation | Verified Working |Eleven reports and explicit evidence/limitations |
 | Launch blockers identified | Verified Working |This ledger plus privacy/pilot report |
 

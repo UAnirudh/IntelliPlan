@@ -10,9 +10,940 @@
     "Institution policy change and audit via browser",
     "Monthly budget, scheduled assessment windows, retention settings and scoped beta approval",
     "Mobile layout, keyboard focus, student beta and direct API denial",
-    "Explicit preview consent, grade with tutor disabled, real reviewed scorer/hint, shared evidence, feedback, withdrawal and private export"
+    "Explicit preview consent, grade with tutor disabled, real reviewed scorer/hint, shared evidence, feedback, withdrawal and private export",
+    "All restricted activities show an access explanation without a blocked progress request"
   ],
-  "hub_load_ms": 2140,
+  "ui_checks": [
+    {
+      "surface": "hub-desktop-light",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "overflow": false,
+      "small_targets": []
+    },
+    {
+      "surface": "hub-desktop-dark",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "overflow": false,
+      "small_targets": []
+    },
+    {
+      "surface": "hub-light-320",
+      "viewport": {
+        "width": 320,
+        "height": 844
+      },
+      "overflow": false,
+      "small_targets": []
+    },
+    {
+      "surface": "hub-light-390",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false,
+      "small_targets": []
+    },
+    {
+      "surface": "hub-light-768",
+      "viewport": {
+        "width": 768,
+        "height": 844
+      },
+      "overflow": false,
+      "small_targets": []
+    },
+    {
+      "surface": "reviewed-course-desktop-light",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "overflow": false,
+      "small_targets": []
+    },
+    {
+      "surface": "institution-desktop-light",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "overflow": false,
+      "small_targets": []
+    },
+    {
+      "surface": "institution-desktop-dark",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "overflow": false,
+      "small_targets": []
+    },
+    {
+      "surface": "institution-light-320",
+      "viewport": {
+        "width": 320,
+        "height": 844
+      },
+      "overflow": false,
+      "small_targets": []
+    },
+    {
+      "surface": "institution-light-390",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false,
+      "small_targets": []
+    },
+    {
+      "surface": "institution-light-768",
+      "viewport": {
+        "width": 768,
+        "height": 844
+      },
+      "overflow": false,
+      "small_targets": []
+    },
+    {
+      "surface": "restricted-student-study-mobile-light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false,
+      "small_targets": []
+    },
+    {
+      "surface": "consented-preview-mobile-light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false,
+      "small_targets": []
+    },
+    {
+      "surface": "scored-preview-mobile-light",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false,
+      "small_targets": []
+    },
+    {
+      "surface": "scored-preview-mobile-dark-reduced-motion",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false,
+      "small_targets": []
+    },
+    {
+      "surface": "all-activities-disabled-mobile",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "overflow": false,
+      "small_targets": []
+    }
+  ],
+  "accessibility": [
+    {
+      "version": "4.14.0",
+      "violations": [],
+      "incomplete": [],
+      "passed_rules": 20,
+      "surface": "hub-desktop-light"
+    },
+    {
+      "version": "4.14.0",
+      "violations": [],
+      "incomplete": [],
+      "passed_rules": 20,
+      "surface": "hub-desktop-dark"
+    },
+    {
+      "version": "4.14.0",
+      "violations": [],
+      "incomplete": [],
+      "passed_rules": 20,
+      "surface": "hub-light-320"
+    },
+    {
+      "version": "4.14.0",
+      "violations": [],
+      "incomplete": [],
+      "passed_rules": 20,
+      "surface": "hub-light-390"
+    },
+    {
+      "version": "4.14.0",
+      "violations": [],
+      "incomplete": [],
+      "passed_rules": 20,
+      "surface": "hub-light-768"
+    },
+    {
+      "version": "4.14.0",
+      "violations": [],
+      "incomplete": [],
+      "passed_rules": 21,
+      "surface": "reviewed-course-desktop-light"
+    },
+    {
+      "version": "4.14.0",
+      "violations": [],
+      "incomplete": [],
+      "passed_rules": 18,
+      "surface": "institution-desktop-light"
+    },
+    {
+      "version": "4.14.0",
+      "violations": [],
+      "incomplete": [],
+      "passed_rules": 18,
+      "surface": "institution-desktop-dark"
+    },
+    {
+      "version": "4.14.0",
+      "violations": [],
+      "incomplete": [],
+      "passed_rules": 18,
+      "surface": "institution-light-320"
+    },
+    {
+      "version": "4.14.0",
+      "violations": [],
+      "incomplete": [],
+      "passed_rules": 18,
+      "surface": "institution-light-390"
+    },
+    {
+      "version": "4.14.0",
+      "violations": [],
+      "incomplete": [],
+      "passed_rules": 18,
+      "surface": "institution-light-768"
+    },
+    {
+      "version": "4.14.0",
+      "violations": [],
+      "incomplete": [],
+      "passed_rules": 20,
+      "surface": "restricted-student-study-mobile-light"
+    },
+    {
+      "version": "4.14.0",
+      "violations": [],
+      "incomplete": [],
+      "passed_rules": 20,
+      "surface": "consented-preview-mobile-light"
+    },
+    {
+      "version": "4.14.0",
+      "violations": [],
+      "incomplete": [],
+      "passed_rules": 20,
+      "surface": "scored-preview-mobile-light"
+    },
+    {
+      "version": "4.14.0",
+      "violations": [],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "tags": [
+            "cat.color",
+            "wcag2aa",
+            "wcag143",
+            "TTv5",
+            "TT13.c",
+            "EN-301-549",
+            "EN-9.1.4.3",
+            "ACT",
+            "RGAAv4",
+            "RGAA-3.2.1"
+          ],
+          "description": "Ensure the contrast between foreground and background colors meets WCAG 2 AA minimum contrast ratio thresholds",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/color-contrast?application=axeAPI",
+          "nodes": [
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": null,
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "9.6pt (12.8px)",
+                    "fontWeight": "normal",
+                    "messageKey": "bgGradient",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null,
+                    "colorParse": null
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<body class=\"has-side has-tabbar has-own-chat\">",
+                      "target": [
+                        "body"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a background gradient"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<span class=\"learning-eyebrow\">Learning hub</span>",
+              "target": [
+                ".learning-context > .learning-eyebrow"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": null,
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "24.0pt (32px)",
+                    "fontWeight": "normal",
+                    "messageKey": "bgGradient",
+                    "expectedContrastRatio": "3:1",
+                    "shadowColor": null,
+                    "colorParse": null
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<body class=\"has-side has-tabbar has-own-chat\">",
+                      "target": [
+                        "body"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a background gradient"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<h1 id=\"hub-title\">Understand it. Practice it. Remember it.</h1>",
+              "target": [
+                "#hub-title"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": null,
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "11.3pt (15px)",
+                    "fontWeight": "normal",
+                    "messageKey": "bgGradient",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null,
+                    "colorParse": null
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<body class=\"has-side has-tabbar has-own-chat\">",
+                      "target": [
+                        "body"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a background gradient"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<p>Bring a question, choose one clear study goal, and check what you understand.</p>",
+              "target": [
+                ".learning-intro > p"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": null,
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "10.5pt (14px)",
+                    "fontWeight": "normal",
+                    "messageKey": "bgGradient",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null,
+                    "colorParse": null
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<body class=\"has-side has-tabbar has-own-chat\">",
+                      "target": [
+                        "body"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a background gradient"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<button type=\"button\" data-activity=\"study\" aria-pressed=\"false\">Study session</button>",
+              "target": [
+                "button[data-activity=\"study\"]"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": null,
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "10.5pt (14px)",
+                    "fontWeight": "normal",
+                    "messageKey": "bgGradient",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null,
+                    "colorParse": null
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<body class=\"has-side has-tabbar has-own-chat\">",
+                      "target": [
+                        "body"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a background gradient"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<button type=\"button\" data-activity=\"progress\" aria-pressed=\"false\">My progress</button>",
+              "target": [
+                "button[data-activity=\"progress\"]"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": null,
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "9.6pt (12.8px)",
+                    "fontWeight": "normal",
+                    "messageKey": "bgGradient",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null,
+                    "colorParse": null
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<body class=\"has-side has-tabbar has-own-chat\">",
+                      "target": [
+                        "body"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a background gradient"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<span class=\"learning-eyebrow\">A little intention goes a long way</span>",
+              "target": [
+                ".learning-guide > .learning-eyebrow"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": null,
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "24.0pt (32px)",
+                    "fontWeight": "normal",
+                    "messageKey": "bgGradient",
+                    "expectedContrastRatio": "3:1",
+                    "shadowColor": null,
+                    "colorParse": null
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<body class=\"has-side has-tabbar has-own-chat\">",
+                      "target": [
+                        "body"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a background gradient"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<h2 id=\"learning-guide-title\">Make it stick.</h2>",
+              "target": [
+                "#learning-guide-title"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": null,
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "10.5pt (14px)",
+                    "fontWeight": "normal",
+                    "messageKey": "bgGradient",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null,
+                    "colorParse": null
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<body class=\"has-side has-tabbar has-own-chat\">",
+                      "target": [
+                        "body"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a background gradient"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<strong>Find your question.</strong>",
+              "target": [
+                "li:nth-child(1) > strong"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": null,
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "10.2pt (13.6px)",
+                    "fontWeight": "normal",
+                    "messageKey": "bgGradient",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null,
+                    "colorParse": null
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<body class=\"has-side has-tabbar has-own-chat\">",
+                      "target": [
+                        "body"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a background gradient"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<p>Start with the part you can't quite explain yet.</p>",
+              "target": [
+                "li:nth-child(1) > p"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": null,
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "10.5pt (14px)",
+                    "fontWeight": "normal",
+                    "messageKey": "bgGradient",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null,
+                    "colorParse": null
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<body class=\"has-side has-tabbar has-own-chat\">",
+                      "target": [
+                        "body"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a background gradient"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<strong>Try it for yourself.</strong>",
+              "target": [
+                "li:nth-child(2) > strong"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": null,
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "10.2pt (13.6px)",
+                    "fontWeight": "normal",
+                    "messageKey": "bgGradient",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null,
+                    "colorParse": null
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<body class=\"has-side has-tabbar has-own-chat\">",
+                      "target": [
+                        "body"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a background gradient"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<p>Work through an example, on screen or on paper.</p>",
+              "target": [
+                "li:nth-child(2) > p"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": null,
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "10.5pt (14px)",
+                    "fontWeight": "normal",
+                    "messageKey": "bgGradient",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null,
+                    "colorParse": null
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<body class=\"has-side has-tabbar has-own-chat\">",
+                      "target": [
+                        "body"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a background gradient"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<strong>Come back to it.</strong>",
+              "target": [
+                "li:nth-child(3) > strong"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": null,
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "10.2pt (13.6px)",
+                    "fontWeight": "normal",
+                    "messageKey": "bgGradient",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null,
+                    "colorParse": null
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<body class=\"has-side has-tabbar has-own-chat\">",
+                      "target": [
+                        "body"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a background gradient"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<p>Recall the idea before opening your notes.</p>",
+              "target": [
+                "li:nth-child(3) > p"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": null,
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "9.4pt (12.48px)",
+                    "fontWeight": "normal",
+                    "messageKey": "bgGradient",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null,
+                    "colorParse": null
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<body class=\"has-side has-tabbar has-own-chat\">",
+                      "target": [
+                        "body"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a background gradient"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<h3>Your study tools</h3>",
+              "target": [
+                ".learning-guide-links > h3"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": null,
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "10.0pt (13.28px)",
+                    "fontWeight": "normal",
+                    "messageKey": "bgGradient",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null,
+                    "colorParse": null
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<body class=\"has-side has-tabbar has-own-chat\">",
+                      "target": [
+                        "body"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a background gradient"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<a href=\"/foundations\">Reviewed Foundations practice <span aria-hidden=\"true\">\u2197</span></a>",
+              "target": [
+                ".learning-guide-links > a[href$=\"foundations\"]"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": null,
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "10.0pt (13.28px)",
+                    "fontWeight": "normal",
+                    "messageKey": "bgGradient",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null,
+                    "colorParse": null
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<body class=\"has-side has-tabbar has-own-chat\">",
+                      "target": [
+                        "body"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a background gradient"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<a href=\"/study-files\">My study materials <span aria-hidden=\"true\">\u2197</span></a>",
+              "target": [
+                "a[href$=\"study-files\"]"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": null,
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "10.0pt (13.28px)",
+                    "fontWeight": "normal",
+                    "messageKey": "bgGradient",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null,
+                    "colorParse": null
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<body class=\"has-side has-tabbar has-own-chat\">",
+                      "target": [
+                        "body"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a background gradient"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<a href=\"/flashcards\">My flashcards <span aria-hidden=\"true\">\u2197</span></a>",
+              "target": [
+                ".learning-guide-links > a[href$=\"flashcards\"]"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": null,
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "9.6pt (12.8px)",
+                    "fontWeight": "normal",
+                    "messageKey": "bgGradient",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null,
+                    "colorParse": null
+                  },
+                  "relatedNodes": [
+                    {
+                      "html": "<body class=\"has-side has-tabbar has-own-chat\">",
+                      "target": [
+                        "body"
+                      ]
+                    }
+                  ],
+                  "impact": "serious",
+                  "message": "Element's background color could not be determined due to a background gradient"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<p class=\"learning-note\">Your progress keeps reported work, assisted practice, and independent checks distinct.</p>",
+              "target": [
+                ".learning-guide > .learning-note"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element's background color could not be determined due to a background gradient"
+            }
+          ]
+        }
+      ],
+      "passed_rules": 20,
+      "surface": "scored-preview-mobile-dark-reduced-motion"
+    },
+    {
+      "version": "4.14.0",
+      "violations": [],
+      "incomplete": [],
+      "passed_rules": 11,
+      "surface": "all-activities-disabled-mobile"
+    }
+  ],
+  "hub_load_ms": 2604,
   "javascript_errors": [],
   "status": "passed"
 }

@@ -24,6 +24,8 @@ Verified: local automated permission, privacy, scoring, recovery and regression 
 10. [School adoption readiness and administrator guide](10-school-readiness.md).
 11. [Remaining work and acceptance ledger](11-remaining-work.md).
 
+The engineering checkpoint was saved before a subsequent [Learning Hub and institution UI pass](12-ui-design.md), informed by live Skydive, Cluely, Linear and Notion references. It adds theme-aware layouts, useful question starters, course preparation/progress and grouped settings while preserving beta notices and policy gates. Ten browser workflows and sixteen scoped responsive/accessibility checks accompany the UI work. The broader acceptance ledger remains unchanged in scope.
+
 Evidence is preserved in [evidence](evidence/). Source inventory is not a proof that every route is governed. Existing assignments, schedule storage, accounts, reviewed tutor checks, Primer and Family records were not replaced. Account deletion includes the new learning records. Course flags are absent/disabled by default; enabling beta requires a deliberate platform operation.
 
 No commit in this checkpoint constitutes institutional permission, provider-contract approval, legal certification, validated educational effectiveness, WCAG conformance, or production deployment verification.

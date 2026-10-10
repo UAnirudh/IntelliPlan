@@ -5,11 +5,11 @@
   },
   {
     "path": "Main_Project/templates/learning_hub.html",
-    "sha256": "67397c3a7291ec18cda76adadd5ea6feba1d918744caab7c7888b85a695707aa"
+    "sha256": "8a3203a2b169e9c5f13e9e1e502f1b896a4c11585d3c5d2632b1d99ab9fbe30f"
   },
   {
     "path": "Main_Project/templates/school_admin.html",
-    "sha256": "ceaa86c1d2d59b739a31837105fe95e0b7ab8aab49cbd76ca7f7b616c1c8b648"
+    "sha256": "013930b66889f15519e82a00e7ef42bf46027b6f468e597c5ee16c30a89a2597"
   },
   {
     "path": "ai_provider.py",
@@ -73,7 +73,7 @@
   },
   {
     "path": "scripts/verify_learning_hub.py",
-    "sha256": "c7e930e1f12b14356da85f0c2f8335f22e841c33962083dd30e151cf072183ca"
+    "sha256": "1ac786f6fe7c8a7ba6eaf30d678a37c9138101f435e19155fd3cbffeda386268"
   },
   {
     "path": "scripts/verify_learning_provider.py",
@@ -85,15 +85,15 @@
   },
   {
     "path": "static/css/learning_hub.css",
-    "sha256": "a04f7c475e1064d60442d3f87cf4a8cfcf7d374be10283a30c8502a1a48a5e45"
+    "sha256": "6b7921381a25bb091f4669763430081a9a5fe736483e40e3d6c2536b99619ce2"
   },
   {
     "path": "static/js/learning_hub.js",
-    "sha256": "a19b193c3cd76475fbae5967bbee6ccc8f6f917b502f562bfcc4080e1624fe0f"
+    "sha256": "e2c33a7796646e5f1166c7d566aa2099625f62a57da1f13fe84f10ba3f9181c4"
   },
   {
     "path": "static/js/school_admin.js",
-    "sha256": "b3a1d9b022b2d637f547e04bc09f7ac5c4fa6fc0d53c21f786d74978597765f0"
+    "sha256": "94524896cf9d74ab8c6962f4974f006588e9784d14a00c4caab878d4730aadbc"
   },
   {
     "path": "tests/test_learning_hub.py",

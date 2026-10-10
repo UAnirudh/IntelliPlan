@@ -10,6 +10,7 @@ Measured locally on Windows using disposable SQLite and Chromium, not production
 | Initial passing hub browser navigation |4324ms to networkidle | Includes shared assets/local startup effects |
 | Expanded passing browser navigation |1572ms to networkidle | Single local run, not P50/P95 or controlled improvement |
 | Final delivery browser navigation |4198ms to networkidle | Single local run; variation reinforces the need for controlled measurements |
+| UI checkpoint browser navigation |2604ms to networkidle | Single local disposable run; not a controlled improvement or production target |
 | Live original-blueprint check |27ms initially,18ms on final repeat,503 | Configuration refusal, not AI generation latency |
 | Original course end-to-end generation |Not measured with real provider | Browser worker generations are fixtures |
 | AI tutor latency under real provider |Not measured | Protected concept path is deterministic; no model benchmark |

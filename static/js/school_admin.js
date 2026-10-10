@@ -21,7 +21,11 @@
     const input = document.createElement('input'); input.type = 'checkbox'; input.id = `policy-${key}`;
     wrapper.append(input, document.createTextNode(label)); $(container).append(wrapper);
   }
-  for (const [key, label] of Object.entries(settings)) checkbox('admin-features', key, label);
+  const connections = new Set(['canvas', 'studentvue', 'calendar', 'uploads', 'notifications']);
+  const experiments = new Set(['course_generator', 'generated_content', 'video_generation', 'practice_preview', 'allow_beta', 'third_party_processing']);
+  for (const [key, label] of Object.entries(settings)) {
+    checkbox(connections.has(key) ? 'admin-connections' : experiments.has(key) ? 'admin-experiments' : 'admin-features', key, label);
+  }
   for (const provider of ['groq', 'gemini', 'claude']) checkbox('admin-providers', provider, provider);
   async function render() {
     selected = organizations.find(o => o.id === Number($('admin-organization').value));
@@ -39,14 +43,17 @@
     for (const [id, rows, format] of [['admin-members', members.members, r => `Account ${r.user_id} · ${r.role}`],
       ['admin-audit', audit.events, r => `${r.created_at} · ${r.action} · actor ${r.actor_id || 'deleted account'}`]]) {
       $(id).replaceChildren(); for (const row of rows) { const p = document.createElement('p'); p.textContent = format(row); $(id).append(p); }
+      if (!rows.length) { const p = document.createElement('p'); p.textContent = id === 'admin-members' ? 'No members added to this organization yet.' : 'Policy changes will appear here.'; $(id).append(p); }
     }
     const [beta, operations] = await Promise.all([api(`/api/school-admin/organizations/${renderedOrganization.id}/beta`), api(`/api/school-admin/organizations/${renderedOrganization.id}/operations`)]);
     if (selected !== renderedOrganization) return;
     $('admin-beta-participants').replaceChildren();
     for (const row of beta.participants) { const p = document.createElement('p'); p.textContent = `Account ${row.user_id} · ${row.approved ? 'approved' : 'revoked'} · ${row.accepted ? 'accepted notice' : 'not enrolled'}`; $('admin-beta-participants').append(p); }
+    if (!beta.participants.length) $('admin-beta-participants').textContent = 'No preview participants approved yet.';
     $('admin-operations').replaceChildren();
     for (const row of operations.budgets) { const p = document.createElement('p'); p.textContent = `${row.month} · ${row.reserved_tokens} tokens reserved`; $('admin-operations').append(p); }
     for (const row of operations.feedback) { const p = document.createElement('p'); p.textContent = `${row.feature} · ${row.category}: ${row.message}`; $('admin-operations').append(p); }
+    if (!operations.budgets.length && !operations.feedback.length) $('admin-operations').textContent = 'Generation reservations and participant feedback will appear here.';
   }
   $('admin-organization').addEventListener('change', () => render().catch(e => status(e.message)));
   $('admin-policy').addEventListener('submit', async event => {

@@ -22,8 +22,9 @@
   }
   async function run(control, action) {
     control.disabled = true;
+    control.setAttribute('aria-busy', 'true');
     try { await action(); } catch (error) { status(error.message); }
-    finally { control.disabled = control.dataset.finished === 'true' || control.dataset.locked === 'true'; }
+    finally { control.removeAttribute('aria-busy'); control.disabled = control.dataset.finished === 'true' || control.dataset.locked === 'true'; }
   }
   const messages = []; let conversationId, sittingId, started, timer, courseRequest = 0;
   function showSitting(data) {
@@ -42,23 +43,41 @@
     const open = data.sessions.find(s => ['active','paused'].includes(s.state));
     if (open) { showSitting(open); status('Your unfinished study session is ready to resume or finish.'); }
   }
-  document.querySelectorAll('[data-activity]').forEach(b => b.addEventListener('click', () => {
+  function selectActivity(b) {
     document.querySelectorAll('[data-activity]').forEach(tab => tab.setAttribute('aria-pressed', String(tab === b)));
     document.querySelectorAll('[data-panel]').forEach(panel => { panel.hidden = panel.dataset.panel !== b.dataset.activity; });
     if (b.dataset.activity === 'progress') loadProgress().catch(e => status(e.message));
     if (b.dataset.activity === 'courses') loadLibrary().catch(e => status(e.message));
+  }
+  document.querySelectorAll('[data-activity]').forEach(b => b.addEventListener('click', () => selectActivity(b)));
+  document.querySelectorAll('[data-question]').forEach(b => b.addEventListener('click', () => {
+    $('hub-question').value = b.dataset.question;
+    $('tutor-activity').value = b.dataset.mode || 'learn';
+    $('hub-question').focus();
   }));
+  function addMessage(role, content) {
+    const entry = node('article', undefined, $('hub-conversation'));
+    entry.className = 'learning-message'; entry.dataset.role = role;
+    node('h3', role === 'user' ? 'Your question' : 'IntelliPlan tutor', entry);
+    node('p', content, entry);
+    return entry;
+  }
   $('hub-tutor-form').addEventListener('submit', event => {
     event.preventDefault();
     run(event.submitter, async () => {
       const question = $('hub-question').value.trim(); if (!question) return;
       const activity = $('tutor-activity').value;
-      messages.push({role: 'user', content: `${activity === 'practice' ? 'Guide me with hints and ask me to reason. ' : activity === 'review' ? 'Help me retrieve and review this concept. ' : 'Explain clearly, then check my understanding. '}${question}`});
-      node('p', question, $('hub-conversation')).className = 'learning-message';
-      const data = await post('/api/tutor', {messages: messages.slice(-16), conversation_id: conversationId});
+      const message = {role: 'user', content: `${activity === 'practice' ? 'Guide me with hints and ask me to reason. ' : activity === 'review' ? 'Help me retrieve and review this concept. ' : 'Explain clearly, then check my understanding. '}${question}`};
+      const entry = addMessage('user', question);
+      let data;
+      try { data = await post('/api/tutor', {messages: [...messages, message].slice(-16), conversation_id: conversationId}); }
+      catch (error) { entry.remove(); throw error; }
+      messages.push(message);
       messages.push({role: 'assistant', content: data.reply}); conversationId = data.conversation_id;
-      node('p', data.reply, $('hub-conversation')).className = 'learning-message';
-      $('hub-question').value = ''; status(data.assessment_protection ? 'Your school’s assessment protection is active.' : '');
+      addMessage('assistant', data.reply);
+      if ($('hub-question').value.trim() === question) $('hub-question').value = '';
+      $('tutor-starters').hidden = true;
+      status(data.assessment_protection ? 'Your school’s assessment protection is active.' : '');
     });
   });
   $('hub-sitting-form').addEventListener('submit', event => {
@@ -195,6 +214,8 @@
   });
   async function loadLibrary() {
     const data = await api('/api/learning/courses'); const panel = $('course-library'); panel.replaceChildren();
+    node('h3', 'Your saved courses', panel);
+    if (!data.courses.length) node('p', 'Start with a learning goal above. Your outline and lessons will stay here when you return.', panel).className = 'learning-empty';
     for (const course of data.courses) button(`${course.title} · ${course.state}`, panel, () => openCourse(course.id));
   }
   async function openCourse(id) {
@@ -205,19 +226,32 @@
     if (requestId !== courseRequest) return;
     const panel = $('course-workspace'); panel.replaceChildren();
     node('h3', course.blueprint.title, panel); node('p', course.blueprint.overview, panel);
+    const stages = node('ol', undefined, panel); stages.className = 'learning-course-stages'; stages.setAttribute('aria-label', 'Course preparation');
+    const stage = course.state === 'reviewed' ? 2 : course.lessons.length === course.blueprint.lessons.length ? 2 : course.job ? 1 : 0;
+    ['Outline', 'Lessons', 'Human review'].forEach((label, i) => {
+      const item = node('li', label, stages);
+      if (i === stage) item.setAttribute('aria-current', 'step');
+    });
     node('p', `Next: ${course.next.key || 'Review'} · ${course.next.reason}`, panel);
+    const outline = node('details', undefined, panel); outline.className = 'learning-outline'; outline.open = course.state === 'draft';
+    node('summary', `Course outline · ${course.blueprint.lessons.length} lessons`, outline);
     const fields = [];
     for (const spec of course.blueprint.lessons) {
-      const label = node('label', `${spec.unit} · ${spec.minutes} minutes`, panel);
+      if (course.state !== 'draft') { node('p', `${spec.title} · ${spec.unit} · ${spec.minutes} minutes`, outline); continue; }
+      const label = node('label', `${spec.unit} · ${spec.minutes} minutes`, outline);
       const input = node('input', undefined, label); input.value = spec.title; input.maxLength = 200;
       input.disabled = course.state !== 'draft'; fields.push([spec, input]);
     }
-    if (course.state === 'draft') button('Save outline edits', panel, async () => {
+    if (course.state === 'draft') button('Save outline edits', outline, async () => {
       for (const [spec, input] of fields) spec.title = input.value;
       await api(`/api/learning/courses/${id}`, {method: 'PUT', body: JSON.stringify({blueprint: course.blueprint})});
       if (requestId === courseRequest) status('Outline saved.');
     });
     if (course.job) node('p', `Generation: ${course.job.state} · ${course.lessons.length}/${course.blueprint.lessons.length} lessons · ${course.job.reserved_tokens}/${course.job.token_budget} tokens reserved${course.job.error ? ` · ${course.job.error}` : ''}`, panel);
+    if (course.job) {
+      const saved = node('progress', undefined, panel); saved.max = course.blueprint.lessons.length; saved.value = course.lessons.length;
+      saved.setAttribute('aria-label', 'Lessons saved');
+    }
     button('Refresh progress', panel, () => openCourse(id));
     if (!course.job || ['failed', 'cancelled'].includes(course.job.state)) button(course.job ? 'Resume generation' : 'Generate lessons', panel, async () => {
       await post(`/api/learning/courses/${id}/generation`, {action: course.job ? 'retry' : 'start',
@@ -273,11 +307,23 @@
   }
   api('/api/learning/capabilities').then(data => {
     loadPreview().catch(() => { $('practice-preview').hidden = true; });
-    for (const [activity, key] of [['tutor','tutor'], ['study','study'], ['review','review'], ['courses','course_generator']]) {
+    for (const [activity, key] of [['tutor','tutor'], ['study','study'], ['review','review'], ['courses','course_generator'], ['progress','study']]) {
       const b = document.querySelector(`[data-activity="${activity}"]`); b.hidden = !data.features[key].allowed;
       if (!data.features[key].allowed && activity === 'tutor') {
         document.querySelector('[data-panel="tutor"]').hidden = true;
         status(data.features[key].reason === 'institution_policy' ? 'Your institution has restricted this activity. Other permitted activities remain available.' : 'This activity is currently unavailable. Sign in to use private learning activities.');
+      }
+    }
+    const active = document.querySelector('[data-activity][aria-pressed="true"]');
+    if (active.hidden) {
+      const permitted = [...document.querySelectorAll('[data-activity]')].find(b => !b.hidden);
+      if (permitted) selectActivity(permitted);
+      else {
+        document.querySelectorAll('[data-panel]').forEach(panel => { panel.hidden = true; });
+        $('hub-unavailable').hidden = false;
+        document.querySelector('.learning-guide').hidden = true;
+        document.querySelector('.learning-activities').hidden = true;
+        status('');
       }
     }
     $('focus-link').hidden = !data.features.focus.allowed;
