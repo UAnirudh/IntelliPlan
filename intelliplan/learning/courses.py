@@ -6,6 +6,7 @@ failure. Human review is required before any generated quiz can be scored.
 """
 import json
 import uuid
+from copy import deepcopy
 from contextvars import ContextVar
 from datetime import datetime, timedelta
 
@@ -110,6 +111,30 @@ def public_lesson(row):
         quiz.pop('explanation', None)
         content['quiz'] = quiz
     return dict(id=row.id, key=row.key, reviewed=row.reviewed, content=content)
+
+
+def fork_lesson(course, lesson, replacement=None):
+    """Save a new course version, preserving original content and scored evidence."""
+    from App import db, User
+    M = policy.models()
+    blueprint = deepcopy(course.blueprint)
+    blueprint['revision_source'] = dict(course_id=course.id, lesson_key=lesson.key,
+                                       action='edit' if replacement is not None else 'regenerate')
+    revised = M['Course'](user_id=course.user_id, mode=course.mode, goal=course.goal,
+        blueprint=blueprint, revision=course.revision + 1,
+        state='needs_review' if replacement is not None else 'generating')
+    db.session.add(revised)
+    db.session.flush()
+    for original in M['Lesson'].query.filter_by(course_id=course.id).all():
+        if original.id == lesson.id and replacement is None:
+            continue  # The existing bounded worker generates exactly this missing key.
+        content = replacement if original.id == lesson.id else original.content
+        db.session.add(M['Lesson'](course_id=revised.id, key=original.key,
+                                  content=deepcopy(content), reviewed=False))
+    if replacement is None:
+        db.session.add(M['Job'](course_id=revised.id,
+            token_budget=policy.effective(db.session.get(User, course.user_id))['max_generation_tokens']))
+    return revised
 
 
 def next_activity(course, evidence):

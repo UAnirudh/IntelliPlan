@@ -130,6 +130,117 @@ def original_lesson():
     )
 
 
+def completed_original(uid):
+    """Seed a reviewed course without making an external provider request."""
+    with App.app.app_context():
+        M = policy.models()
+        course = M['Course'](user_id=uid, mode='generated', goal='Python variables',
+            blueprint=courses.validate_blueprint(courses.catalog.python_blueprint('Python variables')),
+            state='reviewed')
+        App.db.session.add(course)
+        App.db.session.flush()
+        for spec in course.blueprint['lessons']:
+            App.db.session.add(M['Lesson'](course_id=course.id, key=spec['key'],
+                content=original_lesson(), reviewed=True))
+        App.db.session.add(M['Job'](course_id=course.id, state='completed', attempts=6, reserved_tokens=18000))
+        App.db.session.commit()
+        return course.id, M['Lesson'].query.filter_by(course_id=course.id).order_by(M['Lesson'].id).first().id
+
+
+def test_lesson_edit_preserves_original_content_and_evidence(client, monkeypatch):
+    uid = enable(monkeypatch, client)
+    cid, lid = completed_original(uid)
+    assert client.post(f'/api/learning/courses/{cid}/lessons/{lid}/answer', json={'answer': 0}).status_code == 200
+    edited = original_lesson()
+    edited['explanation'] = 'A corrected explanation with **formatting**.'
+    edited['quiz']['answer'] = 1
+    response = client.post(f'/api/learning/courses/{cid}/lessons/{lid}/revision', json={'action': 'edit', 'content': edited})
+    assert response.status_code == 201, response.json
+    revised_id = response.json['id']
+    revised = client.get(f'/api/learning/courses/{revised_id}').json
+    original = client.get(f'/api/learning/courses/{cid}').json
+    assert original['state'] == 'reviewed' and original['lessons'][0]['attempt']['correct']
+    assert original['lessons'][0]['content']['explanation'] == original_lesson()['explanation']
+    assert revised['state'] == 'needs_review' and revised['job'] is None
+    assert revised['blueprint']['revision_source']['course_id'] == cid
+    assert len(revised['lessons']) == 6
+    assert all(not item['reviewed'] and 'attempt' not in item for item in revised['lessons'])
+    assert revised['lessons'][0]['content']['explanation'] == edited['explanation']
+    assert 'answer' not in revised['lessons'][0]['content']['quiz']
+    new_lid = revised['lessons'][0]['id']
+    assert client.post(f'/api/learning/courses/{revised_id}/lessons/{new_lid}/answer', json={'answer': 1}).status_code == 409
+    assert client.post(f'/api/learning/courses/{revised_id}/generation', json={'confirm_provider_use': True}).status_code == 409
+    assert client.post(f'/api/learning/courses/{revised_id}/review', json={'confirm_accuracy': True}).status_code == 200
+    assert client.post(f'/api/learning/courses/{revised_id}/lessons/{new_lid}/answer', json={'answer': 1}).json['correct']
+    with App.app.app_context():
+        rows = policy.models()['Evidence'].query.filter_by(user_id=uid).all()
+        assert len(rows) == 2 and all(row.assisted for row in rows)
+    exported = client.get('/api/learning/export').json
+    assert len(exported['courses']) == 2 and len(exported['evidence']) == 2
+
+
+def test_single_lesson_regeneration_uses_bounded_worker(client, monkeypatch):
+    uid = enable(monkeypatch, client)
+    cid, lid = completed_original(uid)
+    calls = []
+    replacement = original_lesson()
+    replacement['explanation'] = 'A newly generated original explanation.'
+    def chat(*args, **kwargs):
+        calls.append((args, kwargs))
+        return replacement
+    monkeypatch.setattr('ai_provider.chat_json', chat)
+    path = f'/api/learning/courses/{cid}/lessons/{lid}/revision'
+    assert client.post(path, json={'action': 'regenerate'}).status_code == 400
+    response = client.post(path, json={'action': 'regenerate', 'confirm_provider_use': True})
+    assert response.status_code == 201, response.json
+    revised_id = response.json['id']
+    before = client.get(f'/api/learning/courses/{revised_id}').json
+    assert len(before['lessons']) == 5 and before['job']['reserved_tokens'] == 0
+    assert not calls
+    with App.app.app_context():
+        assert courses.run_one_job()
+        assert courses.run_one_job()
+    after = client.get(f'/api/learning/courses/{revised_id}').json
+    assert len(calls) == 1 and calls[0][1]['single_attempt']
+    assert calls[0][1]['max_tokens'] == courses.LESSON_OUTPUT_TOKENS
+    assert after['state'] == 'needs_review' and after['job']['state'] == 'completed'
+    assert [item['key'] for item in after['lessons']] == [spec['key'] for spec in after['blueprint']['lessons']]
+    assert [item['key'] for item in client.get(f'/api/learning/courses/{revised_id}/review').json['lessons']] == [spec['key'] for spec in after['blueprint']['lessons']]
+    assert after['job']['reserved_tokens'] > 0 and after['job']['attempts'] == 1
+    changed = next(item for item in after['lessons'] if item['key'] == before['blueprint']['revision_source']['lesson_key'])
+    assert changed['content']['explanation'] == replacement['explanation'] and not changed['reviewed']
+    exported = next(item for item in client.get('/api/learning/export').json['courses'] if item['id'] == revised_id)
+    assert exported['lessons'][0]['explanation'] == replacement['explanation']
+    assert client.get(f'/api/learning/courses/{cid}').json['lessons'][0]['content']['explanation'] == original_lesson()['explanation']
+
+
+def test_lesson_revision_boundaries(client, monkeypatch):
+    uid = enable(monkeypatch, client)
+    cid, lid = completed_original(uid)
+    path = f'/api/learning/courses/{cid}/lessons/{lid}/revision'
+    for data in [{'action': 'delete'}, {'action': 'edit', 'content': {}}, {'action': 'edit', 'content': {'quiz': {'answer': True}}}]:
+        assert client.post(path, json=data).status_code == 400
+    monkeypatch.setattr('ai_provider.model_chain', lambda: [])
+    assert client.post(path, json={'action': 'regenerate', 'confirm_provider_use': True}).status_code == 503
+    # Manual correction sends no provider request and remains available offline.
+    assert client.post(path, json={'action': 'edit', 'content': original_lesson()}).status_code == 201
+    with App.app.app_context():
+        job = policy.models()['Job'].query.filter_by(course_id=cid).first()
+        job.state = 'running'
+        App.db.session.commit()
+    assert client.post(path, json={'action': 'edit', 'content': original_lesson()}).status_code == 409
+    with App.app.app_context():
+        job = policy.models()['Job'].query.filter_by(course_id=cid).first()
+        job.state = 'completed'
+        policy.models()['Course'].query.filter_by(id=cid).first().mode = 'curated'
+        App.db.session.commit()
+    assert client.post(path, json={'action': 'edit', 'content': original_lesson()}).status_code == 409
+    user(client, monkeypatch, admin=True)
+    assert client.post(path, json={'action': 'edit', 'content': original_lesson()}).status_code == 404
+    user(client, monkeypatch)
+    assert client.post(path, json={'action': 'edit', 'content': original_lesson()}).status_code == 403
+
+
 def test_hub_renders_and_keeps_legacy_surfaces(client):
     for path in ["/learning", "/study-and-learn", "/tutor", "/learn", "/study"]:
         assert client.get(path).status_code == 200

@@ -4,7 +4,7 @@ Statuses refer to this local checkpoint. **Verified Working** is limited to the 
 
 | Requested acceptance item | Status | Evidence / remaining work |
 |---|---|---|
-| Existing features audited | Partially Working |642 source route decorators + full regression suite + scoped feature matrix; live whole-product audit incomplete |
+| Existing features audited | Partially Working |643 source route decorators + full regression suite + scoped feature matrix; live whole-product audit incomplete |
 | Major broken functionality repaired | Partially Working |Navigation, scripts, summaries and discovered permission/race/evidence defects fixed; whole-platform vendor/device reliability not demonstrated |
 | Redundant learning features consolidated | Partially Working |One entry hub and reused endpoints; legacy pages/contracts preserved; duplicated underlying systems not fully normalized |
 | Unified Learning Hub exists/functions | Verified Working |Local API + actual desktop/mobile browser workflows |
@@ -24,6 +24,7 @@ Statuses refer to this local checkpoint. **Verified Working** is limited to the 
 | Genuine structured original lessons | Implemented but Unverified |Required teaching/quiz schemas and fixture persistence; live provider unavailable |
 | Original content quality evaluation | Partially Working |Schema validation and human key review; independent correctness/age-quality benchmark missing |
 | Persistent course/generation state | Verified Working |Saved blueprint/lessons/job, retry/cancel/expired lease tests |
+| Individual original-lesson editing/regeneration | Verified Working |New course revisions preserve originals/evidence; validated edit, one missing-key worker regeneration, review lock, sequence/export, owner/admin/provider gates and browser flows; production/provider output unverified |
 | Adaptive recommendations | Partially Working |Interpretable missing/failed/assisted prerequisites and limited due review; fresh reviewed checks, hint accounting and existing adaptive practice path connected; course-specific fresh assessment/error taxonomy incomplete |
 | Safe generation recovery | Verified Working |Checkpoint, reservation, lease and in-flight revocation/cancel tests locally; production concurrency unverified |
 | Relevant video retrieval | Partially Working |Original educational source video links; no general retrieval/transcript indexing |
@@ -39,7 +40,7 @@ Statuses refer to this local checkpoint. **Verified Working** is limited to the 
 | Student data appropriately protected | Partially Working |Scope, explicit provider confirmation, minimized evidence, export/deletion controls; new scoped retention command, beta export and direct audit-target anonymization verified; all-store retention/SSO/contract/privacy operations incomplete |
 | Critical automated workflows covered | Verified Working |New focused regressions + final full-suite evidence |
 | Actual end-to-end tests executed | Verified Working |Real browser/HTTP/storage with clearly mocked external generation; not production/provider end-to-end |
-| Security/accessibility reviewed | Partially Working |Independent code review and sixteen scoped axe/responsive checks for changed learning/admin surfaces; shared/legacy-page audit, real screen-reader testing and penetration testing pending |
+| Security/accessibility reviewed | Partially Working |Independent code review and twenty-one scoped axe/responsive checks for changed learning/admin surfaces; raw manual-review cases, shared/legacy-page audit, real screen-reader testing and penetration testing pending |
 | Accurate school documentation | Verified Working |Eleven reports and explicit evidence/limitations |
 | Launch blockers identified | Verified Working |This ledger plus privacy/pilot report |
 
@@ -49,4 +50,4 @@ Not implemented: universal feature-promotion lifecycle, institutional SSO/roster
 
 Priority next engineering work: close unmapped/background policy coverage; complete privacy/retention/SSO/provider prerequisites; validate restored PostgreSQL schema/deletion/concurrency and deploy a supervised worker; run real vendor/account/device workflows; assess content quality and accessibility; then broaden the catalog/adaptation. Only after those gates consider a student pilot or Premium course rollout.
 
-Additional course requirements remain incomplete: broad subject/depth/time/profile extraction, rich sanitized Markdown/LaTeX rendering, independently executed mathematical/code assessments, individual lesson regeneration/editing, curriculum-wide quality scoring and broken-link retrieval fallbacks. The link catalogs and human review are bounded working features, not substitutes for those acceptance criteria. The full master brief is not complete or deployment approved.
+Additional course requirements remain incomplete: broad subject/depth/time/profile extraction, formatting beyond the five saved teaching sections, diagrams/media, independently executed mathematical/code assessments, module restructuring after generation, curriculum-wide quality scoring and broken-link retrieval fallbacks. Sanitized Markdown/math/code/tables in the saved teaching sections now pass adversarial Chromium checks; see [content rendering](13-content-rendering.md). Original lesson edits and regeneration now preserve separate course revisions; see [revisions](14-lesson-revisions.md). The link catalogs and human review are bounded working features, not substitutes for those acceptance criteria. The full master brief is not complete or deployment approved.

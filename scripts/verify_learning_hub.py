@@ -107,8 +107,23 @@ def fixture_chat(messages, **kwargs):
             "Python: learn to write and test programs"
         )
     return dict(
-        explanation="A variable gives a name to a value.",
-        worked_example="x = 2\nprint(x + 1)\n# prints 3",
+        explanation=r"""## A name for a value
+A **variable** gives a name to a value. For fractions, \(\frac{1}{2}+\frac{1}{2}=1\).
+
+| Name | Value |
+| --- | --- |
+| x | 2 |
+
+$$
+x + 1 = 3
+$$
+
+<img src="https://untrusted.example.test/pixel" onerror="window.__lessonExecuted=true">
+<script>window.__lessonExecuted=true</script>
+[Unreviewed link](https://untrusted.example.test/link)
+![Unreviewed image](https://untrusted.example.test/image)
+""",
+        worked_example='```python\nx = 2\nprint(x + 1)\n# prints 3\n```',
         practice="Assign a different number and predict what adding one will do.",
         common_mistakes="A name refers to its current assigned value.",
         review="Recall the role of a variable tomorrow.",
@@ -179,6 +194,9 @@ try:
         context.add_cookies([signed_cookie(aid)])
         page = context.new_page()
         page.on("pageerror", lambda error: errors.append(str(error)))
+        untrusted_requests = []
+        page.on("request", lambda request: untrusted_requests.append(request.url)
+                if "untrusted.example.test" in request.url else None)
         begun = time.perf_counter()
         page.goto("http://127.0.0.1:5098/learning", wait_until="networkidle")
         if page.get_by_role("button", name="Essential only", exact=True).is_visible():
@@ -316,6 +334,68 @@ try:
                 courses.run_one_job()
         page.get_by_role("button", name="Refresh progress").click()
         expect(page.locator("#course-workspace")).to_contain_text("Expected answer: 3")
+        formatted = page.locator("#course-workspace .learning-content")
+        expect(formatted.first).to_have_attribute("data-rendering", "formatted")
+        assert formatted.locator("strong").count() >= 1
+        assert formatted.locator("table").count() >= 1
+        assert formatted.locator(".katex math").count() >= 2
+        assert formatted.locator("pre code .hljs-built_in").count() >= 1
+        assert formatted.locator("a,img,script,iframe,input,form").count() == 0
+        assert not page.evaluate("Boolean(window.__lessonExecuted)")
+        assert not untrusted_requests
+        renderer_checks = page.evaluate(r"""() => {
+          const node = document.createElement('div');
+          document.querySelector('.learning-hub').append(node);
+          const checks = {};
+          const hostile = '<svg onload="window.__lessonExecuted=true"><a href="javascript:alert(1)">x</a></svg>\n'
+            + '[x](javascript:alert(1)) ![x](https://untrusted.example.test/image)\n'
+            + '\\(\\href{https://untrusted.example.test/link}{x}\\)\n'
+            + '\\(\\includegraphics{https://untrusted.example.test/image}\\)\n'
+            + '\\(\\htmlStyle{background:url(https://untrusted.example.test/pixel)}{x}\\)';
+          checks.hostile_formatted = LearningContent.render(node, hostile);
+          checks.inert = !node.querySelector('a,img,script,iframe,form,foreignObject')
+            && ![...node.querySelectorAll('*')].some(e => [...e.attributes].some(a =>
+              /^on/i.test(a.name) || /^(href|src|srcset|xlink:href)$/i.test(a.name)));
+          LearningContent.render(node, '\\(\\unknownCommand{x}\\)');
+          checks.invalid_math_visible = node.textContent.includes('Math source:');
+          LearningContent.render(node, '\\(\\def\\a{\\a}\\a\\)');
+          checks.recursive_math_bounded = node.textContent.includes('Math source:');
+          LearningContent.render(node, '\\(\\gdef\\leaked{7}\\leaked\\)');
+          LearningContent.render(node, '\\(\\leaked\\)');
+          checks.macro_isolation = node.textContent.includes('Math source:');
+          LearningContent.render(node, Array(40).fill('\\(x+1\\)').join(' '));
+          checks.expression_limit = node.querySelectorAll('.katex').length === 32;
+          LearningContent.render(node, '```unknown-language\n<script>window.__lessonExecuted=true</script>\n```');
+          checks.unknown_code_escaped = !node.querySelector('script') && node.textContent.includes('<script>');
+          const large = '<img onerror="window.__lessonExecuted=true">' + 'x'.repeat(30001);
+          checks.oversize_plaintext = !LearningContent.render(node, large)
+            && node.dataset.rendering === 'plain-text' && node.textContent === large && !node.children.length;
+          const purifier = window.DOMPurify;
+          window.DOMPurify = null;
+          checks.missing_dependency_plaintext = !LearningContent.render(node, '**safe**')
+            && node.textContent === '**safe**';
+          window.DOMPurify = purifier;
+          node.remove();
+          return checks;
+        }""")
+        assert all(renderer_checks.values()), renderer_checks
+        assert not untrusted_requests
+        results["content_checks"] = renderer_checks
+        results["workflows"].append("Saved course renders sanitized Markdown, math, highlighted code and tables; hostile content and fallback bounds verified")
+        audit_surface(page, "rich-course-desktop-light")
+        page.set_viewport_size({"width": 320, "height": 844})
+        audit_surface(page, "rich-course-mobile-light")
+        page.screenshot(path=str(OUTPUT / "rich-course-mobile.png"), full_page=True)
+        page.locator('.learning-lesson').first.screenshot(path=str(OUTPUT / 'rich-lesson-mobile.png'))
+        page.set_viewport_size({"width": 1440, "height": 1000})
+        page.evaluate("window.__testRenderer = window.LearningContent; window.LearningContent = undefined")
+        page.get_by_role("button", name="Refresh progress").click()
+        expect(page.locator("#course-workspace .learning-content").first).to_have_attribute("data-rendering", "plain-text")
+        assert page.locator("#course-workspace .learning-content").first.evaluate("e => getComputedStyle(e).whiteSpace") == 'pre-wrap'
+        page.evaluate("window.LearningContent = window.__testRenderer; delete window.__testRenderer")
+        results["content_checks"]["missing_helper_preserves_whitespace"] = True
+        page.get_by_role("button", name="Refresh progress").click()
+        expect(page.locator("#course-workspace .learning-content").first).to_have_attribute("data-rendering", "formatted")
         page.get_by_role(
             "button", name="I have checked accuracy and every answer key"
         ).click()
@@ -329,6 +409,53 @@ try:
         results["workflows"].append(
             "Fixture-backed original generation, answer-key review, scoring, shared progress"
         )
+        page.locator('[data-activity="courses"]').click()
+        original_course = context.request.get('http://127.0.0.1:5098/api/learning/courses').json()['courses'][0]
+        page.locator(f"#course-library [data-course-id='{original_course['id']}']").click()
+        revision = page.locator('.learning-lesson-revision').first
+        revision.locator('summary').click()
+        revision.get_by_role('button', name='Edit this lesson', exact=True).click()
+        form = revision.locator('.learning-lesson-edit')
+        expect(form).to_be_visible()
+        expect(form.locator('textarea[name="explanation"]')).to_be_focused()
+        audit_surface(page, 'lesson-editor-desktop-light')
+        page.set_viewport_size({'width': 320, 'height': 844})
+        audit_surface(page, 'lesson-editor-mobile-light')
+        page.set_viewport_size({'width': 1440, 'height': 1000})
+        form.locator('textarea[name="explanation"]').fill('A corrected **variable** explanation.\nA second line.')
+        question_text = form.locator('textarea[name="question"]').input_value()
+        form.locator('textarea[name="question"]').fill('')
+        form.get_by_role('button', name='Save lesson in a revised course').click()
+        expect(form.locator('textarea[name="question"]')).to_be_focused()
+        expect(form.locator('textarea[name="explanation"]')).to_have_value('A corrected **variable** explanation.\nA second line.')
+        form.locator('textarea[name="question"]').fill(question_text)
+        form.get_by_role('button', name='Save lesson in a revised course').click()
+        expect(page.locator('#course-workspace')).to_contain_text('Revision 2:')
+        expect(page.locator('#course-workspace')).to_contain_text('A corrected variable explanation.')
+        expect(page.get_by_role('button', name='Generate lessons', exact=True)).not_to_be_visible()
+        expect(page.locator('#course-workspace').get_by_role('button', name='3', exact=True)).not_to_be_visible()
+        page.get_by_role('button', name='Open original course', exact=True).click()
+        expect(page.locator('#course-workspace')).to_contain_text('Recorded check passed.')
+        page.locator('#course-library').get_by_role('button', name=f"{original_course['title']} · revision 2 · needs_review", exact=True).click()
+        audit_surface(page, 'edited-course-desktop-light')
+        revision = page.locator('.learning-lesson-revision').first
+        revision.locator('summary').click()
+        revision.get_by_role('button', name='Regenerate this lesson in a revised course').click()
+        expect(page.locator('#course-workspace')).to_contain_text('Revision 3:')
+        expect(page.locator('#course-workspace')).to_contain_text('Generation: queued')
+        expect(page.locator('#course-workspace')).to_contain_text('5/6 lessons')
+        with App.app.app_context():
+            assert courses.run_one_job()
+            assert courses.run_one_job()
+        page.get_by_role('button', name='Refresh progress', exact=True).click()
+        expect(page.locator('#course-workspace')).to_contain_text('6/6 lessons')
+        expect(page.locator('#course-workspace')).to_contain_text('Generation: completed')
+        page.get_by_role('button', name='I have checked accuracy and every answer key').click()
+        expect(page.locator('#course-workspace')).to_contain_text('Human-reviewed')
+        preserved = context.request.get(f"http://127.0.0.1:5098/api/learning/courses/{original_course['id']}").json()
+        assert preserved['state'] == 'reviewed' and preserved['lessons'][0]['attempt']['correct']
+        assert preserved['lessons'][0]['content']['explanation'].startswith('## A name for a value')
+        results['workflows'].append('Single-lesson edit and bounded regeneration create reviewed course revisions while preserving the original and its scored evidence')
         page.goto("http://127.0.0.1:5098/school-admin", wait_until="networkidle")
         expect(page.locator("#admin-organization")).to_contain_text(
             "Browser pilot school"
@@ -491,6 +618,14 @@ try:
     assert not errors, errors
     results["javascript_errors"] = errors
     results["status"] = "passed"
+except Exception:
+    results['javascript_errors'] = errors
+    results['status'] = 'failed'
+    try:
+        (OUTPUT / 'failure.html').write_text(page.content(), encoding='utf-8')
+    except Exception:
+        pass  # Playwright may already have closed the failed context.
+    raise
 finally:
     server.shutdown()
     thread.join(timeout=5)

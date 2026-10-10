@@ -31,6 +31,7 @@ html[data-theme] body:has(.learning-hub) { background: var(--bg); }
   border-bottom: 1px solid var(--border-strong); margin: 0 0 28px;
 }
 .learning-hub button {
+  min-width: 44px;
   min-height: 44px; padding: 10px 16px; border-radius: 9px;
   border: 1px solid var(--border-strong); background: var(--bg-card);
   color: var(--text-primary); font: inherit; font-size: .875rem;
@@ -99,6 +100,24 @@ html[data-theme] body:has(.learning-hub) { background: var(--bg); }
 .learning-lesson h4 { font-size: 1.2rem; letter-spacing: -.025em; margin: 0 0 10px; }
 .learning-lesson h5 { font-size: .875rem; margin: 24px 0 8px; text-transform: capitalize; }
 .learning-lesson pre { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; font-size: .9rem; line-height: 1.8; max-width: 65ch; margin: 0; }
+.learning-content { font-size: .9rem; line-height: 1.8; overflow-wrap: anywhere; min-width: 0; }
+.learning-content[data-rendering=plain-text] { white-space: pre-wrap; }
+.learning-content p { margin: 0 0 12px; }
+.learning-content ul, .learning-content ol { padding-left: 24px; }
+.learning-content .learning-content-heading { font-size: 1rem; margin: 18px 0 8px; }
+.learning-content blockquote { border-left: 3px solid var(--accent); padding-left: 16px; margin: 16px 0; color: var(--text-secondary); }
+.learning-content pre { max-width: 100%; overflow: auto; white-space: pre; padding: 16px; border: 1px solid var(--border-strong); background: var(--bg-secondary); border-radius: 8px; margin: 12px 0; }
+.learning-content code { font-family: Consolas, 'Courier New', monospace; font-size: .9em; }
+.learning-content :not(pre) > code { padding: 2px 4px; border-radius: 4px; background: var(--bg-secondary); }
+.learning-content .hljs-keyword, .learning-content .hljs-selector-tag, .learning-content .hljs-built_in { color: var(--accent); font-weight: 600; }
+.learning-content .hljs-comment, .learning-content .hljs-quote { color: var(--text-secondary); font-style: italic; }
+.learning-content .hljs-string, .learning-content .hljs-title { color: var(--text-primary); }
+.learning-content .hljs-number, .learning-content .hljs-literal { font-weight: 600; }
+.learning-content table { border-collapse: collapse; width: 100%; margin: 16px 0; table-layout: fixed; }
+.learning-content th, .learning-content td { border: 1px solid var(--border-strong); padding: 8px; text-align: left; overflow-wrap: anywhere; }
+.learning-content th { background: var(--bg-secondary); }
+.learning-content .katex-display { overflow-x: auto; overflow-y: hidden; padding: 8px 0; }
+.learning-content .learning-math-source { display: inline-block; font-size: .85rem; color: var(--text-secondary); }
 .learning-lesson button, #course-workspace > button, #course-library button, #sitting-controls button, #practice-preview-controls > button { margin: 4px 6px 4px 0; }
 .learning-lesson > a { display: flex; align-items: center; min-height: 44px; font-size: .875rem; }
 .learning-course-stages { display: flex; flex-wrap: wrap; gap: 16px; counter-reset: course-stage; padding: 16px 0; margin: 20px 0; list-style: none; border-block: 1px solid var(--border-strong); }

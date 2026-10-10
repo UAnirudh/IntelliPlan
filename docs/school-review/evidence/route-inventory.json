@@ -6149,7 +6149,7 @@
     },
     {
       "file": "intelliplan/learning/api.py",
-      "line": 205,
+      "line": 206,
       "function": "course_detail",
       "literal_path": "/api/learning/courses/<int:cid>",
       "methods": [
@@ -6160,7 +6160,7 @@
     },
     {
       "file": "intelliplan/learning/api.py",
-      "line": 237,
+      "line": 240,
       "function": "generation",
       "literal_path": "/api/learning/courses/<int:cid>/generation",
       "methods": [
@@ -6170,7 +6170,17 @@
     },
     {
       "file": "intelliplan/learning/api.py",
-      "line": 272,
+      "line": 277,
+      "function": "lesson_revision",
+      "literal_path": "/api/learning/courses/<int:cid>/lessons/<int:lid>/revision",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/learning/api.py",
+      "line": 316,
       "function": "review_course",
       "literal_path": "/api/learning/courses/<int:cid>/review",
       "methods": [
@@ -6181,7 +6191,7 @@
     },
     {
       "file": "intelliplan/learning/api.py",
-      "line": 296,
+      "line": 341,
       "function": "lesson_answer",
       "literal_path": "/api/learning/courses/<int:cid>/lessons/<int:lid>/answer",
       "methods": [
@@ -6191,7 +6201,7 @@
     },
     {
       "file": "intelliplan/learning/api.py",
-      "line": 329,
+      "line": 374,
       "function": "progress",
       "literal_path": "/api/learning/progress",
       "methods": [
@@ -6201,7 +6211,7 @@
     },
     {
       "file": "intelliplan/learning/api.py",
-      "line": 340,
+      "line": 386,
       "function": "sittings",
       "literal_path": "/api/learning/sessions",
       "methods": [
@@ -6212,7 +6222,7 @@
     },
     {
       "file": "intelliplan/learning/api.py",
-      "line": 376,
+      "line": 422,
       "function": "checkpoint",
       "literal_path": "/api/learning/sessions/<int:sid>/checkpoint",
       "methods": [
@@ -6222,7 +6232,7 @@
     },
     {
       "file": "intelliplan/learning/api.py",
-      "line": 421,
+      "line": 467,
       "function": "export",
       "literal_path": "/api/learning/export",
       "methods": [

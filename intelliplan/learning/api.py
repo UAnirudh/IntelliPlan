@@ -166,7 +166,8 @@ def course_list():
     M = policy.models()
     if request.method == 'GET':
         rows = M['Course'].query.filter_by(user_id=current_user.id).order_by(M['Course'].id.desc()).limit(100).all()
-        return jsonify(courses=[dict(id=r.id, title=r.blueprint['title'], state=r.state, mode=r.mode) for r in rows])
+        return jsonify(courses=[dict(id=r.id, title=r.blueprint['title'], state=r.state, mode=r.mode,
+                                     revision=r.revision, revision_source=r.blueprint.get('revision_source')) for r in rows])
     data = body()
     mode = data.get('mode')
     if mode == 'generated':
@@ -216,6 +217,8 @@ def course_detail(cid):
         row.revision += 1
         db.session.commit()
     lessons = M['Lesson'].query.filter_by(course_id=row.id).order_by(M['Lesson'].id).all()
+    positions = {spec['key']: index for index, spec in enumerate(row.blueprint['lessons'])}
+    lessons.sort(key=lambda lesson: positions[lesson.key])
     evidence = M['Evidence'].query.filter_by(user_id=current_user.id).all()
     attempts = {e.lesson_id: e for e in evidence if e.lesson_id}
     public_lessons = []
@@ -227,7 +230,7 @@ def course_detail(cid):
                                    explanation=lesson.content.get('quiz', {}).get('explanation', ''))
         public_lessons.append(item)
     job = M['Job'].query.filter_by(course_id=row.id).first()
-    return jsonify(id=row.id, blueprint=row.blueprint, state=row.state, mode=row.mode,
+    return jsonify(id=row.id, blueprint=row.blueprint, state=row.state, mode=row.mode, revision=row.revision,
         lessons=public_lessons, next=courses.next_activity(row, evidence),
         job=dict(state=job.state, error=job.error, reserved_tokens=job.reserved_tokens,
                  token_budget=job.token_budget, attempts=job.attempts) if job else None)
@@ -249,6 +252,8 @@ def generation(cid):
             abort(404)
         job.state, job.lease, job.lease_until = 'cancelled', None, None
     elif action in {'start', 'retry'}:
+        if M['Lesson'].query.filter_by(course_id=cid).count() == len(row.blueprint['lessons']):
+            return jsonify(error='lessons_complete', message='All lessons are saved. Review them or create a lesson revision.'), 409
         if row.mode == 'generated':
             denied = gate('generated_content')
             if denied:
@@ -268,6 +273,45 @@ def generation(cid):
     return jsonify(state=job.state, message='Generation is processed by the learning-worker command.'), 202
 
 
+@bp.route('/api/learning/courses/<int:cid>/lessons/<int:lid>/revision', methods=['POST'])
+def lesson_revision(cid, lid):
+    denied = gate('course_generator')
+    if denied:
+        return denied
+    from App import db
+    course = owned('Course', cid)
+    M = policy.models()
+    lesson = M['Lesson'].query.filter_by(id=lid, course_id=cid).first()
+    if not lesson:
+        abort(404)
+    data = body()
+    action = data.get('action')
+    if action not in {'edit', 'regenerate'}:
+        raise ValueError('Choose edit or regenerate.')
+    if course.mode != 'generated':
+        return jsonify(error='original_course_required', message='Revision beta supports original courses only. Curated sources stay linked to their authors.'), 409
+    job = M['Job'].query.filter_by(course_id=cid).first()
+    if (job and job.state in {'queued', 'running'} or
+            M['Lesson'].query.filter_by(course_id=cid).count() != len(course.blueprint['lessons'])):
+        return jsonify(error='generation_in_progress', message='Finish or cancel generation and save every lesson before making a revision.'), 409
+    replacement = courses.validate_lesson(data.get('content')) if action == 'edit' else None
+    if action == 'regenerate':
+        denied = gate('generated_content')
+        if denied:
+            return denied
+        if not policy.permitted_providers(current_user):
+            return jsonify(error='third_party_processing_disabled'), 403
+        if data.get('confirm_provider_use') is not True:
+            raise ValueError('Confirm provider use and the token ceiling before regenerating a lesson.')
+        from ai_provider import model_chain
+        if not model_chain():
+            return jsonify(error='provider_unavailable', message='An approved provider must be configured before regeneration.'), 503
+    revised = courses.fork_lesson(course, lesson, replacement)
+    db.session.commit()
+    return jsonify(id=revised.id, state=revised.state, revision=revised.revision,
+        message='A revised course was saved. The original course and its evidence are preserved; review the revised course before scoring.'), 201
+
+
 @bp.route('/api/learning/courses/<int:cid>/review', methods=['GET', 'POST'])
 def review_course(cid):
     denied = gate('course_generator')
@@ -277,8 +321,9 @@ def review_course(cid):
     row = owned('Course', cid)
     M = policy.models()
     if request.method == 'GET':
+        positions = {spec['key']: index for index, spec in enumerate(row.blueprint['lessons'])}
         return jsonify(lessons=[dict(id=lesson.id, key=lesson.key, content=lesson.content) for lesson in
-                               M['Lesson'].query.filter_by(course_id=cid).all()])
+                               sorted(M['Lesson'].query.filter_by(course_id=cid).all(), key=lambda lesson: positions[lesson.key])])
     data = body()
     if data.get('confirm_accuracy') is not True:
         raise ValueError('Confirm that lesson accuracy and every answer key have been checked.')
@@ -431,7 +476,9 @@ def export():
             created_at=r.created_at.isoformat()) for r in
             M['Feedback'].query.filter_by(user_id=current_user.id)],
         courses=[dict(id=r.id, mode=r.mode, goal=r.goal, blueprint=r.blueprint,
-                                 lessons=[lesson.content for lesson in M['Lesson'].query.filter_by(course_id=r.id)])
+                                 lessons=[lesson.content for lesson in sorted(
+                                     M['Lesson'].query.filter_by(course_id=r.id).all(),
+                                     key=lambda lesson: next(i for i, spec in enumerate(r.blueprint['lessons']) if spec['key'] == lesson.key))])
                             for r in course_rows],
         sessions=[dict(objective=r.objective, state=r.state, method=r.method) for r in
                   M['Sitting'].query.filter_by(user_id=current_user.id)],
@@ -448,6 +495,8 @@ def install(app):
     app.view_functions[endpoint] = limiter.limit('10/hour', methods=['POST'])(app.view_functions[endpoint])
     endpoint = 'learning_hub.feedback'
     app.view_functions[endpoint] = limiter.limit('20/hour', methods=['POST'])(app.view_functions[endpoint])
+    endpoint = 'learning_hub.lesson_revision'
+    app.view_functions[endpoint] = limiter.limit('10/hour', methods=['POST'])(app.view_functions[endpoint])
 
     @app.cli.command('learning-worker')
     @click.option('--steps', default=1, type=click.IntRange(1, 1000))

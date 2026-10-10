@@ -216,7 +216,10 @@
     const data = await api('/api/learning/courses'); const panel = $('course-library'); panel.replaceChildren();
     node('h3', 'Your saved courses', panel);
     if (!data.courses.length) node('p', 'Start with a learning goal above. Your outline and lessons will stay here when you return.', panel).className = 'learning-empty';
-    for (const course of data.courses) button(`${course.title} · ${course.state}`, panel, () => openCourse(course.id));
+    for (const course of data.courses) {
+      const entry = button(`${course.title}${course.revision_source ? ` · revision ${course.revision}` : ''} · ${course.state}`, panel, () => openCourse(course.id));
+      entry.dataset.courseId = String(course.id);
+    }
   }
   async function openCourse(id) {
     const requestId = ++courseRequest;
@@ -225,7 +228,33 @@
     const review = course.state !== 'reviewed' ? await api(`/api/learning/courses/${id}/review`) : null;
     if (requestId !== courseRequest) return;
     const panel = $('course-workspace'); panel.replaceChildren();
+    panel.removeAttribute('aria-busy');
+    let revisionBusy = false;
+    async function revise(action) {
+      if (revisionBusy || requestId !== courseRequest) return;
+      revisionBusy = true;
+      const controls = [...panel.querySelectorAll('button, input, textarea, select')];
+      const disabled = controls.map(control => control.disabled);
+      controls.forEach(control => { control.disabled = true; });
+      panel.setAttribute('aria-busy', 'true');
+      try { await action(); }
+      finally {
+        controls.forEach((control, index) => { control.disabled = disabled[index]; });
+        revisionBusy = false;
+        if (requestId === courseRequest) panel.removeAttribute('aria-busy');
+      }
+    }
+    async function showRevision(result) {
+      if (requestId !== courseRequest) return;
+      const displayRequest = courseRequest + 1;
+      await openCourse(result.id); await loadLibrary();
+      if (displayRequest === courseRequest) status(result.message);
+    }
     node('h3', course.blueprint.title, panel); node('p', course.blueprint.overview, panel);
+    if (course.blueprint.revision_source) {
+      node('p', `Revision ${course.revision}: the original course and its evidence are preserved. Copied checks do not become independent evidence.`, panel);
+      button('Open original course', panel, () => openCourse(course.blueprint.revision_source.course_id));
+    }
     const stages = node('ol', undefined, panel); stages.className = 'learning-course-stages'; stages.setAttribute('aria-label', 'Course preparation');
     const stage = course.state === 'reviewed' ? 2 : course.lessons.length === course.blueprint.lessons.length ? 2 : course.job ? 1 : 0;
     ['Outline', 'Lessons', 'Human review'].forEach((label, i) => {
@@ -253,7 +282,7 @@
       saved.setAttribute('aria-label', 'Lessons saved');
     }
     button('Refresh progress', panel, () => openCourse(id));
-    if (!course.job || ['failed', 'cancelled'].includes(course.job.state)) button(course.job ? 'Resume generation' : 'Generate lessons', panel, async () => {
+    if (course.lessons.length < course.blueprint.lessons.length && (!course.job || ['failed', 'cancelled'].includes(course.job.state))) button(course.job ? 'Resume generation' : 'Generate lessons', panel, async () => {
       await post(`/api/learning/courses/${id}/generation`, {action: course.job ? 'retry' : 'start',
         confirm_provider_use: $('course-provider-confirm').checked});
       if (requestId !== courseRequest) return;
@@ -269,7 +298,15 @@
       node('h4', course.blueprint.lessons.find(s => s.key === lesson.key).title, section);
       node('p', lesson.reviewed ? 'Human-reviewed course item · limited practice evidence' : 'Unreviewed generated material · check accuracy before using', section);
       for (const key of ['explanation', 'worked_example', 'practice', 'common_mistakes', 'review']) {
-        if (lesson.content[key]) { node('h5', key.replaceAll('_', ' '), section); node('pre', lesson.content[key], section); }
+        if (lesson.content[key]) {
+          node('h5', key.replaceAll('_', ' '), section);
+          const content = node('div', undefined, section);
+          if (!window.LearningContent?.render(content, lesson.content[key])) {
+            content.classList.add('learning-content'); content.dataset.rendering = 'plain-text';
+            content.textContent = lesson.content[key];
+            node('p', 'Formatted content is unavailable. The lesson is shown as plain text.', section).className = 'learning-note';
+          }
+        }
       }
       for (const resource of lesson.content.resources || []) {
         const a = node('a', `${resource.provider}: ${resource.title}${resource.video ? ' · video on source page' : ''}`, section);
@@ -295,6 +332,57 @@
           quiz.options.forEach((option, i) => node('p', `${i === quiz.answer ? 'Expected answer: ' : ''}${option}`, section));
           node('p', quiz.explanation, section);
         }
+      }
+      if (course.mode === 'generated' && course.lessons.length === course.blueprint.lessons.length &&
+          !['queued', 'running'].includes(course.job?.state)) {
+        const revision = node('details', undefined, section); revision.className = 'learning-outline learning-lesson-revision';
+        node('summary', 'Revise this lesson', revision);
+        node('p', 'Save a revised course with this lesson changed. Your original course and recorded checks stay available. The revised course needs a new accuracy review.', revision);
+        button('Regenerate this lesson in a revised course', revision, () => revise(async () => {
+          const result = await post(`/api/learning/courses/${id}/lessons/${lesson.id}/revision`, {
+            action:'regenerate', confirm_provider_use:$('course-provider-confirm').checked,
+          });
+          await showRevision(result);
+        }));
+        const editor = node('div', undefined, revision);
+        button('Edit this lesson', revision, () => revise(async () => {
+          if (editor.children.length) return;
+          const keys = await api(`/api/learning/courses/${id}/review`);
+          if (requestId !== courseRequest || !editor.isConnected) return;
+          const original = keys.lessons.find(item => item.id === lesson.id).content;
+          const form = node('form', undefined, editor); form.className = 'learning-lesson-edit';
+          const fields = {};
+          for (const key of ['explanation', 'worked_example', 'practice', 'common_mistakes', 'review']) {
+            const label = node('label', key.replaceAll('_', ' '), form);
+            const input = node('textarea', undefined, label); input.value = original[key];
+            input.maxLength = 10000; input.required = true; input.name = key; fields[key] = input;
+          }
+          const check = node('fieldset', undefined, form); node('legend', 'Knowledge check and answer key', check);
+          function checkField(labelText, value, name, maximum) {
+            const label = node('label', labelText, check); const input = node('textarea', undefined, label);
+            input.value = value; input.name = name; input.maxLength = maximum; input.required = true; return input;
+          }
+          const question = checkField('Question', original.quiz.question, 'question', 2000);
+          const options = original.quiz.options.map((option, index) => checkField(`Option ${index + 1}`, option, `option_${index}`, 1000));
+          const answerLabel = node('label', 'Correct option', check); const answer = node('select', undefined, answerLabel);
+          answer.name = 'answer'; original.quiz.options.forEach((option, index) => {
+            const choice = node('option', `Option ${index + 1}`, answer); choice.value = String(index);
+          });
+          answer.value = String(original.quiz.answer);
+          const explanation = checkField('Answer explanation', original.quiz.explanation, 'answer_explanation', 3000);
+          const save = node('button', 'Save lesson in a revised course', form); save.type = 'submit';
+          form.addEventListener('submit', event => {
+            event.preventDefault(); run(save, () => revise(async () => {
+              const content = Object.fromEntries(Object.entries(fields).map(([key, input]) => [key, input.value]));
+              content.quiz = {question:question.value, options:options.map(option => option.value),
+                answer:Number(answer.value), explanation:explanation.value};
+              const result = await post(`/api/learning/courses/${id}/lessons/${lesson.id}/revision`, {action:'edit', content});
+              await showRevision(result);
+            }));
+          });
+          fields.explanation.focus();
+        }));
+        revision.append(editor);
       }
     }
     if (course.lessons.length === course.blueprint.lessons.length && course.state !== 'reviewed') {
