@@ -13,7 +13,7 @@ SURFACES = {
     'canvas': ('/login/canvas', '/oauth/canvas', '/api/canvas'),
     'studentvue': ('/login/studentvue', '/api/studentvue', '/oauth/studentvue'),
     'calendar': ('/calendar', '/login/calendar-feed', '/oauth/google', '/oauth/outlook', '/oauth2callback', '/api/calendar-feed', '/api/calendar/feed'),
-    'uploads': ('/notes/upload', '/api/syllabus/import', '/api/deepstudy/ingest', '/study/extract-pdf', '/study/analyze-image', '/analyze-image', '/api/tutor/vision', '/api/assignment/notes', '/api/lessons', '/api/timetable/photo', '/oauth/onedrive', '/oauth/google-drive'),
+    'uploads': ('/notes/upload', '/api/notes/search', '/api/syllabus/import', '/api/deepstudy/ingest', '/study/extract-pdf', '/study/analyze-image', '/analyze-image', '/api/tutor/vision', '/api/assignment/notes', '/api/lessons', '/api/timetable/photo', '/oauth/onedrive', '/oauth/google-drive'),
     'notifications': ('/push', '/notifications', '/api/notifications', '/api/v1/push', '/api/reminders'),
 }
 
@@ -76,7 +76,7 @@ def install(app):
             purpose = session.get('oauth_purpose', 'calendar')
             keys = ['uploads'] if purpose == 'drive' else ([] if purpose == 'login' else ['calendar'])
         grade_data = request.path in {'/grades/data', '/gradebook/detail', '/api/v1/grades'}
-        live_data = grade_data or request.path in {'/live', '/gradebook', '/courses', '/missing/data', '/api/v1/courses', '/api/v1/assignments', '/extension/tasks', '/extension/grades'}
+        live_data = grade_data or request.path in {'/live', '/gradebook', '/courses', '/tasks/unified', '/missing/data', '/api/v1/courses', '/api/v1/assignments', '/extension/tasks', '/extension/grades'}
         if request.path.startswith('/notes/') and request.path.rsplit('/', 1)[-1] in {'study', 'quiz', 'summarize'}:
             keys.append('study')
         generated_action = (request.path.startswith('/api/deepstudy/') or
@@ -106,6 +106,8 @@ def install(app):
                         linked = chosen or linked
                 if linked and linked.login_type in {'canvas', 'studentvue'}:
                     keys.append(linked.login_type)
+                elif linked and linked.login_type == 'calendar_feed':
+                    keys.append('calendar')
             for key in keys:
                 allowed, reason = policy.decision(user, key)
                 if not allowed:

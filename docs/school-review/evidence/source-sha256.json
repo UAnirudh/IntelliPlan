@@ -4,20 +4,12 @@
     "sha256": "cb0692724bfd140957300a6e7e5458141c73ad58c1c075e62ccf70bd4ec68a5e"
   },
   {
-    "path": "App.py",
-    "sha256": "b6a086e6f70f4b733b4c7a75645ce4383e6061b4b53860225841c78fb66278a6"
-  },
-  {
-    "path": "Main_Project/templates/learning_hub.html",
-    "sha256": "5d49f16f82f1bb9e1aa707b400f5b5f62571c2b1502ce60052295d1bf1d31866"
-  },
-  {
-    "path": "Main_Project/templates/school_admin.html",
-    "sha256": "013930b66889f15519e82a00e7ef42bf46027b6f468e597c5ee16c30a89a2597"
-  },
-  {
     "path": "ai_provider.py",
     "sha256": "49c4c51f665c9df5cc4fc9b5d40d79c7729dec77567cb8188ab4c969bb077157"
+  },
+  {
+    "path": "App.py",
+    "sha256": "1a9689de6845999ea9133d09c5ea1b1b9d1d070eb6f824e1a17b206d8dd128c6"
   },
   {
     "path": "chatbot_api.py",
@@ -45,19 +37,19 @@
   },
   {
     "path": "intelliplan/learning/enforcement.py",
-    "sha256": "7272f673c6183552e725ece20e9812ab3a7e57564cf6b30c06f5fa2ab727428d"
+    "sha256": "3562cd1fdf52b7893116ee94594d3ccc181df9ac77f55973d151f105f8b7875a"
   },
   {
     "path": "intelliplan/learning/evidence.py",
     "sha256": "813e605e48f3330c1ab97d8acf06f07b3123700a00343627c8337b2b84dfdb27"
   },
   {
-    "path": "intelliplan/learning/governance.py",
-    "sha256": "fa2a3ecb0b7848ea7449766a933c541f71f1c0bd9f54c8530ea0506a65309585"
-  },
-  {
     "path": "intelliplan/learning/governance_api.py",
     "sha256": "f0d23d3bcf544101a35480c171aa0f3a146c68cb310d31d92d96e75fb0f6e7be"
+  },
+  {
+    "path": "intelliplan/learning/governance.py",
+    "sha256": "fa2a3ecb0b7848ea7449766a933c541f71f1c0bd9f54c8530ea0506a65309585"
   },
   {
     "path": "intelliplan/learning/models.py",
@@ -65,11 +57,31 @@
   },
   {
     "path": "intelliplan/learning/policy.py",
-    "sha256": "0adfcb3ab263086a67f49502c6ffa806820d2b0445c400d49bb25b47acdd107e"
+    "sha256": "5635da2d7606ba05e667c23a925f8b68397b7e13ce83c2b7d8b665e2dcfb7a2e"
+  },
+  {
+    "path": "intelliplan/retrieval/embeddings.py",
+    "sha256": "924957523ab51b47614b86c12c386adc89d7f52fdf5afdc3a85c6bb99f58c211"
+  },
+  {
+    "path": "intelliplan/retrieval/index.py",
+    "sha256": "8149b49fc58082b880a9771bfff8fbd3f6b97fb2a3d7c4f3431311d1d81731f7"
+  },
+  {
+    "path": "Main_Project/templates/learning_hub.html",
+    "sha256": "5d49f16f82f1bb9e1aa707b400f5b5f62571c2b1502ce60052295d1bf1d31866"
+  },
+  {
+    "path": "Main_Project/templates/school_admin.html",
+    "sha256": "013930b66889f15519e82a00e7ef42bf46027b6f468e597c5ee16c30a89a2597"
   },
   {
     "path": "notifications_glue.py",
     "sha256": "af0d595b1141a4c83961e1219b6704f582008f5a7854ff5028658318c1e989ac"
+  },
+  {
+    "path": "plani_agent.py",
+    "sha256": "92b48a4b718da2c9b399d560066518e9e6153b81e5b85f59912adc8208c59ebe"
   },
   {
     "path": "scripts/inventory_learning_routes.py",
@@ -102,10 +114,6 @@
   {
     "path": "static/js/school_admin.js",
     "sha256": "94524896cf9d74ab8c6962f4974f006588e9784d14a00c4caab878d4730aadbc"
-  },
-  {
-    "path": "static/vendor/learning-content/README.md",
-    "sha256": "111c6694674e4b650727122a74bd4b2582d6ab55f6f256fb3ffab40a24cedea5"
   },
   {
     "path": "static/vendor/learning-content/dompurify-LICENSE",
@@ -384,12 +392,28 @@
     "sha256": "2c90a9b46d6463f26038a29b686e82bc91de01fdac9d5229e7cfe3b360134ea2"
   },
   {
+    "path": "static/vendor/learning-content/README.md",
+    "sha256": "111c6694674e4b650727122a74bd4b2582d6ab55f6f256fb3ffab40a24cedea5"
+  },
+  {
     "path": "static/vendor/learning-content/sources.json",
     "sha256": "9bacaccf492323f556e0a6408b5fd99984b59d47f05566085a8460b795316255"
   },
   {
+    "path": "tests/test_course_tracking.py",
+    "sha256": "0a89cce3263ad2488786f124f02d79f0db6cd61fc9edebbef017a17615dcc381"
+  },
+  {
     "path": "tests/test_learning_hub.py",
     "sha256": "1fd4f92f5e2c0ae598ccccf38efe7b89ee4bd7adc0cea7e19a8c7fcc30c89ef6"
+  },
+  {
+    "path": "tests/test_plani_policy.py",
+    "sha256": "4cc88ad777aa691e2de5152ef39f6adec299023d908e83710e6c579b23ac16bd"
+  },
+  {
+    "path": "tests/test_retrieval.py",
+    "sha256": "01c595949100856c879e172ac5df8a6df2cbde4e777a6665f281101838abf8b0"
   },
   {
     "path": "tests/test_study_generate_inputs.py",

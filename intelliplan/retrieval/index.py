@@ -101,7 +101,7 @@ def sync_user(user_id: int) -> dict:
             ))
 
     if new_rows:
-        dense = dense_embed([r.text for r in new_rows], is_query=False)
+        dense = dense_embed([r.text for r in new_rows], is_query=False, user_id=user_id)
         if dense:
             for row, vec in zip(new_rows, dense):
                 row.dense_vec, row.dense_model = to_blob(vec), dense_model()
@@ -120,7 +120,7 @@ def _backfill_dense(user_id: int) -> int:
             .limit(MAX_BACKFILL_PER_SYNC).all())
     if not rows:
         return 0
-    dense = dense_embed([r.text for r in rows], is_query=False)
+    dense = dense_embed([r.text for r in rows], is_query=False, user_id=user_id)
     if not dense:
         return 0
     for row, vec in zip(rows, dense):
@@ -165,7 +165,7 @@ def search(user_id: int, query: str, k: int = 5) -> list[dict]:
     model_id = dense_model()
     has_dense = np.array([bool(r.dense_vec) and r.dense_model == model_id for r in rows])
     dense_scores = np.zeros(len(rows), dtype=np.float32)
-    q_dense = dense_embed([query], is_query=True) if has_dense.any() else None
+    q_dense = dense_embed([query], is_query=True, user_id=user_id) if has_dense.any() else None
 
     if q_dense:
         qd = q_dense[0]

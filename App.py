@@ -7518,6 +7518,14 @@ def _fetch_grades_for_personalization():
     Wrapped so caller code can stay one-line: `_summarize_grade_signals(_fetch_grades_for_personalization())`.
     """
     try:
+        if not current_user.is_authenticated or not _ai_personalization_enabled():
+            return []
+        from intelliplan.learning import policy as learning_policy
+        learning_policy.invalidate_cache()
+        if (not learning_policy.permitted_providers(current_user) or
+            not all(learning_policy.decision(current_user, key)[0]
+                    for key in ('canvas', 'studentvue'))):
+            return []
         acct = get_grade_account()
         if acct:
             lt = acct.get("login_type")
@@ -11545,6 +11553,19 @@ def api_save_assignment_due_date():
     save_custom_description(title, json.dumps(existing))
     return flask.jsonify({"status": "ok"})
 
+def _calendar_policy_allowed():
+    """Calendar helpers run under scheduler and agent routes as well as OAuth."""
+    if not current_user.is_authenticated:
+        return False
+    try:
+        from intelliplan.learning import policy as learning_policy
+        learning_policy.invalidate_cache()
+        return learning_policy.decision(current_user, 'calendar')[0]
+    except Exception:
+        app.logger.warning('Calendar policy unavailable', exc_info=True)
+        return False
+
+
 def _planner_busy_by_date(horizon_days=14):
     """Dated committed time: connected calendars plus the class timetable.
 
@@ -11565,6 +11586,8 @@ def _planner_busy_by_date(horizon_days=14):
     """
     if not current_user.is_authenticated:
         return {}
+    if not _calendar_policy_allowed():
+        return _class_busy_by_date(current_user.id, date.today(), horizon_days)
     memo_key = ("_planner_busy_by_date", int(horizon_days))
     try:
         cached = flask.g.get(memo_key[0]) or {}
@@ -11573,6 +11596,8 @@ def _planner_busy_by_date(horizon_days=14):
     except RuntimeError:
         cached = None  # outside a request: nothing to memoise against
     combined = _calendar_busy_by_date(horizon_days)
+    if not _calendar_policy_allowed():
+        return _class_busy_by_date(current_user.id, date.today(), horizon_days)
     for day, intervals in _class_busy_by_date(current_user.id, date.today(), horizon_days).items():
         combined.setdefault(day, []).extend(intervals)
     if cached is not None:
@@ -11586,26 +11611,26 @@ def _planner_busy_by_date(horizon_days=14):
 
 def _calendar_busy_by_date(horizon_days=14, start=None):
     """Busy ranges from Google and Outlook only, ``{date: [(start, end)]}``."""
-    if not current_user.is_authenticated:
+    if not _calendar_policy_allowed():
         return {}
     start = start or date.today()
     try:
         offset = getattr(current_user, "utc_offset_minutes", 0) or 0
         combined = {}
         token = get_google_token()
-        if token and has_calendar_scope(token):
+        if token and _calendar_policy_allowed() and has_calendar_scope(token):
             from google_calendar_helper import busy_minutes_by_date
             for day, intervals in busy_minutes_by_date(
                 token, start, days=horizon_days, utc_offset_minutes=offset
             ).items():
                 combined.setdefault(day, []).extend(intervals)
-        outlook_token = get_outlook_token()
-        if outlook_token:
+        outlook_token = get_outlook_token() if _calendar_policy_allowed() else None
+        if outlook_token and _calendar_policy_allowed():
             for day, intervals in outlook_calendar_helper.busy_minutes_by_date(
                 outlook_token, start, days=horizon_days, utc_offset_minutes=offset
             ).items():
                 combined.setdefault(day, []).extend(intervals)
-        return combined
+        return combined if _calendar_policy_allowed() else {}
     except Exception as e:
         print(f"[planner] calendar busy lookup failed: {e}")
         return {}
@@ -13054,7 +13079,27 @@ def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True) ->
 
     if not user_id:
         return []
-    if use_cache:
+    # This collector is also called outside HTTP handlers. Check the actual
+    # owner before cache hits or credential access, not just at the route.
+    from intelliplan.learning import policy as learning_policy
+    try:
+        owner = db.session.get(User, user_id)
+        if not owner:
+            return []
+        db.session.refresh(owner)
+        learning_policy.invalidate_cache()
+        permissions = {}
+        for capability in ('canvas', 'studentvue', 'calendar'):
+            allowed, reason = learning_policy.decision(owner, capability)
+            if reason == 'policy_unavailable':
+                return []
+            permissions[capability] = allowed
+    except Exception:
+        app.logger.warning('LMS source policy unavailable', exc_info=True)
+        return []
+    if not all(permissions.values()):
+        invalidate_lms_cache_for_user(user_id)
+    if use_cache and all(permissions.values()):
         cached = _lms_cache_get(user_id)
         if cached is not None:
             return cached
@@ -13070,7 +13115,8 @@ def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True) ->
     acct_dict = None
     try:
         acct = LinkedAccount.query.filter_by(user_id=user_id, is_active=True).first()
-        if acct:
+        capability = {'calendar_feed': 'calendar'}.get(acct.login_type, acct.login_type) if acct else None
+        if acct and permissions.get(capability, True):
             creds = acct.get_credentials() or {}
             creds["login_type"] = acct.login_type
             if not creds.get("canvas_url"):
@@ -13234,8 +13280,33 @@ def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True) ->
             continue
         seen.add(key)
         deduped.append(t)
-    # Cache so the next render is instant
-    if use_cache:
+    # Policy may change while the upstream sources are responding. Never
+    # return or cache rows that have since become restricted.
+    try:
+        db.session.refresh(owner)
+        learning_policy.invalidate_cache()
+        latest = {}
+        for capability in permissions:
+            allowed, reason = learning_policy.decision(owner, capability)
+            if reason == 'policy_unavailable':
+                return []
+            latest[capability] = allowed
+        def permitted_row(row):
+            source = str(row.get('source') or '')
+            if source.startswith('studentvue'):
+                return latest['studentvue']
+            if source == 'canvas':
+                return latest['canvas']
+            if source == 'calendar_feed':
+                return latest['calendar']
+            return True
+        deduped = [row for row in deduped if permitted_row(row)]
+    except Exception:
+        app.logger.warning('LMS source policy recheck unavailable', exc_info=True)
+        return []
+    # Partially fetched data must not poison the unrestricted cache after
+    # a policy change enables a previously omitted source.
+    if use_cache and all(permissions.values()) and all(latest.values()):
         _lms_cache_put(user_id, deduped)
     # A fresh fetch (a cache hit returned above) is a sync Grade Pulse should
     # see. This is also the path its background pull uses.

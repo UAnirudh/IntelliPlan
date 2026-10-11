@@ -74,10 +74,38 @@ def lexical_embed(text: str) -> np.ndarray:
     return vec / norm if norm else vec
 
 
-def dense_embed(texts: list[str], *, is_query: bool) -> list[np.ndarray] | None:
-    """Batch-embed with Gemini. Returns None (never raises) when unavailable."""
+def _dense_processing_allowed(user_id):
+    """Stored notes require owner consent and provider/source permission."""
+    if not user_id:
+        return False
+    try:
+        from flask import has_request_context
+        from flask_login import current_user
+        from App import User, db, _ai_personalization_enabled
+        from intelliplan.learning import policy
+        if has_request_context() and (
+            not current_user.is_authenticated or current_user.id != user_id
+        ):
+            return False
+        user = db.session.get(User, user_id)
+        if not user:
+            return False
+        db.session.refresh(user)
+        policy.invalidate_cache()
+        return (_ai_personalization_enabled(user) and
+                all(policy.decision(user, key)[0] for key in ('uploads', 'study')) and
+                'gemini' in policy.permitted_providers(user))
+    except Exception:
+        logger.warning('Dense retrieval policy unavailable; using local retrieval', exc_info=True)
+        return False
+
+
+def dense_embed(texts: list[str], *, is_query: bool, user_id: int | None = None) -> list[np.ndarray] | None:
+    """Consent-governed Gemini embedding; unavailable access stays lexical."""
     if not texts:
         return []
+    if not _dense_processing_allowed(user_id):
+        return None
     try:
         from ai_provider import _gemini_client, gemini_available
         from google.genai import types
@@ -88,6 +116,8 @@ def dense_embed(texts: list[str], *, is_query: bool) -> list[np.ndarray] | None:
         task = "RETRIEVAL_QUERY" if is_query else "RETRIEVAL_DOCUMENT"
         out: list[np.ndarray] = []
         for i in range(0, len(texts), DENSE_BATCH):
+            if not _dense_processing_allowed(user_id):
+                return None
             resp = client.models.embed_content(
                 model=dense_model(),
                 contents=texts[i : i + DENSE_BATCH],
@@ -100,6 +130,8 @@ def dense_embed(texts: list[str], *, is_query: bool) -> list[np.ndarray] | None:
                 # Truncated-dimension Gemini vectors are not unit length.
                 norm = float(np.linalg.norm(vec))
                 out.append(vec / norm if norm else vec)
+        if not _dense_processing_allowed(user_id):
+            return None
         return out if len(out) == len(texts) else None
     except Exception as exc:  # network, quota, retired model ID
         logger.warning("Dense embedding unavailable, using lexical only: %s", exc)

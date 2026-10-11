@@ -247,23 +247,19 @@ PERSONALITY: Friendly, smart, concise. Talk like a sharp friend who's also their
 
 WHAT YOU CAN DO: You have tools to read AND write the user's data. When the user asks you to do something, USE THE TOOLS. Don't explain what you would do — actually do it.
 
-WHAT YOU ALREADY KNOW: Every message arrives with a live snapshot of this
-user's account — who they are, today's prioritised plan, their academic
-health and why it moved, their grades, their workload for the next seven
-days, their saved schedule, their memories, their streak and study
-history. Read it before you reply. Answer from it directly; do not call a
-tool to look up something the snapshot already states, and never open with
-"let me check" when the answer is already in front of you. Be specific:
-name their actual courses, their actual assignments, their actual numbers.
-The whole point of this seat is that you are not a generic chatbot — you
-are the one thing in the app that can see everything at once.
+WHAT YOU ALREADY KNOW: Account context is supplied only when AI
+personalization is enabled and school policy allows its data sources.
+Use only the context actually supplied. Missing context does not mean the
+account is empty. Tool permissions are checked independently; explain a
+denial and never claim that a denied action succeeded. Do not invent
+courses, assignments, numbers, or access to unavailable account data.
 
 INTELLIGENT BEHAVIOR:
 - If the user says "mark X done", call complete_task with title="X".
 - If they say "reschedule Y to tomorrow", call update_task with title="Y" and due_date.
-- "What should I focus on" is already answered by the snapshot — answer it
-  straight away, then offer to act. Only call get_today_plan if you need
-  items beyond the ones listed.
+- For "What should I focus on", use supplied context or an allowed
+  get_today_plan result. If account access is unavailable, ask the user
+  to describe their tasks and offer general planning help.
 - If they ask about assignments, grades or their calendar and nothing is
   connected, call connect_account for the system they name (or "other")
   so they get a button right here. Do not send them to Settings in words.
@@ -379,7 +375,94 @@ def _find_manual_task(args: dict, user_id: int):
 # ── Tool executor ────────────────────────────────────────────────────
 
 
+_TOOL_CAPABILITIES = {
+    **{name: ('scheduler',) for name in (
+        'get_schedule', 'get_today_plan', 'get_workload', 'get_briefing',
+        'explain_priority', 'generate_schedule')},
+    **{name: ('study',) for name in (
+        'list_tracked_courses', 'track_course', 'log_course_progress', 'recommend_courses')},
+    'save_note': ('uploads',),
+}
+_ACCOUNT_READ_TOOLS = frozenset({
+    'list_tasks', 'search_tasks', 'list_courses', 'get_grades', 'get_schedule',
+    'get_today_plan', 'get_workload', 'get_briefing', 'explain_priority',
+    'generate_schedule', 'list_tracked_courses', 'log_course_progress',
+})
+
+
+def _tool_user(user_id):
+    """Internal tool arguments cannot select a different account."""
+    from App import User, db
+    if not current_user.is_authenticated or current_user.id != user_id:
+        return None
+    user = db.session.get(User, user_id)
+    if user:
+        db.session.refresh(user)
+    return user
+
+
+def _capabilities_allowed(user, *keys):
+    from intelliplan.learning import policy
+    try:
+        policy.invalidate_cache()
+        return bool(user) and all(policy.decision(user, key)[0] for key in keys)
+    except Exception:
+        logger.warning('Plani capability check unavailable', exc_info=True)
+        return False
+
+
+def _source_data_allowed(user):
+    # Aggregated grades and Command Center payloads do not carry enough
+    # provenance to safely separate restricted sources. Omit the aggregate.
+    return _capabilities_allowed(user, 'canvas', 'studentvue', 'calendar')
+
+
+def _permitted_lms_tasks(user_id):
+    from App import collect_lms_assignments_for_user
+    if not _source_data_allowed(_tool_user(user_id)):
+        return []
+    return collect_lms_assignments_for_user(user_id) or []
+
+
+def _tool_denial(name, args, user_id):
+    from App import _ai_personalization_enabled
+    from intelliplan.learning import policy
+    try:
+        user = _tool_user(user_id)
+    except Exception:
+        return {'error': 'policy_unavailable'}
+    if not user:
+        return {'error': 'authentication_required', 'message': 'Sign in to your own account.'}
+    try:
+        policy.invalidate_cache()
+        if not policy.decision(user, 'tutor')[0] or policy.effective(user)['assessment_protection']:
+            return {'error': 'policy_restricted', 'feature': 'tutor'}
+        keys = _TOOL_CAPABILITIES.get(name, ())
+        if name == 'connect_account':
+            service = str(args.get('service') or '').lower().strip().replace(' ', '_')
+            keys = (service,) if service in {'canvas', 'studentvue'} else (
+                ('calendar',) if service in {'google_calendar', 'outlook'} else ())
+        if not _capabilities_allowed(user, *keys):
+            return {'error': 'policy_restricted', 'feature': ','.join(keys)}
+        if name in _ACCOUNT_READ_TOOLS and not _ai_personalization_enabled(user):
+            return {'error': 'personalization_required',
+                    'message': 'Enable AI personalization in Settings to let Plani read stored account data.'}
+        if name in {'get_grades', 'get_schedule', 'get_today_plan', 'get_workload', 'get_briefing', 'explain_priority'} and not _source_data_allowed(user):
+            return {'error': 'source_restricted', 'message': 'Your institution has restricted an account data source.'}
+        if name == 'generate_schedule' and not policy.permitted_providers(user):
+            return {'error': 'provider_restricted'}
+    except Exception:
+        logger.warning('Plani tool policy unavailable', exc_info=True)
+        return {'error': 'policy_unavailable'}
+    return None
+
+
 def _execute_tool(name: str, args: dict, user_id: int) -> dict[str, Any]:
+    if not isinstance(args, dict):
+        return {'error': 'invalid_arguments'}
+    denial = _tool_denial(name, args, user_id)
+    if denial:
+        return denial
     from App import (
         ManualTask, SavedSchedule, ImportedGrade, DismissedAssignment,
         CourseNote, DayArchive, db,
@@ -388,7 +471,6 @@ def _execute_tool(name: str, args: dict, user_id: int) -> dict[str, Any]:
         _ai_personalization_enabled, _summarize_grade_signals,
         _fetch_grades_for_personalization, build_scheduler_personalization,
         save_dismissed, invalidate_lms_cache_for_user,
-        collect_lms_assignments_for_user,
     )
     from ai_provider import ai_available as _ai_available, chat as provider_chat
 
@@ -397,7 +479,7 @@ def _execute_tool(name: str, args: dict, user_id: int) -> dict[str, Any]:
     if name == "list_tasks":
         manual = ManualTask.query.filter_by(user_id=user_id).order_by(ManualTask.due_date.asc()).all()
         try:
-            lms = collect_lms_assignments_for_user(user_id) or []
+            lms = _permitted_lms_tasks(user_id)
         except Exception:
             lms = []
         items = []
@@ -440,7 +522,10 @@ def _execute_tool(name: str, args: dict, user_id: int) -> dict[str, Any]:
         q = (args.get("query") or "").lower().strip()
         if not q:
             return {"error": "query is required"}
-        all_tasks = _execute_tool("list_tasks", {}, user_id)["tasks"]
+        result = _execute_tool("list_tasks", {}, user_id)
+        if result.get('error'):
+            return result
+        all_tasks = result['tasks']
         hits = []
         for t in all_tasks:
             blob = (t["title"] + " " + t["course"]).lower()
@@ -452,7 +537,7 @@ def _execute_tool(name: str, args: dict, user_id: int) -> dict[str, Any]:
         tasks = ManualTask.query.filter_by(user_id=user_id).all()
         courses = sorted({(t.course or "Personal") for t in tasks if t.course})
         try:
-            grades = ImportedGrade.query.filter_by(user_id=user_id).all()
+            grades = ImportedGrade.query.filter_by(user_id=user_id).all() if _source_data_allowed(_tool_user(user_id)) else []
             courses = sorted(set(courses + [g.course for g in grades if g.course]))
         except Exception:
             pass
@@ -632,6 +717,8 @@ def _execute_tool(name: str, args: dict, user_id: int) -> dict[str, Any]:
         title = (args.get("title") or "").strip()
         if not title:
             return {"error": "Task not found."}
+        if not _source_data_allowed(_tool_user(user_id)):
+            return {'error': 'source_restricted'}
         try:
             save_dismissed(title, {})
             invalidate_lms_cache_for_user(user_id)
@@ -651,9 +738,12 @@ def _execute_tool(name: str, args: dict, user_id: int) -> dict[str, Any]:
         return {"status": "ok", "message": f"Deleted '{title}'."}
 
     if name == "generate_schedule":
+        generation_state = _processing_state(user_id)
+        if generation_state is None:
+            return {'error': 'policy_unavailable'}
         tasks = ManualTask.query.filter_by(user_id=user_id, done=False).all()
         try:
-            synced_tasks = collect_lms_assignments_for_user(user_id) or []
+            synced_tasks = _permitted_lms_tasks(user_id)
         except Exception:
             synced_tasks = []
         if not tasks and not synced_tasks:
@@ -684,7 +774,7 @@ def _execute_tool(name: str, args: dict, user_id: int) -> dict[str, Any]:
         upcoming_text = "\nUPCOMING:\n" + "\n".join(f"  - {a['title']} ({a['course']}) due {a['due_date']}, priority {a['priority']}, ~{a['estimated_time']}min" for a in upcoming) if upcoming else ""
 
         grades_summary = None
-        if _ai_personalization_enabled():
+        if _ai_personalization_enabled() and _source_data_allowed(_tool_user(user_id)):
             try:
                 grades_summary = _summarize_grade_signals(_fetch_grades_for_personalization())
             except Exception:
@@ -725,17 +815,33 @@ Return ONLY valid JSON:
         if not _ai_available():
             return {"error": "AI temporarily unavailable."}
         try:
+            denial = _tool_denial(name, args, user_id)
+            if denial:
+                return denial
+            if _processing_state(user_id) != generation_state:
+                return {'error': 'account_access_changed'}
+            generation = ai_firewall.guard(_tool_user(user_id), prompts=[prompt],
+                want_output_tokens=8000, feature='agent')
             raw = provider_chat([{"role": "user", "content": prompt}], tier="standard",
-                temperature=0.3, max_tokens=8000, response_format={"type": "json_object"})
+                temperature=0.3, max_tokens=min(8000, generation.max_output_tokens),
+                plan=generation.plan, response_format={"type": "json_object"})
+            ai_firewall.record_tokens(generation, len(prompt), len(raw))
             raw = re.sub(r"```json\n?", "", raw)
             raw = re.sub(r"```\n?", "", raw).strip()
             schedule = json.loads(raw)
+            denial = _tool_denial(name, args, user_id)
+            if denial:
+                return denial
+            if _processing_state(user_id) != generation_state:
+                return {'error': 'account_access_changed'}
             schedule = enrich_schedule_data(schedule, assignments, pref, hours)
             try:
                 schedule = humanize_schedule(schedule, pref, hours,
                                              availability=availability,
                                              commitments=commitments, dna=dna)
             except Exception: pass
+            if _processing_state(user_id) != generation_state:
+                return {'error': 'account_access_changed'}
             sched_name = f"Plani Schedule {datetime.now().strftime('%b %d')}"
             SavedSchedule.query.filter_by(user_id=user_id).update({"is_active": False})
             sched = SavedSchedule(user_id=user_id,
@@ -762,16 +868,16 @@ Return ONLY valid JSON:
             try:
                 from App import get_google_token
                 from google_calendar_helper import add_schedule_to_calendar
-                google_token = get_google_token()
-                if google_token:
+                google_token = get_google_token() if _capabilities_allowed(_tool_user(user_id), 'calendar') else None
+                if google_token and _capabilities_allowed(_tool_user(user_id), 'calendar'):
                     ids, _new_token, skipped = add_schedule_to_calendar(google_token, schedule)
                     exports["google"] = {"created": len(ids), "skipped": skipped}
             except Exception as exc:
                 logger.warning("Google calendar export from Plani failed: %s", exc)
             try:
                 from App import _user_tz_name, get_outlook_token, outlook_calendar_helper
-                outlook_token = get_outlook_token()
-                if outlook_token:
+                outlook_token = get_outlook_token() if _capabilities_allowed(_tool_user(user_id), 'calendar') else None
+                if outlook_token and _capabilities_allowed(_tool_user(user_id), 'calendar'):
                     # The student's own zone, so blocks land at the hour the
                     # plan says rather than at that hour in California. The
                     # export also skips blocks already there, so asking twice
@@ -789,7 +895,10 @@ Return ONLY valid JSON:
                 "days": len(schedule.get("schedule", [])),
                 "overview": schedule.get("overview", ""),
                 "schedule": schedule,
-                "calendar_exports": exports}
+                "calendar_exports": exports,
+                "calendar_export_restricted": not _capabilities_allowed(_tool_user(user_id), 'calendar')}
+        except AIBlocked as e:
+            return {'error': e.reason, 'message': e.message}
         except Exception as e:
             logger.error("schedule gen failed: %s", e)
             return {"error": "Schedule generation failed. Try again."}
@@ -921,6 +1030,8 @@ def _humanize_action(tool: str, args: dict, result: dict) -> str | None:
                   for name, v in exports.items() if isinstance(v, dict)]
         if synced:
             line += " · added to " + ", ".join(synced)
+        elif result.get('calendar_export_restricted'):
+            line += ' · calendar export restricted by your institution'
         elif result.get("calendar_connected") is False:
             line += " · no calendar connected, so nothing was added to one"
         return line
@@ -1009,6 +1120,8 @@ def _add_minutes(clock: str, delta: int, cap: str) -> str:
 
 def _has_calendar() -> bool:
     try:
+        if not _capabilities_allowed(_tool_user(_get_user_id()), 'calendar'):
+            return False
         from App import get_google_token, get_outlook_token
         return bool(get_google_token() or get_outlook_token())
     except Exception:
@@ -1016,14 +1129,17 @@ def _has_calendar() -> bool:
 
 
 def build_agent_context(user_id: int) -> str:
-    """Everything the app knows about this user, as a prompt block."""
+    """Only consented account context permitted by the current policy."""
     from App import (
         ManualTask, SavedSchedule, CourseNote, UserStreak, PlaniPet,
         StudyPoints, StudySession, UserIdentity, db,
         build_student_context, _ai_personalization_enabled,
         _summarize_grade_signals, _fetch_grades_for_personalization,
-        collect_lms_assignments_for_user,
     )
+
+    user = _tool_user(user_id)
+    if not user or not _ai_personalization_enabled(user) or _tool_denial('list_tasks', {}, user_id):
+        return ''
 
     today = datetime.now().date()
     today_str = today.strftime("%Y-%m-%d")
@@ -1032,12 +1148,13 @@ def build_agent_context(user_id: int) -> str:
     # ── Who they are ────────────────────────────────────────────────
     def _identity():
         grades_summary = None
-        if _ai_personalization_enabled():
+        if _source_data_allowed(user):
             grades_summary = _safe(
                 lambda: _summarize_grade_signals(_fetch_grades_for_personalization())
             )
         block = build_student_context(
-            user_id=user_id, grades_summary=grades_summary, depth="full"
+            user_id=user_id, grades_summary=grades_summary,
+            depth='full' if _capabilities_allowed(user, 'scheduler') else 'thin'
         )
         # build_student_context returns its own delimited block; strip the
         # delimiters so it nests inside this one instead of opening a
@@ -1052,15 +1169,14 @@ def build_agent_context(user_id: int) -> str:
         ))
 
     def _profile_extras():
-        ui = db.session.get(UserIdentity, user_id) or \
-            UserIdentity.query.filter_by(user_id=user_id).first()
+        ui = UserIdentity.query.filter_by(user_id=user_id).first()
         if not ui:
             return []
         out = []
         if not ui.completed:
             out.append("Onboarding questionnaire is not finished — some "
                        "personalisation is missing. Offer to fill the gaps.")
-        cls = _safe(lambda: json.loads(ui.class_schedule or "[]"), []) or []
+        cls = (_safe(lambda: json.loads(ui.class_schedule or "[]"), []) or []) if _capabilities_allowed(user, 'scheduler') else []
         if cls:
             out.append(f"Has a class schedule on file with {len(cls)} slots.")
         return out
@@ -1075,7 +1191,7 @@ def build_agent_context(user_id: int) -> str:
         from intelliplan.api.serialize import today_to_dict
         return today_to_dict(_build_service().build(user_id))
 
-    data = _safe(_today, {}) or {}
+    data = (_safe(_today, {}) or {}) if _capabilities_allowed(user, 'scheduler') and _source_data_allowed(user) else {}
 
     if data:
         brief = data.get("briefing") or {}
@@ -1122,7 +1238,7 @@ def build_agent_context(user_id: int) -> str:
     # ── Work on their plate ─────────────────────────────────────────
     def _tasks():
         manual = ManualTask.query.filter_by(user_id=user_id, done=False).all()
-        lms = _safe(lambda: collect_lms_assignments_for_user(user_id), []) or []
+        lms = _safe(lambda: _permitted_lms_tasks(user_id), []) or []
         overdue = [t for t in manual if t.due_date and t.due_date < today_str]
         overdue += [a for a in lms if a.get("due_date") and a["due_date"] < today_str]
         due_today = [t for t in manual if t.due_date == today_str]
@@ -1155,7 +1271,8 @@ def build_agent_context(user_id: int) -> str:
             out.append("Struggling in: " + ", ".join(summary["weak"][:4]))
         return out
 
-    parts.append(_ctx_section("COURSES & GRADES", _safe(_courses, []) or []))
+    if _source_data_allowed(user):
+        parts.append(_ctx_section("COURSES & GRADES", _safe(_courses, []) or []))
 
     # ── Their saved schedule ────────────────────────────────────────
     def _schedule():
@@ -1173,7 +1290,8 @@ def build_agent_context(user_id: int) -> str:
             f"Overview: {sd.get('overview', '')}"[:300],
         ]
 
-    parts.append(_ctx_section("STUDY SCHEDULE", _safe(_schedule, []) or []))
+    if _capabilities_allowed(user, 'scheduler') and _source_data_allowed(user):
+        parts.append(_ctx_section("STUDY SCHEDULE", _safe(_schedule, []) or []))
 
     # ── What they've told the app to remember ───────────────────────
     def _memories():
@@ -1188,7 +1306,8 @@ def build_agent_context(user_id: int) -> str:
             out.append(f"  · [{n.note_date}] {n.course_name} — {n.title}: {snippet[:120]}")
         return out
 
-    parts.append(_ctx_section("MEMORIES", _safe(_memories, []) or []))
+    if _capabilities_allowed(user, 'uploads'):
+        parts.append(_ctx_section("MEMORIES", _safe(_memories, []) or []))
 
     # ── Momentum: streak, pet, sparks, study history ────────────────
     def _momentum():
@@ -1218,7 +1337,8 @@ def build_agent_context(user_id: int) -> str:
             out.append(f"Last {len(sessions)} study sessions: {mins} minutes{acc}.")
         return out
 
-    parts.append(_ctx_section("MOMENTUM", _safe(_momentum, []) or []))
+    if _capabilities_allowed(user, 'study', 'review'):
+        parts.append(_ctx_section("MOMENTUM", _safe(_momentum, []) or []))
 
     body = "".join(p for p in parts if p).strip()
     if not body:
@@ -1242,6 +1362,24 @@ def build_agent_context(user_id: int) -> str:
     )
 
 
+def _processing_state(user_id):
+    """Pin consent and school policy for prompts already assembled in this request."""
+    from App import _ai_personalization_enabled
+    from intelliplan.learning import policy
+    try:
+        user = _tool_user(user_id)
+        if not user:
+            return None
+        policy.invalidate_cache()
+        settings = policy.effective(user)
+        if not policy.decision(user, 'tutor')[0] or settings['assessment_protection']:
+            return None
+        return (_ai_personalization_enabled(user),
+                json.dumps(settings, sort_keys=True, default=lambda value: sorted(value)))
+    except Exception:
+        return None
+
+
 @plani_agent_bp.route("/api/plani/agent", methods=["POST"])
 def plani_agent():
     user_id = _get_user_id()
@@ -1250,6 +1388,8 @@ def plani_agent():
                         "reply": "Please log in to use Plani."}), 401
 
     data = request.get_json(silent=True) or {}
+    if not isinstance(data, dict):
+        return jsonify(status='error', error='invalid_request'), 400
 
     # Accept both contracts:
     #   { "messages": [...] }
@@ -1258,7 +1398,10 @@ def plani_agent():
         messages = data["messages"]
     else:
         history = data.get("history") or []
-        msg = (data.get("message") or "").strip()
+        raw_message = data.get('message') or ''
+        if not isinstance(raw_message, str) or not isinstance(history, list):
+            return jsonify(status='error', error='invalid_messages'), 400
+        msg = raw_message.strip()
         if not msg and not history:
             return jsonify({"status": "error",
                 "reply": "Send a message to start the conversation."}), 400
@@ -1266,6 +1409,13 @@ def plani_agent():
         if msg:
             messages.append({"role": "user", "content": msg})
 
+    if (not isinstance(messages, list) or len(messages) > 50 or any(
+        not isinstance(m, dict) or not isinstance(m.get('role'), str) or
+        m['role'] not in {'user', 'assistant'} or
+        not isinstance(m.get('content'), str) or len(m['content']) > 20000
+        for m in messages)):
+        return jsonify(status='error', error='invalid_messages'), 400
+    messages = [{'role': m['role'], 'content': m['content']} for m in messages]
     if not messages:
         return jsonify({"status": "error",
             "reply": "No messages provided."}), 400
@@ -1293,6 +1443,9 @@ def plani_agent():
 
     import assistant_name
 
+    processing_state = _processing_state(user_id)
+    if processing_state is None:
+        return jsonify(status='error', error='policy_unavailable'), 403
     system = AGENT_SYSTEM_PROMPT + \
         assistant_name.prompt_line(assistant_name.for_user(user_id)) + \
         "\n\n" + _tool_list_prompt() + \
@@ -1302,7 +1455,7 @@ def plani_agent():
     # match what they just asked. Empty string when nothing is relevant.
     last_user = next((m.get("content", "") for m in reversed(messages)
                       if m.get("role") == "user"), "")
-    if last_user:
+    if last_user and processing_state[0] and _capabilities_allowed(_tool_user(user_id), 'uploads', 'study'):
         from intelliplan.retrieval import retrieve_context
         system += retrieve_context(user_id, str(last_user)[:1000])
     recent = messages[-12:]
@@ -1315,7 +1468,15 @@ def plani_agent():
     schedule_preview: dict | None = None
 
     for _round in range(MAX_TOOL_ROUNDS):
+        if _processing_state(user_id) != processing_state:
+            return jsonify(status='error', error='account_access_changed',
+                           reply='Account access changed. Start a new request.',
+                           actions=actions, tool_log=tool_log), 403
         try:
+            if _round:
+                decision = ai_firewall.guard(_tool_user(user_id),
+                    prompts=[m.get('content', '') for m in messages if m.get('role') == 'user'],
+                    want_output_tokens=1400, feature='agent')
             reply = ai_chat(llm_messages, tier="standard",
                 temperature=0.3,
                 max_tokens=min(1400, decision.max_output_tokens),
@@ -1325,6 +1486,9 @@ def plani_agent():
                 sum(len(m.get("content", "")) for m in llm_messages),
                 len(reply),
             )
+        except AIBlocked as e:
+            return jsonify(status='error', error=e.reason, reply=e.message,
+                           actions=actions, tool_log=tool_log), e.status
         except AIQuotaExhausted as e:
             wait = getattr(e, "retry_after", None)
             when = f" Try again in about {wait} seconds." if wait else " Try again shortly."
@@ -1344,6 +1508,10 @@ def plani_agent():
                 "reply": "I hit a snag talking to the AI. Try again in a moment.",
                 "actions": actions, "tool_log": tool_log}), 502
 
+        if _processing_state(user_id) != processing_state:
+            return jsonify(status='error', error='account_access_changed',
+                           reply='Account access changed. Start a new request.',
+                           actions=actions, tool_log=tool_log), 403
         tool_calls = _parse_tool_calls(reply)
         if not tool_calls:
             clean = re.sub(r"```tool_call.*?```", "", reply, flags=re.DOTALL).strip()
@@ -1379,7 +1547,7 @@ def plani_agent():
             if name == "generate_schedule" and isinstance(result, dict) and result.get("schedule"):
                 schedule_preview = result["schedule"]
             # mutations should trigger UI refresh
-            if name in ("create_task", "update_task", "complete_task",
+            if not result.get('error') and name in ("create_task", "update_task", "complete_task",
                         "delete_task", "generate_schedule", "save_note",
                         "track_course", "log_course_progress"):
                 refresh_ui = True
@@ -1390,13 +1558,32 @@ def plani_agent():
                        "\n\nNow give the user a brief natural-language reply."})
 
     # Fell through: too many tool rounds
+    if _processing_state(user_id) != processing_state:
+        return jsonify(status='error', error='account_access_changed',
+                       reply='Account access changed. Start a new request.',
+                       actions=actions, tool_log=tool_log), 403
     try:
+        decision = ai_firewall.guard(_tool_user(user_id),
+            prompts=[m.get('content', '') for m in messages if m.get('role') == 'user'],
+            want_output_tokens=600, feature='agent')
         final = ai_chat(llm_messages, tier="standard",
             temperature=0.3, max_tokens=min(600, decision.max_output_tokens),
             plan=decision.plan).strip()
+        ai_firewall.record_tokens(decision,
+            sum(len(m.get('content', '')) for m in llm_messages), len(final))
+        if _processing_state(user_id) != processing_state:
+            return jsonify(status='error', error='account_access_changed',
+                           reply='Account access changed. Start a new request.',
+                           actions=actions, tool_log=tool_log), 403
         final = re.sub(r"```tool_call.*?```", "", final, flags=re.DOTALL).strip()
+    except AIBlocked as e:
+        return jsonify(status='error', error=e.reason, reply=e.message,
+                       actions=actions, tool_log=tool_log), e.status
     except Exception:
-        final = "Done — I completed the actions above."
+        logger.warning('Plani final response unavailable', exc_info=True)
+        return jsonify(status='error', error='ai_unavailable',
+                       reply='The final reply could not be generated. Check the action results below.',
+                       actions=actions, tool_log=tool_log, refresh=refresh_ui), 502
     return jsonify({"status": "ok", "reply": final or "Done.",
         "actions": actions, "navigate": navigate_url, "links": links,
         "refresh": refresh_ui, "schedule": schedule_preview, "tool_log": tool_log})

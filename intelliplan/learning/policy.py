@@ -95,10 +95,10 @@ def organizations(user):
     rows = M['Membership'].query.filter_by(user_id=user.id).all()
     result = {}
     for row in rows:
-        org = M['Organization'].query.get(row.organization_id)
+        org = M['Organization'].query.populate_existing().get(row.organization_id)
         while org and org.id not in result:
             result[org.id] = org
-            org = M['Organization'].query.get(org.parent_id) if org.parent_id else None
+            org = M['Organization'].query.populate_existing().get(org.parent_id) if org.parent_id else None
     return list(result.values())
 
 
@@ -179,7 +179,7 @@ def decision(user, key):
         if feature.maturity in {'admin_only_beta', 'internal_alpha'} and not is_learning_admin(user):
             return False, 'administrator_only_beta'
         if feature.flag:
-            flag = FeatureFlag.query.filter_by(key=feature.flag).first()
+            flag = FeatureFlag.query.populate_existing().filter_by(key=feature.flag).first()
             if not flag or not flag.enabled:
                 return False, 'feature_disabled'
         if feature.maturity == 'opt_in_beta':

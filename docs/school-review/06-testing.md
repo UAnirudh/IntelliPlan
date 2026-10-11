@@ -60,6 +60,14 @@ The latest full regression passes **4068 tests,24 skipped,9053 warnings in270.90
 
 The current disposable Chromium run passes **16 HTTP/storage workflows and27 responsive/scoped axe checks** with zero JavaScript errors. AI availability is forced and provider calls trapped in new policy tests, proving denials and numerical fallback do not merely rely on missing configuration. No live provider calls are made. Independent review of these continuations remains unavailable due reviewer execution limits. [Boundary report](18-ai-policy-coverage.md), [browser results](evidence/browser-results.json).
 
+## Plani/internal-source continuation — 2026-10-11
+
+The latest full regression passes **4138 tests,24 skipped,9472 warnings in259.71s**. The expanded focused suite passes **402 tests,1978 warnings in28.47s**, covering Plani, institution policy, course tracking, clock parsing, retrieval, LMS cache, Canvas, HAC and timeline behavior. Tests use disposable SQLite and provider stubs; they include real nested calendar placement, cross-account profile-ID collision, policy/consent/source revocation, background credential/cache boundaries and per-call allowance/failure behavior. [Full results](evidence/pytest-plani-full.txt), [focused results](evidence/pytest-plani-targeted.txt), [behavior report](19-plani-data-boundaries.md).
+
+The fresh browser harness exits0 with **16 HTTP/storage workflows,27 responsive checks,27 scoped axe checks and zero JavaScript errors**. Its workflows concern the existing learning/admin surfaces; the Plani HTTP/storage paths are tested in the focused suite. External generation remains fixtures, and raw accessibility manual-review cases remain recorded. The source-only route inventory still has644 literal decorators, and105 source files have raw-byte SHA-256 records. Inventory/hashes do not establish complete policy coverage.
+
+Independent read-only source/helper review completed after finding and fixing malformed-role validation, a nested calendar-helper bypass and source-policy revocation before schedule persistence. Separate standards/spec review attempts stopped at execution limits. A full run started before these last fixes was interrupted; only the completed final run above is claimed for current source.
+
 ## Live provider attempt and exclusions
 
 `python scripts/verify_learning_provider.py --run-live` makes at most one blueprint and one lesson call on a disposable database, with synthetic content. The recorded local check returned503 in the blueprint path: contract-approval flag false, Vertex project/location absent, no eligible Gemini service. External generation requests:0. It correctly exits nonzero. [Live provider evidence](evidence/live-provider-results.json).
