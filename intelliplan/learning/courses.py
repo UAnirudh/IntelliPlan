@@ -59,7 +59,9 @@ def validate_blueprint(value):
             raise ValueError('Each lesson must be an object.')
         key = text(lesson.get('key'), 64)
         dependencies = lesson.get('prerequisites', [])
-        if key in seen or not isinstance(dependencies, list) or any(d not in seen for d in dependencies):
+        if (key in seen or not isinstance(dependencies, list) or
+                any(not isinstance(d, str) or d not in seen for d in dependencies) or
+                len(set(dependencies)) != len(dependencies)):
             raise ValueError('Lesson keys must be unique; prerequisites must precede each lesson.')
         minutes = lesson.get('minutes', 30)
         if type(minutes) is not int or not 5 <= minutes <= 120:
@@ -190,6 +192,28 @@ def assessment_source(course, spec):
         questions.append(content['quiz']['question'])
         ancestor_id = ancestor.blueprint.get('revision_source', {}).get('course_id')
     return original, questions
+
+
+def fork_outline(course, value):
+    """Revise organization of saved lessons without silently changing objectives."""
+    from App import db
+    blueprint = validate_blueprint(value)
+    originals = {spec['key']: spec for spec in course.blueprint['lessons']}
+    if (set(originals) != {spec['key'] for spec in blueprint['lessons']} or
+            any(spec['objective'] != originals[spec['key']]['objective'] for spec in blueprint['lessons']) or
+            any(blueprint.get(key) != course.blueprint.get(key) for key in
+                ('subject', 'request_profile', 'outcomes', 'prerequisites'))):
+        raise ValueError('Keep the same lesson keys, objectives, course prerequisites, outcomes and request details. Revise teaching content separately.')
+    M = policy.models()
+    blueprint['revision_source'] = dict(course_id=course.id, action='outline')
+    revised = M['Course'](user_id=course.user_id, mode=course.mode, goal=course.goal,
+        blueprint=blueprint, revision=course.revision + 1, state='needs_review')
+    db.session.add(revised)
+    db.session.flush()
+    for lesson in M['Lesson'].query.filter_by(course_id=course.id).all():
+        db.session.add(M['Lesson'](course_id=revised.id, key=lesson.key,
+                                  content=deepcopy(lesson.content), reviewed=False))
+    return revised
 
 
 def next_activity(course, evidence):

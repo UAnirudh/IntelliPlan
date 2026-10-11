@@ -322,6 +322,77 @@
       course.revision = saved.revision;
       if (isCurrentCourse()) status('Outline saved.');
     }));
+    if (course.lessons.length === course.blueprint.lessons.length && !['queued', 'running'].includes(course.job?.state)) {
+      const organization = node('details', undefined, panel); organization.className = 'learning-outline learning-course-organization';
+      node('summary', 'Revise course organization', organization);
+      node('p', 'Change grouping, titles, duration or lesson order in a new course revision. Keep the same objectives and teaching content. Prerequisites must come before the lessons that use them; check the revised sequence before review.', organization);
+      const editor = node('div', undefined, organization);
+      button('Edit units and lesson order', organization, () => mutateCourse(async () => {
+        if (editor.children.length) return;
+        const form = node('form', undefined, editor); form.className = 'learning-organization-edit';
+        function field(labelText, value, parent, maximum = 200, multiline = false) {
+          const label = node('label', labelText, parent);
+          const input = node(multiline ? 'textarea' : 'input', undefined, label);
+          input.value = value; input.maxLength = maximum; input.required = true; return input;
+        }
+        const title = field('Course title', course.blueprint.title, form);
+        const overview = field('Course overview', course.blueprint.overview, form, 2000, true);
+        const lessons = node('div', undefined, form);
+        const order = []; const moves = [];
+        function refreshMoves() {
+          moves.forEach(({spec, earlier, later}) => {
+            const index = order.indexOf(spec);
+            earlier.disabled = index === 0; earlier.dataset.locked = String(earlier.disabled);
+            later.disabled = index === order.length - 1; later.dataset.locked = String(later.disabled);
+          });
+        }
+        for (const spec of course.blueprint.lessons) {
+          order.push(spec);
+          const card = node('fieldset', undefined, lessons); node('legend', spec.title, card);
+          const lessonTitle = field('Lesson title', spec.title, card);
+          const unit = field('Unit', spec.unit, card);
+          const minutes = field('Planned minutes', spec.minutes, card);
+          minutes.type = 'number'; minutes.min = '5'; minutes.max = '120'; minutes.step = '1';
+          const prerequisites = node('details', undefined, card);
+          node('summary', 'Prerequisite lessons', prerequisites);
+          const choices = [];
+          for (const candidate of course.blueprint.lessons.filter(item => item.key !== spec.key)) {
+            const label = node('label', undefined, prerequisites);
+            label.className = 'learning-consent';
+            const check = node('input', undefined, label); check.type = 'checkbox';
+            check.value = candidate.key; check.checked = spec.prerequisites.includes(candidate.key);
+            label.append(document.createTextNode(candidate.title)); choices.push(check);
+          }
+          const earlier = button(`${spec.title}: Move earlier`, card, () => {
+            const index = order.indexOf(spec); if (index === 0) return;
+            order.splice(index, 1); order.splice(index - 1, 0, spec);
+            lessons.insertBefore(card, lessons.children[index - 1]); refreshMoves();
+          });
+          const later = button(`${spec.title}: Move later`, card, () => {
+            const index = order.indexOf(spec); if (index === order.length - 1) return;
+            order.splice(index, 1); order.splice(index + 1, 0, spec);
+            lessons.insertBefore(lessons.children[index + 1], card); refreshMoves();
+          });
+          moves.push({spec, earlier, later, lessonTitle, unit, minutes, choices});
+        }
+        refreshMoves();
+        const save = node('button', 'Save course organization in a revised course', form); save.type = 'submit';
+        form.addEventListener('submit', event => {
+          event.preventDefault(); run(save, () => mutateCourse(async () => {
+            const blueprint = structuredClone(course.blueprint);
+            blueprint.title = title.value; blueprint.overview = overview.value;
+            blueprint.lessons = order.map(spec => {
+              const fields = moves.find(item => item.spec === spec);
+              return {...spec, title:fields.lessonTitle.value, unit:fields.unit.value, minutes:Number(fields.minutes.value),
+                prerequisites:fields.choices.filter(check => check.checked).map(check => check.value)};
+            });
+            const result = await post(`/api/learning/courses/${id}/outline-revision`, {blueprint, revision:course.revision});
+            await showRevision(result);
+          }));
+        });
+        title.focus();
+      }));
+    }
     if (course.job) node('p', `Generation: ${course.job.state} · ${course.lessons.length}/${course.blueprint.lessons.length} lessons · ${course.job.reserved_tokens}/${course.job.token_budget} tokens reserved${course.job.error ? ` · ${course.job.error}` : ''}`, panel);
     if (course.job) {
       const saved = node('progress', undefined, panel); saved.max = course.blueprint.lessons.length; saved.value = course.lessons.length;

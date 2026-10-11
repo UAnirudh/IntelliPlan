@@ -11,6 +11,7 @@
     "Fixture-backed original generation, answer-key review, scoring, shared progress",
     "Single-lesson edit and bounded regeneration create reviewed course revisions while preserving the original and its scored evidence",
     "Replacement knowledge check preserves teaching content and prior evidence, requires provider confirmation and accuracy review, and scores once as assisted builder evidence",
+    "Module editing validates native duration and prerequisite sequence, retains failed drafts, preserves teaching/evidence in a reordered course revision and requires review",
     "Institution policy change and audit via browser",
     "Monthly budget, scheduled assessment windows, retention settings and scoped beta approval",
     "Mobile layout, keyboard focus, student beta and direct API denial",
@@ -146,6 +147,24 @@
     },
     {
       "surface": "replacement-check-controls-mobile",
+      "viewport": {
+        "width": 320,
+        "height": 844
+      },
+      "overflow": false,
+      "small_targets": []
+    },
+    {
+      "surface": "course-organization-editor-desktop",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "overflow": false,
+      "small_targets": []
+    },
+    {
+      "surface": "course-organization-editor-mobile",
       "viewport": {
         "width": 320,
         "height": 844
@@ -349,64 +368,6 @@
               "impact": "serious",
               "html": "<span class=\"mord mtight\">2</span>",
               "target": [
-                ".learning-lesson:nth-child(9) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(1) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
-              ],
-              "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
-            },
-            {
-              "any": [
-                {
-                  "id": "color-contrast",
-                  "data": {
-                    "fgColor": null,
-                    "bgColor": null,
-                    "contrastRatio": 0,
-                    "fontSize": "9.1pt (12.1968px)",
-                    "fontWeight": "normal",
-                    "messageKey": "shortTextContent",
-                    "expectedContrastRatio": "4.5:1",
-                    "shadowColor": null,
-                    "colorParse": null
-                  },
-                  "relatedNodes": [],
-                  "impact": "serious",
-                  "message": "Element content is too short to determine if it is actual text content"
-                }
-              ],
-              "all": [],
-              "none": [],
-              "impact": "serious",
-              "html": "<span class=\"mord mtight\">2</span>",
-              "target": [
-                ".learning-lesson:nth-child(9) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(2) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
-              ],
-              "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
-            },
-            {
-              "any": [
-                {
-                  "id": "color-contrast",
-                  "data": {
-                    "fgColor": null,
-                    "bgColor": null,
-                    "contrastRatio": 0,
-                    "fontSize": "9.1pt (12.1968px)",
-                    "fontWeight": "normal",
-                    "messageKey": "shortTextContent",
-                    "expectedContrastRatio": "4.5:1",
-                    "shadowColor": null,
-                    "colorParse": null
-                  },
-                  "relatedNodes": [],
-                  "impact": "serious",
-                  "message": "Element content is too short to determine if it is actual text content"
-                }
-              ],
-              "all": [],
-              "none": [],
-              "impact": "serious",
-              "html": "<span class=\"mord mtight\">2</span>",
-              "target": [
                 ".learning-lesson:nth-child(10) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(1) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
               ],
               "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
@@ -669,6 +630,64 @@
               "html": "<span class=\"mord mtight\">2</span>",
               "target": [
                 ".learning-lesson:nth-child(14) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(2) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": null,
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "9.1pt (12.1968px)",
+                    "fontWeight": "normal",
+                    "messageKey": "shortTextContent",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null,
+                    "colorParse": null
+                  },
+                  "relatedNodes": [],
+                  "impact": "serious",
+                  "message": "Element content is too short to determine if it is actual text content"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<span class=\"mord mtight\">2</span>",
+              "target": [
+                ".learning-lesson:nth-child(15) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(1) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": null,
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "9.1pt (12.1968px)",
+                    "fontWeight": "normal",
+                    "messageKey": "shortTextContent",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null,
+                    "colorParse": null
+                  },
+                  "relatedNodes": [],
+                  "impact": "serious",
+                  "message": "Element content is too short to determine if it is actual text content"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<span class=\"mord mtight\">2</span>",
+              "target": [
+                ".learning-lesson:nth-child(15) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(2) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
               ],
               "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
             }
@@ -726,64 +745,6 @@
               "impact": "serious",
               "html": "<span class=\"mord mtight\">2</span>",
               "target": [
-                ".learning-lesson:nth-child(9) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(1) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
-              ],
-              "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
-            },
-            {
-              "any": [
-                {
-                  "id": "color-contrast",
-                  "data": {
-                    "fgColor": null,
-                    "bgColor": null,
-                    "contrastRatio": 0,
-                    "fontSize": "9.1pt (12.1968px)",
-                    "fontWeight": "normal",
-                    "messageKey": "shortTextContent",
-                    "expectedContrastRatio": "4.5:1",
-                    "shadowColor": null,
-                    "colorParse": null
-                  },
-                  "relatedNodes": [],
-                  "impact": "serious",
-                  "message": "Element content is too short to determine if it is actual text content"
-                }
-              ],
-              "all": [],
-              "none": [],
-              "impact": "serious",
-              "html": "<span class=\"mord mtight\">2</span>",
-              "target": [
-                ".learning-lesson:nth-child(9) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(2) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
-              ],
-              "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
-            },
-            {
-              "any": [
-                {
-                  "id": "color-contrast",
-                  "data": {
-                    "fgColor": null,
-                    "bgColor": null,
-                    "contrastRatio": 0,
-                    "fontSize": "9.1pt (12.1968px)",
-                    "fontWeight": "normal",
-                    "messageKey": "shortTextContent",
-                    "expectedContrastRatio": "4.5:1",
-                    "shadowColor": null,
-                    "colorParse": null
-                  },
-                  "relatedNodes": [],
-                  "impact": "serious",
-                  "message": "Element content is too short to determine if it is actual text content"
-                }
-              ],
-              "all": [],
-              "none": [],
-              "impact": "serious",
-              "html": "<span class=\"mord mtight\">2</span>",
-              "target": [
                 ".learning-lesson:nth-child(10) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(1) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
               ],
               "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
@@ -1046,6 +1007,64 @@
               "html": "<span class=\"mord mtight\">2</span>",
               "target": [
                 ".learning-lesson:nth-child(14) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(2) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": null,
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "9.1pt (12.1968px)",
+                    "fontWeight": "normal",
+                    "messageKey": "shortTextContent",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null,
+                    "colorParse": null
+                  },
+                  "relatedNodes": [],
+                  "impact": "serious",
+                  "message": "Element content is too short to determine if it is actual text content"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<span class=\"mord mtight\">2</span>",
+              "target": [
+                ".learning-lesson:nth-child(15) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(1) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": null,
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "9.1pt (12.1968px)",
+                    "fontWeight": "normal",
+                    "messageKey": "shortTextContent",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null,
+                    "colorParse": null
+                  },
+                  "relatedNodes": [],
+                  "impact": "serious",
+                  "message": "Element content is too short to determine if it is actual text content"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<span class=\"mord mtight\">2</span>",
+              "target": [
+                ".learning-lesson:nth-child(15) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(2) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
               ],
               "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
             }
@@ -1103,64 +1122,6 @@
               "impact": "serious",
               "html": "<span class=\"mord mtight\">2</span>",
               "target": [
-                ".learning-lesson:nth-child(9) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(1) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
-              ],
-              "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
-            },
-            {
-              "any": [
-                {
-                  "id": "color-contrast",
-                  "data": {
-                    "fgColor": null,
-                    "bgColor": null,
-                    "contrastRatio": 0,
-                    "fontSize": "9.1pt (12.1968px)",
-                    "fontWeight": "normal",
-                    "messageKey": "shortTextContent",
-                    "expectedContrastRatio": "4.5:1",
-                    "shadowColor": null,
-                    "colorParse": null
-                  },
-                  "relatedNodes": [],
-                  "impact": "serious",
-                  "message": "Element content is too short to determine if it is actual text content"
-                }
-              ],
-              "all": [],
-              "none": [],
-              "impact": "serious",
-              "html": "<span class=\"mord mtight\">2</span>",
-              "target": [
-                ".learning-lesson:nth-child(9) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(2) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
-              ],
-              "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
-            },
-            {
-              "any": [
-                {
-                  "id": "color-contrast",
-                  "data": {
-                    "fgColor": null,
-                    "bgColor": null,
-                    "contrastRatio": 0,
-                    "fontSize": "9.1pt (12.1968px)",
-                    "fontWeight": "normal",
-                    "messageKey": "shortTextContent",
-                    "expectedContrastRatio": "4.5:1",
-                    "shadowColor": null,
-                    "colorParse": null
-                  },
-                  "relatedNodes": [],
-                  "impact": "serious",
-                  "message": "Element content is too short to determine if it is actual text content"
-                }
-              ],
-              "all": [],
-              "none": [],
-              "impact": "serious",
-              "html": "<span class=\"mord mtight\">2</span>",
-              "target": [
                 ".learning-lesson:nth-child(10) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(1) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
               ],
               "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
@@ -1423,6 +1384,64 @@
               "html": "<span class=\"mord mtight\">2</span>",
               "target": [
                 ".learning-lesson:nth-child(14) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(2) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": null,
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "9.1pt (12.1968px)",
+                    "fontWeight": "normal",
+                    "messageKey": "shortTextContent",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null,
+                    "colorParse": null
+                  },
+                  "relatedNodes": [],
+                  "impact": "serious",
+                  "message": "Element content is too short to determine if it is actual text content"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<span class=\"mord mtight\">2</span>",
+              "target": [
+                ".learning-lesson:nth-child(15) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(1) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": null,
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "9.1pt (12.1968px)",
+                    "fontWeight": "normal",
+                    "messageKey": "shortTextContent",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null,
+                    "colorParse": null
+                  },
+                  "relatedNodes": [],
+                  "impact": "serious",
+                  "message": "Element content is too short to determine if it is actual text content"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<span class=\"mord mtight\">2</span>",
+              "target": [
+                ".learning-lesson:nth-child(15) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(2) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
               ],
               "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
             }
@@ -1480,64 +1499,6 @@
               "impact": "serious",
               "html": "<span class=\"mord mtight\">2</span>",
               "target": [
-                ".learning-lesson:nth-child(9) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(1) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
-              ],
-              "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
-            },
-            {
-              "any": [
-                {
-                  "id": "color-contrast",
-                  "data": {
-                    "fgColor": null,
-                    "bgColor": null,
-                    "contrastRatio": 0,
-                    "fontSize": "9.1pt (12.1968px)",
-                    "fontWeight": "normal",
-                    "messageKey": "shortTextContent",
-                    "expectedContrastRatio": "4.5:1",
-                    "shadowColor": null,
-                    "colorParse": null
-                  },
-                  "relatedNodes": [],
-                  "impact": "serious",
-                  "message": "Element content is too short to determine if it is actual text content"
-                }
-              ],
-              "all": [],
-              "none": [],
-              "impact": "serious",
-              "html": "<span class=\"mord mtight\">2</span>",
-              "target": [
-                ".learning-lesson:nth-child(9) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(2) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
-              ],
-              "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
-            },
-            {
-              "any": [
-                {
-                  "id": "color-contrast",
-                  "data": {
-                    "fgColor": null,
-                    "bgColor": null,
-                    "contrastRatio": 0,
-                    "fontSize": "9.1pt (12.1968px)",
-                    "fontWeight": "normal",
-                    "messageKey": "shortTextContent",
-                    "expectedContrastRatio": "4.5:1",
-                    "shadowColor": null,
-                    "colorParse": null
-                  },
-                  "relatedNodes": [],
-                  "impact": "serious",
-                  "message": "Element content is too short to determine if it is actual text content"
-                }
-              ],
-              "all": [],
-              "none": [],
-              "impact": "serious",
-              "html": "<span class=\"mord mtight\">2</span>",
-              "target": [
                 ".learning-lesson:nth-child(10) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(1) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
               ],
               "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
@@ -1800,6 +1761,64 @@
               "html": "<span class=\"mord mtight\">2</span>",
               "target": [
                 ".learning-lesson:nth-child(14) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(2) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": null,
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "9.1pt (12.1968px)",
+                    "fontWeight": "normal",
+                    "messageKey": "shortTextContent",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null,
+                    "colorParse": null
+                  },
+                  "relatedNodes": [],
+                  "impact": "serious",
+                  "message": "Element content is too short to determine if it is actual text content"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<span class=\"mord mtight\">2</span>",
+              "target": [
+                ".learning-lesson:nth-child(15) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(1) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": null,
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "9.1pt (12.1968px)",
+                    "fontWeight": "normal",
+                    "messageKey": "shortTextContent",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null,
+                    "colorParse": null
+                  },
+                  "relatedNodes": [],
+                  "impact": "serious",
+                  "message": "Element content is too short to determine if it is actual text content"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<span class=\"mord mtight\">2</span>",
+              "target": [
+                ".learning-lesson:nth-child(15) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(2) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
               ],
               "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
             }
@@ -1857,64 +1876,6 @@
               "impact": "serious",
               "html": "<span class=\"mord mtight\">2</span>",
               "target": [
-                ".learning-lesson:nth-child(10) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(1) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
-              ],
-              "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
-            },
-            {
-              "any": [
-                {
-                  "id": "color-contrast",
-                  "data": {
-                    "fgColor": null,
-                    "bgColor": null,
-                    "contrastRatio": 0,
-                    "fontSize": "9.1pt (12.1968px)",
-                    "fontWeight": "normal",
-                    "messageKey": "shortTextContent",
-                    "expectedContrastRatio": "4.5:1",
-                    "shadowColor": null,
-                    "colorParse": null
-                  },
-                  "relatedNodes": [],
-                  "impact": "serious",
-                  "message": "Element content is too short to determine if it is actual text content"
-                }
-              ],
-              "all": [],
-              "none": [],
-              "impact": "serious",
-              "html": "<span class=\"mord mtight\">2</span>",
-              "target": [
-                ".learning-lesson:nth-child(10) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(2) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
-              ],
-              "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
-            },
-            {
-              "any": [
-                {
-                  "id": "color-contrast",
-                  "data": {
-                    "fgColor": null,
-                    "bgColor": null,
-                    "contrastRatio": 0,
-                    "fontSize": "9.1pt (12.1968px)",
-                    "fontWeight": "normal",
-                    "messageKey": "shortTextContent",
-                    "expectedContrastRatio": "4.5:1",
-                    "shadowColor": null,
-                    "colorParse": null
-                  },
-                  "relatedNodes": [],
-                  "impact": "serious",
-                  "message": "Element content is too short to determine if it is actual text content"
-                }
-              ],
-              "all": [],
-              "none": [],
-              "impact": "serious",
-              "html": "<span class=\"mord mtight\">2</span>",
-              "target": [
                 ".learning-lesson:nth-child(11) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(1) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
               ],
               "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
@@ -2119,6 +2080,64 @@
               "html": "<span class=\"mord mtight\">2</span>",
               "target": [
                 ".learning-lesson:nth-child(14) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(2) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": null,
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "9.1pt (12.1968px)",
+                    "fontWeight": "normal",
+                    "messageKey": "shortTextContent",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null,
+                    "colorParse": null
+                  },
+                  "relatedNodes": [],
+                  "impact": "serious",
+                  "message": "Element content is too short to determine if it is actual text content"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<span class=\"mord mtight\">2</span>",
+              "target": [
+                ".learning-lesson:nth-child(15) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(1) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": null,
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "9.1pt (12.1968px)",
+                    "fontWeight": "normal",
+                    "messageKey": "shortTextContent",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null,
+                    "colorParse": null
+                  },
+                  "relatedNodes": [],
+                  "impact": "serious",
+                  "message": "Element content is too short to determine if it is actual text content"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<span class=\"mord mtight\">2</span>",
+              "target": [
+                ".learning-lesson:nth-child(15) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(2) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
               ],
               "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
             }
@@ -2176,64 +2195,6 @@
               "impact": "serious",
               "html": "<span class=\"mord mtight\">2</span>",
               "target": [
-                ".learning-lesson:nth-child(11) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(1) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
-              ],
-              "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
-            },
-            {
-              "any": [
-                {
-                  "id": "color-contrast",
-                  "data": {
-                    "fgColor": null,
-                    "bgColor": null,
-                    "contrastRatio": 0,
-                    "fontSize": "9.1pt (12.1968px)",
-                    "fontWeight": "normal",
-                    "messageKey": "shortTextContent",
-                    "expectedContrastRatio": "4.5:1",
-                    "shadowColor": null,
-                    "colorParse": null
-                  },
-                  "relatedNodes": [],
-                  "impact": "serious",
-                  "message": "Element content is too short to determine if it is actual text content"
-                }
-              ],
-              "all": [],
-              "none": [],
-              "impact": "serious",
-              "html": "<span class=\"mord mtight\">2</span>",
-              "target": [
-                ".learning-lesson:nth-child(11) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(2) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
-              ],
-              "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
-            },
-            {
-              "any": [
-                {
-                  "id": "color-contrast",
-                  "data": {
-                    "fgColor": null,
-                    "bgColor": null,
-                    "contrastRatio": 0,
-                    "fontSize": "9.1pt (12.1968px)",
-                    "fontWeight": "normal",
-                    "messageKey": "shortTextContent",
-                    "expectedContrastRatio": "4.5:1",
-                    "shadowColor": null,
-                    "colorParse": null
-                  },
-                  "relatedNodes": [],
-                  "impact": "serious",
-                  "message": "Element content is too short to determine if it is actual text content"
-                }
-              ],
-              "all": [],
-              "none": [],
-              "impact": "serious",
-              "html": "<span class=\"mord mtight\">2</span>",
-              "target": [
                 ".learning-lesson:nth-child(12) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(1) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
               ],
               "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
@@ -2496,6 +2457,64 @@
               "html": "<span class=\"mord mtight\">2</span>",
               "target": [
                 ".learning-lesson:nth-child(16) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(2) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": null,
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "9.1pt (12.1968px)",
+                    "fontWeight": "normal",
+                    "messageKey": "shortTextContent",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null,
+                    "colorParse": null
+                  },
+                  "relatedNodes": [],
+                  "impact": "serious",
+                  "message": "Element content is too short to determine if it is actual text content"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<span class=\"mord mtight\">2</span>",
+              "target": [
+                ".learning-lesson:nth-child(17) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(1) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": null,
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "9.1pt (12.1968px)",
+                    "fontWeight": "normal",
+                    "messageKey": "shortTextContent",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null,
+                    "colorParse": null
+                  },
+                  "relatedNodes": [],
+                  "impact": "serious",
+                  "message": "Element content is too short to determine if it is actual text content"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<span class=\"mord mtight\">2</span>",
+              "target": [
+                ".learning-lesson:nth-child(17) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(2) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
               ],
               "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
             }
@@ -2553,7 +2572,7 @@
               "impact": "serious",
               "html": "<span class=\"mord mtight\">2</span>",
               "target": [
-                ".learning-lesson:nth-child(11) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(1) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
+                ".learning-lesson:nth-child(12) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(1) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
               ],
               "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
             },
@@ -2582,10 +2601,329 @@
               "impact": "serious",
               "html": "<span class=\"mord mtight\">2</span>",
               "target": [
-                ".learning-lesson:nth-child(11) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(2) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
+                ".learning-lesson:nth-child(12) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(2) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
               ],
               "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
             },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": null,
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "9.1pt (12.1968px)",
+                    "fontWeight": "normal",
+                    "messageKey": "shortTextContent",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null,
+                    "colorParse": null
+                  },
+                  "relatedNodes": [],
+                  "impact": "serious",
+                  "message": "Element content is too short to determine if it is actual text content"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<span class=\"mord mtight\">2</span>",
+              "target": [
+                ".learning-lesson:nth-child(13) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(1) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": null,
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "9.1pt (12.1968px)",
+                    "fontWeight": "normal",
+                    "messageKey": "shortTextContent",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null,
+                    "colorParse": null
+                  },
+                  "relatedNodes": [],
+                  "impact": "serious",
+                  "message": "Element content is too short to determine if it is actual text content"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<span class=\"mord mtight\">2</span>",
+              "target": [
+                ".learning-lesson:nth-child(13) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(2) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": null,
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "9.1pt (12.1968px)",
+                    "fontWeight": "normal",
+                    "messageKey": "shortTextContent",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null,
+                    "colorParse": null
+                  },
+                  "relatedNodes": [],
+                  "impact": "serious",
+                  "message": "Element content is too short to determine if it is actual text content"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<span class=\"mord mtight\">2</span>",
+              "target": [
+                ".learning-lesson:nth-child(14) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(1) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": null,
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "9.1pt (12.1968px)",
+                    "fontWeight": "normal",
+                    "messageKey": "shortTextContent",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null,
+                    "colorParse": null
+                  },
+                  "relatedNodes": [],
+                  "impact": "serious",
+                  "message": "Element content is too short to determine if it is actual text content"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<span class=\"mord mtight\">2</span>",
+              "target": [
+                ".learning-lesson:nth-child(14) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(2) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": null,
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "9.1pt (12.1968px)",
+                    "fontWeight": "normal",
+                    "messageKey": "shortTextContent",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null,
+                    "colorParse": null
+                  },
+                  "relatedNodes": [],
+                  "impact": "serious",
+                  "message": "Element content is too short to determine if it is actual text content"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<span class=\"mord mtight\">2</span>",
+              "target": [
+                ".learning-lesson:nth-child(15) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(1) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": null,
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "9.1pt (12.1968px)",
+                    "fontWeight": "normal",
+                    "messageKey": "shortTextContent",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null,
+                    "colorParse": null
+                  },
+                  "relatedNodes": [],
+                  "impact": "serious",
+                  "message": "Element content is too short to determine if it is actual text content"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<span class=\"mord mtight\">2</span>",
+              "target": [
+                ".learning-lesson:nth-child(15) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(2) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": null,
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "9.1pt (12.1968px)",
+                    "fontWeight": "normal",
+                    "messageKey": "shortTextContent",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null,
+                    "colorParse": null
+                  },
+                  "relatedNodes": [],
+                  "impact": "serious",
+                  "message": "Element content is too short to determine if it is actual text content"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<span class=\"mord mtight\">2</span>",
+              "target": [
+                ".learning-lesson:nth-child(16) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(1) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": null,
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "9.1pt (12.1968px)",
+                    "fontWeight": "normal",
+                    "messageKey": "shortTextContent",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null,
+                    "colorParse": null
+                  },
+                  "relatedNodes": [],
+                  "impact": "serious",
+                  "message": "Element content is too short to determine if it is actual text content"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<span class=\"mord mtight\">2</span>",
+              "target": [
+                ".learning-lesson:nth-child(16) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(2) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": null,
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "9.1pt (12.1968px)",
+                    "fontWeight": "normal",
+                    "messageKey": "shortTextContent",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null,
+                    "colorParse": null
+                  },
+                  "relatedNodes": [],
+                  "impact": "serious",
+                  "message": "Element content is too short to determine if it is actual text content"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<span class=\"mord mtight\">2</span>",
+              "target": [
+                ".learning-lesson:nth-child(17) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(1) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": null,
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "9.1pt (12.1968px)",
+                    "fontWeight": "normal",
+                    "messageKey": "shortTextContent",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null,
+                    "colorParse": null
+                  },
+                  "relatedNodes": [],
+                  "impact": "serious",
+                  "message": "Element content is too short to determine if it is actual text content"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<span class=\"mord mtight\">2</span>",
+              "target": [
+                ".learning-lesson:nth-child(17) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(2) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+            }
+          ]
+        }
+      ],
+      "passed_rules": 23,
+      "surface": "replacement-check-controls-mobile"
+    },
+    {
+      "version": "4.14.0",
+      "violations": [],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "tags": [
+            "cat.color",
+            "wcag2aa",
+            "wcag143",
+            "TTv5",
+            "TT13.c",
+            "EN-301-549",
+            "EN-9.1.4.3",
+            "ACT",
+            "RGAAv4",
+            "RGAA-3.2.1"
+          ],
+          "description": "Ensure the contrast between foreground and background colors meets WCAG 2 AA minimum contrast ratio thresholds",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/color-contrast?application=axeAPI",
+          "nodes": [
             {
               "any": [
                 {
@@ -2875,12 +3213,447 @@
                 ".learning-lesson:nth-child(16) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(2) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
               ],
               "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": null,
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "9.1pt (12.1968px)",
+                    "fontWeight": "normal",
+                    "messageKey": "shortTextContent",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null,
+                    "colorParse": null
+                  },
+                  "relatedNodes": [],
+                  "impact": "serious",
+                  "message": "Element content is too short to determine if it is actual text content"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<span class=\"mord mtight\">2</span>",
+              "target": [
+                ".learning-lesson:nth-child(17) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(1) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": null,
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "9.1pt (12.1968px)",
+                    "fontWeight": "normal",
+                    "messageKey": "shortTextContent",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null,
+                    "colorParse": null
+                  },
+                  "relatedNodes": [],
+                  "impact": "serious",
+                  "message": "Element content is too short to determine if it is actual text content"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<span class=\"mord mtight\">2</span>",
+              "target": [
+                ".learning-lesson:nth-child(17) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(2) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
             }
           ]
         }
       ],
       "passed_rules": 23,
-      "surface": "replacement-check-controls-mobile"
+      "surface": "course-organization-editor-desktop"
+    },
+    {
+      "version": "4.14.0",
+      "violations": [],
+      "incomplete": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "tags": [
+            "cat.color",
+            "wcag2aa",
+            "wcag143",
+            "TTv5",
+            "TT13.c",
+            "EN-301-549",
+            "EN-9.1.4.3",
+            "ACT",
+            "RGAAv4",
+            "RGAA-3.2.1"
+          ],
+          "description": "Ensure the contrast between foreground and background colors meets WCAG 2 AA minimum contrast ratio thresholds",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "helpUrl": "https://dequeuniversity.com/rules/axe/4.14/color-contrast?application=axeAPI",
+          "nodes": [
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": null,
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "9.1pt (12.1968px)",
+                    "fontWeight": "normal",
+                    "messageKey": "shortTextContent",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null,
+                    "colorParse": null
+                  },
+                  "relatedNodes": [],
+                  "impact": "serious",
+                  "message": "Element content is too short to determine if it is actual text content"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<span class=\"mord mtight\">2</span>",
+              "target": [
+                ".learning-lesson:nth-child(12) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(1) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": null,
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "9.1pt (12.1968px)",
+                    "fontWeight": "normal",
+                    "messageKey": "shortTextContent",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null,
+                    "colorParse": null
+                  },
+                  "relatedNodes": [],
+                  "impact": "serious",
+                  "message": "Element content is too short to determine if it is actual text content"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<span class=\"mord mtight\">2</span>",
+              "target": [
+                ".learning-lesson:nth-child(12) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(2) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": null,
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "9.1pt (12.1968px)",
+                    "fontWeight": "normal",
+                    "messageKey": "shortTextContent",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null,
+                    "colorParse": null
+                  },
+                  "relatedNodes": [],
+                  "impact": "serious",
+                  "message": "Element content is too short to determine if it is actual text content"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<span class=\"mord mtight\">2</span>",
+              "target": [
+                ".learning-lesson:nth-child(13) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(1) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": null,
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "9.1pt (12.1968px)",
+                    "fontWeight": "normal",
+                    "messageKey": "shortTextContent",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null,
+                    "colorParse": null
+                  },
+                  "relatedNodes": [],
+                  "impact": "serious",
+                  "message": "Element content is too short to determine if it is actual text content"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<span class=\"mord mtight\">2</span>",
+              "target": [
+                ".learning-lesson:nth-child(13) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(2) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": null,
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "9.1pt (12.1968px)",
+                    "fontWeight": "normal",
+                    "messageKey": "shortTextContent",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null,
+                    "colorParse": null
+                  },
+                  "relatedNodes": [],
+                  "impact": "serious",
+                  "message": "Element content is too short to determine if it is actual text content"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<span class=\"mord mtight\">2</span>",
+              "target": [
+                ".learning-lesson:nth-child(14) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(1) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": null,
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "9.1pt (12.1968px)",
+                    "fontWeight": "normal",
+                    "messageKey": "shortTextContent",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null,
+                    "colorParse": null
+                  },
+                  "relatedNodes": [],
+                  "impact": "serious",
+                  "message": "Element content is too short to determine if it is actual text content"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<span class=\"mord mtight\">2</span>",
+              "target": [
+                ".learning-lesson:nth-child(14) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(2) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": null,
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "9.1pt (12.1968px)",
+                    "fontWeight": "normal",
+                    "messageKey": "shortTextContent",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null,
+                    "colorParse": null
+                  },
+                  "relatedNodes": [],
+                  "impact": "serious",
+                  "message": "Element content is too short to determine if it is actual text content"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<span class=\"mord mtight\">2</span>",
+              "target": [
+                ".learning-lesson:nth-child(15) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(1) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": null,
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "9.1pt (12.1968px)",
+                    "fontWeight": "normal",
+                    "messageKey": "shortTextContent",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null,
+                    "colorParse": null
+                  },
+                  "relatedNodes": [],
+                  "impact": "serious",
+                  "message": "Element content is too short to determine if it is actual text content"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<span class=\"mord mtight\">2</span>",
+              "target": [
+                ".learning-lesson:nth-child(15) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(2) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": null,
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "9.1pt (12.1968px)",
+                    "fontWeight": "normal",
+                    "messageKey": "shortTextContent",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null,
+                    "colorParse": null
+                  },
+                  "relatedNodes": [],
+                  "impact": "serious",
+                  "message": "Element content is too short to determine if it is actual text content"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<span class=\"mord mtight\">2</span>",
+              "target": [
+                ".learning-lesson:nth-child(16) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(1) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": null,
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "9.1pt (12.1968px)",
+                    "fontWeight": "normal",
+                    "messageKey": "shortTextContent",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null,
+                    "colorParse": null
+                  },
+                  "relatedNodes": [],
+                  "impact": "serious",
+                  "message": "Element content is too short to determine if it is actual text content"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<span class=\"mord mtight\">2</span>",
+              "target": [
+                ".learning-lesson:nth-child(16) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(2) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": null,
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "9.1pt (12.1968px)",
+                    "fontWeight": "normal",
+                    "messageKey": "shortTextContent",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null,
+                    "colorParse": null
+                  },
+                  "relatedNodes": [],
+                  "impact": "serious",
+                  "message": "Element content is too short to determine if it is actual text content"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<span class=\"mord mtight\">2</span>",
+              "target": [
+                ".learning-lesson:nth-child(17) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(1) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+            },
+            {
+              "any": [
+                {
+                  "id": "color-contrast",
+                  "data": {
+                    "fgColor": null,
+                    "bgColor": null,
+                    "contrastRatio": 0,
+                    "fontSize": "9.1pt (12.1968px)",
+                    "fontWeight": "normal",
+                    "messageKey": "shortTextContent",
+                    "expectedContrastRatio": "4.5:1",
+                    "shadowColor": null,
+                    "colorParse": null
+                  },
+                  "relatedNodes": [],
+                  "impact": "serious",
+                  "message": "Element content is too short to determine if it is actual text content"
+                }
+              ],
+              "all": [],
+              "none": [],
+              "impact": "serious",
+              "html": "<span class=\"mord mtight\">2</span>",
+              "target": [
+                ".learning-lesson:nth-child(17) > .learning-content[data-rendering=\"formatted\"]:nth-child(4) > p:nth-child(2) > .katex > .katex-html[aria-hidden=\"true\"] > .katex-base:nth-child(2) > .mord > .mfrac > .vlist-t.vlist-t2 > .vlist-r:nth-child(1) > .vlist > span:nth-child(1) > .katex-sizing.reset-size6.size3 > .mtight.mord > .mtight.mord"
+              ],
+              "failureSummary": "Fix any of the following:\n  Element content is too short to determine if it is actual text content"
+            }
+          ]
+        }
+      ],
+      "passed_rules": 23,
+      "surface": "course-organization-editor-mobile"
     },
     {
       "version": "4.14.0",
@@ -3623,7 +4396,7 @@
       "surface": "all-activities-disabled-mobile"
     }
   ],
-  "hub_load_ms": 1709,
+  "hub_load_ms": 2718,
   "content_checks": {
     "hostile_formatted": true,
     "inert": true,

@@ -2,7 +2,7 @@
 
 This is a locally implemented and tested engineering checkpoint, **not a school launch approval**. The full attached master brief exceeds this checkpoint. The acceptance ledger below and remaining-work report explicitly identify incomplete requirements.
 
-The existing application was exercised through its regression suite and a source inventory of 643 literal route decorators. Inspection concentrated on tutoring, study, provider routing, account deletion, institution permissions, course generation, and the relevant integration tests. It did not establish that every production integration or device works.
+The existing application was exercised through its regression suite and a source inventory of 644 literal route decorators. Inspection concentrated on tutoring, study, provider routing, account deletion, institution permissions, course generation, and the relevant integration tests. It did not establish that every production integration or device works.
 
 Implemented: a Learning Hub at `/learning` and `/study-and-learn`; scoped district/school administration at `/school-admin`; additive organization, membership, policy audit, course, lesson, durable generation job, study session, and evidence storage; admin-only course beta; reviewed link catalogs for Python and elementary algebra foundations; schema-validated original lessons; server-scored reviewed checks; persistent study sessions with voluntary resets; shared recent workspace and existing reviewed-practice evidence with delayed-review suggestions; approved opt-in practice with versioned consent, withdrawal and scoped feedback; inherited assessment windows; shared monthly generation token reservations; background notification policy enforcement; dry-run retention and account-deletion audit anonymization.
 
@@ -28,6 +28,7 @@ Verified: local automated permission, privacy, scoring, recovery and regression 
 14. [Preserved lesson revisions](14-lesson-revisions.md).
 15. [Inspectable course request details](15-course-request-details.md).
 16. [Preserved replacement knowledge checks](16-replacement-checks.md).
+17. [Preserved module organization](17-module-organization.md).
 
 The engineering checkpoint was saved before a subsequent [Learning Hub and institution UI pass](12-ui-design.md), informed by live Skydive, Cluely, Linear and Notion references. It adds theme-aware layouts, useful question starters, course preparation/progress and grouped settings while preserving beta notices and policy gates. Ten browser workflows and sixteen scoped responsive/accessibility checks accompany the UI work. The broader acceptance ledger remains unchanged in scope.
 

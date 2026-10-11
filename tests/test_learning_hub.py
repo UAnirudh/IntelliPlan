@@ -380,6 +380,95 @@ def test_replacement_check_respects_institution_limits(client, monkeypatch, sett
         assert policy.models()['Course'].query.filter_by(user_id=uid).count() == 1
 
 
+@pytest.mark.parametrize('mode', ['generated', 'curated'])
+def test_course_organization_preserves_content_and_evidence(client, monkeypatch, mode):
+    uid = enable(monkeypatch, client)
+    cid, lid = completed_original(uid)
+    with App.app.app_context():
+        App.db.session.get(policy.models()['Course'], cid).mode = mode
+        App.db.session.commit()
+    assert client.post(f'/api/learning/courses/{cid}/lessons/{lid}/answer', json={'answer': 0}).status_code == 200
+    original = client.get(f'/api/learning/courses/{cid}').json
+    blueprint = json.loads(json.dumps(original['blueprint']))
+    blueprint['title'] = 'Reorganized course'
+    blueprint['lessons'].reverse()
+    for spec in blueprint['lessons']:
+        spec['prerequisites'] = []
+        spec['unit'] = 'Reviewed regrouping'
+        spec['minutes'] = 40
+    response = client.post(f'/api/learning/courses/{cid}/outline-revision',
+        json={'blueprint': blueprint, 'revision': original['revision']})
+    assert response.status_code == 201, response.json
+    revised_id = response.json['id']
+    revised = client.get(f'/api/learning/courses/{revised_id}').json
+    assert revised['state'] == 'needs_review' and revised['job'] is None
+    assert revised['mode'] == mode and revised['blueprint']['revision_source']['action'] == 'outline'
+    assert [row['key'] for row in revised['lessons']] == [spec['key'] for spec in blueprint['lessons']]
+    source_by_key = {row['key']: row for row in original['lessons']}
+    for row in revised['lessons']:
+        assert row['content'] == source_by_key[row['key']]['content']
+        assert not row['reviewed'] and 'attempt' not in row
+    assert client.get(f'/api/learning/courses/{cid}').json == original
+    exported = next(row for row in client.get('/api/learning/export').json['courses'] if row['id'] == revised_id)
+    assert [row['key'] for row in exported['lessons']] == [spec['key'] for spec in blueprint['lessons']]
+    new_lid = revised['lessons'][0]['id']
+    assert client.post(f'/api/learning/courses/{revised_id}/lessons/{new_lid}/answer', json={'answer': 0}).status_code == 409
+    assert client.post(f'/api/learning/courses/{revised_id}/review', json={'confirm_accuracy': True}).status_code == 200
+    assert client.post(f'/api/learning/courses/{revised_id}/lessons/{new_lid}/answer', json={'answer': 0}).status_code == 200
+    with App.app.app_context():
+        evidence = policy.models()['Evidence'].query.filter_by(user_id=uid).all()
+        assert len(evidence) == 2 and all(row.assisted for row in evidence)
+
+
+@pytest.mark.parametrize('change', ['dependency_type', 'duplicate_dependency', 'cycle', 'order',
+    'remove', 'objective', 'preferences', 'minutes'])
+def test_course_organization_rejects_invalid_changes(client, monkeypatch, change):
+    uid = enable(monkeypatch, client)
+    cid, lid = completed_original(uid)
+    blueprint = client.get(f'/api/learning/courses/{cid}').json['blueprint']
+    if change == 'dependency_type':
+        blueprint['lessons'][1]['prerequisites'] = [{}]
+    elif change == 'duplicate_dependency':
+        blueprint['lessons'][1]['prerequisites'] *= 2
+    elif change == 'cycle':
+        blueprint['lessons'][0]['prerequisites'] = [blueprint['lessons'][1]['key']]
+    elif change == 'order':
+        blueprint['lessons'].reverse()
+    elif change == 'remove':
+        blueprint['lessons'].pop()
+    elif change == 'objective':
+        blueprint['lessons'][0]['objective'] = 'An objective that needs different teaching material'
+    elif change == 'preferences':
+        blueprint['request_profile'] = dict(subject='Changed preferences')
+    else:
+        blueprint['lessons'][0]['minutes'] = True
+    assert client.post(f'/api/learning/courses/{cid}/outline-revision', json={'blueprint': blueprint, 'revision': 1}).status_code == 400
+    with App.app.app_context():
+        assert policy.models()['Course'].query.filter_by(user_id=uid).count() == 1
+
+
+def test_course_organization_boundaries(client, monkeypatch):
+    uid = enable(monkeypatch, client)
+    cid, lid = completed_original(uid)
+    blueprint = client.get(f'/api/learning/courses/{cid}').json['blueprint']
+    path = f'/api/learning/courses/{cid}/outline-revision'
+    assert client.post(path, json={'blueprint': blueprint}).status_code == 400
+    assert client.post(path, json={'blueprint': blueprint, 'revision': 2}).status_code == 409
+    with App.app.app_context():
+        policy.models()['Job'].query.filter_by(course_id=cid).first().state = 'running'
+        App.db.session.commit()
+    assert client.post(path, json={'blueprint': blueprint, 'revision': 1}).status_code == 409
+    with App.app.app_context():
+        policy.models()['Job'].query.filter_by(course_id=cid).first().state = 'completed'
+        policy.models()['Lesson'].query.filter_by(id=lid).delete()
+        App.db.session.commit()
+    assert client.post(path, json={'blueprint': blueprint, 'revision': 1}).status_code == 409
+    user(client, monkeypatch, admin=True)
+    assert client.post(path, json={'blueprint': blueprint, 'revision': 1}).status_code == 404
+    user(client, monkeypatch)
+    assert client.post(path, json={'blueprint': blueprint, 'revision': 1}).status_code == 403
+
+
 def test_request_profile_is_bounded_and_preserves_legacy_blueprints():
     blueprint = courses.catalog.python_blueprint('Python')
     assert courses.validate_blueprint(blueprint)['request_profile'] is None

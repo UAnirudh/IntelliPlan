@@ -554,6 +554,45 @@ try:
         page.unroute('**/api/learning/courses/*/lessons/*/revision', defer_revision)
         page.unroute(f'**/api/learning/courses/{new_id}', defer_load)
         results['workflows'].append('Replacement knowledge check preserves teaching content and prior evidence, requires provider confirmation and accuracy review, and scores once as assisted builder evidence')
+        current_id = int(page.locator('#course-workspace').get_attribute('data-course-id'))
+        current = context.request.get(f'http://127.0.0.1:5098/api/learning/courses/{current_id}').json()
+        organization = page.locator('.learning-course-organization')
+        organization.locator('summary').click()
+        organization.get_by_role('button', name='Edit units and lesson order', exact=True).click()
+        module_form = organization.locator('.learning-organization-edit')
+        expect(module_form.get_by_label('Course title', exact=True)).to_be_focused()
+        module_form.get_by_label('Course title', exact=True).fill('A reorganized learning course')
+        cards = module_form.locator('fieldset')
+        cards.first.get_by_label('Unit', exact=True).fill('New reviewed module')
+        cards.first.get_by_label('Planned minutes', exact=True).fill('0')
+        module_form.get_by_role('button', name='Save course organization in a revised course').click()
+        expect(cards.first.get_by_label('Planned minutes', exact=True)).to_be_focused()
+        cards.first.get_by_label('Planned minutes', exact=True).fill('35')
+        second_title = current['blueprint']['lessons'][1]['title']
+        cards.nth(1).get_by_role('button', name=f'{second_title}: Move earlier', exact=True).click()
+        expect(cards.first.locator('legend')).to_have_text(second_title)
+        with page.expect_response(lambda response: response.request.method == 'POST' and response.url.endswith('/outline-revision')) as refused:
+            module_form.get_by_role('button', name='Save course organization in a revised course').click()
+        assert refused.value.status == 400
+        expect(page.locator('#hub-status')).to_contain_text('prerequisites must precede')
+        expect(module_form.get_by_label('Course title', exact=True)).to_have_value('A reorganized learning course')
+        cards.first.locator('summary').click()
+        cards.first.get_by_role('checkbox', name=current['blueprint']['lessons'][0]['title'], exact=True).uncheck()
+        audit_surface(page, 'course-organization-editor-desktop')
+        page.set_viewport_size({'width':320, 'height':844})
+        audit_surface(page, 'course-organization-editor-mobile')
+        page.set_viewport_size({'width':1440, 'height':1000})
+        module_form.get_by_role('button', name='Save course organization in a revised course').click()
+        expect(page.locator('#course-workspace h3').first).to_have_text('A reorganized learning course')
+        expect(page.locator('#course-workspace')).to_contain_text('New reviewed module')
+        revised_id = int(page.locator('#course-workspace').get_attribute('data-course-id'))
+        revised = context.request.get(f'http://127.0.0.1:5098/api/learning/courses/{revised_id}').json()
+        assert revised['blueprint']['revision_source']['action'] == 'outline' and revised['job'] is None
+        assert revised['lessons'][0]['key'] == current['lessons'][1]['key']
+        source_content = {row['key']: row['content'] for row in current['lessons']}
+        assert all(not row['reviewed'] and row['content'] == source_content[row['key']] for row in revised['lessons'])
+        assert context.request.get(f'http://127.0.0.1:5098/api/learning/courses/{current_id}').json() == current
+        results['workflows'].append('Module editing validates native duration and prerequisite sequence, retains failed drafts, preserves teaching/evidence in a reordered course revision and requires review')
         page.goto("http://127.0.0.1:5098/school-admin", wait_until="networkidle")
         expect(page.locator("#admin-organization")).to_contain_text(
             "Browser pilot school"

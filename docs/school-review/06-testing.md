@@ -52,6 +52,8 @@ The current disposable Chromium run passes **thirteen HTTP/storage workflows and
 
 ## Live provider attempt and exclusions
 
+The subsequent replacement-check full regression passed4032 tests /24 skipped before four institution-denial cases and module editing were added. The latest module-focused regression passes115 tests with1106 warnings in14.73s. The current Chromium run passes15 workflows and27 responsive/scoped axe checks, including deferred refusal/loading races and module reorganization. [Replacement-check results](evidence/pytest-check-variants-full.txt), [module results](evidence/pytest-modules-targeted.txt), [module report](17-module-organization.md).
+
 `python scripts/verify_learning_provider.py --run-live` makes at most one blueprint and one lesson call on a disposable database, with synthetic content. The recorded local check returned503 in the blueprint path: contract-approval flag false, Vertex project/location absent, no eligible Gemini service. External generation requests:0. It correctly exits nonzero. [Live provider evidence](evidence/live-provider-results.json).
 
 No authenticated production Canvas/StudentVUE/calendar flow, real packaged mobile/desktop/extension workflow, real video render, screen-reader audit, penetration test, PostgreSQL concurrent load/restore/migration or educational-quality benchmark was completed. Twenty-four skipped legacy tests remain skipped; thousands of legacy warnings are not a clean operational-health result. Tests are evidence of the contracts they exercise, not legal/school certification.

@@ -30,6 +30,8 @@ Recommendations deterministically find missing or failed/assisted prerequisites 
 
 ## Access, video and future rollout
 
+Saved courses support preserved organization revisions: title/overview, unit grouping, lesson titles/duration, ordering and explicit prerequisite edges. Objectives, teaching content and prior evidence remain unchanged; copied items require review again. Graph validation rejects malformed/cyclic/backward dependencies and invalid duration. This works locally for both curated and original courses, without a provider call; effective pedagogical sequencing and time feasibility remain unverified. See [module organization](17-module-organization.md).
+
 All course APIs require authenticated administrator eligibility, institution permission, beta permission and explicit `school_course_generator` flag. Ordinary/Premium users cannot bypass these checks. Courses are owner-only: another school admin cannot automatically read a builder's course. Course sharing is not implemented.
 
 Existing educational videos are reached through original CS50 source-page links. No video is generated or stored. The internal-alpha video capability always denies with provider-not-integrated, even if its flag is switched on. The future `premium` entitlement is registry metadata only; there is no current Premium course rollout or billing promise. A future launch needs provider approval, stronger review, eligibility/consent, quotas, current price estimation, accessibility, monitoring and live validation before changing the admin gate.

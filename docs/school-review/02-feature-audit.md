@@ -1,6 +1,6 @@
 # Feature audit matrix
 
-Scope: source inspection of affected contracts, 643 source route decorators, existing regression tests, and new local API/browser workflows. “Existing tests” means the repository's tests, usually using mocked upstream APIs. It does not mean authenticated live vendor validation.
+Scope: source inspection of affected contracts, 644 source route decorators, existing regression tests, and new local API/browser workflows. “Existing tests” means the repository's tests, usually using mocked upstream APIs. It does not mean authenticated live vendor validation.
 
 | Surface | Before this checkpoint | Change / condition after | Evidence and limit |
 |---|---|---|---|

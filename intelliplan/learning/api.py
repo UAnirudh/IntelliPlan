@@ -320,6 +320,30 @@ def lesson_revision(cid, lid):
         message='A revised course was saved. The original course and its evidence are preserved; review the revised course before scoring.'), 201
 
 
+@bp.route('/api/learning/courses/<int:cid>/outline-revision', methods=['POST'])
+def outline_revision(cid):
+    denied = gate('course_generator')
+    if denied:
+        return denied
+    from App import db
+    course = owned('Course', cid)
+    M = policy.models()
+    job = M['Job'].query.filter_by(course_id=cid).first()
+    if (job and job.state in {'queued', 'running'} or
+            M['Lesson'].query.filter_by(course_id=cid).count() != len(course.blueprint['lessons'])):
+        return jsonify(error='incomplete_course', message='Save every lesson and finish generation before revising the course organization.'), 409
+    data = body()
+    revision = data.get('revision')
+    if type(revision) is not int:
+        raise ValueError('Provide the displayed course revision.')
+    if revision != course.revision:
+        return jsonify(error='outline_changed', message='Reload the course before saving its organization.'), 409
+    revised = courses.fork_outline(course, data.get('blueprint'))
+    db.session.commit()
+    return jsonify(id=revised.id, state=revised.state, revision=revised.revision,
+        message='Course organization saved in a new revision. Check prerequisite sequencing and accuracy before reviewing it.'), 201
+
+
 @bp.route('/api/learning/courses/<int:cid>/review', methods=['GET', 'POST'])
 def review_course(cid):
     denied = gate('course_generator')
@@ -484,13 +508,14 @@ def export():
             created_at=r.created_at.isoformat()) for r in
             M['Feedback'].query.filter_by(user_id=current_user.id)],
         courses=[dict(id=r.id, mode=r.mode, goal=r.goal, blueprint=r.blueprint,
-                                 lessons=[lesson.content for lesson in sorted(
+                                 lessons=[dict(lesson.content, key=lesson.key, id=lesson.id, reviewed=lesson.reviewed) for lesson in sorted(
                                      M['Lesson'].query.filter_by(course_id=r.id).all(),
                                      key=lambda lesson: next(i for i, spec in enumerate(r.blueprint['lessons']) if spec['key'] == lesson.key))])
                             for r in course_rows],
         sessions=[dict(objective=r.objective, state=r.state, method=r.method) for r in
                   M['Sitting'].query.filter_by(user_id=current_user.id)],
-        evidence=[dict(objective=r.objective, kind=r.kind, correct=r.correct, assisted=r.assisted) for r in
+        evidence=[dict(objective=r.objective, kind=r.kind, correct=r.correct, assisted=r.assisted,
+                       lesson_id=r.lesson_id, created_at=r.created_at.isoformat()) for r in
                   M['Evidence'].query.filter_by(user_id=current_user.id)])
 
 
@@ -504,6 +529,8 @@ def install(app):
     endpoint = 'learning_hub.feedback'
     app.view_functions[endpoint] = limiter.limit('20/hour', methods=['POST'])(app.view_functions[endpoint])
     endpoint = 'learning_hub.lesson_revision'
+    app.view_functions[endpoint] = limiter.limit('10/hour', methods=['POST'])(app.view_functions[endpoint])
+    endpoint = 'learning_hub.outline_revision'
     app.view_functions[endpoint] = limiter.limit('10/hour', methods=['POST'])(app.view_functions[endpoint])
 
     @app.cli.command('learning-worker')
