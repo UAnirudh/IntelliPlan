@@ -103,9 +103,12 @@ def signed_cookie(uid):
 
 def fixture_chat(messages, **kwargs):
     if "blueprint" in messages[0]["content"]:
-        return courses.catalog.python_blueprint(
+        blueprint = courses.catalog.python_blueprint(
             "Python: learn to write and test programs"
         )
+        blueprint['request_profile'] = dict(subject='Python', desired_depth='Foundations',
+            preferred_methods=['Original worked examples'], desired_assessments=['Knowledge checks'])
+        return blueprint
     return dict(
         explanation=r"""## A name for a value
 A **variable** gives a name to a value. For fractions, \(\frac{1}{2}+\frac{1}{2}=1\).
@@ -267,6 +270,15 @@ try:
             "Teach me Python from the beginning, 30 minutes each day"
         )
         page.get_by_role("button", name="Create an outline").click()
+        expect(page.locator('input[name="profile_subject"]')).to_have_value('Not specified')
+        page.locator('input[name="profile_subject"]').fill('Python')
+        page.locator('input[name="profile_available_time"]').fill('30 minutes on weekdays')
+        with page.expect_response(lambda response: response.request.method == 'PUT' and '/api/learning/courses/' in response.url) as saved:
+            page.get_by_role('button', name='Save outline edits', exact=True).click()
+        assert saved.value.status == 200
+        expect(page.locator('#hub-status')).to_contain_text('Outline saved.')
+        page.get_by_role('button', name='Refresh progress', exact=True).click()
+        expect(page.locator('input[name="profile_available_time"]')).to_have_value('30 minutes on weekdays')
         expect(
             page.get_by_role("button", name="Generate lessons", exact=True)
         ).to_be_visible()
@@ -324,6 +336,13 @@ try:
         page.locator("#course-mode").select_option("generated")
         page.locator("#course-provider-confirm").check()
         page.get_by_role("button", name="Create an outline").click()
+        expect(page.locator('input[name="profile_subject"]')).to_have_value('Python')
+        expect(page.locator('textarea[name="profile_preferred_methods"]')).to_have_value('Original worked examples')
+        audit_surface(page, 'course-request-details-desktop-light')
+        page.set_viewport_size({'width': 320, 'height': 844})
+        audit_surface(page, 'course-request-details-mobile-light')
+        page.set_viewport_size({'width': 1440, 'height': 1000})
+        results['workflows'].append('Inspect request-derived preferences and persist explicit course details without attaching stored student records')
         expect(
             page.get_by_role("button", name="Generate lessons", exact=True)
         ).to_be_visible()

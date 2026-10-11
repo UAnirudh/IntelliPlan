@@ -229,10 +229,10 @@
     if (requestId !== courseRequest) return;
     const panel = $('course-workspace'); panel.replaceChildren();
     panel.removeAttribute('aria-busy');
-    let revisionBusy = false;
-    async function revise(action) {
-      if (revisionBusy || requestId !== courseRequest) return;
-      revisionBusy = true;
+    let workspaceBusy = false;
+    async function mutateCourse(action) {
+      if (workspaceBusy || requestId !== courseRequest) return;
+      workspaceBusy = true;
       const controls = [...panel.querySelectorAll('button, input, textarea, select')];
       const disabled = controls.map(control => control.disabled);
       controls.forEach(control => { control.disabled = true; });
@@ -240,7 +240,7 @@
       try { await action(); }
       finally {
         controls.forEach((control, index) => { control.disabled = disabled[index]; });
-        revisionBusy = false;
+        workspaceBusy = false;
         if (requestId === courseRequest) panel.removeAttribute('aria-busy');
       }
     }
@@ -264,6 +264,28 @@
     node('p', `Next: ${course.next.key || 'Review'} · ${course.next.reason}`, panel);
     const outline = node('details', undefined, panel); outline.className = 'learning-outline'; outline.open = course.state === 'draft';
     node('summary', `Course outline · ${course.blueprint.lessons.length} lessons`, outline);
+    const profileText = [['subject', 'Subject'], ['current_level', 'Current level'], ['desired_depth', 'Desired depth'],
+      ['available_time', 'Available time'], ['target_period', 'Target completion period']];
+    const profileLists = [['learning_goals', 'Learning goals'], ['preferred_methods', 'Preferred teaching methods'],
+      ['prerequisites', 'Relevant prerequisites'], ['desired_assessments', 'Desired assessments'],
+      ['project_preferences', 'Project preferences'], ['accessibility_preferences', 'Voluntary accessibility preferences']];
+    const preferences = node('fieldset', undefined, outline); node('legend', 'Course request details', preferences);
+    node('p', 'These are request preferences, not verified knowledge or mastery. Review inferred details before generation. Original lessons use the saved details; no stored account or student records are automatically attached.', preferences);
+    if (!course.blueprint.request_profile) node('p', 'Request details were not extracted. Your original goal is still saved.', preferences);
+    const profileFields = [];
+    const profile = course.blueprint.request_profile || {};
+    for (const [key, title] of [...profileText, ...profileLists]) {
+      const isList = profileLists.some(([list]) => key === list);
+      const value = isList ? (profile[key] || []).join('\n') : profile[key] || 'Not specified';
+      if (course.state !== 'draft') { if (value) node('p', `${title}: ${isList ? (profile[key] || []).join('; ') : value}`, preferences); continue; }
+      const label = node('label', `${title}${isList ? ' (one per line, up to six)' : ''}`, preferences);
+      const input = node(isList ? 'textarea' : 'input', undefined, label);
+      input.name = `profile_${key}`; input.value = value; input.maxLength = isList ? 1206 : 200;
+      if (!isList) input.required = true;
+      profileFields.push([key, input, isList]);
+    }
+    node('p', 'Requested assessments, projects and teaching methods do not imply they are supported or validated. The current graded course item is a reviewed multiple-choice check.', preferences).className = 'learning-note';
+    if (course.mode === 'curated') node('p', 'Curated beta uses a fixed reviewed foundations catalog. These details are saved for your planning; they do not change source selection or difficulty.', preferences).className = 'learning-note';
     const fields = [];
     for (const spec of course.blueprint.lessons) {
       if (course.state !== 'draft') { node('p', `${spec.title} · ${spec.unit} · ${spec.minutes} minutes`, outline); continue; }
@@ -271,28 +293,31 @@
       const input = node('input', undefined, label); input.value = spec.title; input.maxLength = 200;
       input.disabled = course.state !== 'draft'; fields.push([spec, input]);
     }
-    if (course.state === 'draft') button('Save outline edits', outline, async () => {
+    if (course.state === 'draft') button('Save outline edits', outline, () => mutateCourse(async () => {
       for (const [spec, input] of fields) spec.title = input.value;
-      await api(`/api/learning/courses/${id}`, {method: 'PUT', body: JSON.stringify({blueprint: course.blueprint})});
+      course.blueprint.request_profile = Object.fromEntries(profileFields.map(([key, input, isList]) =>
+        [key, isList ? input.value.split('\n').map(value => value.trim()).filter(Boolean) : input.value]));
+      const saved = await api(`/api/learning/courses/${id}`, {method: 'PUT', body: JSON.stringify({blueprint: course.blueprint, revision:course.revision})});
+      course.revision = saved.revision;
       if (requestId === courseRequest) status('Outline saved.');
-    });
+    }));
     if (course.job) node('p', `Generation: ${course.job.state} · ${course.lessons.length}/${course.blueprint.lessons.length} lessons · ${course.job.reserved_tokens}/${course.job.token_budget} tokens reserved${course.job.error ? ` · ${course.job.error}` : ''}`, panel);
     if (course.job) {
       const saved = node('progress', undefined, panel); saved.max = course.blueprint.lessons.length; saved.value = course.lessons.length;
       saved.setAttribute('aria-label', 'Lessons saved');
     }
     button('Refresh progress', panel, () => openCourse(id));
-    if (course.lessons.length < course.blueprint.lessons.length && (!course.job || ['failed', 'cancelled'].includes(course.job.state))) button(course.job ? 'Resume generation' : 'Generate lessons', panel, async () => {
+    if (course.lessons.length < course.blueprint.lessons.length && (!course.job || ['failed', 'cancelled'].includes(course.job.state))) button(course.job ? 'Resume generation' : 'Generate lessons', panel, () => mutateCourse(async () => {
       await post(`/api/learning/courses/${id}/generation`, {action: course.job ? 'retry' : 'start',
         confirm_provider_use: $('course-provider-confirm').checked});
       if (requestId !== courseRequest) return;
       const refreshedRequest = courseRequest + 1; await openCourse(id);
       if (refreshedRequest === courseRequest) status('Generation queued. The configured worker will process one lesson at a time.');
-    });
-    if (course.job && ['queued', 'running'].includes(course.job.state)) button('Cancel generation', panel, async () => {
+    }));
+    if (course.job && ['queued', 'running'].includes(course.job.state)) button('Cancel generation', panel, () => mutateCourse(async () => {
       await post(`/api/learning/courses/${id}/generation`, {action: 'cancel'});
       if (requestId === courseRequest) await openCourse(id);
-    });
+    }));
     for (const lesson of course.lessons) {
       const section = node('section', undefined, panel); section.className = 'learning-lesson';
       node('h4', course.blueprint.lessons.find(s => s.key === lesson.key).title, section);
@@ -319,11 +344,11 @@
       }
       if (lesson.reviewed && lesson.content.quiz && !lesson.attempt) {
         const quiz = lesson.content.quiz; node('h5', quiz.question, section);
-        quiz.options.forEach((option, i) => button(option, section, async () => {
+        quiz.options.forEach((option, i) => button(option, section, () => mutateCourse(async () => {
           const data = await post(`/api/learning/courses/${id}/lessons/${lesson.id}/answer`, {answer: i});
           if (requestId !== courseRequest) return;
           status(`${data.correct ? 'Correct.' : 'Review this idea.'} ${data.explanation}`); await openCourse(id);
-        }));
+        })));
       }
       if (!lesson.reviewed && review) {
         const quiz = review.lessons.find(l => l.id === lesson.id)?.content.quiz;
@@ -338,14 +363,14 @@
         const revision = node('details', undefined, section); revision.className = 'learning-outline learning-lesson-revision';
         node('summary', 'Revise this lesson', revision);
         node('p', 'Save a revised course with this lesson changed. Your original course and recorded checks stay available. The revised course needs a new accuracy review.', revision);
-        button('Regenerate this lesson in a revised course', revision, () => revise(async () => {
+        button('Regenerate this lesson in a revised course', revision, () => mutateCourse(async () => {
           const result = await post(`/api/learning/courses/${id}/lessons/${lesson.id}/revision`, {
             action:'regenerate', confirm_provider_use:$('course-provider-confirm').checked,
           });
           await showRevision(result);
         }));
         const editor = node('div', undefined, revision);
-        button('Edit this lesson', revision, () => revise(async () => {
+        button('Edit this lesson', revision, () => mutateCourse(async () => {
           if (editor.children.length) return;
           const keys = await api(`/api/learning/courses/${id}/review`);
           if (requestId !== courseRequest || !editor.isConnected) return;
@@ -372,7 +397,7 @@
           const explanation = checkField('Answer explanation', original.quiz.explanation, 'answer_explanation', 3000);
           const save = node('button', 'Save lesson in a revised course', form); save.type = 'submit';
           form.addEventListener('submit', event => {
-            event.preventDefault(); run(save, () => revise(async () => {
+            event.preventDefault(); run(save, () => mutateCourse(async () => {
               const content = Object.fromEntries(Object.entries(fields).map(([key, input]) => [key, input.value]));
               content.quiz = {question:question.value, options:options.map(option => option.value),
                 answer:Number(answer.value), explanation:explanation.value};
@@ -387,10 +412,10 @@
     }
     if (course.lessons.length === course.blueprint.lessons.length && course.state !== 'reviewed') {
       node('p', 'Review the source accuracy and all generated answer keys before confirming. Scoring remains locked until review.', panel);
-      button('I have checked accuracy and every answer key', panel, async () => {
+      button('I have checked accuracy and every answer key', panel, () => mutateCourse(async () => {
         await post(`/api/learning/courses/${id}/review`, {confirm_accuracy: true});
         if (requestId === courseRequest) await openCourse(id);
-      });
+      }));
     }
   }
   api('/api/learning/capabilities').then(data => {

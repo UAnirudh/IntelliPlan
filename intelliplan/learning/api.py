@@ -213,8 +213,16 @@ def course_detail(cid):
     if request.method == 'PUT':
         if row.state != 'draft' or M['Job'].query.filter_by(course_id=row.id).first():
             return jsonify(error='generation_started', message='A generated blueprint cannot be edited in place.'), 409
-        row.blueprint = courses.validate_blueprint(body().get('blueprint'))
-        row.revision += 1
+        data = body()
+        revision = data.get('revision', row.revision)
+        if type(revision) is not int:
+            raise ValueError('Provide a valid outline revision.')
+        blueprint = courses.validate_blueprint(data.get('blueprint'))
+        changed = M['Course'].query.filter_by(id=row.id, state='draft', revision=revision).update(
+            dict(blueprint=blueprint, revision=revision + 1), synchronize_session=False)
+        if not changed:
+            db.session.rollback()
+            return jsonify(error='outline_changed', message='The outline changed or generation started. Your edits have been kept; reload before saving again.'), 409
         db.session.commit()
     lessons = M['Lesson'].query.filter_by(course_id=row.id).order_by(M['Lesson'].id).all()
     positions = {spec['key']: index for index, spec in enumerate(row.blueprint['lessons'])}

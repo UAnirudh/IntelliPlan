@@ -1,6 +1,7 @@
 """Institution boundaries, beta eligibility, job recovery, and honest evidence."""
 
 from datetime import datetime, timedelta
+import json
 from uuid import uuid4
 
 import pytest
@@ -239,6 +240,60 @@ def test_lesson_revision_boundaries(client, monkeypatch):
     assert client.post(path, json={'action': 'edit', 'content': original_lesson()}).status_code == 404
     user(client, monkeypatch)
     assert client.post(path, json={'action': 'edit', 'content': original_lesson()}).status_code == 403
+
+
+def test_request_profile_is_bounded_and_preserves_legacy_blueprints():
+    blueprint = courses.catalog.python_blueprint('Python')
+    assert courses.validate_blueprint(blueprint)['request_profile'] is None
+    blueprint['request_profile'] = dict(subject='Python', current_level='Beginner',
+        available_time='30 minutes on weekdays', learning_goals=['Write small programs'],
+        accessibility_preferences=['Prefer short paragraphs'], private_student_id=123)
+    profile = courses.validate_blueprint(blueprint)['request_profile']
+    assert profile['subject'] == 'Python' and profile['target_period'] == 'Not specified'
+    assert profile['accessibility_preferences'] == ['Prefer short paragraphs']
+    assert 'private_student_id' not in profile
+    for invalid in [[], {'subject': True}, {'subject': 'x' * 201},
+                    {'learning_goals': 'not a list'}, {'learning_goals': ['x'] * 7},
+                    {'preferred_methods': [False]},
+                    {key: ['x' * 200] * 6 for key in courses.PROFILE_LISTS}]:
+        with pytest.raises(ValueError):
+            courses.validate_request_profile(invalid)
+
+
+def test_request_profile_edit_persistence_and_worker_context(client, monkeypatch):
+    uid = enable(monkeypatch, client)
+    cid = create(client)
+    blueprint = client.get(f'/api/learning/courses/{cid}').json['blueprint']
+    blueprint['request_profile'] = dict(subject='Python', current_level='Beginner',
+        available_time='30 minutes on weekdays', preferred_methods=['Retrieval practice'])
+    assert client.put(f'/api/learning/courses/{cid}', json={'blueprint': blueprint, 'revision': 1}).status_code == 200
+    stale = dict(blueprint, request_profile=dict(subject='Discarded stale draft'))
+    assert client.put(f'/api/learning/courses/{cid}', json={'blueprint': stale, 'revision': 1}).status_code == 409
+    saved = client.get(f'/api/learning/courses/{cid}').json['blueprint']['request_profile']
+    assert saved['available_time'] == '30 minutes on weekdays'
+    calls = []
+    def chat(messages, **kwargs):
+        calls.append(messages)
+        return original_lesson()
+    monkeypatch.setattr('ai_provider.chat_json', chat)
+    with App.app.app_context():
+        # Original-mode fixture avoids a separate blueprint provider call.
+        policy.models()['Course'].query.filter_by(id=cid).first().mode = 'generated'
+        App.db.session.commit()
+    assert client.post(f'/api/learning/courses/{cid}/generation', json={'confirm_provider_use': True}).status_code == 202
+    with App.app.app_context():
+        assert courses.run_one_job()
+        row = policy.models()['Course'].query.filter_by(id=cid).first()
+        account_email = App.db.session.get(App.User, uid).email
+        job = policy.models()['Job'].query.filter_by(course_id=cid).first()
+        assert job.reserved_tokens > courses.LESSON_OUTPUT_TOKENS + len(json.dumps(saved).encode('utf-8'))
+        assert row.blueprint['request_profile'] == saved
+    prompt = json.loads(calls[0][1]['content'])
+    assert prompt['request_profile'] == saved and prompt['lesson']['key'] == blueprint['lessons'][0]['key']
+    assert set(prompt) == {'lesson', 'request_profile'} and account_email not in str(calls)
+    assert 'not verified mastery' in calls[0][0]['content']
+    exported = next(item for item in client.get('/api/learning/export').json['courses'] if item['id'] == cid)
+    assert exported['blueprint']['request_profile'] == saved
 
 
 def test_hub_renders_and_keeps_legacy_surfaces(client):

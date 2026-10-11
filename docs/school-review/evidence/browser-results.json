@@ -6,6 +6,7 @@
     "Session start, pause, reload recovery, resume, paper checkpoint, completion without mastery",
     "Curated multisource outline, worker generation, refresh, review",
     "Algebra multisource course with subject filtering and persistent sequenced lessons",
+    "Inspect request-derived preferences and persist explicit course details without attaching stored student records",
     "Saved course renders sanitized Markdown, math, highlighted code and tables; hostile content and fallback bounds verified",
     "Fixture-backed original generation, answer-key review, scoring, shared progress",
     "Single-lesson edit and bounded regeneration create reviewed course revisions while preserving the original and its scored evidence",
@@ -66,6 +67,24 @@
       "viewport": {
         "width": 1440,
         "height": 1000
+      },
+      "overflow": false,
+      "small_targets": []
+    },
+    {
+      "surface": "course-request-details-desktop-light",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "overflow": false,
+      "small_targets": []
+    },
+    {
+      "surface": "course-request-details-mobile-light",
+      "viewport": {
+        "width": 320,
+        "height": 844
       },
       "overflow": false,
       "small_targets": []
@@ -248,6 +267,20 @@
       "incomplete": [],
       "passed_rules": 21,
       "surface": "reviewed-course-desktop-light"
+    },
+    {
+      "version": "4.14.0",
+      "violations": [],
+      "incomplete": [],
+      "passed_rules": 21,
+      "surface": "course-request-details-desktop-light"
+    },
+    {
+      "version": "4.14.0",
+      "violations": [],
+      "incomplete": [],
+      "passed_rules": 21,
+      "surface": "course-request-details-mobile-light"
     },
     {
       "version": "4.14.0",
@@ -2817,7 +2850,7 @@
       "surface": "all-activities-disabled-mobile"
     }
   ],
-  "hub_load_ms": 5139,
+  "hub_load_ms": 2806,
   "content_checks": {
     "hostile_formatted": true,
     "inert": true,

@@ -44,6 +44,12 @@ The full suite passed **4023 tests,24 skipped,8601 warnings in346.39s** before t
 
 The latest disposable Chromium run passes **twelve HTTP/storage workflows, twenty-one responsive checks and twenty-one scoped axe audits**, with zero JavaScript errors. It adds sanitized persisted Markdown/math/code/table rendering, hostile-content/no-untrusted-request assertions, malformed/recursive math, macro isolation, expression/input bounds, missing-library/helper fallback, native editing/focus/validation, and preserved single-lesson regeneration. Rich content and the editor are checked at320px. Automated axe reports contain no violations; raw `incomplete` items include contrast and other manual-review cases. Read-only reviewers also exercise deferred save failure, concurrent regeneration blocking, draft preservation and stale selection/status. [Renderer report](13-content-rendering.md), [revision report](14-lesson-revisions.md), [latest browser JSON](evidence/browser-results.json).
 
+## Inspectable course-request continuation — 2026-10-10
+
+The latest full suite passes **4025 tests,24 skipped,8625 warnings in253.08s**. The focused learning/account-deletion/discoverability suite passes **93 tests,846 warnings in10.54s**. Coverage adds bounded preference extraction metadata, draft editing/export, atomic stale-save rejection and the exact worker context without account identity. Deferred-response browser reviews verify that generation waits for saves and failed saves preserve drafts. [Full results](evidence/pytest-profiles-full.txt), [focused results](evidence/pytest-profiles-targeted.txt).
+
+The current disposable Chromium run passes **thirteen HTTP/storage workflows and twenty-three responsive/scoped axe checks**, with zero JavaScript errors. It adds persisted request details at1440px and320px to the previous rendering/revision workflows. Provider output remains fixtures; raw accessibility manual-review cases remain recorded. [Current browser results](evidence/browser-results.json), [request details](15-course-request-details.md).
+
 ## Live provider attempt and exclusions
 
 `python scripts/verify_learning_provider.py --run-live` makes at most one blueprint and one lesson call on a disposable database, with synthetic content. The recorded local check returned503 in the blueprint path: contract-approval flag false, Vertex project/location absent, no eligible Gemini service. External generation requests:0. It correctly exits nonzero. [Live provider evidence](evidence/live-provider-results.json).

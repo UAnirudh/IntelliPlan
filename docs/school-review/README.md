@@ -26,11 +26,12 @@ Verified: local automated permission, privacy, scoring, recovery and regression 
 12. [UI design checkpoint](12-ui-design.md).
 13. [Safe course content rendering](13-content-rendering.md).
 14. [Preserved lesson revisions](14-lesson-revisions.md).
+15. [Inspectable course request details](15-course-request-details.md).
 
 The engineering checkpoint was saved before a subsequent [Learning Hub and institution UI pass](12-ui-design.md), informed by live Skydive, Cluely, Linear and Notion references. It adds theme-aware layouts, useful question starters, course preparation/progress and grouped settings while preserving beta notices and policy gates. Ten browser workflows and sixteen scoped responsive/accessibility checks accompany the UI work. The broader acceptance ledger remains unchanged in scope.
 
 Evidence is preserved in [evidence](evidence/). Source inventory is not a proof that every route is governed. Existing assignments, schedule storage, accounts, reviewed tutor checks, Primer and Family records were not replaced. Account deletion includes the new learning records. Course flags are absent/disabled by default; enabling beta requires a deliberate platform operation.
 
-The subsequent engineering continuation adds sanitized Markdown/math/code/tables in five saved teaching sections and individual original-lesson edits/regeneration through preserved course revisions. The complete suite passes4023 tests with24 skipped; the latest focused run passes91. The current disposable browser run passes12 workflows and21 scoped responsive/axe checks with zero JavaScript errors. External output remains fixtures, and raw accessibility manual-review cases remain recorded. Further cosmetic UI work is deferred while the broader engineering requirements and external launch gates remain incomplete.
+The subsequent engineering continuation adds sanitized Markdown/math/code/tables in five saved teaching sections, individual original-lesson edits/regeneration through preserved course revisions, and inspectable request preferences. The latest full run passes4025 tests with24 skipped; the focused run passes93 tests. The current disposable browser run passes13 workflows and23 scoped responsive/axe checks with zero JavaScript errors. External output remains fixtures, and raw accessibility manual-review cases remain recorded. Further cosmetic UI work is deferred while the broader engineering requirements and external launch gates remain incomplete.
 
 No commit in this checkpoint constitutes institutional permission, provider-contract approval, legal certification, validated educational effectiveness, WCAG conformance, or production deployment verification.
