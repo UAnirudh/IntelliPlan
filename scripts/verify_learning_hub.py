@@ -102,6 +102,9 @@ def signed_cookie(uid):
 
 
 def fixture_chat(messages, **kwargs):
+    if 'Write one original multiple-choice knowledge check' in messages[0]['content']:
+        return dict(question='If x is 5, what is x + 2?', options=['7', '6'], answer=0,
+                    explanation='Substitute five for x, then add two.')
     if "blueprint" in messages[0]["content"]:
         blueprint = courses.catalog.python_blueprint(
             "Python: learn to write and test programs"
@@ -431,6 +434,7 @@ try:
         page.locator('[data-activity="courses"]').click()
         original_course = context.request.get('http://127.0.0.1:5098/api/learning/courses').json()['courses'][0]
         page.locator(f"#course-library [data-course-id='{original_course['id']}']").click()
+        expect(page.locator('#course-workspace')).not_to_have_attribute('aria-busy', 'true')
         revision = page.locator('.learning-lesson-revision').first
         revision.locator('summary').click()
         revision.get_by_role('button', name='Edit this lesson', exact=True).click()
@@ -475,6 +479,81 @@ try:
         assert preserved['state'] == 'reviewed' and preserved['lessons'][0]['attempt']['correct']
         assert preserved['lessons'][0]['content']['explanation'].startswith('## A name for a value')
         results['workflows'].append('Single-lesson edit and bounded regeneration create reviewed course revisions while preserving the original and its scored evidence')
+        previous_id = context.request.get('http://127.0.0.1:5098/api/learning/courses').json()['courses'][0]['id']
+        previous = context.request.get(f'http://127.0.0.1:5098/api/learning/courses/{previous_id}').json()
+        revision = page.locator('.learning-lesson-revision').first
+        revision.locator('summary').click()
+        audit_surface(page, 'replacement-check-controls-desktop')
+        page.set_viewport_size({'width':320, 'height':844})
+        audit_surface(page, 'replacement-check-controls-mobile')
+        page.set_viewport_size({'width':1440, 'height':1000})
+        page.locator('#course-provider-confirm').uncheck()
+        revision.get_by_role('button', name='Create a replacement knowledge check', exact=True).click()
+        expect(page.locator('#hub-status')).to_contain_text('Confirm provider use')
+        expect(revision).to_be_visible()
+        page.locator('#course-provider-confirm').check()
+        pending = []
+        def defer_revision(route):
+            pending.append(route)
+        page.route('**/api/learning/courses/*/lessons/*/revision', defer_revision)
+        revision.get_by_role('button', name='Create a replacement knowledge check', exact=True).click()
+        expect(page.locator('#course-workspace')).to_have_attribute('aria-busy', 'true')
+        expect(revision.get_by_role('button', name='Edit this lesson', exact=True)).to_be_disabled()
+        expect(revision.get_by_role('button', name='Regenerate this lesson in a revised course', exact=True)).to_be_disabled()
+        assert len(pending) == 1 and pending[0].request.post_data_json['action'] == 'new_check'
+        pending[0].fulfill(status=409, json={'error':'fixture_refusal', 'message':'Replacement check fixture refusal'})
+        expect(page.locator('#hub-status')).to_contain_text('Replacement check fixture refusal')
+        expect(revision.get_by_role('button', name='Edit this lesson', exact=True)).to_be_enabled()
+        page.unroute('**/api/learning/courses/*/lessons/*/revision', defer_revision)
+        revision.get_by_role('button', name='Create a replacement knowledge check', exact=True).click()
+        expect(page.locator('#course-workspace')).to_contain_text('Revision 4:')
+        expect(page.locator('#course-workspace')).to_contain_text('5/6 lessons')
+        with App.app.app_context():
+            assert courses.run_one_job()
+            assert courses.run_one_job()
+        page.get_by_role('button', name='Refresh progress', exact=True).click()
+        expect(page.locator('#course-workspace')).to_contain_text('Answer-key review: If x is 5, what is x + 2?')
+        expect(page.locator('#course-workspace').get_by_role('button', name='7', exact=True)).not_to_be_visible()
+        new_id = context.request.get('http://127.0.0.1:5098/api/learning/courses').json()['courses'][0]['id']
+        new_course = context.request.get(f'http://127.0.0.1:5098/api/learning/courses/{new_id}').json()
+        for key in ['explanation', 'worked_example', 'practice', 'common_mistakes', 'review']:
+            assert new_course['lessons'][0]['content'][key] == previous['lessons'][0]['content'][key]
+        assert new_course['blueprint']['revision_source']['action'] == 'new_check'
+        assert new_course['lessons'][0]['content']['quiz']['question'] != previous['lessons'][0]['content']['quiz']['question']
+        page.get_by_role('button', name='I have checked accuracy and every answer key').click()
+        page.locator('#course-workspace').get_by_role('button', name='7', exact=True).click()
+        expect(page.locator('#hub-status')).to_contain_text('Correct.')
+        page.get_by_role('button', name='Open original course', exact=True).click()
+        expect(page.locator('#course-workspace')).to_contain_text('What is 2 + 1?')
+        assert context.request.get(f"http://127.0.0.1:5098/api/learning/courses/{original_course['id']}").json()['lessons'][0]['attempt']['correct']
+        # A failed selection keeps the previous editor usable without accepting stale responses.
+        source_revision = page.locator('.learning-lesson-revision').first
+        source_revision.locator('summary').click()
+        source_revision.get_by_role('button', name='Edit this lesson', exact=True).click()
+        preserved_draft = source_revision.locator('textarea[name="explanation"]')
+        preserved_draft.fill('A preserved draft after a failed course selection.')
+        pending_load = []
+        def defer_load(route):
+            pending_load.append(route)
+        page.route(f'**/api/learning/courses/{new_id}', defer_load)
+        page.locator(f"#course-library [data-course-id='{new_id}']").click()
+        expect(page.locator('#course-workspace')).to_have_attribute('inert', '')
+        assert len(pending_load) == 1
+        pending_load[0].fulfill(status=503, json={'message':'Course loading fixture refusal'})
+        expect(page.locator('#hub-status')).to_contain_text('Course loading fixture refusal')
+        expect(page.locator('#course-workspace')).not_to_have_attribute('inert', '')
+        expect(preserved_draft).to_have_value('A preserved draft after a failed course selection.')
+        pending.clear()
+        page.route('**/api/learning/courses/*/lessons/*/revision', defer_revision)
+        source_revision.get_by_role('button', name='Save lesson in a revised course', exact=True).click()
+        expect(page.locator('#course-workspace')).to_have_attribute('aria-busy', 'true')
+        assert len(pending) == 1 and pending[0].request.post_data_json['action'] == 'edit'
+        pending[0].fulfill(status=409, json={'message':'Draft saving fixture refusal'})
+        expect(page.locator('#hub-status')).to_contain_text('Draft saving fixture refusal')
+        expect(preserved_draft).to_have_value('A preserved draft after a failed course selection.')
+        page.unroute('**/api/learning/courses/*/lessons/*/revision', defer_revision)
+        page.unroute(f'**/api/learning/courses/{new_id}', defer_load)
+        results['workflows'].append('Replacement knowledge check preserves teaching content and prior evidence, requires provider confirmation and accuracy review, and scores once as assisted builder evidence')
         page.goto("http://127.0.0.1:5098/school-admin", wait_until="networkidle")
         expect(page.locator("#admin-organization")).to_contain_text(
             "Browser pilot school"

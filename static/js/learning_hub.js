@@ -26,7 +26,7 @@
     try { await action(); } catch (error) { status(error.message); }
     finally { control.removeAttribute('aria-busy'); control.disabled = control.dataset.finished === 'true' || control.dataset.locked === 'true'; }
   }
-  const messages = []; let conversationId, sittingId, started, timer, courseRequest = 0;
+  const messages = []; let conversationId, sittingId, started, timer, courseRequest = 0, displayedCourseRequest = 0;
   function showSitting(data) {
     sittingId = data.id; started = Date.now();
     $('sitting-controls').hidden = data.state === 'completed';
@@ -223,32 +223,53 @@
   }
   async function openCourse(id) {
     const requestId = ++courseRequest;
-    const course = await api(`/api/learning/courses/${id}`);
+    const panel = $('course-workspace');
+    panel.inert = true; panel.setAttribute('aria-busy', 'true');
+    let course, review;
+    try {
+      course = await api(`/api/learning/courses/${id}`);
+      if (requestId !== courseRequest) return;
+      review = course.state !== 'reviewed' ? await api(`/api/learning/courses/${id}/review`) : null;
+    } catch (error) {
+      if (requestId === courseRequest) {
+        panel.inert = false;
+        if (!panel.dataset.mutationRequest) panel.removeAttribute('aria-busy');
+        throw error;
+      }
+      return; // A newer course selection owns the workspace and its status.
+    }
     if (requestId !== courseRequest) return;
-    const review = course.state !== 'reviewed' ? await api(`/api/learning/courses/${id}/review`) : null;
-    if (requestId !== courseRequest) return;
-    const panel = $('course-workspace'); panel.replaceChildren();
+    displayedCourseRequest = requestId;
+    panel.inert = false; panel.dataset.courseId = String(id); panel.replaceChildren();
+    delete panel.dataset.mutationRequest;
     panel.removeAttribute('aria-busy');
     let workspaceBusy = false;
+    const isCurrentCourse = () => requestId === displayedCourseRequest && !panel.inert;
     async function mutateCourse(action) {
-      if (workspaceBusy || requestId !== courseRequest) return;
+      if (workspaceBusy || !isCurrentCourse()) return;
       workspaceBusy = true;
       const controls = [...panel.querySelectorAll('button, input, textarea, select')];
       const disabled = controls.map(control => control.disabled);
       controls.forEach(control => { control.disabled = true; });
       panel.setAttribute('aria-busy', 'true');
+      panel.dataset.mutationRequest = String(requestId);
       try { await action(); }
+      catch (error) {
+        if (isCurrentCourse()) throw error;
+        // A response for a replaced course must not overwrite the visible status.
+      }
       finally {
         controls.forEach((control, index) => { control.disabled = disabled[index]; });
         workspaceBusy = false;
-        if (requestId === courseRequest) panel.removeAttribute('aria-busy');
+        if (panel.dataset.mutationRequest === String(requestId)) delete panel.dataset.mutationRequest;
+        if (isCurrentCourse()) panel.removeAttribute('aria-busy');
       }
     }
     async function showRevision(result) {
-      if (requestId !== courseRequest) return;
+      if (!isCurrentCourse()) return;
       const displayRequest = courseRequest + 1;
       await openCourse(result.id); await loadLibrary();
-      if (displayRequest === courseRequest) status(result.message);
+      if (displayRequest === displayedCourseRequest && !panel.inert) status(result.message);
     }
     node('h3', course.blueprint.title, panel); node('p', course.blueprint.overview, panel);
     if (course.blueprint.revision_source) {
@@ -299,7 +320,7 @@
         [key, isList ? input.value.split('\n').map(value => value.trim()).filter(Boolean) : input.value]));
       const saved = await api(`/api/learning/courses/${id}`, {method: 'PUT', body: JSON.stringify({blueprint: course.blueprint, revision:course.revision})});
       course.revision = saved.revision;
-      if (requestId === courseRequest) status('Outline saved.');
+      if (isCurrentCourse()) status('Outline saved.');
     }));
     if (course.job) node('p', `Generation: ${course.job.state} · ${course.lessons.length}/${course.blueprint.lessons.length} lessons · ${course.job.reserved_tokens}/${course.job.token_budget} tokens reserved${course.job.error ? ` · ${course.job.error}` : ''}`, panel);
     if (course.job) {
@@ -310,13 +331,13 @@
     if (course.lessons.length < course.blueprint.lessons.length && (!course.job || ['failed', 'cancelled'].includes(course.job.state))) button(course.job ? 'Resume generation' : 'Generate lessons', panel, () => mutateCourse(async () => {
       await post(`/api/learning/courses/${id}/generation`, {action: course.job ? 'retry' : 'start',
         confirm_provider_use: $('course-provider-confirm').checked});
-      if (requestId !== courseRequest) return;
+      if (!isCurrentCourse()) return;
       const refreshedRequest = courseRequest + 1; await openCourse(id);
-      if (refreshedRequest === courseRequest) status('Generation queued. The configured worker will process one lesson at a time.');
+      if (refreshedRequest === displayedCourseRequest && !panel.inert) status('Generation queued. The configured worker will process one lesson at a time.');
     }));
     if (course.job && ['queued', 'running'].includes(course.job.state)) button('Cancel generation', panel, () => mutateCourse(async () => {
       await post(`/api/learning/courses/${id}/generation`, {action: 'cancel'});
-      if (requestId === courseRequest) await openCourse(id);
+      if (isCurrentCourse()) await openCourse(id);
     }));
     for (const lesson of course.lessons) {
       const section = node('section', undefined, panel); section.className = 'learning-lesson';
@@ -346,7 +367,7 @@
         const quiz = lesson.content.quiz; node('h5', quiz.question, section);
         quiz.options.forEach((option, i) => button(option, section, () => mutateCourse(async () => {
           const data = await post(`/api/learning/courses/${id}/lessons/${lesson.id}/answer`, {answer: i});
-          if (requestId !== courseRequest) return;
+          if (!isCurrentCourse()) return;
           status(`${data.correct ? 'Correct.' : 'Review this idea.'} ${data.explanation}`); await openCourse(id);
         })));
       }
@@ -363,6 +384,13 @@
         const revision = node('details', undefined, section); revision.className = 'learning-outline learning-lesson-revision';
         node('summary', 'Revise this lesson', revision);
         node('p', 'Save a revised course with this lesson changed. Your original course and recorded checks stay available. The revised course needs a new accuracy review.', revision);
+        node('p', 'A replacement knowledge check keeps the teaching sections and requests a different example. Check its accuracy and alignment before scoring. Course-builder results remain assisted review evidence.', revision);
+        button('Create a replacement knowledge check', revision, () => mutateCourse(async () => {
+          const result = await post(`/api/learning/courses/${id}/lessons/${lesson.id}/revision`, {
+            action:'new_check', confirm_provider_use:$('course-provider-confirm').checked,
+          });
+          await showRevision(result);
+        }));
         button('Regenerate this lesson in a revised course', revision, () => mutateCourse(async () => {
           const result = await post(`/api/learning/courses/${id}/lessons/${lesson.id}/revision`, {
             action:'regenerate', confirm_provider_use:$('course-provider-confirm').checked,
@@ -373,7 +401,7 @@
         button('Edit this lesson', revision, () => mutateCourse(async () => {
           if (editor.children.length) return;
           const keys = await api(`/api/learning/courses/${id}/review`);
-          if (requestId !== courseRequest || !editor.isConnected) return;
+          if (!isCurrentCourse() || !editor.isConnected) return;
           const original = keys.lessons.find(item => item.id === lesson.id).content;
           const form = node('form', undefined, editor); form.className = 'learning-lesson-edit';
           const fields = {};
@@ -414,7 +442,7 @@
       node('p', 'Review the source accuracy and all generated answer keys before confirming. Scoring remains locked until review.', panel);
       button('I have checked accuracy and every answer key', panel, () => mutateCourse(async () => {
         await post(`/api/learning/courses/${id}/review`, {confirm_accuracy: true});
-        if (requestId === courseRequest) await openCourse(id);
+        if (isCurrentCourse()) await openCourse(id);
       }));
     }
   }

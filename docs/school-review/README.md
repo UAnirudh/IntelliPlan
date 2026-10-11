@@ -27,6 +27,7 @@ Verified: local automated permission, privacy, scoring, recovery and regression 
 13. [Safe course content rendering](13-content-rendering.md).
 14. [Preserved lesson revisions](14-lesson-revisions.md).
 15. [Inspectable course request details](15-course-request-details.md).
+16. [Preserved replacement knowledge checks](16-replacement-checks.md).
 
 The engineering checkpoint was saved before a subsequent [Learning Hub and institution UI pass](12-ui-design.md), informed by live Skydive, Cluely, Linear and Notion references. It adds theme-aware layouts, useful question starters, course preparation/progress and grouped settings while preserving beta notices and policy gates. Ten browser workflows and sixteen scoped responsive/accessibility checks accompany the UI work. The broader acceptance ledger remains unchanged in scope.
 

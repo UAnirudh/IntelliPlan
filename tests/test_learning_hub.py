@@ -223,6 +223,7 @@ def test_lesson_revision_boundaries(client, monkeypatch):
         assert client.post(path, json=data).status_code == 400
     monkeypatch.setattr('ai_provider.model_chain', lambda: [])
     assert client.post(path, json={'action': 'regenerate', 'confirm_provider_use': True}).status_code == 503
+    assert client.post(path, json={'action': 'new_check', 'confirm_provider_use': True}).status_code == 503
     # Manual correction sends no provider request and remains available offline.
     assert client.post(path, json={'action': 'edit', 'content': original_lesson()}).status_code == 201
     with App.app.app_context():
@@ -230,6 +231,7 @@ def test_lesson_revision_boundaries(client, monkeypatch):
         job.state = 'running'
         App.db.session.commit()
     assert client.post(path, json={'action': 'edit', 'content': original_lesson()}).status_code == 409
+    assert client.post(path, json={'action': 'new_check', 'confirm_provider_use': True}).status_code == 409
     with App.app.app_context():
         job = policy.models()['Job'].query.filter_by(course_id=cid).first()
         job.state = 'completed'
@@ -238,8 +240,144 @@ def test_lesson_revision_boundaries(client, monkeypatch):
     assert client.post(path, json={'action': 'edit', 'content': original_lesson()}).status_code == 409
     user(client, monkeypatch, admin=True)
     assert client.post(path, json={'action': 'edit', 'content': original_lesson()}).status_code == 404
+    assert client.post(path, json={'action': 'new_check', 'confirm_provider_use': True}).status_code == 404
     user(client, monkeypatch)
     assert client.post(path, json={'action': 'edit', 'content': original_lesson()}).status_code == 403
+    assert client.post(path, json={'action': 'new_check', 'confirm_provider_use': True}).status_code == 403
+
+
+def replacement_quiz():
+    return dict(question='If x is 5, what is x + 2?', options=['7', '6'], answer=0,
+                explanation='Substitute five for x, then add two.')
+
+
+def new_check(client, cid, lid):
+    return client.post(f'/api/learning/courses/{cid}/lessons/{lid}/revision',
+                       json={'action': 'new_check', 'confirm_provider_use': True})
+
+
+def test_replacement_check_preserves_teaching_and_requires_review(client, monkeypatch):
+    uid = enable(monkeypatch, client)
+    cid, lid = completed_original(uid)
+    assert client.post(f'/api/learning/courses/{cid}/lessons/{lid}/answer', json={'answer': 0}).status_code == 200
+    calls = []
+    def chat(messages, **kwargs):
+        calls.append((messages, kwargs))
+        return dict(replacement_quiz(), explanation_html='<script>ignored</script>')
+    monkeypatch.setattr('ai_provider.chat_json', chat)
+    path = f'/api/learning/courses/{cid}/lessons/{lid}/revision'
+    assert client.post(path, json={'action': 'new_check'}).status_code == 400
+    revised_id = new_check(client, cid, lid).json['id']
+    assert not calls
+    with App.app.app_context():
+        assert courses.run_one_job() and courses.run_one_job()
+        email = App.db.session.get(App.User, uid).email
+    revised = client.get(f'/api/learning/courses/{revised_id}').json
+    assert revised['job']['attempts'] == 1 and revised['job']['reserved_tokens'] > 0
+    assert revised['state'] == 'needs_review' and revised['job']['state'] == 'completed'
+    assert len(calls) == 1 and calls[0][1]['single_attempt']
+    prompt = json.loads(calls[0][0][1]['content'])
+    assert set(prompt) == {'lesson', 'teaching', 'previous_questions', 'request_profile'}
+    assert 'quiz' not in prompt['teaching'] and email not in str(calls)
+    assert prompt['previous_questions'] == [original_lesson()['quiz']['question']]
+    lesson = revised['lessons'][0]
+    assert lesson['content']['quiz']['question'] == replacement_quiz()['question']
+    assert 'answer' not in lesson['content']['quiz'] and 'explanation_html' not in lesson['content']['quiz']
+    for key in prompt['teaching']:
+        assert lesson['content'][key] == original_lesson()[key]
+    assert not lesson['reviewed'] and 'attempt' not in lesson
+    answer_path = f"/api/learning/courses/{revised_id}/lessons/{lesson['id']}/answer"
+    assert client.post(answer_path, json={'answer': 0}).status_code == 409
+    assert client.post(f'/api/learning/courses/{revised_id}/review', json={'confirm_accuracy': True}).status_code == 200
+    assert client.post(answer_path, json={'answer': 0, 'assisted': False}).json['correct']
+    assert client.post(answer_path, json={'answer': 0}).status_code == 409
+    with App.app.app_context():
+        evidence = policy.models()['Evidence'].query.filter_by(user_id=uid).all()
+        assert len(evidence) == 2 and all(item.assisted for item in evidence)
+    original = client.get(f'/api/learning/courses/{cid}').json
+    assert original['lessons'][0]['attempt']['correct'] and original['state'] == 'reviewed'
+    assert original['lessons'][0]['content']['quiz']['question'] == original_lesson()['quiz']['question']
+    exported = client.get('/api/learning/export').json
+    assert len(exported['courses']) == 2 and len(exported['evidence']) == 2
+
+
+def test_replacement_check_rejects_repeated_ancestral_question(client, monkeypatch):
+    uid = enable(monkeypatch, client)
+    cid, lid = completed_original(uid)
+    monkeypatch.setattr('ai_provider.chat_json', lambda *a, **k: replacement_quiz())
+    revised_id = new_check(client, cid, lid).json['id']
+    with App.app.app_context():
+        assert courses.run_one_job() and courses.run_one_job()
+    revised_lid = client.get(f'/api/learning/courses/{revised_id}').json['lessons'][0]['id']
+    repeated = dict(original_lesson()['quiz'])
+    repeated['question'] = '  WHAT does 2 + 1   evaluate to?  '
+    monkeypatch.setattr('ai_provider.chat_json', lambda *a, **k: repeated)
+    failed_id = new_check(client, revised_id, revised_lid).json['id']
+    with App.app.app_context():
+        assert courses.run_one_job()
+    failed = client.get(f'/api/learning/courses/{failed_id}').json
+    assert failed['job']['state'] == 'failed' and len(failed['lessons']) == 5
+    assert failed['job']['attempts'] == 1 and failed['job']['reserved_tokens'] > 0
+    assert client.get(f'/api/learning/courses/{revised_id}').json['lessons'][0]['content']['quiz']['question'] == replacement_quiz()['question']
+
+
+@pytest.mark.parametrize('invalid_source', ['budget', 'missing', 'cycle'])
+def test_replacement_check_refuses_before_provider_spend(client, monkeypatch, invalid_source):
+    uid = enable(monkeypatch, client)
+    cid, lid = completed_original(uid)
+    calls = []
+    monkeypatch.setattr('ai_provider.chat_json', lambda *a, **k: calls.append(a))
+    revised_id = new_check(client, cid, lid).json['id']
+    with App.app.app_context():
+        M = policy.models()
+        if invalid_source == 'budget':
+            M['Job'].query.filter_by(course_id=revised_id).first().token_budget = 1
+        elif invalid_source == 'missing':
+            M['Lesson'].query.filter_by(id=lid).delete()
+        else:
+            row = App.db.session.get(M['Course'], cid)
+            row.blueprint = dict(row.blueprint, revision_source={'course_id': cid})
+        App.db.session.commit()
+        assert courses.run_one_job()
+    result = client.get(f'/api/learning/courses/{revised_id}').json
+    assert not calls and result['job']['state'] == 'failed'
+    assert result['job']['reserved_tokens'] == 0 and result['job']['attempts'] == 0
+    assert len(result['lessons']) == 5
+
+
+@pytest.mark.parametrize('interruption', ['cancel', 'revoke'])
+def test_replacement_check_drops_inflight_output(client, monkeypatch, interruption):
+    uid = enable(monkeypatch, client)
+    cid, lid = completed_original(uid)
+    oid = org(uid)
+    revised_id = new_check(client, cid, lid).json['id']
+    def chat(*args, **kwargs):
+        M = policy.models()
+        if interruption == 'cancel':
+            M['Job'].query.filter_by(course_id=revised_id).update(dict(state='cancelled', lease=None, lease_until=None))
+        else:
+            App.db.session.get(M['Organization'], oid).policy = {'generated_content': False}
+        App.db.session.commit()
+        return replacement_quiz()
+    monkeypatch.setattr('ai_provider.chat_json', chat)
+    with App.app.app_context():
+        assert courses.run_one_job()
+        M = policy.models()
+        assert M['Lesson'].query.filter_by(course_id=revised_id).count() == 5
+        assert M['Job'].query.filter_by(course_id=revised_id).first().state == ('cancelled' if interruption == 'cancel' else 'failed')
+
+
+@pytest.mark.parametrize('settings', [
+    {'generated_content': False}, {'third_party_processing': False},
+    {'assessment_protection': True}, {'course_generator': False},
+])
+def test_replacement_check_respects_institution_limits(client, monkeypatch, settings):
+    uid = enable(monkeypatch, client)
+    cid, lid = completed_original(uid)
+    org(uid, settings)
+    assert new_check(client, cid, lid).status_code == 403
+    with App.app.app_context():
+        assert policy.models()['Course'].query.filter_by(user_id=uid).count() == 1
 
 
 def test_request_profile_is_bounded_and_preserves_legacy_blueprints():

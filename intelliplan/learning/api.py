@@ -294,8 +294,8 @@ def lesson_revision(cid, lid):
         abort(404)
     data = body()
     action = data.get('action')
-    if action not in {'edit', 'regenerate'}:
-        raise ValueError('Choose edit or regenerate.')
+    if action not in {'edit', 'regenerate', 'new_check'}:
+        raise ValueError('Choose edit, regenerate, or new_check.')
     if course.mode != 'generated':
         return jsonify(error='original_course_required', message='Revision beta supports original courses only. Curated sources stay linked to their authors.'), 409
     job = M['Job'].query.filter_by(course_id=cid).first()
@@ -303,18 +303,18 @@ def lesson_revision(cid, lid):
             M['Lesson'].query.filter_by(course_id=cid).count() != len(course.blueprint['lessons'])):
         return jsonify(error='generation_in_progress', message='Finish or cancel generation and save every lesson before making a revision.'), 409
     replacement = courses.validate_lesson(data.get('content')) if action == 'edit' else None
-    if action == 'regenerate':
+    if action in {'regenerate', 'new_check'}:
         denied = gate('generated_content')
         if denied:
             return denied
         if not policy.permitted_providers(current_user):
             return jsonify(error='third_party_processing_disabled'), 403
         if data.get('confirm_provider_use') is not True:
-            raise ValueError('Confirm provider use and the token ceiling before regenerating a lesson.')
+            raise ValueError('Confirm provider use and the token ceiling before generating a revision.')
         from ai_provider import model_chain
         if not model_chain():
             return jsonify(error='provider_unavailable', message='An approved provider must be configured before regeneration.'), 503
-    revised = courses.fork_lesson(course, lesson, replacement)
+    revised = courses.fork_lesson(course, lesson, replacement, assessment_only=action == 'new_check')
     db.session.commit()
     return jsonify(id=revised.id, state=revised.state, revision=revised.revision,
         message='A revised course was saved. The original course and its evidence are preserved; review the revised course before scoring.'), 201
