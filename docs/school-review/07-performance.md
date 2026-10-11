@@ -15,6 +15,8 @@ Measured locally on Windows using disposable SQLite and Chromium, not production
 | Course rendering/revision browser navigation |5139ms to networkidle | Single local run with self-hosted formatting assets; controlled cold/warm comparison pending |
 | Course request-details full regression |253.08s,4025 passed /24 skipped | Expanded workload; not a controlled speed comparison |
 | Course request-details browser navigation |2806ms to networkidle | Single disposable local run; not production latency |
+| Latest policy/course full regression |270.90s,4068 passed /24 skipped | Expanded workload; not a controlled speed comparison |
+| Latest policy/course browser navigation |4330ms to networkidle | Single local disposable run; not production latency or a speed improvement |
 | Live original-blueprint check |27ms initially,18ms on final repeat,503 | Configuration refusal, not AI generation latency |
 | Original course end-to-end generation |Not measured with real provider | Browser worker generations are fixtures |
 | AI tutor latency under real provider |Not measured | Protected concept path is deterministic; no model benchmark |

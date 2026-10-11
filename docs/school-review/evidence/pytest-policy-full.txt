@@ -1,0 +1,1206 @@
+........................................................................ [  1%]
+........................................................................ [  3%]
+........................................................................ [  5%]
+........................................................................ [  7%]
+........................................................................ [  8%]
+........................................................................ [ 10%]
+........................................................................ [ 12%]
+........................................................................ [ 14%]
+........................................................................ [ 15%]
+........................................................................ [ 17%]
+...............................................................s........ [ 19%]
+.........s..................s.................s..........s..........s... [ 21%]
+........................................................................ [ 22%]
+........................................................................ [ 24%]
+........................................................................ [ 26%]
+........................................................................ [ 28%]
+........................................................................ [ 29%]
+........................................................................ [ 31%]
+........................................................................ [ 33%]
+........................................................................ [ 35%]
+........................................................................ [ 36%]
+........................................................................ [ 38%]
+........................................................................ [ 40%]
+........................................................................ [ 42%]
+........................................................................ [ 43%]
+........................................................................ [ 45%]
+........................................................................ [ 47%]
+........................................................................ [ 49%]
+..................................................................ssssss [ 51%]
+ssssssssssss............................................................ [ 52%]
+........................................................................ [ 54%]
+........................................................................ [ 56%]
+........................................................................ [ 58%]
+........................................................................ [ 59%]
+........................................................................ [ 61%]
+........................................................................ [ 63%]
+........................................................................ [ 65%]
+..............................................................[smtp-config] host=MISSING user=set pw=MISSING port=587
+[email] delivery unavailable: neither Resend nor SMTP configured
+[welcome] not sent to user 156: provider_failed
+.......... [ 66%]
+........................................................................ [ 68%]
+........................................................................ [ 70%]
+........................................................................ [ 72%]
+........................................................................ [ 73%]
+........................................................................ [ 75%]
+........................................................................ [ 77%]
+........................................................................ [ 79%]
+........................................................................ [ 80%]
+........................................................................ [ 82%]
+........................................................................ [ 84%]
+........................................................................ [ 86%]
+........................................................................ [ 87%]
+........................................................................ [ 89%]
+........................................................................ [ 91%]
+........................................................................ [ 93%]
+........................................................................ [ 95%]
+........................................................................ [ 96%]
+........................................................................ [ 98%]
+............................................................             [100%]
+============================== warnings summary ===============================
+..\..\AppData\Local\Programs\Python\Python313\Lib\site-packages\flask_limiter\_extension.py:364
+  C:\Users\uanir\AppData\Local\Programs\Python\Python313\Lib\site-packages\flask_limiter\_extension.py:364: UserWarning: Using the in-memory storage for tracking rate limits as no storage was explicitly specified. This is not recommended for production use. See: https://flask-limiter.readthedocs.io#configuring-a-storage-backend for documentation about configuring the storage backend.
+    warnings.warn(
+
+tests/intelliplan/test_assignment_repository.py: 25 warnings
+tests/intelliplan/test_lms_repository.py: 9 warnings
+tests/intelliplan/test_services.py: 24 warnings
+tests/test_accessibility_contract.py: 3 warnings
+tests/test_account_deletion.py: 8 warnings
+tests/test_actionable_alerts.py: 11 warnings
+tests/test_active_discoverability.py: 8 warnings
+tests/test_active_nav_and_camera.py: 6 warnings
+tests/test_active_without_schedule.py: 34 warnings
+tests/test_api_keys.py: 18 warnings
+tests/test_api_register_password.py: 1 warning
+tests/test_audit_hardening.py: 16 warnings
+tests/test_balance_nudge.py: 7 warnings
+tests/test_blackboard_connect.py: 27 warnings
+tests/test_block_resources_api.py: 15 warnings
+tests/test_bot_protection.py: 30 warnings
+tests/test_breakdown.py: 22 warnings
+tests/test_calendar_feed_login.py: 4 warnings
+tests/test_canvas_oauth_refresh.py: 20 warnings
+tests/test_canvas_oauth_scopes_and_teardown.py: 6 warnings
+tests/test_canvas_overdue_grading.py: 2 warnings
+tests/test_clarified_custom_tasks.py: 7 warnings
+tests/test_clarify_endpoint.py: 8 warnings
+tests/test_cloud_docs.py: 40 warnings
+tests/test_cloud_documents.py: 9 warnings
+tests/test_continuity_fallbacks.py: 11 warnings
+tests/test_cookie_consent.py: 3 warnings
+tests/test_course_tracking.py: 107 warnings
+tests/test_cron_auth.py: 1 warning
+tests/test_desktop_auth_exchange.py: 6 warnings
+tests/test_desktop_feed.py: 23 warnings
+tests/test_education_plan.py: 8 warnings
+tests/test_email_admin_endpoints.py: 17 warnings
+tests/test_email_drafts.py: 39 warnings
+tests/test_email_eligibility.py: 4 warnings
+tests/test_email_onboarding.py: 7 warnings
+tests/test_email_sending.py: 46 warnings
+tests/test_email_weekly.py: 55 warnings
+tests/test_expo_push.py: 8 warnings
+tests/test_extension_sync_and_quick_add.py: 69 warnings
+tests/test_family_entry.py: 5 warnings
+tests/test_feedback_form_email.py: 16 warnings
+tests/test_flashcards_api.py: 13 warnings
+tests/test_focus_shield.py: 63 warnings
+tests/test_followthrough_endpoints.py: 59 warnings
+tests/test_google_unverified_notice.py: 11 warnings
+tests/test_group_voice.py: 66 warnings
+tests/test_growth_app.py: 12 warnings
+tests/test_hac.py: 2 warnings
+tests/test_insight.py: 5 warnings
+tests/test_integrations_catalog.py: 8 warnings
+tests/test_learning_hub.py: 208 warnings
+tests/test_manual_classes.py: 22 warnings
+tests/test_manual_schedule.py: 18 warnings
+tests/test_marketing_opt_in.py: 30 warnings
+tests/test_mobile_api.py: 21 warnings
+tests/test_mobile_nav_completeness.py: 21 warnings
+tests/test_notification_timezones.py: 3 warnings
+tests/test_notion_oauth.py: 14 warnings
+tests/test_onboarding_friction.py: 58 warnings
+tests/test_password_reset.py: 80 warnings
+tests/test_perfect_badges.py: 69 warnings
+tests/test_plan_ics_feed.py: 30 warnings
+tests/test_policy_compliance_controls.py: 9 warnings
+tests/test_privacy_v2_notice.py: 4 warnings
+tests/test_push_subscriptions.py: 53 warnings
+tests/test_quick_add_endpoints.py: 67 warnings
+tests/test_schedule_recovery_endpoint.py: 28 warnings
+tests/test_school_outreach_and_policy.py: 36 warnings
+tests/test_security_hardening.py: 49 warnings
+tests/test_session_chat_access.py: 36 warnings
+tests/test_session_cookies.py: 4 warnings
+tests/test_set_password.py: 14 warnings
+tests/test_study_buddies.py: 175 warnings
+tests/test_study_generate_inputs.py: 8 warnings
+tests/test_sync_idempotency.py: 32 warnings
+tests/test_today_cache_invalidation.py: 12 warnings
+tests/test_today_timeline.py: 43 warnings
+tests/test_token_encryption.py: 14 warnings
+tests/test_tutor_assignment_api.py: 12 warnings
+tests/test_tutor_scored_checks.py: 13 warnings
+tests/test_welcome_on_signup.py: 165 warnings
+test_streak_e2e.py: 27 warnings
+  C:\Users\uanir\AppData\Local\Programs\Python\Python313\Lib\site-packages\sqlalchemy\sql\schema.py:3624: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return util.wrap_callable(lambda ctx: fn(), fn)  # type: ignore
+
+tests/test_accessibility_contract.py: 90 warnings
+tests/test_account_deletion.py: 1 warning
+tests/test_actionable_alerts.py: 3 warnings
+tests/test_active_discoverability.py: 16 warnings
+tests/test_active_nav_and_camera.py: 10 warnings
+tests/test_active_without_schedule.py: 69 warnings
+tests/test_api_keys.py: 54 warnings
+tests/test_audit_hardening.py: 8 warnings
+tests/test_balance_nudge.py: 80 warnings
+tests/test_blackboard_connect.py: 69 warnings
+tests/test_block_resources_api.py: 37 warnings
+tests/test_bot_protection.py: 2 warnings
+tests/test_breakdown.py: 57 warnings
+tests/test_calendar_feed_login.py: 32 warnings
+tests/test_canvas_oauth_refresh.py: 5 warnings
+tests/test_canvas_oauth_scopes_and_teardown.py: 5 warnings
+tests/test_clarified_custom_tasks.py: 4 warnings
+tests/test_clarify_endpoint.py: 28 warnings
+tests/test_cloud_docs.py: 58 warnings
+tests/test_cloud_documents.py: 7 warnings
+tests/test_continuity_fallbacks.py: 14 warnings
+tests/test_course_tracking.py: 84 warnings
+tests/test_desktop_auth_exchange.py: 3 warnings
+tests/test_desktop_feed.py: 35 warnings
+tests/test_education_plan.py: 46 warnings
+tests/test_email_admin_endpoints.py: 13 warnings
+tests/test_expo_push.py: 7 warnings
+tests/test_extension_sync_and_quick_add.py: 2 warnings
+tests/test_family_entry.py: 5 warnings
+tests/test_flashcards_api.py: 52 warnings
+tests/test_focus_enforcement.py: 43 warnings
+tests/test_focus_shield.py: 5 warnings
+tests/test_followthrough_endpoints.py: 64 warnings
+tests/test_google_unverified_notice.py: 24 warnings
+tests/test_group_voice.py: 56 warnings
+tests/test_growth_app.py: 37 warnings
+tests/test_hac.py: 8 warnings
+tests/test_insight.py: 32 warnings
+tests/test_integrations_catalog.py: 14 warnings
+tests/test_learning_hub.py: 369 warnings
+tests/test_manual_classes.py: 28 warnings
+tests/test_manual_schedule.py: 52 warnings
+tests/test_marketing_opt_in.py: 8 warnings
+tests/test_mobile_api.py: 48 warnings
+tests/test_mobile_nav_completeness.py: 42 warnings
+tests/test_notion_oauth.py: 16 warnings
+tests/test_onboarding_friction.py: 36 warnings
+tests/test_password_reset.py: 15 warnings
+tests/test_perfect_badges.py: 30 warnings
+tests/test_plan_ics_feed.py: 28 warnings
+tests/test_policy_compliance_controls.py: 6 warnings
+tests/test_privacy_v2_notice.py: 10 warnings
+tests/test_push_subscriptions.py: 64 warnings
+tests/test_quick_add_endpoints.py: 25 warnings
+tests/test_reflow.py: 1 warning
+tests/test_schedule_recovery_endpoint.py: 28 warnings
+tests/test_school_outreach_and_policy.py: 47 warnings
+tests/test_security_hardening.py: 10 warnings
+tests/test_session_chat_access.py: 16 warnings
+tests/test_session_cookies.py: 13 warnings
+tests/test_set_password.py: 31 warnings
+tests/test_studentvue_login.py: 3 warnings
+tests/test_study_buddies.py: 216 warnings
+tests/test_study_generate_inputs.py: 16 warnings
+tests/test_sync_idempotency.py: 35 warnings
+tests/test_today_cache_invalidation.py: 12 warnings
+tests/test_today_timeline.py: 70 warnings
+tests/test_tutor_assignment_api.py: 16 warnings
+tests/test_tutor_scored_checks.py: 68 warnings
+tests/test_welcome_on_signup.py: 5 warnings
+test_streak_e2e.py: 10 warnings
+  C:\Users\uanir\AppData\Local\Programs\Python\Python313\Lib\site-packages\flask_session\sqlalchemy\sqlalchemy.py:168: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    storage_expiration_datetime = datetime.utcnow() + session_lifetime
+
+tests/test_accessibility_contract.py: 91 warnings
+tests/test_actionable_alerts.py: 2 warnings
+tests/test_active_discoverability.py: 8 warnings
+tests/test_active_nav_and_camera.py: 5 warnings
+tests/test_active_without_schedule.py: 41 warnings
+tests/test_api_keys.py: 37 warnings
+tests/test_audit_hardening.py: 4 warnings
+tests/test_balance_nudge.py: 74 warnings
+tests/test_blackboard_connect.py: 50 warnings
+tests/test_block_resources_api.py: 15 warnings
+tests/test_breakdown.py: 42 warnings
+tests/test_calendar_feed_login.py: 19 warnings
+tests/test_canvas_oauth_refresh.py: 3 warnings
+tests/test_canvas_oauth_scopes_and_teardown.py: 3 warnings
+tests/test_clarify_endpoint.py: 16 warnings
+tests/test_cloud_docs.py: 39 warnings
+tests/test_cloud_documents.py: 4 warnings
+tests/test_continuity_fallbacks.py: 7 warnings
+tests/test_course_tracking.py: 65 warnings
+tests/test_desktop_auth_exchange.py: 1 warning
+tests/test_desktop_feed.py: 18 warnings
+tests/test_education_plan.py: 40 warnings
+tests/test_email_admin_endpoints.py: 7 warnings
+tests/test_expo_push.py: 2 warnings
+tests/test_extension_sync_and_quick_add.py: 1 warning
+tests/test_family_entry.py: 3 warnings
+tests/test_flashcards_api.py: 43 warnings
+tests/test_focus_enforcement.py: 29 warnings
+tests/test_focus_shield.py: 4 warnings
+tests/test_followthrough_endpoints.py: 37 warnings
+tests/test_google_unverified_notice.py: 14 warnings
+tests/test_group_voice.py: 43 warnings
+tests/test_growth_app.py: 23 warnings
+tests/test_hac.py: 6 warnings
+tests/test_insight.py: 21 warnings
+tests/test_integrations_catalog.py: 7 warnings
+tests/test_learning_hub.py: 293 warnings
+tests/test_manual_classes.py: 16 warnings
+tests/test_manual_schedule.py: 38 warnings
+tests/test_marketing_opt_in.py: 4 warnings
+tests/test_mobile_api.py: 23 warnings
+tests/test_mobile_nav_completeness.py: 21 warnings
+tests/test_notion_oauth.py: 12 warnings
+tests/test_onboarding_friction.py: 18 warnings
+tests/test_password_reset.py: 5 warnings
+tests/test_perfect_badges.py: 22 warnings
+tests/test_plan_ics_feed.py: 23 warnings
+tests/test_policy_compliance_controls.py: 3 warnings
+tests/test_privacy_v2_notice.py: 6 warnings
+tests/test_push_subscriptions.py: 48 warnings
+tests/test_quick_add_endpoints.py: 11 warnings
+tests/test_schedule_recovery_endpoint.py: 14 warnings
+tests/test_school_outreach_and_policy.py: 19 warnings
+tests/test_security_hardening.py: 7 warnings
+tests/test_session_chat_access.py: 8 warnings
+tests/test_session_cookies.py: 4 warnings
+tests/test_set_password.py: 18 warnings
+tests/test_studentvue_login.py: 2 warnings
+tests/test_study_buddies.py: 236 warnings
+tests/test_study_generate_inputs.py: 8 warnings
+tests/test_sync_idempotency.py: 25 warnings
+tests/test_today_cache_invalidation.py: 6 warnings
+tests/test_today_timeline.py: 44 warnings
+tests/test_tutor_assignment_api.py: 10 warnings
+tests/test_tutor_scored_checks.py: 59 warnings
+test_streak_e2e.py: 8 warnings
+  C:\Users\uanir\AppData\Local\Programs\Python\Python313\Lib\site-packages\flask_session\sqlalchemy\sqlalchemy.py:141: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    if record and (record.expiry is None or record.expiry <= datetime.utcnow()):
+
+tests/test_accessibility_contract.py: 6 warnings
+tests/test_onboarding_friction.py: 9 warnings
+tests/test_password_reset.py: 1 warning
+  C:\Users\uanir\StudioProjects\IntelliPlan\command_center_glue.py:174: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    user = User.query.get(user_id)
+
+tests/test_account_deletion.py::test_deleting_an_account_removes_the_user_and_their_rows
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_account_deletion.py:189: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    created_at=datetime.utcnow(),
+
+tests/test_account_deletion.py::test_deleting_an_account_removes_the_user_and_their_rows
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_account_deletion.py:206: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    progress_json='{}', revision=1, updated_at=datetime.utcnow()))
+
+tests/test_account_deletion.py::test_deleting_an_account_removes_the_user_and_their_rows
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_account_deletion.py:214: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    correct_attempts=1, last_practiced=datetime.utcnow(),
+
+tests/test_account_deletion.py::test_deleting_an_account_removes_the_user_and_their_rows
+tests/test_account_deletion.py::test_deleting_an_account_removes_the_user_and_their_rows
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_account_deletion.py:215: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    created_at=datetime.utcnow(), updated_at=datetime.utcnow()))
+
+tests/test_account_deletion.py::test_deleting_an_account_removes_the_user_and_their_rows
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_account_deletion.py:219: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    created_at=datetime.utcnow()))
+
+tests/test_account_deletion.py::test_deleting_an_account_removes_the_user_and_their_rows
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_account_deletion.py:222: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    sequence=1, created_at=datetime.utcnow()))
+
+tests/test_account_deletion.py::test_foundations_family_page_is_private_and_renders
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_account_deletion.py:293: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    created_at=datetime.utcnow(),
+
+tests/test_actionable_alerts.py::test_grade_alert_reaches_the_outbox_once
+tests/test_actionable_alerts.py::test_grade_alert_reaches_the_outbox_once
+tests/test_actionable_alerts.py::test_grade_alert_respects_kind_toggles_and_channels
+tests/test_actionable_alerts.py::test_grade_alert_respects_kind_toggles_and_channels
+tests/test_actionable_alerts.py::test_grade_alert_is_held_through_quiet_hours
+tests/test_actionable_alerts.py::test_new_assignment_is_saved_into_the_plan_and_announced
+tests/test_actionable_alerts.py::test_the_gradebook_page_load_is_the_sync
+  C:\Users\uanir\StudioProjects\IntelliPlan\grade_pulse_glue.py:118: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    user = User.query.get(user_id)
+
+tests/test_active_without_schedule.py::test_every_duration_the_form_offers_is_accepted[15]
+tests/test_active_without_schedule.py::test_every_duration_the_form_offers_is_accepted[25]
+tests/test_active_without_schedule.py::test_every_duration_the_form_offers_is_accepted[45]
+tests/test_active_without_schedule.py::test_every_duration_the_form_offers_is_accepted[60]
+tests/test_breakdown.py::test_finishing_the_step_session_as_done_ticks_the_step_with_timer_minutes
+tests/test_breakdown.py::test_stopping_after_five_minutes_without_finishing_leaves_the_step_open
+  C:\Users\uanir\StudioProjects\IntelliPlan\notifications_glue.py:404: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    user = User.query.get(user_id)
+
+tests/test_ai_firewall.py: 40 warnings
+tests/test_flashcards_api.py: 1 warning
+tests/test_growth_app.py: 3 warnings
+  C:\Users\uanir\AppData\Local\Programs\Python\Python313\Lib\site-packages\sqlalchemy\engine\default.py:952: DeprecationWarning: The default datetime adapter is deprecated as of Python 3.12; see the sqlite3 documentation for suggested replacement recipes
+    cursor.execute(statement, parameters)
+
+tests/test_api_keys.py: 18 warnings
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_api_keys.py:43: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    created_at=datetime.utcnow() - age,
+
+tests/test_api_keys.py: 16 warnings
+  C:\Users\uanir\StudioProjects\IntelliPlan\api_keys.py:158: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow() if created.tzinfo is None else utcnow()
+
+tests/test_bot_protection.py: 2 warnings
+tests/test_desktop_auth_exchange.py: 2 warnings
+tests/test_family_entry.py: 2 warnings
+tests/test_marketing_opt_in.py: 4 warnings
+tests/test_onboarding_friction.py: 2 warnings
+tests/test_password_reset.py: 11 warnings
+tests/test_security_hardening.py: 5 warnings
+tests/test_session_cookies.py: 3 warnings
+tests/test_welcome_on_signup.py: 5 warnings
+test_streak_e2e.py: 2 warnings
+  C:\Users\uanir\AppData\Local\Programs\Python\Python313\Lib\site-packages\flask_login\login_manager.py:488: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    expires = datetime.utcnow() + duration
+
+tests/test_bot_protection.py: 1 warning
+tests/test_password_reset.py: 16 warnings
+  C:\Users\uanir\StudioProjects\IntelliPlan\App.py:1334: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    since = datetime.utcnow() - timedelta(hours=1)
+
+tests/test_bot_protection.py: 1 warning
+tests/test_password_reset.py: 25 warnings
+  C:\Users\uanir\StudioProjects\IntelliPlan\App.py:1307: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    {"used_at": datetime.utcnow()})
+
+tests/test_bot_protection.py: 1 warning
+tests/test_password_reset.py: 25 warnings
+  C:\Users\uanir\StudioProjects\IntelliPlan\App.py:1313: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    expires_at=datetime.utcnow() + timedelta(minutes=PASSWORD_RESET_TTL_MINUTES),
+
+tests/test_canvas_oauth_refresh.py::test_an_expiring_token_is_refreshed_before_it_is_used
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_canvas_oauth_refresh.py:108: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    login_user(User.query.get(uid))
+
+tests/test_canvas_oauth_refresh.py::test_a_healthy_token_is_left_alone
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_canvas_oauth_refresh.py:119: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    login_user(User.query.get(uid))
+
+tests/test_canvas_oauth_refresh.py::test_a_token_with_no_expiry_recorded_is_refreshed
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_canvas_oauth_refresh.py:130: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    login_user(User.query.get(uid))
+
+tests/test_canvas_oauth_refresh.py::test_the_refreshed_token_is_persisted_where_the_fetch_paths_read_it
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_canvas_oauth_refresh.py:141: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    login_user(User.query.get(uid))
+
+tests/test_canvas_oauth_refresh.py::test_a_revoked_grant_is_marked_for_reconnect_rather_than_retried
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_canvas_oauth_refresh.py:159: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    login_user(User.query.get(uid))
+
+tests/test_canvas_oauth_refresh.py::test_a_pasted_token_connection_is_never_refreshed
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_canvas_oauth_refresh.py:181: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    login_user(User.query.get(uid))
+
+tests/test_cloud_docs.py::test_upcoming_events_match_the_google_shape
+tests/test_cloud_docs.py::test_outlook_token_without_expiry_is_refreshed_and_saved
+  C:\Users\uanir\StudioProjects\IntelliPlan\outlook_calendar_helper.py:208: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow().replace(microsecond=0)
+
+tests/test_cloud_docs.py: 24 warnings
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_cloud_docs.py:568: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    u.birth_year = datetime.utcnow().year - 16
+
+tests/test_cloud_docs.py: 2 warnings
+tests/test_education_plan.py: 16 warnings
+tests/test_tutor_assignment_api.py: 8 warnings
+  C:\Users\uanir\StudioProjects\IntelliPlan\chatbot_api.py:1133: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    if datetime.utcnow().year - int(birth_year) < 13 and not getattr(current_user, 'parent_consent_granted', False):
+
+tests/test_cloud_documents.py::test_imported_file_becomes_a_course_note_for_study_context
+  C:\Users\uanir\StudioProjects\IntelliPlan\App.py:9588: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    note_date=datetime.utcnow().date().isoformat(), title=title,
+
+tests/test_cookie_consent.py: 45 warnings
+tests/test_sitemap_seo.py: 495 warnings
+  C:\Users\uanir\StudioProjects\IntelliPlan\App.py:4763: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    return datetime.utcfromtimestamp(ts).strftime("%Y-%m-%d")
+
+tests/test_course_tracking.py::test_the_assistant_can_track_log_and_list
+tests/test_course_tracking.py::test_the_assistant_can_track_log_and_list
+tests/test_course_tracking.py::test_the_assistant_can_track_log_and_list
+tests/test_course_tracking.py::test_the_assistant_gets_a_reason_when_a_link_is_bad
+  C:\Users\uanir\StudioProjects\IntelliPlan\plani_agent.py:825: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    user = User.query.get(user_id)
+
+tests/test_cron_auth.py::test_every_endpoint_accepts_either_header[X-Cron-Secret-/cron/lifecycle-emails]
+tests/test_cron_auth.py::test_every_endpoint_accepts_either_header[X-Cron-Token-/cron/lifecycle-emails]
+tests/test_cron_auth.py::test_the_query_fallback_still_works[/cron/lifecycle-emails]
+tests/test_email_sending.py::test_the_welcome_sweep_sends_exactly_once
+tests/test_email_sending.py::test_the_welcome_sweep_sends_exactly_once
+tests/test_welcome_on_signup.py::test_the_send_is_recorded_so_the_daily_sweep_will_not_repeat_it
+  C:\Users\uanir\StudioProjects\IntelliPlan\intelliplan\email\campaigns.py:114: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = now or datetime.utcnow()
+
+tests/test_cron_auth.py: 3 warnings
+tests/test_email_admin_endpoints.py: 1 warning
+tests/test_email_drafts.py: 12 warnings
+tests/test_email_eligibility.py: 26 warnings
+tests/test_email_onboarding.py: 6 warnings
+tests/test_email_sending.py: 31 warnings
+tests/test_email_weekly.py: 407 warnings
+tests/test_feedback_form_email.py: 8 warnings
+tests/test_marketing_opt_in.py: 6 warnings
+tests/test_welcome_on_signup.py: 158 warnings
+  C:\Users\uanir\StudioProjects\IntelliPlan\intelliplan\email\eligibility.py:109: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = now or datetime.utcnow()
+
+tests/test_cron_auth.py: 3 warnings
+tests/test_email_onboarding.py: 9 warnings
+  C:\Users\uanir\StudioProjects\IntelliPlan\intelliplan\email\onboarding.py:238: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = now or datetime.utcnow()
+
+tests/test_cron_auth.py: 3 warnings
+tests/test_email_sending.py: 2 warnings
+tests/test_feedback_form_email.py: 7 warnings
+  C:\Users\uanir\StudioProjects\IntelliPlan\intelliplan\email\campaigns.py:162: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = now or datetime.utcnow()
+
+tests/test_cron_auth.py: 3 warnings
+tests/test_email_admin_endpoints.py: 1 warning
+tests/test_email_drafts.py: 14 warnings
+  C:\Users\uanir\StudioProjects\IntelliPlan\intelliplan\email\drafts.py:368: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = now or datetime.utcnow()
+
+tests/test_desktop_auth_exchange.py::test_a_valid_code_and_verifier_signs_the_app_in
+tests/test_desktop_auth_exchange.py::test_a_stolen_code_without_the_verifier_is_useless
+tests/test_desktop_auth_exchange.py::test_a_wrong_verifier_burns_the_code
+tests/test_desktop_auth_exchange.py::test_a_code_cannot_be_replayed
+tests/test_desktop_auth_exchange.py::test_an_expired_code_is_refused
+tests/test_desktop_auth_exchange.py::test_failures_are_indistinguishable
+  C:\Users\uanir\StudioProjects\IntelliPlan\App.py:7935: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    if desktop_auth.is_expired(row.created_at, datetime.utcnow()):
+
+tests/test_desktop_auth_exchange.py::test_a_valid_code_and_verifier_signs_the_app_in
+tests/test_desktop_auth_exchange.py::test_a_code_cannot_be_replayed
+  C:\Users\uanir\StudioProjects\IntelliPlan\App.py:7945: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    user = User.query.get(row.user_id)
+
+tests/test_desktop_auth_exchange.py::test_a_valid_code_and_verifier_signs_the_app_in
+tests/test_desktop_auth_exchange.py::test_a_code_cannot_be_replayed
+  C:\Users\uanir\StudioProjects\IntelliPlan\App.py:7952: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    row.used_at = datetime.utcnow()
+
+tests/test_desktop_auth_exchange.py::test_a_stolen_code_without_the_verifier_is_useless
+tests/test_desktop_auth_exchange.py::test_a_wrong_verifier_burns_the_code
+tests/test_desktop_auth_exchange.py::test_failures_are_indistinguishable
+  C:\Users\uanir\StudioProjects\IntelliPlan\App.py:7940: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    row.used_at = datetime.utcnow()
+
+tests/test_desktop_auth_exchange.py::test_an_expired_code_is_refused
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_desktop_auth_exchange.py:119: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    stale = datetime.utcnow() - timedelta(seconds=da.CODE_TTL_SECONDS + 5)
+
+tests/test_education_plan.py: 14 warnings
+tests/test_learning_hub.py: 14 warnings
+tests/test_tutor_scored_checks.py: 39 warnings
+  C:\Users\uanir\StudioProjects\IntelliPlan\adaptive_tutor\api.py:107: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    if datetime.utcnow().year - int(birth_year) < 13 and not getattr(current_user, 'parent_consent_granted', False):
+
+tests/test_email_admin_endpoints.py: 10 warnings
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_email_admin_endpoints.py:47: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "created_at": datetime.utcnow() - timedelta(days=days_old),
+
+tests/test_email_admin_endpoints.py::test_onboarding_preview_answers_a_bodyless_get
+tests/test_email_admin_endpoints.py::test_both_previews_reject_an_unknown_user
+  C:\Users\uanir\StudioProjects\IntelliPlan\App.py:20012: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    user = User.query.get(raw_id)
+
+tests/test_email_admin_endpoints.py::test_onboarding_preview_answers_a_bodyless_get
+tests/test_email_admin_endpoints.py::test_onboarding_preview_accepts_an_email_instead_of_an_id
+  C:\Users\uanir\StudioProjects\IntelliPlan\App.py:20021: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow()
+
+tests/test_email_admin_endpoints.py::test_drafts_preview_lists_the_actual_items
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_email_admin_endpoints.py:93: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    due_date=(datetime.utcnow() - timedelta(days=3)).strftime("%Y-%m-%d"),
+
+tests/test_email_admin_endpoints.py::test_drafts_preview_lists_the_actual_items
+tests/test_email_admin_endpoints.py::test_both_previews_reject_an_unknown_user
+  C:\Users\uanir\StudioProjects\IntelliPlan\App.py:20075: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    user = User.query.get(raw_id)
+
+tests/test_email_admin_endpoints.py: 1 warning
+tests/test_email_drafts.py: 16 warnings
+  C:\Users\uanir\StudioProjects\IntelliPlan\intelliplan\email\drafts.py:310: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = now or datetime.utcnow()
+
+tests/test_email_admin_endpoints.py::test_drafts_preview_lists_the_actual_items
+  C:\Users\uanir\StudioProjects\IntelliPlan\intelliplan\email\drafts.py:122: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = now or datetime.utcnow()
+
+tests/test_email_admin_endpoints.py::test_admin_panel_shows_recent_email_attempts
+tests/test_insight.py::test_admin_dashboard_displays_scoped_daily_count
+  C:\Users\uanir\StudioProjects\IntelliPlan\App.py:18094: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    today_utc = (now or datetime.utcnow()).date()
+
+tests/test_email_drafts.py: 28 warnings
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_email_drafts.py:72: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "created_at": datetime.utcnow() - timedelta(days=30),
+
+tests/test_email_drafts.py::test_a_session_left_paused_is_a_draft
+tests/test_email_drafts.py::test_a_session_from_ten_minutes_ago_is_not_a_draft
+tests/test_email_drafts.py::test_a_finished_session_is_not_a_draft
+tests/test_email_drafts.py::test_a_finished_session_is_not_a_draft
+tests/test_email_drafts.py::test_a_very_old_session_stops_being_mentioned
+tests/test_email_drafts.py::test_the_summary_line_reads_like_a_sentence
+tests/test_email_drafts.py::test_all_three_kinds_render_together
+tests/test_email_drafts.py::test_an_item_past_the_window_is_not_mentioned_at_all
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_email_drafts.py:86: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    started_at=datetime.utcnow() - timedelta(hours=hours_ago),
+
+tests/test_email_drafts.py::test_a_plan_with_nothing_checked_off_is_a_draft
+tests/test_email_drafts.py::test_a_plan_that_was_started_is_not_a_draft
+tests/test_email_drafts.py::test_unreadable_progress_is_not_treated_as_no_progress
+tests/test_email_drafts.py::test_a_brand_new_plan_is_left_alone
+tests/test_email_drafts.py::test_all_three_kinds_render_together
+tests/test_email_drafts.py::test_one_abandoned_item_is_mentioned_twice_and_then_stops
+tests/test_email_drafts.py::test_an_item_past_the_window_is_not_mentioned_at_all
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_email_drafts.py:117: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    created_at=datetime.utcnow() - timedelta(days=days_ago),
+
+tests/test_email_drafts.py: 30 warnings
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_email_drafts.py:97: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    due = (datetime.utcnow() - timedelta(days=due_days_ago)).strftime("%Y-%m-%d")
+
+tests/test_email_drafts.py::test_an_under_13_account_without_consent_is_not_mailed
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_email_drafts.py:297: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    user = make_user(birth_year=datetime.utcnow().year - 10)
+
+tests/test_email_drafts.py::test_one_abandoned_item_is_mentioned_twice_and_then_stops
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_email_drafts.py:344: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    start = datetime.utcnow()
+
+tests/test_email_drafts.py::test_an_account_still_being_onboarded_is_left_out
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_email_drafts.py:366: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    user = make_user(created_at=datetime.utcnow() - timedelta(days=4))
+
+tests/test_email_drafts.py::test_an_account_past_the_onboarding_window_is_mailed
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_email_drafts.py:380: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    created_at=datetime.utcnow() - timedelta(days=onboarding.MAX_AGE_DAYS + 1)
+
+tests/test_email_eligibility.py::test_a_child_without_parental_consent_is_refused
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_email_eligibility.py:70: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    birth_year=datetime.utcnow().year - 9,
+
+tests/test_email_eligibility.py::test_a_child_with_educational_parental_consent_is_still_refused_marketing
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_email_eligibility.py:81: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    birth_year=datetime.utcnow().year - 9,
+
+tests/test_email_eligibility.py::test_birth_year_boundary_uses_youngest_possible_age
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_email_eligibility.py:91: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    year = datetime.utcnow().year
+
+tests/test_email_eligibility.py::test_the_welcome_gate_still_refuses_a_child_without_consent
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_email_eligibility.py:205: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    birth_year=datetime.utcnow().year - 9,
+
+tests/test_email_onboarding.py: 11 warnings
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_email_onboarding.py:77: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "created_at": datetime.utcnow() - timedelta(days=days_old),
+
+tests/test_email_onboarding.py::test_an_under_13_account_without_consent_is_not_mailed
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_email_onboarding.py:222: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    make_user(days_old=2.1, birth_year=datetime.utcnow().year - 10)
+
+tests/test_email_sending.py: 11 warnings
+  C:\Users\uanir\StudioProjects\IntelliPlan\intelliplan\email\campaigns.py:219: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = now or datetime.utcnow()
+
+tests/test_email_sending.py::test_unsubscribe_works_without_logging_in
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_email_sending.py:299: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    refreshed = app_module.User.query.get(user.id)
+
+tests/test_email_sending.py::test_unsubscribe_does_not_touch_deadline_reminders
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_email_sending.py:312: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    refreshed = app_module.User.query.get(user.id)
+
+tests/test_email_sending.py::test_the_feedback_sweep_skips_users_who_never_came_back
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_email_sending.py:430: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    user.created_at = datetime.utcnow() - timedelta(
+
+tests/test_email_sending.py::test_the_feedback_sweep_mails_a_user_with_a_linked_account
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_email_sending.py:442: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    user.created_at = datetime.utcnow() - timedelta(
+
+tests/test_email_sending.py::test_turning_marketing_on_stamps_the_consent_date
+tests/test_email_sending.py::test_reopting_an_existing_subscriber_records_the_new_weekly_terms
+tests/test_email_sending.py::test_resaving_does_not_move_the_consent_date
+tests/test_email_sending.py::test_marketing_consent_does_not_enable_reminders
+tests/test_email_sending.py::test_re_opting_in_clears_a_previous_suppression
+  C:\Users\uanir\StudioProjects\IntelliPlan\notifications_glue.py:695: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    user.marketing_opt_in_at = datetime.utcnow()
+
+tests/test_email_weekly.py::test_the_feedback_blast_skips_activity_but_not_consent
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_email_weekly.py:217: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    birth_year=datetime.utcnow().year - 10, parent_consent_granted=False
+
+tests/test_family_app.py::test_college_parent_sharing_requires_explicit_student_acceptance
+tests/test_family_app.py::test_student_can_limit_and_change_parent_sharing
+  C:\Users\uanir\StudioProjects\IntelliPlan\intelliplan\api\roles.py:229: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    linker = User.query.get(link.linker_user_id)
+
+tests/test_family_app.py::test_college_parent_sharing_requires_explicit_student_acceptance
+tests/test_family_app.py::test_college_parent_sharing_requires_explicit_student_acceptance
+tests/test_family_app.py::test_encouragement_is_bounded_and_vanishes_after_revoke
+tests/test_family_app.py::test_student_can_limit_and_change_parent_sharing
+tests/test_family_app.py::test_student_can_limit_and_change_parent_sharing
+tests/test_family_app.py::test_student_can_limit_and_change_parent_sharing
+tests/test_family_app.py::test_work_failure_does_not_hide_recorded_study
+  C:\Users\uanir\StudioProjects\IntelliPlan\intelliplan\api\roles.py:243: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    link = StudentLink.query.get(link_id)
+
+tests/test_family_app.py::test_college_parent_sharing_requires_explicit_student_acceptance
+tests/test_family_app.py::test_student_can_limit_and_change_parent_sharing
+tests/test_family_app.py::test_student_can_limit_and_change_parent_sharing
+tests/test_family_app.py::test_work_failure_does_not_hide_recorded_study
+  C:\Users\uanir\StudioProjects\IntelliPlan\intelliplan\api\roles.py:306: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    student = User.query.get(student_id)
+
+tests/test_family_app.py::test_college_parent_sharing_requires_explicit_student_acceptance
+tests/test_family_app.py::test_student_can_limit_and_change_parent_sharing
+tests/test_family_app.py::test_student_can_limit_and_change_parent_sharing
+tests/test_family_app.py::test_work_failure_does_not_hide_recorded_study
+  C:\Users\uanir\StudioProjects\IntelliPlan\intelliplan\api\roles.py:326: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "status": "ok", "as_of": datetime.utcnow().isoformat() + "Z",
+
+tests/test_family_app.py::test_college_parent_sharing_requires_explicit_student_acceptance
+tests/test_family_app.py::test_encouragement_is_bounded_and_vanishes_after_revoke
+  C:\Users\uanir\StudioProjects\IntelliPlan\intelliplan\api\roles.py:280: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    link = StudentLink.query.get(link_id)
+
+tests/test_family_app.py::test_student_can_limit_and_change_parent_sharing
+tests/test_family_app.py::test_student_can_limit_and_change_parent_sharing
+tests/test_family_app.py::test_student_can_limit_and_change_parent_sharing
+tests/test_family_app.py::test_student_can_limit_and_change_parent_sharing
+  C:\Users\uanir\StudioProjects\IntelliPlan\intelliplan\api\roles.py:261: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    link = _link_model().query.get(link_id)
+
+tests/test_feedback_form_email.py::test_a_week_old_account_is_asked
+tests/test_feedback_form_email.py::test_a_two_day_old_account_is_not_asked_yet
+tests/test_feedback_form_email.py::test_a_month_old_account_has_aged_out
+tests/test_feedback_form_email.py::test_the_ask_is_sent_once
+tests/test_feedback_form_email.py::test_the_email_asks_one_question_and_uses_a_short_reply
+tests/test_feedback_form_email.py::test_the_email_still_carries_its_compliance_furniture
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_feedback_form_email.py:63: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    user.created_at = datetime.utcnow() - timedelta(days=age_days)
+
+tests/test_followthrough_endpoints.py::test_the_autopilot_cron_catches_up_students_who_never_opened_the_page
+tests/test_followthrough_endpoints.py::test_scheduled_jobs_run_when_due_and_not_again_until_their_interval
+tests/test_schedule_recovery_endpoint.py::test_a_missed_session_triggers_a_replan
+tests/test_schedule_recovery_endpoint.py::test_the_missed_work_is_scheduled_in_the_future_not_left_behind
+tests/test_schedule_recovery_endpoint.py::test_finished_work_is_not_scheduled_again
+tests/test_schedule_recovery_endpoint.py::test_the_student_is_told_what_moved
+tests/test_schedule_recovery_endpoint.py::test_the_recovered_plan_is_saved_without_being_asked
+tests/test_schedule_recovery_endpoint.py::test_the_saved_plan_keeps_its_identity
+  C:\Users\uanir\StudioProjects\IntelliPlan\notifications_glue.py:425: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    user = User.query.get(user_id)
+
+tests/test_group_voice.py::test_a_non_member_cannot_see_the_roster
+tests/test_group_voice.py::test_the_room_url_is_withheld_until_you_are_seated
+  C:\Users\uanir\StudioProjects\IntelliPlan\intelliplan\api\group_voice.py:176: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    group = Group.query.get(group_id)
+
+tests/test_group_voice.py: 24 warnings
+  C:\Users\uanir\StudioProjects\IntelliPlan\intelliplan\api\group_voice.py:193: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    group = Group.query.get(group_id)
+
+tests/test_group_voice.py::test_leaving_frees_the_seat
+  C:\Users\uanir\StudioProjects\IntelliPlan\intelliplan\api\group_voice.py:312: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    group = Group.query.get(group_id)
+
+tests/test_group_voice.py::test_a_seat_that_stops_reporting_drops_out_of_the_roster
+tests/test_group_voice.py::test_a_seat_just_inside_the_window_is_still_in_the_room
+tests/test_group_voice.py::test_rejoining_after_being_swept_reuses_the_row
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_group_voice.py:72: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    seat.last_seen_at = datetime.utcnow() - timedelta(seconds=seconds)
+
+tests/test_group_voice.py::test_a_seat_that_stops_reporting_drops_out_of_the_roster
+tests/test_group_voice.py::test_a_seat_just_inside_the_window_is_still_in_the_room
+tests/test_group_voice.py::test_being_swept_out_is_reported_not_papered_over
+tests/test_group_voice.py::test_mute_state_rides_along_on_the_heartbeat
+  C:\Users\uanir\StudioProjects\IntelliPlan\intelliplan\api\group_voice.py:253: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    group = Group.query.get(group_id)
+
+tests/test_group_voice.py::test_unmuting_is_visible_to_the_rest_of_the_room
+tests/test_group_voice.py::test_muting_without_a_seat_is_a_conflict_not_a_crash
+  C:\Users\uanir\StudioProjects\IntelliPlan\intelliplan\api\group_voice.py:288: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    group = Group.query.get(group_id)
+
+tests/test_growth_app.py: 26 warnings
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_growth_app.py:47: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "created_at": datetime.utcnow() - timedelta(days=3),
+
+tests/test_growth_app.py::test_paid_account_is_never_metered
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_growth_app.py:121: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    uid = make_user(paid_until=datetime.utcnow() + timedelta(days=5))
+
+tests/test_growth_app.py::test_referral_pays_invitee_at_signup_and_inviter_on_activation
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_growth_app.py:132: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    inviter = User.query.get(inviter_id)
+
+tests/test_growth_app.py::test_referral_pays_invitee_at_signup_and_inviter_on_activation
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_growth_app.py:143: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    new_id = make_user(created_at=datetime.utcnow())
+
+tests/test_growth_app.py::test_referral_pays_invitee_at_signup_and_inviter_on_activation
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_growth_app.py:144: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    new_user = User.query.get(new_id)
+
+tests/test_growth_app.py::test_referral_pays_invitee_at_signup_and_inviter_on_activation
+  C:\Users\uanir\StudioProjects\IntelliPlan\App.py:20441: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    inviter = User.query.get(ref_id)
+
+tests/test_growth_app.py::test_referral_pays_invitee_at_signup_and_inviter_on_activation
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_growth_app.py:146: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    new_user = User.query.get(new_id)
+
+tests/test_growth_app.py::test_referral_pays_invitee_at_signup_and_inviter_on_activation
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_growth_app.py:148: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    assert new_user.paid_until > datetime.utcnow() + timedelta(days=29)
+
+tests/test_growth_app.py::test_referral_pays_invitee_at_signup_and_inviter_on_activation
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_growth_app.py:151: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    inviter = User.query.get(inviter_id)
+
+tests/test_growth_app.py::test_referral_pays_invitee_at_signup_and_inviter_on_activation
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_growth_app.py:158: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    assert inviter.paid_until > datetime.utcnow() + timedelta(days=29)
+
+tests/test_growth_app.py::test_referral_rewards_are_capped
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_growth_app.py:171: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    inviter = User.query.get(inviter_id)
+
+tests/test_growth_app.py::test_group_invite_link_carries_the_sharers_code
+  C:\Users\uanir\StudioProjects\IntelliPlan\App.py:21160: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    g = StudyGroup.query.get(group_id)
+
+tests/test_growth_app.py::test_group_invite_link_carries_the_sharers_code
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_growth_app.py:189: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    code = User.query.get(uid).referral_code
+
+tests/test_growth_app.py::test_minors_are_sent_to_the_parent_link
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_growth_app.py:214: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    uid = make_user(birth_year=datetime.utcnow().year - 15)
+
+tests/test_growth_app.py::test_billing_events_set_the_window_idempotently
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_growth_app.py:232: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    end = int((datetime.utcnow() + timedelta(days=30)).timestamp())
+
+tests/test_growth_app.py::test_billing_events_set_the_window_idempotently
+tests/test_growth_app.py::test_billing_events_set_the_window_idempotently
+tests/test_growth_app.py::test_yearly_invoice_opens_a_year_long_window
+  C:\Users\uanir\StudioProjects\IntelliPlan\growth_glue.py:729: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    period_end = datetime.utcfromtimestamp(int(end)) if end else now + timedelta(days=31)
+
+tests/test_growth_app.py::test_billing_events_set_the_window_idempotently
+tests/test_growth_app.py::test_billing_events_set_the_window_idempotently
+tests/test_growth_app.py::test_yearly_invoice_opens_a_year_long_window
+  C:\Users\uanir\StudioProjects\IntelliPlan\growth_glue.py:733: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    user = User.query.get(int(uid))
+
+tests/test_growth_app.py::test_billing_events_set_the_window_idempotently
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_growth_app.py:242: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    first = User.query.get(uid).paid_until
+
+tests/test_growth_app.py::test_billing_events_set_the_window_idempotently
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_growth_app.py:244: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    user = User.query.get(uid)
+
+tests/test_growth_app.py::test_parent_link_can_pay_yearly
+tests/test_growth_app.py::test_parent_link_can_pay_yearly
+  C:\Users\uanir\StudioProjects\IntelliPlan\growth_glue.py:634: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    student = User.query.get(uid) if uid else None
+
+tests/test_growth_app.py::test_yearly_invoice_opens_a_year_long_window
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_growth_app.py:350: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    end = int((datetime.utcnow() + timedelta(days=365)).timestamp())
+
+tests/test_growth_app.py::test_yearly_invoice_opens_a_year_long_window
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_growth_app.py:360: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    assert User.query.get(uid).paid_until > datetime.utcnow() + timedelta(days=360)
+
+tests/test_growth_app.py::test_yearly_invoice_opens_a_year_long_window
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_growth_app.py:360: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    assert User.query.get(uid).paid_until > datetime.utcnow() + timedelta(days=360)
+
+tests/test_growth_app.py::test_subscriber_gets_a_billing_portal_link
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_growth_app.py:365: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    uid = make_user(stripe_customer_id="cus_abc", paid_until=datetime.utcnow() + timedelta(days=20))
+
+tests/test_growth_app.py::test_admin_growth_report
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_growth_app.py:408: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    admin_id = make_user(email="growth+admin@example.test", created_at=datetime.utcnow() - timedelta(days=20))
+
+tests/test_growth_app.py::test_admin_growth_report
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_growth_app.py:409: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    make_user(created_at=datetime.utcnow() - timedelta(days=20))
+
+tests/test_growth_app.py::test_streak_email_off_link_only_touches_streak_emails
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_growth_app.py:437: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    address = User.query.get(uid).email
+
+tests/test_growth_app.py::test_streak_email_off_link_only_touches_streak_emails
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_growth_app.py:443: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    user = User.query.get(uid)
+
+tests/test_growth_app.py::test_streak_sweep_queues_an_email_for_an_unsubscribed_reminder_student
+tests/test_growth_app.py::test_streak_sweep_queues_an_email_for_an_unsubscribed_reminder_student
+  C:\Users\uanir\StudioProjects\IntelliPlan\notifications_glue.py:379: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    user = User.query.get(streak.user_id)
+
+tests/test_insight.py: 12 warnings
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_insight.py:189: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "created_at": datetime.utcnow() - timedelta(days=30),
+
+tests/test_insight.py::test_admin_dashboard_displays_scoped_daily_count
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_insight.py:232: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    rule="/dashboard", created_at=datetime.utcnow()))
+
+tests/test_insight.py::test_a_childs_page_view_is_never_recorded_even_having_accepted
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_insight.py:289: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    uid = make_user(birth_year=datetime.utcnow().year - 11)
+
+tests/test_insight.py::test_first_touch_is_attached_to_the_account
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_insight.py:304: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    touch = json.loads(User.query.get(uid).first_touch_json or "{}")
+
+tests/test_insight.py::test_old_events_are_purged
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_insight.py:339: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    created_at=datetime.utcnow() - timedelta(days=400)))
+
+tests/test_insight.py::test_the_prompt_is_served_answered_and_not_repeated
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_insight.py:351: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    uid = make_user(created_at=datetime.utcnow())
+
+tests/test_insight.py::test_an_invented_answer_is_refused
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_insight.py:372: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    uid = make_user(created_at=datetime.utcnow())
+
+tests/test_insight.py::test_a_dismissal_settles_the_question
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_insight.py:382: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    uid = make_user(created_at=datetime.utcnow() - timedelta(days=5))
+
+tests/test_insight.py::test_a_dismissal_settles_the_question
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_insight.py:391: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    row.shown_at = datetime.utcnow() - timedelta(days=2)
+
+tests/test_insight.py::test_the_invite_prompt_carries_the_students_own_link
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_insight.py:398: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    uid = make_user(created_at=datetime.utcnow() - timedelta(days=5))
+
+tests/test_insight.py::test_the_invite_prompt_carries_the_students_own_link
+tests/test_insight.py::test_the_invite_prompt_carries_the_students_own_link
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_insight.py:402: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    shown_at=datetime.utcnow() - timedelta(days=2)))
+
+tests/test_insight.py::test_the_invite_prompt_carries_the_students_own_link
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_insight.py:408: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    code = User.query.get(uid).referral_code
+
+tests/test_insight.py::test_the_insight_dashboard_reports
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_insight.py:434: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    status="answered", answered_at=datetime.utcnow()))
+
+tests/test_learning_hub.py: 35 warnings
+  C:\Users\uanir\StudioProjects\IntelliPlan\intelliplan\learning\courses.py:241: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now, lease = datetime.utcnow(), uuid.uuid4().hex
+
+tests/test_learning_hub.py: 17 warnings
+  C:\Users\uanir\StudioProjects\IntelliPlan\intelliplan\learning\governance.py:18: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    month = datetime.utcnow().strftime("%Y-%m")
+
+tests/test_learning_hub.py: 137 warnings
+  C:\Users\uanir\StudioProjects\IntelliPlan\intelliplan\learning\policy.py:98: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    org = M['Organization'].query.get(row.organization_id)
+
+tests/test_learning_hub.py::test_district_denial_cannot_be_overridden_by_school_or_prompt[/api/tutor]
+tests/test_learning_hub.py::test_district_denial_cannot_be_overridden_by_school_or_prompt[/api/writing/analyze]
+tests/test_learning_hub.py::test_district_denial_cannot_be_overridden_by_school_or_prompt[/api/math/explain]
+tests/test_learning_hub.py::test_monthly_budget_children_do_not_reduce_shared_parent_ceiling
+  C:\Users\uanir\StudioProjects\IntelliPlan\intelliplan\learning\policy.py:101: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    org = M['Organization'].query.get(org.parent_id) if org.parent_id else None
+
+tests/test_learning_hub.py::test_policy_scope_version_and_audit
+tests/test_learning_hub.py::test_school_admin_cannot_grant_administrative_authority
+  C:\Users\uanir\StudioProjects\IntelliPlan\intelliplan\learning\policy.py:151: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    org = M['Organization'].query.get(organization_id)
+
+tests/test_learning_hub.py::test_expired_lease_can_resume
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_learning_hub.py:818: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    job.lease_until = datetime.utcnow() - timedelta(seconds=1)
+
+tests/test_learning_hub.py::test_generated_checks_require_review_hide_answers_and_prevent_replay
+tests/test_learning_hub.py::test_generated_checks_require_review_hide_answers_and_prevent_replay
+tests/test_learning_hub.py::test_timer_and_paper_work_do_not_create_mastery
+tests/test_learning_hub.py::test_beta_saved_checks_share_evidence_without_copying_answers
+tests/test_learning_hub.py::test_beta_saved_checks_share_evidence_without_copying_answers
+tests/test_learning_hub.py::test_shared_review_uses_latest_scored_state_and_existing_intervals
+  C:\Users\uanir\StudioProjects\IntelliPlan\intelliplan\learning\evidence.py:105: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow().isoformat()
+
+tests/test_learning_hub.py: 14 warnings
+  C:\Users\uanir\StudioProjects\IntelliPlan\intelliplan\learning\api.py:448: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    elapsed += max(0, int((datetime.utcnow() - row.resumed_at).total_seconds()))
+
+tests/test_learning_hub.py::test_sessions_survive_reload_and_pause_resume_tracks_only_active_time
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_learning_hub.py:1266: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    session.resumed_at = datetime.utcnow() - timedelta(seconds=20)
+
+tests/test_learning_hub.py::test_sessions_survive_reload_and_pause_resume_tracks_only_active_time
+  C:\Users\uanir\StudioProjects\IntelliPlan\intelliplan\learning\api.py:477: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    updates['resumed_at'] = datetime.utcnow()
+
+tests/test_learning_hub.py::test_assessment_windows_inherit_and_expired_windows_release
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_learning_hub.py:1280: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow()
+
+tests/test_learning_hub.py::test_assessment_windows_inherit_and_expired_windows_release
+tests/test_learning_hub.py::test_assessment_windows_inherit_and_expired_windows_release
+  C:\Users\uanir\StudioProjects\IntelliPlan\intelliplan\learning\policy.py:125: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow()
+
+tests/test_learning_hub.py::test_opt_in_preview_needs_flag_approval_current_consent_and_policy
+tests/test_learning_hub.py::test_beta_saved_checks_share_evidence_without_copying_answers
+tests/test_learning_hub.py::test_preview_age_gate_and_revocation_apply_to_current_consent
+  C:\Users\uanir\StudioProjects\IntelliPlan\intelliplan\learning\governance_api.py:50: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    datetime.utcnow(),
+
+tests/test_learning_hub.py::test_notification_policy_applies_to_background_delivery
+  C:\Users\uanir\StudioProjects\IntelliPlan\notifications_glue.py:134: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    user = User.query.get(row.user_id)
+
+tests/test_learning_hub.py::test_retention_dry_run_preserves_accounts_courses_and_open_sessions
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_learning_hub.py:1480: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    old = datetime.utcnow() - timedelta(days=8)
+
+tests/test_learning_hub.py::test_retention_dry_run_preserves_accounts_courses_and_open_sessions
+tests/test_learning_hub.py::test_retention_dry_run_preserves_accounts_courses_and_open_sessions
+tests/test_learning_hub.py::test_retention_preserves_completion_clock_across_limited_batches
+tests/test_learning_hub.py::test_retention_preserves_completion_clock_across_limited_batches
+  C:\Users\uanir\StudioProjects\IntelliPlan\intelliplan\learning\governance.py:74: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = now or datetime.utcnow()
+
+tests/test_learning_hub.py::test_retention_dry_run_preserves_accounts_courses_and_open_sessions
+tests/test_learning_hub.py::test_retention_dry_run_preserves_accounts_courses_and_open_sessions
+tests/test_learning_hub.py::test_retention_preserves_completion_clock_across_limited_batches
+tests/test_learning_hub.py::test_retention_preserves_completion_clock_across_limited_batches
+  C:\Users\uanir\StudioProjects\IntelliPlan\intelliplan\learning\governance.py:98: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    owner = User.query.get(row.user_id)
+
+tests/test_learning_hub.py::test_monthly_budget_children_do_not_reduce_shared_parent_ceiling
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_learning_hub.py:1617: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    month=datetime.utcnow().strftime("%Y-%m"),
+
+tests/test_learning_hub.py::test_retention_preserves_completion_clock_across_limited_batches
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_learning_hub.py:1646: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    old = datetime.utcnow() - timedelta(days=8)
+
+tests/test_learning_hub.py::test_shared_review_uses_latest_scored_state_and_existing_intervals
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_learning_hub.py:1768: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow()
+
+tests/test_learning_hub.py::test_shared_review_uses_latest_scored_state_and_existing_intervals
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_learning_hub.py:1792: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    assert timedelta(days=2, hours=23) < due - datetime.utcnow() <= timedelta(days=3)
+
+tests/test_learning_hub.py::test_preview_age_gate_and_revocation_apply_to_current_consent
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_learning_hub.py:1815: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    App.db.session.get(App.User, uid).birth_year = datetime.utcnow().year - 10
+
+tests/test_marketing_opt_in.py::test_a_child_is_never_opted_in_even_if_the_box_is_posted
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_marketing_opt_in.py:97: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    child_birth_year = str(datetime.utcnow().year - 9)
+
+tests/test_marketing_opt_in.py::test_a_child_account_still_gets_its_parental_consent_gate
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_marketing_opt_in.py:115: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    birth_year=str(datetime.utcnow().year - 9),
+
+tests/test_onboarding_friction.py::test_a_finished_account_gets_the_command_center
+tests/test_onboarding_friction.py::test_a_parent_account_is_not_sent_through_student_setup
+tests/test_onboarding_friction.py::test_an_account_with_no_work_is_offered_a_way_to_bring_some_in
+tests/test_onboarding_friction.py::test_reminders_are_offered_while_every_channel_is_off
+tests/test_onboarding_friction.py::test_reminders_are_not_offered_once_one_is_on
+tests/test_onboarding_friction.py::test_no_page_asks_for_notification_permission_unprompted
+tests/test_onboarding_friction.py::test_a_student_can_name_their_assistant
+tests/test_onboarding_friction.py::test_markup_in_a_name_never_reaches_the_page
+  C:\Users\uanir\StudioProjects\IntelliPlan\command_center_glue.py:199: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    user = User.query.get(user_id)
+
+tests/test_orbit_export.py::TestAuthorisation::test_accepts_the_configured_key
+tests/test_orbit_export.py::TestAuthorisation::test_tolerates_a_lowercase_scheme
+tests/test_orbit_export.py::TestPeople::test_returns_the_allow_listed_fields_and_nothing_else
+tests/test_orbit_export.py::TestPeople::test_reports_the_school_domain_without_naming_a_student
+tests/test_orbit_export.py::TestPeople::test_reports_whether_they_pay_and_not_how_much
+tests/test_orbit_export.py::TestPeople::test_caps_the_page_size_so_one_request_cannot_take_the_table
+tests/test_orbit_export.py::TestPeople::test_treats_an_unparseable_since_as_absent
+tests/test_orbit_export.py::TestPeople::test_honours_a_real_since
+  C:\Users\uanir\StudioProjects\IntelliPlan\orbit_export.py:140: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow()
+
+tests/test_orbit_export.py::TestPeople::test_returns_the_allow_listed_fields_and_nothing_else
+tests/test_orbit_export.py::TestPeople::test_reports_the_school_domain_without_naming_a_student
+tests/test_orbit_export.py::TestPeople::test_reports_whether_they_pay_and_not_how_much
+tests/test_orbit_export.py::TestPeople::test_reports_whether_they_pay_and_not_how_much
+tests/test_orbit_export.py::TestPeople::test_treats_an_unparseable_since_as_absent
+tests/test_orbit_export.py::TestPeople::test_honours_a_real_since
+tests/test_orbit_export.py::TestEvents::test_exports_the_kind_but_never_the_props
+tests/test_orbit_export.py::TestEvents::test_falls_back_to_the_route_area_for_an_unnamed_event
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_orbit_export.py:50: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    created_at=datetime.utcnow() - timedelta(days=3),
+
+tests/test_orbit_export.py::TestPeople::test_reports_whether_they_pay_and_not_how_much
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_orbit_export.py:134: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    make_user("orbittest+paid@school.edu", paid_until=datetime.utcnow() + timedelta(days=30))
+
+tests/test_orbit_export.py::TestPeople::test_reports_whether_they_pay_and_not_how_much
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_orbit_export.py:135: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    make_user("orbittest+free@school.edu", paid_until=datetime.utcnow() - timedelta(days=1))
+
+tests/test_orbit_export.py::TestPeople::test_honours_a_real_since
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_orbit_export.py:158: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    future = (datetime.utcnow() + timedelta(days=1)).isoformat()
+
+tests/test_orbit_export.py::TestEvents::test_exports_the_kind_but_never_the_props
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_orbit_export.py:179: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    created_at=datetime.utcnow(),
+
+tests/test_orbit_export.py::TestEvents::test_falls_back_to_the_route_area_for_an_unnamed_event
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_orbit_export.py:203: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    created_at=datetime.utcnow(),
+
+tests/test_orbit_export.py::TestEvents::test_skips_events_with_no_signed_in_user
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_orbit_export.py:224: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    created_at=datetime.utcnow(),
+
+tests/test_password_reset.py: 11 warnings
+  C:\Users\uanir\StudioProjects\IntelliPlan\App.py:1238: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return self.used_at is None and self.expires_at > datetime.utcnow()
+
+tests/test_password_reset.py: 10 warnings
+  C:\Users\uanir\StudioProjects\IntelliPlan\App.py:1328: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    row.used_at = datetime.utcnow()
+
+tests/test_password_reset.py::test_an_expired_link_is_refused
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_password_reset.py:127: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    row.expires_at = datetime.utcnow() - timedelta(minutes=1)
+
+tests/test_password_reset.py::test_a_reset_clears_a_lockout
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_password_reset.py:237: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    user.login_locked_until = datetime.utcnow() + timedelta(minutes=30)
+
+tests/test_policy_compliance_controls.py::test_parent_link_requires_informed_post_and_records_notice
+tests/test_policy_compliance_controls.py::test_parent_denial_get_does_not_delete_account
+tests/test_policy_compliance_controls.py::test_pending_signed_in_child_cannot_submit_learning_data[/notes/upload]
+tests/test_policy_compliance_controls.py::test_pending_signed_in_child_cannot_submit_learning_data[/api/syllabus/import]
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_policy_compliance_controls.py:28: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    password_hash="x", birth_year=datetime.utcnow().year - 12,
+
+tests/test_policy_compliance_controls.py::test_same_day_account_without_version_evidence_gets_current_notice
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_policy_compliance_controls.py:87: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    password_hash="x", birth_year=2000, created_at=datetime.utcnow())
+
+tests/test_privacy_v2_notice.py::test_somebody_who_signed_up_after_the_change_is_not_asked
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_privacy_v2_notice.py:86: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    uid = _sign_in(client, "polv2+new@example.com", datetime.utcnow())
+
+tests/test_security_hardening.py::test_enough_failures_lock_the_account
+tests/test_security_hardening.py::test_a_locked_account_refuses_even_the_correct_password
+tests/test_security_hardening.py::test_a_lockout_is_recorded
+  C:\Users\uanir\StudioProjects\IntelliPlan\App.py:1454: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    user.login_locked_until = datetime.utcnow() + timedelta(
+
+tests/test_security_hardening.py::test_enough_failures_lock_the_account
+tests/test_security_hardening.py::test_a_locked_account_refuses_even_the_correct_password
+tests/test_security_hardening.py::test_the_lock_expires
+  C:\Users\uanir\StudioProjects\IntelliPlan\App.py:1436: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    remaining = (locked_until - datetime.utcnow()).total_seconds()
+
+tests/test_security_hardening.py::test_the_lock_expires
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_security_hardening.py:107: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    user.login_locked_until = datetime.utcnow() - timedelta(minutes=1)
+
+tests/test_session_chat_access.py::test_a_non_member_cannot_read_a_groups_chat
+tests/test_session_chat_access.py::test_a_member_can_read_their_groups_chat
+tests/test_session_chat_access.py::test_a_public_group_is_still_members_only
+tests/test_session_chat_access.py::test_a_missing_group_is_not_an_empty_room
+tests/test_session_chat_access.py::test_a_non_member_cannot_post_into_a_group
+tests/test_session_chat_access.py::test_a_member_can_post_into_their_group
+tests/test_session_chat_access.py::test_a_non_member_cannot_copy_a_message_into_their_notes
+tests/test_session_chat_access.py::test_a_member_can_save_a_message_from_their_own_group
+  C:\Users\uanir\StudioProjects\IntelliPlan\App.py:22541: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    if not StudyGroup.query.get(context_id):
+
+tests/test_session_chat_access.py::test_a_non_member_cannot_copy_a_message_into_their_notes
+tests/test_session_chat_access.py::test_a_member_can_save_a_message_from_their_own_group
+  C:\Users\uanir\StudioProjects\IntelliPlan\App.py:22597: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    msg = SessionMessage.query.get(msg_id)
+
+tests/test_session_chat_access.py::test_a_non_member_cannot_copy_a_message_into_their_notes
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_session_chat_access.py:180: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    assert SessionMessage.query.get(mid).saved_to_library is not True
+
+tests/test_session_chat_access.py::test_a_live_room_is_readable_by_anyone_with_the_link
+tests/test_session_chat_access.py::test_a_live_room_that_does_not_exist_is_a_404
+  C:\Users\uanir\StudioProjects\IntelliPlan\App.py:22550: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    if not LiveSession.query.get(context_id):
+
+tests/test_today_timeline.py::test_import_maps_and_upserts_without_network
+tests/test_today_timeline.py::test_import_maps_and_upserts_without_network
+  C:\Users\uanir\StudioProjects\IntelliPlan\intelliplan\api\timetable.py:467: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    row.last_import_at = datetime.utcnow()
+
+tests/test_tutor_assignment_api.py::test_assignment_list_requires_signed_in_consent_and_own_canvas
+tests/test_tutor_assignment_api.py::test_selected_assignment_reaches_tutor_without_entering_saved_messages
+tests/test_tutor_assignment_api.py::test_photo_tutor_receives_selected_assignment_context
+tests/test_tutor_assignment_api.py::test_study_map_needs_consent_and_verifies_own_canvas_source
+tests/test_tutor_assignment_api.py::test_study_map_with_no_readable_sources_does_not_call_ai
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_tutor_assignment_api.py:41: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    user.birth_year = datetime.utcnow().year - 16 if birth_year == 'older_student' else birth_year
+
+tests/test_tutor_assignment_api.py::test_schoolwork_waits_for_age_and_under_13_parent_consent
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_tutor_assignment_api.py:83: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    user.birth_year = datetime.utcnow().year - 10
+
+tests/test_tutor_scored_checks.py::test_check_requires_signed_in_age_and_parent_consent
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_tutor_scored_checks.py:61: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    user.birth_year = datetime.utcnow().year - 10
+
+tests/test_tutor_scored_checks.py: 12 warnings
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_tutor_scored_checks.py:30: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    user.birth_year = datetime.utcnow().year - age if age is not None else None
+
+tests/test_tutor_scored_checks.py::test_due_review_precedes_new_skills_and_matches_issued_check
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_tutor_scored_checks.py:211: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    created_at=datetime.utcnow() - timedelta(days=2)))
+
+tests/test_tutor_scored_checks.py::test_repeating_an_answer_early_does_not_extend_the_review_interval
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_tutor_scored_checks.py:253: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    created_at=datetime.utcnow()))
+
+tests/test_tutor_scored_checks.py::test_repeating_an_answer_early_does_not_extend_the_review_interval
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_tutor_scored_checks.py:262: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    assert timedelta(hours=23) < due_at - datetime.utcnow() < timedelta(days=2)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+4068 passed, 24 skipped, 9053 warnings in 270.90s (0:04:30)

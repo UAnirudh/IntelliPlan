@@ -7700,7 +7700,7 @@ def api_onboarding_chat():
     # Take only the last 20 turns to control prompt size.
     msgs = msgs[-20:]
     identity = _get_or_create_identity(current_user.id)
-    so_far = identity.to_dict()
+    so_far = identity.to_dict() if current_user.ai_personalization_opt_in else {}
     system = (
         "You are Plani, IntelliPlan's onboarding assistant. Your goal is to learn "
         "enough about the student in under 2 minutes to personalize their study plan.\n\n"
@@ -20769,7 +20769,11 @@ def api_grades_predict():
     insights = {}
     summary = ""
     recommendations = []
-    if ai_available():
+    from intelliplan.learning import policy as learning_policy
+    allow_insights = (getattr(current_user, 'ai_personalization_opt_in', False) and
+                     learning_policy.decision(current_user, 'tutor')[0] and
+                     learning_policy.permitted_providers(current_user))
+    if allow_insights and ai_available():
         compact = [
             {
                 "course": p["course"],
@@ -21421,6 +21425,10 @@ def extractor_page():
 @app.route("/api/tasks/extract", methods=["POST"])
 @limiter.limit("30 per minute")
 def api_task_extract():
+    if not current_user.is_authenticated:
+        return flask.jsonify({'status': 'error', 'message': 'Sign in to extract tasks.'}), 401
+    if not feature_enabled('extractor'):
+        return flask.jsonify({'status': 'error', 'message': 'Task Extractor is temporarily disabled.'}), 503
     body = request.get_json(silent=True) or {}
     text = (body.get("text") or "").strip()
     if not text:

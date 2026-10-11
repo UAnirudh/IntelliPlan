@@ -1010,7 +1010,9 @@
       "methods": [
         "POST"
       ],
-      "policy_prefix_matches": []
+      "policy_prefix_matches": [
+        "tutor"
+      ]
     },
     {
       "file": "App.py",
@@ -3627,7 +3629,7 @@
     },
     {
       "file": "App.py",
-      "line": 20917,
+      "line": 20921,
       "function": "lessons_page",
       "literal_path": "/lessons",
       "methods": [
@@ -3639,7 +3641,7 @@
     },
     {
       "file": "App.py",
-      "line": 20925,
+      "line": 20929,
       "function": "api_list_lessons",
       "literal_path": "/api/lessons",
       "methods": [
@@ -3652,7 +3654,7 @@
     },
     {
       "file": "App.py",
-      "line": 20942,
+      "line": 20946,
       "function": "api_upload_lesson",
       "literal_path": "/api/lessons",
       "methods": [
@@ -3665,7 +3667,7 @@
     },
     {
       "file": "App.py",
-      "line": 20983,
+      "line": 20987,
       "function": "lesson_stream",
       "literal_path": "/lessons/<int:lesson_id>/stream",
       "methods": [
@@ -3677,7 +3679,7 @@
     },
     {
       "file": "App.py",
-      "line": 20991,
+      "line": 20995,
       "function": "api_delete_lesson",
       "literal_path": "/api/lessons/<int:lesson_id>",
       "methods": [
@@ -3690,7 +3692,7 @@
     },
     {
       "file": "App.py",
-      "line": 21007,
+      "line": 21011,
       "function": "api_resummarize_lesson",
       "literal_path": "/api/lessons/<int:lesson_id>/resummarize",
       "methods": [
@@ -3703,7 +3705,7 @@
     },
     {
       "file": "App.py",
-      "line": 21036,
+      "line": 21040,
       "function": "groups_page",
       "literal_path": "/groups",
       "methods": [
@@ -3713,7 +3715,7 @@
     },
     {
       "file": "App.py",
-      "line": 21044,
+      "line": 21048,
       "function": "api_list_groups",
       "literal_path": "/api/groups",
       "methods": [
@@ -3723,7 +3725,7 @@
     },
     {
       "file": "App.py",
-      "line": 21113,
+      "line": 21117,
       "function": "api_create_group",
       "literal_path": "/api/groups",
       "methods": [
@@ -3733,7 +3735,7 @@
     },
     {
       "file": "App.py",
-      "line": 21155,
+      "line": 21159,
       "function": "api_get_group",
       "literal_path": "/api/groups/<int:group_id>",
       "methods": [
@@ -3743,7 +3745,7 @@
     },
     {
       "file": "App.py",
-      "line": 21204,
+      "line": 21208,
       "function": "api_join_group",
       "literal_path": "/api/groups/<int:group_id>/join",
       "methods": [
@@ -3753,7 +3755,7 @@
     },
     {
       "file": "App.py",
-      "line": 21218,
+      "line": 21222,
       "function": "groups_invite",
       "literal_path": "/groups/invite/<int:group_id>",
       "methods": [
@@ -3763,7 +3765,7 @@
     },
     {
       "file": "App.py",
-      "line": 21240,
+      "line": 21244,
       "function": "api_leave_group",
       "literal_path": "/api/groups/<int:group_id>/leave",
       "methods": [
@@ -3773,7 +3775,7 @@
     },
     {
       "file": "App.py",
-      "line": 21249,
+      "line": 21253,
       "function": "api_save_group_notes",
       "literal_path": "/api/groups/<int:group_id>/notes",
       "methods": [
@@ -3783,7 +3785,7 @@
     },
     {
       "file": "App.py",
-      "line": 21262,
+      "line": 21266,
       "function": "api_start_group_meeting",
       "literal_path": "/api/groups/<int:group_id>/start-meeting",
       "methods": [
@@ -3793,7 +3795,7 @@
     },
     {
       "file": "App.py",
-      "line": 21279,
+      "line": 21283,
       "function": "api_set_group_meeting",
       "literal_path": "/api/groups/<int:group_id>/meeting",
       "methods": [
@@ -3803,7 +3805,7 @@
     },
     {
       "file": "App.py",
-      "line": 21299,
+      "line": 21303,
       "function": "writing_page",
       "literal_path": "/writing",
       "methods": [
@@ -3815,7 +3817,7 @@
     },
     {
       "file": "App.py",
-      "line": 21308,
+      "line": 21312,
       "function": "api_writing_analyze",
       "literal_path": "/api/writing/analyze",
       "methods": [
@@ -3827,7 +3829,7 @@
     },
     {
       "file": "App.py",
-      "line": 21345,
+      "line": 21349,
       "function": "math_page",
       "literal_path": "/math",
       "methods": [
@@ -3839,7 +3841,7 @@
     },
     {
       "file": "App.py",
-      "line": 21354,
+      "line": 21358,
       "function": "api_math_explain",
       "literal_path": "/api/math/explain",
       "methods": [
@@ -3851,7 +3853,7 @@
     },
     {
       "file": "App.py",
-      "line": 21388,
+      "line": 21392,
       "function": "api_math_similar",
       "literal_path": "/api/math/similar",
       "methods": [
@@ -3863,7 +3865,7 @@
     },
     {
       "file": "App.py",
-      "line": 21414,
+      "line": 21418,
       "function": "extractor_page",
       "literal_path": "/extractor",
       "methods": [
@@ -3875,17 +3877,19 @@
     },
     {
       "file": "App.py",
-      "line": 21423,
+      "line": 21427,
       "function": "api_task_extract",
       "literal_path": "/api/tasks/extract",
       "methods": [
         "POST"
       ],
-      "policy_prefix_matches": []
+      "policy_prefix_matches": [
+        "tutor"
+      ]
     },
     {
       "file": "App.py",
-      "line": 22122,
+      "line": 22130,
       "function": "health_check",
       "literal_path": "/health",
       "methods": [
@@ -3895,7 +3899,7 @@
     },
     {
       "file": "App.py",
-      "line": 22277,
+      "line": 22285,
       "function": "api_syllabus_import",
       "literal_path": "/api/syllabus/import",
       "methods": [
@@ -3907,7 +3911,7 @@
     },
     {
       "file": "App.py",
-      "line": 22376,
+      "line": 22384,
       "function": "api_syllabus_records",
       "literal_path": "/api/syllabus/records",
       "methods": [
@@ -3917,7 +3921,7 @@
     },
     {
       "file": "App.py",
-      "line": 22400,
+      "line": 22408,
       "function": "api_syllabus_record_detail",
       "literal_path": "/api/syllabus/records/<int:record_id>",
       "methods": [
@@ -3927,7 +3931,7 @@
     },
     {
       "file": "App.py",
-      "line": 22424,
+      "line": 22432,
       "function": "api_lms_sources",
       "literal_path": "/api/settings/lms-sources",
       "methods": [
@@ -3938,7 +3942,7 @@
     },
     {
       "file": "App.py",
-      "line": 22455,
+      "line": 22463,
       "function": "api_saved_meetings",
       "literal_path": "/api/meetings/saved",
       "methods": [
@@ -3949,7 +3953,7 @@
     },
     {
       "file": "App.py",
-      "line": 22493,
+      "line": 22501,
       "function": "api_delete_saved_meeting",
       "literal_path": "/api/meetings/saved/<int:meeting_id>",
       "methods": [
@@ -3959,7 +3963,7 @@
     },
     {
       "file": "App.py",
-      "line": 22548,
+      "line": 22556,
       "function": "api_session_messages",
       "literal_path": "/api/sessions/<context_type>/<int:context_id>/messages",
       "methods": [
@@ -3970,7 +3974,7 @@
     },
     {
       "file": "App.py",
-      "line": 22588,
+      "line": 22596,
       "function": "api_save_session_message",
       "literal_path": "/api/sessions/messages/<int:msg_id>/save",
       "methods": [

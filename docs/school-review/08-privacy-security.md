@@ -1,5 +1,7 @@
 # Privacy and security report
 
+The latest continuation adds mapped task-extraction/onboarding tutor and assessment gates, identity enforcement for mapped generation requests, consent-gated stored onboarding profile context, and numerical grade prediction fallback without disallowed AI insights. These are locally verified boundaries, not a complete legacy-data or route audit. Independent re-review remains pending. See [additional AI coverage](18-ai-policy-coverage.md).
+
 ## Changes and verified mitigations
 
 - Admin beta is a server capability decision, not a CSS hiding rule or Premium entitlement. Unknown capabilities, invalid policy and policy-read failures deny.

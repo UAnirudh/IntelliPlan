@@ -14,6 +14,7 @@
     "Module editing validates native duration and prerequisite sequence, retains failed drafts, preserves teaching/evidence in a reordered course revision and requires review",
     "Institution policy change and audit via browser",
     "Monthly budget, scheduled assessment windows, retention settings and scoped beta approval",
+    "Mapped task/onboarding policy denials and anonymous-generation identity enforcement prevent provider calls; grade predictions retain numerical results without disallowed AI insights",
     "Mobile layout, keyboard focus, student beta and direct API denial",
     "Explicit preview consent, grade with tutor disabled, real reviewed scorer/hint, shared evidence, feedback, withdrawal and private export",
     "All restricted activities show an access explanation without a blocked progress request"
@@ -4396,7 +4397,7 @@
       "surface": "all-activities-disabled-mobile"
     }
   ],
-  "hub_load_ms": 2718,
+  "hub_load_ms": 4330,
   "content_checks": {
     "hostile_formatted": true,
     "inert": true,

@@ -5,7 +5,7 @@
   },
   {
     "path": "App.py",
-    "sha256": "a45f40e4748c09988a9065f094ea05494f49b12e609ab1c802b934c7a8e4a0ae"
+    "sha256": "b6a086e6f70f4b733b4c7a75645ce4383e6061b4b53860225841c78fb66278a6"
   },
   {
     "path": "Main_Project/templates/learning_hub.html",
@@ -45,7 +45,7 @@
   },
   {
     "path": "intelliplan/learning/enforcement.py",
-    "sha256": "050ce9dfe8ff8e273ba0c517aa35d0db16cfa522477f78a7564feec6e9571ddd"
+    "sha256": "7272f673c6183552e725ece20e9812ab3a7e57564cf6b30c06f5fa2ab727428d"
   },
   {
     "path": "intelliplan/learning/evidence.py",
@@ -77,7 +77,7 @@
   },
   {
     "path": "scripts/verify_learning_hub.py",
-    "sha256": "d133c5eac417f685f4124bd9234bfca4b60e871d6792ea4e9a90027494efb6a3"
+    "sha256": "c3b2a89fdaa822fbd2f7ab8d62c0236e51a95bf1411981504ed61e202d587366"
   },
   {
     "path": "scripts/verify_learning_provider.py",
@@ -389,6 +389,10 @@
   },
   {
     "path": "tests/test_learning_hub.py",
-    "sha256": "1edd310ce93c2ababcc0706166bd15a1a0a9bdc612408fe1aa4d82a9c8f49f6b"
+    "sha256": "1fd4f92f5e2c0ae598ccccf38efe7b89ee4bd7adc0cea7e19a8c7fcc30c89ef6"
+  },
+  {
+    "path": "tests/test_study_generate_inputs.py",
+    "sha256": "19fbde441ecdefa9bf797d746158185a1684d3a4fdbf0b94f00774eb7300d73f"
   }
 ]

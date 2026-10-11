@@ -5,7 +5,7 @@ from flask_login import current_user
 from intelliplan.learning import policy
 
 SURFACES = {
-    'tutor': ('/tutor', '/api/tutor', '/api/chatbot', '/api/plani', '/writing', '/math', '/api/writing', '/api/math', '/api/media', '/extractor', '/api/extractor'),
+    'tutor': ('/tutor', '/api/tutor', '/api/chatbot', '/api/plani', '/api/onboarding/chat', '/writing', '/math', '/api/writing', '/api/math', '/api/media', '/extractor', '/api/extractor', '/api/tasks/extract'),
     'study': ('/study', '/api/study-hub', '/api/deepstudy', '/api/active', '/active', '/foundations', '/api/primer', '/api/lessons', '/lessons'),
     'review': ('/learn', '/api/flashcards', '/flashcards'),
     'focus': ('/focus', '/api/focus', '/api/focus-shield', '/extension/focus', '/uploads/focus-alarm'),
@@ -79,12 +79,19 @@ def install(app):
         live_data = grade_data or request.path in {'/live', '/gradebook', '/courses', '/missing/data', '/api/v1/courses', '/api/v1/assignments', '/extension/tasks', '/extension/grades'}
         if request.path.startswith('/notes/') and request.path.rsplit('/', 1)[-1] in {'study', 'quiz', 'summarize'}:
             keys.append('study')
+        generated_action = (request.path.startswith('/api/deepstudy/') or
+            request.path.startswith('/api/lessons/') or
+            request.path in {'/study/generate', '/study/evaluate', '/analyze-image', '/study/analyze-image',
+                             '/study/transcribe', '/api/lessons'} or
+            (request.path.startswith('/notes/') and request.path.rsplit('/', 1)[-1] in {'study', 'quiz', 'summarize'}))
         if not keys and not live_data:
             return None
         try:
             user = actor()
             g.learning_actor = user
             if not user:
+                if ('tutor' in keys or generated_action) and request.method not in {'GET', 'HEAD'}:
+                    return jsonify(error='authentication_required', message='Sign in to use AI assistance so your current policy can be checked.'), 401
                 return None
             if live_data:
                 from App import LinkedAccount
@@ -107,11 +114,6 @@ def install(app):
             if settings['assessment_protection']:
                 if request.path == '/api/tutor' and request.method == 'POST':
                     return protected_reply()
-                generated_action = (request.path.startswith('/api/deepstudy/') or
-                    request.path.startswith('/api/lessons/') or
-                    request.path in {'/study/generate', '/study/evaluate', '/analyze-image', '/study/analyze-image',
-                                     '/study/transcribe', '/api/lessons'} or
-                    (request.path.startswith('/notes/') and request.path.rsplit('/', 1)[-1] in {'study','quiz','summarize'}))
                 if ('tutor' in keys or generated_action) and request.method not in {'GET', 'HEAD'}:
                     return jsonify(error='assessment_protection', message='Use the protected tutor for concept support.'), 403
             if request.path in {'/api/tutor/voice', '/api/tutor/speak', '/api/tutor/vision', '/api/media/generate',

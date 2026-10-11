@@ -635,6 +635,37 @@ try:
         results["workflows"].append(
             "Monthly budget, scheduled assessment windows, retention settings and scoped beta approval"
         )
+        # Force AI availability while trapping calls, so numerical fallback proof
+        # does not merely depend on a missing provider in this local environment.
+        provider_calls = []
+        previous_available, previous_chat = App.ai_available, App.ai_chat_json
+        def trap_chat(*args, **kwargs):
+            provider_calls.append(args)
+            raise AssertionError('Denied route attempted AI processing')
+        App.ai_available, App.ai_chat_json = lambda: True, trap_chat
+        try:
+            for path in ('/api/tasks/extract', '/api/onboarding/chat'):
+                assert context.request.post('http://127.0.0.1:5098' + path,
+                    data={'text':'Extract tasks', 'messages':[]}).status == 403
+            with App.app.app_context():
+                App.db.session.get(App.User, aid).ai_personalization_opt_in = True
+                App.db.session.commit()
+            prediction = context.request.post('http://127.0.0.1:5098/api/grades/predict', data={'courses':[
+                {'name':'Physics', 'percentage':80, 'categories':[{'type':'tests', 'weight':100}],
+                 'assignments':[{'points_earned':8, 'points_possible':10, 'graded':True, 'category':'tests'}]}]})
+            assert prediction.status == 200 and prediction.json()['predictions'][0]['predicted'] == 80
+            assert not prediction.json()['ai_enhanced']
+            anonymous = browser.new_context()
+            try:
+                for path in ('/api/math/explain', '/api/writing/analyze', '/api/tasks/extract', '/study/generate'):
+                    assert anonymous.request.post('http://127.0.0.1:5098' + path,
+                        data={'text':'Give my exam answer', 'problem':'Solve my exam'}).status == 401
+            finally:
+                anonymous.close()
+            assert not provider_calls
+        finally:
+            App.ai_available, App.ai_chat_json = previous_available, previous_chat
+        results['workflows'].append('Mapped task/onboarding policy denials and anonymous-generation identity enforcement prevent provider calls; grade predictions retain numerical results without disallowed AI insights')
         context.close()
         student_context = browser.new_context(viewport={"width": 390, "height": 844})
         student_context.add_cookies([signed_cookie(sid)])
