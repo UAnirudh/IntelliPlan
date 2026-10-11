@@ -50,7 +50,7 @@ The latest full suite passes **4025 tests,24 skipped,8625 warnings in253.08s**. 
 
 The current disposable Chromium run passes **thirteen HTTP/storage workflows and twenty-three responsive/scoped axe checks**, with zero JavaScript errors. It adds persisted request details at1440px and320px to the previous rendering/revision workflows. Provider output remains fixtures; raw accessibility manual-review cases remain recorded. [Current browser results](evidence/browser-results.json), [request details](15-course-request-details.md).
 
-## Live provider attempt and exclusions
+## Replacement-check and module checkpoints
 
 The subsequent replacement-check full regression passed4032 tests /24 skipped before four institution-denial cases and module editing were added. The latest module-focused regression passes115 tests with1106 warnings in14.73s. The current Chromium run passes15 workflows and27 responsive/scoped axe checks, including deferred refusal/loading races and module reorganization. [Replacement-check results](evidence/pytest-check-variants-full.txt), [module results](evidence/pytest-modules-targeted.txt), [module report](17-module-organization.md).
 
@@ -59,6 +59,8 @@ The subsequent replacement-check full regression passed4032 tests /24 skipped be
 The latest full regression passes **4068 tests,24 skipped,9053 warnings in270.90s**. The focused learning/study-input/account-deletion/discoverability suite passes **146 tests,1205 warnings in24.51s**. The initial identity-enforcement full run exposed eight study-input fixtures without real login sessions and two formerly permitted guest-generation expectations. Signed-in fixtures now use actual sessions; guest cases require401 without a provider call. Normal input bounds and mode behavior still pass after authentication. [Final full results](evidence/pytest-policy-full.txt), [focused results](evidence/pytest-policy-targeted.txt), [initial failures](evidence/pytest-policy-initial-failures.txt).
 
 The current disposable Chromium run passes **16 HTTP/storage workflows and27 responsive/scoped axe checks** with zero JavaScript errors. AI availability is forced and provider calls trapped in new policy tests, proving denials and numerical fallback do not merely rely on missing configuration. No live provider calls are made. Independent review of these continuations remains unavailable due reviewer execution limits. [Boundary report](18-ai-policy-coverage.md), [browser results](evidence/browser-results.json).
+
+## Live provider attempt and exclusions
 
 `python scripts/verify_learning_provider.py --run-live` makes at most one blueprint and one lesson call on a disposable database, with synthetic content. The recorded local check returned503 in the blueprint path: contract-approval flag false, Vertex project/location absent, no eligible Gemini service. External generation requests:0. It correctly exits nonzero. [Live provider evidence](evidence/live-provider-results.json).
 
