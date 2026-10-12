@@ -413,7 +413,13 @@
     for (const lesson of course.lessons) {
       const section = node('section', undefined, panel); section.className = 'learning-lesson';
       node('h4', course.blueprint.lessons.find(s => s.key === lesson.key).title, section);
-      node('p', lesson.reviewed ? 'Human-reviewed course item · limited practice evidence' : 'Unreviewed generated material · check accuracy before using', section);
+      node('p', lesson.reviewed ? 'Human-reviewed course item · limited practice evidence' :
+        (course.mode === 'curated' ? 'Unreviewed curated-path activity · check sources and original practice before using' :
+          'Unreviewed generated material · check accuracy before using'), section);
+      if (lesson.content.assessment_origin === 'fixed_original_v1') {
+        node('p', 'Fixed original concept check · English · course-builder results are assisted evaluation evidence', section);
+      }
+      if (lesson.content.assessment_notice) node('p', lesson.content.assessment_notice, section);
       for (const key of ['explanation', 'worked_example', 'practice', 'common_mistakes', 'review']) {
         if (lesson.content[key]) {
           node('h5', key.replaceAll('_', ' '), section);

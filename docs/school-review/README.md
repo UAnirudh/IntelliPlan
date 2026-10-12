@@ -34,6 +34,7 @@ Verified: local automated permission, privacy, scoring, recovery and regression 
 20. [Legacy LMS connection and data boundaries](20-lms-policy-boundaries.md).
 21. [Durable course-worker operation](21-worker-operation.md).
 22. [Retention, deletion and disposable PostgreSQL proof](22-retention-postgres.md).
+23. [Fixed original checks for curated paths](23-curated-checks.md).
 
 The engineering checkpoint was saved before a subsequent [Learning Hub and institution UI pass](12-ui-design.md), informed by live Skydive, Cluely, Linear and Notion references. It adds theme-aware layouts, useful question starters, course preparation/progress and grouped settings while preserving beta notices and policy gates. Ten browser workflows and sixteen scoped responsive/accessibility checks accompany the UI work. The broader acceptance ledger remains unchanged in scope.
 
@@ -42,6 +43,8 @@ Evidence is preserved in [evidence](evidence/). Source inventory is not a proof 
 The subsequent engineering continuation adds sanitized Markdown/math/code/tables in five saved teaching sections, preserved lesson edits/regeneration and replacement checks, inspectable request preferences, module organization revisions, and additional AI policy/consent boundaries. The earlier AI-route checkpoint passes4068 tests with24 skipped; its focused run passes146 tests. The current disposable browser run passes16 workflows and27 scoped responsive/axe checks with zero JavaScript errors. External output remains fixtures, raw accessibility manual-review cases remain recorded, and independent re-review of all broader earlier continuations is incomplete. Further cosmetic UI work is deferred while the broader engineering requirements and external launch gates remain incomplete.
 
 No commit in this checkpoint constitutes institutional permission, provider-contract approval, legal certification, validated educational effectiveness, WCAG conformance, or production deployment verification.
+
+The latest curated-check continuation adds twelve fixed original English activities alongside the supported Python/algebra source links, with independently executed trusted key verification and reviewed, assisted-only scoring. A discovered mobile code-scrolling keyboard defect is fixed in the shared renderer. The current full suite passes4245 tests with31 skipped; Chromium passes17 workflows/29 responsive and scoped axe checks with no JavaScript errors. Independent scoped source/spec reviews complete; teacher/age validation and live provider quality remain open. See [curated checks](23-curated-checks.md). Multi-country/language support remains a follow-on requirement after original engineering goals.
 
 The subsequent Plani continuation closes scoped internal-operation and account-data consent gaps, profile ownership, nested calendar placement/export and source-revocation races, retrieval embedding permissions, background LMS cache/credential boundaries, and model-round accounting. The current full regression passes4138 tests with24 skipped, and its expanded focused suite passes402 tests; the scoped independent read-only review completed after three additional fixes. [Behavior and limitations](19-plani-data-boundaries.md). Full-scope acceptance and live operational gates remain incomplete; UI refinement remains deferred.
 

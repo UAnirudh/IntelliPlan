@@ -96,6 +96,13 @@
         ALLOW_DATA_ATTR: false,
       });
       container.replaceChildren(content);
+      // These regions can overflow after a viewport change. Keep their scroll
+      // controls reachable by keyboard even when rendered before attachment.
+      for (const region of container.querySelectorAll('pre, .katex-display')) {
+        region.tabIndex = 0;
+        region.setAttribute('role', 'region');
+        region.setAttribute('aria-label', region.tagName === 'PRE' ? 'Code example' : 'Mathematical expression');
+      }
       container.dataset.rendering = 'formatted';
       return true;
     } catch {

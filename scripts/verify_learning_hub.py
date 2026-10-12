@@ -308,6 +308,39 @@ try:
         results["workflows"].append(
             "Curated multisource outline, worker generation, refresh, review"
         )
+        first_curated = page.locator('#course-workspace .learning-lesson').first
+        expect(first_curated).to_contain_text('English')
+        page.set_viewport_size({'width': 320, 'height': 844})
+        audit_surface(page, 'curated-check-mobile-light')
+        overflowing_code = page.locator('#course-workspace pre')
+        scrollable_index = next(index for index in range(overflowing_code.count())
+                                if overflowing_code.nth(index).evaluate('e => e.scrollWidth > e.clientWidth'))
+        code_region = overflowing_code.nth(scrollable_index)
+        code_region.focus()
+        expect(code_region).to_be_focused()
+        page.keyboard.press('ArrowRight')
+        page.wait_for_function('e => e.scrollLeft > 0', arg=code_region.element_handle())
+        with page.expect_response(lambda response: response.request.method == 'POST' and '/lessons/' in response.url and response.url.endswith('/answer')) as scored:
+            first_curated.get_by_role('button', name='Lin!', exact=True).click()
+        assert scored.value.status == 200
+        assert scored.value.json()['correct'] is True
+        assert 'assisted' in scored.value.json()['evidence']
+        expect(first_curated).to_contain_text('Recorded check passed.')
+        replay = context.request.post(scored.value.url, data={'answer': 1})
+        assert replay.status == 409
+        assert replay.json()['error'] == 'already_scored'
+        course_url = scored.value.url.split('/lessons/', 1)[0]
+        checked = context.request.get(course_url)
+        assert checked.status == 200
+        first_saved = checked.json()['lessons'][0]
+        assert first_saved['attempt']['assisted'] is True
+        assert 'answer' not in first_saved['content']['quiz']
+        assert 'verification' not in first_saved['content']
+        page.set_viewport_size({'width': 1440, 'height': 1000})
+        audit_surface(page, 'curated-check-scored-desktop-light')
+        results['workflows'].append(
+            'Fixed original curated check scored on mobile as assisted builder evidence; answer key hidden and replay denied'
+        )
         page.locator("#course-goal").fill(
             "Teach me elementary algebra from variables to lines"
         )

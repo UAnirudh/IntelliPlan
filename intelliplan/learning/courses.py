@@ -280,9 +280,17 @@ def run_one_job():
             resources = catalog.rank(spec['objective'], subject)
             if not resources:
                 raise ValueError('No reviewed resource matches this objective.')
-            content = dict(explanation='Study the linked lesson, then explain the idea in your own words.',
-                           practice='Write a small example and explain each step. Change one input and predict the result.' if subject != 'algebra' else 'Solve a different example. Explain each operation, then check your result by substitution or plotting.',
-                           review='Recall the main idea tomorrow without opening your notes.', resources=resources)
+            from intelliplan.learning.curated_checks import content_for
+            content = content_for(subject, spec['objective'])
+            if content is not None:
+                checked = validate_lesson(content)
+                content.update(checked)
+            else:
+                content = dict(explanation='Study the linked lesson, then explain the idea in your own words.',
+                    practice='Write a small example and explain each step. Change one input and predict the result.' if subject != 'algebra' else 'Solve a different example. Explain each operation, then check your result by substitution or plotting.',
+                    review='Recall the main idea tomorrow without opening your notes.',
+                    assessment_notice='No fixed original knowledge check matches this edited objective.')
+            content['resources'] = resources
         else:
             import ai_provider
             source_content = None

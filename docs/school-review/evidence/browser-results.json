@@ -5,6 +5,7 @@
     "Protected concept teaching through live browser/API",
     "Session start, pause, reload recovery, resume, paper checkpoint, completion without mastery",
     "Curated multisource outline, worker generation, refresh, review",
+    "Fixed original curated check scored on mobile as assisted builder evidence; answer key hidden and replay denied",
     "Algebra multisource course with subject filtering and persistent sequenced lessons",
     "Inspect request-derived preferences and persist explicit course details without attaching stored student records",
     "Saved course renders sanitized Markdown, math, highlighted code and tables; hostile content and fallback bounds verified",
@@ -67,6 +68,24 @@
     },
     {
       "surface": "reviewed-course-desktop-light",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "overflow": false,
+      "small_targets": []
+    },
+    {
+      "surface": "curated-check-mobile-light",
+      "viewport": {
+        "width": 320,
+        "height": 844
+      },
+      "overflow": false,
+      "small_targets": []
+    },
+    {
+      "surface": "curated-check-scored-desktop-light",
       "viewport": {
         "width": 1440,
         "height": 1000
@@ -306,6 +325,20 @@
       "incomplete": [],
       "passed_rules": 21,
       "surface": "reviewed-course-desktop-light"
+    },
+    {
+      "version": "4.14.0",
+      "violations": [],
+      "incomplete": [],
+      "passed_rules": 22,
+      "surface": "curated-check-mobile-light"
+    },
+    {
+      "version": "4.14.0",
+      "violations": [],
+      "incomplete": [],
+      "passed_rules": 21,
+      "surface": "curated-check-scored-desktop-light"
     },
     {
       "version": "4.14.0",
@@ -4397,7 +4430,7 @@
       "surface": "all-activities-disabled-mobile"
     }
   ],
-  "hub_load_ms": 4330,
+  "hub_load_ms": 1882,
   "content_checks": {
     "hostile_formatted": true,
     "inert": true,

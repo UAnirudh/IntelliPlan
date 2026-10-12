@@ -395,10 +395,11 @@ def lesson_answer(cid, lid):
     # evidence, never independent evidence, even if they submit assisted=false.
     assisted = True
     db.session.add(M['Evidence'](user_id=current_user.id, lesson_id=lid, objective=spec['objective'],
-                               kind='reviewed_generated_check', correct=correct, assisted=assisted))
+                               kind='reviewed_curated_check' if course.mode == 'curated' else 'reviewed_generated_check',
+                               correct=correct, assisted=assisted))
     db.session.commit()
     return jsonify(correct=correct, explanation=lesson.content['quiz']['explanation'],
-                   evidence='Limited practice evidence from a human-reviewed generated item.')
+                   evidence='Limited assisted course-builder evidence from an administrator-reviewed item.')
 
 
 @bp.route('/api/learning/progress')

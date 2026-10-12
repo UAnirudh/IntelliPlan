@@ -4,12 +4,20 @@
     "sha256": "cb0692724bfd140957300a6e7e5458141c73ad58c1c075e62ccf70bd4ec68a5e"
   },
   {
-    "path": "ai_provider.py",
-    "sha256": "49c4c51f665c9df5cc4fc9b5d40d79c7729dec77567cb8188ab4c969bb077157"
-  },
-  {
     "path": "App.py",
     "sha256": "65f00a42c21d70862dca0c0ce4bc9100905dfdd9fa5ef9b75a772308a1fa5208"
+  },
+  {
+    "path": "Main_Project/templates/learning_hub.html",
+    "sha256": "5d49f16f82f1bb9e1aa707b400f5b5f62571c2b1502ce60052295d1bf1d31866"
+  },
+  {
+    "path": "Main_Project/templates/school_admin.html",
+    "sha256": "013930b66889f15519e82a00e7ef42bf46027b6f468e597c5ee16c30a89a2597"
+  },
+  {
+    "path": "ai_provider.py",
+    "sha256": "49c4c51f665c9df5cc4fc9b5d40d79c7729dec77567cb8188ab4c969bb077157"
   },
   {
     "path": "chatbot_api.py",
@@ -33,7 +41,7 @@
   },
   {
     "path": "intelliplan/learning/api.py",
-    "sha256": "9f2db86c777afda0b66ce040c80eb88f1cb20ed476c4375687d4ab33310e613c"
+    "sha256": "db8779a26530c74abc8267df54234ee4fae5a39e436d84a8ab51bc7b5579c0ae"
   },
   {
     "path": "intelliplan/learning/catalog.py",
@@ -41,7 +49,11 @@
   },
   {
     "path": "intelliplan/learning/courses.py",
-    "sha256": "030028b648b8657a7d5a33c6881ed9993020c96b2bbefd95efe7a6a6a3642d4e"
+    "sha256": "c55f92ad011ec5b7d7f60691060ae171a073567fbb8cea926da2395f20c1dc57"
+  },
+  {
+    "path": "intelliplan/learning/curated_checks.py",
+    "sha256": "62c00e697d256b7556d57bac1281170cbe669b6ad75b8226abdd1efddf279080"
   },
   {
     "path": "intelliplan/learning/enforcement.py",
@@ -52,12 +64,12 @@
     "sha256": "813e605e48f3330c1ab97d8acf06f07b3123700a00343627c8337b2b84dfdb27"
   },
   {
-    "path": "intelliplan/learning/governance_api.py",
-    "sha256": "8da36ae65b307f32339a3a677c098bd97671ebbc377bb51489c1c30ad4e5c0c8"
-  },
-  {
     "path": "intelliplan/learning/governance.py",
     "sha256": "9282a23cb51e7390a4aee372f8a41e30d508686eebccc73a005c2cb6716ae847"
+  },
+  {
+    "path": "intelliplan/learning/governance_api.py",
+    "sha256": "8da36ae65b307f32339a3a677c098bd97671ebbc377bb51489c1c30ad4e5c0c8"
   },
   {
     "path": "intelliplan/learning/models.py",
@@ -80,14 +92,6 @@
     "sha256": "8149b49fc58082b880a9771bfff8fbd3f6b97fb2a3d7c4f3431311d1d81731f7"
   },
   {
-    "path": "Main_Project/templates/learning_hub.html",
-    "sha256": "5d49f16f82f1bb9e1aa707b400f5b5f62571c2b1502ce60052295d1bf1d31866"
-  },
-  {
-    "path": "Main_Project/templates/school_admin.html",
-    "sha256": "013930b66889f15519e82a00e7ef42bf46027b6f468e597c5ee16c30a89a2597"
-  },
-  {
     "path": "notifications_glue.py",
     "sha256": "af0d595b1141a4c83961e1219b6704f582008f5a7854ff5028658318c1e989ac"
   },
@@ -101,7 +105,7 @@
   },
   {
     "path": "scripts/verify_learning_hub.py",
-    "sha256": "c3b2a89fdaa822fbd2f7ab8d62c0236e51a95bf1411981504ed61e202d587366"
+    "sha256": "1d04f69774bf522f6837ab89b25282cba3e1cfe74d77f09bcef97f1b60863a11"
   },
   {
     "path": "scripts/verify_learning_provider.py",
@@ -117,15 +121,19 @@
   },
   {
     "path": "static/js/learning_content.js",
-    "sha256": "265597360e811907e5cb1f14d7290d8535272d06940d5c2144e326d03301d29d"
+    "sha256": "f2b1617e2362f079c0cedf406333c792bb378851a73c0530cd14c78d0a1c8553"
   },
   {
     "path": "static/js/learning_hub.js",
-    "sha256": "21b2570285f9ea0112579a35519d6232dca30e6d01813de408e150c7ca9e37b2"
+    "sha256": "5d2bddc81de203e702f3843273580ff14d0701d357db2bf3bd280af178aa2de3"
   },
   {
     "path": "static/js/school_admin.js",
     "sha256": "29dd4ee369577f1d84187af6410ca26153b10e9c336a8ad250d10c49ea4ef8d8"
+  },
+  {
+    "path": "static/vendor/learning-content/README.md",
+    "sha256": "111c6694674e4b650727122a74bd4b2582d6ab55f6f256fb3ffab40a24cedea5"
   },
   {
     "path": "static/vendor/learning-content/dompurify-LICENSE",
@@ -404,10 +412,6 @@
     "sha256": "2c90a9b46d6463f26038a29b686e82bc91de01fdac9d5229e7cfe3b360134ea2"
   },
   {
-    "path": "static/vendor/learning-content/README.md",
-    "sha256": "111c6694674e4b650727122a74bd4b2582d6ab55f6f256fb3ffab40a24cedea5"
-  },
-  {
     "path": "static/vendor/learning-content/sources.json",
     "sha256": "9bacaccf492323f556e0a6408b5fd99984b59d47f05566085a8460b795316255"
   },
@@ -416,8 +420,12 @@
     "sha256": "0a89cce3263ad2488786f124f02d79f0db6cd61fc9edebbef017a17615dcc381"
   },
   {
+    "path": "tests/test_curated_checks.py",
+    "sha256": "8596ddb0384b3ce60f199d55010eab5e2ff314a98fad19e77abacd0f250d3cb1"
+  },
+  {
     "path": "tests/test_learning_hub.py",
-    "sha256": "6c9017a3490f4b94d019d95886a9ca22b9c8a43c740d2b651e44f0282a43ede6"
+    "sha256": "a4164937064159984fedc92ce8d541f4363d5f3dfc49fd00a69d73b0debf6288"
   },
   {
     "path": "tests/test_learning_postgres.py",

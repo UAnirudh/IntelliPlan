@@ -1,5 +1,11 @@
 # Testing report
 
+## Latest curated-check verification — 2026-10-12
+
+The final full disposable SQLite suite passes **4245 tests,31 skipped,10416 warnings in260.05s**, exit0. The focused bank/learning/worker/deletion scope passes **190 tests,1579 warnings in12.06s**. It adds trusted repository Python and exact-arithmetic proofs for all twelve fixed keys, schema/catalog coverage, safe-copy boundaries, review/scoring/provenance, edited-objective fallback and replay/policy denials. [Full result](evidence/pytest-curated-full.txt), [focused result](evidence/pytest-curated-targeted.txt).
+
+The fresh browser harness exits0 with17 HTTP/storage workflows,29 responsive/axe checks and no JavaScript errors. A real mobile audit found a code-scroll keyboard defect; focusable named code/math regions now pass the rerun, and ArrowRight actually scrolls a long example at320px. Scoring persists assisted status, keeps public keys hidden and denies replay. Independent Python/JavaScript/spec reviews pass for this bounded slice and the subsequent renderer correction. Provider output remains fixtures, screen-reader/manual checks remain open, and the previous PostgreSQL proofs are separate from this SQLite run. [Scope and limits](23-curated-checks.md). Earlier results below are historical checkpoints.
+
 ## Latest retention and PostgreSQL verification — 2026-10-12
 
 The current full disposable SQLite suite passes **4223 tests,31 skipped,10284 warnings in267.61s**, exit0. Seven skips are explicit-local PostgreSQL tests, executed separately. The scoped SQLite run passes283 tests before the final User lock; the full run includes it. A fresh PostgreSQL17.9 scope passes **290 tests,2401 warnings in57.50s**. Backup/restore comparison matches127 tables,692 synthetic rows and124 sequences. The restored fixture passes **22 worker/concurrency checks,71 warnings in17.26s**, including the final explicit overlapping lock-order assertions. [Full result](evidence/pytest-retention-full.txt), [PG result](evidence/pytest-postgres-targeted.txt), [restored result](evidence/pytest-postgres-restored.txt), [comparison](evidence/postgres-restore-comparison.txt).

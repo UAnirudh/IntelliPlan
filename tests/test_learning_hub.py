@@ -1678,6 +1678,61 @@ def test_policy_recheck_refreshes_loaded_membership_scope(client, monkeypatch):
         assert policy.decision(owner, 'tutor')[0] is False
 
 
+@pytest.mark.parametrize(('subject', 'correct'), [('python', True), ('algebra', False)])
+def test_curated_original_checks_score_after_review_without_model_processing(client, monkeypatch, subject, correct):
+    uid = enable(monkeypatch, client)
+    org(uid, {'generated_content': False, 'third_party_processing': False, 'providers': []})
+    monkeypatch.setattr('ai_provider.chat_json', lambda *args, **kwargs: pytest.fail('No provider may generate curated checks.'))
+    response = client.post('/api/learning/courses', json={'goal': f'Learn {subject} foundations', 'mode': 'curated'})
+    assert response.status_code == 201
+    cid = response.json['id']
+    assert client.post(f'/api/learning/courses/{cid}/generation', json={}).status_code == 202
+    with App.app.app_context():
+        for _ in range(7):
+            assert courses.run_one_job()
+        assert policy.models()['Budget'].query.count() == 0
+    detail = client.get(f'/api/learning/courses/{cid}').json
+    assert len(detail['lessons']) == 6
+    for item in detail['lessons']:
+        assert not item['reviewed']
+        assert item['content']['assessment_origin'] == 'fixed_original_v1'
+        assert item['content']['assessment_language'] == 'en'
+        assert 'verification' not in item['content']
+        assert 'answer' not in item['content']['quiz'] and 'explanation' not in item['content']['quiz']
+    lid = detail['lessons'][0]['id']
+    prefix = f'/api/learning/courses/{cid}/lessons/{lid}/answer'
+    assert client.post(prefix, json={'answer': 0}).status_code == 409
+    raw = client.get(f'/api/learning/courses/{cid}/review').json['lessons'][0]['content']['quiz']
+    assert client.post(f'/api/learning/courses/{cid}/review', json={'confirm_accuracy': True}).status_code == 200
+    answer = raw['answer'] if correct else (raw['answer'] + 1) % len(raw['options'])
+    graded = client.post(prefix, json={'answer': answer, 'assisted': False})
+    assert graded.status_code == 200 and graded.json['correct'] is correct
+    assert 'assisted course-builder' in graded.json['evidence']
+    assert client.post(prefix, json={'answer': raw['answer']}).status_code == 409
+    progress = client.get('/api/learning/progress').json['evidence']
+    assert progress[0]['kind'] == 'reviewed_curated_check' and progress[0]['assisted'] is True
+    with App.app.app_context():
+        item = policy.models()['Evidence'].query.filter_by(user_id=uid, lesson_id=lid).one()
+        assert item.correct is correct and item.assisted
+    user(client, monkeypatch)
+    assert client.get(f'/api/learning/courses/{cid}').status_code == 403
+    assert client.post(prefix, json={'answer': raw['answer']}).status_code == 403
+
+
+def test_edited_curated_objective_retains_links_without_a_misaligned_fixed_check(client, monkeypatch):
+    enable(monkeypatch, client)
+    cid = create(client)
+    detail = client.get(f'/api/learning/courses/{cid}').json
+    detail['blueprint']['lessons'][0]['objective'] = 'variables with different examples'
+    assert client.put(f'/api/learning/courses/{cid}', json={'blueprint': detail['blueprint'], 'revision': detail['revision']}).status_code == 200
+    assert client.post(f'/api/learning/courses/{cid}/generation', json={}).status_code == 202
+    with App.app.app_context():
+        assert courses.run_one_job()
+    item = client.get(f'/api/learning/courses/{cid}').json['lessons'][0]['content']
+    assert item['resources'] and 'quiz' not in item
+    assert 'No fixed original' in item['assessment_notice']
+
+
 def test_audit_scrubbing_retries_after_another_account_reference_is_removed(client, monkeypatch):
     from intelliplan.learning import governance
     from sqlalchemy import update
