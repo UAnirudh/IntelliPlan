@@ -109,6 +109,7 @@ class _RepoConfig:
     manual_task_model: type
     session: Any  # SQLAlchemy session
     lms_fetcher: Callable[[int], list[dict]] | None = None
+    manual_filter: Callable[[int, list], list] | None = None
 
 
 class AssignmentRepository:
@@ -125,11 +126,13 @@ class AssignmentRepository:
         manual_task_model: type,
         session: Any,
         lms_fetcher: Callable[[int], list[dict]] | None = None,
+        manual_filter: Callable[[int, list], list] | None = None,
     ) -> None:
         self._cfg = _RepoConfig(
             manual_task_model=manual_task_model,
             session=session,
             lms_fetcher=lms_fetcher,
+            manual_filter=manual_filter,
         )
 
     # ── public surface ───────────────────────────────────────────────
@@ -140,8 +143,7 @@ class AssignmentRepository:
         Completed and dismissed manual tasks are excluded — the Command
         Center surfaces work that still has to happen.
         """
-        manual_rows = self._fetch_manual_tasks(user_id)
-        manual = tuple(self._manual_to_assignment(r) for r in manual_rows)
+        manual_rows = list(self._fetch_manual_tasks(user_id))
 
         lms: tuple[Assignment, ...] = ()
         if self._cfg.lms_fetcher is not None:
@@ -150,6 +152,10 @@ class AssignmentRepository:
                 lms = tuple(self._dict_to_assignment(r) for r in raw if isinstance(r, dict))
             except Exception:
                 lms = ()
+
+        if self._cfg.manual_filter is not None:
+            manual_rows = self._cfg.manual_filter(user_id, manual_rows)
+        manual = tuple(self._manual_to_assignment(r) for r in manual_rows)
 
         merged = _dedupe_assignments(manual + lms)
         return tuple(sorted(merged, key=_assignment_sort_key))

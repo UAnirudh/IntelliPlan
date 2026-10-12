@@ -124,6 +124,109 @@ def test_background_briefing_missing_owner_cannot_clear_binding(monkeypatch):
     provider.assert_not_called()
 
 
+@pytest.mark.parametrize('source', sorted(policy.LMS_SOURCES))
+def test_command_center_does_not_read_mixed_grades_when_source_denied(account, monkeypatch, source):
+    import command_center_glue as glue
+
+    restrict(account, {source: False})
+    query = Mock(side_effect=AssertionError('Restricted grade table must not be read'))
+    monkeypatch.setattr(App, 'ImportedGrade', SimpleNamespace(query=query))
+    with App.app.app_context():
+        assert glue._get_grades(account[0]) == ()
+        assert glue._planner_allowed(account[0]) is True
+    query.filter_by.assert_not_called()
+
+
+def test_command_center_discards_grades_after_source_revocation(account, monkeypatch):
+    import command_center_glue as glue
+
+    checks = Mock(side_effect=[True, False])
+    query = Mock()
+    query.filter_by.return_value.all.return_value = [SimpleNamespace(course='Restricted', percentage=20)]
+    monkeypatch.setattr(App, 'ImportedGrade', SimpleNamespace(query=query))
+    monkeypatch.setattr(glue, '_grade_sources_allowed', checks)
+    with App.app.app_context():
+        assert glue._get_grades(account[0]) == ()
+    query.filter_by.assert_called_once_with(user_id=account[0])
+    assert checks.call_count == 2
+
+
+def test_command_center_keeps_allowed_owner_grades(account, monkeypatch):
+    import command_center_glue as glue
+
+    query = Mock()
+    query.filter_by.return_value.all.return_value = [SimpleNamespace(course='Allowed', percentage=87)]
+    monkeypatch.setattr(App, 'ImportedGrade', SimpleNamespace(query=query))
+    with App.app.app_context():
+        grades = glue._get_grades(account[0])
+        assert [(grade.course, grade.current_pct) for grade in grades] == [('Allowed', 87)]
+    query.filter_by.assert_called_once_with(user_id=account[0])
+
+
+def test_command_center_policy_stamp_tracks_consent_and_source_changes(account):
+    import command_center_glue as glue
+
+    with App.app.app_context():
+        original = glue._today_policy_stamp(account[0])
+    restrict(account, {'canvas': False})
+    with App.app.app_context():
+        source_changed = glue._today_policy_stamp(account[0])
+        assert source_changed != original
+        user = App.db.session.get(App.User, account[0])
+        user.ai_personalization_opt_in = False
+        App.db.session.commit()
+        assert glue._today_policy_stamp(account[0]) != source_changed
+    restrict(account, {'scheduler': False})
+    with App.app.app_context():
+        assert glue._planner_allowed(account[0]) is False
+        with pytest.raises(PermissionError):
+            glue._today_policy_stamp(account[0])
+
+
+def test_stored_task_filter_preserves_local_and_allowed_sources(account):
+    import command_center_glue as glue
+
+    rows = [SimpleNamespace(import_source=source) for source in
+            ['', 'scraper:canvas', 'scraper:studentvue', 'csv', 'scraper:unknown', 'quickadd', 'course']]
+    with App.app.app_context():
+        assert glue._filter_stored_tasks(account[0], rows) == rows
+    restrict(account, {'canvas': False})
+    with App.app.app_context():
+        assert glue._filter_stored_tasks(account[0], rows) == [rows[0], rows[2], rows[5], rows[6]]
+
+
+def test_real_today_cache_rebuilds_after_consent_withdrawal(account, monkeypatch):
+    from intelliplan.api import command_center as cc
+    from intelliplan.services.today import TodayService
+
+    builds = []
+
+    def build(service, uid, **kwargs):
+        assert uid == account[0]
+        builds.append(uid)
+        return {'generation': len(builds)}
+
+    monkeypatch.setattr(TodayService, 'build', build)
+    monkeypatch.setattr(cc, 'today_to_dict', lambda payload: payload)
+    cc.invalidate_today(account[0])
+    try:
+        assert account[2].get('/api/today').get_json() == {'generation': 1}
+        assert account[2].get('/api/today').get_json() == {'generation': 1}
+        assert len(builds) == 1
+        with App.app.app_context():
+            user = App.db.session.get(App.User, account[0])
+            user.ai_personalization_opt_in = False
+            App.db.session.commit()
+        response = account[2].get('/api/today')
+        assert response.status_code == 200
+        assert response.get_json() == {'generation': 2}
+        assert len(builds) == 2
+    finally:
+        cc.invalidate_today(account[0])
+
+
+
+
 def trap_dissector(monkeypatch):
     provider = Mock(side_effect=AssertionError('Provider must not receive the text.'))
     monkeypatch.setattr(extra_features, 'ai_available', lambda: True)

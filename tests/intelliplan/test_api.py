@@ -86,6 +86,8 @@ def harness():
         "uid": 1,
         "stale": [1, 2],
         "cron_token": "sekrit",
+        "policy": "initial",
+        "denied": set(),
     }
     deps = CommandCenterDeps(
         get_service=lambda: service,
@@ -94,6 +96,8 @@ def harness():
         emit_signal=lambda uid, kind, **kw: signals.append((uid, kind)),
         stale_briefing_user_ids=lambda: state["stale"],
         cron_token=lambda: state["cron_token"],
+        policy_stamp=lambda uid: state['policy'],
+        can_refresh=lambda uid: uid not in state['denied'],
     )
     app = Flask(__name__)
     app.register_blueprint(create_command_center_blueprint(deps))
@@ -101,6 +105,38 @@ def harness():
 
 
 class TestApiToday:
+    def test_policy_change_rebuilds_fresh_cache(self, harness):
+        client, service, _, state = harness
+        assert client.get('/api/today').status_code == 200
+        before = len(service.calls)
+        assert client.get('/api/today').status_code == 200
+        assert len(service.calls) == before
+        state['policy'] = 'source revoked'
+        assert client.get('/api/today').status_code == 200
+        assert len(service.calls) == before + 1
+
+    @pytest.mark.parametrize('path,method', [
+        ('/api/today', 'get'), ('/api/today/refresh', 'post'),
+        ('/api/today/explain?component=health', 'get'),
+    ])
+    def test_inflight_policy_change_discards_response(self, harness, path, method):
+        from intelliplan.api import command_center as cc
+
+        client, service, signals, state = harness
+        cc._TODAY_CACHE.clear()
+        original = service.build
+
+        def build(uid, **kwargs):
+            state['policy'] = 'changed during build'
+            return original(uid, **kwargs)
+
+        service.build = build
+        response = getattr(client, method)(path)
+        assert response.status_code == 409
+        assert response.get_json() == {'error': 'policy_changed'}
+        assert state['uid'] not in cc._TODAY_CACHE
+        assert signals == []
+
     def test_returns_payload(self, harness) -> None:
         client, service, _, _ = harness
         resp = client.get("/api/today")
@@ -218,6 +254,13 @@ class TestCacheEviction:
 
 
 class TestCron:
+    def test_skips_restricted_owner_before_service(self, harness):
+        client, service, _, state = harness
+        state['denied'] = {1}
+        response = client.post('/cron/refresh-briefings', headers={'X-Cron-Token': 'sekrit'})
+        assert response.get_json() == {'refreshed': 1, 'failed': 0, 'skipped': 1}
+        assert service.calls == [{'uid': 2, 'force': True}]
+
     def test_rejects_bad_token(self, harness) -> None:
         client, _, _, _ = harness
         assert client.post("/cron/refresh-briefings").status_code == 403

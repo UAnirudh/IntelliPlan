@@ -50,6 +50,8 @@ class CommandCenterDeps:
     emit_signal: Callable[..., Any] = field(default=lambda *a, **k: None)
     stale_briefing_user_ids: Callable[[], list[int]] = field(default=lambda: [])
     cron_token: Callable[[], str] = field(default=lambda: os.getenv("CRON_TOKEN", ""))
+    can_refresh: Callable[[int], bool] = field(default=lambda _uid: True)
+    policy_stamp: Callable[[int], str | None] = field(default=lambda _uid: None)
     # True when the visitor has no IntelliPlan account but connected an LMS
     # (StudentVUE, Canvas, Schoology) straight from its login page.
     has_guest_session: Callable[[], bool] = field(default=lambda: False)
@@ -60,7 +62,7 @@ class CommandCenterDeps:
     page_context: Callable[[int], dict] = field(default=lambda _uid: {})
 
 
-_TODAY_CACHE: dict[int, tuple[float, dict]] = {}
+_TODAY_CACHE: dict[int, tuple[float, dict, str | None]] = {}
 _TODAY_CACHE_TTL = 90  # seconds
 _TODAY_CACHE_MAX = 500  # cap entries so the process can't leak memory unbounded
 
@@ -86,10 +88,10 @@ def invalidate_today(user_id: int | None) -> None:
         pass
 
 
-def _cache_put(uid: int, result: dict) -> None:
+def _cache_put(uid: int, result: dict, policy_stamp: str | None = None) -> None:
     """Store a payload and evict the oldest entries past the cap so the
     module-level cache can't grow without bound."""
-    _TODAY_CACHE[uid] = (time.monotonic(), result)
+    _TODAY_CACHE[uid] = (time.monotonic(), result, policy_stamp)
     overflow = len(_TODAY_CACHE) - _TODAY_CACHE_MAX
     if overflow > 0:
         for key, _ in sorted(_TODAY_CACHE.items(), key=lambda kv: kv[1][0])[:overflow]:
@@ -145,9 +147,14 @@ def create_command_center_blueprint(deps: CommandCenterDeps) -> Blueprint:
     def api_today():
         _require_flag()
         uid = _require_user()
+        try:
+            stamp = deps.policy_stamp(uid)
+        except Exception:
+            _TODAY_CACHE.pop(uid, None)
+            return jsonify(error='policy_unavailable'), 503
         now = time.monotonic()
         cached = _TODAY_CACHE.get(uid)
-        if cached and (now - cached[0]) < _TODAY_CACHE_TTL:
+        if cached and cached[2] == stamp and (now - cached[0]) < _TODAY_CACHE_TTL:
             return jsonify(cached[1])
         try:
             payload = deps.get_service().build(uid)
@@ -155,7 +162,14 @@ def create_command_center_blueprint(deps: CommandCenterDeps) -> Blueprint:
             logger.exception("TodayService.build failed for user %s", uid)
             return jsonify({"error": "build_failed"}), 502
         result = today_to_dict(payload)
-        _cache_put(uid, result)
+        try:
+            if deps.policy_stamp(uid) != stamp:
+                _TODAY_CACHE.pop(uid, None)
+                return jsonify(error='policy_changed'), 409
+        except Exception:
+            _TODAY_CACHE.pop(uid, None)
+            return jsonify(error='policy_unavailable'), 503
+        _cache_put(uid, result, stamp)
         return jsonify(result)
 
     @bp.route("/api/today/refresh", methods=["POST"])
@@ -164,12 +178,21 @@ def create_command_center_blueprint(deps: CommandCenterDeps) -> Blueprint:
         uid = _require_user()
         _TODAY_CACHE.pop(uid, None)
         try:
+            stamp = deps.policy_stamp(uid)
+        except Exception:
+            return jsonify(error='policy_unavailable'), 503
+        try:
             payload = deps.get_service().build(uid, force_brief=True)
         except Exception:
             logger.exception("TodayService.build (refresh) failed for user %s", uid)
             return jsonify({"error": "build_failed"}), 502
         result = today_to_dict(payload)
-        _cache_put(uid, result)
+        try:
+            if deps.policy_stamp(uid) != stamp:
+                return jsonify(error='policy_changed'), 409
+        except Exception:
+            return jsonify(error='policy_unavailable'), 503
+        _cache_put(uid, result, stamp)
         deps.emit_signal(uid, "briefing_refreshed", subject_type="briefing")
         return jsonify(result)
 
@@ -182,10 +205,20 @@ def create_command_center_blueprint(deps: CommandCenterDeps) -> Blueprint:
             abort(400, description="component must be priority | health | forecast")
 
         try:
+            stamp = deps.policy_stamp(uid)
+        except Exception:
+            return jsonify(error='policy_unavailable'), 503
+        try:
             payload = deps.get_service().build(uid)
         except Exception:
             logger.exception("TodayService.build (explain) failed for user %s", uid)
             return jsonify({"error": "build_failed"}), 502
+
+        try:
+            if deps.policy_stamp(uid) != stamp:
+                return jsonify(error='policy_changed'), 409
+        except Exception:
+            return jsonify(error='policy_unavailable'), 503
 
         if component == "priority":
             task_id = (request.args.get("task_id") or "").strip()
@@ -225,15 +258,19 @@ def create_command_center_blueprint(deps: CommandCenterDeps) -> Blueprint:
         expected = deps.cron_token()
         if not expected or token != expected:
             abort(403)
-        refreshed, failed = 0, 0
+        refreshed, failed, skipped = 0, 0, 0
         for uid in deps.stale_briefing_user_ids():
             try:
+                if not deps.can_refresh(uid):
+                    skipped += 1
+                    continue
                 deps.get_service().build(uid, force_brief=True)
                 refreshed += 1
             except Exception as exc:
                 failed += 1
                 logger.warning("cron briefing refresh failed for user %s: %s", uid, exc)
-        return jsonify({"refreshed": refreshed, "failed": failed})
+        return jsonify({"refreshed": refreshed, "failed": failed,
+                        **({'skipped': skipped} if skipped else {})})
 
     # ── errors (JSON for API paths) ──────────────────────────────────
 

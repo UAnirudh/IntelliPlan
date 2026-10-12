@@ -33,7 +33,7 @@
   },
   {
     "path": "command_center_glue.py",
-    "sha256": "68aee7226b824d3405f7fc03ba035409d206adea721809f552eba84fa599e2f3"
+    "sha256": "d690ad4079dec1baf8b96789271b06327f23c1bd8152b30475f991994ee28fe6"
   },
   {
     "path": "deployment/learning-worker.compose.yml",
@@ -42,6 +42,10 @@
   {
     "path": "extra_features.py",
     "sha256": "fb3345bd93b6311ab35ccda535f86b9c505ec985907c3862114cb82da0440e21"
+  },
+  {
+    "path": "intelliplan/api/command_center.py",
+    "sha256": "68cd3946cb0047af18fd50c4a9ac4486b6dd13be66feb30c0d115f8d0cc16552"
   },
   {
     "path": "intelliplan/api/lms_sync.py",
@@ -102,6 +106,10 @@
   {
     "path": "intelliplan/learning/worker.py",
     "sha256": "cb67c25c8f7fb973f9dcc3a105da5dafc5291e0f5ccdffdb010cba28f24a07e4"
+  },
+  {
+    "path": "intelliplan/repositories/assignments.py",
+    "sha256": "321d001c4f1b5047e0c42735a27cedd4dbb47588036e0de2021b10c134969f96"
   },
   {
     "path": "intelliplan/retrieval/embeddings.py",
@@ -444,6 +452,14 @@
     "sha256": "9bacaccf492323f556e0a6408b5fd99984b59d47f05566085a8460b795316255"
   },
   {
+    "path": "tests/intelliplan/test_api.py",
+    "sha256": "c42a63cf5f43a69251685a6e79f9244decacf6258fec40cd94b761b5db791a8d"
+  },
+  {
+    "path": "tests/intelliplan/test_assignment_repository.py",
+    "sha256": "1994decb70edc1dc2759c69252d711886943beb60a899e49f36e645f541bda01"
+  },
+  {
     "path": "tests/intelliplan/test_services.py",
     "sha256": "086488654a35796224902d0fab40a8e813298062dd5e2c2a7dac82206c4e1019"
   },
@@ -465,7 +481,7 @@
   },
   {
     "path": "tests/test_learning_legacy_tools.py",
-    "sha256": "11d8fe3ad8a5f0fdc386bf930cf0bd7365310d4211c9b878b5a0518f1fde0666"
+    "sha256": "efc989ca70b80db6863843e8241383f64dc1036a6289a117531b97a1a8e92a69"
   },
   {
     "path": "tests/test_learning_postgres.py",
