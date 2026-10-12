@@ -16,6 +16,10 @@
     "sha256": "e918dcf7c3383563243344626f5dc4190402290b77a534d882559f77fca1a125"
   },
   {
+    "path": "deployment/learning-worker.compose.yml",
+    "sha256": "c6c15f02b1a91b24edfab1efef72d26ed0f9274938c10ae01f22c491425b116f"
+  },
+  {
     "path": "intelliplan/api/lms_sync.py",
     "sha256": "f4dcde29b3df886fc3fd8abd3a5d69ad775d0defdb6373b556409f93efe9a8a4"
   },
@@ -29,7 +33,7 @@
   },
   {
     "path": "intelliplan/learning/api.py",
-    "sha256": "54dd0319f6dacf8419ac25bc4589c4bac33efa7a1232af5ea56077b7fef3cb1d"
+    "sha256": "9f2db86c777afda0b66ce040c80eb88f1cb20ed476c4375687d4ab33310e613c"
   },
   {
     "path": "intelliplan/learning/catalog.py",
@@ -62,6 +66,10 @@
   {
     "path": "intelliplan/learning/policy.py",
     "sha256": "c617a7c702ca4535191d50ffc36353250c02769e82e7fb0b0a581ab86fb1c92d"
+  },
+  {
+    "path": "intelliplan/learning/worker.py",
+    "sha256": "cb67c25c8f7fb973f9dcc3a105da5dafc5291e0f5ccdffdb010cba28f24a07e4"
   },
   {
     "path": "intelliplan/retrieval/embeddings.py",
@@ -410,6 +418,10 @@
   {
     "path": "tests/test_learning_hub.py",
     "sha256": "1fd4f92f5e2c0ae598ccccf38efe7b89ee4bd7adc0cea7e19a8c7fcc30c89ef6"
+  },
+  {
+    "path": "tests/test_learning_worker.py",
+    "sha256": "b7f91c7647e86d56a2e16bc1660e602d85b6ad9c62cbbbffccc26340712849bf"
   },
   {
     "path": "tests/test_plani_policy.py",

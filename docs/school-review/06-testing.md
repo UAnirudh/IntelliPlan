@@ -2,6 +2,8 @@
 
 ## Latest LMS policy verification — 2026-10-11
 
+Subsequent worker CLI checks pass **247 tests,2042 warnings in32.08s**, including actual curated queue checkpoint/resume and declared lifecycle stubs. Cold CLI help succeeds with explicit disposable settings; changed Python checks and independent Python/spec reviews pass. The full regression below predates that CLI addition. [Worker results](evidence/pytest-worker-targeted.txt), [operation and limits](21-worker-operation.md).
+
 The completed full suite passes **4183 tests,24 skipped,9949 warnings in291.70s**, with process exit0. The focused learning/Plani/course-tracking/HAC/timeline/Notion/LMS-repository suite passes **434 tests,2505 warnings in35.54s**. A preceding full run was interrupted and is not counted as completed. [Full results](evidence/pytest-lms-policy-full.txt), [focused results](evidence/pytest-lms-policy-targeted.txt).
 
 The fresh Chromium report records16 HTTP/storage workflows,27 responsive checks and27 scoped axe checks, with no JavaScript errors. It exercises the learning/admin surfaces; additional legacy LMS operations use signed-in stored-fixture HTTP/helper regressions. External generation/integration calls are stubs, raw manual accessibility cases remain, and no screen-reader or whole-app conformance claim is made. Independent source, JavaScript and scoped spec reviews completed after the LMS fixes. Ruff on changed modules, Python compilation, JavaScript parsing and whitespace checks pass. [Boundary report](20-lms-policy-boundaries.md). Earlier results below are historical checkpoints, not the current test count.

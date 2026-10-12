@@ -32,6 +32,7 @@ Verified: local automated permission, privacy, scoring, recovery and regression 
 18. [Additional AI policy and consent coverage](18-ai-policy-coverage.md).
 19. [Plani account-data and internal-operation boundaries](19-plani-data-boundaries.md).
 20. [Legacy LMS connection and data boundaries](20-lms-policy-boundaries.md).
+21. [Durable course-worker operation](21-worker-operation.md).
 
 The engineering checkpoint was saved before a subsequent [Learning Hub and institution UI pass](12-ui-design.md), informed by live Skydive, Cluely, Linear and Notion references. It adds theme-aware layouts, useful question starters, course preparation/progress and grouped settings while preserving beta notices and policy gates. Ten browser workflows and sixteen scoped responsive/accessibility checks accompany the UI work. The broader acceptance ledger remains unchanged in scope.
 
@@ -44,3 +45,5 @@ No commit in this checkpoint constitutes institutional permission, provider-cont
 The subsequent Plani continuation closes scoped internal-operation and account-data consent gaps, profile ownership, nested calendar placement/export and source-revocation races, retrieval embedding permissions, background LMS cache/credential boundaries, and model-round accounting. The current full regression passes4138 tests with24 skipped, and its expanded focused suite passes402 tests; the scoped independent read-only review completed after three additional fixes. [Behavior and limitations](19-plani-data-boundaries.md). Full-scope acceptance and live operational gates remain incomplete; UI refinement remains deferred.
 
 The subsequent legacy LMS continuation adds seven named source controls and guards connection/callback, cache/credential, refresh/sync and post-fetch publication boundaries. The latest full regression passes4183 tests with24 skipped; the focused run passes434 tests. Independent Python, JavaScript and scoped spec reviews completed. The fresh browser report retains16 workflows and27 responsive/scoped axe checks with no JavaScript errors. [LMS behavior and limitations](20-lms-policy-boundaries.md). No live deployment, vendor authorization or full-brief completion is claimed.
+
+The subsequent CLI continuation adds explicit continuous course-worker operation, graceful stop requests, per-step connection release and safe structured events, plus an opt-in supervisor configuration. Actual curated queue checkpoint/resume and lifecycle tests pass in the247-test focused run. Cold CLI help, Python checks and independent reviews pass. [Operation and deployment limits](21-worker-operation.md). Docker/supervisor, production PostgreSQL and approved live-provider behavior remain unverified; the4183-test full run predates this CLI change.

@@ -1,6 +1,5 @@
 """Owned course/study APIs and institution-scoped administration."""
 from datetime import datetime
-import click
 from flask import Blueprint, abort, jsonify, render_template, request
 from flask_login import current_user
 from sqlalchemy.exc import IntegrityError
@@ -533,13 +532,5 @@ def install(app):
     endpoint = 'learning_hub.outline_revision'
     app.view_functions[endpoint] = limiter.limit('10/hour', methods=['POST'])(app.view_functions[endpoint])
 
-    @app.cli.command('learning-worker')
-    @click.option('--steps', default=1, type=click.IntRange(1, 1000))
-    def worker(steps):
-        """Process bounded generation steps. Run periodically in a dedicated worker."""
-        completed = 0
-        for _ in range(steps):
-            if not courses.run_one_job():
-                break
-            completed += 1
-        click.echo(f'Processed {completed} generation steps.')
+    from intelliplan.learning.worker import install as install_worker
+    install_worker(app)
