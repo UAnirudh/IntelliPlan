@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
+from flask import request
 from flask_login import login_user
 from sqlalchemy import update
 
@@ -288,3 +289,23 @@ def test_breakdown_helper_discards_ai_after_permissions_change(account, monkeypa
         finally:
             session.expire_on_commit = previous_expiration
     provider.assert_called_once()
+
+
+@pytest.mark.parametrize(('method', 'path'), [
+    ('GET', '/api/today'), ('POST', '/api/today/refresh'),
+    ('GET', '/api/today/explain?component=health'),
+    ('GET', '/api/next-action'), ('GET', '/api/next-action/explain'),
+    ('POST', '/api/next-action/respond'),
+    ('POST', '/api/schedule/override'), ('POST', '/api/schedule/override/apply'),
+    ('GET', '/api/schedule/feasibility'), ('GET', '/api/schedule/versions'),
+])
+def test_planner_families_deny_before_any_view_or_cache(account, monkeypatch, method, path):
+    restrict(account, {'scheduler': False})
+    with App.app.test_request_context(path, method=method):
+        endpoint = request.endpoint
+    assert endpoint is not None
+    view = Mock(side_effect=AssertionError('Restricted planner view/cache must not be reached.'))
+    monkeypatch.setitem(App.app.view_functions, endpoint, view)
+    response = account[2].open(path, method=method, json={} if method == 'POST' else None)
+    assert response.status_code == 403 and response.json['feature'] == 'scheduler'
+    view.assert_not_called()

@@ -17,7 +17,6 @@ import logging
 import os
 import time
 from datetime import datetime, timedelta
-from typing import Any
 
 from .sender import send_lifecycle_email
 
@@ -270,13 +269,28 @@ def newsletter_recipients(limit: int | None = None) -> list:
     the gate is the thing under test and a second, looser copy of it in SQL
     is exactly how a child ends up on a marketing list.
     """
+    eligible, _ = newsletter_audience()
+    return eligible[:limit] if limit else eligible
+
+
+def newsletter_audience() -> tuple[list, dict]:
+    """Eligible subscribers and aggregate exclusions, without recipient data."""
     from App import User
 
     from .eligibility import is_marketing_eligible
 
     query = User.query.filter(User.marketing_emails_opt_in.is_(True))
-    eligible = [u for u in query.all() if is_marketing_eligible(u)[0]]
-    return eligible[:limit] if limit else eligible
+    eligible = []
+    reasons = {}
+    candidates = query.all()
+    for user in candidates:
+        allowed, reason = is_marketing_eligible(user)
+        if allowed:
+            eligible.append(user)
+        else:
+            reasons[reason] = reasons.get(reason, 0) + 1
+    return eligible, {"opted_in": len(candidates), "eligible": len(eligible),
+                      "excluded": len(candidates) - len(eligible), "reasons": reasons}
 
 
 def send_thank_you(dry_run: bool = True, batch_size: int = 25) -> dict:
@@ -363,8 +377,9 @@ def send_newsletter(
             for u in User.query.filter(User.email.isnot(None)).all()
             if (u.email or "").lower() in ADMIN_EMAILS
         ]
+        audience = None
     else:
-        recipients = newsletter_recipients()
+        recipients, audience = newsletter_audience()
 
     summary = {
         "email_key": content["email_key"],
@@ -374,6 +389,10 @@ def send_newsletter(
         "recipients": len(recipients),
         **_blank_summary(),
     }
+    if audience is not None:
+        summary["audience"] = audience
+        if not recipients:
+            summary["no_eligible_recipients"] = True
 
     if not templates.postal_address():
         summary["error"] = (

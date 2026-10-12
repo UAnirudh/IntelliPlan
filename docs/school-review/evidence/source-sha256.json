@@ -44,6 +44,10 @@
     "sha256": "f4dcde29b3df886fc3fd8abd3a5d69ad775d0defdb6373b556409f93efe9a8a4"
   },
   {
+    "path": "intelliplan/email/campaigns.py",
+    "sha256": "a531d98ae006a4ddae985c79df5ec7a0713ee4d71a85afdc50f844a0c7fa60bb"
+  },
+  {
     "path": "intelliplan/email/sender.py",
     "sha256": "9f09e40de0f7a93257db7daf94c97f1f3a8e1895b49fb25a14b42206b90277bb"
   },
@@ -69,7 +73,7 @@
   },
   {
     "path": "intelliplan/learning/enforcement.py",
-    "sha256": "1cf5da64c8e3a7da92467c4f4d58381a6eaca8ec16263edf04512893512ea085"
+    "sha256": "651f3ca1f1e11766648e6ad92a2bbcda61c3118570d1bcdce2171811fbb8e0b0"
   },
   {
     "path": "intelliplan/learning/evidence.py",
@@ -114,6 +118,10 @@
   {
     "path": "scripts/inventory_learning_routes.py",
     "sha256": "4ddda50f57a8084de31947c748eb911b3012f67644b6efc4543bf911a606525e"
+  },
+  {
+    "path": "scripts/run_weekly_newsletter_cron.py",
+    "sha256": "a22a073a1ece828243f2b8c0fefaa8e8ad9eaab9e6cad1fb62d9a6424144b1c8"
   },
   {
     "path": "scripts/verify_learning_hub.py",
@@ -436,12 +444,16 @@
     "sha256": "8596ddb0384b3ce60f199d55010eab5e2ff314a98fad19e77abacd0f250d3cb1"
   },
   {
+    "path": "tests/test_email_weekly.py",
+    "sha256": "9bbe0e800d8158d95f61d7d78bdaba5b613508978b42cc8b897f9b05cb1a171e"
+  },
+  {
     "path": "tests/test_learning_hub.py",
     "sha256": "3fa214d364fea2db07909abcebb99eb506ccf0f2ff2eefc5434e6a38ab1bc646"
   },
   {
     "path": "tests/test_learning_legacy_tools.py",
-    "sha256": "27789e42af273b25a503fb227262cd8a2e338548237ba9fe627c5b04d130fdde"
+    "sha256": "90ee0643d4bc9db601617f550d975ed78f7f19b1db743c3cb8f95380b8bfaac4"
   },
   {
     "path": "tests/test_learning_postgres.py",

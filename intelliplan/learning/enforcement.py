@@ -9,7 +9,7 @@ SURFACES = {
     'study': ('/study', '/api/study-hub', '/api/deepstudy', '/api/active', '/active', '/foundations', '/api/primer', '/api/lessons', '/lessons', '/api/breakdown/start'),
     'review': ('/learn', '/api/flashcards', '/flashcards'),
     'focus': ('/focus', '/api/focus', '/api/focus-shield', '/extension/focus', '/uploads/focus-alarm'),
-    'scheduler': ('/scheduler', '/schedule', '/generate_schedule', '/api/scheduler', '/api/adjust', '/api/v1/schedule', '/extension/schedule', '/api/followthrough'),
+    'scheduler': ('/scheduler', '/schedule', '/generate_schedule', '/api/scheduler', '/api/schedule', '/api/today', '/api/next-action', '/api/adjust', '/api/v1/schedule', '/extension/schedule', '/api/followthrough'),
     'canvas': ('/login/canvas', '/oauth/canvas', '/api/canvas'),
     'studentvue': ('/login/studentvue', '/api/studentvue', '/oauth/studentvue'),
     'schoology': ('/login/schoology',),
