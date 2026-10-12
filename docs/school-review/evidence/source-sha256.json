@@ -9,11 +9,15 @@
   },
   {
     "path": "App.py",
-    "sha256": "1a9689de6845999ea9133d09c5ea1b1b9d1d070eb6f824e1a17b206d8dd128c6"
+    "sha256": "8df66563894cad06a59113c1f0e6e2fc226a799051cb3abd0b57aab280700a83"
   },
   {
     "path": "chatbot_api.py",
     "sha256": "e918dcf7c3383563243344626f5dc4190402290b77a534d882559f77fca1a125"
+  },
+  {
+    "path": "intelliplan/api/lms_sync.py",
+    "sha256": "f4dcde29b3df886fc3fd8abd3a5d69ad775d0defdb6373b556409f93efe9a8a4"
   },
   {
     "path": "intelliplan/email/sender.py",
@@ -37,7 +41,7 @@
   },
   {
     "path": "intelliplan/learning/enforcement.py",
-    "sha256": "3562cd1fdf52b7893116ee94594d3ccc181df9ac77f55973d151f105f8b7875a"
+    "sha256": "0d9618b7983c7c5da083c48510b8c984109a33998555e9ccf8e43f83c3d7fa8a"
   },
   {
     "path": "intelliplan/learning/evidence.py",
@@ -57,7 +61,7 @@
   },
   {
     "path": "intelliplan/learning/policy.py",
-    "sha256": "5635da2d7606ba05e667c23a925f8b68397b7e13ce83c2b7d8b665e2dcfb7a2e"
+    "sha256": "c617a7c702ca4535191d50ffc36353250c02769e82e7fb0b0a581ab86fb1c92d"
   },
   {
     "path": "intelliplan/retrieval/embeddings.py",
@@ -81,7 +85,7 @@
   },
   {
     "path": "plani_agent.py",
-    "sha256": "92b48a4b718da2c9b399d560066518e9e6153b81e5b85f59912adc8208c59ebe"
+    "sha256": "b41a254f972ffc793724c0ecf3e55d25a89ca4b84e5f932f7e1eadc713488733"
   },
   {
     "path": "scripts/inventory_learning_routes.py",
@@ -113,7 +117,7 @@
   },
   {
     "path": "static/js/school_admin.js",
-    "sha256": "94524896cf9d74ab8c6962f4974f006588e9784d14a00c4caab878d4730aadbc"
+    "sha256": "29dd4ee369577f1d84187af6410ca26153b10e9c336a8ad250d10c49ea4ef8d8"
   },
   {
     "path": "static/vendor/learning-content/dompurify-LICENSE",
@@ -409,7 +413,7 @@
   },
   {
     "path": "tests/test_plani_policy.py",
-    "sha256": "4cc88ad777aa691e2de5152ef39f6adec299023d908e83710e6c579b23ac16bd"
+    "sha256": "75100619a9ba4a406a2f76e59cb28dfbfc089e3d0a583024be56d2322101c2b4"
   },
   {
     "path": "tests/test_retrieval.py",

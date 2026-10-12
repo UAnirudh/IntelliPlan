@@ -12,6 +12,10 @@ SURFACES = {
     'scheduler': ('/scheduler', '/schedule', '/generate_schedule', '/api/scheduler', '/api/adjust', '/api/v1/schedule', '/extension/schedule', '/api/followthrough'),
     'canvas': ('/login/canvas', '/oauth/canvas', '/api/canvas'),
     'studentvue': ('/login/studentvue', '/api/studentvue', '/oauth/studentvue'),
+    'schoology': ('/login/schoology',),
+    'hac': ('/login/hac',),
+    'moodle': ('/api/lms/connect/moodle/manual',),
+    'notion': ('/oauth/notion', '/notion'),
     'calendar': ('/calendar', '/login/calendar-feed', '/oauth/google', '/oauth/outlook', '/oauth2callback', '/api/calendar-feed', '/api/calendar/feed'),
     'uploads': ('/notes/upload', '/api/notes/search', '/api/syllabus/import', '/api/deepstudy/ingest', '/study/extract-pdf', '/study/analyze-image', '/analyze-image', '/api/tutor/vision', '/api/assignment/notes', '/api/lessons', '/api/timetable/photo', '/oauth/onedrive', '/oauth/google-drive'),
     'notifications': ('/push', '/notifications', '/api/notifications', '/api/v1/push', '/api/reminders'),
@@ -67,9 +71,17 @@ def install(app):
     def enforce():
         if request.method == 'OPTIONS' or request.endpoint == 'static':
             return None
-        if request.path.endswith('/disconnect') or request.path == '/api/calendar/feed/revoke':
+        if request.path.endswith('/disconnect') or request.path.startswith('/api/lms/disconnect/') or request.path == '/api/calendar/feed/revoke':
             return None  # Existing authenticated handlers must allow credential revocation.
         keys = [key for key, paths in SURFACES.items() if any(matches(request.path, p) for p in paths)]
+        if request.path.startswith(('/api/lms/connect/', '/api/lms/callback/')):
+            source = policy.source_capability((request.view_args or {}).get('provider'))
+            if source:
+                keys.append(source)
+        if request.path.startswith('/api/lms/') and request.path.endswith('/sync'):
+            source = policy.source_capability((request.view_args or {}).get('key'))
+            if source:
+                keys.append(source)
         if request.path == '/oauth/outlook/callback' and session.get('microsoft_oauth_purpose') == 'onedrive':
             keys = ['uploads']
         if request.path in {'/oauth2callback', '/oauth/google/callback'}:
@@ -100,14 +112,13 @@ def install(app):
                     raw = getattr(user, 'lms_preferences', None) or '{}'
                     prefs = json.loads(raw) if isinstance(raw, str) else raw
                     source = (prefs.get('grade_source') or 'active').strip().lower()
-                    if source in {'canvas', 'studentvue', 'schoology', 'hac'}:
+                    if source in policy.LMS_SOURCES:
                         chosen = LinkedAccount.query.filter_by(user_id=user.id, login_type=source).order_by(
                             LinkedAccount.is_active.desc(), LinkedAccount.id.desc()).first()
                         linked = chosen or linked
-                if linked and linked.login_type in {'canvas', 'studentvue'}:
-                    keys.append(linked.login_type)
-                elif linked and linked.login_type == 'calendar_feed':
-                    keys.append('calendar')
+                source = policy.source_capability(linked.login_type) if linked else None
+                if source:
+                    keys.append(source)
             for key in keys:
                 allowed, reason = policy.decision(user, key)
                 if not allowed:

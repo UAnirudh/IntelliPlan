@@ -5,6 +5,8 @@
   let organizations = [], selected;
   const settings = {tutor:'AI tutor', study:'Study sessions', review:'Review & flashcards', focus:'Focus tools',
     scheduler:'Scheduling', canvas:'Canvas connection', studentvue:'StudentVUE connection', calendar:'Calendar connection',
+    schoology:'Schoology connection', hac:'Home Access Center connection', google_classroom:'Google Classroom connection',
+    blackboard:'Blackboard connection', moodle:'Moodle connection', notion:'Notion connection', powerschool:'PowerSchool connection',
     uploads:'File uploads', notifications:'Notifications', course_generator:'Course generator · Admin Beta',
     generated_content:'Original course generation · Admin Beta', video_generation:'Video generation · unavailable alpha',
     practice_preview:'Reviewed practice preview · Opt-in Beta',
@@ -21,7 +23,8 @@
     const input = document.createElement('input'); input.type = 'checkbox'; input.id = `policy-${key}`;
     wrapper.append(input, document.createTextNode(label)); $(container).append(wrapper);
   }
-  const connections = new Set(['canvas', 'studentvue', 'calendar', 'uploads', 'notifications']);
+  const connections = new Set(['canvas', 'studentvue', 'schoology', 'hac', 'google_classroom',
+    'blackboard', 'moodle', 'notion', 'powerschool', 'calendar', 'uploads', 'notifications']);
   const experiments = new Set(['course_generator', 'generated_content', 'video_generation', 'practice_preview', 'allow_beta', 'third_party_processing']);
   for (const [key, label] of Object.entries(settings)) {
     checkbox(connections.has(key) ? 'admin-connections' : experiments.has(key) ? 'admin-experiments' : 'admin-features', key, label);

@@ -31,6 +31,7 @@ Verified: local automated permission, privacy, scoring, recovery and regression 
 17. [Preserved module organization](17-module-organization.md).
 18. [Additional AI policy and consent coverage](18-ai-policy-coverage.md).
 19. [Plani account-data and internal-operation boundaries](19-plani-data-boundaries.md).
+20. [Legacy LMS connection and data boundaries](20-lms-policy-boundaries.md).
 
 The engineering checkpoint was saved before a subsequent [Learning Hub and institution UI pass](12-ui-design.md), informed by live Skydive, Cluely, Linear and Notion references. It adds theme-aware layouts, useful question starters, course preparation/progress and grouped settings while preserving beta notices and policy gates. Ten browser workflows and sixteen scoped responsive/accessibility checks accompany the UI work. The broader acceptance ledger remains unchanged in scope.
 
@@ -41,3 +42,5 @@ The subsequent engineering continuation adds sanitized Markdown/math/code/tables
 No commit in this checkpoint constitutes institutional permission, provider-contract approval, legal certification, validated educational effectiveness, WCAG conformance, or production deployment verification.
 
 The subsequent Plani continuation closes scoped internal-operation and account-data consent gaps, profile ownership, nested calendar placement/export and source-revocation races, retrieval embedding permissions, background LMS cache/credential boundaries, and model-round accounting. The current full regression passes4138 tests with24 skipped, and its expanded focused suite passes402 tests; the scoped independent read-only review completed after three additional fixes. [Behavior and limitations](19-plani-data-boundaries.md). Full-scope acceptance and live operational gates remain incomplete; UI refinement remains deferred.
+
+The subsequent legacy LMS continuation adds seven named source controls and guards connection/callback, cache/credential, refresh/sync and post-fetch publication boundaries. The latest full regression passes4183 tests with24 skipped; the focused run passes434 tests. Independent Python, JavaScript and scoped spec reviews completed. The fresh browser report retains16 workflows and27 responsive/scoped axe checks with no JavaScript errors. [LMS behavior and limitations](20-lms-policy-boundaries.md). No live deployment, vendor authorization or full-brief completion is claimed.

@@ -8,6 +8,21 @@ from flask import g, has_request_context
 from datetime import datetime, timezone
 
 BETA_NOTICE_VERSION = 'learning_beta_v1'
+LMS_SOURCES = frozenset({'canvas', 'studentvue', 'schoology', 'hac',
+                         'google_classroom', 'blackboard', 'moodle', 'notion', 'powerschool'})
+SOURCE_CAPABILITIES = LMS_SOURCES | {'calendar'}
+
+
+def source_capability(source):
+    """Canonical capabilities for rows, preferences and connection providers."""
+    source = str(source or '').lower()
+    if source.startswith('studentvue'):
+        return 'studentvue'
+    if source == 'calendar_feed':
+        return 'calendar'
+    if source == 'hac_missing':
+        return 'hac'
+    return source if source in LMS_SOURCES else None
 
 
 @dataclass(frozen=True)
@@ -26,6 +41,8 @@ FEATURES = {
     'scheduler': Feature('stable'),
     'canvas': Feature('stable'),
     'studentvue': Feature('stable', 'Legacy connection; district permission and live reliability require separate verification.'),
+    **{key: Feature('stable', 'Existing connector control; institutional permission and live reliability remain unverified.')
+       for key in LMS_SOURCES - {'canvas', 'studentvue'}},
     'calendar': Feature('stable'),
     'uploads': Feature('stable'),
     'notifications': Feature('stable'),

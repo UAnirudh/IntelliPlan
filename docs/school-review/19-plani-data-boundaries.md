@@ -14,7 +14,7 @@ The prior route-level tutor gate did not govern every internal Plani tool. The a
 - The shared LMS collector checks the actual owner's source policy before cache access and credential opening, then filters revoked mapped-source rows before return/cache. Restricted partial fetches cannot seed an unrestricted cache. The legacy unified-task route also enforces its active source, including calendar feeds. Grade personalization checks consent, mapped source policy and provider permission before credential lookup.
 - Institution and feature-flag reads refresh already-loaded records when policy is re-evaluated; invalidating the request decision cache alone could otherwise retain stale ORM policy state.
 
-Access checks cannot recall an already-started external request or undo an event already written by a provider. This checkpoint checks at operation boundaries; transactional production concurrency and live vendor behavior remain unverified. The shared collector still includes legacy providers outside the mapped Canvas/StudentVUE/calendar registry; generalized provider-policy coverage remains incomplete.
+Access checks cannot recall an already-started external request or undo an event already written by a provider. This checkpoint checks at operation boundaries; transactional production concurrency and live vendor behavior remain unverified. At this checkpoint, the shared collector still included legacy providers outside the mapped Canvas/StudentVUE/calendar registry. The subsequent [LMS continuation](20-lms-policy-boundaries.md) adds seven named sources and additional guarded paths; universal policy coverage remains incomplete.
 
 ## Verification and limits
 

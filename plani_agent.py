@@ -414,7 +414,8 @@ def _capabilities_allowed(user, *keys):
 def _source_data_allowed(user):
     # Aggregated grades and Command Center payloads do not carry enough
     # provenance to safely separate restricted sources. Omit the aggregate.
-    return _capabilities_allowed(user, 'canvas', 'studentvue', 'calendar')
+    from intelliplan.learning import policy
+    return _capabilities_allowed(user, *policy.SOURCE_CAPABILITIES)
 
 
 def _permitted_lms_tasks(user_id):
@@ -440,7 +441,7 @@ def _tool_denial(name, args, user_id):
         keys = _TOOL_CAPABILITIES.get(name, ())
         if name == 'connect_account':
             service = str(args.get('service') or '').lower().strip().replace(' ', '_')
-            keys = (service,) if service in {'canvas', 'studentvue'} else (
+            keys = (service,) if service in policy.LMS_SOURCES else (
                 ('calendar',) if service in {'google_calendar', 'outlook'} else ())
         if not _capabilities_allowed(user, *keys):
             return {'error': 'policy_restricted', 'feature': ','.join(keys)}

@@ -3524,6 +3524,8 @@ def _refresh_notion_row(ni):
     to succeed; if it really has expired, the API call fails with Notion's own
     error rather than this function inventing one.
     """
+    if ni and not _lms_policy_allowed('notion', ni.user_id):
+        return None
     if not ni or not ni.refresh_token:
         return ni.token if ni else None
     if not token_needs_refresh(ni.token_expires_at):
@@ -3532,7 +3534,9 @@ def _refresh_notion_row(ni):
         fresh = refresh_notion_token(ni.refresh_token)
     except Exception as e:
         print(f"[notion] token refresh failed for user {ni.user_id}: {e}")
-        return ni.token
+        return ni.token if _lms_policy_allowed('notion', ni.user_id) else None
+    if not _lms_policy_allowed('notion', ni.user_id):
+        return None
     if not fresh.get("access_token"):
         print(f"[notion] refresh returned no access token for user {ni.user_id}")
         return ni.token
@@ -3550,6 +3554,8 @@ def _refresh_notion_row(ni):
 
 def get_notion_token_and_db():
     if current_user.is_authenticated:
+        if not _lms_policy_allowed('notion'):
+            return None, None
         ni = NotionIntegration.query.filter_by(user_id=current_user.id).first()
         if ni and ni.token:
             return _refresh_notion_row(ni), ni.database_id
@@ -5961,9 +5967,31 @@ def _classroom_refresh_token(refresh_token):
     r.raise_for_status()
     return r.json()
 
+def _lms_policy_allowed(source, user_id=None):
+    """Resolve source access for web calls and explicitly owned background work."""
+    try:
+        uid = user_id or (current_user.id if current_user.is_authenticated else None)
+        if not uid:
+            return False
+        if flask.has_request_context() and (not current_user.is_authenticated or current_user.id != uid):
+            return False
+        from intelliplan.learning import policy as learning_policy
+        owner = db.session.get(User, uid)
+        capability = learning_policy.source_capability(source)
+        if not owner or not capability:
+            return False
+        learning_policy.invalidate_cache()
+        return learning_policy.decision(owner, capability)[0]
+    except Exception:
+        app.logger.warning('LMS operation policy unavailable', exc_info=True)
+        return False
+
+
 def _classroom_access_token_for(user_id):
     """Return a valid access token for the given user, refreshing if needed.
     Returns None if no Classroom integration exists or refresh fails."""
+    if not _lms_policy_allowed('google_classroom', user_id):
+        return None, None
     row = ClassroomIntegration.query.filter_by(user_id=user_id).order_by(ClassroomIntegration.id.desc()).first()
     if not row:
         return None, None
@@ -5973,6 +6001,8 @@ def _classroom_access_token_for(user_id):
     if needs_refresh and row.refresh_token:
         try:
             data = _classroom_refresh_token(row.refresh_token)
+            if not _lms_policy_allowed('google_classroom', user_id):
+                return None, None
             row.access_token = data.get("access_token", row.access_token)
             ttl = int(data.get("expires_in", 3600))
             row.token_expires_at = now + timedelta(seconds=ttl)
@@ -5980,7 +6010,7 @@ def _classroom_access_token_for(user_id):
         except Exception as e:
             print(f"[classroom] refresh failed for user {user_id}: {e}")
             return None, row
-    return row.access_token, row
+    return (row.access_token, row) if _lms_policy_allowed('google_classroom', user_id) else (None, None)
 
 def _classroom_get_userinfo(access_token):
     """Fetch the connected Google account's email + name."""
@@ -6307,6 +6337,8 @@ def _blackboard_refresh_token(institution_url, refresh_token):
     })
 
 def _blackboard_access_token_for(user_id):
+    if not _lms_policy_allowed('blackboard', user_id):
+        return None, None
     row = BlackboardIntegration.query.filter_by(user_id=user_id).order_by(BlackboardIntegration.id.desc()).first()
     if not row:
         return None, None
@@ -6315,6 +6347,8 @@ def _blackboard_access_token_for(user_id):
     if needs_refresh and row.refresh_token and row.institution_url:
         try:
             data = _blackboard_refresh_token(row.institution_url, row.refresh_token)
+            if not _lms_policy_allowed('blackboard', user_id):
+                return None, None
             row.access_token = data.get("access_token", row.access_token)
             ttl = int(data.get("expires_in", 3600))
             row.token_expires_at = now + timedelta(seconds=ttl)
@@ -6322,7 +6356,7 @@ def _blackboard_access_token_for(user_id):
         except Exception as e:
             print(f"[blackboard] refresh failed for user {user_id}: {e}")
             return None, row
-    return row.access_token, row
+    return (row.access_token, row) if _lms_policy_allowed('blackboard', user_id) else (None, None)
 
 def _blackboard_get_userinfo(institution_url, access_token):
     try:
@@ -7524,7 +7558,7 @@ def _fetch_grades_for_personalization():
         learning_policy.invalidate_cache()
         if (not learning_policy.permitted_providers(current_user) or
             not all(learning_policy.decision(current_user, key)[0]
-                    for key in ('canvas', 'studentvue'))):
+                    for key in learning_policy.LMS_SOURCES)):
             return []
         acct = get_grade_account()
         if acct:
@@ -13089,7 +13123,7 @@ def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True) ->
         db.session.refresh(owner)
         learning_policy.invalidate_cache()
         permissions = {}
-        for capability in ('canvas', 'studentvue', 'calendar'):
+        for capability in learning_policy.SOURCE_CAPABILITIES:
             allowed, reason = learning_policy.decision(owner, capability)
             if reason == 'policy_unavailable':
                 return []
@@ -13115,7 +13149,7 @@ def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True) ->
     acct_dict = None
     try:
         acct = LinkedAccount.query.filter_by(user_id=user_id, is_active=True).first()
-        capability = {'calendar_feed': 'calendar'}.get(acct.login_type, acct.login_type) if acct else None
+        capability = learning_policy.source_capability(acct.login_type) if acct else None
         if acct and permissions.get(capability, True):
             creds = acct.get_credentials() or {}
             creds["login_type"] = acct.login_type
@@ -13240,30 +13274,33 @@ def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True) ->
 
     # Google Classroom (independent of active account)
     try:
-        ctok, _crow = _classroom_access_token_for(user_id)
+        ctok, _crow = _classroom_access_token_for(user_id) if permissions['google_classroom'] else (None, None)
         if ctok:
             for a in _classroom_fetch_assignments(ctok):
                 if a.get("title") and a["title"] not in dismissed:
+                    a['source'] = 'google_classroom'
                     tasks.append(a)
     except Exception as e:
         print(f"[lms-collect] classroom err: {e}")
 
     # Blackboard
     try:
-        btok, brow = _blackboard_access_token_for(user_id)
+        btok, brow = _blackboard_access_token_for(user_id) if permissions['blackboard'] else (None, None)
         if btok and brow and brow.institution_url:
             for a in _blackboard_fetch_assignments(brow.institution_url, btok, brow.bb_user_id):
                 if a.get("title") and a["title"] not in dismissed:
+                    a['source'] = 'blackboard'
                     tasks.append(a)
     except Exception as e:
         print(f"[lms-collect] blackboard err: {e}")
 
     # Moodle
     try:
-        mrow = MoodleIntegration.query.filter_by(user_id=user_id).order_by(MoodleIntegration.id.desc()).first()
+        mrow = MoodleIntegration.query.filter_by(user_id=user_id).order_by(MoodleIntegration.id.desc()).first() if permissions['moodle'] else None
         if mrow and mrow.moodle_url and mrow.ws_token:
             for a in _moodle_fetch_assignments(mrow.moodle_url, mrow.ws_token, mrow.moodle_user_id):
                 if a.get("title") and a["title"] not in dismissed:
+                    a['source'] = 'moodle'
                     tasks.append(a)
     except Exception as e:
         print(f"[lms-collect] moodle err: {e}")
@@ -13292,14 +13329,8 @@ def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True) ->
                 return []
             latest[capability] = allowed
         def permitted_row(row):
-            source = str(row.get('source') or '')
-            if source.startswith('studentvue'):
-                return latest['studentvue']
-            if source == 'canvas':
-                return latest['canvas']
-            if source == 'calendar_feed':
-                return latest['calendar']
-            return True
+            capability = learning_policy.source_capability(row.get('source'))
+            return latest[capability] if capability else True
         deduped = [row for row in deduped if permitted_row(row)]
     except Exception:
         app.logger.warning('LMS source policy recheck unavailable', exc_info=True)
@@ -13453,47 +13484,51 @@ def unified_tasks():
     # A user may have Classroom connected alongside Canvas or StudentVue, so
     # we always check for stored Classroom tokens, not just the active account.
     try:
-        if current_user.is_authenticated and "google_classroom" in assignment_sources:
+        if current_user.is_authenticated and "google_classroom" in assignment_sources and _lms_policy_allowed('google_classroom'):
             ctok, _crow = _classroom_access_token_for(current_user.id)
             if ctok:
                 for a in _classroom_fetch_assignments(ctok):
                     if a.get("title") in dismissed:
                         continue
+                    a['source'] = 'google_classroom'
                     tasks.append(a)
     except Exception as e:
         print(f"Classroom unified error: {e}")
 
     # ── Blackboard Learn (independent of active LMS account) ──
     try:
-        if current_user.is_authenticated and "blackboard" in assignment_sources:
+        if current_user.is_authenticated and "blackboard" in assignment_sources and _lms_policy_allowed('blackboard'):
             btok, brow = _blackboard_access_token_for(current_user.id)
             if btok and brow and brow.institution_url:
                 for a in _blackboard_fetch_assignments(brow.institution_url, btok, brow.bb_user_id):
                     if a.get("title") in dismissed:
                         continue
+                    a['source'] = 'blackboard'
                     tasks.append(a)
     except Exception as e:
         print(f"Blackboard unified error: {e}")
 
     # ── Moodle (independent of active LMS account) ──
     try:
-        if current_user.is_authenticated and "moodle" in assignment_sources:
+        if current_user.is_authenticated and "moodle" in assignment_sources and _lms_policy_allowed('moodle'):
             mrow = MoodleIntegration.query.filter_by(user_id=current_user.id).order_by(MoodleIntegration.id.desc()).first()
             if mrow and mrow.moodle_url and mrow.ws_token:
                 for a in _moodle_fetch_assignments(mrow.moodle_url, mrow.ws_token, mrow.moodle_user_id):
                     if a.get("title") in dismissed:
                         continue
+                    a['source'] = 'moodle'
                     tasks.append(a)
     except Exception as e:
         print(f"Moodle unified error: {e}")
 
-    if NOTION_AVAILABLE and "notion" in assignment_sources:
+    if NOTION_AVAILABLE and "notion" in assignment_sources and _lms_policy_allowed('notion'):
         try:
             notion_token, notion_db_id = get_notion_token_and_db()
             if notion_token and notion_db_id:
                 notion_raw = get_notion_tasks(notion_token, notion_db_id)
                 for t in notion_raw:
                     if t.get("title") not in dismissed:
+                        t['source'] = 'notion'
                         tasks.append(t)
         except Exception as e:
             print(f"Notion tasks error: {e}")
@@ -13523,6 +13558,14 @@ def unified_tasks():
     except Exception as e:
         print(f"Manual tasks error: {e}")
     tasks = dedupe_tasks(tasks)
+    if current_user.is_authenticated:
+        from intelliplan.learning import policy as learning_policy
+        # Do not publish newly revoked source rows to Grade Pulse or clients.
+        permitted = {key: _lms_policy_allowed(key) for key in learning_policy.LMS_SOURCES}
+        permitted['calendar'] = _calendar_policy_allowed()
+        tasks = [task for task in tasks if (
+            learning_policy.source_capability(task.get('source')) is None or
+            permitted[learning_policy.source_capability(task.get('source'))])]
     # Grade Pulse: a teacher's new assignment is noticed on the read that
     # already happens, slotted into the plan, and announced. Manual tasks
     # are skipped inside (the student typed those; telling them is noise).

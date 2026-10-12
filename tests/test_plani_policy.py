@@ -421,17 +421,20 @@ def test_grade_personalization_guard_precedes_credential_lookup(account, monkeyp
 
 
 @pytest.mark.parametrize(('source', 'key'), [('canvas', 'canvas'), ('studentvue', 'studentvue'),
-                                          ('calendar_feed', 'calendar')])
-def test_legacy_unified_tasks_route_checks_active_source_policy(account, source, key):
+                                          ('calendar_feed', 'calendar'), ('schoology', 'schoology'), ('hac', 'hac')])
+def test_legacy_unified_tasks_route_checks_active_source_policy(account, monkeypatch, source, key):
     restrict(account, {key: False})
     with App.app.app_context():
         linked = App.LinkedAccount(user_id=account[0], login_type=source, is_active=True)
         linked.set_credentials({})
         App.db.session.add(linked)
         App.db.session.commit()
+    credentials = Mock(side_effect=AssertionError('denied credential access'))
+    monkeypatch.setattr(App.LinkedAccount, 'get_credentials', credentials)
     response = signed_client(account).get('/tasks/unified')
     assert response.status_code == 403
     assert response.json['feature'] == key
+    credentials.assert_not_called()
 
 
 def test_calendar_revocation_ignores_memoized_busy_but_preserves_classes(account, monkeypatch):
@@ -490,3 +493,276 @@ def test_profile_extras_select_by_owner_even_when_primary_keys_collide(account, 
         context = plani.build_agent_context(uid)
     assert 'Onboarding questionnaire is not finished' not in context
     assert '3 slots' not in context
+
+
+@pytest.mark.parametrize(('source', 'path', 'method'), [
+    ('schoology', '/login/schoology', 'get'), ('hac', '/login/hac', 'post'),
+    ('google_classroom', '/api/lms/connect/google_classroom', 'post'),
+    ('blackboard', '/api/lms/connect/blackboard', 'post'),
+    ('moodle', '/api/lms/connect/moodle/manual', 'post'),
+    ('powerschool', '/api/lms/connect/powerschool', 'post'),
+    ('notion', '/notion/tasks', 'get'), ('notion', '/oauth/notion', 'get'),
+    ('google_classroom', '/api/lms/callback/google_classroom', 'get'),
+    ('blackboard', '/api/lms/callback/blackboard', 'get'),
+])
+def test_legacy_connector_routes_use_named_institution_policy(account, monkeypatch, source, path, method):
+    restrict(account, {source: False})
+    network = Mock(side_effect=AssertionError('denied connector must not call vendor'))
+    monkeypatch.setattr(App.requests, 'post', network)
+    monkeypatch.setattr(App.requests, 'get', network)
+    response = getattr(signed_client(account), method)(path)
+    assert response.status_code == 403
+    assert response.json['feature'] == source
+    network.assert_not_called()
+
+
+@pytest.mark.parametrize('source', ['schoology', 'hac'])
+def test_background_active_legacy_source_cannot_open_credentials_or_cached_data(account, monkeypatch, source):
+    quiet_secondary_sources(monkeypatch)
+    restrict(account, {source: False})
+    credentials = Mock(side_effect=AssertionError('denied credential access'))
+    monkeypatch.setattr(App.LinkedAccount, 'get_credentials', credentials)
+    with App.app.app_context():
+        linked = App.LinkedAccount(user_id=account[0], login_type=source, is_active=True)
+        linked.set_credentials({})
+        App.db.session.add(linked)
+        App.db.session.commit()
+        App._lms_cache_put(account[0], [{'title': 'PRIVATE CACHE', 'source': source}])
+        assert App.collect_lms_assignments_for_user(account[0]) == []
+    credentials.assert_not_called()
+    assert tool(account, 'get_grades')['error'] == 'source_restricted'
+    assert tool(account, 'connect_account', {'service': source})['error'] == 'policy_restricted'
+
+
+@pytest.mark.parametrize('source', ['google_classroom', 'blackboard', 'moodle'])
+def test_independent_sources_skip_token_fetches_and_revocation_stays_available(account, monkeypatch, source):
+    restrict(account, {source: False})
+    classroom, blackboard, moodle = Mock(), Mock(), Mock()
+    monkeypatch.setattr(App, '_classroom_access_token_for', classroom)
+    monkeypatch.setattr(App, '_blackboard_access_token_for', blackboard)
+    monkeypatch.setattr(App, '_moodle_fetch_assignments', moodle)
+    # Other permitted sources are disconnected, so each returns an empty pair.
+    classroom.return_value = (None, None)
+    blackboard.return_value = (None, None)
+    with App.app.app_context():
+        models = {'google_classroom': App.ClassroomIntegration,
+                  'blackboard': App.BlackboardIntegration, 'moodle': App.MoodleIntegration}
+        model = models[source]
+        values = {'user_id': account[0]}
+        if source == 'moodle':
+            values.update(moodle_url='https://example.test', ws_token='fixture')
+        else:
+            values.update(access_token='fixture', refresh_token='fixture')
+            if source == 'blackboard':
+                values['institution_url'] = 'https://example.test'
+        App.db.session.add(model(**values))
+        App.db.session.commit()
+        App._lms_cache_put(account[0], [{'title': 'PRIVATE CACHE', 'source': source}])
+        assert App.collect_lms_assignments_for_user(account[0]) == []
+    {'google_classroom': classroom, 'blackboard': blackboard, 'moodle': moodle}[source].assert_not_called()
+    client = signed_client(account)
+    assert client.get('/api/lms/status/' + source).json['connected'] is True
+    assert client.post('/api/lms/disconnect/' + source).status_code == 200
+    with App.app.app_context():
+        assert model.query.filter_by(user_id=account[0]).count() == 0
+    with client.session_transaction() as session:
+        session.clear()
+    assert client.post('/api/lms/disconnect/' + source).status_code == 401
+
+
+@pytest.mark.parametrize(('source', 'helper', 'model'), [
+    ('google_classroom', '_classroom_access_token_for', App.ClassroomIntegration),
+    ('blackboard', '_blackboard_access_token_for', App.BlackboardIntegration)])
+def test_real_token_helpers_fail_before_refresh_for_denied_or_foreign_users(account, monkeypatch, source, helper, model):
+    restrict(account, {source: False})
+    refresh = Mock(side_effect=AssertionError('must not refresh denied credentials'))
+    monkeypatch.setattr(App, '_classroom_refresh_token' if source == 'google_classroom' else '_blackboard_refresh_token', refresh)
+    with App.app.app_context():
+        row = model(user_id=account[0], access_token='fixture', refresh_token='fixture')
+        if source == 'blackboard':
+            row.institution_url = 'https://example.test'
+        App.db.session.add(row)
+        App.db.session.commit()
+        assert getattr(App, helper)(account[0]) == (None, None)
+    with App.app.test_request_context():
+        assert getattr(App, helper)(account[0]) == (None, None)
+        login_user(App.db.session.get(App.User, account[0]))
+        assert getattr(App, helper)(account[0] + 1) == (None, None)
+    refresh.assert_not_called()
+
+
+@pytest.mark.parametrize('source', ['schoology', 'hac', 'google_classroom', 'blackboard', 'moodle', 'notion', 'powerschool'])
+def test_new_source_restrictions_participate_in_parent_intersection(account, source):
+    with App.app.app_context():
+        school = App.db.session.get(policy.models()['Organization'], account[1])
+        district = policy.models()['Organization'](name='Fixture district', kind='district', policy={source: False})
+        App.db.session.add(district)
+        App.db.session.flush()
+        school.parent_id = district.id
+        school.policy = {source: True}
+        App.db.session.commit()
+        policy.invalidate_cache()
+        assert not policy.decision(App.db.session.get(App.User, account[0]), source)[0]
+
+
+@pytest.mark.parametrize(('source', 'helper', 'model', 'refresh_helper'), [
+    ('google_classroom', '_classroom_access_token_for', App.ClassroomIntegration, '_classroom_refresh_token'),
+    ('blackboard', '_blackboard_access_token_for', App.BlackboardIntegration, '_blackboard_refresh_token'),
+    ('notion', '_refresh_notion_row', App.NotionIntegration, 'refresh_notion_token')])
+@pytest.mark.parametrize('revoked', [False, True])
+def test_source_refresh_rechecks_before_persisting_tokens(account, monkeypatch, source, helper, model, refresh_helper, revoked):
+    def refresh(*args):
+        if revoked:
+            restrict(account, {source: False})
+        return {'access_token': 'new-fixture', 'expires_in': 3600}
+    monkeypatch.setattr(App, refresh_helper, refresh)
+    with App.app.app_context():
+        values = {'user_id': account[0], 'refresh_token': 'fixture'}
+        values['token_expires_at'] = App.utcnow() - App.timedelta(minutes=5)
+        values['token' if source == 'notion' else 'access_token'] = 'old-fixture'
+        if source == 'notion':
+            values['database_id'] = 'fixture'
+        if source == 'blackboard':
+            values['institution_url'] = 'https://example.test'
+        row = model(**values)
+        App.db.session.add(row)
+        App.db.session.commit()
+        result = getattr(App, helper)(row if source == 'notion' else account[0])
+        if revoked:
+            assert result == (None if source == 'notion' else (None, None))
+        else:
+            assert result == ('new-fixture' if source == 'notion' else ('new-fixture', row))
+        App.db.session.expire_all()
+        saved = model.query.filter_by(user_id=account[0]).one()
+        assert getattr(saved, 'token' if source == 'notion' else 'access_token') == (
+            'old-fixture' if revoked else 'new-fixture')
+
+
+def test_hac_revocation_filters_regular_and_missing_assignment_tags(account, monkeypatch):
+    quiet_secondary_sources(monkeypatch)
+    with App.app.app_context():
+        linked = App.LinkedAccount(user_id=account[0], login_type='hac', is_active=True)
+        linked.set_credentials({})
+        App.db.session.add(linked)
+        App.db.session.commit()
+    def revoke(*args, **kwargs):
+        restrict(account, {'hac': False})
+        return [{'title': 'PRIVATE REGULAR', 'source': 'hac'},
+                {'title': 'PRIVATE MISSING', 'source': 'hac_missing'}]
+    monkeypatch.setattr(App, '_hac_tasks', revoke)
+    observed = Mock()
+    monkeypatch.setattr('grade_pulse_glue.observe_assignments', observed)
+    with App.app.app_context():
+        assert App.collect_lms_assignments_for_user(account[0]) == []
+    assert policy.source_capability('hac_missing') == 'hac'
+    assert observed.call_args.args[1] == []
+
+
+def test_denied_notion_sync_preserves_local_task_creation_and_update(account, monkeypatch):
+    restrict(account, {'notion': False})
+    monkeypatch.setattr(App, 'NOTION_AVAILABLE', True)
+    create, update, refresh = Mock(), Mock(), Mock()
+    monkeypatch.setattr(App, 'create_notion_task', create)
+    monkeypatch.setattr(App, 'update_notion_task', update)
+    monkeypatch.setattr(App, 'refresh_notion_token', refresh)
+    with App.app.app_context():
+        App.db.session.add(App.NotionIntegration(user_id=account[0], token='fixture',
+                                                database_id='fixture', refresh_token='fixture'))
+        App.db.session.commit()
+    client = signed_client(account)
+    created = client.post('/tasks/manual/create', json={'title': 'Local task', 'sync_notion': True})
+    assert created.status_code == 200
+    tid = created.json['id']
+    with App.app.app_context():
+        App.db.session.get(App.ManualTask, tid).notion_page_id = 'fixture-page'
+        App.db.session.commit()
+    assert client.post('/tasks/manual/update', json={'id': tid, 'title': 'Changed locally'}).status_code == 200
+    with App.app.app_context():
+        assert App.db.session.get(App.ManualTask, tid).title == 'Changed locally'
+    create.assert_not_called()
+    update.assert_not_called()
+    refresh.assert_not_called()
+
+
+@pytest.mark.parametrize('source', ['google_classroom', 'blackboard', 'moodle', 'powerschool'])
+def test_generic_sync_route_checks_named_source_before_provider(account, monkeypatch, source):
+    restrict(account, {source: False})
+    with App.app.app_context():
+        App.db.session.add(App.LMSToken(user_id=account[0], provider=source, tokens_json='{"access_token":"fixture"}'))
+        App.db.session.commit()
+    provider = Mock()
+    monkeypatch.setattr('intelliplan.api.lms_sync.get_provider', provider)
+    client = signed_client(account)
+    response = client.post(f'/api/lms/{source}/sync')
+    assert response.status_code == 403
+    assert response.json['feature'] == source
+    provider.assert_not_called()
+    assert client.post(f'/api/lms/{source}/disconnect').status_code == 200
+    with App.app.app_context():
+        assert App.LMSToken.query.filter_by(user_id=account[0], provider=source).count() == 0
+
+
+@pytest.mark.parametrize('revoke_stage', ['refresh', 'sync', 'none'])
+def test_generic_sync_rechecks_after_vendor_operations_before_persisting(account, monkeypatch, revoke_stage):
+    source = 'google_classroom'
+    with App.app.app_context():
+        App.db.session.add(App.LMSToken(user_id=account[0], provider=source, tokens_json='{"access_token":"old-fixture"}'))
+        App.db.session.commit()
+    provider = Mock()
+    def refresh(**kwargs):
+        if revoke_stage == 'refresh':
+            restrict(account, {source: False})
+        return {'access_token': 'new-fixture'}
+    def sync(**kwargs):
+        if revoke_stage == 'sync':
+            restrict(account, {source: False})
+        return [object(), object()]
+    provider.refresh_tokens.side_effect = refresh
+    provider.sync_all.side_effect = sync
+    monkeypatch.setattr('intelliplan.api.lms_sync.get_provider', lambda key: provider)
+    response = signed_client(account).post(f'/api/lms/{source}/sync')
+    assert response.status_code == (200 if revoke_stage == 'none' else 403)
+    with App.app.app_context():
+        row = App.LMSToken.query.filter_by(user_id=account[0], provider=source).first()
+        assert row.last_sync_count == (2 if revoke_stage == 'none' else 0)
+        assert json.loads(row.tokens_json)['access_token'] == ('new-fixture' if revoke_stage == 'none' else 'old-fixture')
+    if revoke_stage == 'refresh':
+        provider.sync_all.assert_not_called()
+
+
+@pytest.mark.parametrize('source', ['google_classroom', 'blackboard', 'moodle', 'notion'])
+def test_unified_fetch_filters_revoked_sources_before_grade_pulse_and_response(account, monkeypatch, source):
+    from datetime import timedelta
+    add_task(account)
+    with App.app.app_context():
+        App.db.session.get(App.User, account[0]).lms_preferences = json.dumps({'assignment_sources': [source, 'manual']})
+        App.db.session.commit()
+    monkeypatch.setattr(App, 'get_active_account', lambda: None)
+    observed = Mock()
+    monkeypatch.setattr('grade_pulse_glue.observe_assignments', observed)
+    def revoke(*args, **kwargs):
+        restrict(account, {source: False})
+        # The caller must label provenance itself; providers cannot bypass it.
+        return [{'title': 'PRIVATE SOURCE TASK', 'source': 'manual', 'due_date': '2026-10-20'}]
+    with App.app.app_context():
+        if source == 'google_classroom':
+            App.db.session.add(App.ClassroomIntegration(user_id=account[0], access_token='fixture',
+                token_expires_at=App.utcnow() + timedelta(hours=1)))
+            monkeypatch.setattr(App, '_classroom_fetch_assignments', revoke)
+        elif source == 'blackboard':
+            App.db.session.add(App.BlackboardIntegration(user_id=account[0], access_token='fixture',
+                institution_url='https://example.test', token_expires_at=App.utcnow() + timedelta(hours=1)))
+            monkeypatch.setattr(App, '_blackboard_fetch_assignments', revoke)
+        elif source == 'moodle':
+            App.db.session.add(App.MoodleIntegration(user_id=account[0], moodle_url='https://example.test', ws_token='fixture'))
+            monkeypatch.setattr(App, '_moodle_fetch_assignments', revoke)
+        else:
+            monkeypatch.setattr(App, 'NOTION_AVAILABLE', True)
+            App.db.session.add(App.NotionIntegration(user_id=account[0], token='fixture', database_id='fixture'))
+            monkeypatch.setattr(App, 'get_notion_tasks', revoke)
+        App.db.session.commit()
+    response = signed_client(account).get('/tasks/unified')
+    assert response.status_code == 200
+    assert 'PRIVATE SOURCE TASK' not in response.get_data(as_text=True)
+    assert 'Manual algebra' in response.get_data(as_text=True)
+    assert [task['title'] for task in observed.call_args.args[1]] == ['Manual algebra']
