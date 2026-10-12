@@ -284,3 +284,108 @@ def test_pg_concurrent_shared_budget_reservations_cannot_overspend(pg_scope):
         event.remove(engine, 'before_cursor_execute', before_query)
     with App.app.app_context():
         assert M['Budget'].query.filter_by(organization_id=pg_scope['oids'][0]).one().reserved_tokens == 600
+
+
+def test_pg_concurrent_session_starts_create_only_one_open_session(pg_scope):
+    engine, M, uid = pg_scope['engine'], pg_scope['M'], pg_scope['uids'][0]
+    leading_insert, release, trailing_query = Event(), Event(), Event()
+    threads = {}
+
+    def before_query(conn, cursor, statement, parameters, context, executemany):
+        if get_ident() == threads.get('leading') and statement.startswith('INSERT INTO learning_sittings '):
+            leading_insert.set()
+            assert release.wait(10)
+        if get_ident() == threads.get('trailing') and statement.startswith('INSERT INTO learning_sittings '):
+            trailing_query.set()
+
+    def start(which):
+        with App.app.test_client() as client:
+            with client.session_transaction() as session:
+                session['_user_id'], session['_fresh'] = str(uid), True
+            threads[which] = get_ident()
+            response = client.post('/api/learning/sessions', json={'objective': 'Synthetic concurrent recall'})
+            return response.status_code, response.json
+
+    event.listen(engine, 'before_cursor_execute', before_query)
+    try:
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            leading = pool.submit(start, 'leading')
+            assert leading_insert.wait(10)
+            trailing = pool.submit(start, 'trailing')
+            try:
+                assert trailing_query.wait(10)
+                # The trailing request has also passed the open-session read.
+                trailing_status, trailing_body = trailing.result(timeout=10)
+            finally:
+                release.set()
+            leading_status, leading_body = leading.result(timeout=15)
+            assert (leading_status, trailing_status) == (409, 201)
+            assert leading_body['error'] == 'conflict'
+            assert trailing_body['state'] == 'active'
+    finally:
+        release.set()
+        event.remove(engine, 'before_cursor_execute', before_query)
+    with App.app.app_context():
+        assert M['Sitting'].query.filter(M['Sitting'].user_id == uid,
+                                       M['Sitting'].state.in_(['active', 'paused'])).count() == 1
+
+
+def test_pg_completion_cannot_be_resurrected_by_inflight_resume(pg_scope):
+    engine, M, uid = pg_scope['engine'], pg_scope['M'], pg_scope['uids'][0]
+    with App.app.app_context():
+        sitting = M['Sitting'](user_id=uid, objective='Synthetic completed recall', method='retrieval',
+            planned_minutes=25, intervention='pause', state='paused', elapsed_seconds=120, resumed_at=None)
+        App.db.session.add(sitting)
+        App.db.session.commit()
+        sid = sitting.id
+    updated, release, attempting, finished = Event(), Event(), Event(), Event()
+    threads = {}
+
+    def after_query(conn, cursor, statement, parameters, context, executemany):
+        if get_ident() == threads.get('complete') and statement.startswith('UPDATE learning_sittings SET '):
+            updated.set()
+            assert release.wait(10)
+
+    def before_query(conn, cursor, statement, parameters, context, executemany):
+        if get_ident() == threads.get('resume') and statement.startswith('UPDATE learning_sittings SET '):
+            attempting.set()
+
+    def checkpoint(kind):
+        try:
+            with App.app.test_client() as client:
+                with client.session_transaction() as session:
+                    session['_user_id'], session['_fresh'] = str(uid), True
+                threads[kind] = get_ident()
+                response = client.post(f'/api/learning/sessions/{sid}/checkpoint', json={'kind': kind})
+                return response.status_code, response.json
+        finally:
+            if kind == 'resume':
+                finished.set()
+
+    event.listen(engine, 'after_cursor_execute', after_query)
+    event.listen(engine, 'before_cursor_execute', before_query)
+    try:
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            completing = pool.submit(checkpoint, 'complete')
+            assert updated.wait(10)
+            resuming = pool.submit(checkpoint, 'resume')
+            try:
+                assert attempting.wait(10)
+                assert not finished.wait(0.2)
+            finally:
+                release.set()
+            complete_status, complete_body = completing.result(timeout=15)
+            resume_status, resume_body = resuming.result(timeout=15)
+            assert complete_status == 200 and complete_body['state'] == 'completed'
+            assert complete_body['demonstrated_mastery'] is False
+            assert resume_status == 409 and resume_body['error'] == 'session_changed'
+    finally:
+        release.set()
+        event.remove(engine, 'after_cursor_execute', after_query)
+        event.remove(engine, 'before_cursor_execute', before_query)
+    with App.app.app_context():
+        saved = App.db.session.get(M['Sitting'], sid)
+        assert saved.state == 'completed' and saved.resumed_at is None
+        assert saved.elapsed_seconds == 120
+        evidence = M['Evidence'].query.filter_by(user_id=uid, session_id=sid).one()
+        assert evidence.kind == 'complete' and evidence.correct is None

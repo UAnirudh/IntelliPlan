@@ -1,5 +1,11 @@
 # Testing report
 
+## Latest study-session PostgreSQL proof — 2026-10-12
+
+The restored synthetic PostgreSQL scope passes **199 tests,1659 warnings in20.49s**, exit0. Nine guarded PG cases now include actual concurrent signed-in HTTP start/start and complete/resume behavior. The existing uniqueness/error handler and revision guard preserve one open session and prevent completion resurrection; no app change was needed. The remaining scope includes the fixed original bank, worker, learning and account deletion. A test-only existing-flag setup was corrected for restored databases. [Result](evidence/pytest-postgres-study.txt), [scope and limits](24-study-postgres.md). The fixture server was stopped and its port closed. The complete regression/browser results below predate only these test changes and are not a newly rerun full suite.
+
+The separate SQLite learning/concurrency scope passes145 tests/9 skipped/1541 warnings in11.00s, exit0. Explicit guarded PG tests skip under SQLite as intended. [Result](evidence/pytest-study-sqlite.txt). Changed test Ruff and whitespace checks pass.
+
 ## Latest curated-check verification — 2026-10-12
 
 The final full disposable SQLite suite passes **4245 tests,31 skipped,10416 warnings in260.05s**, exit0. The focused bank/learning/worker/deletion scope passes **190 tests,1579 warnings in12.06s**. It adds trusted repository Python and exact-arithmetic proofs for all twelve fixed keys, schema/catalog coverage, safe-copy boundaries, review/scoring/provenance, edited-objective fallback and replay/policy denials. [Full result](evidence/pytest-curated-full.txt), [focused result](evidence/pytest-curated-targeted.txt).

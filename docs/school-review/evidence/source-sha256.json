@@ -425,11 +425,11 @@
   },
   {
     "path": "tests/test_learning_hub.py",
-    "sha256": "a4164937064159984fedc92ce8d541f4363d5f3dfc49fd00a69d73b0debf6288"
+    "sha256": "3fa214d364fea2db07909abcebb99eb506ccf0f2ff2eefc5434e6a38ab1bc646"
   },
   {
     "path": "tests/test_learning_postgres.py",
-    "sha256": "edaec835d4dc61395a4ca3980756250195ebb042bf7ed686ea10bbe0af0ed6c3"
+    "sha256": "268e434892913800e860a7fb5b182091fb93bd8fbd2286d1f8785cb8712488a3"
   },
   {
     "path": "tests/test_learning_worker.py",

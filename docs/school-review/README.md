@@ -35,6 +35,7 @@ Verified: local automated permission, privacy, scoring, recovery and regression 
 21. [Durable course-worker operation](21-worker-operation.md).
 22. [Retention, deletion and disposable PostgreSQL proof](22-retention-postgres.md).
 23. [Fixed original checks for curated paths](23-curated-checks.md).
+24. [Study-session HTTP concurrency on restored PostgreSQL](24-study-postgres.md).
 
 The engineering checkpoint was saved before a subsequent [Learning Hub and institution UI pass](12-ui-design.md), informed by live Skydive, Cluely, Linear and Notion references. It adds theme-aware layouts, useful question starters, course preparation/progress and grouped settings while preserving beta notices and policy gates. Ten browser workflows and sixteen scoped responsive/accessibility checks accompany the UI work. The broader acceptance ledger remains unchanged in scope.
 

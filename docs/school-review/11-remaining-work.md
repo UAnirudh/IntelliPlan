@@ -16,6 +16,7 @@ Follow-on user requests: complete the original engineering brief before further 
 | Academic integrity evaluated | Partially Working |Strict protection and alternate API tests; two concept explanations, no broad subject benchmark |
 | Meaningful study activities | Verified Working |Objectives, method, paper/retrieval checkpoint, persistent session |
 | Completion distinct from elapsed time | Verified Working |Server stores self-report with nullable correctness; no timer mastery |
+| Concurrent study requests preserve session state | Verified Working |Two controlled signed-in HTTP interleavings on restored synthetic PG: one open session for overlapping starts, completed session not resurrected by stale resume; broader load/races unverified |
 | Focus follows preferences/policy | Verified Working |Voluntary user-selected reset and mapped focus denial; no passive monitoring |
 | Device restrictions accurately described | Verified Working |Extension requirement and web/device/MDM limits documented |
 | Controlled experimental maturity | Partially Working |Registry/admin beta/flags/internal alpha; approved reviewed-practice opt-in, notice, withdrawal and feedback verified locally; general promotion/legacy inventory incomplete |

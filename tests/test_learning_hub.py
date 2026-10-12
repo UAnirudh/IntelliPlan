@@ -1326,7 +1326,11 @@ def test_opt_in_preview_needs_flag_approval_current_consent_and_policy(
     uid = enable(monkeypatch, client)
     oid = org(uid)
     with App.app.app_context():
-        App.db.session.add(App.FeatureFlag(key="school_practice_preview", enabled=True))
+        flag = App.FeatureFlag.query.filter_by(key="school_practice_preview").first()
+        if flag is None:
+            flag = App.FeatureFlag(key="school_practice_preview")
+            App.db.session.add(flag)
+        flag.enabled = True
         App.db.session.commit()
     endpoint = "/api/learning/beta/practice_preview"
     assert (
