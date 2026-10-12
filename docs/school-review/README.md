@@ -36,6 +36,7 @@ Verified: local automated permission, privacy, scoring, recovery and regression 
 22. [Retention, deletion and disposable PostgreSQL proof](22-retention-postgres.md).
 23. [Fixed original checks for curated paths](23-curated-checks.md).
 24. [Study-session HTTP concurrency on restored PostgreSQL](24-study-postgres.md).
+25. [Legacy learning-tool policy boundaries](25-legacy-learning-tools.md).
 
 The engineering checkpoint was saved before a subsequent [Learning Hub and institution UI pass](12-ui-design.md), informed by live Skydive, Cluely, Linear and Notion references. It adds theme-aware layouts, useful question starters, course preparation/progress and grouped settings while preserving beta notices and policy gates. Ten browser workflows and sixteen scoped responsive/accessibility checks accompany the UI work. The broader acceptance ledger remains unchanged in scope.
 
@@ -46,6 +47,8 @@ The subsequent engineering continuation adds sanitized Markdown/math/code/tables
 No commit in this checkpoint constitutes institutional permission, provider-contract approval, legal certification, validated educational effectiveness, WCAG conformance, or production deployment verification.
 
 The latest curated-check continuation adds twelve fixed original English activities alongside the supported Python/algebra source links, with independently executed trusted key verification and reviewed, assisted-only scoring. A discovered mobile code-scrolling keyboard defect is fixed in the shared renderer. The current full suite passes4245 tests with31 skipped; Chromium passes17 workflows/29 responsive and scoped axe checks with no JavaScript errors. Independent scoped source/spec reviews complete; teacher/age validation and live provider quality remain open. See [curated checks](23-curated-checks.md). Multi-country/language support remains a follow-on requirement after original engineering goals.
+
+The subsequent legacy-tool continuation closes Text Dissector identity/tutor/assessment and result-validation gaps, plus assignment breakdown consent/provider, Canvas fallback, scheduler/progress and timer boundaries. Final regression passes4277 tests/33 skipped; the dedicated scope passes32 tests. Independent source/spec/verifier reviews complete after the privacy and stale-consent corrections. See [legacy-tool boundaries](25-legacy-learning-tools.md). The broader original scope remains incomplete; further UI/localization work is deferred while higher-ROI engineering gaps remain.
 
 The subsequent Plani continuation closes scoped internal-operation and account-data consent gaps, profile ownership, nested calendar placement/export and source-revocation races, retrieval embedding permissions, background LMS cache/credential boundaries, and model-round accounting. The current full regression passes4138 tests with24 skipped, and its expanded focused suite passes402 tests; the scoped independent read-only review completed after three additional fixes. [Behavior and limitations](19-plani-data-boundaries.md). Full-scope acceptance and live operational gates remain incomplete; UI refinement remains deferred.
 

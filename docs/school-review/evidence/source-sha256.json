@@ -16,8 +16,16 @@
     "sha256": "013930b66889f15519e82a00e7ef42bf46027b6f468e597c5ee16c30a89a2597"
   },
   {
+    "path": "Main_Project/templates/text_dissector.html",
+    "sha256": "394b1a34a9f6d19a39557e65a0682f566e9c3e581e529dbf613942a305ef00f9"
+  },
+  {
     "path": "ai_provider.py",
     "sha256": "49c4c51f665c9df5cc4fc9b5d40d79c7729dec77567cb8188ab4c969bb077157"
+  },
+  {
+    "path": "breakdown_glue.py",
+    "sha256": "34528be30ada5209dabe498a392537bc74c64fb565741431a78728ec4d8f060d"
   },
   {
     "path": "chatbot_api.py",
@@ -26,6 +34,10 @@
   {
     "path": "deployment/learning-worker.compose.yml",
     "sha256": "c6c15f02b1a91b24edfab1efef72d26ed0f9274938c10ae01f22c491425b116f"
+  },
+  {
+    "path": "extra_features.py",
+    "sha256": "fb3345bd93b6311ab35ccda535f86b9c505ec985907c3862114cb82da0440e21"
   },
   {
     "path": "intelliplan/api/lms_sync.py",
@@ -57,7 +69,7 @@
   },
   {
     "path": "intelliplan/learning/enforcement.py",
-    "sha256": "0d9618b7983c7c5da083c48510b8c984109a33998555e9ccf8e43f83c3d7fa8a"
+    "sha256": "1cf5da64c8e3a7da92467c4f4d58381a6eaca8ec16263edf04512893512ea085"
   },
   {
     "path": "intelliplan/learning/evidence.py",
@@ -105,7 +117,7 @@
   },
   {
     "path": "scripts/verify_learning_hub.py",
-    "sha256": "1d04f69774bf522f6837ab89b25282cba3e1cfe74d77f09bcef97f1b60863a11"
+    "sha256": "ee29a6bb7ff10848f22041df453bb7469044e9605f5543011f93e18b9f751c30"
   },
   {
     "path": "scripts/verify_learning_provider.py",
@@ -426,6 +438,10 @@
   {
     "path": "tests/test_learning_hub.py",
     "sha256": "3fa214d364fea2db07909abcebb99eb506ccf0f2ff2eefc5434e6a38ab1bc646"
+  },
+  {
+    "path": "tests/test_learning_legacy_tools.py",
+    "sha256": "27789e42af273b25a503fb227262cd8a2e338548237ba9fe627c5b04d130fdde"
   },
   {
     "path": "tests/test_learning_postgres.py",

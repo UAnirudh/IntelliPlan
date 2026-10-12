@@ -231,9 +231,10 @@
 
   function render(a){
     const out = document.getElementById('tdResult');
+    const notice = a._fallback ? '<p class="td-note">Basic text preview: a copied excerpt and general study questions. No AI analysis was returned.</p>' : '';
     const summary = a.summary ? `
       <div class="td-block">
-        <span class="td-block-title">Summary</span>
+        <span class="td-block-title">${a._fallback ? 'Text excerpt' : 'Summary'}</span>
         <p>${escapeHtml(a.summary)}</p>
       </div>` : '';
     const kp = (a.key_points || []).map(p => `<li>${escapeHtml(p)}</li>`).join('');
@@ -256,7 +257,7 @@
         <span class="td-block-title">Check your understanding</span>
         <ul>${qs}</ul>
       </div>` : '';
-    out.innerHTML = summary + keyPoints + vocab + questions ||
+    out.innerHTML = notice + summary + keyPoints + vocab + questions ||
       '<div class="td-empty">Nothing to break down. Try a longer passage.</div>';
   }
 

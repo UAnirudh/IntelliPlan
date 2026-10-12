@@ -5,8 +5,8 @@ from flask_login import current_user
 from intelliplan.learning import policy
 
 SURFACES = {
-    'tutor': ('/tutor', '/api/tutor', '/api/chatbot', '/api/plani', '/api/onboarding/chat', '/writing', '/math', '/api/writing', '/api/math', '/api/media', '/extractor', '/api/extractor', '/api/tasks/extract'),
-    'study': ('/study', '/api/study-hub', '/api/deepstudy', '/api/active', '/active', '/foundations', '/api/primer', '/api/lessons', '/lessons'),
+    'tutor': ('/tutor', '/api/tutor', '/api/chatbot', '/api/plani', '/api/onboarding/chat', '/writing', '/math', '/api/writing', '/api/math', '/api/media', '/extractor', '/api/extractor', '/api/tasks/extract', '/tools/text-dissector', '/api/text-dissector'),
+    'study': ('/study', '/api/study-hub', '/api/deepstudy', '/api/active', '/active', '/foundations', '/api/primer', '/api/lessons', '/lessons', '/api/breakdown/start'),
     'review': ('/learn', '/api/flashcards', '/flashcards'),
     'focus': ('/focus', '/api/focus', '/api/focus-shield', '/extension/focus', '/uploads/focus-alarm'),
     'scheduler': ('/scheduler', '/schedule', '/generate_schedule', '/api/scheduler', '/api/adjust', '/api/v1/schedule', '/extension/schedule', '/api/followthrough'),

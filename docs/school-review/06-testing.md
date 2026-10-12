@@ -1,5 +1,13 @@
 # Testing report
 
+## Latest legacy-tool policy verification — 2026-10-12
+
+The final full disposable SQLite suite passes **4277 tests,33 skipped,10613 warnings in2184.47s**, exit0. The final dedicated legacy-tool scope passes32 tests/198 warnings in15.03s. A preceding learning/breakdown/tool scope passed228 tests before stale-consent assertions were strengthened; the final full and dedicated runs include them. Provider availability is forced true with invocation traps on denied paths. Typed renderer failures, current owner consent, changed provider sets, Canvas data removal before fallback, plan synchronization and timer gates have actual scoped HTTP/helper regressions. [Full result](evidence/pytest-legacy-tools-full.txt), [focused result](evidence/pytest-legacy-tools-final-targeted.txt), [boundaries](25-legacy-learning-tools.md).
+
+Independent Python, scoped spec and JavaScript/verifier reviews complete after the reported corrections. Changed Python Ruff, inline JavaScript parsing and whitespace checks pass. Earlier PostgreSQL proofs remain separate; the nine guarded PG cases skip in this SQLite run. No production data or live provider call was used.
+
+The final normal Chromium entry point exits0 with18 HTTP/storage workflows,29 Learning Hub responsive/scoped axe checks and no JavaScript errors. It adds a legacy-page no-provider fallback/disclosure and tutor-revocation flow, without claiming a legacy-page accessibility audit. Two preceding native crashes during the optional periodic thread diagnostic are excluded. A diagnostic-disabled controlled run and the final normal run pass; that diagnostic is now opt-in and its state is recorded. The exact native cause remains unproven. [Browser evidence](evidence/browser-results.json), [diagnostic details and reproduction](25-legacy-learning-tools.md).
+
 ## Latest study-session PostgreSQL proof — 2026-10-12
 
 The restored synthetic PostgreSQL scope passes **199 tests,1659 warnings in20.49s**, exit0. Nine guarded PG cases now include actual concurrent signed-in HTTP start/start and complete/resume behavior. The existing uniqueness/error handler and revision guard preserve one open session and prevent completion resurrection; no app change was needed. The remaining scope includes the fixed original bank, worker, learning and account deletion. A test-only existing-flag setup was corrected for restored databases. [Result](evidence/pytest-postgres-study.txt), [scope and limits](24-study-postgres.md). The fixture server was stopped and its port closed. The complete regression/browser results below predate only these test changes and are not a newly rerun full suite.

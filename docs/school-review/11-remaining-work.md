@@ -11,7 +11,7 @@ Follow-on user requests: complete the original engineering brief before further 
 | Redundant learning features consolidated | Partially Working |One entry hub and reused endpoints; legacy pages/contracts preserved; duplicated underlying systems not fully normalized |
 | Unified Learning Hub exists/functions | Verified Working |Local API + actual desktop/mobile browser workflows |
 | District/school policy server enforcement | Verified Working |Hierarchy/scopes, mapped routes/provider adapters/jobs, direct API tests |
-| No student restriction bypass anywhere | Partially Working |Covered prompt/Premium/direct/mixed-credential cases deny; legacy reminder/background sender and selected source reads covered; task/onboarding AI gates and mapped anonymous-generation identity checks added; unmapped/offline paths still need audit |
+| No student restriction bypass anywhere | Partially Working |Covered prompt/Premium/direct/mixed-credential cases deny; legacy reminder/background sender and selected source reads covered; task/onboarding and Text Dissector identity/policy gates, breakdown AI/Canvas/scheduler/progress/timer boundaries added; unmapped/offline paths still need audit |
 | Tutor promotes authentic learning | Partially Working |Guided-mode instructions and protected concepts; provider reply quality/adversarial benchmark absent |
 | Academic integrity evaluated | Partially Working |Strict protection and alternate API tests; two concept explanations, no broad subject benchmark |
 | Meaningful study activities | Verified Working |Objectives, method, paper/retrieval checkpoint, persistent session |

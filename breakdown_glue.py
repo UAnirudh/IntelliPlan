@@ -27,7 +27,7 @@ from __future__ import annotations
 import json
 import logging
 import re
-from datetime import date, timedelta
+from datetime import date
 from typing import Any, Iterable
 
 from flask import Blueprint, abort, jsonify, request
@@ -166,6 +166,8 @@ def _canvas_context(body: dict[str, Any]) -> dict[str, Any] | None:
     assignment_id, course_id = body.get("id"), body.get("course_id")
     if not (str(assignment_id or "").isdigit() and str(course_id or "").isdigit()):
         return None
+    if not _policy_allows('canvas'):
+        return None
     try:
         from App import get_active_account
         from assignment_materials import load_assignment
@@ -173,10 +175,31 @@ def _canvas_context(body: dict[str, Any]) -> dict[str, Any] | None:
         account = get_active_account()
         if not account or account.get("login_type") != "canvas" or not account.get("canvas_token"):
             return None
-        return load_assignment(account.get("canvas_url"), account["canvas_token"], course_id, assignment_id)
+        context = load_assignment(account.get("canvas_url"), account["canvas_token"], course_id, assignment_id)
+        if not _policy_allows('canvas'):
+            return None
+        return {**context, '_learning_source': 'canvas'}
     except Exception as exc:
         logger.info("canvas context unavailable for breakdown: %s", type(exc).__name__)
         return None
+
+
+def _policy_allows(feature: str, user_id: int | None = None) -> bool:
+    try:
+        from App import User
+        from intelliplan.learning import policy
+
+        if user_id is None:
+            if not current_user.is_authenticated:
+                return False
+            user_id = current_user.id
+        actor = User.query.populate_existing().filter_by(id=user_id).first()
+        if actor is None:
+            return False
+        policy.invalidate_cache()
+        return policy.decision(actor, feature)[0]
+    except Exception:
+        return False
 
 
 def _ai_allowed() -> bool:
@@ -184,9 +207,14 @@ def _ai_allowed() -> bool:
     as the tutor's study map requires — and only when a provider exists."""
     try:
         from ai_provider import ai_available
-        from App import _ai_personalization_enabled
+        from App import User, _ai_personalization_enabled
+        from intelliplan.learning import policy
 
-        return bool(current_user.is_authenticated and ai_available() and _ai_personalization_enabled())
+        if not _policy_allows('tutor'):
+            return False
+        user = User.query.populate_existing().filter_by(id=current_user.id).first()
+        return bool(user and policy.permitted_providers(user)
+                    and _ai_personalization_enabled(user) and ai_available())
     except Exception:
         return False
 
@@ -194,7 +222,15 @@ def _ai_allowed() -> bool:
 def _ai_breakdown(title: str, course: str, context: dict[str, Any], total: int, granularity: int):
     import ai_firewall
     from ai_provider import chat_json
+    from intelliplan.learning import policy
 
+    def allowed():
+        source = context.get('_learning_source')
+        return (source is None or source == 'canvas' and _policy_allows('canvas')) and _ai_allowed()
+
+    if not allowed():
+        raise PermissionError('AI breakdown is unavailable under current permissions.')
+    providers = frozenset(policy.permitted_providers(current_user))
     messages = bd.ai_messages(title=title, course=course, context=context,
                               total_minutes=total, granularity=granularity)
     decision = ai_firewall.guard(current_user, prompts=[messages[-1]["content"]],
@@ -205,6 +241,8 @@ def _ai_breakdown(title: str, course: str, context: dict[str, Any], total: int, 
         ai_firewall.record_tokens(decision, sum(len(m["content"]) for m in messages), len(json.dumps(raw)))
     except Exception:
         pass
+    if not allowed() or frozenset(policy.permitted_providers(current_user)) != providers:
+        raise PermissionError('AI breakdown permissions changed before publication.')
     return bd.parse_ai_steps(raw, context, total_minutes=total, granularity=granularity)
 
 
@@ -251,6 +289,9 @@ def _block_is_for(block: dict[str, Any], title: str) -> bool:
 def _schedule_steps(uid: int | None, gid: str | None, title: str, course: str,
                     due_iso: str, rows: list[Any], tz_hint: str | None) -> dict[str, Any]:
     """Replace this assignment's future, unfinished blocks with its steps."""
+    if uid is not None and not _policy_allows('scheduler', uid):
+        return {'status': 'denied', 'placed': [],
+                'label': 'Scheduling is unavailable under your current institution policy.'}
     from plan_insert_glue import active_plan_row, insert_into_plan, student_now
 
     now = student_now(uid, tz_hint)
@@ -311,6 +352,8 @@ def _sync_plan_progress(uid: int | None, gid: str | None, title: str) -> None:
     same ``progress_json`` the Interactive View writes — otherwise the plan
     keeps offering a block whose every step is already checked off.
     """
+    if uid is not None and not _policy_allows('scheduler', uid):
+        return
     from App import AssignmentStep, db
     from plan_insert_glue import active_plan_row
 
@@ -387,6 +430,7 @@ def build_breakdown():
     granularity = bd._granularity(body.get("granularity"))
 
     description = str(body.get("description") or "")[:MAX_DESCRIPTION].strip() or _saved_description(title)
+    original_description = description
     context: dict[str, Any] = {"title": title, "description": description, "materials": []}
     canvas = _canvas_context(body) if _ai_allowed() or not description else None
     if canvas:
@@ -402,6 +446,12 @@ def build_breakdown():
         except Exception as exc:
             logger.info("AI breakdown unavailable, using directions/template: %s", type(exc).__name__)
             result = None
+    if context.get('_learning_source') == 'canvas' and not _policy_allows('canvas'):
+        # A denied source must not survive through the deterministic fallback.
+        description = original_description
+        context = {'title': title, 'description': description, 'materials': []}
+        total = _total_minutes(body, title, kind, description)
+        result = None
     if result is None:
         result = bd.deterministic_breakdown(title=title, total_minutes=total, kind=kind,
                                             description=description, granularity=granularity)

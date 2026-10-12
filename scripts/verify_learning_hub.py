@@ -26,12 +26,17 @@ os.environ["BILLING_ENABLED"] = "false"
 os.environ["RESEND_API_KEY"] = ""
 os.environ["SENTRY_DSN"] = ""
 os.environ["POSTHOG_API_KEY"] = ""
-faulthandler.dump_traceback_later(45, repeat=True)
+TRACEBACK_DIAGNOSTICS = os.environ.get('INTELLIPLAN_BROWSER_TRACEBACKS') == '1'
+if TRACEBACK_DIAGNOSTICS:
+    # Opt-in after native crashes during thread dumps on Windows Python 3.13.2.
+    # Workflow assertions and Playwright timeouts remain active either way.
+    faulthandler.dump_traceback_later(45, repeat=True)
 
 import App  # noqa: E402 - configure disposable storage before app import
 
 print("Disposable application booted.", flush=True)
 import ai_provider  # noqa: E402
+import extra_features  # noqa: E402
 from intelliplan.learning import courses, policy  # noqa: E402
 from playwright.sync_api import sync_playwright, expect  # noqa: E402
 from werkzeug.serving import make_server  # noqa: E402
@@ -44,6 +49,7 @@ errors = []
 results = dict(
     provider="mocked fixtures; no real provider generation",
     browser="Chromium",
+    traceback_diagnostics=TRACEBACK_DIAGNOSTICS,
     workflows=[],
     ui_checks=[],
     accessibility=[],
@@ -814,6 +820,36 @@ try:
         assert not denied_progress_requests
         audit_surface(page, "all-activities-disabled-mobile")
         results["workflows"].append("All restricted activities show an access explanation without a blocked progress request")
+        # Exercise the legacy tool with processing denied and a trapped provider.
+        # Never depend on missing configuration to avoid a real external call.
+        dissector_calls = []
+        def forbidden_dissector(*args, **kwargs):
+            dissector_calls.append(True)
+            raise AssertionError('Dissector provider must not run in this fixture.')
+        extra_features.ai_available = lambda: True
+        extra_features.ai_chat = forbidden_dissector
+        with App.app.app_context():
+            restricted = App.db.session.get(policy.models()['Organization'], organization_id)
+            restricted.policy = {**restricted.policy, 'tutor': True,
+                                 'assessment_protection': False, 'third_party_processing': False}
+            App.db.session.commit()
+        page.goto('http://127.0.0.1:5098/tools/text-dissector', wait_until='networkidle')
+        page.locator('#tdInput').fill('Plants need light to grow. Explain the role of light in your own words.')
+        page.locator('#tdAnalyze').click()
+        expect(page.locator('#tdResult')).to_contain_text('Basic text preview')
+        expect(page.locator('#tdResult')).to_contain_text('No AI analysis was returned.')
+        expect(page.locator('#tdResult')).to_contain_text('Text excerpt')
+        assert not dissector_calls
+        with App.app.app_context():
+            App.db.session.get(policy.models()['Organization'], organization_id).policy = {'tutor': False}
+            App.db.session.commit()
+        with page.expect_response(lambda response: response.url.endswith('/api/text-dissector')) as refused:
+            page.locator('#tdAnalyze').click()
+        assert refused.value.status == 403
+        expect(page.locator('#tdResult')).to_contain_text('restricted')
+        expect(page.locator('#tdResult')).not_to_contain_text('Basic text preview')
+        assert not dissector_calls
+        results['workflows'].append('Legacy Text Dissector discloses deterministic excerpt fallback with no provider call, then honors tutor revocation')
         student_context.close()
         browser.close()
     assert not errors, errors

@@ -1,6 +1,7 @@
 {
   "provider": "mocked fixtures; no real provider generation",
   "browser": "Chromium",
+  "traceback_diagnostics": false,
   "workflows": [
     "Protected concept teaching through live browser/API",
     "Session start, pause, reload recovery, resume, paper checkpoint, completion without mastery",
@@ -18,7 +19,8 @@
     "Mapped task/onboarding policy denials and anonymous-generation identity enforcement prevent provider calls; grade predictions retain numerical results without disallowed AI insights",
     "Mobile layout, keyboard focus, student beta and direct API denial",
     "Explicit preview consent, grade with tutor disabled, real reviewed scorer/hint, shared evidence, feedback, withdrawal and private export",
-    "All restricted activities show an access explanation without a blocked progress request"
+    "All restricted activities show an access explanation without a blocked progress request",
+    "Legacy Text Dissector discloses deterministic excerpt fallback with no provider call, then honors tutor revocation"
   ],
   "ui_checks": [
     {
@@ -4430,7 +4432,7 @@
       "surface": "all-activities-disabled-mobile"
     }
   ],
-  "hub_load_ms": 1882,
+  "hub_load_ms": 3124,
   "content_checks": {
     "hostile_formatted": true,
     "inert": true,
