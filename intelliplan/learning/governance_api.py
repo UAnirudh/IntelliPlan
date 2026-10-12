@@ -244,8 +244,7 @@ def install(bp, app):
             )
         candidates = governance.retention_candidates(limit=limit)
         counts = {key: len(value) for key, value in candidates.items()}
+        result = dict(mode="applied" if apply else "dry_run", eligible=counts)
         if apply:
-            governance.apply_retention(candidates)
-        click.echo(
-            json.dumps(dict(mode="applied" if apply else "dry_run", eligible=counts))
-        )
+            result['deleted'] = governance.apply_retention(candidates)
+        click.echo(json.dumps(result))

@@ -488,6 +488,15 @@ def test_profile_extras_select_by_owner_even_when_primary_keys_collide(account, 
             App.UserIdentity(id=uid, user_id=account[0], completed=False, class_schedule='[{}, {}, {}]'),
             App.UserIdentity(id=uid + 1, user_id=uid, completed=True, class_schedule='[]')])
         App.db.session.commit()
+        if App.db.engine.dialect.name == 'postgresql':
+            # Explicit IDs reproduce the ownership bug; advance sequences so
+            # later synthetic fixtures can insert without reusing these IDs.
+            from sqlalchemy import text
+            for model in (App.User, App.UserIdentity):
+                App.db.session.execute(text(
+                    f"SELECT setval(pg_get_serial_sequence(:table, 'id'), (SELECT MAX(id) FROM {model.__tablename__}), true)"),
+                    {'table': model.__tablename__})
+            App.db.session.commit()
     with App.app.test_request_context():
         login_user(App.db.session.get(App.User, uid))
         context = plani.build_agent_context(uid)

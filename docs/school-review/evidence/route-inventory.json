@@ -1598,7 +1598,7 @@
     },
     {
       "file": "App.py",
-      "line": 10478,
+      "line": 10483,
       "function": "get_live_schedule",
       "literal_path": "/live",
       "methods": [
@@ -1608,7 +1608,7 @@
     },
     {
       "file": "App.py",
-      "line": 10585,
+      "line": 10590,
       "function": "api_manual_classes_list",
       "literal_path": "/api/classes/manual",
       "methods": [
@@ -1618,7 +1618,7 @@
     },
     {
       "file": "App.py",
-      "line": 10590,
+      "line": 10595,
       "function": "api_manual_classes_create",
       "literal_path": "/api/classes/manual",
       "methods": [
@@ -1628,7 +1628,7 @@
     },
     {
       "file": "App.py",
-      "line": 10711,
+      "line": 10716,
       "function": "api_cookie_consent_state",
       "literal_path": "/api/cookies/consent",
       "methods": [
@@ -1638,7 +1638,7 @@
     },
     {
       "file": "App.py",
-      "line": 10724,
+      "line": 10729,
       "function": "api_cookie_consent_save",
       "literal_path": "/api/cookies/consent",
       "methods": [
@@ -1648,7 +1648,7 @@
     },
     {
       "file": "App.py",
-      "line": 10750,
+      "line": 10755,
       "function": "cookies_page",
       "literal_path": "/cookies",
       "methods": [
@@ -1658,7 +1658,7 @@
     },
     {
       "file": "App.py",
-      "line": 10806,
+      "line": 10811,
       "function": "api_policy_pending",
       "literal_path": "/api/policy/pending",
       "methods": [
@@ -1668,7 +1668,7 @@
     },
     {
       "file": "App.py",
-      "line": 10833,
+      "line": 10838,
       "function": "api_policy_acknowledge",
       "literal_path": "/api/policy/acknowledge",
       "methods": [
@@ -1678,7 +1678,7 @@
     },
     {
       "file": "App.py",
-      "line": 10897,
+      "line": 10902,
       "function": "api_school_outreach_options",
       "literal_path": "/api/school-outreach/options",
       "methods": [
@@ -1688,7 +1688,7 @@
     },
     {
       "file": "App.py",
-      "line": 10908,
+      "line": 10913,
       "function": "api_school_outreach_create",
       "literal_path": "/api/school-outreach",
       "methods": [
@@ -1698,7 +1698,7 @@
     },
     {
       "file": "App.py",
-      "line": 10971,
+      "line": 10976,
       "function": "api_manual_entry_reason",
       "literal_path": "/api/manual-entry-reason",
       "methods": [
@@ -1709,7 +1709,7 @@
     },
     {
       "file": "App.py",
-      "line": 11026,
+      "line": 11031,
       "function": "api_manual_classes_modify",
       "literal_path": "/api/classes/manual/<int:class_id>",
       "methods": [
@@ -1720,7 +1720,7 @@
     },
     {
       "file": "App.py",
-      "line": 11057,
+      "line": 11062,
       "function": "get_courses",
       "literal_path": "/courses",
       "methods": [
@@ -1730,7 +1730,7 @@
     },
     {
       "file": "App.py",
-      "line": 11153,
+      "line": 11158,
       "function": "grades_data",
       "literal_path": "/grades/data",
       "methods": [
@@ -1740,7 +1740,7 @@
     },
     {
       "file": "App.py",
-      "line": 11192,
+      "line": 11197,
       "function": "gradebook_detail",
       "literal_path": "/gradebook/detail",
       "methods": [
@@ -1750,7 +1750,7 @@
     },
     {
       "file": "App.py",
-      "line": 11220,
+      "line": 11225,
       "function": "dismissed_data",
       "literal_path": "/dismissed/data",
       "methods": [
@@ -1760,7 +1760,7 @@
     },
     {
       "file": "App.py",
-      "line": 11231,
+      "line": 11236,
       "function": "notes_list",
       "literal_path": "/notes/list",
       "methods": [
@@ -1770,7 +1770,7 @@
     },
     {
       "file": "App.py",
-      "line": 11248,
+      "line": 11253,
       "function": "upload_note",
       "literal_path": "/notes/upload",
       "methods": [
@@ -1782,7 +1782,7 @@
     },
     {
       "file": "App.py",
-      "line": 11293,
+      "line": 11298,
       "function": "get_note",
       "literal_path": "/notes/<int:note_id>",
       "methods": [
@@ -1792,7 +1792,7 @@
     },
     {
       "file": "App.py",
-      "line": 11300,
+      "line": 11305,
       "function": "download_note",
       "literal_path": "/notes/<int:note_id>/download",
       "methods": [
@@ -1802,7 +1802,7 @@
     },
     {
       "file": "App.py",
-      "line": 11308,
+      "line": 11313,
       "function": "summarize_note",
       "literal_path": "/notes/<int:note_id>/summarize",
       "methods": [
@@ -1812,7 +1812,7 @@
     },
     {
       "file": "App.py",
-      "line": 11327,
+      "line": 11332,
       "function": "study_note_route",
       "literal_path": "/notes/<int:note_id>/study",
       "methods": [
@@ -1822,7 +1822,7 @@
     },
     {
       "file": "App.py",
-      "line": 11348,
+      "line": 11353,
       "function": "delete_note",
       "literal_path": "/notes/<int:note_id>",
       "methods": [
@@ -1832,7 +1832,7 @@
     },
     {
       "file": "App.py",
-      "line": 11371,
+      "line": 11376,
       "function": "api_notes_search",
       "literal_path": "/api/notes/search",
       "methods": [
@@ -1844,7 +1844,7 @@
     },
     {
       "file": "App.py",
-      "line": 11392,
+      "line": 11397,
       "function": "notes_quiz",
       "literal_path": "/notes/<int:note_id>/quiz",
       "methods": [
@@ -1854,7 +1854,7 @@
     },
     {
       "file": "App.py",
-      "line": 11416,
+      "line": 11421,
       "function": "notes_file",
       "literal_path": "/notes/<int:note_id>/file",
       "methods": [
@@ -1864,7 +1864,7 @@
     },
     {
       "file": "App.py",
-      "line": 11427,
+      "line": 11432,
       "function": "dismiss",
       "literal_path": "/dismiss",
       "methods": [
@@ -1874,7 +1874,7 @@
     },
     {
       "file": "App.py",
-      "line": 11454,
+      "line": 11459,
       "function": "restore",
       "literal_path": "/restore",
       "methods": [
@@ -1884,7 +1884,7 @@
     },
     {
       "file": "App.py",
-      "line": 11466,
+      "line": 11471,
       "function": "tests_page",
       "literal_path": "/tests",
       "methods": [
@@ -1894,7 +1894,7 @@
     },
     {
       "file": "App.py",
-      "line": 11471,
+      "line": 11476,
       "function": "api_get_tests",
       "literal_path": "/api/tests",
       "methods": [
@@ -1904,7 +1904,7 @@
     },
     {
       "file": "App.py",
-      "line": 11485,
+      "line": 11490,
       "function": "mark_as_test",
       "literal_path": "/test/mark",
       "methods": [
@@ -1914,7 +1914,7 @@
     },
     {
       "file": "App.py",
-      "line": 11500,
+      "line": 11505,
       "function": "unmark_as_test",
       "literal_path": "/test/unmark",
       "methods": [
@@ -1924,7 +1924,7 @@
     },
     {
       "file": "App.py",
-      "line": 11512,
+      "line": 11517,
       "function": "get_description",
       "literal_path": "/assignment/description",
       "methods": [
@@ -1934,7 +1934,7 @@
     },
     {
       "file": "App.py",
-      "line": 11533,
+      "line": 11538,
       "function": "save_description",
       "literal_path": "/assignment/description",
       "methods": [
@@ -1944,7 +1944,7 @@
     },
     {
       "file": "App.py",
-      "line": 11543,
+      "line": 11548,
       "function": "api_get_assignment_notes",
       "literal_path": "/api/assignment/notes",
       "methods": [
@@ -1956,7 +1956,7 @@
     },
     {
       "file": "App.py",
-      "line": 11558,
+      "line": 11563,
       "function": "api_save_assignment_notes",
       "literal_path": "/api/assignment/notes",
       "methods": [
@@ -1968,7 +1968,7 @@
     },
     {
       "file": "App.py",
-      "line": 11575,
+      "line": 11580,
       "function": "api_save_assignment_due_date",
       "literal_path": "/api/assignment/due-date",
       "methods": [
@@ -1978,7 +1978,7 @@
     },
     {
       "file": "App.py",
-      "line": 12314,
+      "line": 12319,
       "function": "generate_schedule",
       "literal_path": "/generate_schedule",
       "methods": [
@@ -1991,7 +1991,7 @@
     },
     {
       "file": "App.py",
-      "line": 12682,
+      "line": 12687,
       "function": "service_worker",
       "literal_path": "/static/sw.js",
       "methods": [
@@ -2001,7 +2001,7 @@
     },
     {
       "file": "App.py",
-      "line": 12690,
+      "line": 12695,
       "function": "oauth_notion_start",
       "literal_path": "/oauth/notion",
       "methods": [
@@ -2013,7 +2013,7 @@
     },
     {
       "file": "App.py",
-      "line": 12719,
+      "line": 12724,
       "function": "oauth_notion_callback",
       "literal_path": "/oauth/notion/callback",
       "methods": [
@@ -2025,7 +2025,7 @@
     },
     {
       "file": "App.py",
-      "line": 12798,
+      "line": 12803,
       "function": "notion_status",
       "literal_path": "/notion/status",
       "methods": [
@@ -2037,7 +2037,7 @@
     },
     {
       "file": "App.py",
-      "line": 12830,
+      "line": 12835,
       "function": "notion_upcoming",
       "literal_path": "/notion/upcoming",
       "methods": [
@@ -2049,7 +2049,7 @@
     },
     {
       "file": "App.py",
-      "line": 12846,
+      "line": 12851,
       "function": "notion_export_schedule",
       "literal_path": "/notion/export",
       "methods": [
@@ -2061,7 +2061,7 @@
     },
     {
       "file": "App.py",
-      "line": 12863,
+      "line": 12868,
       "function": "notion_connect",
       "literal_path": "/notion/connect",
       "methods": [
@@ -2073,7 +2073,7 @@
     },
     {
       "file": "App.py",
-      "line": 12914,
+      "line": 12919,
       "function": "notion_disconnect",
       "literal_path": "/notion/disconnect",
       "methods": [
@@ -2085,7 +2085,7 @@
     },
     {
       "file": "App.py",
-      "line": 12924,
+      "line": 12929,
       "function": "notion_set_database",
       "literal_path": "/notion/set-database",
       "methods": [
@@ -2097,7 +2097,7 @@
     },
     {
       "file": "App.py",
-      "line": 12943,
+      "line": 12948,
       "function": "notion_databases_route",
       "literal_path": "/notion/databases",
       "methods": [
@@ -2109,7 +2109,7 @@
     },
     {
       "file": "App.py",
-      "line": 12960,
+      "line": 12965,
       "function": "notion_pages_route",
       "literal_path": "/notion/pages",
       "methods": [
@@ -2121,7 +2121,7 @@
     },
     {
       "file": "App.py",
-      "line": 12975,
+      "line": 12980,
       "function": "notion_create_database_route",
       "literal_path": "/notion/create-database",
       "methods": [
@@ -2133,7 +2133,7 @@
     },
     {
       "file": "App.py",
-      "line": 13003,
+      "line": 13008,
       "function": "notion_tasks_route",
       "literal_path": "/notion/tasks",
       "methods": [
@@ -2145,7 +2145,7 @@
     },
     {
       "file": "App.py",
-      "line": 13016,
+      "line": 13021,
       "function": "notion_create_task",
       "literal_path": "/notion/tasks/create",
       "methods": [
@@ -2157,7 +2157,7 @@
     },
     {
       "file": "App.py",
-      "line": 13030,
+      "line": 13035,
       "function": "notion_update_task",
       "literal_path": "/notion/tasks/update",
       "methods": [
@@ -2169,7 +2169,7 @@
     },
     {
       "file": "App.py",
-      "line": 13044,
+      "line": 13049,
       "function": "notion_complete_task",
       "literal_path": "/notion/tasks/complete",
       "methods": [
@@ -2181,7 +2181,7 @@
     },
     {
       "file": "App.py",
-      "line": 13353,
+      "line": 13358,
       "function": "unified_tasks",
       "literal_path": "/tasks/unified",
       "methods": [
@@ -2191,7 +2191,7 @@
     },
     {
       "file": "App.py",
-      "line": 13599,
+      "line": 13604,
       "function": "missing_data",
       "literal_path": "/missing/data",
       "methods": [
@@ -2201,7 +2201,7 @@
     },
     {
       "file": "App.py",
-      "line": 13624,
+      "line": 13629,
       "function": "manual_create_task",
       "literal_path": "/tasks/manual/create",
       "methods": [
@@ -2211,7 +2211,7 @@
     },
     {
       "file": "App.py",
-      "line": 13671,
+      "line": 13676,
       "function": "manual_update_task",
       "literal_path": "/tasks/manual/update",
       "methods": [
@@ -2221,7 +2221,7 @@
     },
     {
       "file": "App.py",
-      "line": 13709,
+      "line": 13714,
       "function": "manual_delete_task",
       "literal_path": "/tasks/manual/delete",
       "methods": [
@@ -2231,7 +2231,7 @@
     },
     {
       "file": "App.py",
-      "line": 13827,
+      "line": 13832,
       "function": "streak_status",
       "literal_path": "/api/streak/status",
       "methods": [
@@ -2241,7 +2241,7 @@
     },
     {
       "file": "App.py",
-      "line": 13885,
+      "line": 13890,
       "function": "streak_nudge_shown",
       "literal_path": "/api/streak/nudge-shown",
       "methods": [
@@ -2251,7 +2251,7 @@
     },
     {
       "file": "App.py",
-      "line": 13898,
+      "line": 13903,
       "function": "streak_nudge_tapped",
       "literal_path": "/api/streak/nudge-tapped",
       "methods": [
@@ -2261,7 +2261,7 @@
     },
     {
       "file": "App.py",
-      "line": 13906,
+      "line": 13911,
       "function": "streak_pill_tapped",
       "literal_path": "/api/streak/pill-tapped",
       "methods": [
@@ -2271,7 +2271,7 @@
     },
     {
       "file": "App.py",
-      "line": 13917,
+      "line": 13922,
       "function": "streak_plan_review",
       "literal_path": "/api/streak/plan-review",
       "methods": [
@@ -2281,7 +2281,7 @@
     },
     {
       "file": "App.py",
-      "line": 13936,
+      "line": 13941,
       "function": "streak_set_timezone",
       "literal_path": "/api/streak/set-timezone",
       "methods": [
@@ -2291,7 +2291,7 @@
     },
     {
       "file": "App.py",
-      "line": 14036,
+      "line": 14041,
       "function": "pet_status",
       "literal_path": "/api/pet/status",
       "methods": [
@@ -2301,7 +2301,7 @@
     },
     {
       "file": "App.py",
-      "line": 14113,
+      "line": 14118,
       "function": "pet_visit",
       "literal_path": "/api/pet/visit",
       "methods": [
@@ -2311,7 +2311,7 @@
     },
     {
       "file": "App.py",
-      "line": 14123,
+      "line": 14128,
       "function": "pet_rename",
       "literal_path": "/api/pet/rename",
       "methods": [
@@ -2321,7 +2321,7 @@
     },
     {
       "file": "App.py",
-      "line": 14137,
+      "line": 14142,
       "function": "pet_page",
       "literal_path": "/pet",
       "methods": [
@@ -2331,7 +2331,7 @@
     },
     {
       "file": "App.py",
-      "line": 14149,
+      "line": 14154,
       "function": "pet_care",
       "literal_path": "/api/pet/care",
       "methods": [
@@ -2341,7 +2341,7 @@
     },
     {
       "file": "App.py",
-      "line": 14209,
+      "line": 14214,
       "function": "pet_chest",
       "literal_path": "/api/pet/chest",
       "methods": [
@@ -2351,7 +2351,7 @@
     },
     {
       "file": "App.py",
-      "line": 14257,
+      "line": 14262,
       "function": "streak_risk",
       "literal_path": "/api/streak/risk",
       "methods": [
@@ -2361,7 +2361,7 @@
     },
     {
       "file": "App.py",
-      "line": 14399,
+      "line": 14404,
       "function": "feedback_submit",
       "literal_path": "/api/feedback/submit",
       "methods": [
@@ -2371,7 +2371,7 @@
     },
     {
       "file": "App.py",
-      "line": 14447,
+      "line": 14452,
       "function": "feedback_mine",
       "literal_path": "/api/feedback/mine",
       "methods": [
@@ -2381,7 +2381,7 @@
     },
     {
       "file": "App.py",
-      "line": 14470,
+      "line": 14475,
       "function": "client_error_report",
       "literal_path": "/api/client-error",
       "methods": [
@@ -2391,7 +2391,7 @@
     },
     {
       "file": "App.py",
-      "line": 14526,
+      "line": 14531,
       "function": "bug_report_submit",
       "literal_path": "/api/bug-report",
       "methods": [
@@ -2401,7 +2401,7 @@
     },
     {
       "file": "App.py",
-      "line": 14567,
+      "line": 14572,
       "function": "admin_client_errors",
       "literal_path": "/api/admin/client-errors",
       "methods": [
@@ -2411,7 +2411,7 @@
     },
     {
       "file": "App.py",
-      "line": 14600,
+      "line": 14605,
       "function": "admin_resolve_client_error",
       "literal_path": "/api/admin/client-errors/<int:error_id>/resolve",
       "methods": [
@@ -2421,7 +2421,7 @@
     },
     {
       "file": "App.py",
-      "line": 14612,
+      "line": 14617,
       "function": "admin_bug_reports",
       "literal_path": "/api/admin/bug-reports",
       "methods": [
@@ -2431,7 +2431,7 @@
     },
     {
       "file": "App.py",
-      "line": 14638,
+      "line": 14643,
       "function": "my_stats_page",
       "literal_path": "/my-stats",
       "methods": [
@@ -2441,7 +2441,7 @@
     },
     {
       "file": "App.py",
-      "line": 14645,
+      "line": 14650,
       "function": "api_my_stats",
       "literal_path": "/api/my-stats",
       "methods": [
@@ -2451,7 +2451,7 @@
     },
     {
       "file": "App.py",
-      "line": 14789,
+      "line": 14794,
       "function": "manual_list_tasks",
       "literal_path": "/tasks/manual/list",
       "methods": [
@@ -2461,7 +2461,7 @@
     },
     {
       "file": "App.py",
-      "line": 14989,
+      "line": 14994,
       "function": "api_import_csv_template",
       "literal_path": "/api/import/csv/template",
       "methods": [
@@ -2471,7 +2471,7 @@
     },
     {
       "file": "App.py",
-      "line": 15005,
+      "line": 15010,
       "function": "api_import_csv",
       "literal_path": "/api/import/csv",
       "methods": [
@@ -2481,7 +2481,7 @@
     },
     {
       "file": "App.py",
-      "line": 15035,
+      "line": 15040,
       "function": "api_import_smart_paste",
       "literal_path": "/api/import/smart_paste",
       "methods": [
@@ -2491,7 +2491,7 @@
     },
     {
       "file": "App.py",
-      "line": 15146,
+      "line": 15151,
       "function": "api_import_scraper",
       "literal_path": "/api/import/scraper",
       "methods": [
@@ -2501,7 +2501,7 @@
     },
     {
       "file": "App.py",
-      "line": 15222,
+      "line": 15227,
       "function": "api_import_status",
       "literal_path": "/api/import/status",
       "methods": [
@@ -2511,7 +2511,7 @@
     },
     {
       "file": "App.py",
-      "line": 15243,
+      "line": 15248,
       "function": "save_schedule",
       "literal_path": "/schedule/save",
       "methods": [
@@ -2523,7 +2523,7 @@
     },
     {
       "file": "App.py",
-      "line": 15261,
+      "line": 15266,
       "function": "get_saved_schedule",
       "literal_path": "/schedule/saved",
       "methods": [
@@ -2535,7 +2535,7 @@
     },
     {
       "file": "App.py",
-      "line": 15294,
+      "line": 15299,
       "function": "save_schedule_progress",
       "literal_path": "/schedule/progress",
       "methods": [
@@ -2547,7 +2547,7 @@
     },
     {
       "file": "App.py",
-      "line": 15348,
+      "line": 15353,
       "function": "recover_schedule",
       "literal_path": "/schedule/recover",
       "methods": [
@@ -2559,7 +2559,7 @@
     },
     {
       "file": "App.py",
-      "line": 15550,
+      "line": 15555,
       "function": "update_saved_schedule",
       "literal_path": "/schedule/update",
       "methods": [
@@ -2571,7 +2571,7 @@
     },
     {
       "file": "App.py",
-      "line": 15574,
+      "line": 15579,
       "function": "reflow_saved_schedule",
       "literal_path": "/schedule/reflow",
       "methods": [
@@ -2583,7 +2583,7 @@
     },
     {
       "file": "App.py",
-      "line": 15615,
+      "line": 15620,
       "function": "delete_saved_schedule",
       "literal_path": "/schedule/delete",
       "methods": [
@@ -2595,7 +2595,7 @@
     },
     {
       "file": "App.py",
-      "line": 15722,
+      "line": 15727,
       "function": "export_schedule_ics",
       "literal_path": "/schedule/export.ics",
       "methods": [
@@ -2607,7 +2607,7 @@
     },
     {
       "file": "App.py",
-      "line": 15892,
+      "line": 15897,
       "function": "archive_context",
       "literal_path": "/archive/context",
       "methods": [
@@ -2617,7 +2617,7 @@
     },
     {
       "file": "App.py",
-      "line": 15904,
+      "line": 15909,
       "function": "memories_page",
       "literal_path": "/memories",
       "methods": [
@@ -2627,7 +2627,7 @@
     },
     {
       "file": "App.py",
-      "line": 15908,
+      "line": 15913,
       "function": "archive_save",
       "literal_path": "/archive/save",
       "methods": [
@@ -2637,7 +2637,7 @@
     },
     {
       "file": "App.py",
-      "line": 15934,
+      "line": 15939,
       "function": "archive_snapshot",
       "literal_path": "/archive/snapshot",
       "methods": [
@@ -2647,7 +2647,7 @@
     },
     {
       "file": "App.py",
-      "line": 16023,
+      "line": 16028,
       "function": "archive_days",
       "literal_path": "/archive/days",
       "methods": [
@@ -2657,7 +2657,7 @@
     },
     {
       "file": "App.py",
-      "line": 16082,
+      "line": 16087,
       "function": "archive_day",
       "literal_path": "/archive/day/<date_str>",
       "methods": [
@@ -2667,7 +2667,7 @@
     },
     {
       "file": "App.py",
-      "line": 16098,
+      "line": 16103,
       "function": "archive_load_item",
       "literal_path": "/archive/load/<int:item_id>",
       "methods": [
@@ -2677,7 +2677,7 @@
     },
     {
       "file": "App.py",
-      "line": 16110,
+      "line": 16115,
       "function": "archive_load_day",
       "literal_path": "/archive/load-day/<date_str>",
       "methods": [
@@ -2687,7 +2687,7 @@
     },
     {
       "file": "App.py",
-      "line": 16130,
+      "line": 16135,
       "function": "archive_delete_item",
       "literal_path": "/archive/delete/<int:item_id>",
       "methods": [
@@ -2697,7 +2697,7 @@
     },
     {
       "file": "App.py",
-      "line": 16173,
+      "line": 16178,
       "function": "archive_export_all",
       "literal_path": "/archive/export",
       "methods": [
@@ -2707,7 +2707,7 @@
     },
     {
       "file": "App.py",
-      "line": 16185,
+      "line": 16190,
       "function": "archive_export_day",
       "literal_path": "/archive/export/<date_str>",
       "methods": [
@@ -2717,7 +2717,7 @@
     },
     {
       "file": "App.py",
-      "line": 16203,
+      "line": 16208,
       "function": "feedback_predict_time",
       "literal_path": "/feedback/predict-time",
       "methods": [
@@ -2727,7 +2727,7 @@
     },
     {
       "file": "App.py",
-      "line": 16276,
+      "line": 16281,
       "function": "feedback_complete",
       "literal_path": "/feedback/complete",
       "methods": [
@@ -2737,7 +2737,7 @@
     },
     {
       "file": "App.py",
-      "line": 16321,
+      "line": 16326,
       "function": "feedback_export",
       "literal_path": "/feedback/export",
       "methods": [
@@ -2747,7 +2747,7 @@
     },
     {
       "file": "App.py",
-      "line": 16379,
+      "line": 16384,
       "function": "push_subscribe",
       "literal_path": "/push/subscribe",
       "methods": [
@@ -2759,7 +2759,7 @@
     },
     {
       "file": "App.py",
-      "line": 16430,
+      "line": 16435,
       "function": "push_desktop_register",
       "literal_path": "/push/desktop-register",
       "methods": [
@@ -2771,7 +2771,7 @@
     },
     {
       "file": "App.py",
-      "line": 16455,
+      "line": 16460,
       "function": "push_test",
       "literal_path": "/push/test",
       "methods": [
@@ -2783,7 +2783,7 @@
     },
     {
       "file": "App.py",
-      "line": 16526,
+      "line": 16531,
       "function": "vapid_public",
       "literal_path": "/push/vapid-public",
       "methods": [
@@ -2795,7 +2795,7 @@
     },
     {
       "file": "App.py",
-      "line": 16530,
+      "line": 16535,
       "function": "silence_notifications",
       "literal_path": "/notifications/silence",
       "methods": [
@@ -2807,7 +2807,7 @@
     },
     {
       "file": "App.py",
-      "line": 16540,
+      "line": 16545,
       "function": "notification_status",
       "literal_path": "/notifications/status",
       "methods": [
@@ -2819,7 +2819,7 @@
     },
     {
       "file": "App.py",
-      "line": 16545,
+      "line": 16550,
       "function": "debug_auth",
       "literal_path": "/debug/auth",
       "methods": [
@@ -2829,7 +2829,7 @@
     },
     {
       "file": "App.py",
-      "line": 16620,
+      "line": 16625,
       "function": "extension_login",
       "literal_path": "/extension/login",
       "methods": [
@@ -2840,7 +2840,7 @@
     },
     {
       "file": "App.py",
-      "line": 16665,
+      "line": 16670,
       "function": "extension_register",
       "literal_path": "/extension/register",
       "methods": [
@@ -2851,7 +2851,7 @@
     },
     {
       "file": "App.py",
-      "line": 16704,
+      "line": 16709,
       "function": "extension_logout",
       "literal_path": "/extension/logout",
       "methods": [
@@ -2862,7 +2862,7 @@
     },
     {
       "file": "App.py",
-      "line": 16737,
+      "line": 16742,
       "function": "extension_tasks",
       "literal_path": "/extension/tasks",
       "methods": [
@@ -2872,7 +2872,7 @@
     },
     {
       "file": "App.py",
-      "line": 16836,
+      "line": 16841,
       "function": "extension_schedule",
       "literal_path": "/extension/schedule",
       "methods": [
@@ -2884,7 +2884,7 @@
     },
     {
       "file": "App.py",
-      "line": 16851,
+      "line": 16856,
       "function": "extension_grades",
       "literal_path": "/extension/grades",
       "methods": [
@@ -2894,7 +2894,7 @@
     },
     {
       "file": "App.py",
-      "line": 16904,
+      "line": 16909,
       "function": "extension_dismiss",
       "literal_path": "/extension/dismiss",
       "methods": [
@@ -2905,7 +2905,7 @@
     },
     {
       "file": "App.py",
-      "line": 16928,
+      "line": 16933,
       "function": "extension_task_add",
       "literal_path": "/extension/task/add",
       "methods": [
@@ -2916,7 +2916,7 @@
     },
     {
       "file": "App.py",
-      "line": 16975,
+      "line": 16980,
       "function": "extension_session_token",
       "literal_path": "/extension/session-token",
       "methods": [
@@ -2927,7 +2927,7 @@
     },
     {
       "file": "App.py",
-      "line": 17027,
+      "line": 17032,
       "function": "study_evaluate",
       "literal_path": "/study/evaluate",
       "methods": [
@@ -2939,7 +2939,7 @@
     },
     {
       "file": "App.py",
-      "line": 17101,
+      "line": 17106,
       "function": "study_analyze_image",
       "literal_path": "/study/analyze-image",
       "methods": [
@@ -2952,7 +2952,7 @@
     },
     {
       "file": "App.py",
-      "line": 17130,
+      "line": 17135,
       "function": "analyze_image_general",
       "literal_path": "/analyze-image",
       "methods": [
@@ -2964,7 +2964,7 @@
     },
     {
       "file": "App.py",
-      "line": 17156,
+      "line": 17161,
       "function": "study_get_points",
       "literal_path": "/study/points",
       "methods": [
@@ -2976,7 +2976,7 @@
     },
     {
       "file": "App.py",
-      "line": 17156,
+      "line": 17161,
       "function": "study_get_points",
       "literal_path": "/study/streak",
       "methods": [
@@ -2988,7 +2988,7 @@
     },
     {
       "file": "App.py",
-      "line": 17219,
+      "line": 17224,
       "function": "study_update_points",
       "literal_path": "/study/sparks/update",
       "methods": [
@@ -3000,7 +3000,7 @@
     },
     {
       "file": "App.py",
-      "line": 17219,
+      "line": 17224,
       "function": "study_update_points",
       "literal_path": "/study/points/update",
       "methods": [
@@ -3012,7 +3012,7 @@
     },
     {
       "file": "App.py",
-      "line": 17246,
+      "line": 17251,
       "function": "study_update_streak",
       "literal_path": "/study/streak/update",
       "methods": [
@@ -3024,7 +3024,7 @@
     },
     {
       "file": "App.py",
-      "line": 17323,
+      "line": 17328,
       "function": "api_activity",
       "literal_path": "/api/activity",
       "methods": [
@@ -3034,7 +3034,7 @@
     },
     {
       "file": "App.py",
-      "line": 17360,
+      "line": 17365,
       "function": "study_mastery_update",
       "literal_path": "/study/mastery/update",
       "methods": [
@@ -3046,7 +3046,7 @@
     },
     {
       "file": "App.py",
-      "line": 17414,
+      "line": 17419,
       "function": "study_mastery_due",
       "literal_path": "/study/mastery/due",
       "methods": [
@@ -3058,7 +3058,7 @@
     },
     {
       "file": "App.py",
-      "line": 17429,
+      "line": 17434,
       "function": "study_mastery_all",
       "literal_path": "/study/mastery/all",
       "methods": [
@@ -3070,7 +3070,7 @@
     },
     {
       "file": "App.py",
-      "line": 17443,
+      "line": 17448,
       "function": "study_session_complete",
       "literal_path": "/study/session/complete",
       "methods": [
@@ -3082,7 +3082,7 @@
     },
     {
       "file": "App.py",
-      "line": 17547,
+      "line": 17552,
       "function": "study_quests",
       "literal_path": "/study/quests",
       "methods": [
@@ -3094,7 +3094,7 @@
     },
     {
       "file": "App.py",
-      "line": 17559,
+      "line": 17564,
       "function": "study_quests_update",
       "literal_path": "/study/quests/update",
       "methods": [
@@ -3106,7 +3106,7 @@
     },
     {
       "file": "App.py",
-      "line": 17572,
+      "line": 17577,
       "function": "study_shop_buy",
       "literal_path": "/study/shop/buy",
       "methods": [
@@ -3118,7 +3118,7 @@
     },
     {
       "file": "App.py",
-      "line": 17638,
+      "line": 17643,
       "function": "study_repair",
       "literal_path": "/study/repair",
       "methods": [
@@ -3130,7 +3130,7 @@
     },
     {
       "file": "App.py",
-      "line": 17710,
+      "line": 17715,
       "function": "study_access",
       "literal_path": "/study/access",
       "methods": [
@@ -3142,7 +3142,7 @@
     },
     {
       "file": "App.py",
-      "line": 17727,
+      "line": 17732,
       "function": "study_extract_pdf",
       "literal_path": "/study/extract-pdf",
       "methods": [
@@ -3155,7 +3155,7 @@
     },
     {
       "file": "App.py",
-      "line": 17752,
+      "line": 17757,
       "function": "study_youtube",
       "literal_path": "/study/youtube",
       "methods": [
@@ -3167,7 +3167,7 @@
     },
     {
       "file": "App.py",
-      "line": 17816,
+      "line": 17821,
       "function": "study_transcribe",
       "literal_path": "/study/transcribe",
       "methods": [
@@ -3179,7 +3179,7 @@
     },
     {
       "file": "App.py",
-      "line": 17850,
+      "line": 17855,
       "function": "study_generate",
       "literal_path": "/study/generate",
       "methods": [
@@ -3191,7 +3191,7 @@
     },
     {
       "file": "App.py",
-      "line": 18257,
+      "line": 18262,
       "function": "admin_set_flag",
       "literal_path": "/api/admin/flag",
       "methods": [
@@ -3201,7 +3201,7 @@
     },
     {
       "file": "App.py",
-      "line": 18280,
+      "line": 18285,
       "function": "admin_indexnow_status",
       "literal_path": "/api/admin/indexnow/status",
       "methods": [
@@ -3211,7 +3211,7 @@
     },
     {
       "file": "App.py",
-      "line": 18294,
+      "line": 18299,
       "function": "admin_indexnow_submit",
       "literal_path": "/api/admin/indexnow/submit",
       "methods": [
@@ -3222,7 +3222,7 @@
     },
     {
       "file": "App.py",
-      "line": 18318,
+      "line": 18323,
       "function": "admin_smtp_status",
       "literal_path": "/api/admin/smtp-status",
       "methods": [
@@ -3232,7 +3232,7 @@
     },
     {
       "file": "App.py",
-      "line": 18339,
+      "line": 18344,
       "function": "admin_sms_blast_preview",
       "literal_path": "/api/admin/sms-blast/preview",
       "methods": [
@@ -3242,7 +3242,7 @@
     },
     {
       "file": "App.py",
-      "line": 18359,
+      "line": 18364,
       "function": "admin_sms_blast_send",
       "literal_path": "/api/admin/sms-blast/send",
       "methods": [
@@ -3252,7 +3252,7 @@
     },
     {
       "file": "App.py",
-      "line": 18421,
+      "line": 18426,
       "function": "admin_newsletter_preview",
       "literal_path": "/api/admin/newsletter/preview",
       "methods": [
@@ -3262,7 +3262,7 @@
     },
     {
       "file": "App.py",
-      "line": 18440,
+      "line": 18445,
       "function": "admin_newsletter_send",
       "literal_path": "/api/admin/newsletter/send",
       "methods": [
@@ -3272,7 +3272,7 @@
     },
     {
       "file": "App.py",
-      "line": 18500,
+      "line": 18505,
       "function": "referral_landing",
       "literal_path": "/ref/<code>",
       "methods": [
@@ -3282,7 +3282,7 @@
     },
     {
       "file": "App.py",
-      "line": 18513,
+      "line": 18518,
       "function": "api_referral",
       "literal_path": "/api/referral",
       "methods": [
@@ -3292,7 +3292,7 @@
     },
     {
       "file": "App.py",
-      "line": 18825,
+      "line": 18830,
       "function": "account_age_gate",
       "literal_path": "/account/age",
       "methods": [
@@ -3303,7 +3303,7 @@
     },
     {
       "file": "App.py",
-      "line": 18890,
+      "line": 18895,
       "function": "account_age_pending",
       "literal_path": "/account/age/pending",
       "methods": [
@@ -3313,7 +3313,7 @@
     },
     {
       "file": "App.py",
-      "line": 18905,
+      "line": 18910,
       "function": "parent_consent",
       "literal_path": "/parent/consent",
       "methods": [
@@ -3324,7 +3324,7 @@
     },
     {
       "file": "App.py",
-      "line": 18954,
+      "line": 18959,
       "function": "parent_deny",
       "literal_path": "/parent/deny",
       "methods": [
@@ -3335,7 +3335,7 @@
     },
     {
       "file": "App.py",
-      "line": 19293,
+      "line": 19298,
       "function": "api_focus_enforcement",
       "literal_path": "/api/focus/enforcement",
       "methods": [
@@ -3348,7 +3348,7 @@
     },
     {
       "file": "App.py",
-      "line": 19326,
+      "line": 19331,
       "function": "api_focus_alarm",
       "literal_path": "/api/focus/alarm",
       "methods": [
@@ -3361,7 +3361,7 @@
     },
     {
       "file": "App.py",
-      "line": 19390,
+      "line": 19395,
       "function": "focus_alarm_file",
       "literal_path": "/uploads/focus-alarm/<int:user_id>",
       "methods": [
@@ -3373,7 +3373,7 @@
     },
     {
       "file": "App.py",
-      "line": 19411,
+      "line": 19416,
       "function": "api_profile_ai_personalization",
       "literal_path": "/api/profile/ai_personalization",
       "methods": [
@@ -3383,7 +3383,7 @@
     },
     {
       "file": "App.py",
-      "line": 19430,
+      "line": 19435,
       "function": "api_profile_phone",
       "literal_path": "/api/profile/phone",
       "methods": [
@@ -3394,7 +3394,7 @@
     },
     {
       "file": "App.py",
-      "line": 19464,
+      "line": 19469,
       "function": "api_profile_phone_test",
       "literal_path": "/api/profile/phone/test",
       "methods": [
@@ -3404,7 +3404,7 @@
     },
     {
       "file": "App.py",
-      "line": 19660,
+      "line": 19665,
       "function": "api_snapshot",
       "literal_path": "/api/snapshot",
       "methods": [
@@ -3414,7 +3414,7 @@
     },
     {
       "file": "App.py",
-      "line": 19877,
+      "line": 19882,
       "function": "api_reminders_check",
       "literal_path": "/api/reminders/check",
       "methods": [
@@ -3426,7 +3426,7 @@
     },
     {
       "file": "App.py",
-      "line": 19909,
+      "line": 19914,
       "function": "api_reminders_preview",
       "literal_path": "/api/reminders/preview",
       "methods": [
@@ -3438,7 +3438,7 @@
     },
     {
       "file": "App.py",
-      "line": 19967,
+      "line": 19972,
       "function": "cron_send_reminders",
       "literal_path": "/cron/send-reminders",
       "methods": [
@@ -3449,7 +3449,7 @@
     },
     {
       "file": "App.py",
-      "line": 19999,
+      "line": 20004,
       "function": "cron_lifecycle_emails",
       "literal_path": "/cron/lifecycle-emails",
       "methods": [
@@ -3460,7 +3460,7 @@
     },
     {
       "file": "App.py",
-      "line": 20052,
+      "line": 20057,
       "function": "cron_weekly_newsletter",
       "literal_path": "/cron/weekly-newsletter",
       "methods": [
@@ -3471,7 +3471,7 @@
     },
     {
       "file": "App.py",
-      "line": 20089,
+      "line": 20094,
       "function": "admin_weekly_newsletter_preview",
       "literal_path": "/api/admin/newsletter/weekly-preview",
       "methods": [
@@ -3482,7 +3482,7 @@
     },
     {
       "file": "App.py",
-      "line": 20107,
+      "line": 20112,
       "function": "admin_onboarding_preview",
       "literal_path": "/api/admin/email/onboarding-preview",
       "methods": [
@@ -3493,7 +3493,7 @@
     },
     {
       "file": "App.py",
-      "line": 20167,
+      "line": 20172,
       "function": "admin_drafts_preview",
       "literal_path": "/api/admin/email/drafts-preview",
       "methods": [
@@ -3504,7 +3504,7 @@
     },
     {
       "file": "App.py",
-      "line": 20218,
+      "line": 20223,
       "function": "admin_email_preflight",
       "literal_path": "/api/admin/email/preflight",
       "methods": [
@@ -3515,7 +3515,7 @@
     },
     {
       "file": "App.py",
-      "line": 20236,
+      "line": 20241,
       "function": "admin_feedback_blast_preview",
       "literal_path": "/api/admin/feedback-blast/preview",
       "methods": [
@@ -3526,7 +3526,7 @@
     },
     {
       "file": "App.py",
-      "line": 20250,
+      "line": 20255,
       "function": "admin_thank_you_preview",
       "literal_path": "/api/admin/thank-you/preview",
       "methods": [
@@ -3536,7 +3536,7 @@
     },
     {
       "file": "App.py",
-      "line": 20262,
+      "line": 20267,
       "function": "admin_thank_you_send",
       "literal_path": "/api/admin/thank-you/send",
       "methods": [
@@ -3546,7 +3546,7 @@
     },
     {
       "file": "App.py",
-      "line": 20280,
+      "line": 20285,
       "function": "admin_feedback_blast_send",
       "literal_path": "/api/admin/feedback-blast/send",
       "methods": [
@@ -3556,7 +3556,7 @@
     },
     {
       "file": "App.py",
-      "line": 20317,
+      "line": 20322,
       "function": "email_unsubscribe",
       "literal_path": "/email/unsubscribe/<token>",
       "methods": [
@@ -3567,7 +3567,7 @@
     },
     {
       "file": "App.py",
-      "line": 20370,
+      "line": 20375,
       "function": "api_daily_claim_status",
       "literal_path": "/api/streak/daily-claim",
       "methods": [
@@ -3577,7 +3577,7 @@
     },
     {
       "file": "App.py",
-      "line": 20397,
+      "line": 20402,
       "function": "api_daily_claim",
       "literal_path": "/api/streak/daily-claim",
       "methods": [
@@ -3587,7 +3587,7 @@
     },
     {
       "file": "App.py",
-      "line": 20479,
+      "line": 20484,
       "function": "live_session_page",
       "literal_path": "/live/<int:session_id>",
       "methods": [
@@ -3597,7 +3597,7 @@
     },
     {
       "file": "App.py",
-      "line": 20492,
+      "line": 20497,
       "function": "api_create_live_session",
       "literal_path": "/api/live",
       "methods": [
@@ -3607,7 +3607,7 @@
     },
     {
       "file": "App.py",
-      "line": 20511,
+      "line": 20516,
       "function": "api_get_live_session",
       "literal_path": "/api/live/<int:session_id>",
       "methods": [
@@ -3617,7 +3617,7 @@
     },
     {
       "file": "App.py",
-      "line": 20519,
+      "line": 20524,
       "function": "api_update_live_session",
       "literal_path": "/api/live/<int:session_id>",
       "methods": [
@@ -3627,7 +3627,7 @@
     },
     {
       "file": "App.py",
-      "line": 20541,
+      "line": 20546,
       "function": "api_list_live_sessions",
       "literal_path": "/api/live",
       "methods": [
@@ -3637,7 +3637,7 @@
     },
     {
       "file": "App.py",
-      "line": 20639,
+      "line": 20644,
       "function": "grademodel_feasibility",
       "literal_path": "/api/grademodel/feasibility",
       "methods": [
@@ -3647,7 +3647,7 @@
     },
     {
       "file": "App.py",
-      "line": 20690,
+      "line": 20695,
       "function": "grademodel_simulate",
       "literal_path": "/api/grademodel/simulate",
       "methods": [
@@ -3657,7 +3657,7 @@
     },
     {
       "file": "App.py",
-      "line": 20860,
+      "line": 20865,
       "function": "api_grades_predict",
       "literal_path": "/api/grades/predict",
       "methods": [
@@ -3667,7 +3667,7 @@
     },
     {
       "file": "App.py",
-      "line": 21035,
+      "line": 21040,
       "function": "lessons_page",
       "literal_path": "/lessons",
       "methods": [
@@ -3679,7 +3679,7 @@
     },
     {
       "file": "App.py",
-      "line": 21043,
+      "line": 21048,
       "function": "api_list_lessons",
       "literal_path": "/api/lessons",
       "methods": [
@@ -3692,7 +3692,7 @@
     },
     {
       "file": "App.py",
-      "line": 21060,
+      "line": 21065,
       "function": "api_upload_lesson",
       "literal_path": "/api/lessons",
       "methods": [
@@ -3705,7 +3705,7 @@
     },
     {
       "file": "App.py",
-      "line": 21101,
+      "line": 21106,
       "function": "lesson_stream",
       "literal_path": "/lessons/<int:lesson_id>/stream",
       "methods": [
@@ -3717,7 +3717,7 @@
     },
     {
       "file": "App.py",
-      "line": 21109,
+      "line": 21114,
       "function": "api_delete_lesson",
       "literal_path": "/api/lessons/<int:lesson_id>",
       "methods": [
@@ -3730,7 +3730,7 @@
     },
     {
       "file": "App.py",
-      "line": 21125,
+      "line": 21130,
       "function": "api_resummarize_lesson",
       "literal_path": "/api/lessons/<int:lesson_id>/resummarize",
       "methods": [
@@ -3743,7 +3743,7 @@
     },
     {
       "file": "App.py",
-      "line": 21154,
+      "line": 21159,
       "function": "groups_page",
       "literal_path": "/groups",
       "methods": [
@@ -3753,7 +3753,7 @@
     },
     {
       "file": "App.py",
-      "line": 21162,
+      "line": 21167,
       "function": "api_list_groups",
       "literal_path": "/api/groups",
       "methods": [
@@ -3763,7 +3763,7 @@
     },
     {
       "file": "App.py",
-      "line": 21231,
+      "line": 21236,
       "function": "api_create_group",
       "literal_path": "/api/groups",
       "methods": [
@@ -3773,7 +3773,7 @@
     },
     {
       "file": "App.py",
-      "line": 21273,
+      "line": 21278,
       "function": "api_get_group",
       "literal_path": "/api/groups/<int:group_id>",
       "methods": [
@@ -3783,7 +3783,7 @@
     },
     {
       "file": "App.py",
-      "line": 21322,
+      "line": 21327,
       "function": "api_join_group",
       "literal_path": "/api/groups/<int:group_id>/join",
       "methods": [
@@ -3793,7 +3793,7 @@
     },
     {
       "file": "App.py",
-      "line": 21336,
+      "line": 21341,
       "function": "groups_invite",
       "literal_path": "/groups/invite/<int:group_id>",
       "methods": [
@@ -3803,7 +3803,7 @@
     },
     {
       "file": "App.py",
-      "line": 21358,
+      "line": 21363,
       "function": "api_leave_group",
       "literal_path": "/api/groups/<int:group_id>/leave",
       "methods": [
@@ -3813,7 +3813,7 @@
     },
     {
       "file": "App.py",
-      "line": 21367,
+      "line": 21372,
       "function": "api_save_group_notes",
       "literal_path": "/api/groups/<int:group_id>/notes",
       "methods": [
@@ -3823,7 +3823,7 @@
     },
     {
       "file": "App.py",
-      "line": 21380,
+      "line": 21385,
       "function": "api_start_group_meeting",
       "literal_path": "/api/groups/<int:group_id>/start-meeting",
       "methods": [
@@ -3833,7 +3833,7 @@
     },
     {
       "file": "App.py",
-      "line": 21397,
+      "line": 21402,
       "function": "api_set_group_meeting",
       "literal_path": "/api/groups/<int:group_id>/meeting",
       "methods": [
@@ -3843,7 +3843,7 @@
     },
     {
       "file": "App.py",
-      "line": 21417,
+      "line": 21422,
       "function": "writing_page",
       "literal_path": "/writing",
       "methods": [
@@ -3855,7 +3855,7 @@
     },
     {
       "file": "App.py",
-      "line": 21426,
+      "line": 21431,
       "function": "api_writing_analyze",
       "literal_path": "/api/writing/analyze",
       "methods": [
@@ -3867,7 +3867,7 @@
     },
     {
       "file": "App.py",
-      "line": 21463,
+      "line": 21468,
       "function": "math_page",
       "literal_path": "/math",
       "methods": [
@@ -3879,7 +3879,7 @@
     },
     {
       "file": "App.py",
-      "line": 21472,
+      "line": 21477,
       "function": "api_math_explain",
       "literal_path": "/api/math/explain",
       "methods": [
@@ -3891,7 +3891,7 @@
     },
     {
       "file": "App.py",
-      "line": 21506,
+      "line": 21511,
       "function": "api_math_similar",
       "literal_path": "/api/math/similar",
       "methods": [
@@ -3903,7 +3903,7 @@
     },
     {
       "file": "App.py",
-      "line": 21532,
+      "line": 21537,
       "function": "extractor_page",
       "literal_path": "/extractor",
       "methods": [
@@ -3915,7 +3915,7 @@
     },
     {
       "file": "App.py",
-      "line": 21541,
+      "line": 21546,
       "function": "api_task_extract",
       "literal_path": "/api/tasks/extract",
       "methods": [
@@ -3927,7 +3927,7 @@
     },
     {
       "file": "App.py",
-      "line": 22244,
+      "line": 22249,
       "function": "health_check",
       "literal_path": "/health",
       "methods": [
@@ -3937,7 +3937,7 @@
     },
     {
       "file": "App.py",
-      "line": 22399,
+      "line": 22404,
       "function": "api_syllabus_import",
       "literal_path": "/api/syllabus/import",
       "methods": [
@@ -3949,7 +3949,7 @@
     },
     {
       "file": "App.py",
-      "line": 22498,
+      "line": 22503,
       "function": "api_syllabus_records",
       "literal_path": "/api/syllabus/records",
       "methods": [
@@ -3959,7 +3959,7 @@
     },
     {
       "file": "App.py",
-      "line": 22522,
+      "line": 22527,
       "function": "api_syllabus_record_detail",
       "literal_path": "/api/syllabus/records/<int:record_id>",
       "methods": [
@@ -3969,7 +3969,7 @@
     },
     {
       "file": "App.py",
-      "line": 22546,
+      "line": 22551,
       "function": "api_lms_sources",
       "literal_path": "/api/settings/lms-sources",
       "methods": [
@@ -3980,7 +3980,7 @@
     },
     {
       "file": "App.py",
-      "line": 22577,
+      "line": 22582,
       "function": "api_saved_meetings",
       "literal_path": "/api/meetings/saved",
       "methods": [
@@ -3991,7 +3991,7 @@
     },
     {
       "file": "App.py",
-      "line": 22615,
+      "line": 22620,
       "function": "api_delete_saved_meeting",
       "literal_path": "/api/meetings/saved/<int:meeting_id>",
       "methods": [
@@ -4001,7 +4001,7 @@
     },
     {
       "file": "App.py",
-      "line": 22670,
+      "line": 22675,
       "function": "api_session_messages",
       "literal_path": "/api/sessions/<context_type>/<int:context_id>/messages",
       "methods": [
@@ -4012,7 +4012,7 @@
     },
     {
       "file": "App.py",
-      "line": 22710,
+      "line": 22715,
       "function": "api_save_session_message",
       "literal_path": "/api/sessions/messages/<int:msg_id>/save",
       "methods": [
@@ -6108,7 +6108,7 @@
     },
     {
       "file": "intelliplan/learning/api.py",
-      "line": 48,
+      "line": 47,
       "function": "hub",
       "literal_path": "/learning",
       "methods": [
@@ -6118,7 +6118,7 @@
     },
     {
       "file": "intelliplan/learning/api.py",
-      "line": 53,
+      "line": 52,
       "function": "admin_page",
       "literal_path": "/school-admin",
       "methods": [
@@ -6128,7 +6128,7 @@
     },
     {
       "file": "intelliplan/learning/api.py",
-      "line": 60,
+      "line": 59,
       "function": "capabilities",
       "literal_path": "/api/learning/capabilities",
       "methods": [
@@ -6138,7 +6138,7 @@
     },
     {
       "file": "intelliplan/learning/api.py",
-      "line": 67,
+      "line": 66,
       "function": "organizations",
       "literal_path": "/api/school-admin/organizations",
       "methods": [
@@ -6149,7 +6149,7 @@
     },
     {
       "file": "intelliplan/learning/api.py",
-      "line": 98,
+      "line": 97,
       "function": "organization_policy",
       "literal_path": "/api/school-admin/organizations/<int:oid>/policy",
       "methods": [
@@ -6159,7 +6159,7 @@
     },
     {
       "file": "intelliplan/learning/api.py",
-      "line": 120,
+      "line": 119,
       "function": "organization_members",
       "literal_path": "/api/school-admin/organizations/<int:oid>/members",
       "methods": [
@@ -6170,7 +6170,7 @@
     },
     {
       "file": "intelliplan/learning/api.py",
-      "line": 151,
+      "line": 150,
       "function": "organization_audit",
       "literal_path": "/api/school-admin/organizations/<int:oid>/audit",
       "methods": [
@@ -6180,7 +6180,7 @@
     },
     {
       "file": "intelliplan/learning/api.py",
-      "line": 161,
+      "line": 160,
       "function": "course_list",
       "literal_path": "/api/learning/courses",
       "methods": [
@@ -6191,7 +6191,7 @@
     },
     {
       "file": "intelliplan/learning/api.py",
-      "line": 206,
+      "line": 205,
       "function": "course_detail",
       "literal_path": "/api/learning/courses/<int:cid>",
       "methods": [
@@ -6202,7 +6202,7 @@
     },
     {
       "file": "intelliplan/learning/api.py",
-      "line": 248,
+      "line": 247,
       "function": "generation",
       "literal_path": "/api/learning/courses/<int:cid>/generation",
       "methods": [
@@ -6212,7 +6212,7 @@
     },
     {
       "file": "intelliplan/learning/api.py",
-      "line": 285,
+      "line": 284,
       "function": "lesson_revision",
       "literal_path": "/api/learning/courses/<int:cid>/lessons/<int:lid>/revision",
       "methods": [
@@ -6222,7 +6222,7 @@
     },
     {
       "file": "intelliplan/learning/api.py",
-      "line": 324,
+      "line": 323,
       "function": "outline_revision",
       "literal_path": "/api/learning/courses/<int:cid>/outline-revision",
       "methods": [
@@ -6232,7 +6232,7 @@
     },
     {
       "file": "intelliplan/learning/api.py",
-      "line": 348,
+      "line": 347,
       "function": "review_course",
       "literal_path": "/api/learning/courses/<int:cid>/review",
       "methods": [
@@ -6243,7 +6243,7 @@
     },
     {
       "file": "intelliplan/learning/api.py",
-      "line": 373,
+      "line": 372,
       "function": "lesson_answer",
       "literal_path": "/api/learning/courses/<int:cid>/lessons/<int:lid>/answer",
       "methods": [
@@ -6253,7 +6253,7 @@
     },
     {
       "file": "intelliplan/learning/api.py",
-      "line": 406,
+      "line": 405,
       "function": "progress",
       "literal_path": "/api/learning/progress",
       "methods": [
@@ -6263,7 +6263,7 @@
     },
     {
       "file": "intelliplan/learning/api.py",
-      "line": 418,
+      "line": 417,
       "function": "sittings",
       "literal_path": "/api/learning/sessions",
       "methods": [
@@ -6274,7 +6274,7 @@
     },
     {
       "file": "intelliplan/learning/api.py",
-      "line": 454,
+      "line": 453,
       "function": "checkpoint",
       "literal_path": "/api/learning/sessions/<int:sid>/checkpoint",
       "methods": [
@@ -6284,7 +6284,7 @@
     },
     {
       "file": "intelliplan/learning/api.py",
-      "line": 499,
+      "line": 498,
       "function": "export",
       "literal_path": "/api/learning/export",
       "methods": [

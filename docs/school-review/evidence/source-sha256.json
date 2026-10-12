@@ -9,7 +9,7 @@
   },
   {
     "path": "App.py",
-    "sha256": "8df66563894cad06a59113c1f0e6e2fc226a799051cb3abd0b57aab280700a83"
+    "sha256": "65f00a42c21d70862dca0c0ce4bc9100905dfdd9fa5ef9b75a772308a1fa5208"
   },
   {
     "path": "chatbot_api.py",
@@ -53,11 +53,11 @@
   },
   {
     "path": "intelliplan/learning/governance_api.py",
-    "sha256": "f0d23d3bcf544101a35480c171aa0f3a146c68cb310d31d92d96e75fb0f6e7be"
+    "sha256": "8da36ae65b307f32339a3a677c098bd97671ebbc377bb51489c1c30ad4e5c0c8"
   },
   {
     "path": "intelliplan/learning/governance.py",
-    "sha256": "fa2a3ecb0b7848ea7449766a933c541f71f1c0bd9f54c8530ea0506a65309585"
+    "sha256": "9282a23cb51e7390a4aee372f8a41e30d508686eebccc73a005c2cb6716ae847"
   },
   {
     "path": "intelliplan/learning/models.py",
@@ -65,7 +65,7 @@
   },
   {
     "path": "intelliplan/learning/policy.py",
-    "sha256": "c617a7c702ca4535191d50ffc36353250c02769e82e7fb0b0a581ab86fb1c92d"
+    "sha256": "62b644d4613fc227db70249db7c7f7de42100b4bdad0db6f8a6de618f82b566c"
   },
   {
     "path": "intelliplan/learning/worker.py",
@@ -417,7 +417,11 @@
   },
   {
     "path": "tests/test_learning_hub.py",
-    "sha256": "1fd4f92f5e2c0ae598ccccf38efe7b89ee4bd7adc0cea7e19a8c7fcc30c89ef6"
+    "sha256": "6c9017a3490f4b94d019d95886a9ca22b9c8a43c740d2b651e44f0282a43ede6"
+  },
+  {
+    "path": "tests/test_learning_postgres.py",
+    "sha256": "edaec835d4dc61395a4ca3980756250195ebb042bf7ed686ea10bbe0af0ed6c3"
   },
   {
     "path": "tests/test_learning_worker.py",
@@ -425,7 +429,7 @@
   },
   {
     "path": "tests/test_plani_policy.py",
-    "sha256": "75100619a9ba4a406a2f76e59cb28dfbfc089e3d0a583024be56d2322101c2b4"
+    "sha256": "c4c6eae935ce8df8b8ed6b1231d6368d2494e8cdc63c5ceef11ebaab74dbb270"
   },
   {
     "path": "tests/test_retrieval.py",

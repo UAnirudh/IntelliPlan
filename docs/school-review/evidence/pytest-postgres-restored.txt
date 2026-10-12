@@ -1,0 +1,48 @@
+......................                                                   [100%]
+============================== warnings summary ===============================
+..\..\AppData\Local\Programs\Python\Python313\Lib\site-packages\flask_limiter\_extension.py:364
+  C:\Users\uanir\AppData\Local\Programs\Python\Python313\Lib\site-packages\flask_limiter\_extension.py:364: UserWarning: Using the in-memory storage for tracking rate limits as no storage was explicitly specified. This is not recommended for production use. See: https://flask-limiter.readthedocs.io#configuring-a-storage-backend for documentation about configuring the storage backend.
+    warnings.warn(
+
+tests/test_learning_worker.py: 4 warnings
+tests/test_learning_postgres.py: 22 warnings
+  C:\Users\uanir\AppData\Local\Programs\Python\Python313\Lib\site-packages\sqlalchemy\sql\schema.py:3624: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    return util.wrap_callable(lambda ctx: fn(), fn)  # type: ignore
+
+tests/test_learning_worker.py: 17 warnings
+tests/test_learning_postgres.py: 2 warnings
+  C:\Users\uanir\StudioProjects\IntelliPlan\intelliplan\learning\courses.py:241: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now, lease = datetime.utcnow(), uuid.uuid4().hex
+
+tests/test_learning_postgres.py::test_pg_concurrent_audit_cleanup_merges_two_deleted_account_references
+tests/test_learning_postgres.py::test_pg_account_delete_blocks_new_membership_and_audit_phantom
+tests/test_learning_postgres.py::test_pg_retention_holds_policy_until_deletion_commits
+tests/test_learning_postgres.py::test_pg_retention_and_account_delete_share_owner_lock_order[delete]
+tests/test_learning_postgres.py::test_pg_retention_and_account_delete_share_owner_lock_order[retention]
+tests/test_learning_postgres.py::test_pg_two_workers_claim_a_curated_checkpoint_only_once
+tests/test_learning_postgres.py::test_pg_concurrent_shared_budget_reservations_cannot_overspend
+  C:\Users\uanir\StudioProjects\IntelliPlan\tests\test_learning_postgres.py:39: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    old = datetime.utcnow() - timedelta(days=8)
+
+tests/test_learning_postgres.py: 11 warnings
+  C:\Users\uanir\StudioProjects\IntelliPlan\intelliplan\learning\policy.py:115: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    org = M['Organization'].query.populate_existing().get(row.organization_id)
+
+tests/test_learning_postgres.py::test_pg_retention_holds_policy_until_deletion_commits
+tests/test_learning_postgres.py::test_pg_retention_and_account_delete_share_owner_lock_order[delete]
+tests/test_learning_postgres.py::test_pg_retention_and_account_delete_share_owner_lock_order[retention]
+  C:\Users\uanir\StudioProjects\IntelliPlan\intelliplan\learning\governance.py:116: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = now or datetime.utcnow()
+
+tests/test_learning_postgres.py::test_pg_retention_holds_policy_until_deletion_commits
+tests/test_learning_postgres.py::test_pg_retention_and_account_delete_share_owner_lock_order[retention]
+  C:\Users\uanir\StudioProjects\IntelliPlan\intelliplan\learning\governance.py:145: LegacyAPIWarning: The Query.get() method is considered legacy as of the 1.x series of SQLAlchemy and becomes a legacy construct in 2.0. The method is now available as Session.get() (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    owner = User.query.get(row.user_id)
+
+tests/test_learning_postgres.py::test_pg_concurrent_shared_budget_reservations_cannot_overspend
+tests/test_learning_postgres.py::test_pg_concurrent_shared_budget_reservations_cannot_overspend
+  C:\Users\uanir\StudioProjects\IntelliPlan\intelliplan\learning\governance.py:18: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    month = datetime.utcnow().strftime("%Y-%m")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+22 passed, 71 warnings in 17.26s

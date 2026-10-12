@@ -1,4 +1,4 @@
-# IntelliPlan engineering delivery — 2026-10-11
+# IntelliPlan engineering delivery — 2026-10-12
 
 This is a locally implemented and tested engineering checkpoint, **not a school launch approval**. The full attached master brief exceeds this checkpoint. The acceptance ledger below and remaining-work report explicitly identify incomplete requirements.
 
@@ -33,6 +33,7 @@ Verified: local automated permission, privacy, scoring, recovery and regression 
 19. [Plani account-data and internal-operation boundaries](19-plani-data-boundaries.md).
 20. [Legacy LMS connection and data boundaries](20-lms-policy-boundaries.md).
 21. [Durable course-worker operation](21-worker-operation.md).
+22. [Retention, deletion and disposable PostgreSQL proof](22-retention-postgres.md).
 
 The engineering checkpoint was saved before a subsequent [Learning Hub and institution UI pass](12-ui-design.md), informed by live Skydive, Cluely, Linear and Notion references. It adds theme-aware layouts, useful question starters, course preparation/progress and grouped settings while preserving beta notices and policy gates. Ten browser workflows and sixteen scoped responsive/accessibility checks accompany the UI work. The broader acceptance ledger remains unchanged in scope.
 
@@ -47,3 +48,5 @@ The subsequent Plani continuation closes scoped internal-operation and account-d
 The subsequent legacy LMS continuation adds seven named source controls and guards connection/callback, cache/credential, refresh/sync and post-fetch publication boundaries. The latest full regression passes4183 tests with24 skipped; the focused run passes434 tests. Independent Python, JavaScript and scoped spec reviews completed. The fresh browser report retains16 workflows and27 responsive/scoped axe checks with no JavaScript errors. [LMS behavior and limitations](20-lms-policy-boundaries.md). No live deployment, vendor authorization or full-brief completion is claimed.
 
 The subsequent CLI continuation adds explicit continuous course-worker operation, graceful stop requests, per-step connection release and safe structured events, plus an opt-in supervisor configuration. Actual curated queue checkpoint/resume and lifecycle tests pass in the247-test focused run. Cold CLI help, Python checks and independent reviews pass. [Operation and deployment limits](21-worker-operation.md). Docker/supervisor, production PostgreSQL and approved live-provider behavior remain unverified; the4183-test full run predates this CLI change.
+
+The latest privacy continuation protects nested structured audit-reference cleanup with conflict-safe updates, serializes account deletion and retention against relevant PostgreSQL scope/content changes, and reports actual retention deletion counts. The current full regression passes4223 tests /31 skipped. A fresh local PostgreSQL17.9 run passes290 scoped tests; backup/restore comparison matches127 tables,692 synthetic rows and124 sequences, and22 worker/concurrency checks pass on the restored fixture. Fresh browser checks retain16 workflows and27 responsive/scoped axe checks with no JavaScript errors. [Proof and limits](22-retention-postgres.md). No production cluster, student data or live provider was touched. The original brief remains incomplete; subsequent UI and multi-country/language requests remain tracked.

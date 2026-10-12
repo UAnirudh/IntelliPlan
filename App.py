@@ -10439,11 +10439,16 @@ def _account_delete_impl():
     # Optional feature tables may not have been created on older installs.
     # Inspect that explicitly; SQL errors on existing tables must roll back
     # every database change rather than silently leaving personal data.
-    from sqlalchemy import inspect as _inspect
+    from sqlalchemy import inspect as _inspect, select as _delete_select
     import re as _delete_re
     db.session.close()
     try:
         with db.engine.begin() as conn:
+            # Serialize deletion with retention and target-referencing inserts.
+            # PostgreSQL's user-row lock blocks new membership FK references
+            # until this transaction either removes the account or rolls back.
+            conn.execute(_delete_select(User.__table__.c.id).where(
+                User.__table__.c.id == user_id).with_for_update()).scalar_one_or_none()
             existing = set(_inspect(conn).get_table_names())
             for label, statement in deletion_plan:
                 referenced = set(_delete_re.findall(r"(?:FROM|UPDATE|JOIN)\s+(\w+)", statement, _delete_re.I))

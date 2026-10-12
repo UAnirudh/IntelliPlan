@@ -109,7 +109,7 @@ def organizations(user):
     if not getattr(user, 'is_authenticated', False):
         return []
     M = models()
-    rows = M['Membership'].query.filter_by(user_id=user.id).all()
+    rows = M['Membership'].query.populate_existing().filter_by(user_id=user.id).all()
     result = {}
     for row in rows:
         org = M['Organization'].query.populate_existing().get(row.organization_id)

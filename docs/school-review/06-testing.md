@@ -1,5 +1,11 @@
 # Testing report
 
+## Latest retention and PostgreSQL verification — 2026-10-12
+
+The current full disposable SQLite suite passes **4223 tests,31 skipped,10284 warnings in267.61s**, exit0. Seven skips are explicit-local PostgreSQL tests, executed separately. The scoped SQLite run passes283 tests before the final User lock; the full run includes it. A fresh PostgreSQL17.9 scope passes **290 tests,2401 warnings in57.50s**. Backup/restore comparison matches127 tables,692 synthetic rows and124 sequences. The restored fixture passes **22 worker/concurrency checks,71 warnings in17.26s**, including the final explicit overlapping lock-order assertions. [Full result](evidence/pytest-retention-full.txt), [PG result](evidence/pytest-postgres-targeted.txt), [restored result](evidence/pytest-postgres-restored.txt), [comparison](evidence/postgres-restore-comparison.txt).
+
+The fresh browser harness exits0 with16 HTTP/storage workflows,27 responsive checks,27 scoped axe audits and no JavaScript errors. External output remains fixtures and manual accessibility cases remain. Independent Python/source and scoped spec reviews completed after race fixes; changed Python Ruff, compilation and whitespace checks pass. The isolated PG server was stopped and its port closed. No production data/provider operation occurred. [Scope and reproduction](22-retention-postgres.md). Earlier results below are historical checkpoints.
+
 ## Latest LMS policy verification — 2026-10-11
 
 Subsequent worker CLI checks pass **247 tests,2042 warnings in32.08s**, including actual curated queue checkpoint/resume and declared lifecycle stubs. Cold CLI help succeeds with explicit disposable settings; changed Python checks and independent Python/spec reviews pass. The full regression below predates that CLI addition. [Worker results](evidence/pytest-worker-targeted.txt), [operation and limits](21-worker-operation.md).

@@ -1527,6 +1527,242 @@ def test_account_deletion_anonymizes_membership_audit_targets(client, monkeypatc
         assert event.changes == {"role": "student", "deleted_account": True}
 
 
+def test_account_deletion_scrubs_nested_audit_references_across_pages(client, monkeypatch):
+    from flask_login import login_user
+    uid = enable(monkeypatch, client)
+    oid = org(uid)
+    with App.app.app_context():
+        other = App.User(email=f'audit-other-{uuid4().hex}@example.test', password_hash='x')
+        App.db.session.add(other)
+        App.db.session.flush()
+        other_id = other.id
+        M = policy.models()
+        for index in range(205):
+            App.db.session.add(M['Audit'](organization_id=oid, actor_id=other_id,
+                action='membership_updated', changes={
+                    'members': [{'user_id': str(uid), 'role': 'student'}, {'user_id': other_id}],
+                    'target_user_ids': [uid, str(uid), other_id],
+                    'unrelated_number': uid, 'index': index}))
+        untouched = M['Audit'](organization_id=oid, actor_id=other_id,
+            action='policy_updated', changes={'user_id': other_id, 'retention_days': uid})
+        App.db.session.add(untouched)
+        App.db.session.commit()
+        untouched_id = untouched.id
+    with App.app.test_request_context():
+        login_user(App.db.session.get(App.User, uid))
+        assert App._account_delete_impl().json['status'] == 'ok'
+        rows = M['Audit'].query.filter_by(organization_id=oid, action='membership_updated').all()
+        assert len(rows) == 205
+        for row in rows:
+            assert row.actor_id == other_id
+            assert row.changes['members'] == [{'role': 'student', 'deleted_account': True}, {'user_id': other_id}]
+            assert row.changes['target_user_ids'] == [other_id]
+            assert row.changes['unrelated_number'] == uid
+        assert App.db.session.get(M['Audit'], untouched_id).changes == {'user_id': other_id, 'retention_days': uid}
+        assert App.db.session.get(App.User, other_id) is not None
+
+
+@pytest.mark.parametrize(('value', 'expected'), [
+    ({'user_id': 1}, {'deleted_account': True}),
+    ({'target_user_id': '1'}, {'deleted_account': True}),
+    ({'actor_user_id': 1, 'user_id': 2}, {'user_id': 2, 'deleted_account': True}),
+    ({'user_id': True, 'count': 1}, {'user_id': True, 'count': 1}),
+    ({'user_ids': [1, '1', 2, True]}, {'user_ids': [2, True], 'deleted_account': True}),
+    ([{'nested': {'user_id': 1}}, 1, '1'], [{'nested': {'deleted_account': True}}, 1, '1']),
+    ({'unknown_id': 1, 'text': 'user 1'}, {'unknown_id': 1, 'text': 'user 1'}),
+    (None, None), (True, True), ('unstructured', 'unstructured')])
+def test_audit_scrubbing_only_changes_explicit_identity_fields(value, expected):
+    from copy import deepcopy
+    from intelliplan.learning import governance
+    original = deepcopy(value)
+    assert governance.anonymize_audit_value(value, 1) == expected
+    assert value == original
+
+
+@pytest.mark.parametrize('new_days', [0, 30])
+def test_retention_rechecks_changed_policy_before_deleting(client, monkeypatch, new_days):
+    from intelliplan.learning import governance
+    uid = user(client, monkeypatch)
+    oid = org(uid, {'retention_days': 7})
+    with App.app.app_context():
+        M = policy.models()
+        item = M['Evidence'](user_id=uid, objective='Recall loops', kind='paper_work',
+            created_at=datetime.utcnow() - timedelta(days=8))
+        App.db.session.add(item)
+        App.db.session.commit()
+        identity = item.id
+        selected = governance.retention_candidates()
+        assert identity in selected['Evidence']
+        App.db.session.get(M['Organization'], oid).policy = {'retention_days': new_days}
+        App.db.session.commit()
+        counts = governance.apply_retention(selected)
+        assert counts == {'Evidence': 0, 'Feedback': 0, 'Sitting': 0}
+        assert App.db.session.get(M['Evidence'], identity) is not None
+
+
+def test_retention_rechecks_session_state_and_ignores_forged_recent_candidates(client, monkeypatch):
+    from intelliplan.learning import governance
+    uid = user(client, monkeypatch)
+    org(uid, {'retention_days': 7})
+    with App.app.app_context():
+        M = policy.models()
+        old = datetime.utcnow() - timedelta(days=8)
+        sitting = M['Sitting'](user_id=uid, objective='Recall loops', state='completed',
+            method='paper', planned_minutes=25, intervention='none', created_at=old)
+        App.db.session.add(sitting)
+        App.db.session.flush()
+        completed = M['Evidence'](user_id=uid, session_id=sitting.id, objective='Recall loops', kind='complete', created_at=old)
+        recent = M['Evidence'](user_id=uid, objective='New work', kind='paper_work')
+        App.db.session.add_all([completed, recent])
+        App.db.session.commit()
+        sid, eid, recent_id = sitting.id, completed.id, recent.id
+        selected = governance.retention_candidates()
+        assert sid in selected['Sitting']
+        selected['Evidence'].extend([eid, recent_id])
+        sitting.state = 'paused'
+        App.db.session.commit()
+        assert governance.apply_retention(selected) == {'Evidence': 0, 'Feedback': 0, 'Sitting': 0}
+        assert App.db.session.get(M['Sitting'], sid) is not None
+        assert App.db.session.get(M['Evidence'], eid) is not None
+        assert App.db.session.get(M['Evidence'], recent_id) is not None
+
+
+def test_retention_apply_reports_actual_rows_including_session_children(client, monkeypatch):
+    uid = user(client, monkeypatch)
+    org(uid, {'retention_days': 7})
+    with App.app.app_context():
+        M = policy.models()
+        old = datetime.utcnow() - timedelta(days=8)
+        sitting = M['Sitting'](user_id=uid, objective='Recall loops', state='completed',
+            method='paper', planned_minutes=25, intervention='none', created_at=old)
+        App.db.session.add(sitting)
+        App.db.session.flush()
+        App.db.session.add(M['Evidence'](user_id=uid, session_id=sitting.id, objective='Recall loops', kind='complete', created_at=old))
+        App.db.session.commit()
+        result = App.app.test_cli_runner().invoke(args=['learning-retention', '--apply', '--confirm-retention-policy'])
+        assert result.exit_code == 0, result.output
+        report = json.loads(result.output)
+        assert report['eligible'] == {'Evidence': 0, 'Sitting': 1, 'Feedback': 0}
+        assert report['deleted'] == {'Evidence': 1, 'Sitting': 1, 'Feedback': 0}
+
+
+@pytest.mark.parametrize('selected', [None, {}, {'User': [1]},
+    {'Evidence': [True], 'Sitting': [], 'Feedback': []},
+    {'Evidence': [-1], 'Sitting': [], 'Feedback': []},
+    {'Evidence': '1', 'Sitting': [], 'Feedback': []}])
+def test_retention_rejects_invalid_candidate_shapes(client, selected):
+    from intelliplan.learning import governance
+    with App.app.app_context(), pytest.raises(ValueError, match='bounded'):
+        governance.apply_retention(selected)
+
+
+def test_policy_recheck_refreshes_loaded_membership_scope(client, monkeypatch):
+    uid = user(client, monkeypatch)
+    first = org(uid, {'retention_days': 7})
+    with App.app.test_request_context():
+        monkeypatch.setattr(App.db.session(), 'expire_on_commit', False)
+        owner = App.db.session.get(App.User, uid)
+        assert policy.effective(owner)['retention_days'] == 7
+        membership = policy.models()['Membership'].query.filter_by(user_id=uid).one()
+        restricted = policy.models()['Organization'](name='New scope', kind='school', policy={'retention_days': 0, 'tutor': False})
+        App.db.session.add(restricted)
+        App.db.session.flush()
+        App.db.session.execute(policy.models()['Membership'].__table__.update().where(
+            policy.models()['Membership'].__table__.c.id == membership.id).values(organization_id=restricted.id))
+        App.db.session.commit()
+        # Keep the identity-map object loaded to exercise the stale-scope case.
+        assert first != restricted.id
+        assert membership.organization_id == first
+        policy.invalidate_cache()
+        assert policy.effective(owner)['retention_days'] == 0
+        assert policy.decision(owner, 'tutor')[0] is False
+
+
+def test_audit_scrubbing_retries_after_another_account_reference_is_removed(client, monkeypatch):
+    from intelliplan.learning import governance
+    from sqlalchemy import update
+    from sqlalchemy.sql.dml import Update
+    uid = user(client, monkeypatch)
+    oid = org(uid)
+    with App.app.app_context():
+        M = policy.models()
+        original = {'members': [{'user_id': uid}, {'user_id': uid + 1000}], 'tutor': False}
+        row = M['Audit'](organization_id=oid, actor_id=uid, action='membership_updated', changes=original)
+        App.db.session.add(row)
+        App.db.session.commit()
+        identity, table = row.id, M['Audit'].__table__
+        class Interleaved:
+            injected = False
+            def __init__(self, connection):
+                self.connection = connection
+            def execute(self, statement):
+                if isinstance(statement, Update) and not self.injected:
+                    self.injected = True
+                    self.connection.execute(update(table).where(table.c.id == identity).values(
+                        changes=governance.anonymize_audit_value(original, uid + 1000)))
+                return self.connection.execute(statement)
+        with App.db.engine.begin() as connection:
+            proxy = Interleaved(connection)
+            governance.anonymize_audit_targets(proxy, uid)
+        App.db.session.expire_all()
+        assert App.db.session.get(M['Audit'], identity).changes == {
+            'members': [{'deleted_account': True}, {'deleted_account': True}], 'tutor': False}
+        assert proxy.injected
+
+
+def test_audit_scrubbing_fails_without_overwriting_persistent_conflicts(client, monkeypatch):
+    from intelliplan.learning import governance
+    from sqlalchemy import update
+    from sqlalchemy.sql.dml import Update
+    uid = user(client, monkeypatch)
+    oid = org(uid)
+    with App.app.app_context():
+        M = policy.models()
+        original = {'user_id': uid, 'revision': 0}
+        row = M['Audit'](organization_id=oid, actor_id=uid, action='membership_updated', changes=original)
+        App.db.session.add(row)
+        App.db.session.commit()
+        identity, table = row.id, M['Audit'].__table__
+        class Conflicted:
+            count = 0
+            def __init__(self, connection):
+                self.connection = connection
+            def execute(self, statement):
+                if isinstance(statement, Update):
+                    self.count += 1
+                    self.connection.execute(update(table).where(table.c.id == identity).values(
+                        changes={'user_id': uid, 'revision': self.count}))
+                return self.connection.execute(statement)
+        with pytest.raises(RuntimeError, match='Retry'), App.db.engine.begin() as connection:
+            proxy = Conflicted(connection)
+            governance.anonymize_audit_targets(proxy, uid)
+        assert proxy.count == 4
+        App.db.session.expire_all()
+        assert App.db.session.get(M['Audit'], identity).changes == original
+
+
+def test_retention_preserves_malformed_foreign_owner_session_evidence(client, monkeypatch):
+    from intelliplan.learning import governance
+    uid = user(client, monkeypatch)
+    org(uid, {'retention_days': 7})
+    other = user(client, monkeypatch)
+    with App.app.app_context():
+        M = policy.models()
+        old = datetime.utcnow() - timedelta(days=8)
+        sitting = M['Sitting'](user_id=uid, objective='Recall loops', state='completed',
+            method='paper', planned_minutes=25, intervention='none', created_at=old)
+        App.db.session.add(sitting)
+        App.db.session.flush()
+        App.db.session.add_all([
+            M['Evidence'](user_id=uid, session_id=sitting.id, objective='Recall loops', kind='complete', created_at=old),
+            M['Evidence'](user_id=other, session_id=sitting.id, objective='Foreign reference', kind='paper_work', created_at=old)])
+        App.db.session.commit()
+        assert governance.retention_candidates()['Sitting'] == []
+        assert governance.apply_retention({'Sitting': [sitting.id], 'Evidence': [], 'Feedback': []}) == {
+            'Evidence': 0, 'Feedback': 0, 'Sitting': 0}
+        assert M['Evidence'].query.filter_by(user_id=other).count() == 1
+
+
 def test_beta_saved_checks_share_evidence_without_copying_answers(client, monkeypatch):
     uid = enable(monkeypatch, client)
     oid = org(uid, {"tutor": False})

@@ -1,0 +1,2 @@
+Compared 127 tables, 692 rows, 124 sequences.
+MATCH: every table has identical rows and every sequence is caught up.
