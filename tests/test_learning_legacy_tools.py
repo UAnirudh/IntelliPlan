@@ -50,6 +50,80 @@ def restrict(account, settings):
         App.db.session.commit()
 
 
+@pytest.mark.parametrize('settings', [
+    {'scheduler': False}, {'third_party_processing': False}, {'providers': []},
+    {'assessment_protection': True},
+    {'canvas': False}, {'studentvue': False},
+])
+def test_background_briefing_uses_target_school_policy(account, monkeypatch, settings):
+    import command_center_glue as glue
+    import ai_provider
+
+    restrict(account, settings)
+    provider = Mock(side_effect=AssertionError('No background provider access allowed'))
+    monkeypatch.setattr(ai_provider, 'chat_json', provider)
+    with App.app.app_context():
+        briefing = glue._build_service()._briefing
+        result = briefing.get_or_refresh(account[0], {'top_tasks': [{'title': 'Local task'}]}, force=True)
+        assert result.generated_by == 'fallback-template'
+        assert briefing.peek(account[0]) is None
+    provider.assert_not_called()
+
+
+def test_background_briefing_binds_target_owner_and_resets_context(account, monkeypatch):
+    import command_center_glue as glue
+    import ai_provider
+    from intelliplan.learning.courses import provider_user
+
+    def provider(messages, **kwargs):
+        assert provider_user.get().id == account[0]
+        raise RuntimeError('Synthetic provider failure')
+
+    monkeypatch.setattr(ai_provider, 'chat_json', provider)
+    with App.app.app_context():
+        previous = provider_user.get()
+        with pytest.raises(RuntimeError, match='Synthetic provider failure'):
+            glue._briefing_ai(account[0], [])
+        assert provider_user.get() is previous
+
+
+def test_background_briefing_reloads_withdrawn_consent(account, monkeypatch):
+    import command_center_glue as glue
+    import ai_provider
+
+    provider = Mock(side_effect=AssertionError('Withdrawn consent reached provider'))
+    monkeypatch.setattr(ai_provider, 'chat_json', provider)
+    with App.app.app_context():
+        loaded = App.db.session.get(App.User, account[0])
+        App.db.session.execute(update(App.User.__table__).where(App.User.id == account[0])
+                               .values(ai_personalization_opt_in=False))
+        assert loaded.ai_personalization_opt_in is True
+        with pytest.raises(RuntimeError, match='restricted'):
+            glue._briefing_ai(account[0], [])
+    provider.assert_not_called()
+
+
+def test_background_briefing_missing_owner_cannot_clear_binding(monkeypatch):
+    import command_center_glue as glue
+    import ai_provider
+    from intelliplan.learning.courses import provider_user
+
+    query = Mock()
+    query.populate_existing.return_value.filter_by.return_value.first.return_value = None
+    monkeypatch.setattr(App, 'User', SimpleNamespace(query=query))
+    provider = Mock()
+    monkeypatch.setattr(ai_provider, 'chat_json', provider)
+    sentinel = object()
+    token = provider_user.set(sentinel)
+    try:
+        with pytest.raises(RuntimeError, match='restricted'):
+            glue._briefing_ai(999999999, [])
+        assert provider_user.get() is sentinel
+    finally:
+        provider_user.reset(token)
+    provider.assert_not_called()
+
+
 def trap_dissector(monkeypatch):
     provider = Mock(side_effect=AssertionError('Provider must not receive the text.'))
     monkeypatch.setattr(extra_features, 'ai_available', lambda: True)

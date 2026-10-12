@@ -8,7 +8,7 @@ of these callables run, App is fully loaded.
 
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from time_utils import utcnow
 
 from flask_login import current_user
@@ -119,10 +119,42 @@ def _lms_fetcher(user_id: int) -> list[dict]:
         return []
 
 
+def _briefing_permission(user_id: int) -> frozenset:
+    from App import User
+    from intelliplan.learning import policy
+
+    policy.invalidate_cache()
+    user = User.query.populate_existing().filter_by(id=user_id).first()
+    if (user is None or not user.ai_personalization_opt_in
+            or not policy.decision(user, 'scheduler')[0]):
+        return frozenset()
+    # Imported grade aggregates do not preserve enough source provenance to
+    # selectively remove restricted facts from narration or its old cache.
+    if any(not policy.decision(user, source)[0] for source in policy.SOURCE_CAPABILITIES):
+        return frozenset()
+    return frozenset(policy.permitted_providers(user))
+
+
+def _briefing_ai(user_id: int, messages, **kwargs):
+    from App import User
+    from ai_provider import chat_json
+    from intelliplan.learning.courses import provider_user
+
+    user = User.query.populate_existing().filter_by(id=user_id).first()
+    if user is None or not _briefing_permission(user_id):
+        raise RuntimeError('Briefing processing is restricted.')
+    token = provider_user.set(user)
+    try:
+        return chat_json(messages, **kwargs)
+    finally:
+        provider_user.reset(token)
+
+
 def _build_service() -> TodayService:
     from App import BriefingCache, HealthSnapshot, ManualTask, db
 
-    briefing = BriefingService(BriefingCache, db.session)
+    briefing = BriefingService(BriefingCache, db.session,
+                              authorize_ai=_briefing_permission, owner_ai=_briefing_ai)
     repo = AssignmentRepository(ManualTask, db.session, lms_fetcher=_lms_fetcher)
     return TodayService(
         assignments_repo=repo,

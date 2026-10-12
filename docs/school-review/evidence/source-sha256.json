@@ -32,6 +32,10 @@
     "sha256": "e918dcf7c3383563243344626f5dc4190402290b77a534d882559f77fca1a125"
   },
   {
+    "path": "command_center_glue.py",
+    "sha256": "68aee7226b824d3405f7fc03ba035409d206adea721809f552eba84fa599e2f3"
+  },
+  {
     "path": "deployment/learning-worker.compose.yml",
     "sha256": "c6c15f02b1a91b24edfab1efef72d26ed0f9274938c10ae01f22c491425b116f"
   },
@@ -106,6 +110,10 @@
   {
     "path": "intelliplan/retrieval/index.py",
     "sha256": "8149b49fc58082b880a9771bfff8fbd3f6b97fb2a3d7c4f3431311d1d81731f7"
+  },
+  {
+    "path": "intelliplan/services/briefing.py",
+    "sha256": "3b312149db02bb78d123439fefce52cc8b17c0cc8b37ced62104cee3893750ce"
   },
   {
     "path": "notifications_glue.py",
@@ -436,6 +444,10 @@
     "sha256": "9bacaccf492323f556e0a6408b5fd99984b59d47f05566085a8460b795316255"
   },
   {
+    "path": "tests/intelliplan/test_services.py",
+    "sha256": "086488654a35796224902d0fab40a8e813298062dd5e2c2a7dac82206c4e1019"
+  },
+  {
     "path": "tests/test_course_tracking.py",
     "sha256": "0a89cce3263ad2488786f124f02d79f0db6cd61fc9edebbef017a17615dcc381"
   },
@@ -453,7 +465,7 @@
   },
   {
     "path": "tests/test_learning_legacy_tools.py",
-    "sha256": "90ee0643d4bc9db601617f550d975ed78f7f19b1db743c3cb8f95380b8bfaac4"
+    "sha256": "11d8fe3ad8a5f0fdc386bf930cf0bd7365310d4211c9b878b5a0518f1fde0666"
   },
   {
     "path": "tests/test_learning_postgres.py",

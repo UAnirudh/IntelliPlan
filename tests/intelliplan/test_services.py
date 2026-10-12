@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 
 import pytest
 
@@ -48,6 +48,60 @@ def seeded(app, db, models):
 
 
 class TestBriefingService:
+    def test_changed_provider_policy_invalidates_both_cache_paths(self, app, db, models, seeded):
+        fake_ai, state = _ai_counter()
+        permission = {'providers': frozenset({'groq', 'gemini'})}
+        with app.app_context():
+            svc = BriefingService(models['BriefingCache'], db.session,
+                                  ai_chat_json=fake_ai, now=lambda: NOW,
+                                  authorize_ai=lambda uid: permission['providers'])
+            svc.get_or_refresh(1, FACTS)
+            permission['providers'] = frozenset({'groq'})
+            assert svc.peek(1) is None
+            assert svc.get_or_refresh(1, FACTS).cached is False
+            assert state['calls'] == 2
+            assert svc.peek(1).headline == 'H2'
+
+    def test_policy_failure_returns_template_before_cache_or_provider(self):
+        from unittest.mock import Mock
+
+        session = Mock()
+        ai = Mock()
+        svc = BriefingService(object, session, ai_chat_json=ai,
+                              authorize_ai=Mock(side_effect=RuntimeError('Policy unavailable')))
+        assert svc.get_or_refresh(1, FACTS).generated_by == 'fallback-template'
+        assert svc.peek(1) is None
+        session.query.assert_not_called()
+        ai.assert_not_called()
+
+    def test_revocation_blocks_fresh_and_stale_cached_text(self, app, db, models, seeded):
+        fake_ai, state = _ai_counter()
+        permission = {"providers": frozenset({'groq'})}
+        with app.app_context():
+            svc = BriefingService(models["BriefingCache"], db.session,
+                                  ai_chat_json=fake_ai, now=lambda: NOW,
+                                  authorize_ai=lambda uid: permission['providers'])
+            svc.get_or_refresh(1, FACTS)
+            permission['providers'] = frozenset()
+            text = svc.get_or_refresh(1, FACTS)
+            assert text.generated_by == 'fallback-template'
+            assert svc.peek(1) is None
+            assert state['calls'] == 1
+
+    def test_provider_change_during_generation_discards_output(self, app, db, models, seeded):
+        permission = {'providers': frozenset({'groq', 'gemini'})}
+
+        def ai(messages, **kwargs):
+            permission['providers'] = frozenset({'groq'})
+            return {'headline': 'must not publish', 'body': 'must not store'}
+
+        with app.app_context():
+            svc = BriefingService(models['BriefingCache'], db.session, ai_chat_json=ai,
+                                  authorize_ai=lambda uid: permission['providers'])
+            result = svc.get_or_refresh(1, FACTS)
+            assert result.generated_by == 'fallback-template'
+            assert db.session.query(models['BriefingCache']).filter_by(user_id=1).first() is None
+
     def test_first_call_hits_ai_and_caches(self, app, db, models, seeded) -> None:
         fake_ai, state = _ai_counter()
         with app.app_context():

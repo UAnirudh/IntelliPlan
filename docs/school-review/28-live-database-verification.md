@@ -1,0 +1,7 @@
+# Live Supabase verification — 2026-10-12
+
+Using the selected Supabase plugin, the active IntelliPlan project reported ACTIVE_HEALTHY, PostgreSQL 17.6, recovery false and transaction_read_only off. Read-only schema inspection found 120 public tables and zero invalid public indexes. Supabase counted 316 users; the live website's `/api/stats` also reported 316 students. `/health` returned status ok, migration_done true and users_schema_ok true. These are current read/connectivity checks, not reliance on earlier migration notes.
+
+Two uniquely named synthetic records were inserted into the existing cron_leases table within explicit transactions, then rolled back. The second test asserted the INSERT RETURNING values using a failing division if its expected row did not exist. Both transactions completed successfully, and a final query confirmed both probe names absent. No real user rows were changed, no schema changes or cutover occurred, and no credentials were printed. The lease names were unrelated to actual scheduled jobs.
+
+This proves database read/write capability through the Supabase management connection and live application reads matching the database. It does not separately prove every signed-in application write, encryption of existing integration tokens, a recovery drill for this production snapshot, or every product workflow. Earlier disposable PostgreSQL backup/restore/concurrency proof remains distinct from these live checks. No database repair was necessary for the checks performed.
