@@ -17,6 +17,33 @@ permissions:
   contents: read
 
 jobs:
+  native-dependencies:
+    name: Native critical dependencies and mobile types
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: |
+            mobile/package-lock.json
+            desktop/package-lock.json
+      # Known upstream high/moderate findings remain tracked in the acceptance
+      # ledger. This gate prevents new critical findings; it is not an all-clear.
+      - name: Audit mobile critical dependencies
+        working-directory: mobile
+        run: npm audit --package-lock-only --audit-level=critical
+      - name: Audit desktop critical dependencies
+        working-directory: desktop
+        run: npm audit --package-lock-only --audit-level=critical
+      - name: Install mobile dependencies from lockfile
+        working-directory: mobile
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Check mobile types
+        working-directory: mobile
+        run: npm run typecheck
+
   dependencies:
     name: Vulnerable dependencies
     runs-on: ubuntu-latest

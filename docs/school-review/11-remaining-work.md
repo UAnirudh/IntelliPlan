@@ -10,6 +10,8 @@ PR 87 is also merged and released at `a0ae247`: Railway production deployment `4
 
 The next adaptive recommendation checkpoint filters stored imports, gates mixed histories/audits and indirect availability reads, withholds responses after policy changes, binds narration to current owner consent, bounds explanation retries, and rejects stale override writes. Disposable tests and scoped independent reviews support this slice; production delivery is tracked separately. See [adaptive source policy](37-adaptive-source-policy.md). Universal policy enforcement, live provider/vendor proof and the remaining original acceptance criteria remain open.
 
+The following native dependency checkpoint patches three mobile transitive packages and adds a critical dependency/typecheck gate. Local lockfile audit counts fall from one critical/21 high to zero critical/19 high; desktop remains eight moderate. Unpatched `braces`, `node-forge` and `sprintf-js` findings remain open, including affected parent packages. Packaging/signing/device proof is separate. See [native dependency patches](38-native-dependency-patches.md).
+
 The following continuation adds conversational day/time repair through the existing follow-through engine, preserves outgoing past outcomes atomically with saved changes, rejects stale writes, and keeps repeated assignment titles' deadlines separate. Whole-product simplification, localization and the other original requirements remain open. See [conversational repair](36-conversational-plan-repair.md).
 
 | Requested acceptance item | Status | Evidence / remaining work |
