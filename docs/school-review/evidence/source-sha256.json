@@ -5,7 +5,7 @@
   },
   {
     "path": "App.py",
-    "sha256": "099e7c62e61971b94e6eef1ae66af3aa20dc0b36d5b04f791de303aa691deacf"
+    "sha256": "f890007d02bc6ebdb1b1df63da3d4c55e305d85b78d287bf3a0730a4351c9b13"
   },
   {
     "path": "Main_Project/templates/command_center.html",
@@ -50,6 +50,10 @@
   {
     "path": "extra_features.py",
     "sha256": "fb3345bd93b6311ab35ccda535f86b9c505ec985907c3862114cb82da0440e21"
+  },
+  {
+    "path": "followthrough_glue.py",
+    "sha256": "8163fc7016a8b3924c88279a9d925f830ab44d65180bf0dd619692026baad36e"
   },
   {
     "path": "intelliplan/api/command_center.py",
@@ -141,7 +145,7 @@
   },
   {
     "path": "plani_agent.py",
-    "sha256": "560e4873facc3e6d0bc072a72bdbee7af4a47409ca4a73a0e464dc270aaaf769"
+    "sha256": "73adf21fd08463dbd18a8c58144d59c2e681bd0d8d7737675042b22ca4d154c0"
   },
   {
     "path": "premium_glue.py",
@@ -157,7 +161,7 @@
   },
   {
     "path": "scripts/verify_command_center_ui.py",
-    "sha256": "ea00ab6909f409100595cfecd1d5f9345f5dcff32f0604acf510b1f2f5fe4855"
+    "sha256": "dde546e9062a0c689a8304cd0e15729ff25c4869e385ec873142b827681c4c03"
   },
   {
     "path": "scripts/verify_learning_hub.py",
@@ -178,6 +182,10 @@
   {
     "path": "static/css/learning_hub.css",
     "sha256": "2a3ef76f202085aaccbe7a34be573c9b2e239c3d10fdc50691243550eedf2648"
+  },
+  {
+    "path": "static/js/command_center.js",
+    "sha256": "01ef3edf5351b62acfcddb37a604d577ea14efad753c4feb6ea6c6d311c6e6d9"
   },
   {
     "path": "static/js/command_remind.js",
@@ -525,7 +533,7 @@
   },
   {
     "path": "tests/test_plani_policy.py",
-    "sha256": "6eb78ac67015e74ed961e86f5367abe1b91fa1f31ccfd16ea35e5350b667295d"
+    "sha256": "d8d102e6a880ce0e391af45d8a8d887f2ab2d348efd2cec47f73417038a61716"
   },
   {
     "path": "tests/test_retrieval.py",

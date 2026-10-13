@@ -41,6 +41,9 @@
       "axe_violations": [],
       "overflow": false,
       "reminder_success_mock": true
+    },
+    {
+      "conversation_preview_saved_fixture": true
     }
   ],
   "javascript_errors": []

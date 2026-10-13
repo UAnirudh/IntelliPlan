@@ -82,6 +82,27 @@ try:
                 page.wait_for_function("!document.querySelector('#commandRemind').open")
                 checks.append({'theme': theme, 'width': width, 'axe_violations': report,
                                'overflow': False, 'reminder_success_mock': True})
+        # Exercise the real composer and renderer with declared agent fixtures.
+        # Server-side repair/persistence has separate HTTP tests with real storage.
+        for preview in (True, False):
+            response = {'status': 'ok', 'reply': 'Fixture plan response.', 'actions': [],
+                        'refresh': False, 'schedule': {'preview': preview,
+                            'total_study_time': '30 minutes', 'schedule': [
+                                {'date': '2026-10-14', 'day_name': 'Wednesday', 'blocks': [
+                                    {'assignment': 'Math practice', 'time_slot': '4:30 PM',
+                                     'duration_minutes': 30, 'is_break': False}]}]}}
+            def agent_fixture(route):
+                route.fulfill(status=200, content_type='application/json', body=json.dumps(response))
+            page.route('**/api/plani/agent', agent_fixture)
+            page.locator('#chatInput').fill('Preview my adjusted plan' if preview else 'Apply that change')
+            page.wait_for_function("!document.querySelector('#sendMessage').disabled")
+            page.locator('#chatComposer').evaluate('(form) => form.requestSubmit()')
+            card = page.locator('.command-chat__schedule').last
+            page.wait_for_function("label => [...document.querySelectorAll('.command-chat__schedule header p')].at(-1)?.textContent === label",
+                                   arg='Preview · not saved' if preview else 'Saved study plan')
+            assert card.locator('a').count() == (0 if preview else 1)
+            page.unroute('**/api/plani/agent')
+        checks.append({'conversation_preview_saved_fixture': True})
         assert not errors, errors
         browser.close()
 finally:

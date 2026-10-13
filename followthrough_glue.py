@@ -215,8 +215,10 @@ def _finalize(new_data: dict, old_data: dict, old_progress: dict, today: date) -
             if not isinstance(block, dict) or block.get("is_break"):
                 continue
             title = block.get("parent_title") or block.get("assignment")
-            if title and title not in meta:
-                meta[title] = {
+            task_key = str(block.get('task_id') or title or '')
+            if title and task_key not in meta:
+                meta[task_key] = {
+                    "id": block.get('task_id'),
                     "title": title,
                     "priority": _priority_label(block),
                     "difficulty": str(block.get("difficulty") or "Medium").title(),
@@ -291,6 +293,23 @@ def _finalize(new_data: dict, old_data: dict, old_progress: dict, today: date) -
 
 
 # ── training data ────────────────────────────────────────────────────
+
+
+def _stage_plan_outcomes(user_id, old_data, old_progress, today) -> int:
+    """Stage every outgoing past outcome in the caller's save transaction.
+
+    No commit here: a rejected conditional plan write must roll back these
+    rows too. Chunks bound each payload without discarding past sittings.
+    """
+    from App import StudentSignal, db
+
+    rows = harvest_plan_outcomes(old_data, old_progress, today)
+    for start in range(0, len(rows), 300):
+        db.session.add(StudentSignal(
+            user_id=user_id, kind=OUTCOME_SIGNAL, subject_type='plan',
+            value_json=json.dumps({'rows': rows[start:start + 300]}),
+        ))
+    return len(rows)
 
 
 def _record_outcomes(user_id, guest_id, old_data, old_progress, today) -> None:
