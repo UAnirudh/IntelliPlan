@@ -23,13 +23,14 @@
   {# Every reminder channel is off until the student turns one on, and
      accounts made before onboarding asked were never asked at all. #}
   {% if not reminders_on %}
-  <div class="command-remind" id="commandRemind" hidden>
+  <details class="command-remind" id="commandRemind" hidden>
+    <summary>Reminders are off</summary>
     <p><strong>Reminders are off.</strong> <span id="commandRemindText">Get an email and a desktop notification before sessions and deadlines.</span></p>
     <div class="command-remind__actions">
       <button type="button" class="command-remind__on" id="commandRemindOn">Turn on</button>
       <button type="button" class="command-remind__dismiss" id="commandRemindDismiss">Not now</button>
     </div>
-  </div>
+  </details>
   {% endif %}
 
   <div class="command-chat__thread" id="chatThread" aria-live="polite" aria-label="Conversation" tabindex="-1">
@@ -37,23 +38,19 @@
       <div class="command-chat__intro" id="chatIntro">
         {% if has_work_source %}
         <h2>What needs to happen?</h2>
-        <p>Ask {{ assistant_name }} to organize your work. You choose what to connect and share.</p>
+        <p>Tell {{ assistant_name }} what is due, how much time you have, or what changed.</p>
         <div class="command-chat__prompts">
-          <button type="button" data-prompt="What should I focus on today?"><strong>Focus for today</strong><span>What matters most right now</span></button>
           <button type="button" data-prompt="Schedule my week for 2 hours a day after 4:30 PM and put it on my calendar."><strong>Schedule my week</strong><span>2h a day after 4:30 PM</span></button>
           <button type="button" data-prompt="I have a math test Friday and an English essay due Monday. Add them and make a plan."><strong>Plan from deadlines</strong><span>Add tasks, then schedule them</span></button>
-          <button type="button" data-prompt="Show me my upcoming work."><strong>Upcoming work</strong><span>Everything due soon</span></button>
         </div>
         {% else %}
         {# Nothing connected and no tasks: "what should I focus on?" has no
            answer yet, so the first thing offered is a way to bring work in. #}
-        <h2>Bring in your work first.</h2>
-        <p>{{ assistant_name }} plans from your assignments, and there are none here yet. Connect your school to pull them in, or tell {{ assistant_name }} what is due.</p>
+        <h2>What is on your plate?</h2>
+        <p>Tell {{ assistant_name }} what is due. You can start with one deadline, or connect your school to bring assignments in.</p>
         <div class="command-chat__prompts">
           <a href="/connect" class="command-chat__prompt--primary"><strong>Connect your school</strong><span>Canvas, StudentVue, Schoology and more</span></a>
           <button type="button" data-prompt="I have a math test Friday and an English essay due Monday. Add them and make a plan."><strong>Type in a deadline</strong><span>{{ assistant_name }} adds it and plans around it</span></button>
-          <a href="/dashboard#add"><strong>Add a task by hand</strong><span>One assignment at a time</span></a>
-          <a href="/extension"><strong>Use the browser extension</strong><span>PowerSchool, Aeries, Infinite Campus, Skyward</span></a>
         </div>
         {% endif %}
       </div>
@@ -62,7 +59,7 @@
 
   <form class="command-chat__composer" id="chatComposer">
     <label class="sr-only" for="chatInput">Ask {{ assistant_name }} anything</label>
-    <textarea id="chatInput" rows="1" maxlength="4000" placeholder="Ask {{ assistant_name }} anything…"></textarea>
+    <textarea id="chatInput" rows="1" maxlength="4000" placeholder="Tell {{ assistant_name }} what is due, or ask for a plan…"></textarea>
     <div class="command-chat__composer-footer">
       <span id="calendarState">Creates tasks, builds schedules, adds them to a connected calendar.</span>
       <button type="submit" id="sendMessage" disabled aria-label="Send">

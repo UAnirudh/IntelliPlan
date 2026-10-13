@@ -55,6 +55,13 @@ try:
                 page.evaluate("theme => { localStorage.setItem('theme', theme); document.documentElement.setAttribute('data-theme', theme); }", theme)
                 assert page.locator('html').get_attribute('data-theme') == theme
                 page.wait_for_selector('.command-chat__prompts')
+                reminders = page.locator('#commandRemind')
+                reminders.wait_for(state='visible')
+                assert not reminders.evaluate('(element) => element.open')
+                reminders.locator('summary').click()
+                page.locator('#commandRemindOn').wait_for(state='visible')
+                reminders.locator('summary').click()
+                page.locator('#commandRemindOn').wait_for(state='hidden')
                 consent = page.get_by_role('button', name='Essential only', exact=True)
                 if consent.is_visible():
                     consent.click()
@@ -65,7 +72,16 @@ try:
                 report = page.evaluate("async () => {const r=await axe.run('.command-chat', {runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21aa','wcag22aa']}}); return r.violations;}")
                 assert not report, report
                 page.screenshot(path=str(output / f'command-center-{theme}-{width}.png'))
-                checks.append({'theme': theme, 'width': width, 'axe_violations': report, 'overflow': False})
+                # UI success state only: no provider call, notification permission
+                # prompt, or real preference write is made by this fixture.
+                page.evaluate("window.IPReminders.enable = () => Promise.resolve({saved:true,push:false,pushMessage:''})")
+                reminders.locator('summary').click()
+                page.locator('#commandRemindOn').click()
+                page.wait_for_function("document.querySelector('#commandRemind summary').textContent === 'Reminders are on'")
+                reminders.locator('summary').click()
+                page.wait_for_function("!document.querySelector('#commandRemind').open")
+                checks.append({'theme': theme, 'width': width, 'axe_violations': report,
+                               'overflow': False, 'reminder_success_mock': True})
         assert not errors, errors
         browser.close()
 finally:

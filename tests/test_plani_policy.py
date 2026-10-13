@@ -171,18 +171,18 @@ def test_local_schedule_survives_calendar_denial_without_token_access(account, m
     with App.app.app_context():
         assert App.SavedSchedule.query.filter_by(user_id=account[0], is_active=True).count() == 1
         assert App.DayArchive.query.filter_by(user_id=account[0]).count() == 1
-    provider.assert_called_once()
+    provider.assert_not_called()
     google.assert_not_called()
     outlook.assert_not_called()
 
 
 def test_revocation_during_generation_prevents_persistence(account, monkeypatch):
     add_task(account)
-    provider = fixture_generation(monkeypatch)
+    fixture_generation(monkeypatch)
     def revoke(*args, **kwargs):
         restrict(account, {'scheduler': False})
-        return json.dumps({'schedule': [], 'overview': 'Fixture'})
-    provider.side_effect = revoke
+        return {'schedule': [], 'overview': 'Fixture'}
+    monkeypatch.setattr(App, '_build_planner_schedule', revoke)
     assert tool(account, 'generate_schedule')['error'] == 'policy_restricted'
     with App.app.app_context():
         assert App.SavedSchedule.query.filter_by(user_id=account[0]).count() == 0
@@ -195,6 +195,103 @@ def test_schedule_checks_provider_permission_before_generation(account, monkeypa
     provider = fixture_generation(monkeypatch)
     assert tool(account, 'generate_schedule')['error'] == 'provider_restricted'
     provider.assert_not_called()
+
+
+def test_chat_schedule_uses_real_planner_when_provider_is_down(account, monkeypatch):
+    add_task(account)
+    restrict(account, {'calendar': False})
+    provider = fixture_generation(monkeypatch)
+    monkeypatch.setattr('ai_provider.ai_available', lambda: False)
+    result = tool(account, 'generate_schedule', {
+        'hours_per_day': 0.5, 'study_start_time': '16:30', 'study_end_time': '18:30'})
+    assert result['status'] == 'ok'
+    blocks = [block for day in result['schedule']['schedule']
+              for block in day['blocks'] if not block.get('is_break')]
+    assert blocks
+    assert all('Manual algebra' in block['assignment'] for block in blocks)
+    assert all(block.get('task_id') for block in blocks)
+    provider.assert_not_called()
+
+
+@pytest.mark.parametrize('window', [
+    {'study_start_time': '4:30 PM'}, {'study_end_time': '8:00 PM'}])
+@pytest.mark.parametrize('hours', [2, 0.5])
+def test_chat_planner_accepts_one_sided_windows(account, monkeypatch, window, hours):
+    add_task(account)
+    restrict(account, {'calendar': False})
+    fixture_generation(monkeypatch)
+    result = tool(account, 'generate_schedule', {**window, 'hours_per_day': hours})
+    assert result['status'] == 'ok'
+    assert any(day['blocks'] for day in result['schedule']['schedule'])
+
+
+def test_chat_planner_keeps_colliding_manual_and_lms_ids_distinct(account, monkeypatch):
+    add_task(account)
+    fixture_generation(monkeypatch)
+    monkeypatch.setattr(App, 'get_google_token', lambda: None)
+    monkeypatch.setattr(App, 'get_outlook_token', lambda: None)
+    monkeypatch.setattr(App, '_planner_busy_by_date', lambda: {})
+    with App.app.app_context():
+        manual_id = App.ManualTask.query.filter_by(user_id=account[0]).one().id
+    monkeypatch.setattr(App, 'collect_lms_assignments_for_user', lambda uid: [
+        {'id': manual_id, 'source': 'canvas', 'title': 'Canvas essay',
+         'course': 'English', 'estimated_time': 30, 'due_date': '2026-10-20'}])
+    result = tool(account, 'generate_schedule')
+    assert result['status'] == 'ok'
+    blocks = [block for day in result['schedule']['schedule']
+              for block in day['blocks'] if not block.get('is_break')]
+    assert {block['task_id'] for block in blocks} == {
+        f'manual:{manual_id}', f'canvas:{manual_id}'}
+    assert any('Manual algebra' in block['assignment'] for block in blocks)
+    assert any('Canvas essay' in block['assignment'] for block in blocks)
+    with App.app.app_context():
+        saved = App.SavedSchedule.query.filter_by(user_id=account[0], is_active=True).one()
+        assert json.loads(saved.schedule_data) == result['schedule']
+
+
+def test_failed_chat_planning_preserves_existing_active_plan(account, monkeypatch):
+    add_task(account)
+    provider = fixture_generation(monkeypatch)
+    with App.app.app_context():
+        old = App.SavedSchedule(user_id=account[0], name='Keep my plan',
+                                schedule_data='{"schedule": []}', is_active=True)
+        App.db.session.add(old)
+        App.db.session.commit()
+        old_id = old.id
+    monkeypatch.setattr(App, '_build_planner_schedule', lambda *a, **kw: None)
+    result = tool(account, 'generate_schedule')
+    assert result['planning_failed'] is True
+    with App.app.app_context():
+        saved = App.SavedSchedule.query.filter_by(user_id=account[0], is_active=True).one()
+        assert saved.id == old_id
+        assert App.DayArchive.query.filter_by(user_id=account[0]).count() == 0
+    provider.assert_not_called()
+
+
+def test_chat_planner_distinguishes_repeated_lms_titles_by_deadline(account, monkeypatch):
+    fixture_generation(monkeypatch)
+    monkeypatch.setattr(App, 'get_google_token', lambda: None)
+    monkeypatch.setattr(App, 'get_outlook_token', lambda: None)
+    monkeypatch.setattr(App, '_planner_busy_by_date', lambda: {})
+    monkeypatch.setattr(App, 'collect_lms_assignments_for_user', lambda uid: [
+        {'source': 'studentvue', 'title': 'Homework', 'course': 'Math',
+         'estimated_time': 30, 'due_date': due}
+        for due in ('2026-10-20', '2026-10-21')])
+    result = tool(account, 'generate_schedule')
+    assert result['status'] == 'ok'
+    ids = {block['task_id'] for day in result['schedule']['schedule']
+           for block in day['blocks'] if not block.get('is_break')}
+    assert len(ids) == 2
+
+
+@pytest.mark.parametrize('hours', [0, -1, 13, 'bad', float('inf'), float('nan')])
+def test_invalid_chat_study_hours_do_not_invoke_planner(account, monkeypatch, hours):
+    add_task(account)
+    fixture_generation(monkeypatch)
+    planner = Mock(side_effect=AssertionError('invalid hours must not reach planning'))
+    monkeypatch.setattr(App, '_build_planner_schedule', planner)
+    assert 'error' in tool(account, 'generate_schedule', {'hours_per_day': hours})
+    planner.assert_not_called()
 
 
 @pytest.mark.parametrize(('service', 'key'), [('Canvas', 'canvas'), ('studentvue', 'studentvue'),
@@ -457,14 +554,14 @@ def test_calendar_revocation_ignores_memoized_busy_but_preserves_classes(account
 @pytest.mark.parametrize('source', ['canvas', 'studentvue', 'calendar'])
 def test_source_revocation_during_nested_generation_prevents_save(account, monkeypatch, source):
     add_task(account)
-    provider = fixture_generation(monkeypatch)
+    fixture_generation(monkeypatch)
     monkeypatch.setattr(App, 'collect_lms_assignments_for_user', lambda uid: [
         {'title': 'Imported secret task', 'source': source, 'course': 'School'}])
     def revoke(*args, **kwargs):
-        assert 'Imported secret task' in args[0][0]['content']
+        assert any(row['title'] == 'Imported secret task' for row in args[0])
         restrict(account, {source: False})
-        return json.dumps({'schedule': [], 'overview': 'Restricted data'})
-    provider.side_effect = revoke
+        return {'schedule': [], 'overview': 'Restricted data'}
+    monkeypatch.setattr(App, '_build_planner_schedule', revoke)
     assert tool(account, 'generate_schedule')['error'] == 'account_access_changed'
     with App.app.app_context():
         assert App.SavedSchedule.query.filter_by(user_id=account[0]).count() == 0

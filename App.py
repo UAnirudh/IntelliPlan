@@ -12125,7 +12125,7 @@ def _priority_score_for(assignment):
 
 def _build_planner_schedule(normalized_assignments, custom_tasks, uid, gid,
                             availability, commitments, preferred_time, hours_per_day,
-                            dna=None):
+                            dna=None, *, record_version=True):
     """Run the v2 planner and return ``schedule_data``, or None to fall back.
 
     Returning None rather than raising is deliberate: if anything here is
@@ -12176,7 +12176,7 @@ def _build_planner_schedule(normalized_assignments, custom_tasks, uid, gid,
         )
         plan, chosen = _choose_plan(service, rows, uid)
         data = service.to_schedule_data(plan)
-        if uid:
+        if uid and record_version:
             _record_plan_version(uid, plan, chosen, data)
 
         # Reuse the existing enrichment so the Interactive View, checklists,

@@ -1,0 +1,47 @@
+{
+  "checks": [
+    {
+      "theme": "light",
+      "width": 320,
+      "axe_violations": [],
+      "overflow": false,
+      "reminder_success_mock": true
+    },
+    {
+      "theme": "light",
+      "width": 768,
+      "axe_violations": [],
+      "overflow": false,
+      "reminder_success_mock": true
+    },
+    {
+      "theme": "light",
+      "width": 1440,
+      "axe_violations": [],
+      "overflow": false,
+      "reminder_success_mock": true
+    },
+    {
+      "theme": "dark",
+      "width": 320,
+      "axe_violations": [],
+      "overflow": false,
+      "reminder_success_mock": true
+    },
+    {
+      "theme": "dark",
+      "width": 768,
+      "axe_violations": [],
+      "overflow": false,
+      "reminder_success_mock": true
+    },
+    {
+      "theme": "dark",
+      "width": 1440,
+      "axe_violations": [],
+      "overflow": false,
+      "reminder_success_mock": true
+    }
+  ],
+  "javascript_errors": []
+}

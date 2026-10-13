@@ -467,13 +467,9 @@ def _execute_tool(name: str, args: dict, user_id: int) -> dict[str, Any]:
     from App import (
         ManualTask, SavedSchedule, ImportedGrade, DismissedAssignment,
         CourseNote, DayArchive, db,
-        infer_task_difficulty, PRIORITY_COLORS, enrich_schedule_data,
-        humanize_schedule, build_student_context,
-        _ai_personalization_enabled, _summarize_grade_signals,
-        _fetch_grades_for_personalization, build_scheduler_personalization,
+        infer_task_difficulty, PRIORITY_COLORS, build_scheduler_personalization,
         save_dismissed, invalidate_lms_cache_for_user,
     )
-    from ai_provider import ai_available as _ai_available, chat as provider_chat
 
     today_str = datetime.now().strftime("%Y-%m-%d")
 
@@ -743,17 +739,27 @@ def _execute_tool(name: str, args: dict, user_id: int) -> dict[str, Any]:
         if generation_state is None:
             return {'error': 'policy_unavailable'}
         tasks = ManualTask.query.filter_by(user_id=user_id, done=False).all()
+        from command_center_glue import _filter_stored_tasks
+        tasks = _filter_stored_tasks(user_id, tasks)
         try:
             synced_tasks = _permitted_lms_tasks(user_id)
         except Exception:
             synced_tasks = []
         if not tasks and not synced_tasks:
             return {"error": "No pending tasks to schedule."}
-        hours = int(args.get("hours_per_day", 2))
+        try:
+            hours = float(args.get("hours_per_day", 2))
+            if not 0 < hours <= 12:
+                raise ValueError
+        except (TypeError, ValueError):
+            return {"error": "Choose study hours greater than zero and at most 12 per day."}
         pref = args.get("preferred_time", "evening")
+        if pref not in {"morning", "afternoon", "evening"}:
+            return {"error": "Choose morning, afternoon, or evening for your study time."}
         assignments = []
         for t in tasks:
             assignments.append({
+                "id": f"manual:{t.id}",
                 "title": t.title, "course": t.course or "Personal",
                 "due_date": t.due_date or "", "priority": t.priority or "Medium",
                 "estimated_time": t.estimated_time or 60,
@@ -761,26 +767,19 @@ def _execute_tool(name: str, args: dict, user_id: int) -> dict[str, Any]:
                 "color": PRIORITY_COLORS.get(t.priority or "Medium", "#60a5fa"),
             })
         for t in synced_tasks:
+            source = t.get('source') or 'lms'
+            source_id = t.get('id') or t.get('source_ref') or t.get('external_id')
+            if not source_id:
+                source_id = json.dumps([t.get('course') or '', t.get('title') or '',
+                                        t.get('due_date') or ''], separators=(',', ':'))
             assignments.append({
+                "id": f"{source}:{source_id}",
                 "title": t.get("title") or "Untitled assignment", "course": t.get("course") or "School",
                 "due_date": t.get("due_date") or "", "priority": t.get("priority") or "Medium",
                 "estimated_time": t.get("estimated_time") or 60,
                 "difficulty": t.get("difficulty") or infer_task_difficulty(None, t.get("priority") or "Medium", t.get("due_date")),
                 "color": t.get("color") or PRIORITY_COLORS.get(t.get("priority") or "Medium", "#60a5fa"),
             })
-        overdue = [a for a in assignments if a["due_date"] and a["due_date"] < today_str]
-        upcoming = [a for a in assignments if not a["due_date"] or a["due_date"] >= today_str]
-        upcoming.sort(key=lambda x: x.get("due_date") or "9999")
-        overdue_text = "\nOVERDUE:\n" + "\n".join(f"  - {a['title']} ({a['course']}) was due {a['due_date']}" for a in overdue) if overdue else ""
-        upcoming_text = "\nUPCOMING:\n" + "\n".join(f"  - {a['title']} ({a['course']}) due {a['due_date']}, priority {a['priority']}, ~{a['estimated_time']}min" for a in upcoming) if upcoming else ""
-
-        grades_summary = None
-        if _ai_personalization_enabled() and _source_data_allowed(_tool_user(user_id)):
-            try:
-                grades_summary = _summarize_grade_signals(_fetch_grades_for_personalization())
-            except Exception:
-                pass
-        profile_ctx = build_student_context(user_id=user_id, grades_summary=grades_summary, depth="full")
         # Same personalization the /generate-schedule endpoint uses, so a plan
         # made in chat lands in the student's real hours just like one made on
         # the Scheduler page.
@@ -794,53 +793,38 @@ def _execute_tool(name: str, args: dict, user_id: int) -> dict[str, Any]:
         # Command Center's own suggested prompt, so it has to work: the
         # window runs long enough for the hours plus breaks, capped at 23:30.
         if study_start and not study_end:
-            study_end = _add_minutes(study_start, hours * 60 + 45, cap="23:30")
+            study_end = _add_minutes(study_start, int(round(hours * 60)) + 45, cap="23:30")
         if study_end and not study_start:
-            study_start = _add_minutes(study_end, -(hours * 60 + 45), cap="06:00")
+            study_start = _add_minutes(study_end, -(int(round(hours * 60)) + 45), cap="06:00")
         if study_start and study_end and study_end <= study_start:
             return {"error": "Your study end time must be after the start time."}
         if study_start:
             availability = {day: {"start": study_start, "end": study_end} for day in scheduler_engine.DAY_ABBR}
-        week_ctx = scheduler_engine.describe_week(availability, commitments)
-        habits_ctx = dna.to_prompt() if _ai_personalization_enabled() else ""
-
-        prompt = f"""Today is {today_str}. Schedule ALL items for this student.
-{profile_ctx}{week_ctx}{habits_ctx}{overdue_text}{upcoming_text}
-Availability: {hours} hours/day, prefers {pref}.
-If REAL WEEK is present, schedule no work on days marked "no study time available".
-Write "notes" as the actual next physical action for that assignment, and make
-"daily_tip" specific to that day — never filler that would fit any other day.
-Return ONLY valid JSON:
-{{"schedule": [{{"date": "YYYY-MM-DD", "day_name": "Monday", "total_hours": {hours}, "blocks": [{{"assignment": "title", "course": "name", "duration_minutes": 45, "time_slot": "7:00 PM", "notes": "focus", "is_break": false}}], "daily_tip": "tip"}}], "overview": "summary", "total_study_time": "X hours"}}"""
-
-        if not _ai_available():
-            return {"error": "AI temporarily unavailable."}
         try:
             denial = _tool_denial(name, args, user_id)
             if denial:
                 return denial
             if _processing_state(user_id) != generation_state:
                 return {'error': 'account_access_changed'}
-            generation = ai_firewall.guard(_tool_user(user_id), prompts=[prompt],
-                want_output_tokens=8000, feature='agent')
-            raw = provider_chat([{"role": "user", "content": prompt}], tier="standard",
-                temperature=0.3, max_tokens=min(8000, generation.max_output_tokens),
-                plan=generation.plan, response_format={"type": "json_object"})
-            ai_firewall.record_tokens(generation, len(prompt), len(raw))
-            raw = re.sub(r"```json\n?", "", raw)
-            raw = re.sub(r"```\n?", "", raw).strip()
-            schedule = json.loads(raw)
+            # Chat and the Scheduler page must allocate the same real work.
+            # A model may interpret the request, but it cannot invent blocks.
+            from App import _build_planner_schedule
+            schedule = _build_planner_schedule(
+                assignments, [], user_id, None, availability, commitments,
+                pref, hours, dna=dna, record_version=False,
+            )
             denial = _tool_denial(name, args, user_id)
             if denial:
                 return denial
             if _processing_state(user_id) != generation_state:
                 return {'error': 'account_access_changed'}
-            schedule = enrich_schedule_data(schedule, assignments, pref, hours)
-            try:
-                schedule = humanize_schedule(schedule, pref, hours,
-                                             availability=availability,
-                                             commitments=commitments, dna=dna)
-            except Exception: pass
+            if not schedule or not any(
+                not block.get("is_break")
+                for day in schedule.get("schedule", [])
+                for block in day.get("blocks", [])
+            ):
+                return {"error": "No study work fits your available time. Your existing plan is unchanged.",
+                        "planning_failed": True}
             if _processing_state(user_id) != generation_state:
                 return {'error': 'account_access_changed'}
             sched_name = f"Plani Schedule {datetime.now().strftime('%b %d')}"
