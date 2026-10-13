@@ -74,6 +74,10 @@ def inline_threads(monkeypatch):
 def client(resend, inline_threads):
     app_module.app.config["TESTING"] = True
     app_module.limiter.enabled = False
+    # Other suites may drop their disposable schema during teardown.
+    # This suite owns its setup rather than relying on App's import-time DDL.
+    with app_module.app.app_context():
+        db.create_all()
     with app_module.app.test_client() as c:
         yield c
     app_module.limiter.enabled = True

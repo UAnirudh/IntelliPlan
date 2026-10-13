@@ -40,6 +40,10 @@
     "sha256": "0725df20db66028a50c68d7c3f2ef3e5097c3cfea2e88a1620ee12cbec4b2f61"
   },
   {
+    "path": "conftest.py",
+    "sha256": "f107f678c09d0e5632aea2ac98ad8451b4fe96e083aebc9b3858a7b099d91556"
+  },
+  {
     "path": "deployment/learning-worker.compose.yml",
     "sha256": "c6c15f02b1a91b24edfab1efef72d26ed0f9274938c10ae01f22c491425b116f"
   },
@@ -526,5 +530,9 @@
   {
     "path": "tests/test_study_generate_inputs.py",
     "sha256": "19fbde441ecdefa9bf797d746158185a1684d3a4fdbf0b94f00774eb7300d73f"
+  },
+  {
+    "path": "tests/test_welcome_on_signup.py",
+    "sha256": "a7f550e5a87d4a5a745e28a9e70a49823a17c088a0d4000bfc1270a6b23f0876"
   }
 ]
