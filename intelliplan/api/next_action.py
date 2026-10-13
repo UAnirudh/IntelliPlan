@@ -32,7 +32,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 from typing import Any, Callable
 
-from flask import Blueprint, abort, jsonify, request
+from flask import Blueprint, abort, jsonify, request, g
 
 logger = logging.getLogger(__name__)
 
@@ -78,10 +78,29 @@ class NextActionDeps:
     student_profile: Callable[[int], tuple[str, bool]] = field(
         default=lambda uid: ("", False)
     )
+    access_stamp: Callable[[int], str] = field(default=lambda uid: '')
+    ai_chat_for_user: Callable[[int], Any] = field(default=lambda uid: None)
 
 
 def create_next_action_blueprint(deps: NextActionDeps) -> Blueprint:
     bp = Blueprint("adaptive_scheduler", __name__)
+
+    @bp.after_request
+    def check_access(response):
+        pinned = getattr(g, '_adaptive_access', None)
+        if pinned is None:
+            return response
+        uid, stamp = pinned
+        try:
+            if deps.access_stamp(uid) != stamp:
+                changed = jsonify(status='error', error='account_access_changed')
+                changed.status_code = 409
+                return changed
+        except Exception:
+            response = jsonify(status='error', error='policy_unavailable')
+            response.status_code = 503
+            return response
+        return response
 
     # ── guards ───────────────────────────────────────────────────────
 
@@ -91,6 +110,11 @@ def create_next_action_blueprint(deps: NextActionDeps) -> Blueprint:
             abort(401, description="Authentication required.")
         if not deps.feature_enabled_for_user(FLAG_KEY, uid):
             abort(404)
+        try:
+            g.pop('_adaptive_plan_snapshot', None)
+            g._adaptive_access = (uid, deps.access_stamp(uid))
+        except Exception:
+            abort(503, description='Policy could not be checked.')
         return uid
 
     # ── read: what to do now ─────────────────────────────────────────
@@ -175,6 +199,7 @@ def create_next_action_blueprint(deps: NextActionDeps) -> Blueprint:
             behavior=decision.behavior,
             student_first_name=name,
             personalization_enabled=bool(opted_in),
+            ai_chat_json=deps.ai_chat_for_user(uid),
         )
         return jsonify({
             "status": "ok",
@@ -282,6 +307,10 @@ def create_next_action_blueprint(deps: NextActionDeps) -> Blueprint:
             saved = bool(deps.save_schedule(uid, updated))
         except Exception as exc:
             logger.warning("override save failed for user %s: %s", uid, exc)
+
+        if not saved:
+            return jsonify(status='error', error='plan_not_saved', saved=False,
+                           message='Your plan could not be updated. Refresh it and try again.'), 409
 
         version = None
         try:

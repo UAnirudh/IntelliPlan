@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 
 import pytest
 from flask import Flask
@@ -342,6 +342,27 @@ def test_a_failed_save_is_reported_rather_than_claimed_as_success(harness):
                              "day": TODAY.isoformat()}).get_json()
     assert body["changed"] is True
     assert rec.saved
+
+
+def test_failed_override_save_does_not_publish_version_or_audit():
+    from unittest.mock import Mock
+    application = Flask('failed-adaptive-save')
+    schedule = a_schedule()
+    audit = Mock()
+    versions = Mock()
+    application.register_blueprint(create_next_action_blueprint(NextActionDeps(
+        get_service=lambda: NextActionService(get_active_schedule=lambda uid: schedule),
+        current_user_id=lambda: 1, feature_enabled_for_user=lambda *a: True,
+        now=lambda: NOW, get_active_schedule=lambda uid: schedule,
+        save_schedule=lambda *a: False, record_override=audit, record_version=versions,
+    )))
+    response = application.test_client().post('/api/schedule/override/apply', json={
+        'action': 'skip', 'task_id': 't1', 'day': TODAY.isoformat()})
+    assert response.status_code == 409
+    assert response.json['saved'] is False
+    assert response.json['error'] == 'plan_not_saved'
+    audit.assert_not_called()
+    versions.assert_not_called()
 
 
 # ── feasibility and versions ─────────────────────────────────────────

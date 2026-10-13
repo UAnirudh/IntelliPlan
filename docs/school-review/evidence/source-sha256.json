@@ -25,7 +25,7 @@
   },
   {
     "path": "ai_provider.py",
-    "sha256": "aa6818be2d3d25788cd8150def3393ed5a0a39853bc90d2c8545f4e65e68f687"
+    "sha256": "c5df7633cb69800375629ea7bb48e54fc589e19c98545f1f151ce4d5655d143a"
   },
   {
     "path": "breakdown_glue.py",
@@ -48,6 +48,14 @@
     "sha256": "c6c15f02b1a91b24edfab1efef72d26ed0f9274938c10ae01f22c491425b116f"
   },
   {
+    "path": "docs/school-review/11-remaining-work.md",
+    "sha256": "0dc1ab55108ffc56aba937e61684aa9794d087c5df39fe97f596eb4f9a0368ce"
+  },
+  {
+    "path": "docs/school-review/37-adaptive-source-policy.md",
+    "sha256": "50822f0bb9d3a67d3e26c6aac0d4fbd01b4d66acc5cf83c7eb279fe7c590118a"
+  },
+  {
     "path": "extra_features.py",
     "sha256": "fb3345bd93b6311ab35ccda535f86b9c505ec985907c3862114cb82da0440e21"
   },
@@ -62,6 +70,10 @@
   {
     "path": "intelliplan/api/lms_sync.py",
     "sha256": "f4dcde29b3df886fc3fd8abd3a5d69ad775d0defdb6373b556409f93efe9a8a4"
+  },
+  {
+    "path": "intelliplan/api/next_action.py",
+    "sha256": "af7bc18baaa1bd657613b78ace891faa86f9269dac1f85f7458895e079822afa"
   },
   {
     "path": "intelliplan/email/campaigns.py",
@@ -140,6 +152,10 @@
     "sha256": "12019a17cc9882fde64038073a96e99c97aaae5de4b12f7e488d5e01ac59c75d"
   },
   {
+    "path": "next_action_glue.py",
+    "sha256": "5c7bab1e157586b25b1de8bc667ac5497ae5a775141f8ad5e0f1fa2c81c37878"
+  },
+  {
     "path": "notifications_glue.py",
     "sha256": "f93c7eaeb4ff1a9c3872341b2ff4537f6e07d3618627c1fb20180e73835c6325"
   },
@@ -150,6 +166,10 @@
   {
     "path": "premium_glue.py",
     "sha256": "720dedcec1c9f963fe51cd3d4a81f8cb8136b62362ad36517d5a13dda7e60fe1"
+  },
+  {
+    "path": "requirements.txt",
+    "sha256": "716729b2c9624a82fc9aa8a4eb913a4baa0048754b8a2b67aeecb34b9b2042c4"
   },
   {
     "path": "scripts/inventory_learning_routes.py",
@@ -496,12 +516,20 @@
     "sha256": "1994decb70edc1dc2759c69252d711886943beb60a899e49f36e645f541bda01"
   },
   {
+    "path": "tests/intelliplan/test_next_action_api.py",
+    "sha256": "6ccbd2847eec01f8f41323f59a2d80e61996a4fc5a738c6e8c88a77480a69801"
+  },
+  {
     "path": "tests/intelliplan/test_services.py",
     "sha256": "747eec7ec28b20f6eb3c0473b2424cb1a843320595697e27321a75e27f9cf558"
   },
   {
+    "path": "tests/test_adaptive_source_policy.py",
+    "sha256": "9f0af957fd552b48f57b3904b6c4f9892e373aff5109f5857c9e2ecc4443348d"
+  },
+  {
     "path": "tests/test_ai_provider_fallback.py",
-    "sha256": "eb3469ae5329ebf3203768163823576a3bf0ae6d1e830b1d54b9051757f27243"
+    "sha256": "98c264c940b60b60a87194460c430ac1e0cb80131b9586d55022200265fa5a6a"
   },
   {
     "path": "tests/test_course_tracking.py",

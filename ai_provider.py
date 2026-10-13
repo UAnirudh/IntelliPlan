@@ -321,10 +321,12 @@ def _gemini_client():
         raise AIUnavailable("Gemini requires an express contractual exception permitting student use.")
     if _gemini_client_cache is None:
         from google import genai
+        from google.genai import types
 
         _gemini_client_cache = genai.Client(
             vertexai=True, project=os.environ["GOOGLE_CLOUD_PROJECT"],
             location=os.environ["GOOGLE_CLOUD_LOCATION"],
+            http_options=types.HttpOptions(retry_options=types.HttpRetryOptions(attempts=1)),
         )
     return _gemini_client_cache
 
@@ -332,8 +334,10 @@ def _gemini_client():
 def _gemini_client_for_key(key: str):
     """A Gemini Developer API client on a student's own key (premium_glue)."""
     from google import genai
+    from google.genai import types
 
-    return genai.Client(api_key=key)
+    return genai.Client(api_key=key, http_options=types.HttpOptions(
+        retry_options=types.HttpRetryOptions(attempts=1)))
 
 
 def _openai_chat(
@@ -380,7 +384,7 @@ def _groq_client(key: str | None = None):
     if not key:
         raise RuntimeError("GROQ_API_KEY is not set.")
     if key not in _groq_clients:
-        _groq_clients[key] = Groq(api_key=key)
+        _groq_clients[key] = Groq(api_key=key, max_retries=0)
     return _groq_clients[key]
 
 
@@ -433,6 +437,7 @@ def _gemini_chat(
     thinking_budget: int | None = None,
     model: str | None = None,
     api_key: str | None = None,
+    allow_config_retry: bool = True,
 ) -> str:
     from google.genai import types
 
@@ -496,7 +501,7 @@ def _gemini_chat(
         # on the word "thinking" left the request dead with a generic error.
         text = str(exc).lower()
         retryable = "thinking" in text or "invalid_argument" in text
-        if not retryable or "thinking_config" not in config_kwargs:
+        if not allow_config_retry or not retryable or "thinking_config" not in config_kwargs:
             raise
         logger.info("Model %s rejected thinking_config, retrying without it", model)
         config_kwargs.pop("thinking_config", None)
@@ -597,7 +602,7 @@ def _claude_chat(
     system, chat_messages = _split_messages(messages)
     if not chat_messages:
         chat_messages = messages
-    client = anthropic.Anthropic(api_key=key)
+    client = anthropic.Anthropic(api_key=key, max_retries=0)
     model = model or _TIER_CLAUDE[tier]
     kwargs: dict[str, Any] = {
         "model": model,
@@ -692,6 +697,8 @@ def chat(
             kwargs["api_key"] = key
         if provider == "gemini":
             kwargs["thinking_budget"] = thinking_budget
+            if single_attempt:
+                kwargs['allow_config_retry'] = False
         try:
             try:
                 return fn(messages, tier, temperature, max_tokens, **kwargs)

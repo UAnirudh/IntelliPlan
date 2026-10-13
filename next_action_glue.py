@@ -26,6 +26,42 @@ from intelliplan.services.next_action import NextActionService
 
 logger = logging.getLogger(__name__)
 
+
+def _request_access_current(user_id: int) -> bool:
+    from flask import g, has_request_context
+    if not has_request_context():
+        return True
+    pinned = getattr(g, '_adaptive_access', None)
+    if pinned is None:
+        return True
+    try:
+        return pinned[0] == user_id and _access_stamp(user_id) == pinned[1]
+    except Exception:
+        return False
+
+
+def _aggregate_allowed(user_id: int) -> bool:
+    # Saved plans and audit versions do not retain complete source provenance.
+    from command_center_glue import _health_history_allowed
+    try:
+        return _request_access_current(user_id) and _health_history_allowed(user_id)
+    except Exception:
+        logger.warning('Adaptive planner source policy unavailable', exc_info=True)
+        return False
+
+
+def _access_stamp(user_id: int) -> str:
+    import json
+    from App import User
+    from intelliplan.learning import policy
+    policy.invalidate_cache()
+    user = User.query.populate_existing().filter_by(id=user_id).first()
+    if user is None or not policy.decision(user, 'scheduler')[0]:
+        raise PermissionError('scheduler access unavailable')
+    return json.dumps({'policy': policy.effective(user),
+                       'personalization': bool(user.ai_personalization_opt_in)},
+                      sort_keys=True, default=lambda value: sorted(value))
+
 #: How far back the behavioural model reads sittings. Its own 45-day decay
 #: does the real weighting; this only bounds the query.
 HISTORY_DAYS = 120
@@ -74,6 +110,8 @@ def _active_schedule(user_id: int) -> dict | None:
 
     from App import SavedSchedule
 
+    if not _aggregate_allowed(user_id):
+        return None
     try:
         row = (
             SavedSchedule.query
@@ -83,7 +121,13 @@ def _active_schedule(user_id: int) -> dict | None:
         )
         if row is None or not row.schedule_data:
             return None
-        return json.loads(row.schedule_data)
+        data = json.loads(row.schedule_data)
+        if not isinstance(data, dict) or not _aggregate_allowed(user_id):
+            return None
+        from flask import g, has_request_context
+        if has_request_context() and not hasattr(g, '_adaptive_plan_snapshot'):
+            g._adaptive_plan_snapshot = (user_id, row.id, row.schedule_data, row.progress_json)
+        return data
     except Exception as exc:
         logger.warning("active schedule load failed for %s: %s", user_id, exc)
         return None
@@ -99,8 +143,32 @@ def _save_schedule(user_id: int, data: dict) -> bool:
     import json
 
     from App import SavedSchedule, db, invalidate_schedule_cache
+    from flask import g, has_request_context
 
+    if not _aggregate_allowed(user_id):
+        return False
     try:
+        if has_request_context():
+            snapshot = getattr(g, '_adaptive_plan_snapshot', None)
+            if snapshot is None or snapshot[0] != user_id:
+                return False
+            if not _aggregate_allowed(user_id):
+                return False
+            from sqlalchemy import update
+            changed = db.session.execute(update(SavedSchedule).where(
+                SavedSchedule.id == snapshot[1], SavedSchedule.user_id == user_id,
+                SavedSchedule.is_active.is_(True), SavedSchedule.schedule_data == snapshot[2],
+                SavedSchedule.progress_json == snapshot[3],
+            ).values(schedule_data=json.dumps(data)).execution_options(synchronize_session=False)).rowcount
+            if changed != 1:
+                db.session.rollback()
+                return False
+            db.session.commit()
+            try:
+                invalidate_schedule_cache(user_id=user_id, guest_id=None)
+            except Exception:
+                pass
+            return True
         row = (
             SavedSchedule.query
             .filter_by(user_id=user_id, is_active=True)
@@ -108,6 +176,8 @@ def _save_schedule(user_id: int, data: dict) -> bool:
             .first()
         )
         if row is None:
+            return False
+        if not _aggregate_allowed(user_id):
             return False
         row.schedule_data = json.dumps(data)
         db.session.commit()
@@ -136,10 +206,15 @@ def _assignments(user_id: int) -> list[dict]:
     that "what work exists" has one answer.
     """
     from App import ManualTask, collect_lms_assignments_for_user
+    from command_center_glue import _filter_stored_tasks, _planner_allowed
+
+    if not _planner_allowed(user_id):
+        return []
 
     rows: list[dict] = []
     try:
-        for t in ManualTask.query.filter_by(user_id=user_id, done=False).limit(300):
+        manual = ManualTask.query.filter_by(user_id=user_id, done=False).limit(300).all()
+        for t in _filter_stored_tasks(user_id, manual):
             rows.append({
                 "id": f"manual:{t.id}",
                 "title": t.title,
@@ -154,7 +229,10 @@ def _assignments(user_id: int) -> list[dict]:
         logger.warning("manual task load failed for %s: %s", user_id, exc)
 
     try:
-        for a in collect_lms_assignments_for_user(user_id) or []:
+        imported = collect_lms_assignments_for_user(user_id) if _aggregate_allowed(user_id) else []
+        if not _aggregate_allowed(user_id):
+            imported = []
+        for a in imported or []:
             if not isinstance(a, dict):
                 continue
             rows.append({
@@ -186,6 +264,8 @@ def _mastery(user_id: int, today: date) -> list[MasteryEstimate]:
     """
     from App import ConceptMastery
 
+    if not _aggregate_allowed(user_id):
+        return []
     try:
         rows = ConceptMastery.query.filter_by(user_id=user_id).limit(400).all()
     except Exception as exc:
@@ -274,6 +354,8 @@ def _session_rows(user_id: int) -> list[dict]:
     """
     from App import ActiveSession
 
+    if not _aggregate_allowed(user_id):
+        return []
     try:
         since = datetime.now() - timedelta(days=HISTORY_DAYS)
         rows = (
@@ -306,6 +388,8 @@ def _session_rows(user_id: int) -> list[dict]:
 def _feedback_rows(user_id: int) -> list[dict]:
     from App import TaskFeedback
 
+    if not _aggregate_allowed(user_id):
+        return []
     try:
         rows = (
             TaskFeedback.query
@@ -343,6 +427,8 @@ def _in_progress(user_id: int) -> tuple[frozenset[str], str, int]:
     """Task ids under way, the current course, and the unbroken run so far."""
     from App import ActiveSession
 
+    if not _aggregate_allowed(user_id):
+        return frozenset(), '', 0
     try:
         running = (
             ActiveSession.query
@@ -374,10 +460,14 @@ def _remaining_minutes(user_id: int, now: datetime) -> int:
     import scheduler_engine
     from App import build_scheduler_personalization
 
+    if not _aggregate_allowed(user_id):
+        return 0
     try:
         _dna, availability, commitments = build_scheduler_personalization(
             user_id=user_id, guest_id=None
         )
+        if not _aggregate_allowed(user_id):
+            return 0
         windows = scheduler_engine.windows_for_date(
             now.date(), availability, "evening", commitments, now=now,
             busy_by_date=_busy_by_date(user_id),
@@ -403,14 +493,20 @@ def _windows_for(user_id: int):
     import scheduler_engine
     from App import build_scheduler_personalization
 
+    if not _aggregate_allowed(user_id):
+        return None
     try:
         _dna, availability, commitments = build_scheduler_personalization(
             user_id=user_id, guest_id=None
         )
+        if not _aggregate_allowed(user_id):
+            return None
     except Exception:
         return None
 
     def windows(day: date):
+        if not _aggregate_allowed(user_id):
+            return []
         return scheduler_engine.windows_for_date(
             day, availability, "evening", commitments, now=None
         )
@@ -428,19 +524,22 @@ def _audit() -> ScheduleAuditRepository:
 
 
 def _record_decisions(user_id: int, actions, **kwargs):
-    return _audit().record_decisions(user_id, actions, **kwargs)
+    if _aggregate_allowed(user_id):
+        return _audit().record_decisions(user_id, actions, **kwargs)
 
 
 def _record_override(user_id: int, **kwargs):
-    return _audit().record_override(user_id, **kwargs)
+    if _aggregate_allowed(user_id):
+        return _audit().record_override(user_id, **kwargs)
 
 
 def _record_version(user_id: int, **kwargs):
-    return _audit().record_version(user_id, **kwargs)
+    if _aggregate_allowed(user_id):
+        return _audit().record_version(user_id, **kwargs)
 
 
 def _resolve_decision(user_id: int, task_id: str, accepted: bool) -> bool:
-    return _audit().resolve(user_id, task_id, accepted)
+    return _audit().resolve(user_id, task_id, accepted) if _aggregate_allowed(user_id) else False
 
 
 def _reschedule_count(user_id: int) -> int:
@@ -448,7 +547,7 @@ def _reschedule_count(user_id: int) -> int:
     # months wide so an offset would not change the answer much, but a
     # timestamp comparison that is only approximately right is the kind that
     # becomes exactly wrong when someone shortens the window.
-    return _audit().override_count(user_id, utcnow() - timedelta(days=HISTORY_DAYS))
+    return _audit().override_count(user_id, utcnow() - timedelta(days=HISTORY_DAYS)) if _aggregate_allowed(user_id) else 0
 
 
 def _dismissed(user_id: int, since_local: datetime) -> frozenset[str]:
@@ -465,12 +564,17 @@ def _dismissed(user_id: int, since_local: datetime) -> frozenset[str]:
     Converting through the elapsed interval rather than by naming a timezone
     keeps this correct without the process needing to know its own offset.
     """
+    if not _aggregate_allowed(user_id):
+        return frozenset()
     elapsed = datetime.now() - since_local
     return frozenset(_audit().dismissed_task_ids(user_id, utcnow() - elapsed))
 
 
 def _versions_for(user_id: int, limit: int) -> list:
-    return _audit().versions_for(user_id, limit)
+    if not _aggregate_allowed(user_id):
+        return []
+    versions = _audit().versions_for(user_id, limit)
+    return versions if _aggregate_allowed(user_id) else []
 
 
 def _student_profile(user_id: int) -> tuple[str, bool]:
@@ -483,11 +587,11 @@ def _student_profile(user_id: int) -> tuple[str, bool]:
     from App import User
 
     try:
-        user = User.query.get(user_id)
+        user = User.query.populate_existing().filter_by(id=user_id).first()
         if user is None:
             return "", False
         name = user.name or (user.email or "").split("@")[0]
-        return name, bool(getattr(user, "ai_personalization_opt_in", False))
+        return name, bool(getattr(user, "ai_personalization_opt_in", False)) and _aggregate_allowed(user_id)
     except Exception:
         return "", False
 
@@ -497,7 +601,34 @@ def _emit_signal(user_id: int, kind: str, **kwargs) -> None:
 
     from intelliplan.repositories.signals import SignalRepository
 
-    SignalRepository(StudentSignal, db.session).emit(user_id, kind, **kwargs)
+    if _aggregate_allowed(user_id):
+        SignalRepository(StudentSignal, db.session).emit(user_id, kind, **kwargs)
+
+
+def _narration_ai(user_id: int):
+    """Bind narration to its actual owner and the request's original policy."""
+    def generate(messages, **kwargs):
+        from flask import g, has_request_context
+        from ai_provider import AIUnavailable, chat_json
+        from intelliplan.learning.courses import provider_user
+        from App import User
+        pinned = getattr(g, '_adaptive_access', None) if has_request_context() else None
+        if (not pinned or pinned[0] != user_id or not _aggregate_allowed(user_id)
+                or not _student_profile(user_id)[1]):
+            raise AIUnavailable('Adaptive explanation access changed')
+        owner = User.query.populate_existing().filter_by(id=user_id).first()
+        if owner is None or not _aggregate_allowed(user_id) or not _student_profile(user_id)[1]:
+            raise AIUnavailable('Adaptive explanation owner unavailable')
+        token = provider_user.set(owner)
+        try:
+            kwargs['single_attempt'] = True
+            result = chat_json(messages, **kwargs)
+            if not _aggregate_allowed(user_id) or not _student_profile(user_id)[1]:
+                raise AIUnavailable('Adaptive explanation access changed')
+            return result
+        finally:
+            provider_user.reset(token)
+    return generate
 
 
 # ── service ──────────────────────────────────────────────────────────
@@ -535,5 +666,7 @@ next_action_bp = create_next_action_blueprint(
         versions_for=_versions_for,
         emit_signal=_emit_signal,
         student_profile=_student_profile,
+        access_stamp=_access_stamp,
+        ai_chat_for_user=_narration_ai,
     )
 )

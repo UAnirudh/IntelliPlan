@@ -187,6 +187,54 @@ def test_no_backend_configured_raises_clearly(no_keys):
         ai_provider.chat(MSGS)
 
 
+def test_single_attempt_does_not_retry_gemini_configuration(gemini_only, monkeypatch):
+    calls = []
+    def rejected(**kwargs):
+        calls.append(kwargs)
+        raise RuntimeError('INVALID_ARGUMENT thinking_config rejected')
+    monkeypatch.setattr(ai_provider, '_gemini_client', lambda: type('C', (), {
+        'models': type('M', (), {'generate_content': staticmethod(rejected)})()})())
+    with pytest.raises(ai_provider.AIUnavailable):
+        ai_provider.chat(MSGS, single_attempt=True)
+    assert len(calls) == 1
+
+
+def test_gemini_clients_disable_sdk_retries(monkeypatch):
+    from google import genai
+    constructed = []
+    monkeypatch.setattr(genai, 'Client', lambda **kw: constructed.append(kw) or object())
+    monkeypatch.setattr(ai_provider, '_gemini_client_cache', None)
+    monkeypatch.setattr(ai_provider, 'gemini_available', lambda: True)
+    monkeypatch.setenv('GOOGLE_CLOUD_PROJECT', 'fixture-project')
+    monkeypatch.setenv('GOOGLE_CLOUD_LOCATION', 'us-central1')
+    ai_provider._gemini_client()
+    ai_provider._gemini_client_for_key('fixture-key')
+    assert len(constructed) == 2
+    assert all(kw['http_options'].retry_options.attempts == 1 for kw in constructed)
+
+
+def test_groq_client_disables_sdk_retries(monkeypatch):
+    import groq
+    constructed = []
+    monkeypatch.setattr(groq, 'Groq', lambda **kw: constructed.append(kw) or object())
+    monkeypatch.setattr(ai_provider, '_groq_clients', {})
+    ai_provider._groq_client('fixture-key')
+    assert constructed == [{'api_key': 'fixture-key', 'max_retries': 0}]
+
+
+def test_claude_client_disables_sdk_retries(monkeypatch):
+    import anthropic
+    constructed = []
+    def factory(**kw):
+        constructed.append(kw)
+        return type('C', (), {'messages': type('M', (), {'create': staticmethod(
+            lambda **kwargs: type('R', (), {'content': [type('T', (), {'text': 'hello'})()],
+                                          'stop_reason': 'end_turn'})())})()})()
+    monkeypatch.setattr(anthropic, 'Anthropic', factory)
+    ai_provider._claude_chat(MSGS, 'standard', 0.3, 100, None, api_key='fixture-key')
+    assert constructed == [{'api_key': 'fixture-key', 'max_retries': 0}]
+
+
 # ── Thinking-budget arithmetic ────────────────────────────────────────
 #
 # Gemini 2.5+ bill internal reasoning against max_output_tokens, so these

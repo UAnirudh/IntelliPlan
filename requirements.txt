@@ -15,7 +15,7 @@ sqlalchemy>=2.0.0,<2.1
 psycopg2-binary>=2.9.0
 
 # AI & ML — Gemini primary, Groq fallback
-google-genai>=1.0.0
+google-genai>=2.8.0
 groq>=0.4.0
 # Claude: paid plans and the Premium tutor (intelliplan/premium).
 anthropic>=1.12.0
