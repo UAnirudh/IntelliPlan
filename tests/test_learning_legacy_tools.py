@@ -183,6 +183,17 @@ def test_command_center_policy_stamp_tracks_consent_and_source_changes(account):
             glue._today_policy_stamp(account[0])
 
 
+@pytest.mark.parametrize('source', sorted(policy.SOURCE_CAPABILITIES))
+def test_health_history_follows_current_owner_source_permission(account, source):
+    import command_center_glue as glue
+
+    with App.app.app_context():
+        assert glue._health_history_allowed(account[0]) is True
+    restrict(account, {source: False})
+    with App.app.app_context():
+        assert glue._health_history_allowed(account[0]) is False
+
+
 def test_stored_task_filter_preserves_local_and_allowed_sources(account):
     import command_center_glue as glue
 

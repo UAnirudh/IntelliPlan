@@ -1,0 +1,9 @@
+# Historical health score permissions — 2026-10-12
+
+Command Center history now checks the explicit owner's current scheduler and all source permissions before reading old health snapshots. Mixed snapshots lack reliable source provenance, so restricted history is omitted rather than using a prior score to derive a revealing delta. The read is rechecked before use. Current local planning can still calculate from its permitted inputs; historical rows are preserved in storage.
+
+Snapshot writes use the same injected application guard before querying, after querying and before committing. Permission withdrawal before commit rolls back mutations, preventing an updated or newly created row from remaining pending for a later commit. Policy-read failure denies access. Other standalone engine consumers retain their existing default behavior; they need their own policy audit when wired into the application.
+
+Final focused validation: 192 passed, 779 warnings in 73.59s, exit 0. Tests cover denied reads/writes before ORM access, source revocation during a read, rollback preserving an existing score, rollback avoiding a new score, all ten actual source-capability restrictions and related planner/next-action regressions. Scoped Ruff/diff checks pass. Independent Python review reported no actionable defects. This is controlled SQLite/source evidence, not a new PostgreSQL concurrency proof or production operation.
+
+The preceding UI checkpoint is pushed as a79af8c, and its hosted Tests and Security checks passed. PR 86 remains the delivery review point. This continuation also corrects report 32: the hosted 130-test second scope visits the already deployed website, rather than proving this branch's database behavior. Historical health filtering does not complete institution SSO, general retention, remaining source consumers, live provider/device workflows, localization or the entire original brief.

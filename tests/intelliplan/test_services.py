@@ -159,7 +159,7 @@ class TestBriefingService:
 
 
 class TestTodayService:
-    def _service(self, app, db, models, fake_ai) -> TodayService:
+    def _service(self, app, db, models, fake_ai, health_access=None) -> TodayService:
         briefing = BriefingService(models["BriefingCache"], db.session,
                                    ai_chat_json=fake_ai, now=lambda: NOW)
         repo = AssignmentRepository(models["ManualTask"], db.session)
@@ -174,9 +174,52 @@ class TestTodayService:
             get_grades=lambda uid: (CourseGrade("AP Chemistry", 88.0, (88.0, 90.0, 91.0)),),
             get_completion_rate_7d=lambda uid: 0.85,
             health_snapshot_model=models["HealthSnapshot"],
+            health_access=health_access,
             session=db.session,
             now=lambda: NOW,
         )
+
+    def test_denied_history_never_reads_or_writes_snapshot(self):
+        from unittest.mock import Mock
+
+        session = Mock()
+        svc = TodayService(assignments_repo=None, briefing_service=None, get_student=lambda uid: None,
+                           health_snapshot_model=object, session=session, health_access=lambda uid: False)
+        assert svc._yesterday_health(1, NOW.date()) is None
+        svc._persist_health(1, NOW.date(), None, None)
+        session.query.assert_not_called()
+        session.commit.assert_not_called()
+
+    def test_history_revoked_during_read_is_not_returned(self, app, db, models, seeded):
+        from unittest.mock import Mock
+
+        with app.app_context():
+            db.session.add(models['HealthSnapshot'](user_id=1, snapshot_date=NOW.date() - timedelta(days=1), score=31))
+            db.session.commit()
+            checks = Mock(side_effect=[True, False])
+            svc = self._service(app, db, models, lambda *args, **kwargs: {}, health_access=checks)
+            assert svc._yesterday_health(1, NOW.date()) is None
+            assert checks.call_count == 2
+
+    @pytest.mark.parametrize('existing', [False, True])
+    def test_history_revocation_before_commit_rolls_back_snapshot(self, app, db, models, seeded, existing):
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+        from intelliplan.domain.plan import HealthScore
+
+        with app.app_context():
+            Model = models['HealthSnapshot']
+            if existing:
+                db.session.add(Model(user_id=1, snapshot_date=NOW.date(), score=12))
+                db.session.commit()
+            checks = Mock(side_effect=[True, True, False])
+            svc = self._service(app, db, models, lambda *args, **kwargs: {}, health_access=checks)
+            svc._persist_health(1, NOW.date(), HealthScore(score=70, delta_vs_yesterday=0,
+                                tier='steady', components=(), summary=''),
+                                SimpleNamespace(completion_rate_7d=.5, schedule_balance_index=.5))
+            row = db.session.query(Model).filter_by(user_id=1, snapshot_date=NOW.date()).first()
+            assert (row.score if row else None) == (12 if existing else None)
+            assert checks.call_count == 3
 
     def test_build_full_payload(self, app, db, models, seeded) -> None:
         fake_ai, _ = _ai_counter()

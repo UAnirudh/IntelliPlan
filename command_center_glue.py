@@ -108,6 +108,16 @@ def _planner_allowed(user_id: int) -> bool:
         return False
 
 
+def _health_history_allowed(user_id: int) -> bool:
+    from App import User
+    from intelliplan.learning import policy
+
+    policy.invalidate_cache()
+    user = User.query.populate_existing().filter_by(id=user_id).first()
+    return (user is not None and policy.decision(user, 'scheduler')[0]
+            and all(policy.decision(user, source)[0] for source in policy.SOURCE_CAPABILITIES))
+
+
 def _filter_stored_tasks(user_id: int, rows: list) -> list:
     from App import User
     from intelliplan.learning import policy
@@ -224,6 +234,7 @@ def _build_service() -> TodayService:
         get_grades=_get_grades,
         get_completion_rate_7d=_get_completion_rate_7d,
         health_snapshot_model=HealthSnapshot,
+        health_access=_health_history_allowed,
         session=db.session,
     )
 
