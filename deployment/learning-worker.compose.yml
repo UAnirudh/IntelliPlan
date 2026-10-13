@@ -1,0 +1,18 @@
+# Optional dedicated worker. Activate explicitly with the learning-worker profile.
+services:
+  learning-worker:
+    profiles: [learning-worker]
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    command: [python, -m, intelliplan.learning.worker, --watch, --steps, '25', --poll-seconds, '5']
+    env_file: ../.env
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?Configure the shared PostgreSQL session URL used by the web app}
+      SECRET_KEY: ${SECRET_KEY:?Configure the same application secret as the web app}
+      PYTHONUNBUFFERED: '1'
+      FOLLOWTHROUGH_INPROCESS_CRON: '0'
+      NOTIFICATIONS_INPROCESS_CRON: '0'
+    restart: unless-stopped
+    stop_signal: SIGTERM
+    stop_grace_period: 120s

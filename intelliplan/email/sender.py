@@ -207,6 +207,10 @@ def send_lifecycle_email(
             "unknown gate %r for %s; falling back to the marketing gate", gate, email_key
         )
         gate = "marketing"
+    if gate in {'reminder', 'marketing'}:
+        from intelliplan.learning import policy
+        if not policy.decision(user, 'notifications')[0]:
+            return SendResult(False, 'institution_policy')
     ok, reason = gates[gate](user)
     if not ok:
         return SendResult(False, reason)

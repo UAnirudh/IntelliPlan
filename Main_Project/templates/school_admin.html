@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% block page_title %}Institution Settings | IntelliPlan{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/learning_hub.css') }}">
+<article class="learning-hub learning-admin" aria-labelledby="admin-title" data-no-motion><header class="learning-intro"><div class="learning-context"><span class="learning-eyebrow">Institution settings</span><a href="/learning">Back to Learning Hub <span aria-hidden="true">↗</span></a></div>
+<h1 id="admin-title">Set the boundaries for learning.</h1><p>District restrictions remain in force when a school allows a feature. A subscription cannot override these rules.</p></header>
+<p id="admin-status" role="status" aria-live="polite"></p>
+<div class="learning-organization"><div><label for="admin-organization">Organization</label><select id="admin-organization"></select></div><p id="admin-scope"></p></div>
+<div class="learning-admin-layout">
+<section class="learning-panel learning-policy-panel" aria-labelledby="policy-title"><span class="learning-eyebrow">Learning access</span><h2 id="policy-title">A policy for your institution.</h2>
+<form id="admin-policy"><fieldset><legend>Student activities</legend><div id="admin-features" class="learning-policy-grid"></div></fieldset>
+<fieldset><legend>Connections and communication</legend><div id="admin-connections" class="learning-policy-grid"></div></fieldset>
+<fieldset><legend>Beta features and AI processing</legend><div id="admin-experiments" class="learning-policy-grid"></div></fieldset>
+<fieldset><legend>Permitted text AI providers</legend><div id="admin-providers" class="learning-policy-grid"></div></fieldset>
+<fieldset><legend>Generation limits</legend><div class="learning-form-grid">
+<label>Maximum course generation token reservation<input id="admin-budget" type="number" min="1000" max="100000" value="24000"></label>
+<label>Shared monthly generation token ceiling<input id="admin-monthly-budget" type="number" min="1000" max="1000000" value="100000"></label></div></fieldset>
+<fieldset><legend>Retention and assessments</legend>
+<label>Learning activity retention in days · 0 keeps records until account deletion<input id="admin-retention" type="number" min="0" max="3650" value="0"></label>
+<p class="learning-note">Retention is processed by an operator-reviewed command. Unfinished sessions and courses are preserved.</p>
+<label>Scheduled assessment windows · one timezone-qualified start/end pair per line<textarea id="admin-assessment-windows" rows="3" placeholder="2026-10-12T09:00:00-07:00 / 2026-10-12T10:00:00-07:00"></textarea></label>
+ </fieldset><button type="submit" class="learning-primary">Save policy</button></form></section>
+<section class="learning-panel"><h2>Members</h2><p>Use the ID of an existing account. Administrative authority is delegated by the platform owner.</p>
+<form id="admin-member"><label>Account ID<input id="admin-user-id" type="number" min="1" required></label><label>Role<select id="admin-role"><option value="student">Student</option><option value="teacher">Teacher</option></select></label><button type="submit">Add or update member</button></form><div id="admin-members"></div></section>
+<section class="learning-panel"><h2>Policy audit</h2><p>Administrative changes only. This dashboard does not expose students' private tutor conversations.</p><div id="admin-audit"></div></section>
+<section class="learning-panel"><h2>Approved practice preview participants</h2><p>Approval lets a member choose whether to accept the current beta notice. It does not enroll them automatically. The platform feature flag must also be enabled.</p><form id="admin-beta"><label>Existing member ID<input id="admin-beta-user" type="number" min="1" required></label><label>Approval<select id="admin-beta-approved"><option value="true">Approve optional preview</option><option value="false">Revoke approval</option></select></label><button type="submit">Update preview approval</button></form><div id="admin-beta-participants"></div></section>
+<section class="learning-panel"><h2>Generation budgets and beta feedback</h2><p>Reserved tokens include failed attempts and blueprint calls. They are not provider invoices. Feedback is submitted explicitly by participants.</p><div id="admin-operations"></div></section>
+</div>
+</article><script src="{{ url_for('static', filename='js/school_admin.js') }}" defer></script>{% endblock %}

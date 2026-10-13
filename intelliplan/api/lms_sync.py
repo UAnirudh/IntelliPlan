@@ -15,16 +15,16 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime
 from time_utils import utcnow
 
-from flask import Blueprint, current_app, jsonify, request
+from flask import Blueprint, current_app, jsonify
 from flask_login import current_user, login_required
 
 from intelliplan.integrations.lms import (
     available_providers,
     get_provider,
 )
+from intelliplan.learning import policy
 
 logger = logging.getLogger(__name__)
 bp = Blueprint("lms_sync_bp", __name__)
@@ -77,6 +77,17 @@ def api_sync(key: str):
     provider = get_provider(key)
     if provider is None:
         return jsonify({"error": "unknown_provider"}), 404
+    capability = policy.source_capability(key)
+    def denied():
+        policy.invalidate_cache()
+        allowed, reason = policy.decision(current_user, capability) if capability else (False, 'unknown_source')
+        if not allowed:
+            _db().session.rollback()
+            return jsonify(error=reason, feature=capability), 403
+        return None
+    denial = denied()
+    if denial:
+        return denial
     row = _get_token_row(current_user.id, key)
     if row is None:
         return jsonify({"error": "not_connected"}), 409
@@ -90,17 +101,25 @@ def api_sync(key: str):
     try:
         new_tokens = provider.refresh_tokens(tokens=tokens)
         if new_tokens != tokens:
-            row.tokens_json = json.dumps(new_tokens)
             tokens = new_tokens
     except Exception as exc:
         logger.warning("token refresh failed for %s/%s: %s", current_user.id, key, exc)
+
+    denial = denied()
+    if denial:
+        return denial
 
     try:
         assignments = provider.sync_all(tokens=tokens)
     except Exception as exc:
         logger.exception("sync failed for %s/%s: %s", current_user.id, key, exc)
-        return jsonify({"error": "sync_failed", "detail": str(exc)}), 502
+        return jsonify({"error": "sync_failed", "message": "The connection could not be synced. Try again later."}), 502
 
+    denial = denied()
+    if denial:
+        return denial
+
+    row.tokens_json = json.dumps(tokens)
     row.last_synced_at = utcnow()
     row.last_sync_count = len(assignments)
     _db().session.commit()

@@ -10,9 +10,8 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import timedelta
 from time_utils import utcnow
-from typing import Any
 
 from flask import Blueprint, jsonify, render_template, request
 from flask_login import current_user, login_required
@@ -191,16 +190,57 @@ def text_dissector_page():
     return render_template("text_dissector.html", active_page="text_dissector")
 
 
+def _dissector_denial():
+    from intelliplan.learning import policy
+
+    if not current_user.is_authenticated:
+        return jsonify(error='authentication_required', message='Sign in to use this learning tool.'), 401
+    policy.invalidate_cache()
+    allowed, reason = policy.decision(current_user, 'tutor')
+    if not allowed:
+        return jsonify(error=reason, message='This learning tool is unavailable under your current policy.'), 503 if reason == 'policy_unavailable' else 403
+    if policy.effective(current_user)['assessment_protection']:
+        return jsonify(error='assessment_protection', message='Use the protected tutor for concept support.'), 403
+
+
+def _dissector_analysis(value):
+    """Keep the typed fields consumed by the legacy renderer; drop model extras."""
+    if not isinstance(value, dict) or not isinstance(value.get('summary', ''), str):
+        raise ValueError('Expected a textual analysis object.')
+    result = {'summary': value.get('summary', '')[:6000]}
+    for key in ('key_points', 'questions'):
+        items = value.get(key, [])
+        if not isinstance(items, list) or any(not isinstance(item, str) for item in items):
+            raise ValueError('Expected a list of text.')
+        result[key] = [item[:1500] for item in items[:20]]
+    vocabulary = value.get('vocabulary', [])
+    if not isinstance(vocabulary, list) or any(not isinstance(item, dict) or
+            not isinstance(item.get('term'), str) or not isinstance(item.get('meaning'), str)
+            for item in vocabulary):
+        raise ValueError('Expected vocabulary terms and meanings.')
+    result['vocabulary'] = [{'term': item['term'][:300], 'meaning': item['meaning'][:1500]}
+                            for item in vocabulary[:20]]
+    return result
+
+
 @extras_bp.route("/api/text-dissector", methods=["POST"])
 def api_text_dissector():
-    data = request.get_json(silent=True) or {}
-    text = (data.get("text") or "").strip()
+    from intelliplan.learning import policy
+
+    denied = _dissector_denial()
+    if denied:
+        return denied
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict) or not isinstance(data.get('text'), str):
+        return jsonify({'status': 'error', 'message': 'Provide text in a JSON object.'}), 400
+    text = data['text'].strip()
     if not text:
         return jsonify({"status": "error", "message": "Paste some text first."}), 400
     if len(text) > 12000:
         return jsonify({"status": "error", "message": "Text too long (max 12,000 characters)."}), 400
 
-    if not ai_available():
+    providers = frozenset(policy.permitted_providers(current_user))
+    if not providers or not ai_available():
         return jsonify({"status": "ok", "analysis": _dissector_fallback(text)})
 
     try:
@@ -215,23 +255,27 @@ def api_text_dissector():
             response_format={"type": "json_object"},
         )
     except Exception as exc:
-        logger.warning("dissector AI failed: %s", exc)
+        logger.warning("dissector AI failed: %s", type(exc).__name__)
+        denied = _dissector_denial()
+        if denied:
+            return denied
         return jsonify({"status": "ok", "analysis": _dissector_fallback(text)})
 
+    denied = _dissector_denial()
+    if denied:
+        return denied
+    if frozenset(policy.permitted_providers(current_user)) != providers:
+        return jsonify(error='provider_restricted', message='Processing permissions changed. Try again.'), 403
     try:
         cleaned = raw.strip()
         if cleaned.startswith("```"):
             cleaned = cleaned.strip("`")
             cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned
-        analysis = json.loads(cleaned)
+        analysis = _dissector_analysis(json.loads(cleaned))
     except Exception:
         analysis = _dissector_fallback(text)
         analysis["_parse_error"] = True
 
-    analysis.setdefault("summary", "")
-    analysis.setdefault("key_points", [])
-    analysis.setdefault("vocabulary", [])
-    analysis.setdefault("questions", [])
     return jsonify({"status": "ok", "analysis": analysis})
 
 

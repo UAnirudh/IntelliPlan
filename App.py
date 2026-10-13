@@ -2886,6 +2886,11 @@ MemoryChunk = _retrieval.init(db, CourseNote)
 from intelliplan.models import timetable as _timetable_models
 ClassMeeting, TimetableSettings = _timetable_models.register(db)
 
+# Additive institutional policy and learning tables, inside the existing
+# deployment schema lifecycle. Existing learning records are preserved.
+from intelliplan.learning.models import register as _register_learning_models
+learning_models = _register_learning_models(db)
+
 # Every gunicorn worker runs this at once; the lock makes them take turns so
 # two never race to CREATE the same new table (a loser kills gunicorn).
 with app.app_context(), _db_boot.schema_lock(db.engine) as _schema_work_is_ours:
@@ -3596,6 +3601,8 @@ def _refresh_notion_row(ni):
     to succeed; if it really has expired, the API call fails with Notion's own
     error rather than this function inventing one.
     """
+    if ni and not _lms_policy_allowed('notion', ni.user_id):
+        return None
     if not ni or not ni.refresh_token:
         return ni.token if ni else None
     if not token_needs_refresh(ni.token_expires_at):
@@ -3604,7 +3611,9 @@ def _refresh_notion_row(ni):
         fresh = refresh_notion_token(ni.refresh_token)
     except Exception as e:
         print(f"[notion] token refresh failed for user {ni.user_id}: {e}")
-        return ni.token
+        return ni.token if _lms_policy_allowed('notion', ni.user_id) else None
+    if not _lms_policy_allowed('notion', ni.user_id):
+        return None
     if not fresh.get("access_token"):
         print(f"[notion] refresh returned no access token for user {ni.user_id}")
         return ni.token
@@ -3622,6 +3631,8 @@ def _refresh_notion_row(ni):
 
 def get_notion_token_and_db():
     if current_user.is_authenticated:
+        if not _lms_policy_allowed('notion'):
+            return None, None
         ni = NotionIntegration.query.filter_by(user_id=current_user.id).first()
         if ni and ni.token:
             return _refresh_notion_row(ni), ni.database_id
@@ -5571,10 +5582,9 @@ def learn():
 @app.route("/study-and-learn")
 def study_and_learn_hub():
     """Landing page that replaces the cluttered Study & Learn sidebar group.
-    Renders a grid of cards with descriptions for every study/learn surface,
-    plus an AI chat bar at the top that recommends the best page for the
-    user's current need (and can redirect them to it)."""
-    return render_template("study_hub.html", active_page="study_hub")
+    Reuses the tutor and learning contracts in one activity workspace while
+    preserving links to existing reviewed practice and scheduled work."""
+    return render_template("learning_hub.html", active_page="study_hub")
 
 
 @app.route("/api/study-hub/recommend", methods=["POST"])
@@ -6034,9 +6044,31 @@ def _classroom_refresh_token(refresh_token):
     r.raise_for_status()
     return r.json()
 
+def _lms_policy_allowed(source, user_id=None):
+    """Resolve source access for web calls and explicitly owned background work."""
+    try:
+        uid = user_id or (current_user.id if current_user.is_authenticated else None)
+        if not uid:
+            return False
+        if flask.has_request_context() and (not current_user.is_authenticated or current_user.id != uid):
+            return False
+        from intelliplan.learning import policy as learning_policy
+        owner = db.session.get(User, uid)
+        capability = learning_policy.source_capability(source)
+        if not owner or not capability:
+            return False
+        learning_policy.invalidate_cache()
+        return learning_policy.decision(owner, capability)[0]
+    except Exception:
+        app.logger.warning('LMS operation policy unavailable', exc_info=True)
+        return False
+
+
 def _classroom_access_token_for(user_id):
     """Return a valid access token for the given user, refreshing if needed.
     Returns None if no Classroom integration exists or refresh fails."""
+    if not _lms_policy_allowed('google_classroom', user_id):
+        return None, None
     row = ClassroomIntegration.query.filter_by(user_id=user_id).order_by(ClassroomIntegration.id.desc()).first()
     if not row:
         return None, None
@@ -6046,6 +6078,8 @@ def _classroom_access_token_for(user_id):
     if needs_refresh and row.refresh_token:
         try:
             data = _classroom_refresh_token(row.refresh_token)
+            if not _lms_policy_allowed('google_classroom', user_id):
+                return None, None
             row.access_token = data.get("access_token", row.access_token)
             ttl = int(data.get("expires_in", 3600))
             row.token_expires_at = now + timedelta(seconds=ttl)
@@ -6053,7 +6087,7 @@ def _classroom_access_token_for(user_id):
         except Exception as e:
             print(f"[classroom] refresh failed for user {user_id}: {e}")
             return None, row
-    return row.access_token, row
+    return (row.access_token, row) if _lms_policy_allowed('google_classroom', user_id) else (None, None)
 
 def _classroom_get_userinfo(access_token):
     """Fetch the connected Google account's email + name."""
@@ -6380,6 +6414,8 @@ def _blackboard_refresh_token(institution_url, refresh_token):
     })
 
 def _blackboard_access_token_for(user_id):
+    if not _lms_policy_allowed('blackboard', user_id):
+        return None, None
     row = BlackboardIntegration.query.filter_by(user_id=user_id).order_by(BlackboardIntegration.id.desc()).first()
     if not row:
         return None, None
@@ -6388,6 +6424,8 @@ def _blackboard_access_token_for(user_id):
     if needs_refresh and row.refresh_token and row.institution_url:
         try:
             data = _blackboard_refresh_token(row.institution_url, row.refresh_token)
+            if not _lms_policy_allowed('blackboard', user_id):
+                return None, None
             row.access_token = data.get("access_token", row.access_token)
             ttl = int(data.get("expires_in", 3600))
             row.token_expires_at = now + timedelta(seconds=ttl)
@@ -6395,7 +6433,7 @@ def _blackboard_access_token_for(user_id):
         except Exception as e:
             print(f"[blackboard] refresh failed for user {user_id}: {e}")
             return None, row
-    return row.access_token, row
+    return (row.access_token, row) if _lms_policy_allowed('blackboard', user_id) else (None, None)
 
 def _blackboard_get_userinfo(institution_url, access_token):
     try:
@@ -7592,6 +7630,14 @@ def _fetch_grades_for_personalization():
     Wrapped so caller code can stay one-line: `_summarize_grade_signals(_fetch_grades_for_personalization())`.
     """
     try:
+        if not current_user.is_authenticated or not _ai_personalization_enabled():
+            return []
+        from intelliplan.learning import policy as learning_policy
+        learning_policy.invalidate_cache()
+        if (not learning_policy.permitted_providers(current_user) or
+            not all(learning_policy.decision(current_user, key)[0]
+                    for key in learning_policy.LMS_SOURCES)):
+            return []
         acct = get_grade_account()
         if acct:
             lt = acct.get("login_type")
@@ -7774,7 +7820,7 @@ def api_onboarding_chat():
     # Take only the last 20 turns to control prompt size.
     msgs = msgs[-20:]
     identity = _get_or_create_identity(current_user.id)
-    so_far = identity.to_dict()
+    so_far = identity.to_dict() if current_user.ai_personalization_opt_in else {}
     system = (
         "You are Plani, IntelliPlan's onboarding assistant. Your goal is to learn "
         "enough about the student in under 2 minutes to personalize their study plan.\n\n"
@@ -10262,6 +10308,16 @@ def _account_delete_impl():
     # `tests/test_account_deletion.py` walks the model registry and fails if
     # a table with such a foreign key is not named here.
     deletion_plan: list[tuple[str, str]] = [
+        ("learning_beta_enrollments", "DELETE FROM learning_beta_enrollments WHERE user_id = :uid"),
+        ("learning_beta_feedback", "DELETE FROM learning_beta_feedback WHERE user_id = :uid"),
+        ("learning_monthly_budgets", "DELETE FROM learning_monthly_budgets WHERE user_id = :uid"),
+        ("learning_evidence", "DELETE FROM learning_evidence WHERE user_id = :uid"),
+        ("learning_generation_jobs", "DELETE FROM learning_generation_jobs WHERE course_id IN (SELECT id FROM learning_courses WHERE user_id = :uid)"),
+        ("learning_lessons", "DELETE FROM learning_lessons WHERE course_id IN (SELECT id FROM learning_courses WHERE user_id = :uid)"),
+        ("learning_courses", "DELETE FROM learning_courses WHERE user_id = :uid"),
+        ("learning_sittings", "DELETE FROM learning_sittings WHERE user_id = :uid"),
+        ("learning_memberships", "DELETE FROM learning_memberships WHERE user_id = :uid"),
+        ("learning_policy_audit", "UPDATE learning_policy_audit SET actor_id = NULL WHERE actor_id = :uid"),
         # ── Rows that reference *other* rows this user owns ────────────
         # Focus samples hang off active_sessions with ON DELETE CASCADE, but
         # only on databases that actually created the constraint. Deleting
@@ -10464,17 +10520,25 @@ def _account_delete_impl():
     # Optional feature tables may not have been created on older installs.
     # Inspect that explicitly; SQL errors on existing tables must roll back
     # every database change rather than silently leaving personal data.
-    from sqlalchemy import inspect as _inspect
+    from sqlalchemy import inspect as _inspect, select as _delete_select
     import re as _delete_re
     db.session.close()
     try:
         with db.engine.begin() as conn:
+            # Serialize deletion with retention and target-referencing inserts.
+            # PostgreSQL's user-row lock blocks new membership FK references
+            # until this transaction either removes the account or rolls back.
+            conn.execute(_delete_select(User.__table__.c.id).where(
+                User.__table__.c.id == user_id).with_for_update()).scalar_one_or_none()
             existing = set(_inspect(conn).get_table_names())
             for label, statement in deletion_plan:
                 referenced = set(_delete_re.findall(r"(?:FROM|UPDATE|JOIN)\s+(\w+)", statement, _delete_re.I))
                 if referenced - existing:
                     continue
                 conn.execute(_t(statement), {"uid": user_id})
+            if 'learning_policy_audit' in existing:
+                from intelliplan.learning.governance import anonymize_audit_targets
+                anonymize_audit_targets(conn, user_id)
             conn.execute(_t("DELETE FROM users WHERE id = :uid"), {"uid": user_id})
     except Exception:
         restore_uploads(staged_uploads)
@@ -11640,6 +11704,19 @@ def api_save_assignment_due_date():
     save_custom_description(title, json.dumps(existing))
     return flask.jsonify({"status": "ok"})
 
+def _calendar_policy_allowed():
+    """Calendar helpers run under scheduler and agent routes as well as OAuth."""
+    if not current_user.is_authenticated:
+        return False
+    try:
+        from intelliplan.learning import policy as learning_policy
+        learning_policy.invalidate_cache()
+        return learning_policy.decision(current_user, 'calendar')[0]
+    except Exception:
+        app.logger.warning('Calendar policy unavailable', exc_info=True)
+        return False
+
+
 def _planner_busy_by_date(horizon_days=14):
     """Dated committed time: connected calendars plus the class timetable.
 
@@ -11660,6 +11737,8 @@ def _planner_busy_by_date(horizon_days=14):
     """
     if not current_user.is_authenticated:
         return {}
+    if not _calendar_policy_allowed():
+        return _class_busy_by_date(current_user.id, date.today(), horizon_days)
     memo_key = ("_planner_busy_by_date", int(horizon_days))
     try:
         cached = flask.g.get(memo_key[0]) or {}
@@ -11668,6 +11747,8 @@ def _planner_busy_by_date(horizon_days=14):
     except RuntimeError:
         cached = None  # outside a request: nothing to memoise against
     combined = _calendar_busy_by_date(horizon_days)
+    if not _calendar_policy_allowed():
+        return _class_busy_by_date(current_user.id, date.today(), horizon_days)
     for day, intervals in _class_busy_by_date(current_user.id, date.today(), horizon_days).items():
         combined.setdefault(day, []).extend(intervals)
     if cached is not None:
@@ -11681,26 +11762,26 @@ def _planner_busy_by_date(horizon_days=14):
 
 def _calendar_busy_by_date(horizon_days=14, start=None):
     """Busy ranges from Google and Outlook only, ``{date: [(start, end)]}``."""
-    if not current_user.is_authenticated:
+    if not _calendar_policy_allowed():
         return {}
     start = start or date.today()
     try:
         offset = getattr(current_user, "utc_offset_minutes", 0) or 0
         combined = {}
         token = get_google_token()
-        if token and has_calendar_scope(token):
+        if token and _calendar_policy_allowed() and has_calendar_scope(token):
             from google_calendar_helper import busy_minutes_by_date
             for day, intervals in busy_minutes_by_date(
                 token, start, days=horizon_days, utc_offset_minutes=offset
             ).items():
                 combined.setdefault(day, []).extend(intervals)
-        outlook_token = get_outlook_token()
-        if outlook_token:
+        outlook_token = get_outlook_token() if _calendar_policy_allowed() else None
+        if outlook_token and _calendar_policy_allowed():
             for day, intervals in outlook_calendar_helper.busy_minutes_by_date(
                 outlook_token, start, days=horizon_days, utc_offset_minutes=offset
             ).items():
                 combined.setdefault(day, []).extend(intervals)
-        return combined
+        return combined if _calendar_policy_allowed() else {}
     except Exception as e:
         print(f"[planner] calendar busy lookup failed: {e}")
         return {}
@@ -13149,7 +13230,27 @@ def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True) ->
 
     if not user_id:
         return []
-    if use_cache:
+    # This collector is also called outside HTTP handlers. Check the actual
+    # owner before cache hits or credential access, not just at the route.
+    from intelliplan.learning import policy as learning_policy
+    try:
+        owner = db.session.get(User, user_id)
+        if not owner:
+            return []
+        db.session.refresh(owner)
+        learning_policy.invalidate_cache()
+        permissions = {}
+        for capability in learning_policy.SOURCE_CAPABILITIES:
+            allowed, reason = learning_policy.decision(owner, capability)
+            if reason == 'policy_unavailable':
+                return []
+            permissions[capability] = allowed
+    except Exception:
+        app.logger.warning('LMS source policy unavailable', exc_info=True)
+        return []
+    if not all(permissions.values()):
+        invalidate_lms_cache_for_user(user_id)
+    if use_cache and all(permissions.values()):
         cached = _lms_cache_get(user_id)
         if cached is not None:
             return cached
@@ -13165,7 +13266,8 @@ def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True) ->
     acct_dict = None
     try:
         acct = LinkedAccount.query.filter_by(user_id=user_id, is_active=True).first()
-        if acct:
+        capability = learning_policy.source_capability(acct.login_type) if acct else None
+        if acct and permissions.get(capability, True):
             creds = acct.get_credentials() or {}
             creds["login_type"] = acct.login_type
             if not creds.get("canvas_url"):
@@ -13289,30 +13391,33 @@ def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True) ->
 
     # Google Classroom (independent of active account)
     try:
-        ctok, _crow = _classroom_access_token_for(user_id)
+        ctok, _crow = _classroom_access_token_for(user_id) if permissions['google_classroom'] else (None, None)
         if ctok:
             for a in _classroom_fetch_assignments(ctok):
                 if a.get("title") and a["title"] not in dismissed:
+                    a['source'] = 'google_classroom'
                     tasks.append(a)
     except Exception as e:
         print(f"[lms-collect] classroom err: {e}")
 
     # Blackboard
     try:
-        btok, brow = _blackboard_access_token_for(user_id)
+        btok, brow = _blackboard_access_token_for(user_id) if permissions['blackboard'] else (None, None)
         if btok and brow and brow.institution_url:
             for a in _blackboard_fetch_assignments(brow.institution_url, btok, brow.bb_user_id):
                 if a.get("title") and a["title"] not in dismissed:
+                    a['source'] = 'blackboard'
                     tasks.append(a)
     except Exception as e:
         print(f"[lms-collect] blackboard err: {e}")
 
     # Moodle
     try:
-        mrow = MoodleIntegration.query.filter_by(user_id=user_id).order_by(MoodleIntegration.id.desc()).first()
+        mrow = MoodleIntegration.query.filter_by(user_id=user_id).order_by(MoodleIntegration.id.desc()).first() if permissions['moodle'] else None
         if mrow and mrow.moodle_url and mrow.ws_token:
             for a in _moodle_fetch_assignments(mrow.moodle_url, mrow.ws_token, mrow.moodle_user_id):
                 if a.get("title") and a["title"] not in dismissed:
+                    a['source'] = 'moodle'
                     tasks.append(a)
     except Exception as e:
         print(f"[lms-collect] moodle err: {e}")
@@ -13329,8 +13434,27 @@ def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True) ->
             continue
         seen.add(key)
         deduped.append(t)
-    # Cache so the next render is instant
-    if use_cache:
+    # Policy may change while the upstream sources are responding. Never
+    # return or cache rows that have since become restricted.
+    try:
+        db.session.refresh(owner)
+        learning_policy.invalidate_cache()
+        latest = {}
+        for capability in permissions:
+            allowed, reason = learning_policy.decision(owner, capability)
+            if reason == 'policy_unavailable':
+                return []
+            latest[capability] = allowed
+        def permitted_row(row):
+            capability = learning_policy.source_capability(row.get('source'))
+            return latest[capability] if capability else True
+        deduped = [row for row in deduped if permitted_row(row)]
+    except Exception:
+        app.logger.warning('LMS source policy recheck unavailable', exc_info=True)
+        return []
+    # Partially fetched data must not poison the unrestricted cache after
+    # a policy change enables a previously omitted source.
+    if use_cache and all(permissions.values()) and all(latest.values()):
         _lms_cache_put(user_id, deduped)
     # A fresh fetch (a cache hit returned above) is a sync Grade Pulse should
     # see. This is also the path its background pull uses.
@@ -13477,47 +13601,51 @@ def unified_tasks():
     # A user may have Classroom connected alongside Canvas or StudentVue, so
     # we always check for stored Classroom tokens, not just the active account.
     try:
-        if current_user.is_authenticated and "google_classroom" in assignment_sources:
+        if current_user.is_authenticated and "google_classroom" in assignment_sources and _lms_policy_allowed('google_classroom'):
             ctok, _crow = _classroom_access_token_for(current_user.id)
             if ctok:
                 for a in _classroom_fetch_assignments(ctok):
                     if a.get("title") in dismissed:
                         continue
+                    a['source'] = 'google_classroom'
                     tasks.append(a)
     except Exception as e:
         print(f"Classroom unified error: {e}")
 
     # ── Blackboard Learn (independent of active LMS account) ──
     try:
-        if current_user.is_authenticated and "blackboard" in assignment_sources:
+        if current_user.is_authenticated and "blackboard" in assignment_sources and _lms_policy_allowed('blackboard'):
             btok, brow = _blackboard_access_token_for(current_user.id)
             if btok and brow and brow.institution_url:
                 for a in _blackboard_fetch_assignments(brow.institution_url, btok, brow.bb_user_id):
                     if a.get("title") in dismissed:
                         continue
+                    a['source'] = 'blackboard'
                     tasks.append(a)
     except Exception as e:
         print(f"Blackboard unified error: {e}")
 
     # ── Moodle (independent of active LMS account) ──
     try:
-        if current_user.is_authenticated and "moodle" in assignment_sources:
+        if current_user.is_authenticated and "moodle" in assignment_sources and _lms_policy_allowed('moodle'):
             mrow = MoodleIntegration.query.filter_by(user_id=current_user.id).order_by(MoodleIntegration.id.desc()).first()
             if mrow and mrow.moodle_url and mrow.ws_token:
                 for a in _moodle_fetch_assignments(mrow.moodle_url, mrow.ws_token, mrow.moodle_user_id):
                     if a.get("title") in dismissed:
                         continue
+                    a['source'] = 'moodle'
                     tasks.append(a)
     except Exception as e:
         print(f"Moodle unified error: {e}")
 
-    if NOTION_AVAILABLE and "notion" in assignment_sources:
+    if NOTION_AVAILABLE and "notion" in assignment_sources and _lms_policy_allowed('notion'):
         try:
             notion_token, notion_db_id = get_notion_token_and_db()
             if notion_token and notion_db_id:
                 notion_raw = get_notion_tasks(notion_token, notion_db_id)
                 for t in notion_raw:
                     if t.get("title") not in dismissed:
+                        t['source'] = 'notion'
                         tasks.append(t)
         except Exception as e:
             print(f"Notion tasks error: {e}")
@@ -13547,6 +13675,14 @@ def unified_tasks():
     except Exception as e:
         print(f"Manual tasks error: {e}")
     tasks = dedupe_tasks(tasks)
+    if current_user.is_authenticated:
+        from intelliplan.learning import policy as learning_policy
+        # Do not publish newly revoked source rows to Grade Pulse or clients.
+        permitted = {key: _lms_policy_allowed(key) for key in learning_policy.LMS_SOURCES}
+        permitted['calendar'] = _calendar_policy_allowed()
+        tasks = [task for task in tasks if (
+            learning_policy.source_capability(task.get('source')) is None or
+            permitted[learning_policy.source_capability(task.get('source'))])]
     # Grade Pulse: a teacher's new assignment is noticed on the read that
     # already happens, slotted into the plan, and announced. Manual tasks
     # are skipped inside (the student typed those; telling them is noise).
@@ -19258,6 +19394,9 @@ def _sms_send_for_user(user, body):
     deliver SMS by emailing the carrier's gateway address (the carrier
     converts the email to an SMS at no cost to us).
     Returns (True, None) on success or (None, error_str) on failure."""
+    from intelliplan.learning import policy as learning_policy
+    if user and not learning_policy.decision(user, 'notifications')[0]:
+        return None, 'notifications restricted by institution'
     if not user or not user.phone:
         return None, "no phone on account"
     carrier = (getattr(user, "sms_carrier", None) or "tmobile").lower()
@@ -19789,6 +19928,10 @@ def api_snapshot():
 def _send_push_to_user(user_id, payload, ttl=None):
     """Send a webpush payload to every subscription tied to user_id.
     Returns the count of successful deliveries."""
+    from intelliplan.learning import policy as learning_policy
+    owner = db.session.get(User, user_id)
+    if not owner or not learning_policy.decision(owner, 'notifications')[0]:
+        return 0
     subs = PushSubscription.query.filter_by(user_id=user_id).all()
     if not subs:
         return 0
@@ -20954,7 +21097,11 @@ def api_grades_predict():
     insights = {}
     summary = ""
     recommendations = []
-    if ai_available():
+    from intelliplan.learning import policy as learning_policy
+    allow_insights = (getattr(current_user, 'ai_personalization_opt_in', False) and
+                     learning_policy.decision(current_user, 'tutor')[0] and
+                     learning_policy.permitted_providers(current_user))
+    if allow_insights and ai_available():
         compact = [
             {
                 "course": p["course"],
@@ -21039,6 +21186,27 @@ def _transcribe_lesson(lesson):
 
 
 def _summarize_lesson_async(lesson_id):
+    from intelliplan.learning import policy as learning_policy
+    from intelliplan.learning.courses import provider_user
+    lesson = db.session.get(Lesson, lesson_id)
+    if not lesson:
+        return
+    owner = db.session.get(User, lesson.user_id) if lesson.user_id else None
+    if owner and (not learning_policy.decision(owner, 'study')[0] or
+                  not learning_policy.decision(owner, 'uploads')[0] or
+                  not learning_policy.permitted_providers(owner)):
+        lesson.summary_status = 'failed'
+        lesson.summary = 'Processing is disabled by institutional policy.'
+        db.session.commit()
+        return
+    token = provider_user.set(owner)
+    try:
+        _summarize_lesson_content(lesson_id)
+    finally:
+        provider_user.reset(token)
+
+
+def _summarize_lesson_content(lesson_id):
     """Two-stage pipeline:
 
     1. If we don't already have a transcript, transcribe the audio and persist.
@@ -21055,13 +21223,10 @@ def _summarize_lesson_async(lesson_id):
             db.session.commit()
     seed = transcript
     if not seed:
-        seed = (
-            f"Title: {lesson.title}\nCourse: {lesson.course or 'general'}\n"
-            f"Tags: {', '.join(lesson.tag_list())}\n"
-            "No transcript was available — produce a study-friendly placeholder "
-            "summary describing what a lesson with this title and tags likely "
-            "covers, and list 5 likely sub-topics."
-        )
+        lesson.summary_status = 'failed'
+        lesson.summary = 'No transcript is available. Retry transcription before requesting a summary.'
+        db.session.commit()
+        return
     try:
         summary = ai_chat(
             [
@@ -21588,6 +21753,10 @@ def extractor_page():
 @app.route("/api/tasks/extract", methods=["POST"])
 @limiter.limit("30 per minute")
 def api_task_extract():
+    if not current_user.is_authenticated:
+        return flask.jsonify({'status': 'error', 'message': 'Sign in to extract tasks.'}), 401
+    if not feature_enabled('extractor'):
+        return flask.jsonify({'status': 'error', 'message': 'Task Extractor is temporarily disabled.'}), 503
     body = request.get_json(silent=True) or {}
     text = (body.get("text") or "").strip()
     if not text:
@@ -22791,6 +22960,11 @@ def api_save_session_message(msg_id):
     db.session.commit()
     return jsonify({"status": "ok", "note_id": note.id})
 
+
+from intelliplan.learning.api import install as _install_learning_hub
+from intelliplan.learning.enforcement import install as _install_learning_enforcement
+_install_learning_hub(app)
+_install_learning_enforcement(app)
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 3000))

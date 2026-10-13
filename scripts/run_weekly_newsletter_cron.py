@@ -35,6 +35,16 @@ def main() -> int:
         print("Weekly newsletter run reported an error; see the web service logs.", file=sys.stderr)
         return 1
 
+    if summary.get("no_eligible_recipients"):
+        audience = summary.get("audience") or {}
+        print(
+            "Weekly newsletter has no eligible subscribers: "
+            f"opted_in={audience.get('opted_in', 0)} "
+            f"excluded={audience.get('excluded', 0)} "
+            f"reasons={json.dumps(audience.get('reasons', {}), sort_keys=True)}"
+        )
+        return 0
+
     print(
         "Weekly newsletter run complete: "
         f"recipients={summary.get('recipients', 0)} "

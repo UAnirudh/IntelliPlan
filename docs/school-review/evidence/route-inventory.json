@@ -1,0 +1,6954 @@
+{
+  "scope": "literal decorators only; blueprint prefixes/dynamic registrations need runtime review",
+  "routes": [
+    {
+      "file": "App.py",
+      "line": 4713,
+      "function": "public_stats",
+      "literal_path": "/api/stats",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 4750,
+      "function": "landing",
+      "literal_path": "/",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 4755,
+      "function": "robots_txt",
+      "literal_path": "/robots.txt",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 4872,
+      "function": "sitemap_xml",
+      "literal_path": "/sitemap.xml",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 4889,
+      "function": "llms_txt",
+      "literal_path": "/llms.txt",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 5032,
+      "function": "indexnow_docs_page",
+      "literal_path": "/indexnow",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 5050,
+      "function": "schedule_alias_redirect",
+      "literal_path": "/schedule",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "scheduler"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 5061,
+      "function": "privacy_alias_redirect",
+      "literal_path": "/privacy",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 5066,
+      "function": "terms_alias_redirect",
+      "literal_path": "/terms",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 5072,
+      "function": "delete_account_info",
+      "literal_path": "/delete-account",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 5072,
+      "function": "delete_account_info",
+      "literal_path": "/account-deletion",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 5211,
+      "function": "tutor",
+      "literal_path": "/tutor",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "tutor"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 5217,
+      "function": "foundations",
+      "literal_path": "/foundations",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "study"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 5224,
+      "function": "foundations_parent",
+      "literal_path": "/foundations/parent",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "study"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 5231,
+      "function": "faq",
+      "literal_path": "/faq",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 5235,
+      "function": "compare",
+      "literal_path": "/compare",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 5239,
+      "function": "pricing",
+      "literal_path": "/pricing",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 5245,
+      "function": "blog_canvas",
+      "literal_path": "/blog/how-to-use-canvas-with-a-study-planner",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 5249,
+      "function": "blog_studentvue",
+      "literal_path": "/blog/studentvue-study-planner",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 5253,
+      "function": "blog_prioritize",
+      "literal_path": "/blog/how-to-prioritize-assignments",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 5257,
+      "function": "blog_best_ai_planner",
+      "literal_path": "/blog/best-ai-study-planner",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 5261,
+      "function": "blog_student_planner_app",
+      "literal_path": "/blog/best-student-planner-app",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 5265,
+      "function": "compare_notion",
+      "literal_path": "/compare/intelliplan-vs-notion",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 5269,
+      "function": "compare_myhomework",
+      "literal_path": "/compare/intelliplan-vs-myhomework",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 5273,
+      "function": "compare_turbo",
+      "literal_path": "/compare/intelliplan-vs-turbo-ai",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 5277,
+      "function": "compare_quizlet",
+      "literal_path": "/compare/intelliplan-vs-quizlet",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 5281,
+      "function": "compare_mystudylife",
+      "literal_path": "/compare/intelliplan-vs-mystudylife",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 5285,
+      "function": "ambassador",
+      "literal_path": "/ambassador",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 5289,
+      "function": "ambassador_dashboard",
+      "literal_path": "/ambassador/dashboard",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 5295,
+      "function": "schools",
+      "literal_path": "/schools",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 5299,
+      "function": "uk_landing",
+      "literal_path": "/uk",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 5303,
+      "function": "blog_ai_notetaker",
+      "literal_path": "/blog/ai-notetaker-for-students",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 5307,
+      "function": "blog_good_gpa",
+      "literal_path": "/blog/what-is-a-good-gpa",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 5311,
+      "function": "blog_ap_study_planner",
+      "literal_path": "/blog/ap-study-planner",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 5315,
+      "function": "blog_index",
+      "literal_path": "/blog",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 5319,
+      "function": "olympiad_page",
+      "literal_path": "/olympiad",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 5323,
+      "function": "demo_week",
+      "literal_path": "/demo",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 5338,
+      "function": "tool_final_grade",
+      "literal_path": "/tools/final-grade-calculator",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 5342,
+      "function": "tool_gpa",
+      "literal_path": "/tools/gpa-calculator",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 5346,
+      "function": "tool_grade",
+      "literal_path": "/tools/grade-calculator",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 5350,
+      "function": "tool_countdown",
+      "literal_path": "/tools/finals-countdown",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 5354,
+      "function": "tool_test_grade",
+      "literal_path": "/tools/test-grade-calculator",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 5358,
+      "function": "tool_schedule_maker",
+      "literal_path": "/tools/study-schedule-maker",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 5362,
+      "function": "contact",
+      "literal_path": "/contact",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 5366,
+      "function": "about",
+      "literal_path": "/about",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 5371,
+      "function": "api_docs_page",
+      "literal_path": "/api-docs",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 5371,
+      "function": "api_docs_page",
+      "literal_path": "/developers",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 5375,
+      "function": "home",
+      "literal_path": "/schedule",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "scheduler"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 5379,
+      "function": "priority",
+      "literal_path": "/priority",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 5383,
+      "function": "classes",
+      "literal_path": "/classes",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 5387,
+      "function": "grades",
+      "literal_path": "/grades",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 5391,
+      "function": "scheduler",
+      "literal_path": "/scheduler",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "scheduler"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 5395,
+      "function": "scheduler_saved",
+      "literal_path": "/scheduler/saved",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "scheduler"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 5399,
+      "function": "grademodel",
+      "literal_path": "/grademodel",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 5403,
+      "function": "gradebook",
+      "literal_path": "/gradebook",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 5407,
+      "function": "dismissed_page",
+      "literal_path": "/dismissed",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 5411,
+      "function": "profiles",
+      "literal_path": "/profiles",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 5415,
+      "function": "settings",
+      "literal_path": "/settings",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 5436,
+      "function": "flashcards_page",
+      "literal_path": "/flashcards",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "review"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 5450,
+      "function": "dashboard",
+      "literal_path": "/dashboard",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 5494,
+      "function": "study",
+      "literal_path": "/study",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "study"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 5500,
+      "function": "learn",
+      "literal_path": "/learn",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "review"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 5506,
+      "function": "study_and_learn_hub",
+      "literal_path": "/study-and-learn",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 5514,
+      "function": "study_hub_recommend",
+      "literal_path": "/api/study-hub/recommend",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "study"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 5600,
+      "function": "streak",
+      "literal_path": "/streak",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 5604,
+      "function": "focus",
+      "literal_path": "/focus",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "focus"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 5609,
+      "function": "library",
+      "literal_path": "/library",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 5615,
+      "function": "meetings",
+      "literal_path": "/meetings",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 5655,
+      "function": "api_deepstudy_ingest",
+      "literal_path": "/api/deepstudy/ingest",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "study",
+        "uploads"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 5717,
+      "function": "api_deepstudy_feedback",
+      "literal_path": "/api/deepstudy/feedback",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "study"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 5771,
+      "function": "api_deepstudy_transform",
+      "literal_path": "/api/deepstudy/transform",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "study"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 5822,
+      "function": "api_lms_connect",
+      "literal_path": "/api/lms/connect/<provider>",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 6591,
+      "function": "api_lms_connect_moodle_manual",
+      "literal_path": "/api/lms/connect/moodle/manual",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "moodle"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 6629,
+      "function": "api_blackboard_disconnect",
+      "literal_path": "/api/lms/disconnect/blackboard",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 6641,
+      "function": "api_blackboard_status",
+      "literal_path": "/api/lms/status/blackboard",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 6653,
+      "function": "api_moodle_disconnect",
+      "literal_path": "/api/lms/disconnect/moodle",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 6665,
+      "function": "api_moodle_status",
+      "literal_path": "/api/lms/status/moodle",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 6678,
+      "function": "api_lms_callback",
+      "literal_path": "/api/lms/callback/<provider>",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 6784,
+      "function": "api_classroom_disconnect",
+      "literal_path": "/api/lms/disconnect/google_classroom",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 6831,
+      "function": "api_block_resources",
+      "literal_path": "/api/block/resources",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 6861,
+      "function": "api_resource_accounts",
+      "literal_path": "/api/resource-accounts",
+      "methods": [
+        "GET",
+        "POST",
+        "DELETE"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 6913,
+      "function": "api_integrations_status",
+      "literal_path": "/api/integrations/status",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 6985,
+      "function": "api_classroom_status",
+      "literal_path": "/api/lms/status/google_classroom",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 7001,
+      "function": "legal",
+      "literal_path": "/legal",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 7005,
+      "function": "install",
+      "literal_path": "/install",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 7009,
+      "function": "install_ios",
+      "literal_path": "/install/ios",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 7014,
+      "function": "download_desktop",
+      "literal_path": "/download",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 7034,
+      "function": "api_desktop_latest",
+      "literal_path": "/api/desktop/latest",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 7055,
+      "function": "login",
+      "literal_path": "/login",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 7065,
+      "function": "register",
+      "literal_path": "/register",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 7444,
+      "function": "list_scheduler_presets",
+      "literal_path": "/scheduler/presets",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "scheduler"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 7452,
+      "function": "delete_scheduler_preset",
+      "literal_path": "/scheduler/presets/delete",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "scheduler"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 7586,
+      "function": "onboarding",
+      "literal_path": "/onboarding",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 7643,
+      "function": "update_identity",
+      "literal_path": "/identity",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 7689,
+      "function": "get_identity",
+      "literal_path": "/api/identity",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 7698,
+      "function": "api_onboarding_state",
+      "literal_path": "/api/onboarding/state",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 7724,
+      "function": "api_onboarding_chat",
+      "literal_path": "/api/onboarding/chat",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "tutor"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 7917,
+      "function": "login_google",
+      "literal_path": "/login/google",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 7950,
+      "function": "desktop_auth_exchange",
+      "literal_path": "/api/desktop/auth/exchange",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 8006,
+      "function": "login_account",
+      "literal_path": "/login/account",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 8106,
+      "function": "forgot_password",
+      "literal_path": "/forgot-password",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 8181,
+      "function": "reset_password",
+      "literal_path": "/reset-password",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 8249,
+      "function": "connect_account",
+      "literal_path": "/connect",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 8254,
+      "function": "login_canvas",
+      "literal_path": "/login/canvas",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "canvas"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 8327,
+      "function": "login_calendar_feed",
+      "literal_path": "/login/calendar-feed",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "calendar"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 8388,
+      "function": "app_link_redeem",
+      "literal_path": "/link/<code>",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 8436,
+      "function": "oauth_canvas_check",
+      "literal_path": "/oauth/canvas/check",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "canvas"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 8446,
+      "function": "oauth_canvas_start",
+      "literal_path": "/oauth/canvas",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "canvas"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 8469,
+      "function": "oauth_canvas_callback",
+      "literal_path": "/oauth/canvas/callback",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "canvas"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 8576,
+      "function": "oauth_canvas_status",
+      "literal_path": "/oauth/canvas/status",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "canvas"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 8601,
+      "function": "oauth_canvas_disconnect",
+      "literal_path": "/oauth/canvas/disconnect",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "canvas"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 8649,
+      "function": "login_studentvue",
+      "literal_path": "/login/studentvue",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "studentvue"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 8685,
+      "function": "oauth_studentvue_start",
+      "literal_path": "/oauth/studentvue",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "studentvue"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 8713,
+      "function": "login_hac",
+      "literal_path": "/login/hac",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "hac"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 8756,
+      "function": "login_schoology",
+      "literal_path": "/login/schoology",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "schoology"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 8787,
+      "function": "logout",
+      "literal_path": "/logout",
+      "methods": [
+        "POST",
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 9076,
+      "function": "google_oauth_start",
+      "literal_path": "/oauth/google",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "calendar"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 9120,
+      "function": "gcal_status",
+      "literal_path": "/gcal/status",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 9146,
+      "function": "gcal_activate",
+      "literal_path": "/gcal/activate",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 9169,
+      "function": "gcal_remove",
+      "literal_path": "/gcal/remove",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 9203,
+      "function": "google_oauth_callback",
+      "literal_path": "/oauth2callback",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "calendar"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 9203,
+      "function": "google_oauth_callback",
+      "literal_path": "/oauth/google/callback",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "calendar"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 9208,
+      "function": "google_disconnect",
+      "literal_path": "/oauth/google/disconnect",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "calendar"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 9218,
+      "function": "google_drive_disconnect",
+      "literal_path": "/oauth/google-drive/disconnect",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "uploads"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 9228,
+      "function": "google_drive_oauth_start",
+      "literal_path": "/oauth/google-drive",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "uploads"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 9328,
+      "function": "outlook_oauth",
+      "literal_path": "/oauth/outlook",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "calendar"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 9340,
+      "function": "onedrive_oauth",
+      "literal_path": "/oauth/onedrive",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "uploads"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 9354,
+      "function": "outlook_oauth_callback",
+      "literal_path": "/oauth/outlook/callback",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "calendar"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 9421,
+      "function": "outlook_disconnect",
+      "literal_path": "/oauth/outlook/disconnect",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "calendar"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 9429,
+      "function": "onedrive_disconnect",
+      "literal_path": "/oauth/onedrive/disconnect",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "uploads"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 9438,
+      "function": "calendar_connections",
+      "literal_path": "/calendar/connections",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "calendar"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 9449,
+      "function": "study_files_page",
+      "literal_path": "/study-files",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 9460,
+      "function": "cloud_documents_status",
+      "literal_path": "/api/cloud-documents/status",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 9485,
+      "function": "google_drive_picker_token",
+      "literal_path": "/api/cloud-documents/google-picker-token",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 9544,
+      "function": "list_cloud_documents",
+      "literal_path": "/api/cloud-documents",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 9561,
+      "function": "search_cloud_documents",
+      "literal_path": "/api/cloud-documents/search",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 9595,
+      "function": "import_cloud_document",
+      "literal_path": "/api/cloud-documents/import",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 9668,
+      "function": "get_cloud_document",
+      "literal_path": "/api/cloud-documents/<int:link_id>",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 9706,
+      "function": "update_cloud_document",
+      "literal_path": "/api/cloud-documents/<int:link_id>",
+      "methods": [
+        "PUT"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 9883,
+      "function": "cloud_documents_match",
+      "literal_path": "/api/cloud-documents/match",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 9921,
+      "function": "cloud_documents_create",
+      "literal_path": "/api/cloud-documents/create",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 9999,
+      "function": "calendar_events",
+      "literal_path": "/calendar/events",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "calendar"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 10030,
+      "function": "calendar_free_slot",
+      "literal_path": "/calendar/free-slot",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "calendar"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 10045,
+      "function": "calendar_export",
+      "literal_path": "/calendar/export",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "calendar"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 10114,
+      "function": "profiles_list",
+      "literal_path": "/profiles/list",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 10130,
+      "function": "profiles_switch",
+      "literal_path": "/profiles/switch",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 10143,
+      "function": "profiles_delete",
+      "literal_path": "/profiles/delete",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 10154,
+      "function": "profiles_rename",
+      "literal_path": "/profiles/rename",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 10166,
+      "function": "account_delete",
+      "literal_path": "/account/delete",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 10483,
+      "function": "get_live_schedule",
+      "literal_path": "/live",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 10590,
+      "function": "api_manual_classes_list",
+      "literal_path": "/api/classes/manual",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 10595,
+      "function": "api_manual_classes_create",
+      "literal_path": "/api/classes/manual",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 10716,
+      "function": "api_cookie_consent_state",
+      "literal_path": "/api/cookies/consent",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 10729,
+      "function": "api_cookie_consent_save",
+      "literal_path": "/api/cookies/consent",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 10755,
+      "function": "cookies_page",
+      "literal_path": "/cookies",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 10811,
+      "function": "api_policy_pending",
+      "literal_path": "/api/policy/pending",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 10838,
+      "function": "api_policy_acknowledge",
+      "literal_path": "/api/policy/acknowledge",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 10902,
+      "function": "api_school_outreach_options",
+      "literal_path": "/api/school-outreach/options",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 10913,
+      "function": "api_school_outreach_create",
+      "literal_path": "/api/school-outreach",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 10976,
+      "function": "api_manual_entry_reason",
+      "literal_path": "/api/manual-entry-reason",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 11031,
+      "function": "api_manual_classes_modify",
+      "literal_path": "/api/classes/manual/<int:class_id>",
+      "methods": [
+        "PATCH",
+        "DELETE"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 11062,
+      "function": "get_courses",
+      "literal_path": "/courses",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 11158,
+      "function": "grades_data",
+      "literal_path": "/grades/data",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 11197,
+      "function": "gradebook_detail",
+      "literal_path": "/gradebook/detail",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 11225,
+      "function": "dismissed_data",
+      "literal_path": "/dismissed/data",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 11236,
+      "function": "notes_list",
+      "literal_path": "/notes/list",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 11253,
+      "function": "upload_note",
+      "literal_path": "/notes/upload",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "uploads"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 11298,
+      "function": "get_note",
+      "literal_path": "/notes/<int:note_id>",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 11305,
+      "function": "download_note",
+      "literal_path": "/notes/<int:note_id>/download",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 11313,
+      "function": "summarize_note",
+      "literal_path": "/notes/<int:note_id>/summarize",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 11332,
+      "function": "study_note_route",
+      "literal_path": "/notes/<int:note_id>/study",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 11353,
+      "function": "delete_note",
+      "literal_path": "/notes/<int:note_id>",
+      "methods": [
+        "DELETE"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 11376,
+      "function": "api_notes_search",
+      "literal_path": "/api/notes/search",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "uploads"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 11397,
+      "function": "notes_quiz",
+      "literal_path": "/notes/<int:note_id>/quiz",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 11421,
+      "function": "notes_file",
+      "literal_path": "/notes/<int:note_id>/file",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 11432,
+      "function": "dismiss",
+      "literal_path": "/dismiss",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 11459,
+      "function": "restore",
+      "literal_path": "/restore",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 11471,
+      "function": "tests_page",
+      "literal_path": "/tests",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 11476,
+      "function": "api_get_tests",
+      "literal_path": "/api/tests",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 11490,
+      "function": "mark_as_test",
+      "literal_path": "/test/mark",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 11505,
+      "function": "unmark_as_test",
+      "literal_path": "/test/unmark",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 11517,
+      "function": "get_description",
+      "literal_path": "/assignment/description",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 11538,
+      "function": "save_description",
+      "literal_path": "/assignment/description",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 11548,
+      "function": "api_get_assignment_notes",
+      "literal_path": "/api/assignment/notes",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "uploads"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 11563,
+      "function": "api_save_assignment_notes",
+      "literal_path": "/api/assignment/notes",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "uploads"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 11580,
+      "function": "api_save_assignment_due_date",
+      "literal_path": "/api/assignment/due-date",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 12319,
+      "function": "generate_schedule",
+      "literal_path": "/generate_schedule",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "scheduler"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 12687,
+      "function": "service_worker",
+      "literal_path": "/static/sw.js",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 12695,
+      "function": "oauth_notion_start",
+      "literal_path": "/oauth/notion",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "notion"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 12724,
+      "function": "oauth_notion_callback",
+      "literal_path": "/oauth/notion/callback",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "notion"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 12803,
+      "function": "notion_status",
+      "literal_path": "/notion/status",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "notion"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 12835,
+      "function": "notion_upcoming",
+      "literal_path": "/notion/upcoming",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "notion"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 12851,
+      "function": "notion_export_schedule",
+      "literal_path": "/notion/export",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "notion"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 12868,
+      "function": "notion_connect",
+      "literal_path": "/notion/connect",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "notion"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 12919,
+      "function": "notion_disconnect",
+      "literal_path": "/notion/disconnect",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "notion"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 12929,
+      "function": "notion_set_database",
+      "literal_path": "/notion/set-database",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "notion"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 12948,
+      "function": "notion_databases_route",
+      "literal_path": "/notion/databases",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "notion"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 12965,
+      "function": "notion_pages_route",
+      "literal_path": "/notion/pages",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "notion"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 12980,
+      "function": "notion_create_database_route",
+      "literal_path": "/notion/create-database",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "notion"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 13008,
+      "function": "notion_tasks_route",
+      "literal_path": "/notion/tasks",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "notion"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 13021,
+      "function": "notion_create_task",
+      "literal_path": "/notion/tasks/create",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "notion"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 13035,
+      "function": "notion_update_task",
+      "literal_path": "/notion/tasks/update",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "notion"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 13049,
+      "function": "notion_complete_task",
+      "literal_path": "/notion/tasks/complete",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "notion"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 13358,
+      "function": "unified_tasks",
+      "literal_path": "/tasks/unified",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 13604,
+      "function": "missing_data",
+      "literal_path": "/missing/data",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 13629,
+      "function": "manual_create_task",
+      "literal_path": "/tasks/manual/create",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 13676,
+      "function": "manual_update_task",
+      "literal_path": "/tasks/manual/update",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 13714,
+      "function": "manual_delete_task",
+      "literal_path": "/tasks/manual/delete",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 13832,
+      "function": "streak_status",
+      "literal_path": "/api/streak/status",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 13890,
+      "function": "streak_nudge_shown",
+      "literal_path": "/api/streak/nudge-shown",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 13903,
+      "function": "streak_nudge_tapped",
+      "literal_path": "/api/streak/nudge-tapped",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 13911,
+      "function": "streak_pill_tapped",
+      "literal_path": "/api/streak/pill-tapped",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 13922,
+      "function": "streak_plan_review",
+      "literal_path": "/api/streak/plan-review",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 13941,
+      "function": "streak_set_timezone",
+      "literal_path": "/api/streak/set-timezone",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 14041,
+      "function": "pet_status",
+      "literal_path": "/api/pet/status",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 14118,
+      "function": "pet_visit",
+      "literal_path": "/api/pet/visit",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 14128,
+      "function": "pet_rename",
+      "literal_path": "/api/pet/rename",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 14142,
+      "function": "pet_page",
+      "literal_path": "/pet",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 14154,
+      "function": "pet_care",
+      "literal_path": "/api/pet/care",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 14214,
+      "function": "pet_chest",
+      "literal_path": "/api/pet/chest",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 14262,
+      "function": "streak_risk",
+      "literal_path": "/api/streak/risk",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 14404,
+      "function": "feedback_submit",
+      "literal_path": "/api/feedback/submit",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 14452,
+      "function": "feedback_mine",
+      "literal_path": "/api/feedback/mine",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 14475,
+      "function": "client_error_report",
+      "literal_path": "/api/client-error",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 14531,
+      "function": "bug_report_submit",
+      "literal_path": "/api/bug-report",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 14572,
+      "function": "admin_client_errors",
+      "literal_path": "/api/admin/client-errors",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 14605,
+      "function": "admin_resolve_client_error",
+      "literal_path": "/api/admin/client-errors/<int:error_id>/resolve",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 14617,
+      "function": "admin_bug_reports",
+      "literal_path": "/api/admin/bug-reports",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 14643,
+      "function": "my_stats_page",
+      "literal_path": "/my-stats",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 14650,
+      "function": "api_my_stats",
+      "literal_path": "/api/my-stats",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 14794,
+      "function": "manual_list_tasks",
+      "literal_path": "/tasks/manual/list",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 14994,
+      "function": "api_import_csv_template",
+      "literal_path": "/api/import/csv/template",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 15010,
+      "function": "api_import_csv",
+      "literal_path": "/api/import/csv",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 15040,
+      "function": "api_import_smart_paste",
+      "literal_path": "/api/import/smart_paste",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 15151,
+      "function": "api_import_scraper",
+      "literal_path": "/api/import/scraper",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 15227,
+      "function": "api_import_status",
+      "literal_path": "/api/import/status",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 15248,
+      "function": "save_schedule",
+      "literal_path": "/schedule/save",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "scheduler"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 15266,
+      "function": "get_saved_schedule",
+      "literal_path": "/schedule/saved",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "scheduler"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 15299,
+      "function": "save_schedule_progress",
+      "literal_path": "/schedule/progress",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "scheduler"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 15353,
+      "function": "recover_schedule",
+      "literal_path": "/schedule/recover",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "scheduler"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 15555,
+      "function": "update_saved_schedule",
+      "literal_path": "/schedule/update",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "scheduler"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 15579,
+      "function": "reflow_saved_schedule",
+      "literal_path": "/schedule/reflow",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "scheduler"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 15620,
+      "function": "delete_saved_schedule",
+      "literal_path": "/schedule/delete",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "scheduler"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 15727,
+      "function": "export_schedule_ics",
+      "literal_path": "/schedule/export.ics",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "scheduler"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 15897,
+      "function": "archive_context",
+      "literal_path": "/archive/context",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 15909,
+      "function": "memories_page",
+      "literal_path": "/memories",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 15913,
+      "function": "archive_save",
+      "literal_path": "/archive/save",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 15939,
+      "function": "archive_snapshot",
+      "literal_path": "/archive/snapshot",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 16028,
+      "function": "archive_days",
+      "literal_path": "/archive/days",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 16087,
+      "function": "archive_day",
+      "literal_path": "/archive/day/<date_str>",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 16103,
+      "function": "archive_load_item",
+      "literal_path": "/archive/load/<int:item_id>",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 16115,
+      "function": "archive_load_day",
+      "literal_path": "/archive/load-day/<date_str>",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 16135,
+      "function": "archive_delete_item",
+      "literal_path": "/archive/delete/<int:item_id>",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 16178,
+      "function": "archive_export_all",
+      "literal_path": "/archive/export",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 16190,
+      "function": "archive_export_day",
+      "literal_path": "/archive/export/<date_str>",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 16208,
+      "function": "feedback_predict_time",
+      "literal_path": "/feedback/predict-time",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 16281,
+      "function": "feedback_complete",
+      "literal_path": "/feedback/complete",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 16326,
+      "function": "feedback_export",
+      "literal_path": "/feedback/export",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 16384,
+      "function": "push_subscribe",
+      "literal_path": "/push/subscribe",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "notifications"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 16435,
+      "function": "push_desktop_register",
+      "literal_path": "/push/desktop-register",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "notifications"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 16460,
+      "function": "push_test",
+      "literal_path": "/push/test",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "notifications"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 16531,
+      "function": "vapid_public",
+      "literal_path": "/push/vapid-public",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "notifications"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 16535,
+      "function": "silence_notifications",
+      "literal_path": "/notifications/silence",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "notifications"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 16545,
+      "function": "notification_status",
+      "literal_path": "/notifications/status",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "notifications"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 16550,
+      "function": "debug_auth",
+      "literal_path": "/debug/auth",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 16625,
+      "function": "extension_login",
+      "literal_path": "/extension/login",
+      "methods": [
+        "POST",
+        "OPTIONS"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 16670,
+      "function": "extension_register",
+      "literal_path": "/extension/register",
+      "methods": [
+        "POST",
+        "OPTIONS"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 16709,
+      "function": "extension_logout",
+      "literal_path": "/extension/logout",
+      "methods": [
+        "POST",
+        "OPTIONS"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 16742,
+      "function": "extension_tasks",
+      "literal_path": "/extension/tasks",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 16841,
+      "function": "extension_schedule",
+      "literal_path": "/extension/schedule",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "scheduler"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 16856,
+      "function": "extension_grades",
+      "literal_path": "/extension/grades",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 16909,
+      "function": "extension_dismiss",
+      "literal_path": "/extension/dismiss",
+      "methods": [
+        "POST",
+        "OPTIONS"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 16933,
+      "function": "extension_task_add",
+      "literal_path": "/extension/task/add",
+      "methods": [
+        "POST",
+        "OPTIONS"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 16980,
+      "function": "extension_session_token",
+      "literal_path": "/extension/session-token",
+      "methods": [
+        "GET",
+        "OPTIONS"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 17032,
+      "function": "study_evaluate",
+      "literal_path": "/study/evaluate",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "study"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 17106,
+      "function": "study_analyze_image",
+      "literal_path": "/study/analyze-image",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "study",
+        "uploads"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 17135,
+      "function": "analyze_image_general",
+      "literal_path": "/analyze-image",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "uploads"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 17161,
+      "function": "study_get_points",
+      "literal_path": "/study/points",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "study"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 17161,
+      "function": "study_get_points",
+      "literal_path": "/study/streak",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "study"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 17224,
+      "function": "study_update_points",
+      "literal_path": "/study/sparks/update",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "study"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 17224,
+      "function": "study_update_points",
+      "literal_path": "/study/points/update",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "study"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 17251,
+      "function": "study_update_streak",
+      "literal_path": "/study/streak/update",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "study"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 17328,
+      "function": "api_activity",
+      "literal_path": "/api/activity",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 17365,
+      "function": "study_mastery_update",
+      "literal_path": "/study/mastery/update",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "study"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 17419,
+      "function": "study_mastery_due",
+      "literal_path": "/study/mastery/due",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "study"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 17434,
+      "function": "study_mastery_all",
+      "literal_path": "/study/mastery/all",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "study"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 17448,
+      "function": "study_session_complete",
+      "literal_path": "/study/session/complete",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "study"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 17552,
+      "function": "study_quests",
+      "literal_path": "/study/quests",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "study"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 17564,
+      "function": "study_quests_update",
+      "literal_path": "/study/quests/update",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "study"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 17577,
+      "function": "study_shop_buy",
+      "literal_path": "/study/shop/buy",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "study"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 17643,
+      "function": "study_repair",
+      "literal_path": "/study/repair",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "study"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 17715,
+      "function": "study_access",
+      "literal_path": "/study/access",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "study"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 17732,
+      "function": "study_extract_pdf",
+      "literal_path": "/study/extract-pdf",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "study",
+        "uploads"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 17757,
+      "function": "study_youtube",
+      "literal_path": "/study/youtube",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "study"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 17821,
+      "function": "study_transcribe",
+      "literal_path": "/study/transcribe",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "study"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 17855,
+      "function": "study_generate",
+      "literal_path": "/study/generate",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "study"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 18262,
+      "function": "admin_set_flag",
+      "literal_path": "/api/admin/flag",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 18285,
+      "function": "admin_indexnow_status",
+      "literal_path": "/api/admin/indexnow/status",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 18299,
+      "function": "admin_indexnow_submit",
+      "literal_path": "/api/admin/indexnow/submit",
+      "methods": [
+        "POST",
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 18323,
+      "function": "admin_smtp_status",
+      "literal_path": "/api/admin/smtp-status",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 18344,
+      "function": "admin_sms_blast_preview",
+      "literal_path": "/api/admin/sms-blast/preview",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 18364,
+      "function": "admin_sms_blast_send",
+      "literal_path": "/api/admin/sms-blast/send",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 18426,
+      "function": "admin_newsletter_preview",
+      "literal_path": "/api/admin/newsletter/preview",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 18445,
+      "function": "admin_newsletter_send",
+      "literal_path": "/api/admin/newsletter/send",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 18505,
+      "function": "referral_landing",
+      "literal_path": "/ref/<code>",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 18518,
+      "function": "api_referral",
+      "literal_path": "/api/referral",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 18830,
+      "function": "account_age_gate",
+      "literal_path": "/account/age",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 18895,
+      "function": "account_age_pending",
+      "literal_path": "/account/age/pending",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 18910,
+      "function": "parent_consent",
+      "literal_path": "/parent/consent",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 18959,
+      "function": "parent_deny",
+      "literal_path": "/parent/deny",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 19298,
+      "function": "api_focus_enforcement",
+      "literal_path": "/api/focus/enforcement",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "focus"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 19331,
+      "function": "api_focus_alarm",
+      "literal_path": "/api/focus/alarm",
+      "methods": [
+        "POST",
+        "DELETE"
+      ],
+      "policy_prefix_matches": [
+        "focus"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 19395,
+      "function": "focus_alarm_file",
+      "literal_path": "/uploads/focus-alarm/<int:user_id>",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "focus"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 19416,
+      "function": "api_profile_ai_personalization",
+      "literal_path": "/api/profile/ai_personalization",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 19435,
+      "function": "api_profile_phone",
+      "literal_path": "/api/profile/phone",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 19469,
+      "function": "api_profile_phone_test",
+      "literal_path": "/api/profile/phone/test",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 19665,
+      "function": "api_snapshot",
+      "literal_path": "/api/snapshot",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 19882,
+      "function": "api_reminders_check",
+      "literal_path": "/api/reminders/check",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "notifications"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 19914,
+      "function": "api_reminders_preview",
+      "literal_path": "/api/reminders/preview",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "notifications"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 19972,
+      "function": "cron_send_reminders",
+      "literal_path": "/cron/send-reminders",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 20004,
+      "function": "cron_lifecycle_emails",
+      "literal_path": "/cron/lifecycle-emails",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 20057,
+      "function": "cron_weekly_newsletter",
+      "literal_path": "/cron/weekly-newsletter",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 20094,
+      "function": "admin_weekly_newsletter_preview",
+      "literal_path": "/api/admin/newsletter/weekly-preview",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 20112,
+      "function": "admin_onboarding_preview",
+      "literal_path": "/api/admin/email/onboarding-preview",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 20172,
+      "function": "admin_drafts_preview",
+      "literal_path": "/api/admin/email/drafts-preview",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 20223,
+      "function": "admin_email_preflight",
+      "literal_path": "/api/admin/email/preflight",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 20241,
+      "function": "admin_feedback_blast_preview",
+      "literal_path": "/api/admin/feedback-blast/preview",
+      "methods": [
+        "POST",
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 20255,
+      "function": "admin_thank_you_preview",
+      "literal_path": "/api/admin/thank-you/preview",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 20267,
+      "function": "admin_thank_you_send",
+      "literal_path": "/api/admin/thank-you/send",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 20285,
+      "function": "admin_feedback_blast_send",
+      "literal_path": "/api/admin/feedback-blast/send",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 20322,
+      "function": "email_unsubscribe",
+      "literal_path": "/email/unsubscribe/<token>",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 20375,
+      "function": "api_daily_claim_status",
+      "literal_path": "/api/streak/daily-claim",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 20402,
+      "function": "api_daily_claim",
+      "literal_path": "/api/streak/daily-claim",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 20484,
+      "function": "live_session_page",
+      "literal_path": "/live/<int:session_id>",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 20497,
+      "function": "api_create_live_session",
+      "literal_path": "/api/live",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 20516,
+      "function": "api_get_live_session",
+      "literal_path": "/api/live/<int:session_id>",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 20524,
+      "function": "api_update_live_session",
+      "literal_path": "/api/live/<int:session_id>",
+      "methods": [
+        "PATCH"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 20546,
+      "function": "api_list_live_sessions",
+      "literal_path": "/api/live",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 20644,
+      "function": "grademodel_feasibility",
+      "literal_path": "/api/grademodel/feasibility",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 20695,
+      "function": "grademodel_simulate",
+      "literal_path": "/api/grademodel/simulate",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 20865,
+      "function": "api_grades_predict",
+      "literal_path": "/api/grades/predict",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 21040,
+      "function": "lessons_page",
+      "literal_path": "/lessons",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "study"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 21048,
+      "function": "api_list_lessons",
+      "literal_path": "/api/lessons",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "study",
+        "uploads"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 21065,
+      "function": "api_upload_lesson",
+      "literal_path": "/api/lessons",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "study",
+        "uploads"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 21106,
+      "function": "lesson_stream",
+      "literal_path": "/lessons/<int:lesson_id>/stream",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "study"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 21114,
+      "function": "api_delete_lesson",
+      "literal_path": "/api/lessons/<int:lesson_id>",
+      "methods": [
+        "DELETE"
+      ],
+      "policy_prefix_matches": [
+        "study",
+        "uploads"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 21130,
+      "function": "api_resummarize_lesson",
+      "literal_path": "/api/lessons/<int:lesson_id>/resummarize",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "study",
+        "uploads"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 21159,
+      "function": "groups_page",
+      "literal_path": "/groups",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 21167,
+      "function": "api_list_groups",
+      "literal_path": "/api/groups",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 21236,
+      "function": "api_create_group",
+      "literal_path": "/api/groups",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 21278,
+      "function": "api_get_group",
+      "literal_path": "/api/groups/<int:group_id>",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 21327,
+      "function": "api_join_group",
+      "literal_path": "/api/groups/<int:group_id>/join",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 21341,
+      "function": "groups_invite",
+      "literal_path": "/groups/invite/<int:group_id>",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 21363,
+      "function": "api_leave_group",
+      "literal_path": "/api/groups/<int:group_id>/leave",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 21372,
+      "function": "api_save_group_notes",
+      "literal_path": "/api/groups/<int:group_id>/notes",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 21385,
+      "function": "api_start_group_meeting",
+      "literal_path": "/api/groups/<int:group_id>/start-meeting",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 21402,
+      "function": "api_set_group_meeting",
+      "literal_path": "/api/groups/<int:group_id>/meeting",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 21422,
+      "function": "writing_page",
+      "literal_path": "/writing",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "tutor"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 21431,
+      "function": "api_writing_analyze",
+      "literal_path": "/api/writing/analyze",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "tutor"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 21468,
+      "function": "math_page",
+      "literal_path": "/math",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "tutor"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 21477,
+      "function": "api_math_explain",
+      "literal_path": "/api/math/explain",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "tutor"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 21511,
+      "function": "api_math_similar",
+      "literal_path": "/api/math/similar",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "tutor"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 21537,
+      "function": "extractor_page",
+      "literal_path": "/extractor",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "tutor"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 21546,
+      "function": "api_task_extract",
+      "literal_path": "/api/tasks/extract",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "tutor"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 22249,
+      "function": "health_check",
+      "literal_path": "/health",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 22404,
+      "function": "api_syllabus_import",
+      "literal_path": "/api/syllabus/import",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "uploads"
+      ]
+    },
+    {
+      "file": "App.py",
+      "line": 22503,
+      "function": "api_syllabus_records",
+      "literal_path": "/api/syllabus/records",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 22527,
+      "function": "api_syllabus_record_detail",
+      "literal_path": "/api/syllabus/records/<int:record_id>",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 22551,
+      "function": "api_lms_sources",
+      "literal_path": "/api/settings/lms-sources",
+      "methods": [
+        "GET",
+        "PATCH"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 22582,
+      "function": "api_saved_meetings",
+      "literal_path": "/api/meetings/saved",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 22620,
+      "function": "api_delete_saved_meeting",
+      "literal_path": "/api/meetings/saved/<int:meeting_id>",
+      "methods": [
+        "DELETE"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 22675,
+      "function": "api_session_messages",
+      "literal_path": "/api/sessions/<context_type>/<int:context_id>/messages",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "App.py",
+      "line": 22715,
+      "function": "api_save_session_message",
+      "literal_path": "/api/sessions/messages/<int:msg_id>/save",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "adaptive_tutor/api.py",
+      "line": 27,
+      "function": "education_plan",
+      "literal_path": "/api/tutor/adaptive/education-plan",
+      "methods": [
+        "GET",
+        "POST",
+        "DELETE"
+      ],
+      "policy_prefix_matches": [
+        "tutor"
+      ]
+    },
+    {
+      "file": "adaptive_tutor/api.py",
+      "line": 77,
+      "function": "education_progress",
+      "literal_path": "/api/tutor/adaptive/education-plan/steps/<step_id>",
+      "methods": [
+        "PATCH"
+      ],
+      "policy_prefix_matches": [
+        "tutor"
+      ]
+    },
+    {
+      "file": "adaptive_tutor/api.py",
+      "line": 141,
+      "function": "get_profile",
+      "literal_path": "/api/tutor/adaptive/profile",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "tutor"
+      ]
+    },
+    {
+      "file": "adaptive_tutor/api.py",
+      "line": 159,
+      "function": "save_profile",
+      "literal_path": "/api/tutor/adaptive/profile",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "tutor"
+      ]
+    },
+    {
+      "file": "adaptive_tutor/api.py",
+      "line": 172,
+      "function": "set_modality",
+      "literal_path": "/api/tutor/adaptive/modality",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "tutor"
+      ]
+    },
+    {
+      "file": "adaptive_tutor/api.py",
+      "line": 195,
+      "function": "dashboard",
+      "literal_path": "/api/tutor/adaptive/dashboard",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "tutor"
+      ]
+    },
+    {
+      "file": "adaptive_tutor/api.py",
+      "line": 204,
+      "function": "summarize",
+      "literal_path": "/api/tutor/adaptive/summarize",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "tutor"
+      ]
+    },
+    {
+      "file": "adaptive_tutor/api.py",
+      "line": 235,
+      "function": "list_imports",
+      "literal_path": "/api/tutor/adaptive/memory-imports",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "tutor"
+      ]
+    },
+    {
+      "file": "adaptive_tutor/api.py",
+      "line": 258,
+      "function": "create_import",
+      "literal_path": "/api/tutor/adaptive/memory-imports",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "tutor"
+      ]
+    },
+    {
+      "file": "adaptive_tutor/api.py",
+      "line": 322,
+      "function": "delete_import",
+      "literal_path": "/api/tutor/adaptive/memory-imports/<int:import_id>",
+      "methods": [
+        "DELETE"
+      ],
+      "policy_prefix_matches": [
+        "tutor"
+      ]
+    },
+    {
+      "file": "adaptive_tutor/api.py",
+      "line": 333,
+      "function": "resolve_mistake",
+      "literal_path": "/api/tutor/adaptive/mistakes/<int:mistake_id>/resolve",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "tutor"
+      ]
+    },
+    {
+      "file": "adaptive_tutor/api.py",
+      "line": 344,
+      "function": "new_check",
+      "literal_path": "/api/tutor/adaptive/check",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "tutor"
+      ]
+    },
+    {
+      "file": "adaptive_tutor/api.py",
+      "line": 372,
+      "function": "check_path",
+      "literal_path": "/api/tutor/adaptive/check/path",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "tutor"
+      ]
+    },
+    {
+      "file": "adaptive_tutor/api.py",
+      "line": 389,
+      "function": "check_hint",
+      "literal_path": "/api/tutor/adaptive/check/hint",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "tutor"
+      ]
+    },
+    {
+      "file": "adaptive_tutor/api.py",
+      "line": 410,
+      "function": "check_answer",
+      "literal_path": "/api/tutor/adaptive/check/answer",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "tutor"
+      ]
+    },
+    {
+      "file": "api_keys.py",
+      "line": 200,
+      "function": "list_scopes",
+      "literal_path": "/scopes",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "api_keys.py",
+      "line": 216,
+      "function": "my_applications",
+      "literal_path": "/applications",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "api_keys.py",
+      "line": 233,
+      "function": "apply_for_key",
+      "literal_path": "/apply",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "api_keys.py",
+      "line": 309,
+      "function": "revoke_key",
+      "literal_path": "/keys/<int:key_id>/revoke",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "api_keys.py",
+      "line": 325,
+      "function": "roll_key",
+      "literal_path": "/keys/<int:key_id>/roll",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "api_keys.py",
+      "line": 359,
+      "function": "admin_list_applications",
+      "literal_path": "/admin/applications",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "api_keys.py",
+      "line": 381,
+      "function": "admin_decide",
+      "literal_path": "/admin/applications/<int:key_id>/decide",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "auth_api.py",
+      "line": 541,
+      "function": "api_register",
+      "literal_path": "/api/auth/register",
+      "methods": [
+        "POST",
+        "OPTIONS"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "auth_api.py",
+      "line": 541,
+      "function": "api_register",
+      "literal_path": "/api/ext/register",
+      "methods": [
+        "POST",
+        "OPTIONS"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "auth_api.py",
+      "line": 573,
+      "function": "api_login",
+      "literal_path": "/api/auth/login",
+      "methods": [
+        "POST",
+        "OPTIONS"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "auth_api.py",
+      "line": 573,
+      "function": "api_login",
+      "literal_path": "/api/ext/login",
+      "methods": [
+        "POST",
+        "OPTIONS"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "auth_api.py",
+      "line": 594,
+      "function": "api_me",
+      "literal_path": "/api/auth/me",
+      "methods": [
+        "GET",
+        "OPTIONS"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "auth_api.py",
+      "line": 594,
+      "function": "api_me",
+      "literal_path": "/api/ext/me",
+      "methods": [
+        "GET",
+        "OPTIONS"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "auth_api.py",
+      "line": 605,
+      "function": "api_logout",
+      "literal_path": "/api/auth/logout",
+      "methods": [
+        "POST",
+        "OPTIONS"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "auth_api.py",
+      "line": 605,
+      "function": "api_logout",
+      "literal_path": "/api/ext/logout",
+      "methods": [
+        "POST",
+        "OPTIONS"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "auth_api.py",
+      "line": 612,
+      "function": "api_debug",
+      "literal_path": "/api/auth/debug",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "auth_api.py",
+      "line": 642,
+      "function": "api_set_password",
+      "literal_path": "/api/auth/password",
+      "methods": [
+        "POST",
+        "OPTIONS"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "auth_api.py",
+      "line": 704,
+      "function": "api_password_status",
+      "literal_path": "/api/auth/password/status",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "breakdown_glue.py",
+      "line": 368,
+      "function": "get_breakdown",
+      "literal_path": "/api/breakdown",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "breakdown_glue.py",
+      "line": 377,
+      "function": "build_breakdown",
+      "literal_path": "/api/breakdown",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "breakdown_glue.py",
+      "line": 449,
+      "function": "add_step",
+      "literal_path": "/api/breakdown/steps",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "breakdown_glue.py",
+      "line": 515,
+      "function": "update_step",
+      "literal_path": "/api/breakdown/steps/<int:step_id>",
+      "methods": [
+        "PATCH",
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "breakdown_glue.py",
+      "line": 548,
+      "function": "start_five_minutes",
+      "literal_path": "/api/breakdown/start",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "buddies_glue.py",
+      "line": 333,
+      "function": "buddies_page",
+      "literal_path": "/buddies",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "buddies_glue.py",
+      "line": 344,
+      "function": "buddies_join",
+      "literal_path": "/buddies/join/<code>",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "buddies_glue.py",
+      "line": 365,
+      "function": "api_buddies",
+      "literal_path": "/api/buddies",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "buddies_glue.py",
+      "line": 373,
+      "function": "api_buddies_settings",
+      "literal_path": "/api/buddies/settings",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "buddies_glue.py",
+      "line": 401,
+      "function": "api_buddies_request",
+      "literal_path": "/api/buddies/request",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "buddies_glue.py",
+      "line": 446,
+      "function": "api_buddies_confirm",
+      "literal_path": "/api/buddies/<int:link_id>/confirm",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "buddies_glue.py",
+      "line": 474,
+      "function": "api_buddies_remove",
+      "literal_path": "/api/buddies/<int:link_id>/remove",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "buddies_glue.py",
+      "line": 496,
+      "function": "api_buddies_block",
+      "literal_path": "/api/buddies/<int:link_id>/block",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "buddies_glue.py",
+      "line": 514,
+      "function": "api_buddies_nudge",
+      "literal_path": "/api/buddies/<int:link_id>/nudge",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "calendar_feed_glue.py",
+      "line": 152,
+      "function": "plan_feed_ics",
+      "literal_path": "/calendar/<string:token>.ics",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "policy_prefix_matches": [
+        "calendar"
+      ]
+    },
+    {
+      "file": "calendar_feed_glue.py",
+      "line": 245,
+      "function": "calendar_feed_settings",
+      "literal_path": "/api/calendar/feed",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "calendar"
+      ]
+    },
+    {
+      "file": "calendar_feed_glue.py",
+      "line": 265,
+      "function": "calendar_feed_rotate",
+      "literal_path": "/api/calendar/feed/rotate",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "calendar"
+      ]
+    },
+    {
+      "file": "calendar_feed_glue.py",
+      "line": 273,
+      "function": "calendar_feed_revoke",
+      "literal_path": "/api/calendar/feed/revoke",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "calendar"
+      ]
+    },
+    {
+      "file": "canvas_routes.py",
+      "line": 7,
+      "function": "canvas_home",
+      "literal_path": "/",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "canvas_routes.py",
+      "line": 13,
+      "function": "canvas_login",
+      "literal_path": "/login",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "canvas_routes.py",
+      "line": 40,
+      "function": "canvas_schedule",
+      "literal_path": "/schedule",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "scheduler"
+      ]
+    },
+    {
+      "file": "chatbot_api.py",
+      "line": 982,
+      "function": "tutor_memory",
+      "literal_path": "/api/tutor/memory",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "tutor"
+      ]
+    },
+    {
+      "file": "chatbot_api.py",
+      "line": 1004,
+      "function": "list_tutor_conversations",
+      "literal_path": "/api/tutor/conversations",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "tutor"
+      ]
+    },
+    {
+      "file": "chatbot_api.py",
+      "line": 1013,
+      "function": "create_tutor_conversation",
+      "literal_path": "/api/tutor/conversations",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "tutor"
+      ]
+    },
+    {
+      "file": "chatbot_api.py",
+      "line": 1025,
+      "function": "get_tutor_conversation",
+      "literal_path": "/api/tutor/conversations/<int:convo_id>",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "tutor"
+      ]
+    },
+    {
+      "file": "chatbot_api.py",
+      "line": 1042,
+      "function": "delete_tutor_conversation",
+      "literal_path": "/api/tutor/conversations/<int:convo_id>",
+      "methods": [
+        "DELETE"
+      ],
+      "policy_prefix_matches": [
+        "tutor"
+      ]
+    },
+    {
+      "file": "chatbot_api.py",
+      "line": 1052,
+      "function": "rename_tutor_conversation",
+      "literal_path": "/api/tutor/conversations/<int:convo_id>/rename",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "tutor"
+      ]
+    },
+    {
+      "file": "chatbot_api.py",
+      "line": 1222,
+      "function": "tutor_assignments",
+      "literal_path": "/api/tutor/assignments",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "tutor"
+      ]
+    },
+    {
+      "file": "chatbot_api.py",
+      "line": 1240,
+      "function": "tutor_assignment_map",
+      "literal_path": "/api/tutor/assignment-map",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "tutor"
+      ]
+    },
+    {
+      "file": "chatbot_api.py",
+      "line": 1278,
+      "function": "tutor",
+      "literal_path": "/api/tutor",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "tutor"
+      ]
+    },
+    {
+      "file": "chatbot_api.py",
+      "line": 1492,
+      "function": "tutor_voice",
+      "literal_path": "/api/tutor/voice",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "tutor"
+      ]
+    },
+    {
+      "file": "chatbot_api.py",
+      "line": 1545,
+      "function": "tutor_speak",
+      "literal_path": "/api/tutor/speak",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "tutor"
+      ]
+    },
+    {
+      "file": "chatbot_api.py",
+      "line": 1583,
+      "function": "tutor_voices",
+      "literal_path": "/api/tutor/voices",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "tutor"
+      ]
+    },
+    {
+      "file": "chatbot_api.py",
+      "line": 1594,
+      "function": "media_generate",
+      "literal_path": "/api/media/generate",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "tutor"
+      ]
+    },
+    {
+      "file": "chatbot_api.py",
+      "line": 1660,
+      "function": "ai_usage",
+      "literal_path": "/api/ai/usage",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "chatbot_api.py",
+      "line": 1674,
+      "function": "tutor_vision",
+      "literal_path": "/api/tutor/vision",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "tutor",
+        "uploads"
+      ]
+    },
+    {
+      "file": "chatbot_api.py",
+      "line": 1794,
+      "function": "chatbot",
+      "literal_path": "/api/chatbot",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "tutor"
+      ]
+    },
+    {
+      "file": "courses_glue.py",
+      "line": 316,
+      "function": "courses_page",
+      "literal_path": "/my-courses",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "courses_glue.py",
+      "line": 323,
+      "function": "api_courses",
+      "literal_path": "/api/courses",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "courses_glue.py",
+      "line": 350,
+      "function": "api_course",
+      "literal_path": "/api/courses/<int:course_id>",
+      "methods": [
+        "PATCH",
+        "DELETE"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "courses_glue.py",
+      "line": 384,
+      "function": "api_course_checkin",
+      "literal_path": "/api/courses/<int:course_id>/checkin",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "courses_glue.py",
+      "line": 406,
+      "function": "api_courses_recommend",
+      "literal_path": "/api/courses/recommend",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "courses_glue.py",
+      "line": 416,
+      "function": "api_courses_progress",
+      "literal_path": "/api/courses/progress",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "extra_features.py",
+      "line": 48,
+      "function": "features_page",
+      "literal_path": "/features",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "extra_features.py",
+      "line": 54,
+      "function": "api_features_list",
+      "literal_path": "/api/features",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "extra_features.py",
+      "line": 93,
+      "function": "api_features_create",
+      "literal_path": "/api/features",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "extra_features.py",
+      "line": 132,
+      "function": "api_features_vote",
+      "literal_path": "/api/features/<int:req_id>/vote",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "extra_features.py",
+      "line": 190,
+      "function": "text_dissector_page",
+      "literal_path": "/tools/text-dissector",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "extra_features.py",
+      "line": 195,
+      "function": "api_text_dissector",
+      "literal_path": "/api/text-dissector",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "extra_features.py",
+      "line": 318,
+      "function": "balance_page",
+      "literal_path": "/balance",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "extra_features.py",
+      "line": 324,
+      "function": "api_balance_ping",
+      "literal_path": "/api/balance/ping",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "extra_features.py",
+      "line": 352,
+      "function": "api_balance_insights",
+      "literal_path": "/api/balance/insights",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "extra_features.py",
+      "line": 394,
+      "function": "api_balance_prefs",
+      "literal_path": "/api/balance/prefs",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "extra_features.py",
+      "line": 441,
+      "function": "api_balance_nudge",
+      "literal_path": "/api/balance/nudge",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "extra_features.py",
+      "line": 521,
+      "function": "api_a11y_get",
+      "literal_path": "/api/a11y/prefs",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "extra_features.py",
+      "line": 530,
+      "function": "api_a11y_set",
+      "literal_path": "/api/a11y/prefs",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "extra_features.py",
+      "line": 569,
+      "function": "accessibility_page",
+      "literal_path": "/accessibility",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "flashcards/api.py",
+      "line": 43,
+      "function": "list_decks",
+      "literal_path": "/api/flashcards/decks",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "review"
+      ]
+    },
+    {
+      "file": "flashcards/api.py",
+      "line": 52,
+      "function": "create_deck",
+      "literal_path": "/api/flashcards/decks",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "review"
+      ]
+    },
+    {
+      "file": "flashcards/api.py",
+      "line": 66,
+      "function": "patch_deck",
+      "literal_path": "/api/flashcards/decks/<int:deck_id>",
+      "methods": [
+        "PATCH"
+      ],
+      "policy_prefix_matches": [
+        "review"
+      ]
+    },
+    {
+      "file": "flashcards/api.py",
+      "line": 92,
+      "function": "remove_deck",
+      "literal_path": "/api/flashcards/decks/<int:deck_id>",
+      "methods": [
+        "DELETE"
+      ],
+      "policy_prefix_matches": [
+        "review"
+      ]
+    },
+    {
+      "file": "flashcards/api.py",
+      "line": 102,
+      "function": "add_cards",
+      "literal_path": "/api/flashcards/decks/<int:deck_id>/cards",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "review"
+      ]
+    },
+    {
+      "file": "flashcards/api.py",
+      "line": 117,
+      "function": "import_deck",
+      "literal_path": "/api/flashcards/import",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "review"
+      ]
+    },
+    {
+      "file": "flashcards/api.py",
+      "line": 170,
+      "function": "study_queue",
+      "literal_path": "/api/flashcards/study",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "review"
+      ]
+    },
+    {
+      "file": "flashcards/api.py",
+      "line": 181,
+      "function": "grade",
+      "literal_path": "/api/flashcards/cards/<int:card_id>/grade",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "review"
+      ]
+    },
+    {
+      "file": "flashcards/api.py",
+      "line": 200,
+      "function": "preview_intervals",
+      "literal_path": "/api/flashcards/cards/<int:card_id>/preview",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "review"
+      ]
+    },
+    {
+      "file": "focus_shield_glue.py",
+      "line": 251,
+      "function": "focus_current",
+      "literal_path": "/extension/focus/current",
+      "methods": [
+        "GET",
+        "OPTIONS"
+      ],
+      "policy_prefix_matches": [
+        "focus"
+      ]
+    },
+    {
+      "file": "focus_shield_glue.py",
+      "line": 270,
+      "function": "focus_break",
+      "literal_path": "/extension/focus/break",
+      "methods": [
+        "POST",
+        "OPTIONS"
+      ],
+      "policy_prefix_matches": [
+        "focus"
+      ]
+    },
+    {
+      "file": "focus_shield_glue.py",
+      "line": 307,
+      "function": "focus_done",
+      "literal_path": "/extension/focus/done",
+      "methods": [
+        "POST",
+        "OPTIONS"
+      ],
+      "policy_prefix_matches": [
+        "focus"
+      ]
+    },
+    {
+      "file": "focus_shield_glue.py",
+      "line": 357,
+      "function": "shield_settings",
+      "literal_path": "/api/focus-shield/settings",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "focus"
+      ]
+    },
+    {
+      "file": "grade_pulse_glue.py",
+      "line": 427,
+      "function": "cron_grade_pulse",
+      "literal_path": "/cron/grade-pulse",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "growth_glue.py",
+      "line": 192,
+      "function": "admin_growth",
+      "literal_path": "/admin/growth",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "growth_glue.py",
+      "line": 298,
+      "function": "api_plan",
+      "literal_path": "/api/plan",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "growth_glue.py",
+      "line": 435,
+      "function": "streak_email_off",
+      "literal_path": "/email/streak-off/<token>",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "growth_glue.py",
+      "line": 569,
+      "function": "upgrade_page",
+      "literal_path": "/upgrade",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "growth_glue.py",
+      "line": 596,
+      "function": "api_checkout",
+      "literal_path": "/api/billing/checkout",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "growth_glue.py",
+      "line": 615,
+      "function": "api_pay_link",
+      "literal_path": "/api/billing/pay-link",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "growth_glue.py",
+      "line": 630,
+      "function": "pay_for_student",
+      "literal_path": "/pay/<token>",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "growth_glue.py",
+      "line": 664,
+      "function": "api_billing_portal",
+      "literal_path": "/api/billing/portal",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "growth_glue.py",
+      "line": 689,
+      "function": "stripe_webhook",
+      "literal_path": "/api/billing/webhook",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "insight_glue.py",
+      "line": 192,
+      "function": "record_client_event",
+      "literal_path": "/api/insight/event",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "insight_glue.py",
+      "line": 238,
+      "function": "next_prompt",
+      "literal_path": "/api/insight/prompt",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "insight_glue.py",
+      "line": 291,
+      "function": "answer_prompt",
+      "literal_path": "/api/insight/prompt",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "insight_glue.py",
+      "line": 415,
+      "function": "admin_insight",
+      "literal_path": "/admin/insight",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/active.py",
+      "line": 124,
+      "function": "active_page",
+      "literal_path": "/active",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "study"
+      ]
+    },
+    {
+      "file": "intelliplan/api/active.py",
+      "line": 149,
+      "function": "start_session",
+      "literal_path": "/api/active/start",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "study"
+      ]
+    },
+    {
+      "file": "intelliplan/api/active.py",
+      "line": 182,
+      "function": "current_session",
+      "literal_path": "/api/active/current",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "study"
+      ]
+    },
+    {
+      "file": "intelliplan/api/active.py",
+      "line": 193,
+      "function": "heartbeat",
+      "literal_path": "/api/active/<int:session_id>/heartbeat",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "study"
+      ]
+    },
+    {
+      "file": "intelliplan/api/active.py",
+      "line": 219,
+      "function": "forfeit",
+      "literal_path": "/api/active/<int:session_id>/forfeit",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "study"
+      ]
+    },
+    {
+      "file": "intelliplan/api/active.py",
+      "line": 253,
+      "function": "finish",
+      "literal_path": "/api/active/<int:session_id>/finish",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "study"
+      ]
+    },
+    {
+      "file": "intelliplan/api/active.py",
+      "line": 293,
+      "function": "stats",
+      "literal_path": "/api/active/stats",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "study"
+      ]
+    },
+    {
+      "file": "intelliplan/api/active.py",
+      "line": 305,
+      "function": "next_session",
+      "literal_path": "/api/active/next",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "study"
+      ]
+    },
+    {
+      "file": "intelliplan/api/adjust.py",
+      "line": 123,
+      "function": "adjust",
+      "literal_path": "/api/schedule/adjust",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/adjust.py",
+      "line": 286,
+      "function": "autopilot",
+      "literal_path": "/api/schedule/autopilot",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/adjust.py",
+      "line": 294,
+      "function": "autopilot_undo",
+      "literal_path": "/api/schedule/autopilot/undo",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/adjust.py",
+      "line": 326,
+      "function": "autopilot_settings",
+      "literal_path": "/api/schedule/autopilot/settings",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/adjust.py",
+      "line": 370,
+      "function": "cron_autopilot",
+      "literal_path": "/cron/autopilot",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/adjust.py",
+      "line": 381,
+      "function": "forecast",
+      "literal_path": "/api/schedule/forecast",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/adjust.py",
+      "line": 397,
+      "function": "refit_prior",
+      "literal_path": "/cron/refit-followthrough-prior",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/command_center.py",
+      "line": 117,
+      "function": "command_center_page",
+      "literal_path": "/command-center",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/command_center.py",
+      "line": 145,
+      "function": "api_today",
+      "literal_path": "/api/today",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/command_center.py",
+      "line": 162,
+      "function": "api_today_refresh",
+      "literal_path": "/api/today/refresh",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/command_center.py",
+      "line": 177,
+      "function": "api_today_explain",
+      "literal_path": "/api/today/explain",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/command_center.py",
+      "line": 223,
+      "function": "cron_refresh_briefings",
+      "literal_path": "/cron/refresh-briefings",
+      "methods": [
+        "POST",
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/grade_prediction.py",
+      "line": 110,
+      "function": "api_grade_predictions",
+      "literal_path": "/api/grade-predictions",
+      "methods": [
+        "POST",
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/group_tasks.py",
+      "line": 60,
+      "function": "api_list_tasks",
+      "literal_path": "/api/groups/<int:group_id>/tasks",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/group_tasks.py",
+      "line": 70,
+      "function": "api_create_task",
+      "literal_path": "/api/groups/<int:group_id>/tasks",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/group_tasks.py",
+      "line": 101,
+      "function": "api_claim_task",
+      "literal_path": "/api/groups/tasks/<int:task_id>/claim",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/group_tasks.py",
+      "line": 121,
+      "function": "api_toggle_task",
+      "literal_path": "/api/groups/tasks/<int:task_id>/toggle",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/group_tasks.py",
+      "line": 137,
+      "function": "api_delete_task",
+      "literal_path": "/api/groups/tasks/<int:task_id>",
+      "methods": [
+        "DELETE"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/group_voice.py",
+      "line": 168,
+      "function": "voice_roster",
+      "literal_path": "/api/groups/<int:group_id>/voice",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/group_voice.py",
+      "line": 189,
+      "function": "voice_join",
+      "literal_path": "/api/groups/<int:group_id>/voice/join",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/group_voice.py",
+      "line": 246,
+      "function": "voice_heartbeat",
+      "literal_path": "/api/groups/<int:group_id>/voice/heartbeat",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/group_voice.py",
+      "line": 278,
+      "function": "voice_mute",
+      "literal_path": "/api/groups/<int:group_id>/voice/mute",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/group_voice.py",
+      "line": 308,
+      "function": "voice_leave",
+      "literal_path": "/api/groups/<int:group_id>/voice/leave",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/learning_graph.py",
+      "line": 38,
+      "function": "learning_dashboard",
+      "literal_path": "/api/learning/dashboard",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/learning_graph.py",
+      "line": 50,
+      "function": "learning_concepts",
+      "literal_path": "/api/learning/concepts",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/learning_graph.py",
+      "line": 69,
+      "function": "learning_predictions",
+      "literal_path": "/api/learning/predictions",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/learning_graph.py",
+      "line": 83,
+      "function": "learning_heatmap",
+      "literal_path": "/api/learning/heatmap",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/learning_graph.py",
+      "line": 106,
+      "function": "learning_sync",
+      "literal_path": "/api/learning/sync",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/lms_sync.py",
+      "line": 49,
+      "function": "api_providers",
+      "literal_path": "/api/lms/providers",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/lms_sync.py",
+      "line": 56,
+      "function": "api_status",
+      "literal_path": "/api/lms/status",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/lms_sync.py",
+      "line": 76,
+      "function": "api_sync",
+      "literal_path": "/api/lms/<key>/sync",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/lms_sync.py",
+      "line": 131,
+      "function": "api_disconnect",
+      "literal_path": "/api/lms/<key>/disconnect",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/manual_schedule.py",
+      "line": 257,
+      "function": "list_presets",
+      "literal_path": "/api/scheduler/manual/presets",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "scheduler"
+      ]
+    },
+    {
+      "file": "intelliplan/api/manual_schedule.py",
+      "line": 267,
+      "function": "save_preset",
+      "literal_path": "/api/scheduler/manual/presets",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "scheduler"
+      ]
+    },
+    {
+      "file": "intelliplan/api/manual_schedule.py",
+      "line": 303,
+      "function": "delete_preset",
+      "literal_path": "/api/scheduler/manual/presets/<int:preset_id>",
+      "methods": [
+        "DELETE"
+      ],
+      "policy_prefix_matches": [
+        "scheduler"
+      ]
+    },
+    {
+      "file": "intelliplan/api/manual_schedule.py",
+      "line": 316,
+      "function": "build_manual",
+      "literal_path": "/api/scheduler/manual/build",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "scheduler"
+      ]
+    },
+    {
+      "file": "intelliplan/api/next_action.py",
+      "line": 99,
+      "function": "next_action",
+      "literal_path": "/api/next-action",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/next_action.py",
+      "line": 123,
+      "function": "respond",
+      "literal_path": "/api/next-action/respond",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/next_action.py",
+      "line": 146,
+      "function": "explain_next_action",
+      "literal_path": "/api/next-action/explain",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/next_action.py",
+      "line": 212,
+      "function": "override_preview",
+      "literal_path": "/api/schedule/override",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/next_action.py",
+      "line": 242,
+      "function": "override_apply",
+      "literal_path": "/api/schedule/override/apply",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/next_action.py",
+      "line": 326,
+      "function": "feasibility",
+      "literal_path": "/api/schedule/feasibility",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/next_action.py",
+      "line": 337,
+      "function": "versions",
+      "literal_path": "/api/schedule/versions",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/roles.py",
+      "line": 92,
+      "function": "teacher_dashboard",
+      "literal_path": "/teacher",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/roles.py",
+      "line": 99,
+      "function": "parent_dashboard",
+      "literal_path": "/parent",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/roles.py",
+      "line": 109,
+      "function": "student_sharing",
+      "literal_path": "/linked-accounts",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/roles.py",
+      "line": 119,
+      "function": "api_role",
+      "literal_path": "/api/roles/role",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/roles.py",
+      "line": 136,
+      "function": "api_invite",
+      "literal_path": "/api/roles/invite",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/roles.py",
+      "line": 174,
+      "function": "api_list_links",
+      "literal_path": "/api/roles/links",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/roles.py",
+      "line": 201,
+      "function": "api_pending_for_student",
+      "literal_path": "/api/roles/pending",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/roles.py",
+      "line": 223,
+      "function": "api_my_links",
+      "literal_path": "/api/roles/my-links",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/roles.py",
+      "line": 241,
+      "function": "api_accept_link",
+      "literal_path": "/api/roles/links/<int:link_id>/accept",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/roles.py",
+      "line": 260,
+      "function": "api_update_link_scopes",
+      "literal_path": "/api/roles/links/<int:link_id>/scopes",
+      "methods": [
+        "PATCH"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/roles.py",
+      "line": 278,
+      "function": "api_delete_link",
+      "literal_path": "/api/roles/links/<int:link_id>",
+      "methods": [
+        "DELETE"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/roles.py",
+      "line": 294,
+      "function": "api_student_overview",
+      "literal_path": "/api/roles/student/<int:student_id>/overview",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/roles.py",
+      "line": 421,
+      "function": "api_parent_encouragement",
+      "literal_path": "/api/roles/student/<int:student_id>/encouragement",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/roles.py",
+      "line": 455,
+      "function": "api_withdraw_encouragement",
+      "literal_path": "/api/roles/student/<int:student_id>/encouragement/<int:note_id>",
+      "methods": [
+        "DELETE"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/roles.py",
+      "line": 470,
+      "function": "api_my_encouragement",
+      "literal_path": "/api/roles/my-encouragement",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/roles.py",
+      "line": 483,
+      "function": "api_acknowledge_encouragement",
+      "literal_path": "/api/roles/my-encouragement/<int:note_id>/acknowledge",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/timetable.py",
+      "line": 214,
+      "function": "timetable_get",
+      "literal_path": "/api/timetable",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/timetable.py",
+      "line": 222,
+      "function": "timetable_add_class",
+      "literal_path": "/api/timetable/classes",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/timetable.py",
+      "line": 244,
+      "function": "timetable_add_bulk",
+      "literal_path": "/api/timetable/classes/bulk",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/timetable.py",
+      "line": 269,
+      "function": "timetable_modify_class",
+      "literal_path": "/api/timetable/classes/<int:class_id>",
+      "methods": [
+        "PATCH",
+        "DELETE"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/timetable.py",
+      "line": 296,
+      "function": "timetable_settings",
+      "literal_path": "/api/timetable/settings",
+      "methods": [
+        "PUT",
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/timetable.py",
+      "line": 501,
+      "function": "timetable_import_route",
+      "literal_path": "/api/timetable/import",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/timetable.py",
+      "line": 552,
+      "function": "timetable_photo",
+      "literal_path": "/api/timetable/photo",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "uploads"
+      ]
+    },
+    {
+      "file": "intelliplan/api/timetable.py",
+      "line": 664,
+      "function": "today_timeline",
+      "literal_path": "/api/today/timeline",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/api/timetable.py",
+      "line": 677,
+      "function": "today_timeline_move",
+      "literal_path": "/api/today/timeline/move",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/learning/api.py",
+      "line": 47,
+      "function": "hub",
+      "literal_path": "/learning",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/learning/api.py",
+      "line": 52,
+      "function": "admin_page",
+      "literal_path": "/school-admin",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/learning/api.py",
+      "line": 59,
+      "function": "capabilities",
+      "literal_path": "/api/learning/capabilities",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/learning/api.py",
+      "line": 66,
+      "function": "organizations",
+      "literal_path": "/api/school-admin/organizations",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/learning/api.py",
+      "line": 97,
+      "function": "organization_policy",
+      "literal_path": "/api/school-admin/organizations/<int:oid>/policy",
+      "methods": [
+        "PUT"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/learning/api.py",
+      "line": 119,
+      "function": "organization_members",
+      "literal_path": "/api/school-admin/organizations/<int:oid>/members",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/learning/api.py",
+      "line": 150,
+      "function": "organization_audit",
+      "literal_path": "/api/school-admin/organizations/<int:oid>/audit",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/learning/api.py",
+      "line": 160,
+      "function": "course_list",
+      "literal_path": "/api/learning/courses",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/learning/api.py",
+      "line": 205,
+      "function": "course_detail",
+      "literal_path": "/api/learning/courses/<int:cid>",
+      "methods": [
+        "GET",
+        "PUT"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/learning/api.py",
+      "line": 247,
+      "function": "generation",
+      "literal_path": "/api/learning/courses/<int:cid>/generation",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/learning/api.py",
+      "line": 284,
+      "function": "lesson_revision",
+      "literal_path": "/api/learning/courses/<int:cid>/lessons/<int:lid>/revision",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/learning/api.py",
+      "line": 323,
+      "function": "outline_revision",
+      "literal_path": "/api/learning/courses/<int:cid>/outline-revision",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/learning/api.py",
+      "line": 347,
+      "function": "review_course",
+      "literal_path": "/api/learning/courses/<int:cid>/review",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/learning/api.py",
+      "line": 372,
+      "function": "lesson_answer",
+      "literal_path": "/api/learning/courses/<int:cid>/lessons/<int:lid>/answer",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/learning/api.py",
+      "line": 405,
+      "function": "progress",
+      "literal_path": "/api/learning/progress",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/learning/api.py",
+      "line": 417,
+      "function": "sittings",
+      "literal_path": "/api/learning/sessions",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/learning/api.py",
+      "line": 453,
+      "function": "checkpoint",
+      "literal_path": "/api/learning/sessions/<int:sid>/checkpoint",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/learning/api.py",
+      "line": 498,
+      "function": "export",
+      "literal_path": "/api/learning/export",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/learning/governance_api.py",
+      "line": 15,
+      "function": "enrollment",
+      "literal_path": "/api/learning/beta/<feature>",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/learning/governance_api.py",
+      "line": 69,
+      "function": "participants",
+      "literal_path": "/api/school-admin/organizations/<int:oid>/beta",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/learning/governance_api.py",
+      "line": 139,
+      "function": "feedback",
+      "literal_path": "/api/learning/beta/<feature>/feedback",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/learning/governance_api.py",
+      "line": 183,
+      "function": "operations",
+      "literal_path": "/api/school-admin/organizations/<int:oid>/operations",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/learning/governance_api.py",
+      "line": 205,
+      "function": "practice",
+      "literal_path": "/api/learning/practice-preview/<action>",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan/sync/api.py",
+      "line": 34,
+      "function": "check_ops",
+      "literal_path": "/api/sync/ops/check",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan_api.py",
+      "line": 307,
+      "function": "api_index",
+      "literal_path": "/",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan_api.py",
+      "line": 307,
+      "function": "api_index",
+      "literal_path": "/docs",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan_api.py",
+      "line": 357,
+      "function": "health",
+      "literal_path": "/health",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan_api.py",
+      "line": 366,
+      "function": "auth_token",
+      "literal_path": "/auth/token",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan_api.py",
+      "line": 388,
+      "function": "me",
+      "literal_path": "/me",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan_api.py",
+      "line": 408,
+      "function": "list_assignments",
+      "literal_path": "/assignments",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan_api.py",
+      "line": 420,
+      "function": "create_task",
+      "literal_path": "/tasks",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan_api.py",
+      "line": 440,
+      "function": "quick_add_task",
+      "literal_path": "/tasks/quick-add",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan_api.py",
+      "line": 471,
+      "function": "dismiss_assignment",
+      "literal_path": "/assignments/dismiss",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan_api.py",
+      "line": 482,
+      "function": "restore_assignment",
+      "literal_path": "/assignments/restore",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan_api.py",
+      "line": 494,
+      "function": "register_push_token",
+      "literal_path": "/push/register",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "notifications"
+      ]
+    },
+    {
+      "file": "intelliplan_api.py",
+      "line": 538,
+      "function": "unregister_push_token",
+      "literal_path": "/push/unregister",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "notifications"
+      ]
+    },
+    {
+      "file": "intelliplan_api.py",
+      "line": 557,
+      "function": "list_tasks",
+      "literal_path": "/tasks",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan_api.py",
+      "line": 591,
+      "function": "list_courses",
+      "literal_path": "/courses",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan_api.py",
+      "line": 609,
+      "function": "list_grades",
+      "literal_path": "/grades",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan_api.py",
+      "line": 641,
+      "function": "get_saved_schedule",
+      "literal_path": "/schedule",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "scheduler"
+      ]
+    },
+    {
+      "file": "intelliplan_api.py",
+      "line": 658,
+      "function": "list_tests",
+      "literal_path": "/tests",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan_api.py",
+      "line": 665,
+      "function": "mark_test",
+      "literal_path": "/tests",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan_api.py",
+      "line": 675,
+      "function": "unmark_test",
+      "literal_path": "/tests",
+      "methods": [
+        "DELETE"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan_api.py",
+      "line": 686,
+      "function": "generate_schedule",
+      "literal_path": "/schedule/generate",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "scheduler"
+      ]
+    },
+    {
+      "file": "intelliplan_api.py",
+      "line": 706,
+      "function": "streak_info",
+      "literal_path": "/streak",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan_api.py",
+      "line": 714,
+      "function": "mint_link_session",
+      "literal_path": "/link/session",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan_api.py",
+      "line": 777,
+      "function": "get_identity",
+      "literal_path": "/identity",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "intelliplan_api.py",
+      "line": 788,
+      "function": "patch_identity",
+      "literal_path": "/identity",
+      "methods": [
+        "PATCH"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "local_ai_server.py",
+      "line": 34,
+      "function": "health",
+      "literal_path": "/health",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "local_ai_server.py",
+      "line": 41,
+      "function": "local_evaluate",
+      "literal_path": "/ai/local-evaluate",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "notifications_glue.py",
+      "line": 594,
+      "function": "cron_notifications",
+      "literal_path": "/cron/notifications",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "notifications_glue.py",
+      "line": 629,
+      "function": "notification_preferences",
+      "literal_path": "/api/notifications/preferences",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "notifications"
+      ]
+    },
+    {
+      "file": "notifications_glue.py",
+      "line": 743,
+      "function": "recent_notifications",
+      "literal_path": "/api/notifications/recent",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "notifications"
+      ]
+    },
+    {
+      "file": "notifications_glue.py",
+      "line": 762,
+      "function": "desktop_feed",
+      "literal_path": "/api/notifications/desktop-feed",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "notifications"
+      ]
+    },
+    {
+      "file": "notifications_glue.py",
+      "line": 804,
+      "function": "send_test_notification",
+      "literal_path": "/api/notifications/test",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "notifications"
+      ]
+    },
+    {
+      "file": "orbit_export.py",
+      "line": 98,
+      "function": "orbit_people",
+      "literal_path": "/api/orbit/people",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "orbit_export.py",
+      "line": 169,
+      "function": "orbit_events",
+      "literal_path": "/api/orbit/events",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "plani_agent.py",
+      "line": 1385,
+      "function": "plani_agent",
+      "literal_path": "/api/plani/agent",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "tutor"
+      ]
+    },
+    {
+      "file": "primer/api.py",
+      "line": 65,
+      "function": "learners",
+      "literal_path": "/api/primer/learners",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "study"
+      ]
+    },
+    {
+      "file": "primer/api.py",
+      "line": 88,
+      "function": "remove_learner",
+      "literal_path": "/api/primer/learners/<int:learner_id>",
+      "methods": [
+        "DELETE"
+      ],
+      "policy_prefix_matches": [
+        "study"
+      ]
+    },
+    {
+      "file": "primer/api.py",
+      "line": 97,
+      "function": "update_grade",
+      "literal_path": "/api/primer/learners/<int:learner_id>/grade",
+      "methods": [
+        "PUT"
+      ],
+      "policy_prefix_matches": [
+        "study"
+      ]
+    },
+    {
+      "file": "primer/api.py",
+      "line": 109,
+      "function": "learner_progress",
+      "literal_path": "/api/primer/learners/<int:learner_id>/progress",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "study"
+      ]
+    },
+    {
+      "file": "primer/api.py",
+      "line": 120,
+      "function": "parent_overview",
+      "literal_path": "/api/primer/learners/<int:learner_id>/parent",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "study"
+      ]
+    },
+    {
+      "file": "primer/api.py",
+      "line": 131,
+      "function": "parent_goal",
+      "literal_path": "/api/primer/learners/<int:learner_id>/parent/goal",
+      "methods": [
+        "PUT"
+      ],
+      "policy_prefix_matches": [
+        "study"
+      ]
+    },
+    {
+      "file": "primer/api.py",
+      "line": 143,
+      "function": "parent_check_in",
+      "literal_path": "/api/primer/learners/<int:learner_id>/parent/check-in",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "study"
+      ]
+    },
+    {
+      "file": "primer/api.py",
+      "line": 158,
+      "function": "parent_nudge",
+      "literal_path": "/api/primer/learners/<int:learner_id>/parent/nudge",
+      "methods": [
+        "POST",
+        "DELETE"
+      ],
+      "policy_prefix_matches": [
+        "study"
+      ]
+    },
+    {
+      "file": "primer/api.py",
+      "line": 178,
+      "function": "acknowledge_nudge",
+      "literal_path": "/api/primer/learners/<int:learner_id>/nudge/<int:nudge_id>/acknowledge",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "study"
+      ]
+    },
+    {
+      "file": "primer/api.py",
+      "line": 188,
+      "function": "current_nudge",
+      "literal_path": "/api/primer/learners/<int:learner_id>/nudge",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "study"
+      ]
+    },
+    {
+      "file": "primer/api.py",
+      "line": 199,
+      "function": "activity",
+      "literal_path": "/api/primer/learners/<int:learner_id>/activity",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "study"
+      ]
+    },
+    {
+      "file": "primer/api.py",
+      "line": 232,
+      "function": "answer",
+      "literal_path": "/api/primer/learners/<int:learner_id>/answer",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "study"
+      ]
+    },
+    {
+      "file": "primer/api.py",
+      "line": 273,
+      "function": "hint",
+      "literal_path": "/api/primer/learners/<int:learner_id>/hint",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "study"
+      ]
+    },
+    {
+      "file": "primer/api.py",
+      "line": 301,
+      "function": "choose_path",
+      "literal_path": "/api/primer/learners/<int:learner_id>/choice",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "study"
+      ]
+    },
+    {
+      "file": "primer/api.py",
+      "line": 328,
+      "function": "restart_path",
+      "literal_path": "/api/primer/learners/<int:learner_id>/journey/restart",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": [
+        "study"
+      ]
+    },
+    {
+      "file": "quick_add_glue.py",
+      "line": 280,
+      "function": "quick_add_preview",
+      "literal_path": "/api/quick-add/preview",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "quick_add_glue.py",
+      "line": 294,
+      "function": "quick_add",
+      "literal_path": "/api/quick-add",
+      "methods": [
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "studentvue_routes.py",
+      "line": 7,
+      "function": "sv_home",
+      "literal_path": "/",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "studentvue_routes.py",
+      "line": 13,
+      "function": "sv_login",
+      "literal_path": "/login",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "policy_prefix_matches": []
+    },
+    {
+      "file": "studentvue_routes.py",
+      "line": 32,
+      "function": "sv_schedule",
+      "literal_path": "/schedule",
+      "methods": [
+        "GET"
+      ],
+      "policy_prefix_matches": [
+        "scheduler"
+      ]
+    }
+  ]
+}

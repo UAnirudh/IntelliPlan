@@ -8,7 +8,7 @@ of these callables run, App is fully loaded.
 
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from time_utils import utcnow
 
 from flask_login import current_user
@@ -74,14 +74,83 @@ def _get_grades(user_id: int) -> tuple[CourseGrade, ...]:
     from App import ImportedGrade
 
     try:
+        if not _grade_sources_allowed(user_id):
+            return ()
         rows = ImportedGrade.query.filter_by(user_id=user_id).all()
-        return tuple(
+        grades = tuple(
             CourseGrade(course=r.course, current_pct=float(r.percentage))
             for r in rows
             if r.percentage is not None
         )
+        return grades if _grade_sources_allowed(user_id) else ()
     except Exception:
         return ()
+
+
+def _grade_sources_allowed(user_id: int) -> bool:
+    from App import User
+    from intelliplan.learning import policy
+
+    policy.invalidate_cache()
+    user = User.query.populate_existing().filter_by(id=user_id).first()
+    return user is not None and all(policy.decision(user, source)[0] for source in policy.LMS_SOURCES)
+
+
+def _planner_allowed(user_id: int) -> bool:
+    from App import User
+    from intelliplan.learning import policy
+
+    try:
+        policy.invalidate_cache()
+        user = User.query.populate_existing().filter_by(id=user_id).first()
+        return user is not None and policy.decision(user, 'scheduler')[0]
+    except Exception:
+        return False
+
+
+def _health_history_allowed(user_id: int) -> bool:
+    from App import User
+    from intelliplan.learning import policy
+
+    policy.invalidate_cache()
+    user = User.query.populate_existing().filter_by(id=user_id).first()
+    return (user is not None and policy.decision(user, 'scheduler')[0]
+            and all(policy.decision(user, source)[0] for source in policy.SOURCE_CAPABILITIES))
+
+
+def _filter_stored_tasks(user_id: int, rows: list) -> list:
+    from App import User
+    from intelliplan.learning import policy
+
+    policy.invalidate_cache()
+    user = User.query.populate_existing().filter_by(id=user_id).first()
+    if user is None:
+        return []
+    allowed = {source for source in policy.SOURCE_CAPABILITIES if policy.decision(user, source)[0]}
+    result = []
+    for row in rows:
+        source = (getattr(row, 'import_source', '') or '').strip().lower()
+        if source in {'', 'quickadd', 'course'}:
+            result.append(row)
+            continue
+        named = policy.source_capability(source.removeprefix('scraper:'))
+        if (named in allowed if named else allowed == policy.SOURCE_CAPABILITIES):
+            result.append(row)
+    return result
+
+
+def _today_policy_stamp(user_id: int) -> str:
+    import json
+    from App import User
+    from intelliplan.learning import policy
+
+    policy.invalidate_cache()
+    user = User.query.populate_existing().filter_by(id=user_id).first()
+    if user is None or not policy.decision(user, 'scheduler')[0]:
+        raise PermissionError('Planner permission unavailable.')
+    settings = policy.effective(user)
+    return json.dumps({'policy': settings, 'personalization': bool(user.ai_personalization_opt_in)},
+                      sort_keys=True, default=lambda value: sorted(value))
 
 
 def _get_completion_rate_7d(user_id: int) -> float:
@@ -98,6 +167,7 @@ def _get_completion_rate_7d(user_id: int) -> float:
             .filter(ManualTask.due_date <= today_s)
             .all()
         )
+        rows = _filter_stored_tasks(user_id, rows)
         if not rows:
             return 0.0
         done = sum(1 for r in rows if r.done)
@@ -119,11 +189,44 @@ def _lms_fetcher(user_id: int) -> list[dict]:
         return []
 
 
+def _briefing_permission(user_id: int) -> frozenset:
+    from App import User
+    from intelliplan.learning import policy
+
+    policy.invalidate_cache()
+    user = User.query.populate_existing().filter_by(id=user_id).first()
+    if (user is None or not user.ai_personalization_opt_in
+            or not policy.decision(user, 'scheduler')[0]):
+        return frozenset()
+    # Imported grade aggregates do not preserve enough source provenance to
+    # selectively remove restricted facts from narration or its old cache.
+    if any(not policy.decision(user, source)[0] for source in policy.SOURCE_CAPABILITIES):
+        return frozenset()
+    return frozenset(policy.permitted_providers(user))
+
+
+def _briefing_ai(user_id: int, messages, **kwargs):
+    from App import User
+    from ai_provider import chat_json
+    from intelliplan.learning.courses import provider_user
+
+    user = User.query.populate_existing().filter_by(id=user_id).first()
+    if user is None or not _briefing_permission(user_id):
+        raise RuntimeError('Briefing processing is restricted.')
+    token = provider_user.set(user)
+    try:
+        return chat_json(messages, **kwargs)
+    finally:
+        provider_user.reset(token)
+
+
 def _build_service() -> TodayService:
     from App import BriefingCache, HealthSnapshot, ManualTask, db
 
-    briefing = BriefingService(BriefingCache, db.session)
-    repo = AssignmentRepository(ManualTask, db.session, lms_fetcher=_lms_fetcher)
+    briefing = BriefingService(BriefingCache, db.session,
+                              authorize_ai=_briefing_permission, owner_ai=_briefing_ai)
+    repo = AssignmentRepository(ManualTask, db.session, lms_fetcher=_lms_fetcher,
+                                manual_filter=_filter_stored_tasks)
     return TodayService(
         assignments_repo=repo,
         briefing_service=briefing,
@@ -131,6 +234,7 @@ def _build_service() -> TodayService:
         get_grades=_get_grades,
         get_completion_rate_7d=_get_completion_rate_7d,
         health_snapshot_model=HealthSnapshot,
+        health_access=_health_history_allowed,
         session=db.session,
     )
 
@@ -218,6 +322,8 @@ command_center_bp = create_command_center_blueprint(
         current_user_id=_current_user_id,
         emit_signal=_emit_signal,
         stale_briefing_user_ids=_stale_briefing_user_ids,
+        can_refresh=_planner_allowed,
+        policy_stamp=_today_policy_stamp,
         has_guest_session=_has_guest_session,
         needs_onboarding=_needs_onboarding,
         page_context=_page_context,

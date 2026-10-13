@@ -15,7 +15,7 @@ from intelliplan.retrieval import chunking, embeddings, index
 
 @pytest.fixture()
 def env(monkeypatch):
-    monkeypatch.setattr(index, "dense_embed", lambda texts, is_query: None)
+    monkeypatch.setattr(index, "dense_embed", lambda texts, is_query, **kwargs: None)
     app = Flask(__name__)
     app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite://"
     db = SQLAlchemy(app)

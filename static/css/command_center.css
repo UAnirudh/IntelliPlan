@@ -74,14 +74,15 @@ body:has(.command-chat) #planiBot { display: none !important; } /* same assistan
 }
 .command-chat__intro > p { margin: 0; color: var(--text-secondary); font-size: 0.98rem; line-height: 1.55; max-width: 52ch; }
 .command-chat__prompts {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+  display: grid; grid-template-columns: 1fr; gap: 0;
   margin-top: 26px;
+  border-top: 1px solid var(--border-strong);
 }
 .command-chat__prompts button,
 .command-chat__prompts a {
-  display: flex; flex-direction: column; gap: 3px; text-align: left;
-  padding: 13px 14px; border-radius: 12px;
-  background: var(--bg-card); border: 1px solid var(--border);
+  display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: 16px; text-align: left;
+  min-height: 56px; padding: 14px 0; border-radius: 0;
+  background: transparent; border: 0; border-bottom: 1px solid var(--border-strong);
   color: var(--text-primary); font: inherit; cursor: pointer;
   text-decoration: none;
   transition: border-color 0.12s, background 0.12s;
@@ -91,7 +92,7 @@ body:has(.command-chat) #planiBot { display: none !important; } /* same assistan
 .command-chat__prompts :is(button, a):hover { border-color: var(--border-strong, var(--text-muted)); background: var(--bg-elevated); }
 .command-chat__prompts :is(button, a):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 /* The one action that fixes an empty account, so it is the one that reads first. */
-.command-chat__prompts a.command-chat__prompt--primary { border-color: var(--border-accent); background: var(--accent-soft); }
+.command-chat__prompts a.command-chat__prompt--primary { color: var(--accent); border-color: var(--border-strong); background: transparent; }
 .command-chat__prompts a.command-chat__prompt--primary:hover { border-color: var(--accent); background: var(--accent-soft); }
 
 .command-chat__message {
@@ -189,6 +190,10 @@ body:has(.command-chat) #planiBot { display: none !important; } /* same assistan
 .command-chat__composer button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 @media (max-width: 640px) {
+  .command-chat__prompts button, .command-chat__prompts a {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
   .command-chat__prompts { grid-template-columns: 1fr; }
   .command-chat__composer-footer span { display: none; }
   .command-chat__composer { margin-bottom: 10px; }

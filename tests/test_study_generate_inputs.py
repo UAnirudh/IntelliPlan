@@ -8,12 +8,13 @@ Two things were wrong with the way this endpoint read its request body:
     error rather than the endpoint's own "try again" message. Nothing
     bounded the value either -- a request for 500 questions was billed as a
     request for 500 questions.
-  * ``mode`` was read, overridden to "casual" for guests, and then never
-    used or returned. The page had already decided locally which session to
-    launch, so the guest downgrade existed only inside the function.
+  * ``mode`` was read and then not returned, so the page decided locally
+    which session to launch. Generation now requires a real signed-in
+    identity so school rules can be checked; anonymous requests are refused.
 """
 
 import json
+from uuid import uuid4
 
 import pytest
 
@@ -31,14 +32,24 @@ MATERIAL = "The mitochondrion is the powerhouse of the cell. " * 5
 
 @pytest.fixture
 def client(monkeypatch):
-    """A signed-in student. Guests take a separate path -- fewer questions,
-    forced casual -- which is exercised by the guest tests at the bottom."""
+    """Use an actual signed-in identity, not only a mocked guest flag."""
     App.app.config["TESTING"] = True
     App.limiter.enabled = False
     monkeypatch.setattr(App, "ai_chat", lambda *a, **k: CANNED)
     monkeypatch.setattr(App, "_is_guest", lambda: False)
+    with App.app.app_context():
+        row = App.User(email=f'study-input-{uuid4().hex}@example.test', password_hash='x', birth_year=2000)
+        App.db.session.add(row)
+        App.db.session.commit()
+        uid = row.id
     with App.app.test_client() as c:
+        with c.session_transaction() as session:
+            session['_user_id'] = str(uid)
+            session['_fresh'] = True
         yield c
+    with App.app.app_context():
+        App.User.query.filter_by(id=uid).delete()
+        App.db.session.commit()
     App.limiter.enabled = True
 
 
@@ -113,20 +124,17 @@ def test_an_unknown_mode_falls_back_to_casual(client):
 # ── Guests ────────────────────────────────────────────────────────────
 
 
-def test_a_guest_who_picks_extreme_is_told_they_are_running_casual(guest):
-    """The downgrade was already happening server-side; it just never left
-    the function, so the page launched the fullscreen lock anyway."""
-    body = generate(guest, mode="extreme").get_json()
-    assert body["status"] == "ok"
-    assert body["data"]["mode"] == "casual"
+def test_guest_generation_requires_identity_even_with_extreme_mode(guest, monkeypatch):
+    called = []
+    monkeypatch.setattr(App, 'ai_chat', lambda *a, **k: called.append(a))
+    response = generate(guest, mode='extreme')
+    assert response.status_code == 401
+    assert response.get_json()['error'] == 'authentication_required'
+    assert not called
 
 
-def test_a_guest_cannot_ask_for_more_questions_than_their_limit(guest, monkeypatch):
-    asked = {}
-    monkeypatch.setattr(
-        App, "ai_chat",
-        lambda msgs, **k: asked.update(prompt=msgs[0]["content"]) or CANNED,
-    )
-    generate(guest, num_questions=20)
-    cap = App.GUEST_STUDY_LIMITS["max_questions"]
-    assert f"exactly {cap} study questions" in asked["prompt"]
+def test_guest_question_count_cannot_bypass_identity(guest, monkeypatch):
+    called = []
+    monkeypatch.setattr(App, 'ai_chat', lambda *a, **k: called.append(a))
+    assert generate(guest, num_questions=20).status_code == 401
+    assert not called

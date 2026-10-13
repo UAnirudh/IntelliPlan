@@ -1,0 +1,41 @@
+{
+  "checks": [
+    {
+      "theme": "light",
+      "width": 320,
+      "axe_violations": [],
+      "overflow": false
+    },
+    {
+      "theme": "light",
+      "width": 768,
+      "axe_violations": [],
+      "overflow": false
+    },
+    {
+      "theme": "light",
+      "width": 1440,
+      "axe_violations": [],
+      "overflow": false
+    },
+    {
+      "theme": "dark",
+      "width": 320,
+      "axe_violations": [],
+      "overflow": false
+    },
+    {
+      "theme": "dark",
+      "width": 768,
+      "axe_violations": [],
+      "overflow": false
+    },
+    {
+      "theme": "dark",
+      "width": 1440,
+      "axe_violations": [],
+      "overflow": false
+    }
+  ],
+  "javascript_errors": []
+}

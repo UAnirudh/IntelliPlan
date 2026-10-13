@@ -60,6 +60,7 @@ class TodayService:
         get_grades: Callable[[int], tuple[CourseGrade, ...]] = lambda _uid: (),
         get_completion_rate_7d: Callable[[int], float] = lambda _uid: 0.0,
         health_snapshot_model: type | None = None,
+        health_access: Callable[[int], bool] | None = None,
         session: Any = None,
         now: Callable[[], datetime] = datetime.utcnow,
     ) -> None:
@@ -69,6 +70,7 @@ class TodayService:
         self._get_grades = get_grades
         self._get_completion = get_completion_rate_7d
         self._health_model = health_snapshot_model
+        self._health_access = health_access
         self._session = session
         self._now = now
 
@@ -174,7 +176,7 @@ class TodayService:
     # ── health persistence (delta source) ────────────────────────────
 
     def _yesterday_health(self, user_id: int, today: date) -> HealthScore | None:
-        if self._health_model is None or self._session is None:
+        if self._health_model is None or self._session is None or not self._health_allowed(user_id):
             return None
         try:
             row = (
@@ -187,7 +189,7 @@ class TodayService:
         except Exception as exc:
             logger.warning("yesterday-health lookup failed: %s", exc)
             return None
-        if row is None:
+        if row is None or not self._health_allowed(user_id):
             return None
         return HealthScore(
             score=int(row.score or 0),
@@ -200,7 +202,7 @@ class TodayService:
     def _persist_health(
         self, user_id: int, today: date, health: HealthScore, snapshot: HealthSnapshot
     ) -> None:
-        if self._health_model is None or self._session is None:
+        if self._health_model is None or self._session is None or not self._health_allowed(user_id):
             return
         try:
             row = (
@@ -208,6 +210,8 @@ class TodayService:
                 .filter_by(user_id=user_id, snapshot_date=today)
                 .first()
             )
+            if not self._health_allowed(user_id):
+                return
             if row is None:
                 row = self._health_model(user_id=user_id, snapshot_date=today)
                 self._session.add(row)
@@ -229,6 +233,9 @@ class TodayService:
                 ],
                 ensure_ascii=False,
             )
+            if not self._health_allowed(user_id):
+                self._session.rollback()
+                return
             self._session.commit()
         except Exception as exc:
             logger.warning("health snapshot persist failed: %s", exc)
@@ -236,6 +243,14 @@ class TodayService:
                 self._session.rollback()
             except Exception:
                 pass
+
+    def _health_allowed(self, user_id: int) -> bool:
+        if self._health_access is None:
+            return True
+        try:
+            return bool(self._health_access(user_id))
+        except Exception:
+            return False
 
 
 # ── helpers ──────────────────────────────────────────────────────────

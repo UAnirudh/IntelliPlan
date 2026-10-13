@@ -97,6 +97,23 @@ def _seed(db: SQLAlchemy, models: dict) -> None:
 
 
 class TestAssignmentRepository:
+    def test_manual_filter_runs_after_live_fetch_policy_change(self, app, db, models):
+        state = {'allowed': True}
+
+        def fetch(uid):
+            state['allowed'] = False
+            return []
+
+        def filter_rows(uid, rows):
+            assert uid == 1
+            return rows if state['allowed'] else []
+
+        with app.app_context():
+            _seed(db, models)
+            repo = AssignmentRepository(models['ManualTask'], db.session,
+                                        lms_fetcher=fetch, manual_filter=filter_rows)
+            assert repo.for_user(1, date(2026, 6, 12)) == ()
+
     def test_for_user_excludes_completed_and_other_users(
         self, app, db: SQLAlchemy, models: dict
     ) -> None:

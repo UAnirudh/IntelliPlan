@@ -30,7 +30,9 @@ import os
 import re
 import threading
 from datetime import datetime
+from contextvars import ContextVar
 from typing import Any
+from ai_provider import AIUnavailable
 
 from flask import Blueprint, g, has_request_context, jsonify, redirect, render_template, request
 from flask_login import current_user
@@ -39,6 +41,12 @@ from time_utils import utcnow
 
 from intelliplan.growth import plans as growth_plans
 from intelliplan.premium import byok, catalog, claude_tutor, pricing, router
+
+_turn_policy = ContextVar('premium_turn_policy', default=None)
+
+
+class TutorPolicyChanged(AIUnavailable):
+    """A changed permission ends the turn rather than reusing its prompts."""
 
 logger = logging.getLogger(__name__)
 
@@ -280,11 +288,12 @@ def _classifier(user_id: int | None):
     """The cheap model that reads the question: Groq, else Gemini, else none."""
     import ai_provider
 
-    if not (ai_provider.groq_api_key() or ai_provider.gemini_available()):
+    if not ((ai_provider.groq_api_key() and _provider_allowed('groq'))
+            or (ai_provider.gemini_available() and _provider_allowed('gemini'))):
         return None
 
     def run(messages: list[dict]) -> str:
-        if ai_provider.groq_api_key():
+        if ai_provider.groq_api_key() and _provider_allowed('groq'):
             model = ai_provider.GROQ_FAST
             resp = ai_provider._groq_client().chat.completions.create(
                 model=model, messages=messages, temperature=0, max_tokens=400,
@@ -294,6 +303,8 @@ def _classifier(user_id: int | None):
                              usage=pricing.Usage.from_openai_style(resp.usage),
                              source=SOURCE_ROUTER, purpose="route")
             return resp.choices[0].message.content or ""
+        if not _provider_allowed('gemini'):
+            raise RuntimeError('Classifier provider is restricted.')
         return ai_provider._gemini_chat(messages, "fast", 0.0, 400, {"type": "json_object"},
                                         thinking_budget=0)
 
@@ -326,7 +337,61 @@ def _plain(text: str) -> str:
     return _TAG_PREFIX.sub("", str(text or "")).strip()
 
 
-def tutor_turn(user: Any, *, stable_system: str, dynamic_system: list[str],
+def _provider_allowed(provider: str) -> bool:
+    from intelliplan.learning.enforcement import permitted_processing
+    from intelliplan.learning import policy
+    from intelliplan.learning.courses import provider_user
+
+    owner = provider_user.get()
+    if owner is not None:
+        current = _tutor_permission(owner.id)[1]
+        expected = _turn_policy.get()
+        if expected is not None and current != expected:
+            raise TutorPolicyChanged('Tutor permissions changed during the request. Try again.')
+        if not current:
+            return False
+    policy.invalidate_cache()
+
+    if provider == 'gemini' and os.getenv('GEMINI_MINORS_CONTRACT_APPROVED', '').strip().lower() not in {'1', 'true', 'yes'}:
+        return False
+    return permitted_processing('claude' if provider == 'anthropic' else provider)
+
+
+def _tutor_permission(user_id: int):
+    from App import User
+    from intelliplan.learning import policy
+
+    policy.invalidate_cache()
+    user = User.query.populate_existing().filter_by(id=user_id).first()
+    if user is None or not policy.decision(user, 'tutor')[0]:
+        return user, frozenset()
+    if not policy.permitted_providers(user):
+        return user, ''
+    import json
+    return user, json.dumps({'policy': policy.effective(user),
+                             'personalization': bool(user.ai_personalization_opt_in)},
+                            sort_keys=True, default=lambda value: sorted(value))
+
+
+def tutor_turn(user: Any, **kwargs) -> dict | None:
+    from intelliplan.learning.courses import provider_user
+
+    owner, permission = _tutor_permission(user.id)
+    if not permission:
+        return None
+    token = provider_user.set(owner)
+    stamp_token = _turn_policy.set(permission)
+    try:
+        result = _tutor_turn(owner, **kwargs)
+        if _tutor_permission(owner.id)[1] != permission:
+            raise TutorPolicyChanged('Tutor permissions changed during the request. Try again.')
+        return result
+    finally:
+        _turn_policy.reset(stamp_token)
+        provider_user.reset(token)
+
+
+def _tutor_turn(user: Any, *, stable_system: str, dynamic_system: list[str],
                messages: list[dict], force_answer: bool = False) -> dict | None:
     """One Premium tutor turn. Returns None when the normal path should answer.
 
@@ -364,6 +429,8 @@ def tutor_turn(user: Any, *, stable_system: str, dynamic_system: list[str],
 
     # 1. The student's own key, if they linked one. Unmetered.
     for row in linked:
+        if not _provider_allowed(row.provider):
+            continue
         route = router.decide(classification, preference=preference, remaining_micro=None,
                               input_tokens=input_tokens)
         try:
@@ -385,7 +452,7 @@ def tutor_turn(user: Any, *, stable_system: str, dynamic_system: list[str],
 
     # 2. Claude on IntelliPlan's key, within the budget.
     key = _platform_claude_key()
-    if plan is None or not key:
+    if plan is None or not key or not _provider_allowed('claude'):
         return None
     state = budget_state(user)
     route = router.decide(classification, preference=preference,

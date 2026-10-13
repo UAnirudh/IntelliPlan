@@ -200,6 +200,79 @@ def test_a_dry_run_sends_nothing(ctx, resend):
     assert resend == []
 
 
+def test_newsletter_reports_exclusions_without_recipient_data(ctx, monkeypatch, resend):
+    from types import SimpleNamespace
+    from intelliplan.email import eligibility
+
+    issue = campaigns.generate_weekly_issue(datetime(2026, 10, 12))
+    monkeypatch.setattr(campaigns, "generate_weekly_issue", lambda now: issue)
+
+    users = [
+        SimpleNamespace(email="old@example.test", birth_year=2000, role="student",
+                        marketing_emails_opt_in=True, marketing_opt_in_at=datetime(2026, 1, 1),
+                        marketing_consent_version=None),
+        SimpleNamespace(email="unknown@example.test", birth_year=None),
+    ]
+
+    class Query:
+        def filter(self, *args):
+            return self
+
+        def all(self):
+            return users
+
+    monkeypatch.setattr(app_module, "User", SimpleNamespace(
+        query=Query(), marketing_emails_opt_in=SimpleNamespace(is_=lambda value: value)))
+    monkeypatch.setattr(eligibility, "is_suppressed", lambda address: False)
+    summary = campaigns.send_weekly_newsletter(now=datetime(2026, 10, 12), dry_run=False)
+    assert summary["audience"] == {
+        "opted_in": 2, "eligible": 0, "excluded": 2,
+        "reasons": {"consent_version_outdated": 1, "unknown_age": 1},
+    }
+    assert summary["no_eligible_recipients"] is True
+    assert summary["sent"] == summary["failed"] == 0
+    assert resend == []
+    assert "@" not in json.dumps(summary["audience"])
+
+
+def test_cron_explains_empty_audience_without_calling_it_a_delivery(monkeypatch, capsys):
+    from scripts import run_weekly_newsletter_cron as cron
+
+    monkeypatch.setenv("CRON_SECRET", "test-only-cron-secret")
+
+    class Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def read(self):
+            return json.dumps({"status": "ok", "summary": {
+                "no_eligible_recipients": True, "audience": {
+                    "opted_in": 6, "excluded": 6,
+                    "reasons": {"unknown_age": 3, "consent_version_outdated": 3},
+                }, "sent": 0, "failed": 0,
+            }}).encode()
+
+    monkeypatch.setattr(cron, "urlopen", lambda request, timeout: Response())
+    assert cron.main() == 0
+    output = capsys.readouterr().out
+    assert "no eligible subscribers" in output
+    assert "consent_version_outdated" in output
+    assert "run complete" not in output
+    assert "test-only-cron-secret" not in output
+
+
+def test_weekly_audience_still_sends_to_consented_students(ctx, resend):
+    user = make_user()
+    summary = campaigns.send_weekly_newsletter(now=datetime(2026, 10, 19), dry_run=False)
+    assert any(message["to"] == [user.email] for message in resend)
+    assert summary["sent"] >= 1
+    assert summary["audience"]["eligible"] == summary["recipients"]
+    assert "no_eligible_recipients" not in summary
+
+
 # -- The feedback blast ----------------------------------------------
 
 

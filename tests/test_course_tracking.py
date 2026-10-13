@@ -417,8 +417,13 @@ def test_a_malformed_reading_is_refused(client, payload):
 
 def _tool(name, args, user_id):
     import plani_agent
+    from flask_login import login_user
 
     with App.app.test_request_context():
+        user = db.session.get(User, user_id)
+        user.ai_personalization_opt_in = True
+        db.session.commit()
+        login_user(user)
         return plani_agent._execute_tool(name, args, user_id)
 
 

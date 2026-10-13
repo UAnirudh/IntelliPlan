@@ -4,3 +4,5 @@ Dockerfile      text eol=lf
 .dockerignore   text eol=lf
 Procfile        text eol=lf
 *.sh            text eol=lf
+# Keep vendored distributions byte-identical to their recorded upstream hashes.
+static/vendor/learning-content/** -text

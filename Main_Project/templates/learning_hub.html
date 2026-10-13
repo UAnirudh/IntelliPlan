@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+{% block page_title %}Learning Hub | IntelliPlan{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/learning_hub.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/learning-content/katex.min.css') }}">
+<article class="learning-hub" aria-labelledby="hub-title" data-no-motion>
+  <header class="learning-intro"><div class="learning-context"><h1 id="hub-title">Learning workspace</h1><a href="/school-admin" id="school-admin-link" hidden>Institution settings <span aria-hidden="true">↗</span></a></div>
+    <p>Bring a question, choose one clear study goal, and check what you understand.</p>
+  </header>
+  <p id="hub-status" role="status" aria-live="polite"></p>
+  <nav class="learning-activities" aria-label="Learning activities">
+    <button type="button" data-activity="tutor" aria-pressed="true">Ask &amp; learn</button>
+    <button type="button" data-activity="study" aria-pressed="false">Study session</button>
+    <button type="button" data-activity="review" aria-pressed="false">Review</button>
+    <button type="button" data-activity="courses" aria-pressed="false" hidden>Course builder <span class="beta-label">Admin Beta</span></button>
+    <button type="button" data-activity="progress" aria-pressed="false">My progress</button>
+  </nav>
+  <div class="learning-workspace">
+  <div class="learning-workspace-main">
+  <section id="hub-unavailable" class="learning-panel" hidden aria-labelledby="unavailable-title"><h2 id="unavailable-title">Learning access is currently limited.</h2><p>No learning activities are available for this account. Ask your institution administrator about access.</p></section>
+  <section data-panel="tutor" class="learning-panel" aria-labelledby="tutor-title">
+    <h2 id="tutor-title">What are you working on?</h2>
+    <div id="tutor-starters" class="learning-starters" role="group" aria-label="Question starters">
+      <button type="button" data-question="What does the slope of a curve tell me?"><span>Understand an idea</span><small>Explore the slope of a curve <span aria-hidden="true">↗</span></small></button>
+      <button type="button" data-question="Help me reason through adding fractions with different denominators." data-mode="practice"><span>Work through a problem</span><small>Practice adding fractions <span aria-hidden="true">↗</span></small></button>
+      <button type="button" data-question="Ask me a question to check what I remember about Python variables." data-mode="review"><span>Check what you remember</span><small>Recall Python variables <span aria-hidden="true">↗</span></small></button>
+    </div>
+    <div id="hub-conversation" class="learning-conversation" aria-live="polite"></div>
+    <form id="hub-tutor-form"><label for="hub-question">Your question or reasoning</label>
+      <textarea id="hub-question" maxlength="6000" rows="4" required placeholder="Tell me what you're working on and where you got stuck."></textarea>
+      <div class="learning-composer-actions"><div><label for="tutor-activity">Learning approach</label><select id="tutor-activity"><option value="learn">Learn a concept</option><option value="practice">Guided practice</option><option value="review">Recall and review</option></select></div><button type="submit" class="learning-primary">Work through it with me</button></div></form>
+    <p class="learning-note">AI explanations can be wrong. Your school's assessment rules apply to every request.</p>
+    <div class="learning-links"><a href="/tutor">Tutor history &amp; learning profile <span aria-hidden="true">↗</span></a></div>
+  </section>
+  <section data-panel="study" class="learning-panel" hidden aria-labelledby="sitting-title">
+    <h2 id="sitting-title">Give this session a purpose.</h2>
+    <form id="hub-sitting-form"><label for="sitting-objective">What will you learn?</label><input id="sitting-objective" maxlength="200" required>
+      <div class="learning-form-grid"><label>Minutes<input id="sitting-minutes" type="number" min="5" max="120" value="25"></label>
+      <label>Method<select id="sitting-method"><option value="retrieval">Recall without notes</option><option value="practice">Practice problems</option><option value="reading">Read and explain</option><option value="paper">Work on paper</option></select></label>
+      <label>If I need a reset<select id="sitting-intervention"><option value="reminder">Gentle reminder</option><option value="none">No intervention</option><option value="break">Suggest a break</option><option value="pause">Pause the session</option></select></label></div>
+      <button type="submit" class="learning-primary">Start a study session</button></form>
+    <div id="sitting-controls" hidden><p id="sitting-time" role="timer">Elapsed time: 0 minutes</p>
+      <p>Pause for a moment and explain the main idea without your notes. Reading and paper work count as activities, even away from the keyboard.</p>
+      <button type="button" data-checkpoint="retrieval_attempt">I tried recalling it</button>
+      <button type="button" data-checkpoint="paper_work">I worked on paper</button>
+      <button type="button" data-checkpoint="inactive">I need a reset</button>
+      <button type="button" data-checkpoint="resume">Resume session</button>
+      <button type="button" data-checkpoint="complete">Finish session</button>
+    </div><p class="learning-note">Elapsed time and reported work are recorded separately from scored practice evidence.</p>
+    <div class="learning-links"><a href="/focus" id="focus-link">Focus tools &amp; extension settings</a><a href="/active" class="hub-card">Study a scheduled work block</a><a href="/study">Turn notes into study activities</a></div>
+  </section>
+  <section data-panel="review" class="learning-panel" hidden aria-labelledby="review-title">
+    <h2 id="review-title">See what stays with you.</h2><p>Your existing decks, due cards, and scored checks remain available.</p>
+    <div class="learning-links"><a href="/flashcards">Review my flashcards</a><a href="/learn">Quizzes &amp; retrieval practice</a><a href="/foundations">Independent concept checks</a></div>
+    <p>Try recalling an idea before reading the explanation. Use the tutor to work through a misconception.</p>
+    <section id="practice-preview" hidden aria-labelledby="practice-preview-title"><h3 id="practice-preview-title">Reviewed practice preview · Opt-in Beta</h3><p id="practice-preview-notice"></p><form id="practice-preview-consent"><label class="learning-consent"><input id="practice-preview-accept" type="checkbox" required> I understand the preview limitations and choose to participate.</label><button type="submit">Join practice preview</button></form><div id="practice-preview-controls" hidden><label>Practice area<select id="practice-preview-area"><option value="math">Math</option><option value="reading">Reading</option><option value="writing">Writing</option></select></label><button type="button" id="practice-preview-next">Start a reviewed check</button><button type="button" id="practice-preview-withdraw">Leave preview</button><div id="practice-preview-check"></div><form id="practice-preview-feedback"><label>Optional beta feedback · omit personal details<textarea id="practice-preview-message" maxlength="1000" required></textarea></label><button type="submit">Share feedback with institution admins</button></form></div></section>
+  </section>
+  <section data-panel="courses" class="learning-panel" hidden aria-labelledby="course-title">
+    <h2 id="course-title">Build a path from a learning goal. <span class="beta-label">Admin Beta</span></h2>
+    <p>Curated beta covers Python and elementary algebra foundations. Original courses depend on your institution's AI availability. Review every generated lesson and answer key before use.</p>
+    <form id="hub-course-form"><label for="course-goal">What do you want to learn?</label><textarea id="course-goal" maxlength="2000" rows="3" required></textarea>
+      <label for="course-mode">Course approach</label><select id="course-mode"><option value="curated">Curated course · Python or algebra foundations</option><option value="generated">Fully generate course · Admin Beta</option></select>
+      <label class="learning-consent"><input id="course-provider-confirm" type="checkbox"> I authorize sending this learning goal to an allowed AI provider for bounded generation. I will omit private student information.</label>
+      <button type="submit" class="learning-primary">Create an outline</button></form>
+    <div id="course-library"></div><div id="course-workspace"></div>
+  </section>
+  <section data-panel="progress" class="learning-panel" hidden aria-labelledby="progress-title">
+    <h2 id="progress-title">Your learning, over time.</h2><div id="hub-progress"></div>
+    <div class="learning-links"><a href="/tutor?plan=1">My learning plan &amp; practice path</a><a href="/api/learning/export">Export my learning workspace</a></div>
+  </section>
+  </div>
+  <aside class="learning-guide" aria-labelledby="learning-guide-title">
+    <h2 id="learning-guide-title">Study guide</h2>
+    <ol class="learning-guide-steps"><li><strong>Find your question.</strong><p>Start with the part you can't quite explain yet.</p></li><li><strong>Try it for yourself.</strong><p>Work through an example, on screen or on paper.</p></li><li><strong>Come back to it.</strong><p>Recall the idea before opening your notes.</p></li></ol>
+    <div class="learning-guide-links"><h3>Your study tools</h3><a href="/foundations">Reviewed Foundations practice <span aria-hidden="true">↗</span></a><a href="/study-files">My study materials <span aria-hidden="true">↗</span></a><a href="/flashcards">My flashcards <span aria-hidden="true">↗</span></a></div>
+    <p class="learning-note">Your progress keeps reported work, assisted practice, and independent checks distinct.</p>
+  </aside>
+  </div>
+</article>
+<script src="{{ url_for('static', filename='vendor/learning-content/markdown-it.min.js') }}" defer></script>
+<script src="{{ url_for('static', filename='vendor/learning-content/purify.min.js') }}" defer></script>
+<script src="{{ url_for('static', filename='vendor/learning-content/katex.min.js') }}" defer></script>
+<script src="{{ url_for('static', filename='vendor/learning-content/highlight.min.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/learning_content.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/learning_hub.js') }}" defer></script>
+{% endblock %}
