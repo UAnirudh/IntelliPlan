@@ -526,7 +526,7 @@ def test_request_profile_edit_persistence_and_worker_context(client, monkeypatch
 def test_hub_renders_and_keeps_legacy_surfaces(client):
     for path in ["/learning", "/study-and-learn", "/tutor", "/learn", "/study"]:
         assert client.get(path).status_code == 200
-    assert b"Understand it." in client.get("/study-and-learn").data
+    assert b"Learning workspace" in client.get("/study-and-learn").data
 
 
 @pytest.mark.parametrize(

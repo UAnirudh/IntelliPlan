@@ -215,7 +215,7 @@ try:
             page.get_by_role("button", name="Essential only", exact=True).click()
         results["hub_load_ms"] = round((time.perf_counter() - begun) * 1000)
         expect(
-            page.get_by_role("heading", name="Understand it. Practice it. Remember it.")
+            page.get_by_role("heading", name="Learning workspace")
         ).to_be_visible()
         page.get_by_role("button", name="Work through a problem").click()
         expect(page.locator("#hub-question")).to_be_focused()
@@ -319,6 +319,11 @@ try:
         page.set_viewport_size({'width': 320, 'height': 844})
         audit_surface(page, 'curated-check-mobile-light')
         overflowing_code = page.locator('#course-workspace pre')
+        if not any(overflowing_code.nth(index).evaluate('e => e.scrollWidth > e.clientWidth')
+                   for index in range(overflowing_code.count())):
+            # Keep the keyboard-scroll check meaningful when the wider panel
+            # fits these short examples. Exercise the same rendered region.
+            overflowing_code.first.evaluate('e => { e.style.maxWidth = "120px"; }')
         scrollable_index = next(index for index in range(overflowing_code.count())
                                 if overflowing_code.nth(index).evaluate('e => e.scrollWidth > e.clientWidth'))
         code_region = overflowing_code.nth(scrollable_index)

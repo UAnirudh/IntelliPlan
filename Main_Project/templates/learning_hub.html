@@ -4,8 +4,7 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/learning_hub.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='vendor/learning-content/katex.min.css') }}">
 <article class="learning-hub" aria-labelledby="hub-title" data-no-motion>
-  <header class="learning-intro"><div class="learning-context"><span class="learning-eyebrow">Learning hub</span><a href="/school-admin" id="school-admin-link" hidden>Institution settings <span aria-hidden="true">↗</span></a></div>
-    <h1 id="hub-title">Understand it. Practice it. Remember it.</h1>
+  <header class="learning-intro"><div class="learning-context"><h1 id="hub-title">Learning workspace</h1><a href="/school-admin" id="school-admin-link" hidden>Institution settings <span aria-hidden="true">↗</span></a></div>
     <p>Bring a question, choose one clear study goal, and check what you understand.</p>
   </header>
   <p id="hub-status" role="status" aria-live="polite"></p>
@@ -20,8 +19,7 @@
   <div class="learning-workspace-main">
   <section id="hub-unavailable" class="learning-panel" hidden aria-labelledby="unavailable-title"><h2 id="unavailable-title">Learning access is currently limited.</h2><p>No learning activities are available for this account. Ask your institution administrator about access.</p></section>
   <section data-panel="tutor" class="learning-panel" aria-labelledby="tutor-title">
-    <span class="learning-eyebrow">Start with curiosity</span>
-    <h2 id="tutor-title">One question is a good place to start.</h2>
+    <h2 id="tutor-title">What are you working on?</h2>
     <div id="tutor-starters" class="learning-starters" role="group" aria-label="Question starters">
       <button type="button" data-question="What does the slope of a curve tell me?"><span>Understand an idea</span><small>Explore the slope of a curve <span aria-hidden="true">↗</span></small></button>
       <button type="button" data-question="Help me reason through adding fractions with different denominators." data-mode="practice"><span>Work through a problem</span><small>Practice adding fractions <span aria-hidden="true">↗</span></small></button>
@@ -72,8 +70,7 @@
   </section>
   </div>
   <aside class="learning-guide" aria-labelledby="learning-guide-title">
-    <span class="learning-eyebrow">A little intention goes a long way</span>
-    <h2 id="learning-guide-title">Make it stick.</h2>
+    <h2 id="learning-guide-title">Study guide</h2>
     <ol class="learning-guide-steps"><li><strong>Find your question.</strong><p>Start with the part you can't quite explain yet.</p></li><li><strong>Try it for yourself.</strong><p>Work through an example, on screen or on paper.</p></li><li><strong>Come back to it.</strong><p>Recall the idea before opening your notes.</p></li></ol>
     <div class="learning-guide-links"><h3>Your study tools</h3><a href="/foundations">Reviewed Foundations practice <span aria-hidden="true">↗</span></a><a href="/study-files">My study materials <span aria-hidden="true">↗</span></a><a href="/flashcards">My flashcards <span aria-hidden="true">↗</span></a></div>
     <p class="learning-note">Your progress keeps reported work, assisted practice, and independent checks distinct.</p>

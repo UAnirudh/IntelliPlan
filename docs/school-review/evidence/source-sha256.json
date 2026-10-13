@@ -5,11 +5,15 @@
   },
   {
     "path": "App.py",
-    "sha256": "65f00a42c21d70862dca0c0ce4bc9100905dfdd9fa5ef9b75a772308a1fa5208"
+    "sha256": "30d693a1aac9fcbcb3f88028de38a17f923deb3ce8beeef616418ab27b98403d"
+  },
+  {
+    "path": "Main_Project/templates/command_center.html",
+    "sha256": "a34f8b8b46ffad9af5560bf2f1ad4a42f7bd41323afb43e8cf75de15d425cdc1"
   },
   {
     "path": "Main_Project/templates/learning_hub.html",
-    "sha256": "5d49f16f82f1bb9e1aa707b400f5b5f62571c2b1502ce60052295d1bf1d31866"
+    "sha256": "6db7758c3186e77e497f17fd1c18233c59664d71a4a76bcb6272fac898792220"
   },
   {
     "path": "Main_Project/templates/school_admin.html",
@@ -21,7 +25,7 @@
   },
   {
     "path": "ai_provider.py",
-    "sha256": "49c4c51f665c9df5cc4fc9b5d40d79c7729dec77567cb8188ab4c969bb077157"
+    "sha256": "aa6818be2d3d25788cd8150def3393ed5a0a39853bc90d2c8545f4e65e68f687"
   },
   {
     "path": "breakdown_glue.py",
@@ -29,7 +33,7 @@
   },
   {
     "path": "chatbot_api.py",
-    "sha256": "e918dcf7c3383563243344626f5dc4190402290b77a534d882559f77fca1a125"
+    "sha256": "cd5c1b6e69667959b8e78562a8ca01222b6c7fdf4205ea3b6f0347f66243bce3"
   },
   {
     "path": "command_center_glue.py",
@@ -125,11 +129,15 @@
   },
   {
     "path": "notifications_glue.py",
-    "sha256": "af0d595b1141a4c83961e1219b6704f582008f5a7854ff5028658318c1e989ac"
+    "sha256": "f93c7eaeb4ff1a9c3872341b2ff4537f6e07d3618627c1fb20180e73835c6325"
   },
   {
     "path": "plani_agent.py",
     "sha256": "b41a254f972ffc793724c0ecf3e55d25a89ca4b84e5f932f7e1eadc713488733"
+  },
+  {
+    "path": "premium_glue.py",
+    "sha256": "720dedcec1c9f963fe51cd3d4a81f8cb8136b62362ad36517d5a13dda7e60fe1"
   },
   {
     "path": "scripts/inventory_learning_routes.py",
@@ -140,8 +148,12 @@
     "sha256": "a22a073a1ece828243f2b8c0fefaa8e8ad9eaab9e6cad1fb62d9a6424144b1c8"
   },
   {
+    "path": "scripts/verify_command_center_ui.py",
+    "sha256": "b9964371f579c12fa1f7115912fb158f06f927f40f894652757e94a8fc3a3a0e"
+  },
+  {
     "path": "scripts/verify_learning_hub.py",
-    "sha256": "ee29a6bb7ff10848f22041df453bb7469044e9605f5543011f93e18b9f751c30"
+    "sha256": "eb26303828f0d7f03f9df20eec67328a5b04ccbf406d3e28fbab542d7eb44c19"
   },
   {
     "path": "scripts/verify_learning_provider.py",
@@ -152,8 +164,12 @@
     "sha256": "32d779bf576cdd3fe0656c4e18c27d5348f9b7f582c3583c0e128b6678e0984e"
   },
   {
+    "path": "static/css/command_center.css",
+    "sha256": "6f3fa3bcb245325455bb9dc281856d063ee02b605671c05b56f68041edccd0e2"
+  },
+  {
     "path": "static/css/learning_hub.css",
-    "sha256": "e18b3773ee064cfeecf24a14aa99ec13c08eb5ff099cbd9403b5efb6fb8ff174"
+    "sha256": "2a3ef76f202085aaccbe7a34be573c9b2e239c3d10fdc50691243550eedf2648"
   },
   {
     "path": "static/js/learning_content.js",
@@ -464,6 +480,10 @@
     "sha256": "086488654a35796224902d0fab40a8e813298062dd5e2c2a7dac82206c4e1019"
   },
   {
+    "path": "tests/test_ai_provider_fallback.py",
+    "sha256": "eb3469ae5329ebf3203768163823576a3bf0ae6d1e830b1d54b9051757f27243"
+  },
+  {
     "path": "tests/test_course_tracking.py",
     "sha256": "0a89cce3263ad2488786f124f02d79f0db6cd61fc9edebbef017a17615dcc381"
   },
@@ -477,11 +497,11 @@
   },
   {
     "path": "tests/test_learning_hub.py",
-    "sha256": "3fa214d364fea2db07909abcebb99eb506ccf0f2ff2eefc5434e6a38ab1bc646"
+    "sha256": "fe1595268ed6d2771cbf7a46ca5e98fb8ae8aa0e3ec697cb44ef7f9ebd48ced9"
   },
   {
     "path": "tests/test_learning_legacy_tools.py",
-    "sha256": "efc989ca70b80db6863843e8241383f64dc1036a6289a117531b97a1a8e92a69"
+    "sha256": "bf6298f4a3492c4feadd84a082c75f573d5c953748167977ec197cb4482d4f25"
   },
   {
     "path": "tests/test_learning_postgres.py",
