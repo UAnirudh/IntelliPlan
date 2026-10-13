@@ -354,7 +354,7 @@ def _session_rows(user_id: int) -> list[dict]:
     """
     from App import ActiveSession
 
-    if not _aggregate_allowed(user_id):
+    if not _student_profile(user_id)[1]:
         return []
     try:
         since = datetime.now() - timedelta(days=HISTORY_DAYS)
@@ -388,7 +388,7 @@ def _session_rows(user_id: int) -> list[dict]:
 def _feedback_rows(user_id: int) -> list[dict]:
     from App import TaskFeedback
 
-    if not _aggregate_allowed(user_id):
+    if not _student_profile(user_id)[1]:
         return []
     try:
         rows = (
@@ -547,7 +547,7 @@ def _reschedule_count(user_id: int) -> int:
     # months wide so an offset would not change the answer much, but a
     # timestamp comparison that is only approximately right is the kind that
     # becomes exactly wrong when someone shortens the window.
-    return _audit().override_count(user_id, utcnow() - timedelta(days=HISTORY_DAYS)) if _aggregate_allowed(user_id) else 0
+    return _audit().override_count(user_id, utcnow() - timedelta(days=HISTORY_DAYS)) if _student_profile(user_id)[1] else 0
 
 
 def _dismissed(user_id: int, since_local: datetime) -> frozenset[str]:
@@ -640,6 +640,7 @@ def _build_service() -> NextActionService:
         get_assignments=_assignments,
         get_mastery=_mastery,
         get_session_rows=_session_rows,
+        personalization_allowed=lambda uid: _student_profile(uid)[1],
         get_feedback_rows=_feedback_rows,
         get_daily_minutes=_daily_minutes,
         get_in_progress=_in_progress,

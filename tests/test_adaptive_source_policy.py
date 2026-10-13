@@ -353,3 +353,21 @@ def test_retained_availability_callback_rechecks_current_policy(owner, monkeypat
     assert callable(windows)
     restrict(owner, {'canvas': False})
     assert windows(datetime(2026, 10, 13).date()) == []
+
+
+def test_opted_out_behavior_helpers_do_not_query_history(owner, monkeypatch):
+    App.db.session.get(App.User, owner[0]).ai_personalization_opt_in = False
+    App.db.session.commit()
+    class Trap:
+        @property
+        def query(self):
+            raise AssertionError('opted-out history must not be queried')
+    monkeypatch.setattr(App, 'ActiveSession', Trap())
+    monkeypatch.setattr(App, 'TaskFeedback', Trap())
+    audit = Mock(side_effect=AssertionError('opted-out override counts must not be queried'))
+    monkeypatch.setattr(adaptive, '_audit', audit)
+    assert adaptive._session_rows(owner[0]) == []
+    assert adaptive._feedback_rows(owner[0]) == []
+    assert adaptive._daily_minutes(owner[0]) == {}
+    assert adaptive._reschedule_count(owner[0]) == 0
+    audit.assert_not_called()
