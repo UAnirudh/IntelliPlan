@@ -98,8 +98,9 @@
     }).join('');
     var card = document.createElement('section');
     card.className = 'command-chat__schedule';
-    card.innerHTML = '<header><div><p>New schedule</p><h2>' + esc(schedule.total_study_time || 'Study plan') +
-      '</h2></div><a href="/scheduler">Open in Scheduler</a></header><div class="command-chat__schedule-days">' + days + '</div>';
+    var preview = schedule.preview === true;
+    card.innerHTML = '<header><div><p>' + (preview ? 'Preview · not saved' : 'Saved study plan') + '</p><h2>' + esc(schedule.total_study_time || 'Study plan') +
+      '</h2></div>' + (preview ? '' : '<a href="/scheduler">Open in Scheduler</a>') + '</header><div class="command-chat__schedule-days">' + days + '</div>';
     inner.appendChild(card);
   }
 

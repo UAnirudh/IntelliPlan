@@ -5,11 +5,11 @@
   },
   {
     "path": "App.py",
-    "sha256": "30d693a1aac9fcbcb3f88028de38a17f923deb3ce8beeef616418ab27b98403d"
+    "sha256": "f890007d02bc6ebdb1b1df63da3d4c55e305d85b78d287bf3a0730a4351c9b13"
   },
   {
     "path": "Main_Project/templates/command_center.html",
-    "sha256": "a34f8b8b46ffad9af5560bf2f1ad4a42f7bd41323afb43e8cf75de15d425cdc1"
+    "sha256": "ce0f1dece51b64fe083528195c15e3a2f86f82b13139c662bb3f586c67c3dd75"
   },
   {
     "path": "Main_Project/templates/learning_hub.html",
@@ -50,6 +50,10 @@
   {
     "path": "extra_features.py",
     "sha256": "fb3345bd93b6311ab35ccda535f86b9c505ec985907c3862114cb82da0440e21"
+  },
+  {
+    "path": "followthrough_glue.py",
+    "sha256": "8163fc7016a8b3924c88279a9d925f830ab44d65180bf0dd619692026baad36e"
   },
   {
     "path": "intelliplan/api/command_center.py",
@@ -141,7 +145,7 @@
   },
   {
     "path": "plani_agent.py",
-    "sha256": "b41a254f972ffc793724c0ecf3e55d25a89ca4b84e5f932f7e1eadc713488733"
+    "sha256": "73adf21fd08463dbd18a8c58144d59c2e681bd0d8d7737675042b22ca4d154c0"
   },
   {
     "path": "premium_glue.py",
@@ -157,7 +161,7 @@
   },
   {
     "path": "scripts/verify_command_center_ui.py",
-    "sha256": "b9964371f579c12fa1f7115912fb158f06f927f40f894652757e94a8fc3a3a0e"
+    "sha256": "dde546e9062a0c689a8304cd0e15729ff25c4869e385ec873142b827681c4c03"
   },
   {
     "path": "scripts/verify_learning_hub.py",
@@ -173,11 +177,19 @@
   },
   {
     "path": "static/css/command_center.css",
-    "sha256": "6f3fa3bcb245325455bb9dc281856d063ee02b605671c05b56f68041edccd0e2"
+    "sha256": "f8db537510efe4ea748a92fe1608ccc727e8a602d47b5ddea34d85af19bf9d03"
   },
   {
     "path": "static/css/learning_hub.css",
     "sha256": "2a3ef76f202085aaccbe7a34be573c9b2e239c3d10fdc50691243550eedf2648"
+  },
+  {
+    "path": "static/js/command_center.js",
+    "sha256": "01ef3edf5351b62acfcddb37a604d577ea14efad753c4feb6ea6c6d311c6e6d9"
+  },
+  {
+    "path": "static/js/command_remind.js",
+    "sha256": "496341e65ae1113aef242321bf87ea7bc6f04910590fac3385e123eb9941e6e3"
   },
   {
     "path": "static/js/learning_content.js",
@@ -521,7 +533,7 @@
   },
   {
     "path": "tests/test_plani_policy.py",
-    "sha256": "c4c6eae935ce8df8b8ed6b1231d6368d2494e8cdc63c5ceef11ebaab74dbb270"
+    "sha256": "d8d102e6a880ce0e391af45d8a8d887f2ab2d348efd2cec47f73417038a61716"
   },
   {
     "path": "tests/test_retrieval.py",

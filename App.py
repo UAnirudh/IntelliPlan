@@ -4697,6 +4697,9 @@ def reflow_schedule(schedule_data, availability=None, commitments=None, dna=None
 
 def enrich_schedule_data(schedule_data, assignments, preferred_time, hours_per_day):
     assignment_lookup = {item["title"]: item for item in assignments if isinstance(item, dict) and item.get("title")}
+    assignment_ids = {str(item.get("id") or item.get("source_ref")): item
+                      for item in assignments if isinstance(item, dict)
+                      and (item.get("id") or item.get("source_ref"))}
     schedule = schedule_data.get("schedule", [])
     total_study_minutes = 0
     for day in schedule:
@@ -4724,8 +4727,16 @@ def enrich_schedule_data(schedule_data, assignments, preferred_time, hours_per_d
             # re-inferred difficulty, and no due date — quietly discarding the
             # planner's own priority and the deadline the clock placer orders
             # the day by.
+            task_ref = str(block.get("task_id") or "")
+            identity_meta = assignment_ids.get(task_ref)
+            # Planner stages/step groups append :: segments to the original
+            # assignment ID. Resolve its nearest known parent before titles.
+            while not identity_meta and "::" in task_ref:
+                task_ref = task_ref.rsplit("::", 1)[0]
+                identity_meta = assignment_ids.get(task_ref)
             assignment_meta = (
-                assignment_lookup.get(block.get("parent_title") or "")
+                identity_meta
+                or assignment_lookup.get(block.get("parent_title") or "")
                 or assignment_lookup.get(block.get("assignment", ""))
                 or {}
             )
@@ -12125,7 +12136,7 @@ def _priority_score_for(assignment):
 
 def _build_planner_schedule(normalized_assignments, custom_tasks, uid, gid,
                             availability, commitments, preferred_time, hours_per_day,
-                            dna=None):
+                            dna=None, *, record_version=True):
     """Run the v2 planner and return ``schedule_data``, or None to fall back.
 
     Returning None rather than raising is deliberate: if anything here is
@@ -12176,7 +12187,7 @@ def _build_planner_schedule(normalized_assignments, custom_tasks, uid, gid,
         )
         plan, chosen = _choose_plan(service, rows, uid)
         data = service.to_schedule_data(plan)
-        if uid:
+        if uid and record_version:
             _record_plan_version(uid, plan, chosen, data)
 
         # Reuse the existing enrichment so the Interactive View, checklists,

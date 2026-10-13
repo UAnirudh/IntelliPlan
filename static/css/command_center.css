@@ -5,6 +5,7 @@
 
 body:has(.command-chat) { overflow: hidden; }
 body:has(.command-chat) #planiBot { display: none !important; } /* same assistant, already on screen */
+body:has(.command-chat) .pet-xp-toast { display: none; }
 
 .command-chat {
   position: fixed;
@@ -85,6 +86,7 @@ body:has(.command-chat) #planiBot { display: none !important; } /* same assistan
   background: transparent; border: 0; border-bottom: 1px solid var(--border-strong);
   color: var(--text-primary); font: inherit; cursor: pointer;
   text-decoration: none;
+  box-shadow: none !important; /* Shared button styling must not turn examples into cards. */
   transition: border-color 0.12s, background 0.12s;
 }
 .command-chat__prompts :is(button, a) strong { font-size: 0.9rem; font-weight: 600; }
@@ -211,6 +213,12 @@ body:has(.command-chat) #planiBot { display: none !important; } /* same assistan
 /* Reminders nudge: one line above the conversation, never a modal. */
 .command-remind{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px 16px;border:1px solid var(--border-accent);border-radius:14px;background:var(--accent-soft);margin:0 14px 10px;color:var(--text-primary)}
 .command-remind[hidden]{display:none}
+details.command-remind{display:block;background:transparent;border-color:var(--border);border-radius:8px}
+.command-remind:not([open]) > :not(summary){display:none}
+.command-remind summary{font-size:.82rem;color:var(--text-secondary);cursor:pointer;min-height:24px}
+.command-remind summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.command-remind[open] p{margin-top:10px}
+.command-remind[open] .command-remind__actions{margin-top:10px}
 .command-remind p{margin:0;font-size:.88rem;line-height:1.45}
 .command-remind p[data-tone="warn"] span{color:var(--high)}
 .command-remind__actions{display:flex;gap:8px;flex-shrink:0}

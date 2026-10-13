@@ -4,6 +4,10 @@ Statuses refer to this local checkpoint. **Verified Working** is limited to the 
 
 Follow-on user requests originally sequenced the engineering brief before UI refinement and multi-country/language support. The latest steering requests further UI adaptation alongside continued original work, with commits and pushes after each major change and visible results. The branch is pushed and linked to PR 86; the original brief, whole-product UI and localization are not declared complete. Localization scope still requires the existing-product audit.
 
+PR 86 is now merged and released: Railway plugin monitoring confirms the exact main merge commit deployed successfully, public health/schema checks pass, and UI assets match. The next checkpoint connects chat schedule creation to the same constraint-aware planner as the Scheduler page and reduces Command Center controls. Conversational schedule repair, whole-product simplification, and country/language support remain ongoing. See [release and chat planning](35-chat-planner-and-release.md).
+
+The following continuation adds conversational day/time repair through the existing follow-through engine, preserves outgoing past outcomes atomically with saved changes, rejects stale writes, and keeps repeated assignment titles' deadlines separate. Whole-product simplification, localization and the other original requirements remain open. See [conversational repair](36-conversational-plan-repair.md).
+
 | Requested acceptance item | Status | Evidence / remaining work |
 |---|---|---|
 | Existing features audited | Partially Working |644 source route decorators + full regression suite + scoped feature matrix; live whole-product audit incomplete |

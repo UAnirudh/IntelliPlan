@@ -55,6 +55,13 @@ try:
                 page.evaluate("theme => { localStorage.setItem('theme', theme); document.documentElement.setAttribute('data-theme', theme); }", theme)
                 assert page.locator('html').get_attribute('data-theme') == theme
                 page.wait_for_selector('.command-chat__prompts')
+                reminders = page.locator('#commandRemind')
+                reminders.wait_for(state='visible')
+                assert not reminders.evaluate('(element) => element.open')
+                reminders.locator('summary').click()
+                page.locator('#commandRemindOn').wait_for(state='visible')
+                reminders.locator('summary').click()
+                page.locator('#commandRemindOn').wait_for(state='hidden')
                 consent = page.get_by_role('button', name='Essential only', exact=True)
                 if consent.is_visible():
                     consent.click()
@@ -65,7 +72,37 @@ try:
                 report = page.evaluate("async () => {const r=await axe.run('.command-chat', {runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21aa','wcag22aa']}}); return r.violations;}")
                 assert not report, report
                 page.screenshot(path=str(output / f'command-center-{theme}-{width}.png'))
-                checks.append({'theme': theme, 'width': width, 'axe_violations': report, 'overflow': False})
+                # UI success state only: no provider call, notification permission
+                # prompt, or real preference write is made by this fixture.
+                page.evaluate("window.IPReminders.enable = () => Promise.resolve({saved:true,push:false,pushMessage:''})")
+                reminders.locator('summary').click()
+                page.locator('#commandRemindOn').click()
+                page.wait_for_function("document.querySelector('#commandRemind summary').textContent === 'Reminders are on'")
+                reminders.locator('summary').click()
+                page.wait_for_function("!document.querySelector('#commandRemind').open")
+                checks.append({'theme': theme, 'width': width, 'axe_violations': report,
+                               'overflow': False, 'reminder_success_mock': True})
+        # Exercise the real composer and renderer with declared agent fixtures.
+        # Server-side repair/persistence has separate HTTP tests with real storage.
+        for preview in (True, False):
+            response = {'status': 'ok', 'reply': 'Fixture plan response.', 'actions': [],
+                        'refresh': False, 'schedule': {'preview': preview,
+                            'total_study_time': '30 minutes', 'schedule': [
+                                {'date': '2026-10-14', 'day_name': 'Wednesday', 'blocks': [
+                                    {'assignment': 'Math practice', 'time_slot': '4:30 PM',
+                                     'duration_minutes': 30, 'is_break': False}]}]}}
+            def agent_fixture(route):
+                route.fulfill(status=200, content_type='application/json', body=json.dumps(response))
+            page.route('**/api/plani/agent', agent_fixture)
+            page.locator('#chatInput').fill('Preview my adjusted plan' if preview else 'Apply that change')
+            page.wait_for_function("!document.querySelector('#sendMessage').disabled")
+            page.locator('#chatComposer').evaluate('(form) => form.requestSubmit()')
+            card = page.locator('.command-chat__schedule').last
+            page.wait_for_function("label => [...document.querySelectorAll('.command-chat__schedule header p')].at(-1)?.textContent === label",
+                                   arg='Preview · not saved' if preview else 'Saved study plan')
+            assert card.locator('a').count() == (0 if preview else 1)
+            page.unroute('**/api/plani/agent')
+        checks.append({'conversation_preview_saved_fixture': True})
         assert not errors, errors
         browser.close()
 finally:

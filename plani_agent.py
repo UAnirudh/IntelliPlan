@@ -145,6 +145,17 @@ AGENT_TOOLS = [
         },
     },
     {
+        "name": "adjust_schedule",
+        "description": "Repair the saved study plan when available time changes. Keeps assignment deadlines unchanged. Saves unless preview is true.",
+        "parameters": {
+            "action": {"type": "string", "required": True,
+                       "description": "skip_day | limit_day | add_time | catch_up"},
+            "day": {"type": "string", "description": "Affected local date YYYY-MM-DD; defaults to today"},
+            "minutes": {"type": "integer", "description": "Available minutes for limit_day; additional minutes for add_time"},
+            "preview": {"type": "boolean", "description": "True to show changes without saving"},
+        },
+    },
+    {
         "name": "explain_priority",
         "description": "Explain why a specific task in today's plan has its priority score.",
         "parameters": {
@@ -256,7 +267,15 @@ courses, assignments, numbers, or access to unavailable account data.
 
 INTELLIGENT BEHAVIOR:
 - If the user says "mark X done", call complete_task with title="X".
-- If they say "reschedule Y to tomorrow", call update_task with title="Y" and due_date.
+- Changing study time does not change an assignment's deadline. For "I can't
+  study tonight", use adjust_schedule with skip_day. For "only 30 minutes",
+  use limit_day. For "I'm behind", use catch_up. Only change due_date when
+  the user explicitly says the assignment deadline has changed. If they
+  ask to move one sitting, explain the supported day-level repair or link
+  to /scheduler; never move its deadline as a substitute.
+- adjust_schedule changes the saved study plan. It does not move existing
+  external calendar events. Never claim those events were updated; if the
+  user requested calendar changes, explain this boundary.
 - For "What should I focus on", use supplied context or an allowed
   get_today_plan result. If account access is unavailable, ask the user
   to describe their tasks and offer general planning help.
@@ -378,7 +397,7 @@ def _find_manual_task(args: dict, user_id: int):
 _TOOL_CAPABILITIES = {
     **{name: ('scheduler',) for name in (
         'get_schedule', 'get_today_plan', 'get_workload', 'get_briefing',
-        'explain_priority', 'generate_schedule')},
+        'explain_priority', 'generate_schedule', 'adjust_schedule')},
     **{name: ('study',) for name in (
         'list_tracked_courses', 'track_course', 'log_course_progress', 'recommend_courses')},
     'save_note': ('uploads',),
@@ -386,7 +405,7 @@ _TOOL_CAPABILITIES = {
 _ACCOUNT_READ_TOOLS = frozenset({
     'list_tasks', 'search_tasks', 'list_courses', 'get_grades', 'get_schedule',
     'get_today_plan', 'get_workload', 'get_briefing', 'explain_priority',
-    'generate_schedule', 'list_tracked_courses', 'log_course_progress',
+    'generate_schedule', 'adjust_schedule', 'list_tracked_courses', 'log_course_progress',
 })
 
 
@@ -448,7 +467,7 @@ def _tool_denial(name, args, user_id):
         if name in _ACCOUNT_READ_TOOLS and not _ai_personalization_enabled(user):
             return {'error': 'personalization_required',
                     'message': 'Enable AI personalization in Settings to let Plani read stored account data.'}
-        if name in {'get_grades', 'get_schedule', 'get_today_plan', 'get_workload', 'get_briefing', 'explain_priority'} and not _source_data_allowed(user):
+        if name in {'get_grades', 'get_schedule', 'get_today_plan', 'get_workload', 'get_briefing', 'explain_priority', 'adjust_schedule'} and not _source_data_allowed(user):
             return {'error': 'source_restricted', 'message': 'Your institution has restricted an account data source.'}
         if name == 'generate_schedule' and not policy.permitted_providers(user):
             return {'error': 'provider_restricted'}
@@ -456,6 +475,92 @@ def _tool_denial(name, args, user_id):
         logger.warning('Plani tool policy unavailable', exc_info=True)
         return {'error': 'policy_unavailable'}
     return None
+
+
+def _adjust_saved_schedule(args: dict, user_id: int) -> dict[str, Any]:
+    """Repair the owner's plan with the same engine as the Scheduler page."""
+    from sqlalchemy import update
+    from App import SavedSchedule, db, invalidate_schedule_cache
+    import followthrough_glue as followthrough
+    from intelliplan.api.adjust import _task_ids
+
+    if not set(args) <= {'action', 'day', 'minutes', 'preview'}:
+        return {'error': 'invalid_arguments', 'message': 'Use an action, day, minutes, and optional preview.'}
+    if args.get('action') not in {'skip_day', 'limit_day', 'add_time', 'catch_up'}:
+        return {'error': 'invalid_adjustment', 'message': 'Choose a day-level study-time adjustment.'}
+    if 'preview' in args and not isinstance(args['preview'], bool):
+        return {'error': 'invalid_arguments', 'message': 'Preview must be true or false.'}
+    if 'day' in args:
+        try:
+            from datetime import date
+            date.fromisoformat(args['day'])
+        except (TypeError, ValueError):
+            return {'error': 'invalid_arguments', 'message': 'Use a local date in YYYY-MM-DD format.'}
+    if args['action'] in {'limit_day', 'add_time'}:
+        minutes = args.get('minutes')
+        maximum = 1440 if args['action'] == 'limit_day' else 960
+        minimum = 0 if args['action'] == 'limit_day' else 1
+        if type(minutes) is not int or not minimum <= minutes <= maximum:
+            return {'error': 'invalid_arguments', 'message': f'Choose {minimum} to {maximum} whole minutes.'}
+    if not followthrough.followthrough_enabled(user_id):
+        return {'error': 'feature_unavailable'}
+    state = _processing_state(user_id)
+    if state is None:
+        return {'error': 'policy_unavailable'}
+    row = followthrough._active_row(user_id, None)
+    if row is None:
+        return {'error': 'no_saved_plan', 'message': 'Make a study plan first.'}
+    row_id, original_data, original_progress = row.id, row.schedule_data, row.progress_json
+    try:
+        old_data = json.loads(original_data)
+        progress = json.loads(original_progress or '{}')
+        if not isinstance(old_data, dict) or not old_data.get('schedule') or not isinstance(progress, dict):
+            return {'error': 'no_saved_plan', 'message': 'Make a study plan first.'}
+        now = followthrough._now()
+        reality = followthrough._session_reality(_task_ids(old_data), user_id, None) or {}
+        service = followthrough._build_service(user_id, None, args)
+        result, data = service.adjust(old_data, progress, args, now=now,
+                                      credit=reality.get('abandoned') or {},
+                                      finished=tuple(reality.get('finished') or ()))
+        data, new_progress = followthrough._finalize(data, old_data, progress, now.date())
+        denial = _tool_denial('adjust_schedule', args, user_id)
+        if denial:
+            return denial
+        if _processing_state(user_id) != state:
+            return {'error': 'account_access_changed'}
+        preview = args.get('preview', False)
+        summary = result.summary()
+        if not preview:
+            followthrough._stage_plan_outcomes(user_id, old_data, progress, now.date())
+            # A newer chat, drag, or replan must not be overwritten by this
+            # request's earlier snapshot. The active row and both JSON fields
+            # are part of the conditional write.
+            changed = db.session.execute(update(SavedSchedule).where(
+                SavedSchedule.id == row_id, SavedSchedule.user_id == user_id,
+                SavedSchedule.is_active.is_(True),
+                SavedSchedule.schedule_data == original_data,
+                SavedSchedule.progress_json == original_progress,
+            ).values(schedule_data=json.dumps(data), progress_json=json.dumps(new_progress))
+                .execution_options(synchronize_session=False)).rowcount
+            if changed != 1:
+                db.session.rollback()
+                return {'error': 'plan_changed', 'message': 'Your plan changed while I was adjusting it. Try again.'}
+            db.session.commit()
+            try:
+                invalidate_schedule_cache(user_id=user_id, guest_id=None)
+            except Exception:
+                logger.warning('Chat plan repair cache invalidation failed', exc_info=True)
+        return {'status': 'ok', 'preview': preview, 'saved': not preview,
+                'schedule': data, **summary,
+                'calendar_updated': False,
+                'message': ('This is a preview; your saved plan is unchanged.' if preview else
+                            'Your study plan is updated. Assignment deadlines and previously exported calendar events are unchanged.')}
+    except ValueError as exc:
+        return {'error': 'invalid_adjustment', 'message': str(exc)}
+    except Exception:
+        db.session.rollback()
+        logger.warning('Chat plan repair failed', exc_info=True)
+        return {'error': 'adjustment_failed', 'message': 'I could not adjust the plan. Try again.'}
 
 
 def _execute_tool(name: str, args: dict, user_id: int) -> dict[str, Any]:
@@ -467,13 +572,9 @@ def _execute_tool(name: str, args: dict, user_id: int) -> dict[str, Any]:
     from App import (
         ManualTask, SavedSchedule, ImportedGrade, DismissedAssignment,
         CourseNote, DayArchive, db,
-        infer_task_difficulty, PRIORITY_COLORS, enrich_schedule_data,
-        humanize_schedule, build_student_context,
-        _ai_personalization_enabled, _summarize_grade_signals,
-        _fetch_grades_for_personalization, build_scheduler_personalization,
+        infer_task_difficulty, PRIORITY_COLORS, build_scheduler_personalization,
         save_dismissed, invalidate_lms_cache_for_user,
     )
-    from ai_provider import ai_available as _ai_available, chat as provider_chat
 
     today_str = datetime.now().strftime("%Y-%m-%d")
 
@@ -738,22 +839,35 @@ def _execute_tool(name: str, args: dict, user_id: int) -> dict[str, Any]:
         except Exception: pass
         return {"status": "ok", "message": f"Deleted '{title}'."}
 
+    if name == "adjust_schedule":
+        return _adjust_saved_schedule(args, user_id)
+
     if name == "generate_schedule":
         generation_state = _processing_state(user_id)
         if generation_state is None:
             return {'error': 'policy_unavailable'}
         tasks = ManualTask.query.filter_by(user_id=user_id, done=False).all()
+        from command_center_glue import _filter_stored_tasks
+        tasks = _filter_stored_tasks(user_id, tasks)
         try:
             synced_tasks = _permitted_lms_tasks(user_id)
         except Exception:
             synced_tasks = []
         if not tasks and not synced_tasks:
             return {"error": "No pending tasks to schedule."}
-        hours = int(args.get("hours_per_day", 2))
+        try:
+            hours = float(args.get("hours_per_day", 2))
+            if not 0 < hours <= 12:
+                raise ValueError
+        except (TypeError, ValueError):
+            return {"error": "Choose study hours greater than zero and at most 12 per day."}
         pref = args.get("preferred_time", "evening")
+        if pref not in {"morning", "afternoon", "evening"}:
+            return {"error": "Choose morning, afternoon, or evening for your study time."}
         assignments = []
         for t in tasks:
             assignments.append({
+                "id": f"manual:{t.id}",
                 "title": t.title, "course": t.course or "Personal",
                 "due_date": t.due_date or "", "priority": t.priority or "Medium",
                 "estimated_time": t.estimated_time or 60,
@@ -761,26 +875,19 @@ def _execute_tool(name: str, args: dict, user_id: int) -> dict[str, Any]:
                 "color": PRIORITY_COLORS.get(t.priority or "Medium", "#60a5fa"),
             })
         for t in synced_tasks:
+            source = t.get('source') or 'lms'
+            source_id = t.get('id') or t.get('source_ref') or t.get('external_id')
+            if not source_id:
+                source_id = json.dumps([t.get('course') or '', t.get('title') or '',
+                                        t.get('due_date') or ''], separators=(',', ':'))
             assignments.append({
+                "id": f"{source}:{source_id}",
                 "title": t.get("title") or "Untitled assignment", "course": t.get("course") or "School",
                 "due_date": t.get("due_date") or "", "priority": t.get("priority") or "Medium",
                 "estimated_time": t.get("estimated_time") or 60,
                 "difficulty": t.get("difficulty") or infer_task_difficulty(None, t.get("priority") or "Medium", t.get("due_date")),
                 "color": t.get("color") or PRIORITY_COLORS.get(t.get("priority") or "Medium", "#60a5fa"),
             })
-        overdue = [a for a in assignments if a["due_date"] and a["due_date"] < today_str]
-        upcoming = [a for a in assignments if not a["due_date"] or a["due_date"] >= today_str]
-        upcoming.sort(key=lambda x: x.get("due_date") or "9999")
-        overdue_text = "\nOVERDUE:\n" + "\n".join(f"  - {a['title']} ({a['course']}) was due {a['due_date']}" for a in overdue) if overdue else ""
-        upcoming_text = "\nUPCOMING:\n" + "\n".join(f"  - {a['title']} ({a['course']}) due {a['due_date']}, priority {a['priority']}, ~{a['estimated_time']}min" for a in upcoming) if upcoming else ""
-
-        grades_summary = None
-        if _ai_personalization_enabled() and _source_data_allowed(_tool_user(user_id)):
-            try:
-                grades_summary = _summarize_grade_signals(_fetch_grades_for_personalization())
-            except Exception:
-                pass
-        profile_ctx = build_student_context(user_id=user_id, grades_summary=grades_summary, depth="full")
         # Same personalization the /generate-schedule endpoint uses, so a plan
         # made in chat lands in the student's real hours just like one made on
         # the Scheduler page.
@@ -794,53 +901,38 @@ def _execute_tool(name: str, args: dict, user_id: int) -> dict[str, Any]:
         # Command Center's own suggested prompt, so it has to work: the
         # window runs long enough for the hours plus breaks, capped at 23:30.
         if study_start and not study_end:
-            study_end = _add_minutes(study_start, hours * 60 + 45, cap="23:30")
+            study_end = _add_minutes(study_start, int(round(hours * 60)) + 45, cap="23:30")
         if study_end and not study_start:
-            study_start = _add_minutes(study_end, -(hours * 60 + 45), cap="06:00")
+            study_start = _add_minutes(study_end, -(int(round(hours * 60)) + 45), cap="06:00")
         if study_start and study_end and study_end <= study_start:
             return {"error": "Your study end time must be after the start time."}
         if study_start:
             availability = {day: {"start": study_start, "end": study_end} for day in scheduler_engine.DAY_ABBR}
-        week_ctx = scheduler_engine.describe_week(availability, commitments)
-        habits_ctx = dna.to_prompt() if _ai_personalization_enabled() else ""
-
-        prompt = f"""Today is {today_str}. Schedule ALL items for this student.
-{profile_ctx}{week_ctx}{habits_ctx}{overdue_text}{upcoming_text}
-Availability: {hours} hours/day, prefers {pref}.
-If REAL WEEK is present, schedule no work on days marked "no study time available".
-Write "notes" as the actual next physical action for that assignment, and make
-"daily_tip" specific to that day — never filler that would fit any other day.
-Return ONLY valid JSON:
-{{"schedule": [{{"date": "YYYY-MM-DD", "day_name": "Monday", "total_hours": {hours}, "blocks": [{{"assignment": "title", "course": "name", "duration_minutes": 45, "time_slot": "7:00 PM", "notes": "focus", "is_break": false}}], "daily_tip": "tip"}}], "overview": "summary", "total_study_time": "X hours"}}"""
-
-        if not _ai_available():
-            return {"error": "AI temporarily unavailable."}
         try:
             denial = _tool_denial(name, args, user_id)
             if denial:
                 return denial
             if _processing_state(user_id) != generation_state:
                 return {'error': 'account_access_changed'}
-            generation = ai_firewall.guard(_tool_user(user_id), prompts=[prompt],
-                want_output_tokens=8000, feature='agent')
-            raw = provider_chat([{"role": "user", "content": prompt}], tier="standard",
-                temperature=0.3, max_tokens=min(8000, generation.max_output_tokens),
-                plan=generation.plan, response_format={"type": "json_object"})
-            ai_firewall.record_tokens(generation, len(prompt), len(raw))
-            raw = re.sub(r"```json\n?", "", raw)
-            raw = re.sub(r"```\n?", "", raw).strip()
-            schedule = json.loads(raw)
+            # Chat and the Scheduler page must allocate the same real work.
+            # A model may interpret the request, but it cannot invent blocks.
+            from App import _build_planner_schedule
+            schedule = _build_planner_schedule(
+                assignments, [], user_id, None, availability, commitments,
+                pref, hours, dna=dna, record_version=False,
+            )
             denial = _tool_denial(name, args, user_id)
             if denial:
                 return denial
             if _processing_state(user_id) != generation_state:
                 return {'error': 'account_access_changed'}
-            schedule = enrich_schedule_data(schedule, assignments, pref, hours)
-            try:
-                schedule = humanize_schedule(schedule, pref, hours,
-                                             availability=availability,
-                                             commitments=commitments, dna=dna)
-            except Exception: pass
+            if not schedule or not any(
+                not block.get("is_break")
+                for day in schedule.get("schedule", [])
+                for block in day.get("blocks", [])
+            ):
+                return {"error": "No study work fits your available time. Your existing plan is unchanged.",
+                        "planning_failed": True}
             if _processing_state(user_id) != generation_state:
                 return {'error': 'account_access_changed'}
             sched_name = f"Plani Schedule {datetime.now().strftime('%b %d')}"
@@ -1038,6 +1130,9 @@ def _humanize_action(tool: str, args: dict, result: dict) -> str | None:
         return line
     if tool == "save_note":
         return f"✓ Saved to memories: {result.get('title', '')}"
+    if tool == "adjust_schedule" and result.get('status') == 'ok':
+        return ('Previewed study plan changes' if result.get('preview')
+                else 'Updated your saved study plan; assignment deadlines are unchanged')
     if tool == "navigate_to":
         return f"→ Opening {result.get('section', '')}"
     if tool == "track_course":
@@ -1545,12 +1640,13 @@ def plani_agent():
             if name == "recommend_courses" and isinstance(result, dict):
                 links.extend({"label": r["name"], "url": r["url"]}
                              for r in result.get("results") or [])
-            if name == "generate_schedule" and isinstance(result, dict) and result.get("schedule"):
-                schedule_preview = result["schedule"]
+            if name in {"generate_schedule", "adjust_schedule"} and isinstance(result, dict) and result.get("schedule"):
+                schedule_preview = dict(result["schedule"], preview=bool(result.get('preview')))
             # mutations should trigger UI refresh
             if not result.get('error') and name in ("create_task", "update_task", "complete_task",
-                        "delete_task", "generate_schedule", "save_note",
-                        "track_course", "log_course_progress"):
+                        "delete_task", "generate_schedule", "adjust_schedule", "save_note",
+                        "track_course", "log_course_progress") and not (
+                            name == 'adjust_schedule' and result.get('preview')):
                 refresh_ui = True
             results_text.append(f"[{name}] → {json.dumps(result, default=str)}")
 

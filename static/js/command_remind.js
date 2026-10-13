@@ -48,6 +48,8 @@
       on.hidden = true;
       dismiss.textContent = 'Close';
       bar.querySelector('strong').textContent = 'Reminders are on.';
+      var summary = bar.querySelector('summary');
+      if (summary) summary.textContent = 'Reminders are on';
       text.textContent = result.push
         ? 'Email and desktop notifications, before sessions and deadlines.'
         : 'By email. ' + (result.pushMessage || '');
