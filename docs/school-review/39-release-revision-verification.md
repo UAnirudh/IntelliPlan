@@ -24,6 +24,12 @@ public health metadata. All18 focused tests, scoped Ruff and the repository's
 configured Bandit scan pass. Independent Python and spec review findings were
 resolved. Hosted full checks and production verification remain separate.
 
+The initial hosted run also exposed an existing clock-sensitive chat repair
+fixture: planning used a fixed morning, while serialization used the wall clock
+and removed that day's study blocks late in the evening. The fixture now pins
+both clocks; production scheduling is unchanged. The combined release/Plani
+focused suite passes173 tests after this correction.
+
 ## Preceding checkpoints delivered
 
 PR88 merged as `715d0150c6ec77b7f61f548bd6b032e8fbc7ba6f` and deployed in Railway

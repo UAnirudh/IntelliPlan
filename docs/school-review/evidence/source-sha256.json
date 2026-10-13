@@ -69,7 +69,7 @@
   },
   {
     "path": "docs/school-review/39-release-revision-verification.md",
-    "sha256": "0abfd30afecf6a4d6d101b52d4b7ec98084e1c02d8bad15a6890294cd36dea5a"
+    "sha256": "24316cc1319b2bf07d0f41fea3f8efc8a3b962fe8794a3fe7da5bd3bf48e24cb"
   },
   {
     "path": "extra_features.py",
@@ -217,7 +217,7 @@
   },
   {
     "path": "scripts/wait_for_deployment.py",
-    "sha256": "8777cf916e976e3718167084ea3e58e3ffac58605cb3baa0149de2470a8b8683"
+    "sha256": "5fb9d4dc59bc6e5b4d0908cff2458ed492ef0df394a8e40c6db319f3f82d585c"
   },
   {
     "path": "static/css/command_center.css",
@@ -549,7 +549,7 @@
   },
   {
     "path": "tests/test_adaptive_source_policy.py",
-    "sha256": "9f0af957fd552b48f57b3904b6c4f9892e373aff5109f5857c9e2ecc4443348d"
+    "sha256": "67bd889f5db599286db10ade5b5333b04184b8811ff60f91ff616e01687849d1"
   },
   {
     "path": "tests/test_ai_provider_fallback.py",
@@ -565,7 +565,7 @@
   },
   {
     "path": "tests/test_deployment_revision.py",
-    "sha256": "accc720c30cadcc7e2cd684e26529ae44b9d24ae683639fb5d2bd084f7a85ed0"
+    "sha256": "5f837956d014de7f1128e773805132768c1bba2eb189465afc47e96b4931527b"
   },
   {
     "path": "tests/test_email_weekly.py",
@@ -589,7 +589,7 @@
   },
   {
     "path": "tests/test_plani_policy.py",
-    "sha256": "d8d102e6a880ce0e391af45d8a8d887f2ab2d348efd2cec47f73417038a61716"
+    "sha256": "f73f14e8079ff90da4b3f1f53f04faf5a34cefa51ad1b28f5a81bec1e52b9698"
   },
   {
     "path": "tests/test_retrieval.py",
