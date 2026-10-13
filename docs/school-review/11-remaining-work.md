@@ -6,6 +6,10 @@ Follow-on user requests originally sequenced the engineering brief before UI ref
 
 PR 86 is now merged and released: Railway plugin monitoring confirms the exact main merge commit deployed successfully, public health/schema checks pass, and UI assets match. The next checkpoint connects chat schedule creation to the same constraint-aware planner as the Scheduler page and reduces Command Center controls. Conversational schedule repair, whole-product simplification, and country/language support remain ongoing. See [release and chat planning](35-chat-planner-and-release.md).
 
+PR 87 is also merged and released at `a0ae247`: Railway production deployment `4b19c659-8a7f-4870-b81e-5de0452fae3d` succeeded, hosted unit checks passed (4462 passed, 16 skipped), and public live browser checks passed (130 passed, 1 skipped). Chat can preview or save real constraint-aware plan repairs while preserving deadlines and outgoing outcomes. See [conversational repair](36-conversational-plan-repair.md).
+
+The next adaptive recommendation checkpoint filters stored imports, gates mixed histories/audits and indirect availability reads, withholds responses after policy changes, binds narration to current owner consent, bounds explanation retries, and rejects stale override writes. Disposable tests and scoped independent reviews support this slice; production delivery is tracked separately. See [adaptive source policy](37-adaptive-source-policy.md). Universal policy enforcement, live provider/vendor proof and the remaining original acceptance criteria remain open.
+
 The following continuation adds conversational day/time repair through the existing follow-through engine, preserves outgoing past outcomes atomically with saved changes, rejects stale writes, and keeps repeated assignment titles' deadlines separate. Whole-product simplification, localization and the other original requirements remain open. See [conversational repair](36-conversational-plan-repair.md).
 
 | Requested acceptance item | Status | Evidence / remaining work |
