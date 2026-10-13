@@ -22484,15 +22484,19 @@ except Exception as _boot_e:
 def health_check():
     """Diagnostic endpoint. Returns DB-schema state so we can see in
     production whether the migration ran. Public, no secrets exposed."""
+    revision = os.environ.get('RAILWAY_GIT_COMMIT_SHA', '')
     out = {
         "status": "ok",
+        "revision": revision if re.fullmatch(r'[0-9a-f]{40}', revision) else None,
         "migration_done": bool(_MIGRATION_DONE),
         "users_columns": sorted(_existing_columns("users")),
         "notion_columns": sorted(_existing_columns("notion_integrations")),
     }
     expected = {"id", "email", "password_hash", "referral_code", "referred_by_id"}
     out["users_schema_ok"] = expected.issubset(set(out["users_columns"]))
-    return flask.jsonify(out)
+    response = flask.jsonify(out)
+    response.headers['Cache-Control'] = 'no-store'
+    return response
 
 
 @app.before_request

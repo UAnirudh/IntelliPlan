@@ -4,12 +4,16 @@
     "sha256": "cb0692724bfd140957300a6e7e5458141c73ad58c1c075e62ccf70bd4ec68a5e"
   },
   {
+    "path": ".github/workflows/main.yml",
+    "sha256": "403dfe524aecef8f1e028a2639a9e00bb147bbb59bc5fdbaa91840763f77a459"
+  },
+  {
     "path": ".github/workflows/security.yml",
     "sha256": "fef0049c6f37a486f5719d1f0ec0d05c44dab0e87c694ab843066de214582276"
   },
   {
     "path": "App.py",
-    "sha256": "f890007d02bc6ebdb1b1df63da3d4c55e305d85b78d287bf3a0730a4351c9b13"
+    "sha256": "bbb945bc5fa6856ad2d7033d3ba5739705e534f7b87f61b2b2bbf16bdb841103"
   },
   {
     "path": "Main_Project/templates/command_center.html",
@@ -53,7 +57,7 @@
   },
   {
     "path": "docs/school-review/11-remaining-work.md",
-    "sha256": "40cc172e3ee262840c2b588647991d79d691ca328ec73aa905f38371152ba317"
+    "sha256": "fb7426605b78821bd600528e9cb73733811a57f08b6dd43eea22fdbd9dfca9d3"
   },
   {
     "path": "docs/school-review/37-adaptive-source-policy.md",
@@ -61,7 +65,11 @@
   },
   {
     "path": "docs/school-review/38-native-dependency-patches.md",
-    "sha256": "34309e440a69dabc4c7305b5cd6b21843172ac419ec352e31a4dc056870e5b6e"
+    "sha256": "4e09324a3f3ab44362ddd7c763e201d14730daac4c0da1870972144ec22e1028"
+  },
+  {
+    "path": "docs/school-review/39-release-revision-verification.md",
+    "sha256": "0abfd30afecf6a4d6d101b52d4b7ec98084e1c02d8bad15a6890294cd36dea5a"
   },
   {
     "path": "extra_features.py",
@@ -206,6 +214,10 @@
   {
     "path": "scripts/verify_learning_resources.py",
     "sha256": "32d779bf576cdd3fe0656c4e18c27d5348f9b7f582c3583c0e128b6678e0984e"
+  },
+  {
+    "path": "scripts/wait_for_deployment.py",
+    "sha256": "8777cf916e976e3718167084ea3e58e3ffac58605cb3baa0149de2470a8b8683"
   },
   {
     "path": "static/css/command_center.css",
@@ -550,6 +562,10 @@
   {
     "path": "tests/test_curated_checks.py",
     "sha256": "8596ddb0384b3ce60f199d55010eab5e2ff314a98fad19e77abacd0f250d3cb1"
+  },
+  {
+    "path": "tests/test_deployment_revision.py",
+    "sha256": "accc720c30cadcc7e2cd684e26529ae44b9d24ae683639fb5d2bd084f7a85ed0"
   },
   {
     "path": "tests/test_email_weekly.py",

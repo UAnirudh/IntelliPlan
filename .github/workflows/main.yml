@@ -57,22 +57,11 @@ jobs:
       # ── Deploy-wait guard: Railway takes 1-3 minutes to roll out a push.
       # The Playwright suite hits LIVE intelliplan.tech, so without this
       # wait the tests race the deploy and see 502s on the very URLs that
-      # are about to be served fine. Polls /api/live (lightweight JSON
-      # endpoint) every 10s for up to ~7 minutes. Only runs on push to
+      # are about to be served fine. Polls /health for this exact commit and
+      # successful schema startup every 10s for up to ~7 minutes. Only runs on push to
       # main, since PRs don't trigger a Railway deploy.
       - name: Wait for production to be healthy
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: |
-          for i in $(seq 1 40); do
-            code=$(curl -s -o /dev/null -w "%{http_code}" https://intelliplan.tech/api/live)
-            if [ "$code" = "200" ]; then
-              echo "Production healthy (HTTP 200 on attempt $i)"
-              exit 0
-            fi
-            echo "Attempt $i: HTTP $code (waiting 10s for Railway to finish deploying)"
-            sleep 10
-          done
-          echo "Production never returned 200 within ~7 minutes; check Railway logs."
-          exit 1
+        run: python scripts/wait_for_deployment.py --revision "$GITHUB_SHA"
 
       - run: pytest test_intelliplan.py -v
