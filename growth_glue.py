@@ -319,10 +319,19 @@ def grant_signup_reward(new_user: Any, now: datetime | None = None) -> bool:
     if not getattr(new_user, "referred_by_id", None):
         return False
     now = now or utcnow()
-    new_user.paid_until = plans.extend_paid_until(
-        new_user.paid_until, now, plans.REFERRAL_REWARD_DAYS
-    )
+    _referral_month(new_user, now)
     return True
+
+
+def _referral_month(user: Any, now: datetime) -> None:
+    """Add a referral month. A month earned on a lapsed account is Pro.
+
+    Without resetting the tier, a lapsed Premium subscriber's referral month
+    would reopen Premium -- and its dollar AI budget -- for free.
+    """
+    if plans.plan_for(getattr(user, "paid_until", None), now) != plans.PAID:
+        user.plan_tier = None
+    user.paid_until = plans.extend_paid_until(user.paid_until, now, plans.REFERRAL_REWARD_DAYS)
 
 
 def _activated(user: Any) -> bool:
@@ -380,9 +389,7 @@ def settle_referral_rewards(inviter: Any, now: datetime | None = None) -> int:
         # referral cannot be "saved up" to pay out after the cap is raised.
         referee.referral_rewarded_at = now
         if already + granted < plans.REFERRAL_MAX_REWARDS:
-            inviter.paid_until = plans.extend_paid_until(
-                inviter.paid_until, now, plans.REFERRAL_REWARD_DAYS
-            )
+            _referral_month(inviter, now)
             granted += 1
     if pending:
         try:
@@ -490,18 +497,23 @@ def read_pay_token(token: str) -> int | None:
 PRICE_ENV = {plans.MONTHLY: "STRIPE_PRICE_ID", plans.YEARLY: "STRIPE_PRICE_ID_YEARLY"}
 
 
-def _price_id(interval: str) -> str:
+def _price_id(interval: str, plan: str = "pro") -> str:
+    from intelliplan.premium import catalog
+
+    premium_plan = catalog.get(plan)
+    if premium_plan is not None:
+        return premium_plan.stripe_price_id(interval)
     return os.getenv(PRICE_ENV.get(interval, PRICE_ENV[plans.MONTHLY]), "").strip()
 
 
-def _stripe(interval: str = plans.MONTHLY):
+def _stripe(interval: str = plans.MONTHLY, plan: str = "pro"):
     """The Stripe module and the Price to sell, or ``(None, None)``.
 
     Monthly is the plan that has to exist for billing to be open at all;
     yearly is offered only once its own Price is configured.
     """
     key = os.getenv("STRIPE_SECRET_KEY", "")
-    price = _price_id(interval)
+    price = _price_id(interval, plan)
     if not (billing_enabled() and key and price):
         return None, None
     try:
@@ -512,6 +524,20 @@ def _stripe(interval: str = plans.MONTHLY):
 
     stripe.api_key = key
     return stripe, price
+
+
+def _stripe_module():
+    """Stripe, configured, whichever plans are on sale. The webhook needs this
+    and not a Price: a deployment selling only Premium still gets events."""
+    key = os.getenv("STRIPE_SECRET_KEY", "")
+    if not (billing_enabled() and key):
+        return None
+    try:
+        import stripe
+    except ImportError:
+        return None
+    stripe.api_key = key
+    return stripe
 
 
 def _base_url() -> str:
@@ -535,8 +561,23 @@ def _offers() -> list[dict]:
     ]
 
 
-def _checkout_for(student: Any, *, payer_is_student: bool, interval: str = plans.MONTHLY) -> Any:
-    stripe, price = _stripe(interval)
+def _premium_offers() -> list[dict]:
+    """Premium plans checkout can sell right now, with what each includes."""
+    from intelliplan.premium import catalog
+
+    out = []
+    for plan in catalog.plans().values():
+        intervals = [i for i in (plans.MONTHLY, plans.YEARLY) if _stripe(i, plan.id)[0] is not None]
+        if intervals:
+            out.append({"plan": plan.id, "name": plan.name, "intervals": intervals,
+                        "price": plan.price_usd, "ai_budget_usd": plan.ai_budget_usd,
+                        "byok": plan.byok, "features": list(plan.features)})
+    return out
+
+
+def _checkout_for(student: Any, *, payer_is_student: bool, interval: str = plans.MONTHLY,
+                  plan: str = "pro") -> Any:
+    stripe, price = _stripe(interval, plan)
     if stripe is None:
         return None
     params: dict[str, Any] = {
@@ -549,9 +590,10 @@ def _checkout_for(student: Any, *, payer_is_student: bool, interval: str = plans
             "user_id": str(student.id),
             "payer": "student" if payer_is_student else "other",
             "interval": interval,
+            "plan": plan,
         },
-        "subscription_data": {"metadata": {"user_id": str(student.id)}},
-        "success_url": f"{_base_url()}/upgrade?paid=1",
+        "subscription_data": {"metadata": {"user_id": str(student.id), "plan": plan}},
+        "success_url": f"{_base_url()}/{'settings/ai' if plan != 'pro' else 'upgrade'}?paid=1",
         "cancel_url": f"{_base_url()}/upgrade",
         "allow_promotion_codes": True,
     }
@@ -578,6 +620,7 @@ def upgrade_page():
         billing_enabled=billing_enabled(),
         checkout_ready=_stripe()[0] is not None,
         offers=_offers(),
+        premium_offers=_premium_offers(),
         yearly_saving=plans.yearly_saving_percent(),
         # Only promise the stronger model where it is actually wired up.
         pro_model_ready=_pro_model_ready(),
@@ -600,9 +643,13 @@ def api_checkout():
         # A card in a minor's name is a chargeback waiting to happen. The
         # parent link below is the checkout for them.
         return jsonify({"status": "error", "message": "use_parent_link"}), 403
-    interval = plans.checkout_interval((request.get_json(silent=True) or {}).get("interval"))
+    from premium_glue import sellable_plan
+
+    body = request.get_json(silent=True) or {}
+    interval = plans.checkout_interval(body.get("interval"))
+    plan = sellable_plan(body.get("plan"))
     try:
-        checkout = _checkout_for(current_user, payer_is_student=True, interval=interval)
+        checkout = _checkout_for(current_user, payer_is_student=True, interval=interval, plan=plan)
     except Exception as exc:
         logger.exception("stripe checkout failed: %s", exc)
         return jsonify({"status": "error", "message": "Checkout is unavailable right now."}), 502
@@ -638,9 +685,12 @@ def pay_for_student(token):
             message="That payment link has expired or no longer works. Ask for a new one.",
         ), 404
     if request.method == "POST":
+        from premium_glue import sellable_plan
+
         interval = plans.checkout_interval(request.form.get("interval"))
+        plan = sellable_plan(request.form.get("plan"))
         try:
-            checkout = _checkout_for(student, payer_is_student=False, interval=interval)
+            checkout = _checkout_for(student, payer_is_student=False, interval=interval, plan=plan)
         except Exception as exc:
             logger.exception("stripe checkout (pay link) failed: %s", exc)
             checkout = None
@@ -657,6 +707,7 @@ def pay_for_student(token):
         "pay_for_student.html", active_page="pricing", student_first_name=first,
         already_paid=current_plan(student) == plans.PAID,
         offers=_offers(), yearly_saving=plans.yearly_saving_percent(),
+        premium_offers=_premium_offers(),
     )
 
 
@@ -688,7 +739,7 @@ def api_billing_portal():
 @growth_bp.route("/api/billing/webhook", methods=["POST"])
 def stripe_webhook():
     secret = os.getenv("STRIPE_WEBHOOK_SECRET", "")
-    stripe, _price = _stripe()
+    stripe = _stripe_module()
     if stripe is None or not secret:
         return jsonify({"status": "error", "message": "billing not configured"}), 503
     try:
@@ -718,6 +769,18 @@ def apply_billing_event(event: Any, now: datetime | None = None) -> bool:
     now = now or utcnow()
     kind = event["type"]
     obj = event["data"]["object"]
+    if kind == "checkout.session.completed" and (obj.get("metadata") or {}).get("kind") == "ai_topup":
+        # A one-time AI budget top-up: credit it, leave the plan window alone.
+        import premium_glue
+
+        try:
+            user = User.query.get(int((obj.get("metadata") or {}).get("user_id")))
+        except (TypeError, ValueError):
+            user = None
+        if user is None:
+            return False
+        premium_glue.apply_billing_event(user, event)
+        return True
     if kind == "checkout.session.completed":
         uid = obj.get("client_reference_id") or (obj.get("metadata") or {}).get("user_id")
         period_end = now + timedelta(days=31)
@@ -739,6 +802,9 @@ def apply_billing_event(event: Any, now: datetime | None = None) -> bool:
     # Never shorten a window: referral months already earned stay earned.
     if user.paid_until is None or period_end > user.paid_until:
         user.paid_until = period_end
+    import premium_glue
+
+    premium_glue.apply_billing_event(user, event)
     if obj.get("customer"):
         user.stripe_customer_id = str(obj["customer"])[:64]
     db.session.commit()

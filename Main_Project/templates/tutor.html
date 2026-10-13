@@ -268,6 +268,18 @@ main {
 
 .tutor-bubble-wrap { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
 .tutor-msg-group.user .tutor-bubble-wrap { align-items: flex-end; }
+.tutor-premium-meta {
+  margin-top: 4px; font-size: 0.72rem; color: var(--text-muted);
+}
+.tutor-premium-meta.is-low { color: var(--warning, #b45309); }
+.tutor-premium-meta a { color: var(--accent); }
+.tutor-just-answer {
+  margin-top: 6px; align-self: flex-start;
+  padding: 5px 12px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--border-strong, var(--border)); background: var(--bg-card);
+  color: var(--text-primary); font: inherit; font-size: 0.8rem;
+}
+.tutor-just-answer:disabled { opacity: 0.5; cursor: default; }
 .tutor-sender {
   font-family: var(--ipd-font-mono); font-size: 0.7rem; font-weight: 700;
   color: var(--text-muted); letter-spacing: 0.03em; padding: 0 4px;
@@ -2395,6 +2407,8 @@ async function sendTutorMessage() {
 
   let reply = '';
   let refusal = null;
+  let premiumMeta = null;
+  let clarifying = false;
   try {
     let endpoint = '/api/tutor';
     let body = {
@@ -2430,6 +2444,8 @@ async function sendTutorMessage() {
     if (!res.ok && !(data && data.reply)) throw new Error(data.error || `HTTP ${res.status}`);
     reply   = (data.reply || '').trim() || 'Sorry, I hit a snag. Try again.';
     refusal = data.refusal || null;
+    premiumMeta = data.premium || null;
+    clarifying = !!data.clarify;
     if (data.assignment_context) {
       const context = data.assignment_context;
       document.getElementById('tutorAssignmentStatus').textContent =
@@ -2455,6 +2471,7 @@ async function sendTutorMessage() {
   document.getElementById('tutorThinking').classList.remove('visible');
   setPlaniState('responding');
   addTutorMsg('bot', reply, refusal);
+  renderPremiumMeta(premiumMeta, clarifying);
   tutorHistory.push({ role: 'assistant', content: reply });
   speakReply(stripArtifacts(reply));
   setTimeout(() => setPlaniState('idle'), 650);
@@ -2463,6 +2480,58 @@ async function sendTutorMessage() {
   document.getElementById('tutorSendBtn').disabled = false;
   input.focus();
   scrollBottom();
+}
+
+/* Premium: which model answered and what it cost, a "just answer" button
+   after a clarifying question, and a note when the month's budget ran out. */
+function renderPremiumMeta(meta, clarifying) {
+  const container = document.getElementById('tutorMessages');
+  const last = container && container.lastElementChild;
+  if (!last) return;
+  const wrap = last.querySelector('.tutor-bubble-wrap');
+  if (!wrap) return;
+  if (clarifying) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'tutor-just-answer';
+    btn.textContent = 'Just answer';
+    btn.addEventListener('click', () => {
+      btn.disabled = true;
+      const input = document.getElementById('tutorInput');
+      input.value = 'Just answer';
+      sendTutorMessage();
+    });
+    wrap.appendChild(btn);
+  }
+  if (!meta) return;
+  const line = document.createElement('div');
+  line.className = 'tutor-premium-meta';
+  const names = { 'claude-haiku-5-5': 'Claude Haiku', 'claude-sonnet-5-5': 'Claude Sonnet',
+                  'claude-opus-5-5': 'Claude Opus' };
+  const parts = [];
+  if (meta.budget_exhausted) {
+    parts.push('This month\'s AI budget is used up, so this answer came from the free model.');
+    const link = document.createElement('a');
+    link.href = '/settings/ai';
+    link.textContent = ' Add more';
+    line.textContent = parts.join(' · ');
+    line.appendChild(link);
+    wrap.appendChild(line);
+    return;
+  }
+  if (meta.model) parts.push(names[meta.model] || meta.model);
+  if (meta.source === 'byok') parts.push('your account');
+  if (meta.route && meta.route.tier) parts.push(meta.route.tier);
+  if (meta.source === 'platform' && typeof meta.cost_usd === 'number') {
+    parts.push('$' + meta.cost_usd.toFixed(3));
+  }
+  if (meta.budget && typeof meta.budget.remaining_usd === 'number') {
+    parts.push('$' + meta.budget.remaining_usd.toFixed(2) + ' left this month');
+  }
+  if (!parts.length) return;
+  line.textContent = parts.join(' · ');
+  if (meta.budget && meta.budget.low) line.classList.add('is-low');
+  wrap.appendChild(line);
 }
 
 async function refreshConversationList(latestTitle) {

@@ -225,6 +225,71 @@ def test_real_today_cache_rebuilds_after_consent_withdrawal(account, monkeypatch
         cc.invalidate_today(account[0])
 
 
+@pytest.mark.parametrize('settings', [{'third_party_processing': False}, {'providers': []}, {'tutor': False}])
+def test_premium_direct_path_cannot_bypass_owner_policy(account, monkeypatch, settings):
+    import premium_glue
+
+    restrict(account, settings)
+    direct = Mock(side_effect=AssertionError('Restricted Premium provider path'))
+    monkeypatch.setattr(premium_glue, '_tutor_turn', direct)
+    with App.app.app_context():
+        user = App.db.session.get(App.User, account[0])
+        assert premium_glue.tutor_turn(user, stable_system='Synthetic', dynamic_system=[], messages=[]) is None
+    direct.assert_not_called()
+
+
+def test_premium_rejects_output_after_owner_policy_changes(account, monkeypatch):
+    import premium_glue
+    import ai_provider
+    from intelliplan.learning.courses import provider_user
+
+    def direct(user, **kwargs):
+        assert provider_user.get().id == account[0]
+        school = App.db.session.get(policy.models()['Organization'], account[1])
+        school.policy = {'providers': ['groq']}
+        App.db.session.commit()
+        return {'reply': 'Must not publish'}
+
+    monkeypatch.setattr(premium_glue, '_tutor_turn', direct)
+    with App.app.app_context():
+        previous = provider_user.get()
+        user = App.db.session.get(App.User, account[0])
+        with pytest.raises(ai_provider.AIUnavailable, match='permissions changed'):
+            premium_glue.tutor_turn(user, stable_system='Synthetic', dynamic_system=[], messages=[])
+        assert provider_user.get() is previous
+
+
+def test_premium_cannot_make_second_call_after_consent_withdrawal(account, monkeypatch):
+    import premium_glue
+
+    next_provider = Mock(side_effect=AssertionError('Stale prompt sent after consent withdrawal'))
+
+    def direct(user, **kwargs):
+        App.db.session.execute(update(App.User.__table__).where(App.User.id == user.id)
+                               .values(ai_personalization_opt_in=False))
+        if premium_glue._provider_allowed('claude'):
+            next_provider()
+
+    monkeypatch.setattr(premium_glue, '_tutor_turn', direct)
+    with App.app.app_context():
+        user = App.db.session.get(App.User, account[0])
+        with pytest.raises(premium_glue.TutorPolicyChanged):
+            premium_glue.tutor_turn(user, stable_system='Synthetic', dynamic_system=[], messages=[])
+    next_provider.assert_not_called()
+
+
+def test_premium_policy_change_is_not_a_generic_fallback(account, monkeypatch):
+    import premium_glue
+    import chatbot_api
+
+    monkeypatch.setattr(premium_glue, 'wants_premium_tutor', lambda user: True)
+    monkeypatch.setattr(premium_glue, 'tutor_turn', Mock(side_effect=premium_glue.TutorPolicyChanged('Changed')))
+    with App.app.test_request_context('/api/tutor'):
+        login_user(App.db.session.get(App.User, account[0]))
+        with pytest.raises(premium_glue.TutorPolicyChanged):
+            chatbot_api._premium_tutor_turn([], [], False)
+
+
 
 
 def trap_dissector(monkeypatch):

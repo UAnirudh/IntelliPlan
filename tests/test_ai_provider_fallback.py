@@ -9,10 +9,35 @@ All mocked — these must not consume API quota.
 """
 
 import pytest
-
 import ai_provider
 from ai_provider import AITruncatedError, MIN_USEFUL_THINKING, THINKING_SHARE, _supports_thinking
 
+
+def test_linked_keys_follow_processing_policy_and_provider_alias(monkeypatch):
+    import ai_provider
+    from intelliplan.learning import enforcement
+
+    monkeypatch.setattr(ai_provider, '_byok_steps', lambda tier: [
+        ('anthropic', 'test-model', 'test-key'), ('groq', 'test-model', 'test-key')])
+    checked = []
+
+    def permitted(provider):
+        checked.append(provider)
+        return provider == 'groq'
+
+    monkeypatch.setattr(enforcement, 'permitted_processing', permitted)
+    assert ai_provider._linked_steps('fast') == [('groq', 'test-model', 'test-key')]
+    assert checked == ['claude', 'groq']
+
+
+def test_linked_gemini_key_does_not_supply_minor_contract(monkeypatch):
+    import ai_provider
+    from intelliplan.learning import enforcement
+
+    monkeypatch.setattr(ai_provider, '_byok_steps', lambda tier: [('gemini', 'test-model', 'test-key')])
+    monkeypatch.setattr(enforcement, 'permitted_processing', lambda provider: True)
+    monkeypatch.delenv('GEMINI_MINORS_CONTRACT_APPROVED', raising=False)
+    assert ai_provider._linked_steps('fast') == []
 
 class _FR:
     def __init__(self, name): self.name = name

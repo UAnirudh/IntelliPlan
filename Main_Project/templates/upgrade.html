@@ -125,6 +125,15 @@
       {% endif %}
     </aside>
   </div>
+
+  {% if premium_offers %}
+  <section class="upg-offer" style="margin-top: var(--space-6);" aria-labelledby="upg-premium">
+    <p class="u-label" id="upg-premium">IntelliPlan Premium</p>
+    <h2 style="font-family: var(--font-display); font-weight: 600; margin: 0.2rem 0 0.4rem;">Claude as your tutor, from ${{ '%.0f'|format(premium_offers[-1].price['month']) }} a month.</h2>
+    <p class="upg-note">Plani picks the right Claude model for each question and asks a clarifying question when yours is vague. Premium includes ${{ '%.0f'|format(premium_offers[0].ai_budget_usd) }} of AI a month; link your own AI account for the lower price.</p>
+    <a class="btn-secondary" href="/settings/ai">See Premium</a>
+  </section>
+  {% endif %}
 </div>
 
 <script>
