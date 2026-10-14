@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 
 import outlook_calendar_helper as outlook
 
@@ -29,6 +29,37 @@ def test_busy_calendar_view_is_translated_to_local_minutes(monkeypatch):
     }]}))
     busy = outlook.busy_minutes_by_date({"access_token": "x"}, date(2026, 3, 2), days=2)
     assert busy[date(2026, 3, 2)] == [(18 * 60, 19 * 60 + 30)]
+
+
+def test_iana_zone_tracks_dst_and_preserves_all_day_dates(monkeypatch):
+    requested = []
+    def calendar_view(token, start, end):
+        requested.append((start, end))
+        return [
+            {'start': {'dateTime': '2026-11-02T20:00:00'},
+             'end': {'dateTime': '2026-11-02T21:00:00'}},
+            {'isAllDay': True, 'start': {'dateTime': '2026-11-01T07:00:00'},
+             'end': {'dateTime': '2026-11-02T08:00:00'}},
+        ]
+    monkeypatch.setattr(outlook, '_calendar_view', calendar_view)
+    busy = outlook.busy_minutes_by_date({}, date(2026, 10, 31), days=3,
+                                        utc_offset_minutes=-420, tz_name='America/Los_Angeles')
+    assert requested == [(datetime(2026, 10, 31, 7), datetime(2026, 11, 3, 8))]
+    assert busy[date(2026, 11, 2)] == [(12 * 60, 13 * 60)]
+    assert busy[date(2026, 11, 1)] == [(0, 1440)]
+
+
+def test_repeated_hour_and_cross_zone_all_day_boundaries(monkeypatch):
+    monkeypatch.setattr(outlook, '_calendar_view', lambda *args: [
+        {'start': {'dateTime': '2026-11-01T08:30:00'},
+         'end': {'dateTime': '2026-11-01T09:15:00'}},
+        {'isAllDay': True, 'start': {'dateTime': '2026-11-02T05:00:00'},
+         'end': {'dateTime': '2026-11-03T05:00:00'}},
+    ])
+    busy = outlook.busy_minutes_by_date({}, date(2026, 11, 1), days=3,
+                                        tz_name='America/Los_Angeles')
+    assert busy[date(2026, 11, 1)] == [(60, 120), (21 * 60, 1440)]
+    assert busy[date(2026, 11, 2)] == [(0, 21 * 60)]
 
 
 def test_export_creates_only_study_blocks(monkeypatch):

@@ -11748,8 +11748,10 @@ def _planner_busy_by_date(horizon_days=14):
     """
     if not current_user.is_authenticated:
         return {}
+    from intelliplan.scheduler_clock import now_for
+    start = now_for(current_user.id).date()
     if not _calendar_policy_allowed():
-        return _class_busy_by_date(current_user.id, date.today(), horizon_days)
+        return _class_busy_by_date(current_user.id, start, horizon_days)
     memo_key = ("_planner_busy_by_date", int(horizon_days))
     try:
         cached = flask.g.get(memo_key[0]) or {}
@@ -11757,10 +11759,10 @@ def _planner_busy_by_date(horizon_days=14):
             return {d: list(v) for d, v in cached[memo_key[1]].items()}
     except RuntimeError:
         cached = None  # outside a request: nothing to memoise against
-    combined = _calendar_busy_by_date(horizon_days)
+    combined = _calendar_busy_by_date(horizon_days, start=start)
     if not _calendar_policy_allowed():
-        return _class_busy_by_date(current_user.id, date.today(), horizon_days)
-    for day, intervals in _class_busy_by_date(current_user.id, date.today(), horizon_days).items():
+        return _class_busy_by_date(current_user.id, start, horizon_days)
+    for day, intervals in _class_busy_by_date(current_user.id, start, horizon_days).items():
         combined.setdefault(day, []).extend(intervals)
     if cached is not None:
         try:
@@ -11775,21 +11777,22 @@ def _calendar_busy_by_date(horizon_days=14, start=None):
     """Busy ranges from Google and Outlook only, ``{date: [(start, end)]}``."""
     if not _calendar_policy_allowed():
         return {}
-    start = start or date.today()
+    from intelliplan.scheduler_clock import now_for, timezone_for
+    start = start or now_for(current_user.id).date()
     try:
-        offset = getattr(current_user, "utc_offset_minutes", 0) or 0
+        zone, offset = timezone_for(current_user.id)
         combined = {}
         token = get_google_token()
         if token and _calendar_policy_allowed() and has_calendar_scope(token):
             from google_calendar_helper import busy_minutes_by_date
             for day, intervals in busy_minutes_by_date(
-                token, start, days=horizon_days, utc_offset_minutes=offset
+                token, start, days=horizon_days, utc_offset_minutes=offset, tz_name=zone
             ).items():
                 combined.setdefault(day, []).extend(intervals)
         outlook_token = get_outlook_token() if _calendar_policy_allowed() else None
         if outlook_token and _calendar_policy_allowed():
             for day, intervals in outlook_calendar_helper.busy_minutes_by_date(
-                outlook_token, start, days=horizon_days, utc_offset_minutes=offset
+                outlook_token, start, days=horizon_days, utc_offset_minutes=offset, tz_name=zone
             ).items():
                 combined.setdefault(day, []).extend(intervals)
         return combined if _calendar_policy_allowed() else {}
@@ -12146,6 +12149,8 @@ def _build_planner_schedule(normalized_assignments, custom_tasks, uid, gid,
     try:
         from intelliplan.intelligence.planner import PlannerConfig
         from intelliplan.services.scheduling import SchedulingService, StudentContext
+        from intelliplan.scheduler_clock import now_for
+        planning_now = now_for(uid)
 
         rows = _planner_task_rows(
             normalized_assignments,
@@ -12185,10 +12190,8 @@ def _build_planner_schedule(normalized_assignments, custom_tasks, uid, gid,
         service = SchedulingService(
             context, config, follow_through=_followthrough_on(uid),
         )
-        plan, chosen = _choose_plan(service, rows, uid)
-        data = service.to_schedule_data(plan)
-        if uid and record_version:
-            _record_plan_version(uid, plan, chosen, data)
+        plan, chosen = _choose_plan(service, rows, uid, now=planning_now)
+        data = service.to_schedule_data(plan, now=planning_now)
 
         # Reuse the existing enrichment so the Interactive View, checklists,
         # and redirects keep working exactly as they do on the AI path.
@@ -12198,6 +12201,14 @@ def _build_planner_schedule(normalized_assignments, custom_tasks, uid, gid,
             )
         except Exception as ee:
             print(f"[planner] enrich_schedule_data failed (non-fatal): {ee}")
+        validation = service.verify(data, planning_now)
+        if not validation.feasible:
+            app.logger.warning('Planner produced a plan that failed feasibility checks')
+            return None
+        data['feasibility'] = validation.to_dict()
+        data['planned_at_local'] = planning_now.isoformat(timespec='seconds')
+        if uid and record_version:
+            _record_plan_version(uid, plan, chosen, data)
         return data
     except Exception as pe:
         import traceback
@@ -12234,7 +12245,7 @@ def _followthrough_extras(uid, gid):
         return {}
 
 
-def _choose_plan(service, rows, uid):
+def _choose_plan(service, rows, uid, *, now=None):
     """The plan to ship, and the candidate it came from.
 
     Outside the adaptive-scheduler cohort this is exactly the old behaviour:
@@ -12251,33 +12262,31 @@ def _choose_plan(service, rows, uid):
     single-plan path: this is a ranking improvement, and a ranking
     improvement must never be the reason a student gets no schedule.
     """
+    from intelliplan.scheduler_clock import now_for
+    now = now if now is not None else now_for(uid)
     if not uid or not feature_enabled_for_user("adaptive_scheduler", uid):
-        return service.plan(rows), None
+        return service.plan(rows, now=now), None
     try:
-        from intelliplan.intelligence import constraints as _constraints
         from intelliplan.intelligence import counterfactual as _cf
 
-        candidates = service.plan_candidates(rows)
+        candidates = service.plan_candidates(rows, now=now)
         if not candidates:
-            return service.plan(rows), None
+            return service.plan(rows, now=now), None
 
         def _feasible(candidate):
             try:
-                data = service.to_schedule_data(candidate.plan)
-                return _constraints.check_schedule(data).feasible
+                data = service.to_schedule_data(candidate.plan, now=now)
+                return service.verify(data, now).feasible
             except Exception:
-                # An unverifiable candidate is not a rejected one. Vetoing on
-                # a checker crash would silently prefer whichever plan the
-                # checker happened to cope with.
-                return True
+                return False
 
         winner = _cf.choose(candidates, require_feasible=_feasible)
         if winner is None:
-            return service.plan(rows), None
+            return service.plan(rows, now=now), None
         return winner.plan, winner
     except Exception as exc:
         print(f"[planner] candidate comparison failed, using single plan: {exc}")
-        return service.plan(rows), None
+        return service.plan(rows, now=now), None
 
 
 def _record_plan_version(uid, plan, chosen, data, trigger="generated"):
@@ -12591,6 +12600,10 @@ def generate_schedule():
                 "data": planned,
                 "used_presets": used_presets,
             })
+        return flask.jsonify({
+            'status': 'error', 'error': 'schedule_unverified',
+            'message': 'We could not verify a plan against your free time. Please try again.',
+        }), 503
 
     # Re-baseline estimates against how long work actually takes THIS student,
     # before they reach the prompt — a plan built on "60 min" for someone who

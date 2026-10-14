@@ -266,6 +266,7 @@ class Session:
     #: Position in the parent assignment's stage sequence, 1-based; 0 when the
     #: work was not decomposed.
     stage_index: int = 0
+    preserve_sitting: bool = False
 
     @property
     def label(self) -> str:
@@ -1369,6 +1370,7 @@ def _materialise(
                 estimate_confidence=item.estimate.confidence,
                 parent_title=item.task.parent_title,
                 stage_index=item.task.stage_index,
+                preserve_sitting=bool(item.task.pinned or item.task.sittings),
             )
         )
 

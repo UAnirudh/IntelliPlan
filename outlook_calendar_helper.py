@@ -151,39 +151,31 @@ def _is_busy(event: dict) -> bool:
 
 
 def busy_minutes_by_date(token: dict, start_date: date, days: int = 14,
-                         utc_offset_minutes: int = 0) -> dict[date, list[tuple[int, int]]]:
+                         utc_offset_minutes: int = 0,
+                         tz_name: str | None = None) -> dict[date, list[tuple[int, int]]]:
     """Read the calendar view once and return local wall-clock busy ranges.
 
     The window is the student's local days converted to UTC. It used to send
     local midnight as if it were UTC, so a student at UTC-7 lost the last
     seven hours of the horizon and gained seven hours before it.
     """
-    offset = timedelta(minutes=int(utc_offset_minutes or 0))
+    from time_utils import busy_intervals, to_utc
+    offset = int(utc_offset_minutes or 0)
     local_start = datetime.combine(start_date, datetime.min.time())
     local_end = local_start + timedelta(days=max(1, min(60, int(days or 1))))
-    events = _calendar_view(token, local_start - offset, local_end - offset)
+    utc_start, utc_end = to_utc(local_start, tz_name, offset), to_utc(local_end, tz_name, offset)
+    events = _calendar_view(token, utc_start, utc_end)
     out: dict[date, list[tuple[int, int]]] = {}
     for event in events:
         if not _is_busy(event):
             continue
         try:
-            if event.get("isAllDay"):
-                cursor, finish = _graph_datetime(event["start"]), _graph_datetime(event["end"])
-                while cursor.date() < finish.date():
-                    out.setdefault(cursor.date(), []).append((0, 24 * 60))
-                    cursor += timedelta(days=1)
-                continue
-            cursor, finish = _graph_datetime(event["start"]) + offset, _graph_datetime(event["end"]) + offset
+            start = max(_graph_datetime(event['start']), utc_start)
+            end = min(_graph_datetime(event['end']), utc_end)
         except (KeyError, TypeError, ValueError):
             continue
-        while cursor < finish:
-            midnight = datetime.combine(cursor.date(), datetime.min.time())
-            piece_end = min(finish, midnight + timedelta(days=1))
-            a = cursor.hour * 60 + cursor.minute
-            b = int((piece_end - midnight).total_seconds() // 60)
-            if b > a:
-                out.setdefault(cursor.date(), []).append((a, min(b, 24 * 60)))
-            cursor = piece_end
+        for day, intervals in busy_intervals(start, end, tz_name, offset).items():
+            out.setdefault(day, []).extend(intervals)
     return out
 
 

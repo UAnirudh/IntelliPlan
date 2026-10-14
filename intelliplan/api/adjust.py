@@ -94,6 +94,8 @@ class AdjustDeps:
     notify: Callable[[int, Any], Any] = field(default=lambda uid, run: None)
     #: ``[(user_id, None)]`` for every student with a live plan (cron).
     active_owners: Callable[[], list] = field(default=lambda: [])
+    #: Cron work must resolve the explicit student's clock, not its caller.
+    owner_now: Callable[[int | None], datetime] | None = None
 
 
 def _task_ids(schedule_data: Mapping[str, Any] | None) -> set[str]:
@@ -108,6 +110,9 @@ def _task_ids(schedule_data: Mapping[str, Any] | None) -> set[str]:
 
 def create_adjust_blueprint(deps: AdjustDeps) -> Blueprint:
     bp = Blueprint("followthrough", __name__)
+
+    def _now_for(uid):
+        return deps.owner_now(uid) if deps.owner_now is not None else deps.now()
 
     def _require_owner() -> tuple[int | None, str | None]:
         uid, gid = deps.identity()
@@ -134,7 +139,7 @@ def create_adjust_blueprint(deps: AdjustDeps) -> Blueprint:
                 "message": "There's no saved plan to adjust yet — make one first.",
             }), 404
 
-        now = deps.now()
+        now = _now_for(uid)
         today = now.date()
         try:
             reality = deps.session_reality(_task_ids(schedule_data), uid, gid) or {}
@@ -208,7 +213,7 @@ def create_adjust_blueprint(deps: AdjustDeps) -> Blueprint:
         schedule_data, progress = deps.load_plan(uid, gid)
         if not schedule_data or not schedule_data.get("schedule"):
             return {"status": "none", "acted": False}, 200
-        now = deps.now()
+        now = _now_for(uid)
         today = now.date()
         try:
             reality = deps.session_reality(_task_ids(schedule_data), uid, gid) or {}
@@ -302,7 +307,7 @@ def create_adjust_blueprint(deps: AdjustDeps) -> Blueprint:
         from intelliplan.intelligence.autopilot import AutopilotState
 
         state = AutopilotState.from_json(auto)
-        now = deps.now()
+        now = _now_for(uid)
         # An undo is the student saying "not like that". Stand down for
         # the rest of today rather than redoing it on the next page load.
         state = AutopilotState(
@@ -385,7 +390,7 @@ def create_adjust_blueprint(deps: AdjustDeps) -> Blueprint:
             return jsonify({"status": "none"})
         try:
             service = deps.build_service(uid, gid, dict(request.args))
-            body = service.forecast(schedule_data, progress, now=deps.now())
+            body = service.forecast(schedule_data, progress, now=_now_for(uid))
         except Exception as exc:
             logger.exception("forecast failed: %s", exc)
             return jsonify({"status": "error", "message": "Forecast unavailable."}), 500

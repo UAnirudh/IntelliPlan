@@ -299,6 +299,7 @@ def prepare_repair(account, monkeypatch):
     import followthrough_glue as followthrough
     from intelliplan.services import scheduling
     from datetime import datetime
+    monkeypatch.setattr('intelliplan.scheduler_clock.utcnow', lambda: datetime(2026, 10, 13, 8))
     class PlanningClock(datetime):
         @classmethod
         def now(cls, tz=None):
@@ -312,7 +313,7 @@ def prepare_repair(account, monkeypatch):
     monkeypatch.setattr(App, '_planner_busy_by_date', lambda: {})
     monkeypatch.setattr(followthrough, 'followthrough_enabled', lambda uid: True)
     monkeypatch.setattr(followthrough, '_now', lambda: datetime(2026, 10, 13, 8))
-    monkeypatch.setattr(App, '_choose_plan', lambda service, rows, uid:
+    monkeypatch.setattr(App, '_choose_plan', lambda service, rows, uid, **kwargs:
                         (service.plan(rows, now=datetime(2026, 10, 13, 8)), None))
     result = tool(account, 'generate_schedule')
     assert result['status'] == 'ok'

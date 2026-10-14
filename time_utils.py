@@ -99,3 +99,44 @@ def to_utc(local: datetime, tz_name: str | None = "", utc_offset_minutes: int = 
     if zone is None:
         return local - timedelta(minutes=int(utc_offset_minutes or 0))
     return local.replace(tzinfo=zone, fold=0).astimezone(timezone.utc).replace(tzinfo=None)
+
+
+def busy_intervals(start: datetime, end: datetime, tz_name=None, utc_offset_minutes=0):
+    """Conservative local minute ranges for a positive UTC calendar interval.
+
+    Wall-clock plans cannot distinguish the two readings of a repeated hour.
+    Include both sides of any offset transition so that hour is never offered
+    as free time. Probe by UTC day, then locate each transition precisely.
+    """
+    if end <= start:
+        return {}
+    def local(instant):
+        return to_local(instant, tz_name, utc_offset_minutes)
+    points = [local(start), local(end)]
+    cursor = start
+    while cursor < end:
+        probe = min(end, cursor + timedelta(days=1))
+        offset = local(cursor) - cursor
+        if local(probe) - probe != offset:
+            lo, hi = cursor, probe
+            while hi - lo > timedelta(microseconds=1):
+                mid = lo + (hi - lo) / 2
+                if local(mid) - mid == offset:
+                    lo = mid
+                else:
+                    hi = mid
+            points.extend((local(lo) + timedelta(microseconds=1), local(hi)))
+        cursor = probe
+    first, finish = min(points), max(points)
+    out = {}
+    cursor = first
+    while cursor < finish:
+        midnight = datetime.combine(cursor.date(), datetime.min.time())
+        piece_end = min(finish, midnight + timedelta(days=1))
+        a = int((cursor - midnight).total_seconds() // 60)
+        seconds = (piece_end - midnight).total_seconds()
+        b = min(1440, int(-(-seconds // 60)))
+        if b > a:
+            out[cursor.date()] = [(a, b)]
+        cursor = piece_end
+    return out

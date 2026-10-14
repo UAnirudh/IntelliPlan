@@ -43,6 +43,8 @@ notion-client>=2.2.1
 pywebpush>=1.14.0
 
 # Utilities
+# IANA zones on Windows and slim runtimes without a system zone database.
+tzdata>=2025.2
 requests>=2.31.0
 # Parses untrusted district XML (StudentVUE timetables) without entity expansion.
 defusedxml>=0.7.1

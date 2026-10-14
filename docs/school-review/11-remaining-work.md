@@ -1,5 +1,15 @@
 # Remaining work and acceptance ledger
 
+Latest user priorities are intelligent assignment scheduling, study signals
+with external cameras (USB/webcams/capture/phone/network), a question-led tutor
+with interactive visuals and Fish Audio, and paid-plan launch readiness while
+Stripe verification is pending. The first slice shares the student's local
+clock, uses DST-aware calendar constraints, fits new sittings into fragmented
+gaps and rejects unverified v2 output. Local tests and scoped review support
+this checkpoint; release and full-suite results follow separately. None of
+these four broad goals or the original brief is declared complete. See
+[smart scheduler calendar work](41-smart-scheduler-calendar.md).
+
 Statuses refer to this local checkpoint. **Verified Working** is limited to the evidence cited; it does not mean production verified. **Implemented but Unverified** means code exists without the required live/operational proof. **Partially Working** means only part of the full requirement is delivered. **Blocked** requires an external prerequisite. **Not Implemented** means the requested capability is absent.
 
 Follow-on user requests originally sequenced the engineering brief before UI refinement and multi-country/language support. The latest steering requests further UI adaptation alongside continued original work, with commits and pushes after each major change and visible results. The branch is pushed and linked to PR 86; the original brief, whole-product UI and localization are not declared complete. Localization scope still requires the existing-product audit.
