@@ -30,6 +30,7 @@ from flask import jsonify, request
 from flask_login import current_user
 
 from time_utils import utcnow
+from intelliplan.scheduler_clock import now_for
 
 from intelliplan.api.adjust import FLAG_KEY, AdjustDeps, create_adjust_blueprint
 from intelliplan.intelligence.followthrough import (
@@ -91,7 +92,7 @@ def followthrough_enabled(user_id: int | None) -> bool:
 def _now() -> datetime:
     # Local wall clock, like next_action_glue: "today" is a question about
     # the student's day, and the window engine works in local time.
-    return datetime.now()
+    return now_for(_identity()[0])
 
 
 # ── the plan ─────────────────────────────────────────────────────────
@@ -624,6 +625,7 @@ followthrough_bp = create_adjust_blueprint(
         identity=_identity,
         feature_enabled=followthrough_enabled,
         now=_now,
+        owner_now=now_for,
         load_plan=_load_plan,
         build_service=_build_service,
         finalize=_finalize,

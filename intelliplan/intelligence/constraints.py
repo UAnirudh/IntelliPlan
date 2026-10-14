@@ -210,6 +210,7 @@ def check_schedule(
     windows_for: Any = None,
     busy_by_date: Mapping[date, Sequence[tuple[int, int]]] | None = None,
     now: datetime | None = None,
+    allow_overdue_recovery: bool = False,
 ) -> FeasibilityReport:
     """Verify a finished plan against the real world.
 
@@ -240,7 +241,8 @@ def check_schedule(
 
         violations.extend(_check_overlaps(placed, day))
         violations.extend(_check_durations(placed, day))
-        violations.extend(_check_deadlines(placed, day))
+        violations.extend(_check_deadlines(placed, day, now=now,
+                                           allow_overdue_recovery=allow_overdue_recovery))
         violations.extend(_check_day_matches_block_dates(placed, day))
         violations.extend(_check_long_runs(placed, day))
         violations.extend(_check_capacity(day_entry, placed, day))
@@ -309,7 +311,8 @@ def _check_durations(placed: Sequence[_Placed], day: date) -> list[Violation]:
     return out
 
 
-def _check_deadlines(placed: Sequence[_Placed], day: date) -> list[Violation]:
+def _check_deadlines(placed: Sequence[_Placed], day: date, *, now=None,
+                     allow_overdue_recovery=False) -> list[Violation]:
     """Work scheduled after the thing it is for was due.
 
     This is a hard violation, not a warning. A plan that tells a student to
@@ -320,10 +323,11 @@ def _check_deadlines(placed: Sequence[_Placed], day: date) -> list[Violation]:
         if p.is_break or p.due_date is None:
             continue
         if p.start.date() > p.due_date:
+            recovery = bool(allow_overdue_recovery and now is not None and p.due_date < now.date())
             out.append(
                 Violation(
-                    key="after_deadline",
-                    severity=Severity.HARD,
+                    key="overdue_recovery" if recovery else "after_deadline",
+                    severity=Severity.SOFT if recovery else Severity.HARD,
                     day=day,
                     detail=(
                         f"{p.title} is scheduled for {p.start.date().isoformat()}, "
@@ -438,6 +442,8 @@ def _check_busy(
                 b0, b1 = int(interval[0]), int(interval[1])
             except (TypeError, ValueError, IndexError):
                 continue
+            if b1 <= b0:
+                continue
             if _overlaps(p.span, (b0, b1)):
                 out.append(
                     Violation(
@@ -464,20 +470,14 @@ def _check_windows(
     try:
         windows = list(windows_for(day) or [])
     except Exception:
-        # A failing availability provider must not turn into a false
-        # "infeasible" verdict — that would block a plan that is fine.
-        return []
-    if not windows:
-        return []
+        return [Violation(key='availability_unverified', severity=Severity.HARD, day=day,
+                          detail='Your available hours could not be verified.')]
     spans: list[tuple[int, int]] = []
     for w in windows:
         try:
             spans.append((_minutes_of_day(w.start), _minutes_of_day(w.end)))
         except AttributeError:
             continue
-    if not spans:
-        return []
-
     out: list[Violation] = []
     for p in placed:
         if p.is_break:

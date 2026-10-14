@@ -88,6 +88,25 @@ def test_work_on_the_due_date_itself_is_allowed():
     assert check_schedule(sched([blk("a", 9, 10, due=DAY.isoformat())])).feasible
 
 
+def test_explicit_catchup_is_feasible_but_keeps_original_late_deadline():
+    data = sched([blk('late', 9, 10, due=(DAY - timedelta(days=1)).isoformat())])
+    report = check_schedule(data, now=datetime.combine(DAY, datetime.min.time()),
+                            allow_overdue_recovery=True)
+    assert report.feasible
+    assert keys(report) == {'overdue_recovery'}
+    assert report.soft[0].block_ids == ('late',)
+
+
+def test_catchup_permission_never_excuses_missing_a_future_deadline():
+    report = check_schedule(
+        sched([blk('future', 9, 10, due=(DAY - timedelta(days=1)).isoformat())]),
+        now=datetime.combine(DAY - timedelta(days=2), datetime.min.time()),
+        allow_overdue_recovery=True,
+    )
+    assert not report.feasible
+    assert 'after_deadline' in keys(report)
+
+
 def test_study_booked_over_a_calendar_commitment_is_infeasible():
     report = check_schedule(
         sched([blk("a", 9, 11)]),
@@ -102,6 +121,11 @@ def test_a_commitment_that_does_not_overlap_is_not_a_conflict():
         sched([blk("a", 9, 10)]), busy_by_date={DAY: [(660, 720)]}
     )
     assert report.feasible
+
+
+def test_zero_length_calendar_period_cannot_create_a_false_conflict():
+    assert check_schedule(sched([blk('a', 9, 11)]),
+                          busy_by_date={DAY: [(600, 600), (660, 600)]}).feasible
 
 
 def test_work_outside_stated_availability_is_infeasible():
@@ -179,11 +203,17 @@ def test_unplaced_blocks_are_skipped_rather_than_invented_into_conflicts():
     assert report.blocks_checked == 1
 
 
-def test_a_failing_availability_provider_does_not_condemn_a_good_plan():
+def test_a_failing_availability_provider_cannot_certify_a_plan():
     def boom(day):
         raise RuntimeError("availability service is down")
 
-    assert check_schedule(sched([blk("a", 9, 10)]), windows_for=boom).feasible
+    report = check_schedule(sched([blk('a', 9, 10)]), windows_for=boom)
+    assert not report.feasible
+    assert 'availability_unverified' in keys(report)
+
+
+def test_no_free_windows_rejects_placed_work():
+    assert not check_schedule(sched([blk('a', 9, 10)]), windows_for=lambda day: []).feasible
 
 
 def test_the_report_serialises_for_logging():

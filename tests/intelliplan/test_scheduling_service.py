@@ -37,6 +37,125 @@ def service(**ctx):
     return SchedulingService(StudentContext(availability=FULL_WEEK, **ctx))
 
 
+def fragmented_plan(*, preserve=False):
+    from intelliplan.intelligence.planner import DayPlan, Plan, Session
+    sittings = tuple(Session(
+        task_id='gap-task', title='Problem set', course='Math', kind='homework',
+        day=TODAY, minutes=30, part_index=i, part_total=2, difficulty='medium',
+        priority=60, due_date=TODAY, preserve_sitting=preserve,
+    ) for i in (1, 2))
+    return Plan(days=(DayPlan(TODAY, sittings, 60, 60),), total_minutes=60)
+
+
+def fragmented_service():
+    # Three genuine 20-minute gaps, separated by meetings. Total study time
+    # is sufficient, but neither of the original 30-minute sittings fits.
+    return SchedulingService(StudentContext(
+        availability={'Mon': 'evening'}, busy_by_date={TODAY: [
+            (17 * 60 + 20, 18 * 60), (18 * 60 + 20, 19 * 60),
+            (19 * 60 + 20, 22 * 60),
+        ]}))
+
+
+def test_fresh_sittings_fit_fragmented_calendar_without_losing_work():
+    svc = fragmented_service()
+    data = svc.to_schedule_data(fragmented_plan(), now=NOW)
+    work = [b for day in data['schedule'] for b in day['blocks'] if not b.get('is_break')]
+    assert [b['duration_minutes'] for b in work] == [20, 20, 20]
+    assert [b['part_index'] for b in work] == [1, 2, 3]
+    assert {b['part_total'] for b in work} == {3}
+    assert sum(b['duration_minutes'] for b in work) == 60
+    assert data['deferred'] == []
+    assert svc.verify(data, NOW).feasible
+    assert data == svc.to_schedule_data(fragmented_plan(), now=NOW)
+
+
+def test_existing_sittings_are_reported_unplaced_instead_of_resized():
+    svc = fragmented_service()
+    data = svc.to_schedule_data(fragmented_plan(preserve=True), now=NOW)
+    assert sum(b['duration_minutes'] for d in data['schedule'] for b in d['blocks']
+               if not b.get('is_break')) == 0
+    assert [d['minutes'] for d in data['deferred']] == [30, 30]
+
+
+@pytest.mark.parametrize('gaps', [(20, 40), (25, 50), (20, 55)])
+def test_unequal_calendar_gaps_hold_all_feasible_minutes(gaps):
+    first, second = gaps
+    svc = SchedulingService(StudentContext(
+        availability={'Mon': 'evening'}, busy_by_date={TODAY: [
+            (17 * 60 + first, 18 * 60), (18 * 60 + second, 22 * 60),
+        ]}))
+    data = svc.to_schedule_data(fragmented_plan(), now=NOW)
+    work = [b for day in data['schedule'] for b in day['blocks'] if not b.get('is_break')]
+    assert sum(b['duration_minutes'] for b in work) == 60
+    assert not data['deferred']
+    assert svc.verify(data, NOW).feasible
+
+
+def test_ordinary_calendar_keeps_original_sitting_numbers():
+    from dataclasses import replace
+    plan = fragmented_plan()
+    sitting = replace(plan.sessions[0], part_index=2, part_total=3)
+    plan = replace(plan, days=(replace(plan.days[0], sessions=(sitting,)),))
+    data = service().to_schedule_data(plan, now=NOW)
+    work = [b for day in data['schedule'] for b in day['blocks'] if not b.get('is_break')]
+    assert [(b['part_index'], b['part_total']) for b in work] == [(2, 3)]
+
+
+def test_interleaved_preserved_sittings_keep_their_order():
+    from dataclasses import replace
+    plan = fragmented_plan(preserve=True)
+    first, last = plan.sessions
+    middle = replace(first, task_id='other', title='Reading', part_index=1, part_total=1)
+    plan = replace(plan, days=(replace(plan.days[0], sessions=(first, middle, last)),))
+    data = service().to_schedule_data(plan, now=NOW)
+    work = [b for d in data['schedule'] for b in d['blocks'] if not b.get('is_break')]
+    assert [b['task_id'] for b in work] == ['gap-task', 'other', 'gap-task']
+
+
+def test_clock_placement_failure_defers_all_work(monkeypatch):
+    def fail(*args, **kwargs):
+        raise RuntimeError('placement unavailable')
+    monkeypatch.setattr('scheduler_engine.place_day_blocks', fail)
+    data = service().to_schedule_data(fragmented_plan(), now=NOW)
+    assert all(not day['blocks'] for day in data['schedule'])
+    assert sum(d['minutes'] for d in data['deferred']) == 60
+    assert data['overloaded']
+
+
+@pytest.mark.parametrize('seed', range(12))
+def test_scarce_calendars_conserve_work_and_remain_feasible(seed):
+    from collections import Counter
+    from random import Random
+    random = Random(seed)
+    busy = {}
+    for offset in range(7):
+        day = TODAY + timedelta(days=offset)
+        cut = random.choice((20, 25, 40, 60))
+        busy[day] = [(17 * 60 + cut, 18 * 60), (18 * 60 + cut, 22 * 60)]
+    svc = SchedulingService(StudentContext(
+        availability={day: 'evening' for day in FULL_WEEK}, busy_by_date=busy))
+    tasks = [rows(id=f's{seed}-{i}', est_minutes=random.choice((30, 60, 90, 120)),
+                  due_date=(TODAY + timedelta(days=random.randint(1, 6))).isoformat())
+             for i in range(6)]
+    plan = svc.plan(tasks, today=TODAY, now=NOW)
+    expected = Counter()
+    for sitting in plan.sessions:
+        expected[sitting.task_id] += sitting.minutes
+    for deferred in plan.deferred:
+        expected[deferred.task_id] += deferred.minutes
+    data = svc.to_schedule_data(plan, now=NOW)
+    actual = Counter()
+    for day in data['schedule']:
+        for block in day['blocks']:
+            if not block.get('is_break'):
+                actual[block['task_id']] += block['duration_minutes']
+    for deferred in data['deferred']:
+        actual[deferred['task_id']] += deferred['minutes']
+    assert actual == expected
+    assert svc.verify(data, NOW).feasible
+
+
 # ── Capacity ──────────────────────────────────────────────────────────
 
 
@@ -261,7 +380,6 @@ def test_a_day_never_reports_more_time_than_it_holds():
 
 
 def test_blocks_that_overflow_the_clock_become_deferrals_not_footnotes():
-    svc = service()
     # One short evening, far more work than it holds.
     tight = SchedulingService(
         StudentContext(availability={d: "evening" for d in

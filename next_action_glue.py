@@ -99,7 +99,8 @@ def _now() -> datetime:
     to agree or "you have 45 minutes left" is measured against a different
     day than the blocks it is talking about.
     """
-    return datetime.now()
+    from intelliplan.scheduler_clock import now_for
+    return now_for(_current_user_id())
 
 
 # ── plan ─────────────────────────────────────────────────────────────

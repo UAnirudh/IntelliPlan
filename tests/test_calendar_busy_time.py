@@ -10,7 +10,6 @@ from datetime import date, datetime, timedelta
 import pytest
 
 import google_calendar_helper as gcal
-import scheduler_engine
 from scheduler_engine import windows_for_date
 
 # A Monday far enough ahead that windows are never trimmed to "now".
@@ -198,3 +197,24 @@ def test_unparseable_periods_are_skipped(fake_calendar):
 def test_a_zero_length_event_is_not_busy_time(fake_calendar):
     fake_calendar([{"start": "2026-03-02T10:00:00Z", "end": "2026-03-02T10:00:00Z"}])
     assert gcal.busy_minutes_by_date({"token": "x"}, date(2026, 3, 2), days=2) == {}
+
+
+def test_iana_zone_tracks_dst_across_calendar_horizon(fake_calendar):
+    service = fake_calendar([
+        {'start': '2026-10-31T20:00:00Z', 'end': '2026-10-31T21:00:00Z'},
+        {'start': '2026-11-02T20:00:00Z', 'end': '2026-11-02T21:00:00Z'},
+    ])
+    busy = gcal.busy_minutes_by_date({}, date(2026, 10, 31), days=3,
+                                     utc_offset_minutes=-420, tz_name='America/Los_Angeles')
+    assert busy[date(2026, 10, 31)] == [(13 * 60, 14 * 60)]
+    assert busy[date(2026, 11, 2)] == [(12 * 60, 13 * 60)]
+    assert service.freebusy().body['timeMin'] == '2026-10-31T07:00:00Z'
+    assert service.freebusy().body['timeMax'] == '2026-11-03T08:00:00Z'
+
+
+@pytest.mark.parametrize(('start', 'end'), [('08:30', '09:15'), ('08:15', '09:45')])
+def test_repeated_hour_event_does_not_disappear(fake_calendar, start, end):
+    fake_calendar([{'start': f'2026-11-01T{start}:00Z', 'end': f'2026-11-01T{end}:00Z'}])
+    busy = gcal.busy_minutes_by_date({}, date(2026, 11, 1), days=1,
+                                     tz_name='America/Los_Angeles')
+    assert busy[date(2026, 11, 1)] == [(60, 120)]

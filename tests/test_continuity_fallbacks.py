@@ -91,9 +91,10 @@ def ai_unconfigured(monkeypatch):
 
 @pytest.fixture
 def planner_abstains(monkeypatch):
-    """Force the pre-AI deterministic planner to decline, so the request
-    reaches the AI path this fallback sits under."""
-    monkeypatch.setattr(App, "_build_planner_schedule", lambda *a, **k: None)
+    """Exercise the explicitly disabled-v2 legacy continuity path."""
+    previous = App.feature_enabled
+    monkeypatch.setattr(App, 'feature_enabled',
+                        lambda key: False if key == 'planner_v2' else previous(key))
 
 
 def generate(client, tasks):
@@ -101,6 +102,20 @@ def generate(client, tasks):
         "assignments": tasks, "hours_per_day": 2,
         "preferred_time": "evening", "skip_clarify": True,
     }, headers=HEADERS)
+
+
+def test_rejected_planner_result_cannot_escape_through_legacy_ai(client, student, monkeypatch):
+    previous = App.feature_enabled
+    monkeypatch.setattr(App, 'feature_enabled',
+                        lambda key: True if key == 'planner_v2' else previous(key))
+    monkeypatch.setattr(App, '_build_planner_schedule', lambda *args, **kwargs: None)
+    def trap(*args, **kwargs):
+        raise AssertionError('unchecked fallback must not run')
+    monkeypatch.setattr(App, 'ai_chat', trap)
+    monkeypatch.setattr(App, '_schedule_without_ai', trap)
+    response = generate(client, [task('Problem set', 'Math', 1, 45)])
+    assert response.status_code == 503
+    assert response.get_json()['error'] == 'schedule_unverified'
 
 
 # ── A plan still arrives with the AI down ────────────────────

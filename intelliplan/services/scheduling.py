@@ -363,6 +363,21 @@ class SchedulingService:
 
     # ── Tasks ─────────────────────────────────────────────────────────
 
+    def windows_for(self, day: date, now: datetime | None = None):
+        windows = scheduler_engine.windows_for_date(
+            day, self._ctx.availability, self._ctx.preferred_time,
+            self._ctx.commitments, now=now, busy_by_date=self._ctx.busy_by_date)
+        extra = (self._overrides.get(day) or {}).get('add')
+        if extra:
+            windows = scheduler_engine.extend_windows(
+                windows, day, extra, self._ctx.preferred_time, now=now)
+        return windows
+
+    def verify(self, data, now: datetime):
+        from intelliplan.intelligence.constraints import check_schedule
+        return check_schedule(data, now=now, windows_for=lambda day: self.windows_for(day, now),
+                              busy_by_date=self._ctx.busy_by_date, allow_overdue_recovery=True)
+
     def tasks_from(self, rows: Sequence[Mapping[str, Any]]) -> list[PlannerTask]:
         """Normalise assignment dicts and attach concept-difficulty signal.
 
@@ -936,6 +951,80 @@ def overrides_to_json(overrides: Mapping[date, Mapping[str, int]]) -> dict[str, 
 # ── Rendering (free function so tests need no service) ────────────────
 
 
+def _calendar_sittings(plan, windows_by_day, dna):
+    """Resize new sittings to the actual calendar gaps without changing work."""
+    from intelliplan.intelligence.planner import MIN_SESSION_MINUTES
+    from collections import Counter
+    from itertools import groupby
+    result = {}
+    protected = {s.task_id for s in plan.sessions if s.preserve_sitting}
+    resized = set()
+    for day in plan.days:
+        windows = windows_by_day[day.day]
+        chosen = []
+        def place(sittings):
+            blocks = [{'id': str(i), 'duration_minutes': s.minutes, 'is_break': False}
+                      for i, s in enumerate(sittings)]
+            return scheduler_engine.place_day_blocks(blocks, windows, dna, preserve_order=True)
+        for _task_id, group in groupby(day.sessions, key=lambda sitting: sitting.task_id):
+            sittings = list(group)
+            if sittings[0].task_id not in protected:
+                placed, spilled = place(chosen + sittings)
+                if not spilled:
+                    chosen.extend(sittings)
+                    continue
+                prefix, _ = place(chosen)
+                remaining = sum(s.minutes for s in sittings)
+                pieces = []
+                for window in windows:
+                    previous = [b for b in prefix if
+                                window.start <= datetime.fromisoformat(b['start_iso']) < window.end]
+                    cursor = window.start
+                    if previous:
+                        last = previous[-1]
+                        gap = 10 if last['duration_minutes'] >= 60 else 5
+                        cursor = datetime.fromisoformat(last['end_iso']) + timedelta(minutes=gap)
+                    room = max(0, int((window.end - cursor).total_seconds() // 60))
+                    # Fill individual gaps rather than equal-splitting against
+                    # the largest one. Preserve a useful final sitting.
+                    while room >= MIN_SESSION_MINUTES and remaining >= MIN_SESSION_MINUTES:
+                        cap = max(max(s.minutes for s in sittings), dna.block_minutes())
+                        minutes = min(room, remaining, cap)
+                        tail = remaining - minutes
+                        if 0 < tail < MIN_SESSION_MINUTES:
+                            minutes -= MIN_SESSION_MINUTES - tail
+                        if minutes < MIN_SESSION_MINUTES:
+                            break
+                        pieces.append(minutes)
+                        remaining -= minutes
+                        room -= minutes + (10 if minutes >= 60 else 5)
+                if remaining:
+                    pieces.append(remaining)
+                if pieces and all(minutes >= MIN_SESSION_MINUTES for minutes in pieces):
+                    first = sittings[0]
+                    adjusted = [replace(first, minutes=minutes, reasons=first.reasons + (
+                        'Sized to fit your calendar gaps.',)) for minutes in pieces]
+                    improved, _ = place(chosen + adjusted)
+                    if sum(b['duration_minutes'] for b in improved if not b.get('is_break')) > sum(
+                            b['duration_minutes'] for b in placed if not b.get('is_break')):
+                        resized.add(first.task_id)
+                        chosen.extend(adjusted)
+                        continue
+            chosen.extend(sittings)
+        result[day.day] = chosen
+    totals = Counter(s.task_id for sittings in result.values() for s in sittings)
+    seen = Counter()
+    for day in plan.days:
+        updated = []
+        for sitting in result[day.day]:
+            seen[sitting.task_id] += 1
+            updated.append(replace(sitting, part_index=seen[sitting.task_id],
+                                   part_total=totals[sitting.task_id])
+                           if sitting.task_id in resized else sitting)
+        result[day.day] = updated
+    return result
+
+
 def plan_to_schedule_data(
     plan: Plan,
     availability: Mapping[str, Any] | None = None,
@@ -954,12 +1043,26 @@ def plan_to_schedule_data(
     days_out: list[dict[str, Any]] = []
     unplaced: list[dict[str, Any]] = []
     block_id = 1
+    windows_by_day = {}
+    for day in plan.days:
+        windows = scheduler_engine.windows_for_date(
+            day.day, availability, preferred_time, commitments, now=now,
+            busy_by_date=busy_by_date)
+        extra = (extra_minutes_by_date or {}).get(day.day)
+        if extra:
+            windows = scheduler_engine.extend_windows(windows, day.day, extra, preferred_time, now=now)
+        windows_by_day[day.day] = windows
+    try:
+        calendar_sittings = _calendar_sittings(plan, windows_by_day, dna)
+    except Exception:
+        logger.warning('Calendar gap sizing unavailable; preserving original sittings', exc_info=True)
+        calendar_sittings = {day.day: day.sessions for day in plan.days}
 
     for day_plan in plan.days:
         if not day_plan.sessions:
             continue
         blocks: list[dict[str, Any]] = []
-        for session in day_plan.sessions:
+        for session in calendar_sittings[day_plan.day]:
             blocks.append(
                 {
                     "id": f"b{block_id}",
@@ -989,15 +1092,7 @@ def plan_to_schedule_data(
 
         window_minutes = 0
         try:
-            windows = scheduler_engine.windows_for_date(
-                day_plan.day, availability, preferred_time, commitments, now=now,
-                busy_by_date=busy_by_date,
-            )
-            extra = (extra_minutes_by_date or {}).get(day_plan.day)
-            if extra:
-                windows = scheduler_engine.extend_windows(
-                    windows, day_plan.day, extra, preferred_time, now=now,
-                )
+            windows = windows_by_day[day_plan.day]
             window_minutes = sum(w.minutes for w in windows)
             placed, spilled = scheduler_engine.place_day_blocks(
                 blocks,
@@ -1010,7 +1105,7 @@ def plan_to_schedule_data(
             )
         except Exception as exc:
             logger.warning("clock placement failed for %s: %s", day_plan.day, exc)
-            placed, spilled = blocks, []
+            placed, spilled = [], blocks
 
         if spilled:
             unplaced.extend(spilled)
