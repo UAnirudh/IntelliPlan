@@ -59,6 +59,18 @@ def _feature_enabled(key: str) -> bool:
         return True
 
 
+def _focus_allowed() -> bool:
+    if not current_user.is_authenticated:
+        return True
+    try:
+        from intelliplan.learning import policy
+        policy.invalidate_cache()
+        return policy.decision(current_user, 'focus')[0]
+    except Exception:
+        logger.warning('Focus permission unavailable', exc_info=True)
+        return False
+
+
 # ── repository ────────────────────────────────────────────────────────
 
 
@@ -270,5 +282,6 @@ active_bp = create_active_blueprint(
         get_plan=_get_plan,
         on_session_finished=_on_session_finished,
         emit_signal=_emit_signal,
+        focus_allowed=_focus_allowed,
     )
 )

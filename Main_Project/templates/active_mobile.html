@@ -14,6 +14,7 @@
      entirely by the tracker's callbacks; on its own it does nothing, and
      for a student who left enforcement off it stays doing nothing. -->
 <link rel="stylesheet" href="{{ url_for('static', filename='css/ip-enforce.css') }}?v={{ asset_v }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/study-camera.css') }}?v={{ asset_v }}">
 <script src="{{ url_for('static', filename='js/ip-enforce.js') }}?v={{ asset_v }}" defer></script>
 <script src="{{ url_for('static', filename='js/ip-active.js') }}?v={{ asset_v }}" defer></script>
 <style>
@@ -267,6 +268,14 @@
    control appears or disappears mid-session. */
 .ipa-controls .ipa-btn { flex: 1 1 0; min-width: 0; padding: 0 .5rem; }
 .ipa-controls .ipa-btn[hidden] { display: none; }
+@media (max-width: 768px) {
+  body.has-tabbar .ipa-controls {
+    bottom: calc(var(--ipx-tab-h, 64px) + var(--ipx-bottom, 12px) + 8px);
+  }
+  body.has-tabbar .ipa-shell {
+    padding-bottom: calc(var(--ipa-bar-h) + var(--ipx-tab-h, 64px) + var(--ipx-bottom, 12px) + 2rem);
+  }
+}
 
 /* The empty state's call to action is in normal flow, not the bar. */
 .ipa-empty .ipa-btn { display: inline-flex; align-items: center; justify-content: center; }
@@ -483,30 +492,41 @@
             </svg>
             <span class="ipa-focus-label">Focus check-in &mdash; optional</span>
           </span>
-          <p class="ipa-focus-note" id="ipaFocusNote">
-            Nudges you if you drift off. Everything happens on this device.
+          <p class="ipa-focus-note" id="ipaFocusNote" role="status">
+            {% if focus_allowed %}Optional check-ins. Video stays on this device; summary counts are saved to your account.
+            {% else %}Camera check-ins are unavailable under your current school settings.{% endif %}
           </p>
         </div>
         <label class="ipa-switch" for="ipaFocusToggle">
-          <input type="checkbox" id="ipaFocusToggle" aria-describedby="ipaFocusNote">
+          <input type="checkbox" id="ipaFocusToggle" aria-describedby="ipaFocusNote"{% if not focus_allowed %} disabled{% endif %}>
           <span class="ipa-switch-track" aria-hidden="true"></span>
           <span class="ipa-switch-knob" aria-hidden="true"></span>
         </label>
       </div>
 
       <ul class="ipa-focus-how">
-        <li>Turn it on, then tap Start. Your phone asks for the camera once.</li>
-        <li>Checks every couple of seconds whether you're still there.</li>
-        <li>Nudges only after you've clearly gone &mdash; not for glancing away.</li>
-        <li>Switch it off and the camera stops immediately.</li>
+        <li>Enable during a session, or turn on before pressing Start.</li>
+        <li>Presence and movement are estimates, not proof of studying. Turn off any time to stop the camera.</li>
       </ul>
+
+      <p class="ipa-focus-note" id="ipaFocusMethod" hidden></p>
+      {% if focus_allowed %}{% include 'partials/study_camera_source.html' %}{% endif %}
+      <div id="ipaSelfViewWrap" hidden>
+        <button type="button" class="ipa-selfview-toggle" id="ipaSelfViewBtn"
+                onclick="toggleSelfView()" aria-expanded="false" aria-controls="ipaSelfView">
+          Show me what the camera sees
+        </button>
+        <video id="ipaSelfView" class="ipa-selfview" playsinline muted hidden
+               aria-label="Live preview of your camera"></video>
+        <p class="ipa-focus-note" id="ipaSelfViewNote" hidden></p>
+      </div>
 
       <button type="button" class="ipa-focus-privacy" id="ipaFocusPrivacy"
               aria-expanded="false" aria-controls="ipaFocusPrivacyText">
         What leaves my device?
       </button>
       <p class="ipa-focus-note" id="ipaFocusPrivacyText" hidden>
-        Nothing that could identify you. Video is never recorded or uploaded &mdash; frames are
+        Only summary counts reach your account. Video is never recorded or uploaded &mdash; frames are
         checked on your phone and discarded. All we receive is a count per minute: how many
         checks saw someone, how many didn't. No images, no face data.
       </p>

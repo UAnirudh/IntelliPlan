@@ -182,6 +182,9 @@ def register(db: Any) -> tuple[type, type]:
                 "focus": {
                     "enabled": bool(self.focus_enabled),
                     "samples": self.focus_samples or 0,
+                    "present": self.focus_present_samples or 0,
+                    "away": self.focus_away_samples or 0,
+                    "absent": self.focus_absent_samples or 0,
                     "ratio": self.focus_ratio,
                     "distraction_events": self.distraction_events or 0,
                     "longest_streak_seconds": self.longest_focus_streak or 0,

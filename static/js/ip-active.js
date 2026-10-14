@@ -347,6 +347,7 @@
       status('Paused. Picking up where you left off.');
     } else {
       beginTicking();
+      if ($('ipaFocusToggle').checked) startTracker();
       setControls('running');
       status('Session resumed.');
     }
@@ -405,6 +406,8 @@
       IPA.pausedAt = Date.now();
       IPA.pauseCount += 1;
       stopTicking();
+      stopTracker();
+      if ($('ipaFocusToggle').checked) $('ipaFocusNote').textContent = 'Camera paused with this study session.';
       setControls('paused');
       status('Paused.');
       sendHeartbeat('paused');
@@ -412,13 +415,14 @@
       if (IPA.pausedAt) IPA.pausedTotal += Math.round((Date.now() - IPA.pausedAt) / 1000);
       IPA.pausedAt = 0;
       beginTicking();
+      if ($('ipaFocusToggle').checked) startTracker();
       setControls('running');
       status('Back to it.');
       sendHeartbeat('running');
     }
   }
 
-  function sendHeartbeat(forcedState) {
+  function sendHeartbeat(forcedState, enableFocus) {
     if (!IPA.session) return Promise.resolve();
     var body = {
       active_seconds: elapsedSeconds(),
@@ -426,9 +430,13 @@
       pause_count: IPA.pauseCount,
       state: forcedState || (IPA.running ? 'running' : 'paused')
     };
+    if (enableFocus === true) body.enable_focus = true;
     if (IPA.tracker) body.focus = { summary: IPA.tracker.snapshot() };
     return api('/api/active/' + IPA.session.id + '/heartbeat', {
       method: 'POST', body: JSON.stringify(body)
+    }).then(function (data) {
+      if (data.focus_allowed === false) denyCameraCheckIn();
+      return data;
     }).catch(function () {
       // A dropped heartbeat is not worth interrupting anyone over; the next
       // one carries the same monotonic total, and finish() sends it again.
@@ -449,8 +457,10 @@
   function submitFinish() {
     if (!IPA.session) return;
     $('ipaFinishSave').disabled = true;
+    IPA.accrued = elapsedSeconds();
     stopTicking();
-    var focusSummary = IPA.tracker ? IPA.tracker.stop() : null;
+    stopTracker();
+    var focusSummary = IPA.tracker ? IPA.tracker.snapshot() : null;
     IPA.tracker = null;
 
     api('/api/active/' + IPA.session.id + '/finish', {
@@ -488,9 +498,89 @@
 
   // ── Focus tracking ──────────────────────────────────────────────────
 
+  function cameraOptions() {
+    var select = $('ipaCameraSource');
+    var value = select ? select.value : '';
+    return value.indexOf('device:') === 0 ? { deviceId: value.slice(7) }
+      : { facingMode: value === 'rear' ? 'environment' : 'user' };
+  }
+
+  var cameraListGeneration = 0;
+  function refreshCameras() {
+    var select = $('ipaCameraSource');
+    if (!select || !window.IPFocus) return;
+    var generation = ++cameraListGeneration;
+    return window.IPFocus.cameras().then(function (devices) {
+      if (generation !== cameraListGeneration) return;
+      var listStatus = $('ipaCameraListStatus');
+      if (listStatus) listStatus.textContent = '';
+      var selected = select.value;
+      // Labels and identifiers stay in this page; they are never sent to us
+      // or retained as a cross-session device fingerprint.
+      while (select.options.length > 2) select.remove(2);
+      devices.forEach(function (device) {
+        if (!device.deviceId) return;
+        var option = document.createElement('option');
+        option.value = 'device:' + device.deviceId;
+        option.textContent = device.label;
+        select.add(option);
+      });
+      var found = Array.prototype.some.call(select.options, function (option) {
+        return option.value === selected;
+      });
+      if (!found && selected.indexOf('device:') === 0) {
+        var missing = document.createElement('option');
+        missing.value = selected;
+        missing.textContent = 'Selected camera is disconnected';
+        select.add(missing);
+      }
+      select.value = selected;
+    }).catch(function () {
+      if (generation !== cameraListGeneration) return;
+      var note = $('ipaCameraListStatus');
+      if (note) note.textContent = 'Camera list unavailable. Allow camera access, then reopen this menu.';
+    });
+  }
+
+  var cameraPolicyGeneration = 0;
+  function denyCameraCheckIn() {
+    stopTracker();
+    $('ipaFocusToggle').checked = false;
+    $('ipaFocusToggle').disabled = true;
+    $('ipaFocusNote').textContent = 'Camera check-ins are unavailable under your current school settings.';
+    var method = $('ipaFocusMethod');
+    if (method) method.hidden = true;
+  }
+
   function startTracker() {
-    if (!window.IPFocus || IPA.tracker) return;
+    var generation = ++cameraPolicyGeneration;
+    return api('/api/active/focus-permission').then(function (permission) {
+      if (generation !== cameraPolicyGeneration || !$('ipaFocusToggle').checked || !IPA.running) return;
+      if (permission.allowed !== true) { denyCameraCheckIn(); return; }
+      startTrackerAllowed();
+    }).catch(function () {
+      if (generation !== cameraPolicyGeneration) return;
+      stopTracker();
+      $('ipaFocusToggle').checked = false;
+      $('ipaFocusNote').textContent = 'Camera permissions could not be checked. Try again.';
+    });
+  }
+
+  function startTrackerAllowed() {
+    if (!window.IPFocus) return;
+    if (IPA.tracker) {
+      $('ipaFocusState').hidden = false;
+      if (IPA.tracker.running) IPA.tracker.selectCamera(cameraOptions());
+      else IPA.tracker.start(true, cameraOptions());
+      startEnforcer();
+      return;
+    }
+    var focus = IPA.session && IPA.session.focus || {};
+    var startText = IPA.session && IPA.session.started_at || '';
+    if (startText && !/(Z|[+-]\d\d:\d\d)$/.test(startText)) startText += 'Z';
     IPA.tracker = new window.IPFocus.Tracker({
+      startedAt: Date.parse(startText) || Date.now() - elapsedSeconds() * 1000,
+      summary: focus,
       onState: function (evt) {
         paintFocus(evt.state);
         // The tracker's state is the enforcer's only input. "present" is
@@ -508,6 +598,8 @@
         api('/api/active/' + IPA.session.id + '/heartbeat', {
           method: 'POST',
           body: JSON.stringify({ active_seconds: elapsedSeconds(), focus: bucket })
+        }).then(function (data) {
+          if (data.focus_allowed === false) denyCameraCheckIn();
         }).catch(function () {});
       },
       onDistraction: function () {
@@ -521,7 +613,10 @@
            because cameraSupported() asked for an API that is almost never
            present — so a refusal left the switch on with nothing behind it.
            A failure now turns it off, which is what actually happened. */
-        if (!info.ok) $('ipaFocusToggle').checked = false;
+        if (!info.ok && !info.pending) {
+          $('ipaFocusToggle').checked = false;
+          stopTracker();
+        }
 
         /* Offer the self-view only once a camera is actually running.
            A "show me what the camera sees" button with no camera behind it
@@ -529,14 +624,18 @@
         var selfWrap = $('ipaSelfViewWrap');
         if (selfWrap) selfWrap.hidden = !info.ok;
         if (!info.ok) hideSelfView();
+        if (info.ok) {
+          refreshCameras();
+          sendHeartbeat(undefined, true);
+        }
 
         var method = $('ipaFocusMethod');
         if (!method) return;
         if (info.ok && info.mode === 'motion') {
           method.textContent = 'Your browser has no on-device face detection, '
-            + 'so this watches for movement instead. It can tell that someone '
-            + 'is there; it cannot tell that nobody is, so it will never nudge '
-            + 'you for sitting still.';
+            + 'so this watches for movement instead. Movement can come from you '
+            + 'or the background. It cannot tell that nobody is there, and '
+            + 'does not prove you are studying. It will never nudge you for sitting still.';
           method.hidden = false;
         } else if (info.ok) {
           method.textContent = 'Using your browser\'s on-device face detection. '
@@ -548,7 +647,7 @@
       }
     });
     $('ipaFocusState').hidden = false;
-    IPA.tracker.start(true);
+    IPA.tracker.start(true, cameraOptions());
     startEnforcer();
   }
 
@@ -556,7 +655,11 @@
      resolves to a no-op controller for anyone who never chose a mode. */
   function startEnforcer() {
     if (!window.IPEnforce || IPA.enforcer) return;
+    var tracker = IPA.tracker;
+    var generation = tracker && tracker.generation;
     window.IPEnforce.load().then(function (settings) {
+      if (!IPA.running || IPA.tracker !== tracker || !tracker.running || tracker.generation !== generation
+          || !$('ipaFocusToggle').checked || IPA.enforcer) return;
       if (!settings || settings.mode === 'off') return;
       IPA.enforcer = new window.IPEnforce.Enforcer({
         settings: settings,
@@ -580,13 +683,16 @@
   }
 
   function stopTracker() {
+    cameraPolicyGeneration += 1;
     // Always tear the enforcer down, even if the tracker is already gone —
     // an alarm that outlives the session it belongs to is the single worst
     // failure this feature can have.
     if (IPA.enforcer) { IPA.enforcer.stop(); IPA.enforcer = null; }
+    hideSelfView();
+    var selfWrap = $('ipaSelfViewWrap');
+    if (selfWrap) selfWrap.hidden = true;
     if (!IPA.tracker) return;
     IPA.tracker.stop();
-    IPA.tracker = null;
     $('ipaFocusState').hidden = true;
     $('ipaNudge').hidden = true;
   }
@@ -647,16 +753,43 @@
 
     $('ipaFocusToggle').addEventListener('change', function () {
       if (this.checked) {
-        if (IPA.session) startTracker();
+        if (IPA.session && IPA.running) startTracker();
+        else $('ipaFocusNote').textContent = 'Camera check-in will start when you start or resume your session.';
       } else {
         stopTracker();
+        $('ipaFocusNote').textContent = 'Camera check-in is off. The study timer still works.';
+        var method = $('ipaFocusMethod');
+        if (method) method.hidden = true;
       }
     });
+
+    var cameraSource = $('ipaCameraSource');
+    if (cameraSource) {
+      cameraSource.addEventListener('change', function () {
+        if (!IPA.tracker || !$('ipaFocusToggle').checked) return;
+        hideSelfView();
+        startTracker();
+      });
+      var cameraMenu = $('ipaCameraMenu');
+      if (cameraMenu) cameraMenu.addEventListener('toggle', function () {
+        if (cameraMenu.open) refreshCameras();
+      });
+      if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) {
+        navigator.mediaDevices.addEventListener('devicechange', function () {
+          if (cameraMenu && cameraMenu.open || window.IPFocus && window.IPFocus.activeCamera()) refreshCameras();
+        });
+      }
+    }
 
     // Last-gasp save. `keepalive` lets the request outlive the page, which
     // is the difference between a logged session and a phantom one when
     // someone closes the tab mid-study.
     window.addEventListener('pagehide', function () {
+      stopTracker();
+      if ($('ipaFocusToggle').checked) {
+        $('ipaFocusToggle').checked = false;
+        $('ipaFocusNote').textContent = 'Camera check-in stopped when you left. Turn it on to resume.';
+      }
       if (!IPA.session || !IPA.running) return;
       try {
         navigator.sendBeacon(
@@ -683,6 +816,7 @@
     if (!video) return;
     var camera = window.IPFocus && window.IPFocus.activeCamera();
     if (camera) camera.detachPreview(video);
+    video.srcObject = null;
     video.hidden = true;
     if (note) note.hidden = true;
     if (btn) {

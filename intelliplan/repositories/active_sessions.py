@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import logging
 from datetime import date, datetime, timedelta
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any, Iterable, Sequence
 
 from time_utils import utcnow
 
@@ -271,14 +271,32 @@ class ActiveSessionRepository:
         distraction_events: int,
         longest_streak_seconds: int,
     ) -> Any:
-        row.focus_samples = max(0, int(samples))
-        row.focus_present_samples = max(0, int(present))
-        row.focus_away_samples = max(0, int(away))
-        row.focus_absent_samples = max(0, int(absent))
-        row.distraction_events = max(0, int(distraction_events))
-        row.longest_focus_streak = max(0, int(longest_streak_seconds))
-        row.updated_at = utcnow()
+        # Clients post cumulative session totals. Delayed packets, a restored
+        # tab or an older client must never erase observations already saved.
+        from sqlalchemy import case, func
+
+        def cumulative(name, value):
+            previous = func.coalesce(getattr(self._model, name), 0)
+            value = max(0, int(value))
+            return case((previous < value, value), else_=previous)
+
+        updates = {
+            'focus_present_samples': cumulative('focus_present_samples', present),
+            'focus_away_samples': cumulative('focus_away_samples', away),
+            'focus_absent_samples': cumulative('focus_absent_samples', absent),
+            'distraction_events': cumulative('distraction_events', distraction_events),
+            'longest_focus_streak': cumulative('longest_focus_streak', longest_streak_seconds),
+            'updated_at': utcnow(),
+        }
+        counted = sum(updates[name] for name in (
+            'focus_present_samples', 'focus_away_samples', 'focus_absent_samples'))
+        total = cumulative('focus_samples', samples)
+        updates['focus_samples'] = case((total < counted, counted), else_=total)
+        # Evaluate against current database values in one update, rather than
+        # stale ORM snapshots when two workers receive overlapping packets.
+        self._model.query.filter_by(id=row.id).update(updates, synchronize_session=False)
         self._session.commit()
+        self._session.refresh(row)
         return row
 
     # ── Reads for the model ───────────────────────────────────────────

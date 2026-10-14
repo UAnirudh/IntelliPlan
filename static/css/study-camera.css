@@ -1,0 +1,18 @@
+.ipa-camera-menu { margin: 12px 0; font-size: .85rem; }
+.ipa-camera-menu summary { cursor: pointer; padding: 8px 0; }
+.ipa-camera-menu label { display: block; margin: 8px 0 6px; }
+.ipa-camera-menu select {
+  width: 100%; max-width: 100%; min-height: 44px; padding: 8px;
+  border: 1px solid var(--border-strong); border-radius: 8px;
+  background: var(--bg-card); color: var(--text-primary); font: inherit;
+}
+.ipa-camera-menu :focus-visible, .ipa-selfview-toggle:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 3px;
+}
+.ipa-selfview-toggle {
+  min-height: 44px; padding: 8px 12px; margin-top: 8px; font: inherit;
+  background: transparent; color: var(--text-primary);
+  border: 1px solid var(--border-strong); border-radius: 9px; cursor: pointer;
+}
+.ipa-selfview { width: 100%; max-width: 260px; margin-top: 10px; border-radius: 12px; }
+.ipa-selfview[hidden] { display: none; }

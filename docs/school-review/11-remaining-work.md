@@ -10,6 +10,16 @@ this checkpoint; release and full-suite results follow separately. None of
 these four broad goals or the original brief is declared complete. See
 [smart scheduler calendar work](41-smart-scheduler-calendar.md).
 
+PR92 is merged and live at main75c2784, with4562 hosted unit tests and130
+public browser tests passing, exact-revision health verification and Railway
+plugin confirmation. The following camera checkpoint implements browser-visible
+source selection, safe switching/cancellation/disconnection, phone self-view,
+school focus permission gates and preserved cumulative study/session totals.
+Local Node, Python and rendered browser persistence checks pass, with scoped
+independent review. Direct phone pairing, native network-camera paths, hardware
+proof and signal-quality validation remain open. See
+[study camera inputs](42-study-camera-inputs.md).
+
 Statuses refer to this local checkpoint. **Verified Working** is limited to the evidence cited; it does not mean production verified. **Implemented but Unverified** means code exists without the required live/operational proof. **Partially Working** means only part of the full requirement is delivered. **Blocked** requires an external prerequisite. **Not Implemented** means the requested capability is absent.
 
 Follow-on user requests originally sequenced the engineering brief before UI refinement and multi-country/language support. The latest steering requests further UI adaptation alongside continued original work, with commits and pushes after each major change and visible results. The branch is pushed and linked to PR 86; the original brief, whole-product UI and localization are not declared complete. Localization scope still requires the existing-product audit.

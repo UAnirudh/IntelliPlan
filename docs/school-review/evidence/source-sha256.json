@@ -5,7 +5,7 @@
   },
   {
     "path": ".github/workflows/main.yml",
-    "sha256": "403dfe524aecef8f1e028a2639a9e00bb147bbb59bc5fdbaa91840763f77a459"
+    "sha256": "e82f9e5655f678b375c38c4755d5f553b62f43d5d3b71b91ddd322c32b9d308b"
   },
   {
     "path": ".github/workflows/security.yml",
@@ -16,12 +16,24 @@
     "sha256": "c101df1b1958b8b5961c6fd1edf92bbdd2fb75b3e7398a5ffa8eb6b004e596c2"
   },
   {
+    "path": "Main_Project/templates/active.html",
+    "sha256": "c2829ee43506f5955ad33b7043cf63792d4d0365f429e385138a02a692ec44f8"
+  },
+  {
+    "path": "Main_Project/templates/active_mobile.html",
+    "sha256": "296632c0f6b45aa10c90237c609b6a2d97a62b3069cf8150052ee996468398d1"
+  },
+  {
     "path": "Main_Project/templates/command_center.html",
     "sha256": "ce0f1dece51b64fe083528195c15e3a2f86f82b13139c662bb3f586c67c3dd75"
   },
   {
     "path": "Main_Project/templates/learning_hub.html",
     "sha256": "25de72047ea051d0d51548b73ede41901c0283ae683e199b6cb0ea0c9dd779ea"
+  },
+  {
+    "path": "Main_Project/templates/partials/study_camera_source.html",
+    "sha256": "ae397c307dde7865d90cee3a87bac102dcc8967e9af847a1429df6fac574f3a1"
   },
   {
     "path": "Main_Project/templates/school_admin.html",
@@ -34,6 +46,10 @@
   {
     "path": "Main_Project/templates/text_dissector.html",
     "sha256": "394b1a34a9f6d19a39557e65a0682f566e9c3e581e529dbf613942a305ef00f9"
+  },
+  {
+    "path": "active_glue.py",
+    "sha256": "9d3b0aba83a125746a4c68a4a7d44417d81a3691cf2fa6e56c918b395d022be5"
   },
   {
     "path": "ai_provider.py",
@@ -61,7 +77,7 @@
   },
   {
     "path": "docs/school-review/11-remaining-work.md",
-    "sha256": "5e9feac89d371d0eb51f1ab21feb582f887d8794f7a4922760a49242c358d73d"
+    "sha256": "13a87606c5fe5becd2470341a0437a6492c4fd0c00962749d83f1c481f0d2a23"
   },
   {
     "path": "docs/school-review/37-adaptive-source-policy.md",
@@ -81,7 +97,11 @@
   },
   {
     "path": "docs/school-review/41-smart-scheduler-calendar.md",
-    "sha256": "1d4cbb1b8ae1294be419808718cc13aa068b5907509dac0fa456befe5988f8b6"
+    "sha256": "3c9df49b9988e4b8c6f3e76b2f1700c2218dd224f73adfd82622d2d8e93c4d90"
+  },
+  {
+    "path": "docs/school-review/42-study-camera-inputs.md",
+    "sha256": "b56d382d11a647e7a9c5cd78ad3ea254d4a6f37da868e188d231bc6144dc90cd"
   },
   {
     "path": "extra_features.py",
@@ -94,6 +114,10 @@
   {
     "path": "google_calendar_helper.py",
     "sha256": "29dcb98f104444471bc0853a93db3532eac725ee8c5ae035cb01eb5cdddf379a"
+  },
+  {
+    "path": "intelliplan/api/active.py",
+    "sha256": "43ddf0c51dcac5fff318d4fae8023815814e6e998d5c58029d62232bbbc34a5b"
   },
   {
     "path": "intelliplan/api/adjust.py",
@@ -174,6 +198,14 @@
   {
     "path": "intelliplan/learning/worker.py",
     "sha256": "0909844bb66fdc1110dcb2204e50c9d90251bb0026abcd2ea808b9e611720baf"
+  },
+  {
+    "path": "intelliplan/models/active_session.py",
+    "sha256": "0c7da21a2126640db75fd879e2bc5fc8e81986061d1be0b0babb4d67306ed85c"
+  },
+  {
+    "path": "intelliplan/repositories/active_sessions.py",
+    "sha256": "0ffb93c802ef318b5ba40a18c52a9421b44341248ac0d39d4665314e9bf94405"
   },
   {
     "path": "intelliplan/repositories/assignments.py",
@@ -260,6 +292,10 @@
     "sha256": "29f686c065c4f44ffe5579b0d6dadd856a842397d2f271a27599863cd3c7f445"
   },
   {
+    "path": "scripts/verify_study_camera_browser.py",
+    "sha256": "68141f2e6d78e769c73fc7165c2f43fdf2b7c87fdc85575390c536a0224991e1"
+  },
+  {
     "path": "scripts/wait_for_deployment.py",
     "sha256": "5fb9d4dc59bc6e5b4d0908cff2458ed492ef0df394a8e40c6db319f3f82d585c"
   },
@@ -272,12 +308,24 @@
     "sha256": "50f432e5b002773c155dffb4241955c519c1c9f690fdcdb66b6aeb45779b080f"
   },
   {
+    "path": "static/css/study-camera.css",
+    "sha256": "269acc52560f0a53ff5a2f5d12f973ea6b28f55d4760158d89d9e11851313bd8"
+  },
+  {
     "path": "static/js/command_center.js",
     "sha256": "01ef3edf5351b62acfcddb37a604d577ea14efad753c4feb6ea6c6d311c6e6d9"
   },
   {
     "path": "static/js/command_remind.js",
     "sha256": "496341e65ae1113aef242321bf87ea7bc6f04910590fac3385e123eb9941e6e3"
+  },
+  {
+    "path": "static/js/ip-active.js",
+    "sha256": "dd2a3224c9202f7c6dbb35ba8fd34de379e19cb63543758728a8327cc56a1831"
+  },
+  {
+    "path": "static/js/ip-focus.js",
+    "sha256": "32c7e0d4656f5e19cd8d38aca4123fecb661d642a274ad6c002b662954514465"
   },
   {
     "path": "static/js/learning_content.js",
@@ -576,6 +624,10 @@
     "sha256": "9bacaccf492323f556e0a6408b5fd99984b59d47f05566085a8460b795316255"
   },
   {
+    "path": "tests/browser/study_camera.test.cjs",
+    "sha256": "d633b24b26d69e309b8b87cc22f0346203843f4e3d73ab727840b2ff72b4303d"
+  },
+  {
     "path": "tests/intelliplan/test_api.py",
     "sha256": "c42a63cf5f43a69251685a6e79f9244decacf6258fec40cd94b761b5db791a8d"
   },
@@ -602,6 +654,10 @@
   {
     "path": "tests/intelliplan/test_services.py",
     "sha256": "747eec7ec28b20f6eb3c0473b2424cb1a843320595697e27321a75e27f9cf558"
+  },
+  {
+    "path": "tests/test_active_focus_persistence.py",
+    "sha256": "0ad5aca01a93cc81df91dc36ef104a4c08e7f2a60ddc5f7de74bc7da605e412d"
   },
   {
     "path": "tests/test_adaptive_source_policy.py",
