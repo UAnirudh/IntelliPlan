@@ -177,6 +177,7 @@ class NextActionService:
         lambda uid, today: []
     )
     get_session_rows: Callable[[int], Sequence[Mapping[str, Any]]] = lambda uid: []
+    personalization_allowed: Callable[[int], bool] = lambda uid: False
     get_feedback_rows: Callable[[int], Sequence[Mapping[str, Any]]] = lambda uid: []
     get_daily_minutes: Callable[[int], Mapping[Any, int]] = lambda uid: {}
     get_in_progress: Callable[[int], tuple[frozenset[str], str, int]] = (
@@ -209,21 +210,22 @@ class NextActionService:
         in_progress, current_course, continuous = self._safe(
             self.get_in_progress, user_id, default=(frozenset(), "", 0)
         )
-        session_rows = self._safe(self.get_session_rows, user_id, default=[])
-        behavior: BehaviorModel | None
-        try:
-            behavior = build_behavior_model(
-                session_rows,
-                self._safe(self.get_feedback_rows, user_id, default=[]),
-                daily_minutes=self._safe(self.get_daily_minutes, user_id, default={}),
-                reschedule_events=int(
-                    self._safe(self.get_reschedule_count, user_id, default=0)
-                ),
-                now=now,
-            )
-        except Exception as exc:
-            logger.warning("behaviour model fit failed for user %s: %s", user_id, exc)
-            behavior = None
+        session_rows = []
+        behavior: BehaviorModel | None = None
+        if self._safe(self.personalization_allowed, user_id, default=False) is True:
+            try:
+                session_rows = self._safe(self.get_session_rows, user_id, default=[])
+                feedback = self._safe(self.get_feedback_rows, user_id, default=[])
+                daily = self._safe(self.get_daily_minutes, user_id, default={})
+                reschedules = int(self._safe(self.get_reschedule_count, user_id, default=0))
+                if self._safe(self.personalization_allowed, user_id, default=False) is True:
+                    behavior = build_behavior_model(session_rows, feedback, daily_minutes=daily,
+                                                    reschedule_events=reschedules, now=now)
+                else:
+                    session_rows = []
+            except Exception as exc:
+                logger.warning("behaviour model fit failed for user %s: %s", user_id, exc)
+                session_rows = []
 
         return StudentSnapshot(
             user_id=user_id,

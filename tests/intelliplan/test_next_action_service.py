@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 
 from intelliplan.domain.student import MasteryEstimate
 from intelliplan.services.next_action import (
@@ -54,11 +54,50 @@ def a_day(day, blocks, capacity=180):
 
 def service(**overrides):
     kwargs = dict(
+        personalization_allowed=lambda uid: True,
         get_active_schedule=lambda uid: a_schedule(a_day(TODAY, [a_block()])),
         get_remaining_minutes=lambda uid, now: 90,
     )
     kwargs.update(overrides)
     return NextActionService(**kwargs)
+
+
+def test_opted_out_recommendation_keeps_plan_without_reading_behavior_history():
+    from unittest.mock import Mock
+    history = Mock(side_effect=AssertionError('opted-out history must not be read'))
+    planner = service(personalization_allowed=lambda uid: False,
+                      get_session_rows=history, get_feedback_rows=history,
+                      get_daily_minutes=history, get_reschedule_count=history,
+                      get_in_progress=lambda uid: (frozenset({'t1'}), 'Physics', 15))
+    snapshot = planner.snapshot(1, NOW)
+    assert snapshot.behavior is None
+    assert snapshot.worked_today_minutes == 0
+    assert snapshot.planned_today
+    assert snapshot.in_progress_task_ids == frozenset({'t1'})
+    assert snapshot.continuous_minutes == 15
+    assert planner.decide(1, NOW).has_recommendation
+    history.assert_not_called()
+
+
+def test_behavior_model_is_discarded_after_consent_changes_during_read():
+    permission = [True]
+    def rows(uid):
+        permission[0] = False
+        return [{'started_at': NOW, 'active_minutes': 40}]
+    fit = service(personalization_allowed=lambda uid: permission[0], get_session_rows=rows)
+    snapshot = fit.snapshot(1, NOW)
+    assert snapshot.behavior is None
+    assert snapshot.worked_today_minutes == 0
+
+
+def test_default_and_failed_consent_lookup_do_not_read_history():
+    from unittest.mock import Mock
+    history = Mock(side_effect=AssertionError('missing consent must not read history'))
+    planner = NextActionService(get_active_schedule=lambda uid: None, get_session_rows=history)
+    assert planner.snapshot(1, NOW).behavior is None
+    planner.personalization_allowed = Mock(side_effect=RuntimeError('unavailable'))
+    assert planner.snapshot(1, NOW).behavior is None
+    history.assert_not_called()
 
 
 # ── the decision ─────────────────────────────────────────────────────

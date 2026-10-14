@@ -354,7 +354,7 @@ def _session_rows(user_id: int) -> list[dict]:
     """
     from App import ActiveSession
 
-    if not _aggregate_allowed(user_id):
+    if not _student_profile(user_id)[1]:
         return []
     try:
         since = datetime.now() - timedelta(days=HISTORY_DAYS)
@@ -388,7 +388,7 @@ def _session_rows(user_id: int) -> list[dict]:
 def _feedback_rows(user_id: int) -> list[dict]:
     from App import TaskFeedback
 
-    if not _aggregate_allowed(user_id):
+    if not _student_profile(user_id)[1]:
         return []
     try:
         rows = (
@@ -451,6 +451,16 @@ def _in_progress(user_id: int) -> tuple[frozenset[str], str, int]:
     return frozenset(ids), course, continuous
 
 
+def _availability_for(user_id: int):
+    """Load stated availability without fitting an unused behavioral profile."""
+    from App import UserIdentity
+    if not _aggregate_allowed(user_id):
+        return None
+    row = UserIdentity.query.populate_existing().filter_by(user_id=user_id).first()
+    values = (row.avail_dict() or {}, row.weekly_commitments or '') if row else ({}, '')
+    return values if _aggregate_allowed(user_id) else None
+
+
 def _remaining_minutes(user_id: int, now: datetime) -> int:
     """Study minutes left in today's availability, after commitments.
 
@@ -458,16 +468,11 @@ def _remaining_minutes(user_id: int, now: datetime) -> int:
     minutes" and "this block fits" cannot disagree.
     """
     import scheduler_engine
-    from App import build_scheduler_personalization
-
-    if not _aggregate_allowed(user_id):
-        return 0
     try:
-        _dna, availability, commitments = build_scheduler_personalization(
-            user_id=user_id, guest_id=None
-        )
-        if not _aggregate_allowed(user_id):
+        values = _availability_for(user_id)
+        if values is None:
             return 0
+        availability, commitments = values
         windows = scheduler_engine.windows_for_date(
             now.date(), availability, "evening", commitments, now=now,
             busy_by_date=_busy_by_date(user_id),
@@ -491,16 +496,11 @@ def _busy_by_date(user_id: int) -> dict:
 def _windows_for(user_id: int):
     """A ``windows_for(day)`` callable for the feasibility checker."""
     import scheduler_engine
-    from App import build_scheduler_personalization
-
-    if not _aggregate_allowed(user_id):
-        return None
     try:
-        _dna, availability, commitments = build_scheduler_personalization(
-            user_id=user_id, guest_id=None
-        )
-        if not _aggregate_allowed(user_id):
+        values = _availability_for(user_id)
+        if values is None:
             return None
+        availability, commitments = values
     except Exception:
         return None
 
@@ -547,7 +547,7 @@ def _reschedule_count(user_id: int) -> int:
     # months wide so an offset would not change the answer much, but a
     # timestamp comparison that is only approximately right is the kind that
     # becomes exactly wrong when someone shortens the window.
-    return _audit().override_count(user_id, utcnow() - timedelta(days=HISTORY_DAYS)) if _aggregate_allowed(user_id) else 0
+    return _audit().override_count(user_id, utcnow() - timedelta(days=HISTORY_DAYS)) if _student_profile(user_id)[1] else 0
 
 
 def _dismissed(user_id: int, since_local: datetime) -> frozenset[str]:
@@ -640,6 +640,7 @@ def _build_service() -> NextActionService:
         get_assignments=_assignments,
         get_mastery=_mastery,
         get_session_rows=_session_rows,
+        personalization_allowed=lambda uid: _student_profile(uid)[1],
         get_feedback_rows=_feedback_rows,
         get_daily_minutes=_daily_minutes,
         get_in_progress=_in_progress,
