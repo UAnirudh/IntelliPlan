@@ -12,6 +12,8 @@ The next adaptive recommendation checkpoint filters stored imports, gates mixed 
 
 The following native dependency checkpoint patches three mobile transitive packages and adds a critical dependency/typecheck gate. Local lockfile audit counts fall from one critical/21 high to zero critical/19 high; desktop remains eight moderate. Unpatched `braces`, `node-forge` and `sprintf-js` findings remain open, including affected parent packages. Packaging/signing/device proof is separate. See [native dependency patches](38-native-dependency-patches.md).
 
+PR88 and PR89 are now merged and live: the Railway plugin confirms both exact merge commits reached SUCCESS, public health/schema checks pass and filtered runtime error scans are empty. Hosted pre-merge tests and security passed, with PR88 post-merge public/unit checks also passing. The next release-verification checkpoint ensures main's browser tests wait for the exact served commit and schema flags, rather than accepting the previous healthy deployment. See [release verification](39-release-revision-verification.md). Broader original requirements and live authenticated/device proof remain open.
+
 The following continuation adds conversational day/time repair through the existing follow-through engine, preserves outgoing past outcomes atomically with saved changes, rejects stale writes, and keeps repeated assignment titles' deadlines separate. Whole-product simplification, localization and the other original requirements remain open. See [conversational repair](36-conversational-plan-repair.md).
 
 | Requested acceptance item | Status | Evidence / remaining work |

@@ -297,7 +297,14 @@ def test_invalid_chat_study_hours_do_not_invoke_planner(account, monkeypatch, ho
 
 def prepare_repair(account, monkeypatch):
     import followthrough_glue as followthrough
+    from intelliplan.services import scheduling
     from datetime import datetime
+    class PlanningClock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return cls(2026, 10, 13, 8, tzinfo=tz)
+    # Placement uses the clock again when serializing the chosen plan.
+    monkeypatch.setattr(scheduling, 'datetime', PlanningClock)
     add_task(account)
     fixture_generation(monkeypatch)
     monkeypatch.setattr(App, 'get_google_token', lambda: None)
