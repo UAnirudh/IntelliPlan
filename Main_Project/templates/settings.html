@@ -959,18 +959,17 @@
   <div class="settings-section" id="privacyCard">
     <div class="settings-section-title">AI personalization</div>
     <div style="font-size:0.86rem;color:var(--text-secondary);margin-bottom:1rem;line-height:1.55;">
-      When on, IntelliPlan shares your grades, strong and weak subjects, availability, and stated goals
-      with the AI behind the Scheduler, Tutor, and other AI features. It uses this to weight harder
-      subjects with more study time, calibrate tutor explanations to your level, and tailor advice to
-      what you're actually trying to achieve. Off by default.
+      When on, AI features can send relevant grades, subjects, availability, and stated goals
+      to permitted AI providers. Adaptive recommendations can also use your study and feedback
+      history to estimate study patterns. Off by default and subject to your school's settings.
     </div>
     <label style="display:flex;align-items:flex-start;gap:10px;font-size:0.9rem;color:var(--text-primary);cursor:pointer;margin:0;">
       <input type="checkbox" id="aiPersonalizationOptIn"
              style="margin-top:3px;accent-color:var(--accent);width:16px;height:16px;flex-shrink:0;"
              onchange="saveAiPersonalization()">
-      <span><strong>Use my grades and history to personalize AI features.</strong>
+      <span><strong>Use my grades and history for personalized recommendations and AI features.</strong>
         <span style="display:block;font-size:0.78rem;color:var(--text-muted);margin-top:2px;">
-          Your data never leaves your account. You can turn this off anytime — the AI will fall back to generic help.
+          Relevant context may be shared with AI providers. You can turn this off anytime; ordinary planning remains available.
         </span>
       </span>
     </label>

@@ -330,17 +330,24 @@ def test_restricted_availability_does_not_read_mixed_history(owner, monkeypatch)
     restrict(owner, {'canvas': False})
     read = Mock(side_effect=AssertionError('restricted history must not be loaded'))
     monkeypatch.setattr(App, 'build_scheduler_personalization', read)
+    class Trap:
+        @property
+        def query(self):
+            raise AssertionError('restricted availability must not be loaded')
+    monkeypatch.setattr(App, 'UserIdentity', Trap())
     assert adaptive._remaining_minutes(owner[0], datetime(2026, 10, 13, 18)) == 0
     assert adaptive._windows_for(owner[0]) is None
     read.assert_not_called()
 
 
 @pytest.mark.parametrize('helper', ['remaining', 'windows'])
-def test_availability_discards_policy_change_during_history_read(owner, monkeypatch, helper):
-    def read(**kwargs):
+def test_availability_discards_policy_change_during_preference_read(owner, monkeypatch, helper):
+    App.db.session.add(App.UserIdentity(user_id=owner[0], availability='{}'))
+    App.db.session.commit()
+    def read(identity):
         restrict(owner, {'canvas': False})
-        return {}, {}, []
-    monkeypatch.setattr(App, 'build_scheduler_personalization', read)
+        return {}
+    monkeypatch.setattr(App.UserIdentity, 'avail_dict', read)
     if helper == 'remaining':
         assert adaptive._remaining_minutes(owner[0], datetime(2026, 10, 13, 18)) == 0
     else:
@@ -371,3 +378,29 @@ def test_opted_out_behavior_helpers_do_not_query_history(owner, monkeypatch):
     assert adaptive._daily_minutes(owner[0]) == {}
     assert adaptive._reschedule_count(owner[0]) == 0
     audit.assert_not_called()
+
+
+def test_actual_opted_out_route_keeps_recommendation_without_behavior_reads(owner, monkeypatch):
+    from datetime import timedelta
+    App.db.session.get(App.User, owner[0]).ai_personalization_opt_in = False
+    App.db.session.add(App.ManualTask(user_id=owner[0], title='Local assignment',
+                                    due_date=(datetime.now().date() + timedelta(days=1)).isoformat()))
+    App.db.session.add(App.UserIdentity(user_id=owner[0], availability=json.dumps({
+        day: '08:00-22:00' for day in ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']})))
+    App.db.session.commit()
+    history = Mock(side_effect=AssertionError('opted-out behavior must not be read'))
+    for helper in ('_session_rows', '_feedback_rows', '_daily_minutes', '_reschedule_count'):
+        monkeypatch.setattr(adaptive, helper, history)
+    monkeypatch.setattr(App, 'build_scheduler_personalization', history)
+    from intelliplan.services.next_action import NextActionService
+    decide = NextActionService.decide
+    fixed = datetime.combine(datetime.now().date(), datetime.min.time()).replace(hour=12)
+    monkeypatch.setattr(NextActionService, 'decide',
+                        lambda service, uid, now, **kw: decide(service, uid, fixed, **kw))
+    monkeypatch.setattr(App, 'collect_lms_assignments_for_user', lambda uid: [])
+    monkeypatch.setattr(App, 'feature_enabled_for_user', lambda *a: True)
+    response = signed_client(owner).get('/api/next-action')
+    assert response.status_code == 200
+    assert response.json['has_recommendation']
+    assert response.json['behavior'] is None
+    history.assert_not_called()

@@ -451,6 +451,16 @@ def _in_progress(user_id: int) -> tuple[frozenset[str], str, int]:
     return frozenset(ids), course, continuous
 
 
+def _availability_for(user_id: int):
+    """Load stated availability without fitting an unused behavioral profile."""
+    from App import UserIdentity
+    if not _aggregate_allowed(user_id):
+        return None
+    row = UserIdentity.query.populate_existing().filter_by(user_id=user_id).first()
+    values = (row.avail_dict() or {}, row.weekly_commitments or '') if row else ({}, '')
+    return values if _aggregate_allowed(user_id) else None
+
+
 def _remaining_minutes(user_id: int, now: datetime) -> int:
     """Study minutes left in today's availability, after commitments.
 
@@ -458,16 +468,11 @@ def _remaining_minutes(user_id: int, now: datetime) -> int:
     minutes" and "this block fits" cannot disagree.
     """
     import scheduler_engine
-    from App import build_scheduler_personalization
-
-    if not _aggregate_allowed(user_id):
-        return 0
     try:
-        _dna, availability, commitments = build_scheduler_personalization(
-            user_id=user_id, guest_id=None
-        )
-        if not _aggregate_allowed(user_id):
+        values = _availability_for(user_id)
+        if values is None:
             return 0
+        availability, commitments = values
         windows = scheduler_engine.windows_for_date(
             now.date(), availability, "evening", commitments, now=now,
             busy_by_date=_busy_by_date(user_id),
@@ -491,16 +496,11 @@ def _busy_by_date(user_id: int) -> dict:
 def _windows_for(user_id: int):
     """A ``windows_for(day)`` callable for the feasibility checker."""
     import scheduler_engine
-    from App import build_scheduler_personalization
-
-    if not _aggregate_allowed(user_id):
-        return None
     try:
-        _dna, availability, commitments = build_scheduler_personalization(
-            user_id=user_id, guest_id=None
-        )
-        if not _aggregate_allowed(user_id):
+        values = _availability_for(user_id)
+        if values is None:
             return None
+        availability, commitments = values
     except Exception:
         return None
 
