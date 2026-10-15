@@ -127,10 +127,14 @@ def test_selected_assignment_reaches_tutor_without_entering_saved_messages(clien
     assert result.status_code == 200, result.json
     assert result.json['assignment_context']['files_read'] == ['worksheet.txt']
     assert any('SECRET SCHOOL TEXT' in message['content'] for message in seen)
+    system = '\n'.join(message['content'] for message in seen if message['role'] == 'system')
+    assert 'Ask one manageable question per turn' in system
+    assert 'Give the final answer in one line' not in system
     assert all('SECRET SCHOOL TEXT' not in message['content'] for message in saved)
 
 
-def test_photo_tutor_receives_selected_assignment_context(client, monkeypatch):
+@pytest.mark.parametrize('mode', ['single', 'multi'])
+def test_photo_tutor_receives_selected_assignment_context(client, monkeypatch, mode):
     _sign_in(client, consent=True)
     context = {'title': 'Diagram', 'description': 'Label the cycle.',
                'materials': [{'name': 'reading.txt', 'text': 'Evaporation comes first.'}],
@@ -149,11 +153,15 @@ def test_photo_tutor_receives_selected_assignment_context(client, monkeypatch):
 
     result = client.post('/api/tutor/vision', json={
         'question': 'Help me read this diagram.', 'image_b64': 'aGVsbG8=',
+        'mode': mode,
         'assignment_ref': {'course_id': '4', 'assignment_id': '8'},
     })
     assert result.status_code == 200, result.json
     assert result.json['assignment_context']['files_read'] == ['reading.txt']
     assert 'Evaporation comes first.' in seen[0]
+    assert 'Ask one manageable question per turn' in seen[0]
+    assert '**Answer:**' not in seen[0]
+    assert 'Work every distinct problem' not in seen[0]
 
 
 def test_study_map_needs_consent_and_verifies_own_canvas_source(client, monkeypatch):

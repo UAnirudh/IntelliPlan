@@ -20,6 +20,15 @@ from intelliplan.services.scheduling import plan_to_schedule_data
 TODAY = date.today()
 
 
+@pytest.fixture(autouse=True)
+def scheduler_morning(monkeypatch):
+    # These fixtures build plans at08:00 on TODAY. Use that same captured
+    # UTC morning for zero-offset fixture owners, independent of host timezone
+    # and whether the real UTC date has already advanced to tomorrow.
+    monkeypatch.setattr('intelliplan.scheduler_clock.utcnow',
+                        lambda: datetime.combine(TODAY, time(8, 0)))
+
+
 @pytest.fixture
 def client():
     App.app.config["TESTING"] = True

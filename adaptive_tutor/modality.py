@@ -112,7 +112,7 @@ def get_active_modalities(mode: str, weights: ModalityWeights) -> ActiveModaliti
 
 
 MODALITY_LABELS: dict[str, dict[str, str]] = {
-    "auto":     {"label": "Auto",     "description": "Plani detects your best learning style", "icon": "✨"},
+    "auto":     {"label": "Auto",     "description": "Try formats based on preferences and recent feedback", "icon": "✨"},
     "auditory": {"label": "Auditory", "description": "Spoken explanations read aloud",         "icon": "🎧"},
     "visual":   {"label": "Visual",   "description": "Interactive diagrams and quizzes",       "icon": "📊"},
     "reading":  {"label": "Reading",  "description": "Text-based explanations",                "icon": "📖"},

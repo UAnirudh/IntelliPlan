@@ -11,17 +11,18 @@ import json
 from typing import Any
 
 from adaptive_tutor.strategy import MOVE_GUIDANCE, STAGE_GUIDANCE, learning_stage, teaching_move
+from adaptive_tutor.pedagogy import QUESTION_LED_GUIDANCE
 
 STYLE_MAP = {
     'concise': 'Be concise and direct. Skip unnecessary filler.',
     'balanced': 'Provide clear explanations with moderate detail. Balance depth with brevity.',
-    'detailed': 'Give thorough, detailed explanations. Include background context and reasoning.',
+    'detailed': 'Give a detailed hint or helpful context for the current step, then wait for the learner.',
 }
 
 LENGTH_MAP = {
     'short': 'Keep responses short - 2-4 sentences for simple concepts.',
     'medium': 'Use moderate response length - a few paragraphs when needed.',
-    'long': 'Feel free to write longer explanations with full step-by-step breakdowns.',
+    'long': 'Allow more context for the current step, without revealing later steps or the final answer.',
 }
 
 DIFFICULTY_MAP = {
@@ -131,44 +132,25 @@ def _voice_section() -> list[str]:
 
 
 def _artifact_section(use_voice: bool) -> list[str]:
-    lines = ['\n## Interactive Artifacts']
-    lines.append(
-        'You can create interactive content that renders in the student\'s browser. '
-        'Use artifacts for quizzes, visualizations, interactive diagrams, and practice exercises.'
-    )
-    lines.append('To create an artifact, use this exact format:')
-    lines.append('```')
-    lines.append(':::artifact{type="quiz" title="Quick Check: Topic Name"}')
-    lines.append('<h2>Question text</h2>')
-    lines.append('<div id="quiz"><!-- HTML + JS content --></div>')
-    lines.append(':::')
-    lines.append('```')
-    lines.append(
-        'Artifact types: "quiz" for practice questions, "visualization" for charts/diagrams, '
-        '"html" for interactive exercises, "code" for runnable examples.'
-    )
-    lines.append(
-        'Artifacts are sandboxed HTML. Inline <script> and <style> tags work. '
-        'The sandbox ships these CSS classes:'
-    )
-    lines.append('- .quiz-option - clickable answer buttons (add .correct or .incorrect on click)')
-    lines.append('- .feedback.correct / .feedback.incorrect - result messages')
-    lines.append('- .card - content card')
-    lines.append('- .progress-bar + .progress-fill - progress indicators')
-    lines.append('- .chart-container - for canvas/svg visualizations')
-    lines.append('- Standard elements (button, input, select, table, canvas) are styled automatically.')
-    lines.append('When to use artifacts:')
-    lines.append('- The student asks to be quizzed or tested -> build an interactive quiz')
-    lines.append('- Explaining data, comparisons, or processes -> build a visualization')
-    lines.append('- The student needs practice -> build an interactive exercise')
-    lines.append('- Step-by-step walkthroughs -> build an interactive guide')
-    if use_voice:
-        lines.append(
-            'This student is in voice mode, so lean on artifacts more - they hear your '
-            'words and see the artifact at the same time. Use both channels.'
-        )
-    lines.append('Keep artifacts focused and self-contained. Always include explanatory text around them.')
-    return lines
+    return [
+        '\n## Interactive Artifacts',
+        'Use declarative JSON exercises. Never emit HTML, JavaScript or external assets.',
+        'For visual exploration, use this exact block (without outer code fences):',
+        ':::artifact{type="svg-exercise" title="Explore a line"}',
+        '{"kind":"linear","slope":1,"intercept":0,"question":"Predict what happens when the slope increases, then try the slider."}',
+        ':::',
+        'Supported SVG exercises: kind="linear" with slope and intercept between -5 and 5; '
+        'kind="fraction" with integer numerator 0..12 and denominator 1..12. '
+        'The renderer provides labeled keyboard sliders, diagram descriptions and live text alternatives.',
+        'For a quiz, use type="quiz" and JSON {"question":"...","options":["...","..."],"correct":0}. '
+        'The correct field is a zero-based option index. Feedback appears only after a choice. '
+        'Generated quiz feedback is not server-scored evidence or proof of mastery.',
+        'Ask for a prediction before manipulation, then invite the learner to explain what changed. '
+        'Choose an exercise only when it fits the current question. For other topics, '
+        'use a short text analogy and one question; do not fabricate unsupported diagrams.',
+        'In voice mode, speak the question and describe the controls briefly.' if use_voice else
+        'Keep text around the exercise brief and question-led.',
+    ]
 
 
 def build_adaptive_prompt(context: dict[str, Any], use_voice: bool = False,
@@ -214,7 +196,7 @@ def build_adaptive_prompt(context: dict[str, Any], use_voice: bool = False,
     sections.append(f"- Evidence-based move: {MOVE_GUIDANCE[move['kind']]}")
     if move['topic']:
         sections.append(f"- Relevant practice topic: {move['topic']}. Use it only when it relates to the student's current question.")
-    sections.append('- Ask or explain one step at a time when the learner is practicing. If they request a direct answer, answer clearly and then check the underlying idea.')
+    sections.append(QUESTION_LED_GUIDANCE)
     sections.append('- Treat a stored score as limited practice evidence, not a diagnosis or fixed ability label. Never invent life details or claim you remember something absent from the approved context.')
     sections.append('- For ethical or life questions, explore reasons, consequences, and other perspectives; let the learner form a view. Do not award mastery for a moral opinion.')
 
@@ -247,7 +229,7 @@ def build_adaptive_prompt(context: dict[str, Any], use_voice: bool = False,
         )
 
     sections.append('\n## Adaptive Behavior')
-    sections.append('- Explain clearly and check understanding frequently.')
+    sections.append('- Begin with the learner\'s thinking, then adapt the next question or hint to their response.')
     sections.append('- Ask follow-up questions to verify comprehension.')
     sections.append("- Give concrete examples, using the student's interests where they fit.")
     sections.append('- If the student seems confused, slow down and try a different approach.')
@@ -256,7 +238,7 @@ def build_adaptive_prompt(context: dict[str, Any], use_voice: bool = False,
         '- Update your behavior as new evidence appears. The promise is memory: remember '
         'patterns, avoid repeating failed approaches, and make continuity obvious.'
     )
-    sections.append('- After explaining a concept, offer a quick practice question.')
+    sections.append('- When a brief clarification is needed, connect it to one question and wait for a response.')
     sections.append('- Never be condescending. Be encouraging but honest about mistakes.')
 
     if use_artifacts:

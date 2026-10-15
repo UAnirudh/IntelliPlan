@@ -872,7 +872,11 @@ MAX_SPEECH_CHARS = int(os.getenv("MAX_SPEECH_CHARS", "4000"))
 
 
 def fish_audio_key() -> str | None:
-    return os.getenv("FISH_AUDIO_KEY")
+    for name in ('FISH_AUDIO_KEY', 'FISH_AUDIO_API_KEY', 'FISH_API_KEY'):
+        key = (os.getenv(name) or '').strip()
+        if key:
+            return key
+    return None
 
 
 def speech_voices() -> list[dict]:
@@ -939,7 +943,7 @@ def speak(text: str, *, voice: str | None = None,
     if resp.status_code == 402 or resp.status_code == 429:
         raise AIQuotaExhausted(f"Fish Audio is out of credit or rate limited: {resp.status_code}")
     if resp.status_code >= 400:
-        raise RuntimeError(f"Fish Audio returned {resp.status_code}: {resp.text[:200]}")
+        raise RuntimeError(f"Fish Audio returned HTTP {resp.status_code}.")
     if not resp.content:
         raise RuntimeError("Fish Audio returned no audio.")
     return resp.content, {"mp3": "audio/mpeg", "wav": "audio/wav",
