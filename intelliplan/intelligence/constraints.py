@@ -156,6 +156,7 @@ class _Placed:
     end: datetime
     is_break: bool
     due_date: date | None
+    deadline_at: datetime | None = None
 
     @property
     def minutes(self) -> int:
@@ -195,6 +196,7 @@ def _placed_blocks(blocks: Iterable[Mapping[str, Any]]) -> list[_Placed]:
                 end=end,
                 is_break=bool(b.get("is_break")),
                 due_date=_as_date(b.get("due_date")),
+                deadline_at=_as_dt(b.get('deadline_at')),
             )
         )
     out.sort(key=lambda p: p.start)
@@ -320,7 +322,20 @@ def _check_deadlines(placed: Sequence[_Placed], day: date, *, now=None,
     """
     out: list[Violation] = []
     for p in placed:
-        if p.is_break or p.due_date is None:
+        if p.is_break:
+            continue
+        if p.deadline_at is not None:
+            if p.end > p.deadline_at:
+                recovery = bool(allow_overdue_recovery and now is not None and p.deadline_at <= now)
+                out.append(Violation(
+                    key='overdue_recovery' if recovery else 'after_deadline',
+                    severity=Severity.SOFT if recovery else Severity.HARD,
+                    day=day,
+                    detail=f'{p.title} finishes after its {p.deadline_at.isoformat()} deadline.',
+                    block_ids=(p.block_id,) if p.block_id else (),
+                ))
+            continue
+        if p.due_date is None:
             continue
         if p.start.date() > p.due_date:
             recovery = bool(allow_overdue_recovery and now is not None and p.due_date < now.date())

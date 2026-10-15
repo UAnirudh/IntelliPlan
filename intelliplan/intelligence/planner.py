@@ -55,7 +55,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field, replace
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any, Callable, Iterable, Mapping, Sequence
 
 from intelliplan.intelligence.estimation import (
@@ -169,6 +169,12 @@ class PlannerTask:
     #: tell "back where it was" from "somewhere this task also happens to
     #: be". Only minutes these do not cover are split afresh.
     sittings: tuple[tuple[date | None, int], ...] = ()
+    #: Explicit student-local wall-clock deadline. Date-only tasks keep None.
+    deadline_at: datetime | None = None
+    deadline_day_capacity: int | None = None
+    deadline_windows: tuple[tuple[datetime, datetime], ...] | None = None
+    deadline_stamina_minutes: int = 45
+    deadline_overdue: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -267,6 +273,7 @@ class Session:
     #: work was not decomposed.
     stage_index: int = 0
     preserve_sitting: bool = False
+    deadline_at: datetime | None = None
 
     @property
     def label(self) -> str:
@@ -300,6 +307,7 @@ class Deferral:
     minutes: int
     due_date: date | None
     reason: str
+    deadline_at: datetime | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -448,19 +456,25 @@ class _DayState:
     load: float = 0.0
     courses: dict[str, int] = field(default_factory=dict)
     task_sessions: dict[str, int] = field(default_factory=dict)
+    task_minutes: dict[str, int] = field(default_factory=dict)
+    sittings: dict[int, _Item] = field(default_factory=dict)
     concepts: dict[str, float] = field(default_factory=dict)
 
     def add(self, item: _Item) -> None:
+        self.sittings[id(item)] = item
         self.minutes += item.minutes
         self.load += item.load
         self.courses[item.task.course] = self.courses.get(item.task.course, 0) + 1
         self.task_sessions[item.task.id] = self.task_sessions.get(item.task.id, 0) + 1
+        self.task_minutes[item.task.id] = self.task_minutes.get(item.task.id, 0) + item.minutes
         for c in item.task.concepts:
             self.concepts[c] = self.concepts.get(c, 0.0) + item.task.weak_concept_penalty
 
     def remove(self, item: _Item) -> None:
+        self.sittings.pop(id(item), None)
         self.minutes -= item.minutes
         self.load -= item.load
+        self.task_minutes[item.task.id] = max(0, self.task_minutes.get(item.task.id, 0) - item.minutes)
         if self.courses.get(item.task.course):
             self.courses[item.task.course] -= 1
             if self.courses[item.task.course] <= 0:
@@ -486,6 +500,7 @@ class _Context:
     completion: CompletionFn | None = None
     #: ``{task_id: {day: sittings the task had on that day}}``.
     anchors: Mapping[str, Mapping[date, int]] = field(default_factory=dict)
+    deadline_cache: dict[tuple, bool] = field(default_factory=dict, compare=False)
 
 
 # ── Cost model ────────────────────────────────────────────────────────
@@ -548,6 +563,48 @@ def _stability_cost(
     return weights.stability * (0.6 + 0.4 * min(distance, 3) / 3.0) * nearness
 
 
+def _work_order_key(task, part_index=0):
+    return (task.due_date or date.max, task.deadline_at or datetime.max,
+            -task.priority, -_difficulty_rank(task.difficulty), task.parent_title,
+            task.stage_index, getattr(task, 'id', getattr(task, 'task_id', '')), part_index)
+
+
+def _deadline_fits(item, day, state, ctx):
+    rows = dict(state.sittings)
+    rows[id(item)] = item
+    timed = next((row.task for row in rows.values() if row.task.deadline_at is not None
+                  and row.task.deadline_at.date() == day and row.task.deadline_windows is not None), None)
+    if timed is None:
+        return True
+    key = (day, tuple(sorted(rows)), timed.deadline_windows, timed.deadline_stamina_minutes)
+    if ctx is not None and key in ctx.deadline_cache:
+        return ctx.deadline_cache[key]
+    import scheduler_engine
+    from intelliplan.intelligence.calendar_sittings import calendar_sittings
+    ordered = sorted(rows.values(), key=lambda row: _work_order_key(row.task, row.part_index))
+    dna = scheduler_engine.StudyDNA(stamina_minutes=timed.deadline_stamina_minutes)
+    windows = [scheduler_engine.Window(start, end) for start, end in timed.deadline_windows]
+    sessions = tuple(Session(
+        task_id=row.task.id, title=row.task.title, course=row.task.course, kind=row.task.kind,
+        day=day, minutes=row.minutes, part_index=row.part_index, part_total=row.part_total,
+        difficulty=row.task.difficulty, priority=row.task.priority, due_date=row.task.due_date,
+        deadline_at=None if row.task.deadline_overdue else row.task.deadline_at,
+        preserve_sitting=bool(row.task.pinned or row.task.sittings)) for row in ordered)
+    temporary = Plan(days=(DayPlan(day, sessions, state.capacity, sum(s.minutes for s in sessions)),),
+                     total_minutes=sum(s.minutes for s in sessions), capacity_minutes=state.capacity)
+    sized = calendar_sittings(temporary, {day: windows}, dna)[day]
+    blocks = [{'id': str(i), 'duration_minutes': s.minutes,
+               'deadline_at': s.deadline_at.isoformat() if s.deadline_at else None}
+              for i, s in enumerate(sized)]
+    _, spilled = scheduler_engine.place_day_blocks(
+        blocks, windows,
+        dna, long_break_after=scheduler_engine.long_break_after_for(dna), preserve_order=True)
+    feasible = not spilled
+    if ctx is not None and len(ctx.deadline_cache) < 4096:
+        ctx.deadline_cache[key] = feasible
+    return feasible
+
+
 def _placement_cost(
     item: _Item,
     day: date,
@@ -567,6 +624,12 @@ def _placement_cost(
     # Hard feasibility first. Everything below this line is preference; this
     # line is physics. A day holds the minutes it holds.
     if state.minutes + item.minutes > state.capacity:
+        return math.inf
+    if (item.task.deadline_at is not None and day == item.task.deadline_at.date()
+            and item.task.deadline_day_capacity is not None
+            and state.task_minutes.get(item.task.id, 0) + item.minutes > item.task.deadline_day_capacity):
+        return math.inf
+    if not _deadline_fits(item, day, state, ctx):
         return math.inf
 
     projected = state.load + item.load
@@ -1346,6 +1409,7 @@ def _materialise(
                 minutes=sum(i.minutes for i in group),
                 due_date=head.task.due_date,
                 reason=head.defer_reason or "Did not fit in the available time.",
+                deadline_at=head.task.deadline_at,
             )
         )
 
@@ -1371,6 +1435,7 @@ def _materialise(
                 parent_title=item.task.parent_title,
                 stage_index=item.task.stage_index,
                 preserve_sitting=bool(item.task.pinned or item.task.sittings),
+                deadline_at=item.task.deadline_at,
             )
         )
 
@@ -1378,18 +1443,7 @@ def _materialise(
     for d in days:
         sessions = sorted(
             by_day[d],
-            key=lambda s: (
-                s.due_date or date.max,
-                -s.priority,
-                -_difficulty_rank(s.difficulty),
-                # Stages of one assignment share a deadline and a priority, so
-                # without this they would order by task id — which spells
-                # "revise" before "write the draft" on any day that holds both.
-                s.parent_title,
-                s.stage_index,
-                s.task_id,
-                s.part_index,
-            ),
+            key=lambda s: _work_order_key(s, s.part_index),
         )
         day_plans.append(
             DayPlan(
@@ -1558,13 +1612,18 @@ def reschedule(
 # ── Adapters ──────────────────────────────────────────────────────────
 
 
-def task_from_mapping(row: Mapping[str, Any]) -> PlannerTask:
+def task_from_mapping(row: Mapping[str, Any], *, timezone_name='', utc_offset_minutes=0) -> PlannerTask:
     """Build a :class:`PlannerTask` from a loose dict.
 
     The API and the LLM both hand us dicts with drifting key names; this is
     the one place that reconciles them.
     """
     due = row.get("due_date") or row.get("due")
+    from intelliplan.intelligence.deadlines import local_deadline
+    deadline = local_deadline(row.get('deadline_at') or row.get('due_at') or row.get('due_datetime') or due,
+                              timezone_name, utc_offset_minutes)
+    if isinstance(due, datetime):
+        due = due.date()
     if isinstance(due, str):
         try:
             due = date.fromisoformat(due[:10])
@@ -1572,6 +1631,8 @@ def task_from_mapping(row: Mapping[str, Any]) -> PlannerTask:
             due = None
     if not isinstance(due, date):
         due = None
+    if deadline is not None:
+        due = deadline.date()
 
     depends = row.get("depends_on") or ()
     if isinstance(depends, str):
@@ -1589,6 +1650,7 @@ def task_from_mapping(row: Mapping[str, Any]) -> PlannerTask:
         stage_index=_clamp_int(row.get("stage_index"), 0, 0, 99),
         kind=str(row.get("kind") or row.get("type") or "homework").strip().lower(),
         due_date=due,
+        deadline_at=deadline,
         est_minutes=_int_or_none(row.get("est_minutes") or row.get("duration_minutes")),
         difficulty=str(row.get("difficulty") or "medium").strip().lower(),
         priority=_clamp_int(row.get("priority"), 50, 0, 100),

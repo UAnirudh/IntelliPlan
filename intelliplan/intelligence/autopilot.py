@@ -200,6 +200,8 @@ class DueChange:
     title: str
     old: date
     new: date
+    old_at: datetime | None = None
+    new_at: datetime | None = None
 
     @property
     def delta_days(self) -> int:
@@ -235,14 +237,22 @@ def detect_due_changes(
     date (or crams for a date that no longer exists). Matched on id, then
     on title, the same way :func:`detect_new_work` matches.
     """
+    candidates = tuple(candidates)
+    planned = tuple(planned)
     live = _assignment_dues(candidates)
+    live_times = {group_key(t.id): t.deadline_at for t in candidates if t.deadline_at is not None}
+    planned_times = {group_key(t.id): t.deadline_at for t in planned if t.deadline_at is not None}
     live_by_title = {title: (due, key) for key, (due, title, _) in live.items()}
     changes: list[DueChange] = []
     for key, (old, title, display) in _assignment_dues(planned).items():
         hit = live.get(key)
         new = hit[0] if hit else (live_by_title.get(title) or (None,))[0]
-        if new is not None and new != old:
-            changes.append(DueChange(key=key, title=display, old=old, new=new))
+        matched_key = key if hit else (live_by_title.get(title) or (None, None))[1]
+        new_at = live_times.get(matched_key)
+        old_at = planned_times.get(key)
+        if new is not None and (new != old or new_at != old_at):
+            changes.append(DueChange(key=key, title=display, old=old, new=new,
+                                     old_at=old_at, new_at=new_at))
     return tuple(changes[:MAX_NEW_TASKS])
 
 
@@ -263,7 +273,9 @@ def apply_due_changes(
         if c is None or t.due_date is None:
             out.append(t)
             continue
-        out.append(replace(t, due_date=max(today, t.due_date + timedelta(days=c.delta_days))))
+        deadline = c.new_at - timedelta(days=(c.old - t.due_date).days) if c.new_at else None
+        out.append(replace(t, due_date=deadline.date() if deadline else max(today, t.due_date + timedelta(days=c.delta_days)),
+                           deadline_at=deadline))
     return tuple(out)
 
 
@@ -283,6 +295,8 @@ def triggers_for(
     if due_changes:
         c = due_changes[0]
         when = f"{c.new:%a %b} {c.new.day}"  # %-d is not portable (Windows)
+        if c.new_at is not None:
+            when += c.new_at.strftime(' at %I:%M %p')
         more = f" and {len(due_changes) - 1} more" if len(due_changes) > 1 else ""
         out.append(Trigger("due_changed", f"{c.title} is now due {when}{more}"))
     if missed_minutes > 0:

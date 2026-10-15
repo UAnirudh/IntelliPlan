@@ -412,6 +412,7 @@ def student_context_extras(user_id: int | None, guest_id: str | None) -> dict[st
 def _build_service(user_id: int | None, guest_id: str | None, payload: Mapping[str, Any]):
     from App import (
         _planner_busy_by_date,
+        _planner_timezone_context,
         _planner_concept_mastery,
         _planner_feedback_rows,
         _planner_session_rows,
@@ -430,6 +431,7 @@ def _build_service(user_id: int | None, guest_id: str | None, payload: Mapping[s
     except Exception:
         busy = {}
     context = StudentContext(
+        **_planner_timezone_context(user_id),
         availability=availability,
         commitments=commitments,
         preferred_time=str(payload.get("preferred_time") or "evening"),

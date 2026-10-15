@@ -988,9 +988,11 @@ def place_day_blocks(
     # under their hands.
     floor_w = 0
 
+    from intelliplan.intelligence.deadlines import local_deadline
     for idx, block in enumerate(blocks):
         more_work_ahead = any(not b.get("is_break") for b in blocks[idx + 1:])
         duration = int(block.get("duration_minutes") or 25)
+        deadline = local_deadline(block.get('deadline_at')) if not block.get('overdue_recovery') else None
 
         # First window with room. Blocks are already in priority order, so
         # scanning from the start can only fill gaps — a block considered later
@@ -1002,6 +1004,8 @@ def place_day_blocks(
                 for i in range(floor_w, len(usable))
                 if (usable[i].end - max(cursors[i], usable[i].start)).total_seconds() / 60
                 >= duration
+                  and (deadline is None or max(cursors[i], usable[i].start)
+                       + timedelta(minutes=duration) <= deadline)
             ),
             None,
         )

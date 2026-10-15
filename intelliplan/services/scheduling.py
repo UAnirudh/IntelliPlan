@@ -34,6 +34,8 @@ rescheduling (:meth:`SchedulingService.adjust`) and an on-time forecast
 
 from __future__ import annotations
 
+from intelliplan.intelligence.calendar_sittings import calendar_sittings as size_calendar_sittings
+
 import logging
 import math
 import re
@@ -135,6 +137,7 @@ class StudentContext:
     #: ``{concept: mastery 0..1}`` from the concept-mastery repository.
     concept_mastery: Mapping[str, float] = field(default_factory=dict)
     timezone_offset_minutes: int = 0
+    timezone_name: str = ''
     #: What the student said they want to study per day, in minutes. A
     #: comfort ceiling, never a hard one — their availability windows are the
     #: hard limit. ``None`` means they never said, so the planner's default
@@ -378,7 +381,7 @@ class SchedulingService:
         return check_schedule(data, now=now, windows_for=lambda day: self.windows_for(day, now),
                               busy_by_date=self._ctx.busy_by_date, allow_overdue_recovery=True)
 
-    def tasks_from(self, rows: Sequence[Mapping[str, Any]]) -> list[PlannerTask]:
+    def tasks_from(self, rows: Sequence[Mapping[str, Any]], *, now=None) -> list[PlannerTask]:
         """Normalise assignment dicts and attach concept-difficulty signal.
 
         Large work of a recognisable shape is expanded into ordered stages
@@ -388,7 +391,8 @@ class SchedulingService:
         tasks: list[PlannerTask] = []
         for row in rows:
             try:
-                task = task_from_mapping(row)
+                task = task_from_mapping(row, timezone_name=self._ctx.timezone_name,
+                                         utc_offset_minutes=self._ctx.timezone_offset_minutes)
             except Exception as exc:
                 logger.warning("skipping unparseable task %r: %s", row, exc)
                 continue
@@ -399,7 +403,24 @@ class SchedulingService:
             if penalty > 0:
                 task = replace(task, weak_concept_penalty=penalty)
             tasks.extend(self._staged(task, row))
-        return tasks
+        return self._deadline_capacities(tasks, now) if now is not None else tasks
+
+    def _deadline_capacities(self, tasks, now):
+        """Do not allocate a morning deadline against the whole evening's capacity."""
+        out = []
+        for task in tasks:
+            if task.deadline_at is None or task.deadline_at <= now:
+                out.append(replace(task, deadline_day_capacity=None, deadline_windows=None,
+                                   deadline_overdue=bool(task.deadline_at and task.deadline_at <= now)))
+                continue
+            windows = self.windows_for(task.deadline_at.date(), now) or []
+            minutes = sum(max(0, int((min(window.end, task.deadline_at) - window.start).total_seconds() // 60))
+                          for window in windows)
+            out.append(replace(task, deadline_day_capacity=minutes,
+                               deadline_windows=tuple((window.start, window.end) for window in windows),
+                               deadline_stamina_minutes=self.model.stamina_minutes,
+                               deadline_overdue=False))
+        return out
 
     def _staged(
         self, task: PlannerTask, row: Mapping[str, Any]
@@ -499,7 +520,7 @@ class SchedulingService:
     ) -> Plan:
         now = now or datetime.now()
         today = today or now.date()
-        tasks = self.tasks_from(task_rows)
+        tasks = self.tasks_from(task_rows, now=now)
         capacities = self.capacities(today, horizon_days, now=now)
         if not self._follow_through:
             return build_plan(
@@ -527,7 +548,7 @@ class SchedulingService:
         today = today or now.date()
         capacities = self.capacities(today, horizon_days, now=now)
         return reschedule(
-            self.tasks_from(task_rows),
+            self.tasks_from(task_rows, now=now),
             capacities,
             reality,
             model=self.model,
@@ -581,6 +602,7 @@ class SchedulingService:
             # engine must not add it a second time.
             disruption = replace(disruption, capacity_applied=True)
         self._overrides = overrides
+        snapshot = replace(snapshot, tasks=tuple(self._deadline_capacities(snapshot.tasks, now)))
         capacities = self.capacities(today, horizon_days, now=now)
         # One seed for before / literal / after, so all three face the same
         # simulated futures and their differences are the plans', not noise.
@@ -635,7 +657,7 @@ class SchedulingService:
         )
         capacities = self.capacities(today, horizon_days, now=now)
 
-        live_tasks = self.tasks_from(task_rows) if task_rows else ()
+        live_tasks = self.tasks_from(task_rows, now=now) if task_rows else ()
         new_tasks = ap.detect_new_work(
             schedule_data, live_tasks, today,
             finished_titles=finished_titles,
@@ -646,6 +668,7 @@ class SchedulingService:
             snapshot = replace(
                 snapshot, tasks=ap.apply_due_changes(snapshot.tasks, due_changes, today)
             )
+        snapshot = replace(snapshot, tasks=tuple(self._deadline_capacities(snapshot.tasks, now)))
         seed = zlib.crc32(
             ("|".join(sorted(t.id for t in snapshot.tasks)) + today.isoformat()).encode()
         ) & 0x7FFFFFFF
@@ -776,7 +799,7 @@ class SchedulingService:
 
         now = now or datetime.now()
         today = today or now.date()
-        tasks = self.tasks_from(task_rows)
+        tasks = self.tasks_from(task_rows, now=now)
         if not tasks:
             return []
         capacities = self.capacities(today, horizon_days, now=now)
@@ -951,79 +974,6 @@ def overrides_to_json(overrides: Mapping[date, Mapping[str, int]]) -> dict[str, 
 # ── Rendering (free function so tests need no service) ────────────────
 
 
-def _calendar_sittings(plan, windows_by_day, dna):
-    """Resize new sittings to the actual calendar gaps without changing work."""
-    from intelliplan.intelligence.planner import MIN_SESSION_MINUTES
-    from collections import Counter
-    from itertools import groupby
-    result = {}
-    protected = {s.task_id for s in plan.sessions if s.preserve_sitting}
-    resized = set()
-    for day in plan.days:
-        windows = windows_by_day[day.day]
-        chosen = []
-        def place(sittings):
-            blocks = [{'id': str(i), 'duration_minutes': s.minutes, 'is_break': False}
-                      for i, s in enumerate(sittings)]
-            return scheduler_engine.place_day_blocks(blocks, windows, dna, preserve_order=True)
-        for _task_id, group in groupby(day.sessions, key=lambda sitting: sitting.task_id):
-            sittings = list(group)
-            if sittings[0].task_id not in protected:
-                placed, spilled = place(chosen + sittings)
-                if not spilled:
-                    chosen.extend(sittings)
-                    continue
-                prefix, _ = place(chosen)
-                remaining = sum(s.minutes for s in sittings)
-                pieces = []
-                for window in windows:
-                    previous = [b for b in prefix if
-                                window.start <= datetime.fromisoformat(b['start_iso']) < window.end]
-                    cursor = window.start
-                    if previous:
-                        last = previous[-1]
-                        gap = 10 if last['duration_minutes'] >= 60 else 5
-                        cursor = datetime.fromisoformat(last['end_iso']) + timedelta(minutes=gap)
-                    room = max(0, int((window.end - cursor).total_seconds() // 60))
-                    # Fill individual gaps rather than equal-splitting against
-                    # the largest one. Preserve a useful final sitting.
-                    while room >= MIN_SESSION_MINUTES and remaining >= MIN_SESSION_MINUTES:
-                        cap = max(max(s.minutes for s in sittings), dna.block_minutes())
-                        minutes = min(room, remaining, cap)
-                        tail = remaining - minutes
-                        if 0 < tail < MIN_SESSION_MINUTES:
-                            minutes -= MIN_SESSION_MINUTES - tail
-                        if minutes < MIN_SESSION_MINUTES:
-                            break
-                        pieces.append(minutes)
-                        remaining -= minutes
-                        room -= minutes + (10 if minutes >= 60 else 5)
-                if remaining:
-                    pieces.append(remaining)
-                if pieces and all(minutes >= MIN_SESSION_MINUTES for minutes in pieces):
-                    first = sittings[0]
-                    adjusted = [replace(first, minutes=minutes, reasons=first.reasons + (
-                        'Sized to fit your calendar gaps.',)) for minutes in pieces]
-                    improved, _ = place(chosen + adjusted)
-                    if sum(b['duration_minutes'] for b in improved if not b.get('is_break')) > sum(
-                            b['duration_minutes'] for b in placed if not b.get('is_break')):
-                        resized.add(first.task_id)
-                        chosen.extend(adjusted)
-                        continue
-            chosen.extend(sittings)
-        result[day.day] = chosen
-    totals = Counter(s.task_id for sittings in result.values() for s in sittings)
-    seen = Counter()
-    for day in plan.days:
-        updated = []
-        for sitting in result[day.day]:
-            seen[sitting.task_id] += 1
-            updated.append(replace(sitting, part_index=seen[sitting.task_id],
-                                   part_total=totals[sitting.task_id])
-                           if sitting.task_id in resized else sitting)
-        result[day.day] = updated
-    return result
-
 
 def plan_to_schedule_data(
     plan: Plan,
@@ -1053,7 +1003,7 @@ def plan_to_schedule_data(
             windows = scheduler_engine.extend_windows(windows, day.day, extra, preferred_time, now=now)
         windows_by_day[day.day] = windows
     try:
-        calendar_sittings = _calendar_sittings(plan, windows_by_day, dna)
+        calendar_sittings = size_calendar_sittings(plan, windows_by_day, dna, now=now)
     except Exception:
         logger.warning('Calendar gap sizing unavailable; preserving original sittings', exc_info=True)
         calendar_sittings = {day.day: day.sessions for day in plan.days}
@@ -1077,6 +1027,8 @@ def plan_to_schedule_data(
                     "duration_minutes": session.minutes,
                     "difficulty": _title_difficulty(session.difficulty),
                     "due_date": session.due_date.isoformat() if session.due_date else "",
+                    "deadline_at": session.deadline_at.isoformat() if session.deadline_at else None,
+                    "overdue_recovery": bool(session.deadline_at and session.deadline_at <= now),
                     "kind": session.kind,
                     "priority": session.priority,
                     "part_index": session.part_index,
@@ -1138,6 +1090,7 @@ def plan_to_schedule_data(
             "minutes": d.minutes,
             "due_date": d.due_date.isoformat() if d.due_date else None,
             "reason": d.reason,
+            "deadline_at": d.deadline_at.isoformat() if d.deadline_at else None,
         }
         for d in plan.deferred
     ]
@@ -1155,11 +1108,14 @@ def plan_to_schedule_data(
                     "title": block.get("parent_title") or block.get("assignment") or "Task",
                     "minutes": int(block.get("duration_minutes") or 0),
                     "due_date": block.get("due_date") or None,
-                    "reason": "Ran past the end of your free hours that day.",
+                    "deadline_at": block.get("deadline_at"),
+                    "reason": ("Did not fit in your free hours before the assignment deadline."
+                               if block.get("deadline_at") and not block.get("overdue_recovery")
+                               else "Ran past the end of your free hours that day."),
                 }
             )
         notes.append(
-            f"{len(unplaced)} block(s) ran past the end of your free hours. "
+            f"{len(unplaced)} block(s) could not fit in your free hours before their deadlines. "
             f"They are listed as unscheduled rather than dropped."
         )
 
