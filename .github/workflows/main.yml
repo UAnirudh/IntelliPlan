@@ -54,7 +54,7 @@ jobs:
         with:
           node-version: '22'
       - name: Camera selection and cancellation regressions
-        run: node --test tests/browser/study_camera.test.cjs tests/browser/tutor_audio.test.cjs
+        run: node --test tests/browser/study_camera.test.cjs tests/browser/study_camera_network.test.cjs tests/browser/tutor_audio.test.cjs
 
       # ── Playwright deps
       - run: pip install playwright pytest-playwright
@@ -81,6 +81,29 @@ jobs:
         env:
           PHONE_CAMERA_OUTPUT: ${{ runner.temp }}/study-camera-proof/paired-phone
         run: python scripts/verify_phone_camera_browser.py
+      - name: Install pinned local camera gateway and synthetic publisher
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
+          mkdir -p "$RUNNER_TEMP/camera-gateway"
+          curl --fail --silent --show-error --location https://github.com/bluenviron/mediamtx/releases/download/v1.21.2/mediamtx_v1.21.2_linux_amd64.tar.gz -o "$RUNNER_TEMP/camera-gateway/release.tar.gz"
+          echo "121be6e00397e473a95d83c75f4fcd3819a6af3b0e1a50889cba43ab4fab6a27  $RUNNER_TEMP/camera-gateway/release.tar.gz" | sha256sum --check
+          tar -xzf "$RUNNER_TEMP/camera-gateway/release.tar.gz" -C "$RUNNER_TEMP/camera-gateway"
+      - name: Real RTSP to HTTPS WHEP camera workflow
+        env:
+          MEDIA_MTX_BINARY: ${{ runner.temp }}/camera-gateway/mediamtx
+          NETWORK_CAMERA_OUTPUT: ${{ runner.temp }}/network-camera-proof
+        run: |
+          python scripts/verify_network_camera_browser.py
+          NETWORK_CAMERA_VIEW=phone NETWORK_CAMERA_OUTPUT="$NETWORK_CAMERA_OUTPUT/phone" python scripts/verify_network_camera_browser.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: network-camera-browser-proof
+          path: |
+            ${{ runner.temp }}/network-camera-proof/**/*.png
+            ${{ runner.temp }}/network-camera-proof/**/result.json
+          if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         if: always()
         with:

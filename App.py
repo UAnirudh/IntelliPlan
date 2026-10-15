@@ -261,6 +261,22 @@ def _is_local_dev_origin(origin: str) -> bool:
         return False
     return parsed.scheme == "http" and parsed.hostname in ("localhost", "127.0.0.1")
 
+
+def _study_camera_gateway_origins() -> list[str]:
+    """Operator-approved HTTPS origins, never copied from a request header."""
+    result = []
+    for value in os.getenv("STUDY_CAMERA_GATEWAY_ORIGINS", "")[:4096].split(",")[:16]:
+        origin = value.strip().rstrip("/")
+        if not re.fullmatch(r"https://(?:[A-Za-z0-9.-]+|\[[0-9A-Fa-f:]+\])(?::[0-9]{1,5})?", origin):
+            continue
+        try:
+            parsed = urllib.parse.urlsplit(origin)
+            if parsed.hostname and (parsed.port is None or parsed.port > 0):
+                result.append(origin)
+        except ValueError:
+            continue
+    return result
+
 # ── FIX: Switch SESSION_TYPE from "filesystem" to "sqlalchemy".
 #   Filesystem sessions are stored in /tmp on Railway — ephemeral containers
 #   can spin up a NEW instance to serve the OAuth callback, which has an empty
@@ -529,6 +545,13 @@ def add_cors_headers(response):
         "base-uri 'self'; "
         "form-action 'self'; "
     )
+    # Network-camera signaling is direct from /active to explicitly configured
+    # gateways. Keep other pages' connection policy unchanged, even in report mode.
+    if path == "/active":
+        gateway_origins = _study_camera_gateway_origins()
+        if gateway_origins:
+            _common_csp = _common_csp.replace("connect-src 'self' ",
+                                              "connect-src 'self' " + " ".join(gateway_origins) + " ", 1)
     if _is_frame_sensitive(path):
         response.headers["X-Frame-Options"] = "DENY"
         # reCAPTCHA runs its challenge in an iframe on google.com. These

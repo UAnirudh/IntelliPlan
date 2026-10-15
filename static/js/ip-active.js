@@ -501,6 +501,8 @@
   function cameraOptions() {
     var select = $('ipaCameraSource');
     var value = select ? select.value : '';
+    if (value === 'network') return { source: 'network', url: $('ipaNetworkUrl').value.trim(),
+      username: $('ipaNetworkUser').value, password: $('ipaNetworkPassword').value };
     if (value === 'phone') return { source: 'phone', onInvite: function (url) {
       var wrap = $('ipaPhoneInvite');
       var input = $('ipaPhoneLink');
@@ -776,9 +778,25 @@
     var cameraSource = $('ipaCameraSource');
     if (cameraSource) {
       cameraSource.addEventListener('change', function () {
+        var config = $('ipaNetworkConfig');
+        if (config) config.hidden = cameraSource.value !== 'network';
+        if (cameraSource.value === 'network') {
+          stopTracker();
+          $('ipaFocusToggle').checked = false;
+          $('ipaFocusNote').textContent = 'Enter your camera gateway address, then turn on the check-in.';
+          return;
+        }
         if (!IPA.tracker || !$('ipaFocusToggle').checked) return;
         hideSelfView();
         startTracker();
+      });
+      ['ipaNetworkUrl', 'ipaNetworkUser', 'ipaNetworkPassword'].forEach(function (id) {
+        var input = $(id);
+        if (input) input.addEventListener('change', function () {
+          if (cameraSource.value !== 'network') return;
+          stopTracker(); $('ipaFocusToggle').checked = false;
+          $('ipaFocusNote').textContent = 'Camera details changed. Turn on the check-in to reconnect.';
+        });
       });
       var cameraMenu = $('ipaCameraMenu');
       if (cameraMenu) cameraMenu.addEventListener('toggle', function () {

@@ -180,6 +180,7 @@
     var self = this;
     options = options || {};
     if (options.source === 'phone') this.available = !!(window.IPStudyCamera && window.RTCPeerConnection);
+    if (options.source === 'network') this.available = !!(window.IPNetworkCamera && window.RTCPeerConnection);
     if (!this.available) return Promise.resolve(false);
     this.stop();
     this.lastError = null;
@@ -192,6 +193,13 @@
         if (options.onEnded) options.onEnded(e);
       }
     });
+    if (this.source === 'network') this.remote = new window.IPNetworkCamera.Network(Object.assign({}, options, {
+      onEnded: function (e) {
+        if (generation !== self.generation) return;
+        self.stop();
+        if (options.onEnded) options.onEnded(e);
+      }
+    }));
     var video = { width: { ideal: 320 }, height: { ideal: 240 } };
     if (options.deviceId) video.deviceId = { exact: options.deviceId };
     else video.facingMode = { ideal: options.facingMode || 'user' };
@@ -488,6 +496,7 @@
     if (this.camera) this.camera.stop();
     var camera = new CameraMonitor();
     if (options && options.source === 'phone') camera.available = !!(window.IPStudyCamera && window.RTCPeerConnection);
+    if (options && options.source === 'network') camera.available = !!(window.IPNetworkCamera && window.RTCPeerConnection);
     this.camera = camera;
     function current() { return self.running && self.camera === camera; }
     function disconnected(error) {
@@ -503,7 +512,8 @@
       return Promise.resolve(false);
     }
     this.onCameraStatus({ ok: false, pending: true, message: options && options.source === 'phone'
-      ? 'Open the private link in Camera source on your phone. Keep both pages open.' : 'Waiting for camera access…' });
+      ? 'Open the private link in Camera source on your phone. Keep both pages open.'
+      : options && options.source === 'network' ? 'Connecting to your camera gateway…' : 'Waiting for camera access…' });
     return camera.start(Object.assign({}, options || {}, { onEnded: disconnected })).then(function (ok) {
       if (!current()) { camera.stop(); return false; }
       if (!ok) {
@@ -521,6 +531,7 @@
       }
       self.onCameraStatus({ ok: true, mode: camera.mode, source: camera.source,
         message: camera.source === 'phone' ? 'Phone camera connected. Video stays between your paired devices.' :
+        camera.source === 'network' ? 'Network camera connected directly to this study browser.' :
         camera.mode === 'face'
           ? 'Camera check-in on, using face detection. Frames stay on this device.'
           : 'Camera check-in on, watching for movement. Frames stay on this device.' });

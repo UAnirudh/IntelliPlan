@@ -1,0 +1,39 @@
+# MediaMTX v1.21.2. Run on your camera's LAN, never on Railway.
+# Replace every REPLACE value before launch; see README.md in this directory.
+logLevel: warn
+logDestinations: [stdout]
+dumpPackets: false
+api: false
+metrics: false
+pprof: false
+playback: false
+rtsp: false
+rtmp: false
+hls: false
+srt: false
+moq: false
+webrtc: true
+webrtcAddress: :8889
+webrtcEncryption: true
+webrtcServerKey: server.key
+webrtcServerCert: server.crt
+webrtcAllowOrigins: [https://intelliplan.tech]
+webrtcLocalUDPAddress: :8189
+webrtcIPsFromInterfaces: false
+webrtcAdditionalHosts: [REPLACE_WITH_GATEWAY_LAN_IP]
+webrtcICEServers2: []
+authMethod: internal
+authInternalUsers:
+  - user: study-viewer
+    pass: REPLACE_WITH_UNIQUE_GATEWAY_PASSWORD
+    ips: []
+    permissions:
+      - action: read
+        path: study
+pathDefaults:
+  record: false
+paths:
+  study:
+    source: rtsp://REPLACE_WITH_CAMERA_ADDRESS_AND_STREAM_PATH
+    sourceOnDemand: true
+    rtspTransport: tcp
