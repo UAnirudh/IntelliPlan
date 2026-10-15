@@ -105,7 +105,7 @@
   },
   {
     "path": "docs/school-review/11-remaining-work.md",
-    "sha256": "7be3ab4988477fea691dcd335c9ed7a740c5df4ef29571831c9eb72d098aa6bb"
+    "sha256": "9970d9c623eb9722854e7c761529cfdef475ad04ef458ea58d2443414964f07d"
   },
   {
     "path": "docs/school-review/37-adaptive-source-policy.md",
@@ -145,7 +145,11 @@
   },
   {
     "path": "docs/school-review/46-exact-assignment-deadlines.md",
-    "sha256": "4f516b63a9f239c953f3b44838a33d4ecae52766bcfe1a765a95a578eb9d432b"
+    "sha256": "75402f604a544e13e6ec9dc8a1955e8d56bff901da7d52bd83eee81cbb2b39ae"
+  },
+  {
+    "path": "docs/school-review/47-scheduler-prerequisites.md",
+    "sha256": "4eb0f094cfe59018912916a8d4f122b1c988c0f06c44512c7f5aec9344febce8"
   },
   {
     "path": "extra_features.py",
@@ -177,7 +181,7 @@
   },
   {
     "path": "intelliplan/api/next_action.py",
-    "sha256": "36d55f4a46ce548df10839bb7b2340f334d18dfb949f54d4d0fd1bd6f4cd631e"
+    "sha256": "48623e90645403deb5a1d113b777064780f5188a5e91a6ba8f5ee2e4a7577e3e"
   },
   {
     "path": "intelliplan/email/campaigns.py",
@@ -197,7 +201,7 @@
   },
   {
     "path": "intelliplan/intelligence/constraints.py",
-    "sha256": "054bd71517f3399da9946389b73e9214aad61f9b5d5a015d634acd2cb85a8882"
+    "sha256": "5c46351ff3aa60f340071cbd9e08293df5aa8c79f01fb41b12ded0bdd540daa4"
   },
   {
     "path": "intelliplan/intelligence/deadlines.py",
@@ -205,15 +209,15 @@
   },
   {
     "path": "intelliplan/intelligence/overrides.py",
-    "sha256": "3e60ba52729e42064f09b9bf7aa653a0069a8b427a076ece330c76f7d18043cb"
+    "sha256": "10c01e83bac3f2f1806670982e786d954f478c0460cc93a4aa46c19eed7b2033"
   },
   {
     "path": "intelliplan/intelligence/planner.py",
-    "sha256": "454c486eb49d77d5add68ac609f5a5a20145960f9196fd5a5bfdb528ad876a3d"
+    "sha256": "11e520f139fd49a48b72e1d7dc41c79709acf378fd32f2b929e95f8a010a1248"
   },
   {
     "path": "intelliplan/intelligence/rescheduling.py",
-    "sha256": "c057c00eadbc3426cb12adf21b6155da93c4b1738f18a12d2e238f65a09e77ec"
+    "sha256": "0907db28cc979d4297486b0fa78eb3aa32cfbf7259cf4473c810878c8c8ac492"
   },
   {
     "path": "intelliplan/learning/__init__.py",
@@ -301,11 +305,11 @@
   },
   {
     "path": "intelliplan/services/next_action.py",
-    "sha256": "f6302c28b201043631e9d55b9b09f1973716fa472a6e067440e00a86671f81e1"
+    "sha256": "c7b7b8cb683bec4295c8dec416ef1cc01d76c7946b475425b99e8e8572759747"
   },
   {
     "path": "intelliplan/services/scheduling.py",
-    "sha256": "3391ba5e9f17ad21d800010ebd98f8252d52293ea2a9209497d0193550e3f6fb"
+    "sha256": "8dcf01944a358cfb1516c1900058166635227725e3f2312ac9cab15db0f7b100"
   },
   {
     "path": "intelliplan/services/today.py",
@@ -830,6 +834,10 @@
   {
     "path": "tests/test_scheduler_clock.py",
     "sha256": "946f0d0c15cbf2782c87ed3a83990a89b8dbfe83ebc174bc5afd1acf087a0a88"
+  },
+  {
+    "path": "tests/test_scheduler_prerequisites.py",
+    "sha256": "6d51da69b9ea51de9cbea56643d9446b6f1bc5ce8352aa5d911bad0d2333a13a"
   },
   {
     "path": "tests/test_study_generate_inputs.py",

@@ -139,3 +139,6 @@ Additional course requirements remain incomplete: live request-extraction accura
 
 
 Exact assignment deadline times now pass local focused coverage across Scheduler, Plani chat, shared morning capacity, calendar gaps, saved repair and override metadata. Date-only work remains date-only; timestamp-stripping providers, saved-plan timezone rebasing and broad quality benchmarks remain open. See [exact deadlines](46-exact-assignment-deadlines.md). Delivery is tracked in that report; the full original brief remains incomplete.
+
+
+A subsequent scheduler checkpoint repairs known prerequisite handling: dependent work waits for fully scheduled prerequisites, same-day order respects them, saved repairs retain the edges and final clock spill cascades into explicit deferrals.851 focused tests and independent reviews support this scope; automatic dependency discovery and broader quality remain open. See [scheduler prerequisites](47-scheduler-prerequisites.md).

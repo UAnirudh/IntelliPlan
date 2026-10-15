@@ -160,6 +160,7 @@ def move_task(
                     minutes=s.minutes,
                     due_date=s.due_date,
                     deadline_at=s.deadline_at,
+                    depends_on=s.depends_on,
                     reason="You moved this out of the last day in the plan.",
                 )
             )
@@ -205,6 +206,7 @@ def skip_task(plan: Plan, *, task_id: str, day: date) -> tuple[Plan, int]:
             minutes=s.minutes,
             due_date=s.due_date,
             deadline_at=s.deadline_at,
+            depends_on=s.depends_on,
             reason="You chose to skip this.",
         )
         for s in dropped
@@ -253,6 +255,7 @@ def shorten_task(
             minutes=original - minutes,
             due_date=target[0].due_date,
             deadline_at=target[0].deadline_at,
+            depends_on=target[0].depends_on,
             reason="You shortened this sitting.",
         )
     ]

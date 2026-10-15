@@ -274,6 +274,7 @@ class Session:
     stage_index: int = 0
     preserve_sitting: bool = False
     deadline_at: datetime | None = None
+    depends_on: tuple[str, ...] = ()
 
     @property
     def label(self) -> str:
@@ -308,6 +309,7 @@ class Deferral:
     due_date: date | None
     reason: str
     deadline_at: datetime | None = None
+    depends_on: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -569,6 +571,18 @@ def _work_order_key(task, part_index=0):
             task.stage_index, getattr(task, 'id', getattr(task, 'task_id', '')), part_index)
 
 
+def _dependency_order(sessions):
+    """Keep each prerequisite's same-day sittings before its dependents."""
+    pending = sorted(sessions, key=lambda s: _work_order_key(s, s.part_index))
+    ordered = []
+    while pending:
+        remaining = {s.task_id for s in pending}
+        next_session = next((s for s in pending if not remaining.intersection(s.depends_on)), pending[0])
+        pending.remove(next_session)
+        ordered.append(next_session)
+    return ordered
+
+
 def _deadline_fits(item, day, state, ctx):
     rows = dict(state.sittings)
     rows[id(item)] = item
@@ -589,7 +603,9 @@ def _deadline_fits(item, day, state, ctx):
         day=day, minutes=row.minutes, part_index=row.part_index, part_total=row.part_total,
         difficulty=row.task.difficulty, priority=row.task.priority, due_date=row.task.due_date,
         deadline_at=None if row.task.deadline_overdue else row.task.deadline_at,
+        depends_on=row.task.depends_on,
         preserve_sitting=bool(row.task.pinned or row.task.sittings)) for row in ordered)
+    sessions = tuple(_dependency_order(sessions))
     temporary = Plan(days=(DayPlan(day, sessions, state.capacity, sum(s.minutes for s in sessions)),),
                      total_minutes=sum(s.minutes for s in sessions), capacity_minutes=state.capacity)
     sized = calendar_sittings(temporary, {day: windows}, dna)[day]
@@ -757,6 +773,7 @@ def build_plan(
     # dropped on value rather than on whatever the greedy order happened to
     # place first.
     items = _triage(items, days, state, config, ctx)
+    _defer_blocked_dependents(items, state)
     # Two sittings of the same task on the same day is a split that bought
     # nothing; fold them back before anyone sees them.
     items = _coalesce(items)
@@ -1102,6 +1119,9 @@ def _place_best(
     ctx: _Context | None = None,
 ) -> bool:
     """Put ``item`` on its cheapest feasible day. False when none exists."""
+    if by_task and any(p.day is None for dep in item.task.depends_on for p in by_task.get(dep, ())):
+        item.defer_reason = "Waiting for a required earlier step to fit in the plan."
+        return False
     lo, hi = _dep_bounds(item, by_task) if by_task else (None, None)
     candidates = [
         d for d in days
@@ -1128,6 +1148,24 @@ def _place_best(
     item.defer_reason = ""
     state[best_day].add(item)
     return True
+
+
+def _defer_blocked_dependents(items, state):
+    """Triage may evict a prerequisite; never present its dependent as ready."""
+    by_task = _index_by_task(items)
+    changed = True
+    while changed:
+        changed = False
+        for item in items:
+            if item.day is None or item.fixed:
+                continue
+            blocked = any(p.day is None or p.day > item.day
+                          for dep in item.task.depends_on for p in by_task.get(dep, ()))
+            if blocked:
+                state[item.day].remove(item)
+                item.day = None
+                item.defer_reason = "Waiting for a required earlier step to fit in the plan."
+                changed = True
 
 
 def _retry_deferred(
@@ -1410,6 +1448,7 @@ def _materialise(
                 due_date=head.task.due_date,
                 reason=head.defer_reason or "Did not fit in the available time.",
                 deadline_at=head.task.deadline_at,
+                depends_on=head.task.depends_on,
             )
         )
 
@@ -1436,15 +1475,13 @@ def _materialise(
                 stage_index=item.task.stage_index,
                 preserve_sitting=bool(item.task.pinned or item.task.sittings),
                 deadline_at=item.task.deadline_at,
+                depends_on=item.task.depends_on,
             )
         )
 
     day_plans: list[DayPlan] = []
     for d in days:
-        sessions = sorted(
-            by_day[d],
-            key=lambda s: _work_order_key(s, s.part_index),
-        )
+        sessions = _dependency_order(by_day[d])
         day_plans.append(
             DayPlan(
                 day=d,

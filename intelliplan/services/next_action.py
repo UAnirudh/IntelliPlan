@@ -486,6 +486,8 @@ def plan_from_schedule_data(schedule_data: Mapping[str, Any] | None) -> Plan:
                     priority=int(block.get("priority") or 50),
                     due_date=_parse_date(block.get("due_date")),
                     deadline_at=local_deadline(block.get("deadline_at")),
+                    depends_on=tuple(str(d) for d in block.get("depends_on") or ())
+                    if isinstance(block.get("depends_on"), (list, tuple)) else (),
                     reasons=tuple(block.get("reasons") or ()),
                     parent_title=str(block.get("parent_title") or ""),
                 )
@@ -533,6 +535,7 @@ def tasks_from_plan(plan: Plan) -> list[PlannerTask]:
                 kind=s.kind,
                 due_date=s.due_date,
                 deadline_at=s.deadline_at,
+                depends_on=s.depends_on,
                 est_minutes=s.minutes,
                 difficulty=s.difficulty,
                 priority=s.priority,

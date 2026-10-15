@@ -1,0 +1,9 @@
+# Prerequisites before dependent study work
+
+A confirmed scheduling defect could offer a high-priority response while its required reading was deferred, or order the response first on a shared day. Allocation now waits for all known prerequisite sittings to fit. After priority triage, blocked dependents are explicitly deferred in a cascade. Same-day clock order places all prerequisite sittings before their dependents.
+
+Dependency edges persist through session and deferral serialization, scheduled and deferred-only snapshot reconstruction, next-action adapters and override deferrals. If final clock placement spills a prerequisite, dependent blocks are also deferred with their minutes intact. The independent final checker rejects reversed or still-deferred prerequisites. Missing upstream task IDs retain the existing behavior because those tasks may already be completed or filtered; this change does not invent unknown prerequisites. Explicitly pinned model inputs retain their intent; impossible clock placement is still reported as deferred work.
+
+Evidence:851 focused planner/service/repair/deadline regressions pass, including five new cases covering insufficient prerequisite capacity, same-day order, repeated saved repairs, clock spill and manual reversal. Scoped Ruff, diff checks and independent Python/spec reviews pass. The reviewers also reproduced a pinned prerequisite spill in pure memory; both tasks were safely deferred. No production data or provider was used. Full local and hosted results follow separately.
+
+This handles known dependency edges. Automatic prerequisite discovery, comprehensive benchmark quality, optimal capacity recovery after cascaded deferrals, real calendar accounts/outages and the rest of the original brief remain open. Delivery: local implementation pending full-suite, push and release checks.
