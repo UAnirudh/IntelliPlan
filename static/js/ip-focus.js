@@ -158,6 +158,8 @@
    * would be the same class of lie.
    */
   function CameraMonitor() {
+    this.generation = 0;
+    this.lastError = null;
     this.stream = null;
     this.video = null;
     this.canvas = null;
@@ -173,13 +175,34 @@
     this.available = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
   }
 
-  CameraMonitor.prototype.start = function () {
+  CameraMonitor.prototype.start = function (options) {
     var self = this;
+    options = options || {};
     if (!this.available) return Promise.resolve(false);
-    return navigator.mediaDevices
-      .getUserMedia({ video: { width: 320, height: 240, facingMode: 'user' }, audio: false })
+    this.stop();
+    this.lastError = null;
+    var generation = this.generation;
+    var video = { width: { ideal: 320 }, height: { ideal: 240 } };
+    if (options.deviceId) video.deviceId = { exact: options.deviceId };
+    else video.facingMode = { ideal: options.facingMode || 'user' };
+    return Promise.resolve().then(function () {
+      if (generation !== self.generation) return null;
+      return navigator.mediaDevices.getUserMedia({ video: video, audio: false });
+    })
       .then(function (stream) {
+        if (!stream) return false;
+        if (generation !== self.generation) {
+          stream.getTracks().forEach(function (track) { track.stop(); });
+          return false;
+        }
         self.stream = stream;
+        stream.getVideoTracks().forEach(function (track) {
+          track.onended = function () {
+            if (generation !== self.generation) return;
+            self.stop();
+            if (options.onEnded) options.onEnded();
+          };
+        });
         // Deliberately detached from the DOM: there is no preview, and a
         // element that is never appended cannot be screenshotted by
         // anything else on the page.
@@ -195,10 +218,13 @@
           self.detector = new window.FaceDetector({ fastMode: true, maxDetectedFaces: 1 });
         }
         _activeCamera = self;
-        return self.video.play().then(function () { return true; });
+        return self.video.play().then(function () { return generation === self.generation; });
       })
-      .catch(function () {
-        self.stop();
+      .catch(function (error) {
+        if (generation === self.generation) {
+          self.lastError = error && error.name || 'CameraError';
+          self.stop();
+        }
         return false;
       });
   };
@@ -371,8 +397,9 @@
   };
 
   CameraMonitor.prototype.stop = function () {
+    this.generation += 1;
     if (this.stream) {
-      this.stream.getTracks().forEach(function (t) { t.stop(); });
+      this.stream.getTracks().forEach(function (t) { t.onended = null; t.stop(); });
       this.stream = null;
     }
     if (this.video) { this.video.srcObject = null; this.video = null; }
@@ -399,7 +426,9 @@
     this.presence = null;
     this.camera = null;
     this.timer = null;
-    this.startedAt = 0;
+    this.running = false;
+    this.generation = 0;
+    this.startedAt = Number(options.startedAt) || 0;
 
     this.state = STATE.UNKNOWN;
     this.candidate = STATE.UNKNOWN;
@@ -412,60 +441,83 @@
       samples: 0, present: 0, away: 0, absent: 0,
       distraction_events: 0, longest_streak_seconds: 0
     };
+    var saved = options.summary || {};
+    var summary = this.summary;
+    Object.keys(summary).forEach(function (key) {
+      var value = Number(saved[key]);
+      if (isFinite(value) && value >= 0) summary[key] = Math.round(value);
+    });
   }
 
-  FocusTracker.prototype.start = function (useCamera) {
+  FocusTracker.prototype.start = function (useCamera, options) {
     var self = this;
-    this.startedAt = now();
-    this.stateSince = this.startedAt;
+    if (this.running) this.stop();
+    this.running = true;
+    var generation = ++this.generation;
+    this.startedAt = this.startedAt || now();
+    this.state = STATE.UNKNOWN;
+    this.candidate = STATE.UNKNOWN;
+    this.candidateRun = 0;
+    this.stateSince = now();
     this.presence = new PresenceMonitor();
     this._resetBucket();
 
-    var cameraReady = Promise.resolve(false);
-    if (useCamera) {
-      this.camera = new CameraMonitor();
-      if (!this.camera.available) {
-        // Say so plainly. Quietly falling back to tab-visibility while the
-        // UI still says "camera focus" is the dishonest option.
-        this.onCameraStatus({
-          ok: false,
-          reason: 'unsupported',
-          message: 'This browser will not give any site camera access, so the check-in is off. Presence tracking still works.'
-        });
-      } else {
-        var mode = this.camera.mode;
-        cameraReady = this.camera.start().then(function (ok) {
-          self.onCameraStatus(
-            ok
-              ? {
-                  ok: true,
-                  mode: mode,
-                  // Name the method rather than implying one. Motion knows
-                  // someone moved; it does not know it was a face.
-                  message: mode === 'face'
-                    ? 'Camera check-in on, using face detection. Frames stay on this device.'
-                    : 'Camera check-in on, watching for movement. Frames stay on this device.'
-                }
-              : {
-                  ok: false,
-                  reason: 'denied',
-                  message: 'No camera access, so the check-in is off. Presence tracking still works.'
-                }
-          );
-          if (!ok) { self.camera.stop(); self.camera = null; }
-          return ok;
-        });
-      }
-    }
-
+    var cameraReady = useCamera ? this.selectCamera(options) : Promise.resolve(false);
     return cameraReady.then(function () {
+      if (!self.running || generation !== self.generation) return false;
       self.timer = window.setInterval(function () { self._tick(); }, SAMPLE_INTERVAL_MS);
+      return true;
+    });
+  };
+
+  FocusTracker.prototype.selectCamera = function (options) {
+    var self = this;
+    if (!this.running) return Promise.resolve(false);
+    if (this.camera) this.camera.stop();
+    var camera = new CameraMonitor();
+    this.camera = camera;
+    function current() { return self.running && self.camera === camera; }
+    function disconnected() {
+      if (!current()) return;
+      self.camera = null;
+      self.onCameraStatus({ ok: false, reason: 'disconnected',
+        message: 'Camera disconnected. Reconnect it and turn the check-in on to resume.' });
+    }
+    if (!camera.available) {
+      this.camera = null;
+      this.onCameraStatus({ ok: false, reason: 'unsupported',
+        message: 'Camera access is unavailable in this browser. The study timer still works.' });
+      return Promise.resolve(false);
+    }
+    this.onCameraStatus({ ok: false, pending: true, message: 'Waiting for camera access…' });
+    return camera.start(Object.assign({}, options || {}, { onEnded: disconnected })).then(function (ok) {
+      if (!current()) { camera.stop(); return false; }
+      if (!ok) {
+        var messages = {
+          NotAllowedError: 'Camera permission was declined. Allow it in browser settings to try again.',
+          NotFoundError: 'No camera was found. Connect a camera and try again.',
+          OverconstrainedError: 'That camera is unavailable. Choose another camera and try again.',
+          NotReadableError: 'That camera could not be opened. Close other apps using it and try again.'
+        };
+        self.onCameraStatus({ ok: false, reason: camera.lastError || 'unavailable',
+          message: messages[camera.lastError] || 'Camera access failed. The study timer still works.' });
+        camera.stop();
+        self.camera = null;
+        return false;
+      }
+      self.onCameraStatus({ ok: true, mode: camera.mode,
+        message: camera.mode === 'face'
+          ? 'Camera check-in on, using face detection. Frames stay on this device.'
+          : 'Camera check-in on, watching for movement. Frames stay on this device.' });
       return true;
     });
   };
 
   FocusTracker.prototype._tick = function () {
     var self = this;
+    if (!this.running || !this.presence) return;
+    var camera = this.camera;
+    var generation = this.generation;
     var presenceSample = this.presence.sample();
 
     // The tab being hidden is definitive. Skip the camera entirely — most
@@ -478,6 +530,7 @@
     if (!this.camera) { this._record(presenceSample); return; }
 
     this.camera.sample().then(function (cameraSample) {
+      if (!self.running || generation !== self.generation || self.camera !== camera) return;
       self._record(self._fuse(presenceSample, cameraSample));
     });
   };
@@ -582,10 +635,18 @@
   };
 
   FocusTracker.prototype.stop = function () {
+    this.running = false;
+    this.generation += 1;
     if (this.timer) { window.clearInterval(this.timer); this.timer = null; }
     this._maybeFlushBucket(true);
     if (this.presence) { this.presence.stop(); this.presence = null; }
     if (this.camera) { this.camera.stop(); this.camera = null; }
+    if (this.state === STATE.FOCUSED) {
+      this.summary.longest_streak_seconds = Math.max(this.summary.longest_streak_seconds,
+        Math.round((now() - this.stateSince) / 1000));
+    }
+    this.state = STATE.UNKNOWN;
+    this.bucket = null;
     return this.snapshot();
   };
 
@@ -604,6 +665,15 @@
     // The running monitor, so the page can attach a self-view to the same
     // stream the detector reads. Null when the camera is not on.
     activeCamera: function () { return _activeCamera; },
+    cameras: function () {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return Promise.resolve([]);
+      return navigator.mediaDevices.enumerateDevices().then(function (devices) {
+        return devices.filter(function (device) { return device.kind === 'videoinput'; })
+          .map(function (device, index) {
+            return { deviceId: device.deviceId, label: device.label || ('Camera ' + (index + 1)) };
+          });
+      });
+    },
     cameraSupported: function () {
       return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
     },

@@ -27,7 +27,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import date
 from typing import Any, Callable
 
 from flask import Blueprint, abort, jsonify, render_template, request
@@ -62,6 +62,7 @@ class ActiveDeps:
     #: Called after a session closes so the scheduler can react.
     on_session_finished: Callable[[Any], None] = field(default=lambda row: None)
     emit_signal: Callable[..., Any] = field(default=lambda *a, **k: None)
+    focus_allowed: Callable[[], bool] = field(default=lambda: True)
 
 
 def create_active_blueprint(deps: ActiveDeps) -> Blueprint:
@@ -141,6 +142,7 @@ def create_active_blueprint(deps: ActiveDeps) -> Blueprint:
         return render_template(
             "active_mobile.html" if _wants_phone_layout() else "active.html",
             active_page="active",
+            focus_allowed=deps.focus_allowed(),
         )
 
     # ── lifecycle ─────────────────────────────────────────────────────
@@ -173,7 +175,7 @@ def create_active_blueprint(deps: ActiveDeps) -> Blueprint:
             kind=_short(body.get("kind"), 32) or "homework",
             difficulty=_short(body.get("difficulty"), 16) or "medium",
             due_date=due,
-            focus_enabled=bool(body.get("focus_enabled")),
+            focus_enabled=bool(body.get("focus_enabled")) and deps.focus_allowed(),
         )
         deps.emit_signal(kind="active_session_started", subject_ref=str(row.id))
         return jsonify({"session": row.to_dict()}), 201
@@ -189,6 +191,11 @@ def create_active_blueprint(deps: ActiveDeps) -> Blueprint:
         row = repo.active(user_id=uid, guest_id=gid)
         return jsonify({"session": row.to_dict() if row else None})
 
+    @bp.route('/api/active/focus-permission', methods=['GET'])
+    def focus_permission():
+        _require_flag()
+        return jsonify({'allowed': deps.focus_allowed()}), 200, {'Cache-Control': 'no-store'}
+
     @bp.route("/api/active/<int:session_id>/heartbeat", methods=["POST"])
     def heartbeat(session_id: int):
         _require_flag()
@@ -200,6 +207,12 @@ def create_active_blueprint(deps: ActiveDeps) -> Blueprint:
         repo = deps.get_repository()
 
         state = body.get("state")
+        # Counts may be enabled after starting a timer. This records that the
+        # student opted into summaries during this session, not a live-camera
+        # indicator; switching the camera off stops collection on the client.
+        focus_allowed = deps.focus_allowed()
+        if body.get('enable_focus') is True and focus_allowed:
+            row.focus_enabled = True
         repo.update_progress(
             row,
             active_seconds=_clamp_elapsed(row, body.get("active_seconds")),
@@ -209,11 +222,12 @@ def create_active_blueprint(deps: ActiveDeps) -> Blueprint:
             state=state if state in ("running", "paused") else None,
         )
 
+        focus_allowed = focus_allowed and deps.focus_allowed()
         focus = body.get("focus")
-        if isinstance(focus, dict) and row.focus_enabled:
+        if isinstance(focus, dict) and row.focus_enabled and focus_allowed:
             _record_focus(repo, row, focus)
 
-        return jsonify({"session": row.to_dict()})
+        return jsonify({"session": row.to_dict(), 'focus_allowed': focus_allowed})
 
     @bp.route("/api/active/<int:session_id>/forfeit", methods=["POST"])
     def forfeit(session_id: int):
@@ -261,7 +275,7 @@ def create_active_blueprint(deps: ActiveDeps) -> Blueprint:
         completed = bool(body.get("completed"))
 
         focus = body.get("focus")
-        if isinstance(focus, dict) and row.focus_enabled:
+        if isinstance(focus, dict) and row.focus_enabled and deps.focus_allowed():
             _record_focus(repo, row, focus)
 
         repo.finish(

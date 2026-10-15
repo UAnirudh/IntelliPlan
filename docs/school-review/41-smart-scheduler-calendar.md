@@ -60,3 +60,11 @@ The next user-priority slices remain open:
 
 Stripe verification, physical camera/network availability and live provider
 credentials are external prerequisites, not evidence that delivery succeeded.
+
+Released as PR92, main commit75c2784c61da45a4e9240c278986fc768f3abe6c.
+The Railway plugin confirms deployment69f81bde-3d54-4184-967b-8b09a30d3c51
+at SUCCESS; public health serves that exact revision with successful schema
+flags, and a filtered runtime error scan is empty. Post-merge hosted checks
+pass4562 unit tests (16 skipped), then the exact-revision wait, then130 public
+browser tests (1 skipped). Security checks pass. The separate, pre-existing
+Cloudflare Workers build remains failed and is not the Railway release target.

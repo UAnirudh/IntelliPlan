@@ -15,6 +15,7 @@
      entirely by the tracker's callbacks; on its own it does nothing, and
      for a student who left enforcement off it stays doing nothing. -->
 <link rel="stylesheet" href="{{ url_for('static', filename='css/ip-enforce.css') }}?v={{ asset_v }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/study-camera.css') }}?v={{ asset_v }}">
 <script src="{{ url_for('static', filename='js/ip-enforce.js') }}?v={{ asset_v }}" defer></script>
 <!-- The controller is shared with the phone template. Both render the same
      element ids on purpose: that contract is what lets one tested
@@ -510,27 +511,27 @@
             </svg>
             <span class="ipa-focus-label">Focus check-in &mdash; optional</span>
           </span>
-          <p class="ipa-focus-note" id="ipaFocusNote">
-            Nudges you if you drift off mid-session. Everything happens on this device.
+          <p class="ipa-focus-note" id="ipaFocusNote" role="status">
+            {% if focus_allowed %}Optional check-ins. Video stays on this device; summary counts are saved to your account.
+            {% else %}Camera check-ins are unavailable under your current school settings.{% endif %}
           </p>
         </div>
         <label class="ipa-switch" for="ipaFocusToggle">
-          <input type="checkbox" id="ipaFocusToggle" aria-describedby="ipaFocusNote">
+          <input type="checkbox" id="ipaFocusToggle" aria-describedby="ipaFocusNote"{% if not focus_allowed %} disabled{% endif %}>
           <span class="ipa-switch-track" aria-hidden="true"></span>
           <span class="ipa-switch-knob" aria-hidden="true"></span>
         </label>
       </div>
 
       <ul class="ipa-focus-how">
-        <li>Turn it on, then press Start. Your browser asks for the camera once.</li>
-        <li>It checks roughly every 2 seconds whether someone is at the screen.</li>
-        <li>You get a nudge only after you've clearly been away &mdash; never for glancing at your notes.</li>
-        <li>Turn it off at any time and the camera stops immediately.</li>
+        <li>Enable during a session, or turn on before pressing Start.</li>
+        <li>Presence and movement are estimates, not proof of studying. Turn off any time to stop the camera.</li>
       </ul>
       {# Which method is running depends on the browser, and the difference
          matters to what the feature can honestly claim. Filled in by
          ip-active.js once the camera actually starts. #}
       <p class="ipa-focus-note" id="ipaFocusMethod" hidden></p>
+      {% if focus_allowed %}{% include 'partials/study_camera_source.html' %}{% endif %}
 
       {# Self-view. Off by default — a camera preview that appears uninvited
          is startling — but one click away, because being told frames never
@@ -555,7 +556,7 @@
         What leaves my device?
       </button>
       <p class="ipa-focus-note" id="ipaFocusPrivacyText" hidden>
-        Nothing that could identify you. Video is never recorded and never uploaded &mdash; frames
+        Only summary counts reach your account. Video is never recorded and never uploaded &mdash; frames
         are examined in your browser and discarded. All that reaches us is a count per minute:
         how many checks saw someone, how many didn't. No images, no face data. It's a rough
         signal, not a measurement, so treat it as a nudge rather than a verdict.
