@@ -497,6 +497,7 @@ def _deferral(block: dict, minutes: int, reason: str) -> dict:
         "minutes": int(minutes),
         "due_date": block.get("due_date") or None,
         "deadline_at": block.get("deadline_at") or None,
+        "depends_on": block.get("depends_on") or [],
         "reason": reason,
     }
 

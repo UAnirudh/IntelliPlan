@@ -10,4 +10,4 @@ Local evidence:22 focused cases pass, covering timezone/date boundaries, exact c
 
 Limits: other providers that already discard timestamps, legacy AI scheduling paths, saved-plan timezone changes, broad dependency/repair benchmarks and global optimality remain open. Ambiguous naive local timestamps do not establish a unique DST instant. Real calendar accounts, background sweeps and calendar-provider outage handling remain unverified. Direct phone/network cameras, physical-device accuracy, live tutor teaching quality/Fish playback, Stripe launch transactions and the rest of the original acceptance ledger remain incomplete.
 
-Delivery: local implementation pending full-suite, push and hosted release checks. No schema migration or billing activation is introduced.
+Delivery: committed and pushed in PR97. Final local coverage totals4627 passed/33 skipped; both hosted Tests workflows and Security passed before merge. The independent Cloudflare Workers target retains its pre-existing build failure; Railway is the production target. Exact production revision verification follows separately. No schema migration or billing activation is introduced.

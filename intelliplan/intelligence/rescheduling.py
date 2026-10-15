@@ -196,6 +196,7 @@ class _Acc:
     missed: int = 0
     future: list[tuple[date, int]] = field(default_factory=list)
     deadline_at: datetime | None = None
+    depends_on: tuple[str, ...] = ()
 
 
 def snapshot_from_schedule(
@@ -229,6 +230,8 @@ def snapshot_from_schedule(
                 kind=str(block.get("kind") or "homework").strip().lower() or "homework",
                 due=_as_date(block.get("due_date")),
                 deadline_at=local_deadline(block.get('deadline_at')),
+                depends_on=tuple(str(d) for d in block.get('depends_on') or ())
+                if isinstance(block.get('depends_on'), (list, tuple)) else (),
                 # Enrichment rewrites ``priority`` into a High/Medium/Low
                 # label and keeps the planner's number as ``priority_score``.
                 priority=_priority(
@@ -283,6 +286,7 @@ def snapshot_from_schedule(
         a = acc_for(task_id, {
             "assignment": d.get("title"), "due_date": d.get("due_date"), "priority": 60,
             "deadline_at": d.get('deadline_at'),
+            "depends_on": d.get('depends_on'),
         })
         a.remaining += minutes
 
@@ -305,6 +309,7 @@ def snapshot_from_schedule(
                 parent_title=a.parent_title,
                 due_date=a.due,
                 deadline_at=a.deadline_at,
+                depends_on=a.depends_on,
                 est_minutes=a.remaining,
                 difficulty=a.difficulty if a.difficulty in ("easy", "medium", "hard") else "medium",
                 priority=a.priority,
@@ -640,6 +645,7 @@ def plan_from_sittings(
                     minutes=int(m), part_index=index, part_total=len(rows),
                     difficulty=t.difficulty, priority=t.priority, due_date=t.due_date,
                     deadline_at=t.deadline_at,
+                    depends_on=t.depends_on,
                     parent_title=t.parent_title, stage_index=t.stage_index,
                 )
             )
@@ -651,6 +657,7 @@ def plan_from_sittings(
                 task_id=tid, title=t.title, minutes=need, due_date=t.due_date,
                 reason="Not in the plan as it stands.",
                 deadline_at=t.deadline_at,
+                depends_on=t.depends_on,
             ))
     day_plans = tuple(
         DayPlan(day=d, sessions=tuple(on_day[d]), capacity_minutes=max(0, cap.get(d, 0)),

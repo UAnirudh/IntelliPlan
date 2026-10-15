@@ -1028,6 +1028,7 @@ def plan_to_schedule_data(
                     "difficulty": _title_difficulty(session.difficulty),
                     "due_date": session.due_date.isoformat() if session.due_date else "",
                     "deadline_at": session.deadline_at.isoformat() if session.deadline_at else None,
+                    "depends_on": list(session.depends_on),
                     "overdue_recovery": bool(session.deadline_at and session.deadline_at <= now),
                     "kind": session.kind,
                     "priority": session.priority,
@@ -1082,6 +1083,31 @@ def plan_to_schedule_data(
             }
         )
 
+    # Clock placement can spill a prerequisite even after day allocation fit.
+    # Cascade that failure instead of offering dependent work without its input.
+    blocked = {d.task_id for d in plan.deferred} | {b.get('task_id') for b in unplaced}
+    changed = True
+    while changed:
+        changed = False
+        ends = {}
+        for entry in days_out:
+            for block in entry['blocks']:
+                if block.get('task_id'):
+                    key = block['task_id']
+                    ends[key] = max(ends.get(key, ''), block.get('end_iso') or '')
+        for entry in days_out:
+            kept = []
+            for block in entry['blocks']:
+                if not block.get('is_break') and any(
+                        dep in blocked or ends.get(dep, '') > (block.get('start_iso') or '')
+                        for dep in block.get('depends_on') or ()):
+                    unplaced.append(dict(block, prerequisite_blocked=True))
+                    blocked.add(block.get('task_id'))
+                    changed = True
+                else:
+                    kept.append(block)
+            entry['blocks'] = kept if any(not b.get('is_break') for b in kept) else []
+
     notes = list(plan.notes)
     deferred = [
         {
@@ -1091,6 +1117,7 @@ def plan_to_schedule_data(
             "due_date": d.due_date.isoformat() if d.due_date else None,
             "reason": d.reason,
             "deadline_at": d.deadline_at.isoformat() if d.deadline_at else None,
+            "depends_on": list(d.depends_on),
         }
         for d in plan.deferred
     ]
@@ -1109,7 +1136,10 @@ def plan_to_schedule_data(
                     "minutes": int(block.get("duration_minutes") or 0),
                     "due_date": block.get("due_date") or None,
                     "deadline_at": block.get("deadline_at"),
-                    "reason": ("Did not fit in your free hours before the assignment deadline."
+                    "depends_on": block.get("depends_on") or [],
+                    "reason": ("Waiting for a required earlier step to fit in the plan."
+                               if block.get('prerequisite_blocked') else
+                               "Did not fit in your free hours before the assignment deadline."
                                if block.get("deadline_at") and not block.get("overdue_recovery")
                                else "Ran past the end of your free hours that day."),
                 }

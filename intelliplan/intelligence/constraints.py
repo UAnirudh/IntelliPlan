@@ -157,6 +157,8 @@ class _Placed:
     is_break: bool
     due_date: date | None
     deadline_at: datetime | None = None
+    task_id: str = ''
+    depends_on: tuple[str, ...] = ()
 
     @property
     def minutes(self) -> int:
@@ -197,6 +199,9 @@ def _placed_blocks(blocks: Iterable[Mapping[str, Any]]) -> list[_Placed]:
                 is_break=bool(b.get("is_break")),
                 due_date=_as_date(b.get("due_date")),
                 deadline_at=_as_dt(b.get('deadline_at')),
+                task_id=str(b.get('task_id') or ''),
+                depends_on=tuple(str(d) for d in b.get('depends_on') or ())
+                if isinstance(b.get('depends_on'), (list, tuple)) else (),
             )
         )
     out.sort(key=lambda p: p.start)
@@ -253,6 +258,20 @@ def check_schedule(
         if now is not None:
             violations.extend(_check_past(placed, day, now))
 
+    all_work = [p for entry in (schedule_data or {}).get('schedule') or []
+                if isinstance(entry, Mapping) for p in _placed_blocks(entry.get('blocks') or [])
+                if not p.is_break]
+    pending_ids = {str(row.get('task_id')) for row in (schedule_data or {}).get('deferred') or []
+                   if isinstance(row, Mapping) and row.get('task_id')}
+    ends = {}
+    for p in all_work:
+        if p.task_id:
+            ends[p.task_id] = max(ends.get(p.task_id, p.end), p.end)
+    for p in all_work:
+        if any(dep in pending_ids or dep in ends and ends[dep] > p.start for dep in p.depends_on):
+            violations.append(Violation('prerequisite_unready', Severity.HARD, p.start.date(),
+                                        f'{p.title} starts before its required earlier work is ready.',
+                                        (p.block_id,) if p.block_id else ()))
     hard = any(v.severity == Severity.HARD for v in violations)
     return FeasibilityReport(
         feasible=not hard,
