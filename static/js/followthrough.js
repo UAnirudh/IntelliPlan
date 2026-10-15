@@ -36,6 +36,9 @@
     autopilotDone: false,
     assignmentsReady: false,
     autopilotNote: null,       // {headline, reasons[], undo}
+    calendarWarning: null,
+    calendarEpoch: 0,
+    forecastGeneration: 0,
   };
 
   var INTENT_TITLES = {
@@ -207,6 +210,7 @@
         '<button type="button" class="ft-btn' + (missed > 0 ? ' ft-btn--accent' : '') + '" data-ft-intent="catch_up">I\'m behind ' + behind + '</button>' +
       '</div>' +
       '<div class="ft-forecast" aria-live="polite">' + forecastMarkup() + '</div>' +
+      (state.calendarWarning ? '<p class="ft-calendar-warning" role="status">' + esc(state.calendarWarning) + '</p>' : '') +
       autopilotMarkup() +
     '</div>';
   }
@@ -249,21 +253,36 @@
 
   function loadForecast() {
     if (!state.enabled || !planReady()) { renderBar(); return; }
+    var generation = ++state.forecastGeneration;
+    var plan = _lastScheduleData;
+    var epoch = state.calendarEpoch;
     state.loading = true;
     renderBar();
     var q = planSettings();
     var qs = Object.keys(q).map(function (k) { return k + '=' + encodeURIComponent(q[k]); }).join('&');
     fetch('/api/schedule/forecast' + (qs ? '?' + qs : ''))
       .then(function (r) {
+        if (generation !== state.forecastGeneration || plan !== _lastScheduleData || epoch !== state.calendarEpoch) return null;
         if (r.status === 404) { state.enabled = false; return null; }
-        return r.ok ? r.json() : null;
+        return r.ok || r.status === 503 ? r.json() : null;
       })
       .then(function (body) {
+        if (generation !== state.forecastGeneration || plan !== _lastScheduleData || epoch !== state.calendarEpoch) return;
         state.loading = false;
-        if (body && body.status === 'ok') state.forecast = body;
+        if (body && body.error_code === 'calendar_unavailable') {
+          state.calendarEpoch += 1;
+          state.forecast = null;
+          state.calendarWarning = 'Plan changes are paused while a connected calendar is unavailable. Your saved plan has not changed. Try again shortly or reconnect it in Settings.';
+        } else if (body && body.status === 'ok') {
+          state.forecast = body;
+          state.calendarWarning = null;
+        }
         renderBar();
       })
-      .catch(function () { state.loading = false; renderBar(); });
+      .catch(function () {
+        if (generation !== state.forecastGeneration || plan !== _lastScheduleData || epoch !== state.calendarEpoch) return;
+        state.loading = false; renderBar();
+      });
   }
 
   FT.available = function () { return state.enabled && planReady(); };
@@ -578,17 +597,29 @@
   function runAutopilot() {
     if (state.autopilotDone || !state.enabled || !planReady() || !autopilotEnabled()) return;
     state.autopilotDone = true;
+    var plan = _lastScheduleData;
     fetch('/api/schedule/autopilot', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(Object.assign({}, planSettings(), { assignments: currentAssignments() })),
     })
       .then(function (r) {
+        if (plan !== _lastScheduleData) return null;
         if (r.status === 404) { state.enabled = false; return null; }
-        return r.ok ? r.json() : null;
+        return r.ok || r.status === 503 ? r.json() : null;
       })
       .then(function (body) {
+        if (plan !== _lastScheduleData) return;
+        if (body && body.error_code === 'calendar_unavailable') {
+          state.calendarEpoch += 1;
+          state.forecast = null;
+          state.loading = false;
+          state.calendarWarning = 'Autopilot is paused while a connected calendar is unavailable. Your saved plan has not changed. Try again shortly or reconnect it in Settings.';
+          renderBar();
+          return;
+        }
         if (!body || !body.acted || !body.data) return;
+        state.calendarWarning = null;
         state.autopilotNote = { headline: body.headline, reasons: body.reasons || [], undo: !!body.undo_available };
         adopt(body);
         if (typeof ivAnnounce === 'function') ivAnnounce(body.headline);

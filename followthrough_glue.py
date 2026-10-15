@@ -30,6 +30,7 @@ from flask import jsonify, request
 from flask_login import current_user
 
 from time_utils import utcnow
+from intelliplan.services.calendar_availability import CalendarUnavailable
 from intelliplan.scheduler_clock import now_for
 
 from intelliplan.api.adjust import FLAG_KEY, AdjustDeps, create_adjust_blueprint
@@ -427,9 +428,11 @@ def _build_service(user_id: int | None, guest_id: str | None, payload: Mapping[s
     )
     comfort = int(round(_hours(payload) * 60)) if payload.get("hours_per_day") else None
     try:
-        busy = _planner_busy_by_date(user_id=user_id)
+        busy = _planner_busy_by_date(user_id=user_id, require_complete=True)
+    except CalendarUnavailable:
+        raise
     except Exception:
-        busy = {}
+        raise CalendarUnavailable(('clock',)) from None
     context = StudentContext(
         **_planner_timezone_context(user_id),
         availability=availability,

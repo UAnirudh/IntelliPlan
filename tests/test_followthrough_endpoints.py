@@ -556,3 +556,58 @@ def test_the_scheduler_never_starts_under_the_test_runner():
     import followthrough_glue
 
     assert followthrough_glue.start_scheduler(App.app) is False
+
+
+@pytest.mark.parametrize('path,payload', [
+    ('/generate_schedule', {'custom_tasks': [{'title': 'Algebra problems', 'est_minutes': 30}]}),
+    ('/api/schedule/adjust', {'action': 'skip_day'}),
+    ('/api/schedule/adjust', {'action': 'skip_day', 'preview': True}),
+    ('/api/schedule/autopilot', {}),
+    ('/api/schedule/forecast', None),
+    ('/schedule/reflow', {'schedule_data': plan_data()}),
+])
+def test_calendar_outage_is_retryable_without_changing_plan(client, monkeypatch, path, payload):
+    from intelliplan.services.calendar_availability import CalendarUnavailable
+    uid = make_user()
+    login(client, uid)
+    save(uid, past_plan(), {'finished': True})
+    before = saved(uid)
+    def outage(*args, **kwargs):
+        raise CalendarUnavailable(('google',))
+    monkeypatch.setattr(App, '_planner_busy_by_date', outage)
+    response = client.get(path) if payload is None else client.post(path, json=payload)
+    assert response.status_code == 503
+    body = response.get_json()
+    assert body['error_code'] == 'calendar_unavailable'
+    assert body['retryable'] is True
+    assert saved(uid) == before
+
+
+def test_cron_counts_calendar_skip_without_changing_or_notifying(client, monkeypatch):
+    from intelliplan.services.calendar_availability import CalendarUnavailable
+    monkeypatch.setenv('CRON_SECRET', 'fixture-secret')
+    uid = make_user()
+    save(uid, past_plan())
+    before = saved(uid)
+    monkeypatch.setattr(App, '_planner_busy_by_date', lambda **kw: (_ for _ in ()).throw(CalendarUnavailable(('outlook',))))
+    body = client.post('/cron/autopilot', headers={'X-Cron-Secret': 'fixture-secret'}).get_json()
+    assert body['calendar_skipped'] >= 1
+    assert body['acted'] == 0
+    assert body['failed'] == 0
+    assert saved(uid) == before
+
+
+def test_reflow_uses_the_verified_busy_result_without_a_second_fetch(client, monkeypatch):
+    uid = make_user()
+    login(client, uid)
+    data = plan_data()
+    save(uid, data)
+    calls = []
+    def once(**kwargs):
+        calls.append(kwargs)
+        assert len(calls) == 1, 'a second fetch could fail and erase verified constraints'
+        return {}
+    monkeypatch.setattr(App, '_planner_busy_by_date', once)
+    response = client.post('/schedule/reflow', json={'schedule_data': data})
+    assert response.status_code == 200
+    assert calls == [{'require_complete': True}]

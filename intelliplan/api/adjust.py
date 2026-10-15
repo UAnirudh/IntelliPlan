@@ -39,6 +39,7 @@ from datetime import date, datetime
 from typing import Any, Callable, Mapping
 
 from flask import Blueprint, abort, jsonify, request
+from intelliplan.services.calendar_availability import CalendarUnavailable
 
 logger = logging.getLogger(__name__)
 
@@ -157,6 +158,8 @@ def create_adjust_blueprint(deps: AdjustDeps) -> Blueprint:
                 credit=reality.get("abandoned") or {},
                 finished=tuple(reality.get("finished") or ()),
             )
+        except CalendarUnavailable as exc:
+            return jsonify(exc.response()), 503
         except ValueError as exc:
             return jsonify({"status": "error", "message": str(exc)}), 400
         except Exception as exc:
@@ -213,6 +216,10 @@ def create_adjust_blueprint(deps: AdjustDeps) -> Blueprint:
         schedule_data, progress = deps.load_plan(uid, gid)
         if not schedule_data or not schedule_data.get("schedule"):
             return {"status": "none", "acted": False}, 200
+        from intelliplan.intelligence.autopilot import AutopilotState
+        state = AutopilotState.from_json(schedule_data.get('autopilot'))
+        if not state.enabled:
+            return {'status': 'ok', 'acted': False, 'enabled': False}, 200
         now = _now_for(uid)
         today = now.date()
         try:
@@ -236,13 +243,12 @@ def create_adjust_blueprint(deps: AdjustDeps) -> Blueprint:
                 finished=tuple(reality.get("finished") or ()),
                 finished_titles=finished_titles, force=force,
             )
+        except CalendarUnavailable as exc:
+            return {**exc.response(), 'skipped': True}, 503
         except Exception as exc:
             logger.exception("autopilot failed: %s", exc)
             return {"status": "error", "acted": False}, 500
 
-        from intelliplan.intelligence.autopilot import AutopilotState
-
-        state = AutopilotState.from_json(schedule_data.get("autopilot"))
         if run is None:
             return {"status": "ok", "acted": False, "enabled": state.enabled}, 200
 
@@ -355,7 +361,7 @@ def create_adjust_blueprint(deps: AdjustDeps) -> Blueprint:
         context (the service reads request settings when present); the
         scheduler supplies an empty one.
         """
-        acted = checked = failed = 0
+        acted = checked = failed = calendar_skipped = 0
         for uid, gid in deps.active_owners():
             checked += 1
             try:
@@ -369,7 +375,12 @@ def create_adjust_blueprint(deps: AdjustDeps) -> Blueprint:
                     deps.notify(uid, body)
                 except Exception:
                     pass
-        return {"checked": checked, "acted": acted, "failed": failed}
+            elif body.get('error_code') == 'calendar_unavailable':
+                calendar_skipped += 1
+            elif _status >= 400:
+                failed += 1
+        return {"checked": checked, "acted": acted, "failed": failed,
+                "calendar_skipped": calendar_skipped}
 
     @bp.route("/cron/autopilot", methods=["GET", "POST"])
     def cron_autopilot():
@@ -391,6 +402,8 @@ def create_adjust_blueprint(deps: AdjustDeps) -> Blueprint:
         try:
             service = deps.build_service(uid, gid, dict(request.args))
             body = service.forecast(schedule_data, progress, now=_now_for(uid))
+        except CalendarUnavailable as exc:
+            return jsonify(exc.response()), 503
         except Exception as exc:
             logger.exception("forecast failed: %s", exc)
             return jsonify({"status": "error", "message": "Forecast unavailable."}), 500

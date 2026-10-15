@@ -67,7 +67,7 @@ def test_fixed_offset_remains_supported_for_older_accounts(student):
 
 def test_real_schedule_build_keeps_usable_local_evening(student, monkeypatch):
     monkeypatch.setattr(clock, 'utcnow', lambda: datetime(2026, 10, 14, 0, 30))
-    monkeypatch.setattr(App, '_planner_busy_by_date', lambda: {})
+    monkeypatch.setattr(App, '_planner_busy_by_date', lambda **kwargs: {})
     monkeypatch.setattr(App, '_planner_feedback_rows', lambda *args: [])
     monkeypatch.setattr(App, '_planner_session_rows', lambda *args: [])
     monkeypatch.setattr(App, '_planner_concept_mastery', lambda *args: {})

@@ -151,3 +151,6 @@ PR99 phone pairing is now merged/live at1630f1bba2bb1e6adf1499947781bd3d6d13c2e2
 
 
 The next local scheduler repair retains the healthy calendar and class busy times when a connected provider fails, with fresh revocation checks and privacy-safe HTTP-status diagnostics.63 focused tests and independent reviews pass. Missing-provider busy times, outage disclosure and broad quality remain incomplete. See [partial calendar outages](50-calendar-partial-outages.md).
+
+
+A subsequent strict calendar-health checkpoint pauses computed plan changes when a connected source is unavailable, retains tasks that could not be placed, exposes a retry reason in Scheduler/chat, and removes stale forecasts. Provider response completeness, scoped Google availability permission, reflow/insertion guards and out-of-order UI replies are covered by the new tests. See [calendar health](51-calendar-health-aware-planning.md); real calendar accounts, broad scheduling quality and the original brief remain incomplete.

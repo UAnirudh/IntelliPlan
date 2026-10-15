@@ -25,6 +25,8 @@ API contract:
 
 from __future__ import annotations
 
+from intelliplan.services.calendar_availability import CalendarUnavailable
+
 import json
 import logging
 import re
@@ -555,6 +557,8 @@ def _adjust_saved_schedule(args: dict, user_id: int) -> dict[str, Any]:
                 'calendar_updated': False,
                 'message': ('This is a preview; your saved plan is unchanged.' if preview else
                             'Your study plan is updated. Assignment deadlines and previously exported calendar events are unchanged.')}
+    except CalendarUnavailable as exc:
+        return {'error': 'calendar_unavailable', 'message': str(exc), 'retryable': True}
     except ValueError as exc:
         return {'error': 'invalid_adjustment', 'message': str(exc)}
     except Exception:
@@ -992,6 +996,8 @@ def _execute_tool(name: str, args: dict, user_id: int) -> dict[str, Any]:
                 "schedule": schedule,
                 "calendar_exports": exports,
                 "calendar_export_restricted": not _capabilities_allowed(_tool_user(user_id), 'calendar')}
+        except CalendarUnavailable as exc:
+            return {'error': 'calendar_unavailable', 'message': str(exc), 'retryable': True}
         except AIBlocked as e:
             return {'error': e.reason, 'message': e.message}
         except Exception as e:

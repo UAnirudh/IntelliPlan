@@ -119,7 +119,7 @@ def profile(token: dict) -> dict:
 
 def _calendar_view(token: dict, start_utc: datetime, end_utc: datetime,
                    select: str = "subject,start,end,isAllDay,showAs,isCancelled",
-                   max_pages: int = 5) -> list[dict]:
+                   max_pages: int = 5, require_complete: bool = False) -> list[dict]:
     """Every event instance in a UTC window, following Graph's paging.
 
     ``calendarView`` (not ``events``) because it expands recurring series
@@ -133,11 +133,19 @@ def _calendar_view(token: dict, start_utc: datetime, end_utc: datetime,
     }
     out: list[dict] = []
     data = graph_get(token, "/me/calendarView", params)
-    for _ in range(max_pages):
+    for page in range(max_pages):
+        if require_complete and (not isinstance(data, dict) or data.get('error')
+                                 or not isinstance(data.get('value'), list)
+                                 or any(not isinstance(e, dict) for e in data['value'])):
+            raise ValueError('Outlook calendar availability is incomplete.')
         out.extend(e for e in data.get("value", []) if isinstance(e, dict))
         next_link = data.get("@odata.nextLink")
         if not next_link or not str(next_link).startswith(GRAPH):
+            if next_link and require_complete:
+                raise ValueError('Outlook calendar availability is incomplete.')
             break
+        if page + 1 == max_pages and require_complete:
+            raise ValueError('Outlook calendar availability exceeds the safe import limit.')
         data = graph_get(token, next_link)
     return out
 
@@ -152,7 +160,8 @@ def _is_busy(event: dict) -> bool:
 
 def busy_minutes_by_date(token: dict, start_date: date, days: int = 14,
                          utc_offset_minutes: int = 0,
-                         tz_name: str | None = None) -> dict[date, list[tuple[int, int]]]:
+                         tz_name: str | None = None,
+                         require_complete: bool = False) -> dict[date, list[tuple[int, int]]]:
     """Read the calendar view once and return local wall-clock busy ranges.
 
     The window is the student's local days converted to UTC. It used to send
@@ -164,15 +173,20 @@ def busy_minutes_by_date(token: dict, start_date: date, days: int = 14,
     local_start = datetime.combine(start_date, datetime.min.time())
     local_end = local_start + timedelta(days=max(1, min(60, int(days or 1))))
     utc_start, utc_end = to_utc(local_start, tz_name, offset), to_utc(local_end, tz_name, offset)
-    events = _calendar_view(token, utc_start, utc_end)
+    events = _calendar_view(token, utc_start, utc_end, **({'require_complete': True} if require_complete else {}))
     out: dict[date, list[tuple[int, int]]] = {}
     for event in events:
         if not _is_busy(event):
             continue
         try:
-            start = max(_graph_datetime(event['start']), utc_start)
-            end = min(_graph_datetime(event['end']), utc_end)
+            raw_start, raw_end = _graph_datetime(event['start']), _graph_datetime(event['end'])
+            if raw_end <= raw_start:
+                raise ValueError('Invalid calendar interval')
+            start = max(raw_start, utc_start)
+            end = min(raw_end, utc_end)
         except (KeyError, TypeError, ValueError):
+            if require_complete:
+                raise ValueError('Outlook calendar availability is incomplete.') from None
             continue
         for day, intervals in busy_intervals(start, end, tz_name, offset).items():
             out.setdefault(day, []).extend(intervals)

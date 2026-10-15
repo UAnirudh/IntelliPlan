@@ -96,6 +96,7 @@ import streak_engine
 import pet_engine
 import analytics as app_analytics
 import scheduler_engine
+from intelliplan.services.calendar_availability import CalendarUnavailable
 import scheduler_depth
 import scheduler_clarify
 from flashcards import store as fc_store
@@ -4637,7 +4638,7 @@ def _parse_schedule_day_date(raw, day_idx):
 
 
 def reflow_schedule(schedule_data, availability=None, commitments=None, dna=None,
-                    preferred_time="evening", hours_per_day=2):
+                    preferred_time="evening", hours_per_day=2, busy_by_date=None):
     """Re-time a schedule the student has rearranged by hand.
 
     Unlike humanize_schedule() this preserves block order exactly as given —
@@ -4661,10 +4662,11 @@ def reflow_schedule(schedule_data, availability=None, commitments=None, dna=None
     }
     # Class time and calendar events: a block dragged into third period has
     # to be caught here, not discovered by the student at 10 AM.
-    try:
-        busy_by_date = _planner_busy_by_date() if personalized else {}
-    except Exception:
-        busy_by_date = {}
+    if busy_by_date is None:
+        try:
+            busy_by_date = _planner_busy_by_date() if personalized else {}
+        except Exception:
+            busy_by_date = {}
     for day_idx, day in enumerate(schedule):
         # Drop breaks we injected last time — the break rule runs again below,
         # so keeping them would grow the plan by one break per drag.
@@ -11768,7 +11770,7 @@ def _calendar_policy_allowed(user_id=None):
         return False
 
 
-def _planner_busy_by_date(horizon_days=14, *, user_id=None):
+def _planner_busy_by_date(horizon_days=14, *, user_id=None, require_complete=False):
     """Dated committed time: connected calendars plus the class timetable.
 
     Weekly commitments typed into settings recur; a dentist appointment does
@@ -11794,15 +11796,17 @@ def _planner_busy_by_date(horizon_days=14, *, user_id=None):
         return _calendar_policy_allowed(uid) if explicit_owner else _calendar_policy_allowed()
     if not allowed():
         return _class_busy_by_date(uid, start, horizon_days)
-    memo_key = ("_planner_busy_by_date", (uid, int(horizon_days), start, timezone_for(uid)))
+    memo_key = ("_planner_busy_by_date", (uid, int(horizon_days), start, timezone_for(uid), require_complete))
     try:
         cached = flask.g.get(memo_key[0]) or {}
         if memo_key[1] in cached:
-            return {d: list(v) for d, v in cached[memo_key[1]].items()}
+            result = {d: list(v) for d, v in cached[memo_key[1]].items()}
+            return result if allowed() else _class_busy_by_date(uid, start, horizon_days)
     except RuntimeError:
         cached = None  # outside a request: nothing to memoise against
-    combined = (_calendar_busy_by_date(horizon_days, start=start, user_id=uid) if explicit_owner
-                else _calendar_busy_by_date(horizon_days, start=start))
+    kwargs = {'require_complete': True} if require_complete else {}
+    combined = (_calendar_busy_by_date(horizon_days, start=start, user_id=uid, **kwargs) if explicit_owner
+                else _calendar_busy_by_date(horizon_days, start=start, **kwargs))
     if not allowed():
         return _class_busy_by_date(uid, start, horizon_days)
     for day, intervals in _class_busy_by_date(uid, start, horizon_days).items():
@@ -11816,7 +11820,7 @@ def _planner_busy_by_date(horizon_days=14, *, user_id=None):
     return combined
 
 
-def _calendar_busy_by_date(horizon_days=14, start=None, *, user_id=None):
+def _calendar_busy_by_date(horizon_days=14, start=None, *, user_id=None, require_complete=False):
     """Busy ranges from Google and Outlook only, ``{date: [(start, end)]}``."""
     explicit_owner = user_id is not None
     uid = user_id if explicit_owner else (current_user.id if current_user.is_authenticated else None)
@@ -11830,29 +11834,47 @@ def _calendar_busy_by_date(horizon_days=14, start=None, *, user_id=None):
         zone, offset = timezone_for(uid)
     except Exception as e:
         _log_calendar_busy_failure('clock', e)
+        if require_complete:
+            raise CalendarUnavailable(('clock',)) from None
         return {}
     combined = {}
+    failed = []
     try:
-        token = get_google_token(user_id=uid) if explicit_owner else get_google_token()
+        stored_google = (GoogleIntegration.query.filter_by(user_id=uid).first()
+                         if require_complete else None)
+        token = (get_google_token(user_id=uid) if explicit_owner or stored_google
+                 else get_google_token())
+        if require_complete and stored_google and allowed() and (not token or not has_calendar_scope(token)):
+            failed.append('google')
         if token and allowed() and has_calendar_scope(token):
             from google_calendar_helper import busy_minutes_by_date
             for day, intervals in busy_minutes_by_date(
-                token, start, days=horizon_days, utc_offset_minutes=offset, tz_name=zone
+                token, start, days=horizon_days, utc_offset_minutes=offset, tz_name=zone,
+                **({'require_complete': True} if require_complete else {})
             ).items():
                 combined.setdefault(day, []).extend(intervals)
     except Exception as e:
         _log_calendar_busy_failure('google', e)
+        failed.append('google')
     try:
         outlook_token = ((get_outlook_token(user_id=uid) if explicit_owner else get_outlook_token())
                          if allowed() else None)
+        if require_complete and not outlook_token and allowed() and OutlookIntegration.query.filter_by(user_id=uid).first():
+            failed.append('outlook')
         if outlook_token and allowed():
             for day, intervals in outlook_calendar_helper.busy_minutes_by_date(
-                outlook_token, start, days=horizon_days, utc_offset_minutes=offset, tz_name=zone
+                outlook_token, start, days=horizon_days, utc_offset_minutes=offset, tz_name=zone,
+                **({'require_complete': True} if require_complete else {})
             ).items():
                 combined.setdefault(day, []).extend(intervals)
     except Exception as e:
         _log_calendar_busy_failure('outlook', e)
-    return combined if allowed() else {}
+        failed.append('outlook')
+    if not allowed():
+        return {}
+    if require_complete and failed:
+        raise CalendarUnavailable(failed)
+    return combined
 
 
 def _log_calendar_busy_failure(provider, error):
@@ -12259,7 +12281,7 @@ def _build_planner_schedule(normalized_assignments, custom_tasks, uid, gid,
             daily_target_minutes=comfort_minutes,
             # Real calendar events. Study time booked over a dentist
             # appointment is a plan the student cannot follow.
-            busy_by_date=_planner_busy_by_date(),
+            busy_by_date=_planner_busy_by_date(require_complete=True),
             **_followthrough_extras(uid, gid),
         )
         config = PlannerConfig()
@@ -12286,6 +12308,8 @@ def _build_planner_schedule(normalized_assignments, custom_tasks, uid, gid,
         if uid and record_version:
             _record_plan_version(uid, plan, chosen, data)
         return data
+    except CalendarUnavailable:
+        raise
     except Exception as pe:
         import traceback
         print(f"[planner] v2 planning failed, falling back to AI path: {pe}")
@@ -12560,6 +12584,11 @@ def generate_schedule():
     gid = None if uid else get_guest_session_id()
 
     # ── Clarification gate ────────────────────────────────────────
+    try:
+        _planner_busy_by_date(require_complete=True)
+    except CalendarUnavailable as exc:
+        return flask.jsonify(exc.response()), 503
+
     # A task called "Study" with no subject and no goal can only ever produce
     # a block that says "Study" back at the student. Rather than dress that up
     # with better prompt wording, ask for the missing pieces — once — and
@@ -12665,11 +12694,14 @@ def generate_schedule():
     #
     # Flag-gated so the previous behaviour is one toggle away.
     if feature_enabled("planner_v2"):
-        planned = _build_planner_schedule(
-            normalized_assignments, custom_task_rows, uid, gid,
-            availability, commitments, preferred_time, hours_per_day,
-            dna=dna,
-        )
+        try:
+            planned = _build_planner_schedule(
+                normalized_assignments, custom_task_rows, uid, gid,
+                availability, commitments, preferred_time, hours_per_day,
+                dna=dna,
+            )
+        except CalendarUnavailable as exc:
+            return flask.jsonify(exc.response()), 503
         if planned is not None:
             return flask.jsonify({
                 "status": "ok",
@@ -15681,7 +15713,7 @@ def recover_schedule():
                 concept_mastery=_planner_concept_mastery(uid),
                 weak_days=tuple(getattr(dna, "weak_days", ()) or ()),
                 daily_target_minutes=comfort,
-                busy_by_date=_planner_busy_by_date(),
+                busy_by_date=_planner_busy_by_date(require_complete=True),
                 **_followthrough_extras(uid, gid),
             ),
             PlannerConfig(),
@@ -15716,6 +15748,8 @@ def recover_schedule():
             after = enrich_schedule_data(after, normalized, preferred_time, hours_per_day)
         except Exception as ee:
             print(f"[recover] enrich failed (non-fatal): {ee}")
+    except CalendarUnavailable as exc:
+        return flask.jsonify(exc.response()), 503
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -15808,12 +15842,17 @@ def reflow_saved_schedule():
         return flask.jsonify({"status": "error", "message": "schedule too large"}), 413
     uid = current_user.id if current_user.is_authenticated else None
     gid = None if uid else get_guest_session_id()
+    try:
+        verified_busy = _planner_busy_by_date(require_complete=True)
+    except CalendarUnavailable as exc:
+        return flask.jsonify(exc.response()), 503
     dna, availability, commitments = build_scheduler_personalization(user_id=uid, guest_id=gid)
     try:
         schedule_data = reflow_schedule(
             schedule_data, availability=availability, commitments=commitments, dna=dna,
             preferred_time=data.get("preferred_time") or "evening",
             hours_per_day=data.get("hours_per_day") or 2,
+            busy_by_date=verified_busy,
         )
     except Exception as e:
         print(f"[reflow] failed: {e}")

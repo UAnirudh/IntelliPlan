@@ -50,6 +50,20 @@ def add_task(account):
         App.db.session.commit()
 
 
+def test_chat_planner_describes_calendar_outage_without_saving(account, monkeypatch):
+    from intelliplan.services.calendar_availability import CalendarUnavailable
+    add_task(account)
+    def outage(*args, **kwargs):
+        raise CalendarUnavailable(('google',))
+    monkeypatch.setattr(App, '_build_planner_schedule', outage)
+    result = tool(account, 'generate_schedule')
+    assert result['error'] == 'calendar_unavailable'
+    assert result['retryable'] is True
+    assert 'calendar' in result['message']
+    with App.app.app_context():
+        assert App.SavedSchedule.query.filter_by(user_id=account[0]).count() == 0
+
+
 def signed_client(account):
     client = App.app.test_client()
     with client.session_transaction() as session:
@@ -220,7 +234,7 @@ def test_chat_schedule_preserves_canvas_morning_deadline_in_student_zone(account
     monkeypatch.setattr(App, 'get_google_token', lambda: None)
     monkeypatch.setattr(App, 'get_outlook_token', lambda: None)
     monkeypatch.setattr('intelliplan.scheduler_clock.utcnow', lambda: datetime(2026, 10, 13, 15))
-    monkeypatch.setattr(App, '_planner_busy_by_date', lambda: {})
+    monkeypatch.setattr(App, '_planner_busy_by_date', lambda **kwargs: {})
     with App.app.app_context():
         App.db.session.add(App.UserStreak(user_id=account[0], timezone='America/Los_Angeles'))
         App.db.session.commit()
@@ -257,7 +271,7 @@ def test_chat_planner_keeps_colliding_manual_and_lms_ids_distinct(account, monke
     fixture_generation(monkeypatch)
     monkeypatch.setattr(App, 'get_google_token', lambda: None)
     monkeypatch.setattr(App, 'get_outlook_token', lambda: None)
-    monkeypatch.setattr(App, '_planner_busy_by_date', lambda: {})
+    monkeypatch.setattr(App, '_planner_busy_by_date', lambda **kwargs: {})
     with App.app.app_context():
         manual_id = App.ManualTask.query.filter_by(user_id=account[0]).one().id
     monkeypatch.setattr(App, 'collect_lms_assignments_for_user', lambda uid: [
@@ -299,7 +313,7 @@ def test_chat_planner_distinguishes_repeated_lms_titles_by_deadline(account, mon
     fixture_generation(monkeypatch)
     monkeypatch.setattr(App, 'get_google_token', lambda: None)
     monkeypatch.setattr(App, 'get_outlook_token', lambda: None)
-    monkeypatch.setattr(App, '_planner_busy_by_date', lambda: {})
+    monkeypatch.setattr(App, '_planner_busy_by_date', lambda **kwargs: {})
     monkeypatch.setattr(App, 'collect_lms_assignments_for_user', lambda uid: [
         {'source': 'studentvue', 'title': 'Homework', 'course': 'Math',
          'estimated_time': 30, 'due_date': due}
@@ -336,7 +350,7 @@ def prepare_repair(account, monkeypatch):
     fixture_generation(monkeypatch)
     monkeypatch.setattr(App, 'get_google_token', lambda: None)
     monkeypatch.setattr(App, 'get_outlook_token', lambda: None)
-    monkeypatch.setattr(App, '_planner_busy_by_date', lambda: {})
+    monkeypatch.setattr(App, '_planner_busy_by_date', lambda **kwargs: {})
     monkeypatch.setattr(followthrough, 'followthrough_enabled', lambda uid: True)
     monkeypatch.setattr(followthrough, '_now', lambda: datetime(2026, 10, 13, 8))
     monkeypatch.setattr(App, '_choose_plan', lambda service, rows, uid, **kwargs:
@@ -1112,3 +1126,17 @@ def test_unified_fetch_filters_revoked_sources_before_grade_pulse_and_response(a
     assert 'PRIVATE SOURCE TASK' not in response.get_data(as_text=True)
     assert 'Manual algebra' in response.get_data(as_text=True)
     assert [task['title'] for task in observed.call_args.args[1]] == ['Manual algebra']
+
+
+def test_chat_adjustment_explains_calendar_outage_and_retains_plan(account, monkeypatch):
+    from intelliplan.services.calendar_availability import CalendarUnavailable
+    row_id, original, progress = prepare_repair(account, monkeypatch)
+    def outage(*args, **kwargs):
+        raise CalendarUnavailable(('outlook',))
+    monkeypatch.setattr(App, '_planner_busy_by_date', outage)
+    result = tool(account, 'adjust_schedule', {'action': 'catch_up'})
+    assert result['error'] == 'calendar_unavailable'
+    assert result['retryable'] is True
+    with App.app.app_context():
+        row = App.db.session.get(App.SavedSchedule, row_id)
+        assert (row.schedule_data, row.progress_json) == (original, progress)
