@@ -48,7 +48,12 @@ the newly shared scheduler clock correctly used UTC for zero-offset owners;
 after UTC midnight their definitions of today differed. The endpoint fixture
 now freezes the clock to the same08:00TODAY already used to construct its plans.
 All32 follow-through endpoint tests then pass. Production clock logic is
-unchanged. A complete fresh run and hosted PR94 checks remain release gates.
+unchanged. The complete fresh local run passed4577 tests (33 skipped); PR94's
+hosted tests/security passed atad0bb66. A final UI inspection then found the
+premium clarification screen's legacy "Just answer" shortcut and multi-question
+copy. It now offers "Help me start", requests a small hint and asks only the
+first clarification question.62 premium/contract tests and7 Node tests pass;
+hosted checks for this final follow-up remain required before merging.
 
 Independent Python, JavaScript and spec review identified slider display and
 mobile option styling issues, which were corrected and rechecked. Hosted and

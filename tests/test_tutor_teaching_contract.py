@@ -9,6 +9,15 @@ from adaptive_tutor.prompt import build_adaptive_prompt
 from intelliplan.premium.claude_tutor import TUTOR_SYSTEM
 
 
+def test_premium_clarification_asks_only_one_question_without_answer_shortcut():
+    from intelliplan.premium.router import clarification_text
+    text = clarification_text(['Which class?', 'Which topic?', 'What have you tried?'])
+    assert 'Which class?' in text
+    assert 'Which topic?' not in text
+    assert 'just answer' not in text.lower()
+    assert 'small hint' in text
+
+
 def test_premium_and_adaptive_use_shared_question_led_contract():
     assert QUESTION_LED_GUIDANCE in TUTOR_SYSTEM
     prompt = build_adaptive_prompt({'profile': {'explanation_style': 'detailed', 'explanation_length': 'long'}},

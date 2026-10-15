@@ -269,8 +269,7 @@ def last_turn_was_clarification(context: list[dict]) -> bool:
 
 def clarification_text(questions: list[str]) -> str:
     """The reply a student sees instead of an answer."""
-    noun = "a few quick questions" if len(questions) > 1 else "one quick question"
-    lines = [f"{CLARIFY_PREFIX}, {noun} so I can help properly:"]
-    lines += [f"{i}. {q}" for i, q in enumerate(questions, 1)]
-    lines.append("Reply with whatever you know, or say \"just answer\" and I'll do my best.")
+    lines = [f"{CLARIFY_PREFIX}, one quick question so I can help properly:"]
+    lines.append(questions[0] if questions else "What have you tried so far?")
+    lines.append("Share what you know, or ask for a small hint to get started.")
     return "\n".join(lines)

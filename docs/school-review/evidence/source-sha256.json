@@ -53,7 +53,7 @@
   },
   {
     "path": "Main_Project/templates/tutor.html",
-    "sha256": "96e97b90dc97c46199e17cb356d1258644a0de52951a9b050f65f7da31657b30"
+    "sha256": "e5081a8f413c6151214c9360b3ec853053afeb80fb9ec8f9a6b6a4f880bf48f5"
   },
   {
     "path": "active_glue.py",
@@ -125,7 +125,7 @@
   },
   {
     "path": "docs/school-review/43-question-led-tutor.md",
-    "sha256": "9abbfd4613f918f9a27f7dfb2a32167629e645e35102091cc8ea4552e02fcd44"
+    "sha256": "498189e1b5195503a9efc5736e75f913e09e4d6b17173186e4aa2d8406a7c3dc"
   },
   {
     "path": "extra_features.py",
@@ -773,7 +773,7 @@
   },
   {
     "path": "tests/test_tutor_teaching_contract.py",
-    "sha256": "46b2077fdeb948f85d95dc1fc454278c309b01e2ffac3ec7a0a81eb24c56acdd"
+    "sha256": "4d723b7d63527bee99d3d5293df29ea9e8fa0ec3c19f111444dcee8f7e0e00ba"
   },
   {
     "path": "tests/test_welcome_on_signup.py",

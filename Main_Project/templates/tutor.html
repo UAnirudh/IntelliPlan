@@ -2474,11 +2474,11 @@ function renderPremiumMeta(meta, clarifying) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'tutor-just-answer';
-    btn.textContent = 'Just answer';
+    btn.textContent = 'Help me start';
     btn.addEventListener('click', () => {
       btn.disabled = true;
       const input = document.getElementById('tutorInput');
-      input.value = 'Just answer';
+      input.value = 'Give me a small hint and ask me about the first step.';
       sendTutorMessage();
     });
     wrap.appendChild(btn);
