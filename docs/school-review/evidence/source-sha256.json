@@ -121,7 +121,7 @@
   },
   {
     "path": "docs/school-review/11-remaining-work.md",
-    "sha256": "10b127ba496dd06ecb326ea0a8132378a7fcde63feeebdbcc206ae0ef8ff3b49"
+    "sha256": "510fd8d09471122135ff790a7d4eff420b424f816fc3443d59616d6fd06767ac"
   },
   {
     "path": "docs/school-review/37-adaptive-source-policy.md",
@@ -173,7 +173,7 @@
   },
   {
     "path": "docs/school-review/49-network-camera-gateway.md",
-    "sha256": "937d527f9f4956700e8abdf903f2505e5529a609c718bfc476bd63633adbd745"
+    "sha256": "ef05c659a3a731f1435a5198d8879bbd2007d510307f60bf5783fe27a7643db7"
   },
   {
     "path": "extra_features.py",

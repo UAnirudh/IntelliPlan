@@ -53,18 +53,18 @@ or revoking permission. DELETE may return 404 when closing the peer already
 removed its resource; a sent request alone is not the cleanup proof. The test
 certificate bypass applies only to this synthetic loopback fixture.
 
-The phone layout also decoded26 frames with the same stop/revocation, zero-audio, empty-gateway-inventory and no-overflow checks passing. The full local regression suite is in progress. CI now
+The phone layout also decoded40 frames with the same stop/revocation, zero-audio, empty-gateway-inventory and no-overflow checks passing. The full local suite reported4653 passed,33 skipped and2 failures: a5-second Windows trusted-Python process timeout and newsletter Git/snapshot inputs differing after a Git timeout. All50 curated/newsletter cases pass on a focused rerun; hosted full checks remain the release gate. CI now
 installs the pinned checksum-verified gateway and FFmpeg, runs both layouts and
 uploads only screenshots/results, excluding fixture TLS keys/configuration.
 Independent JavaScript/spec and Python/security reviews corrected the initial
 CSP/disclosure gaps and found no remaining actionable issue in this scope.
 
-Delivery: local network-camera changes, not yet pushed/merged/deployed. PR99
+Delivery: network-camera source commit4cd4a57 is pushed in PR100, pending hosted checks, merge and deployment. PR99
 direct phone pairing is merged and live at
 1630f1bba2bb1e6adf1499947781bd3d6d13c2e2. Its final local suite passed
 4653 tests with33 skipped; hosted pre/post-merge Tests and Security passed.
 Railway confirms web deployment57ac909a-f1a4-4b62-b750-6e14bed207ee SUCCESS,
 one running replica, no active warnings and no pending operations; the exact
-public revision/schema check passed. This establishes release health, not
+public revision/schema check passed. Filtered ERROR/Traceback/CRITICAL logs for this deployment since16:50:49UTC contain zero entries at inspection, a bounded observation rather than a general error-free claim. This establishes release health, not
 physical camera compatibility. Fish playback, real tutor pedagogy, Stripe
 transaction proof and the broader original acceptance ledger remain open.
