@@ -13,12 +13,16 @@ Two additive tables:
 
 Privacy contract for ``active_focus_samples``
 ---------------------------------------------
-The camera pipeline runs entirely in the browser. What crosses the network
-is a small integer summary — how many samples in the bucket looked present,
+The camera analysis runs in the study browser. This persistence pipeline sends
+IntelliPlan a small integer summary — how many samples in the bucket looked present,
 looked away, or found nobody — plus a mean confidence. No frames, no
 embeddings, no face geometry. A row cannot be inverted into an image and
 cannot be used to recognise anyone. Rows are per-session and are deleted
 with the session.
+
+Optional phone pairing sends video directly between the chosen browsers, with
+separate encrypted, expiring signaling rows in ``camera_pair.py``. It does not
+send video through these models or the application server.
 
 The module never imports the application or its ``db``. Call
 :func:`register` from ``App.py`` after ``db = SQLAlchemy(app)`` exists.

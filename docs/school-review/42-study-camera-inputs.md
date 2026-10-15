@@ -69,3 +69,6 @@ saved observation counts increasing from 3 to 5 across pause/resume. A subsequen
 Linux run passed desktop but exposed that the initial menu toggle was still
 queued when the reverse-order test began on phone. The verifier now waits for
 that first enumeration to complete before taking control of the next two lists.
+
+
+Subsequent direct phone pairing is covered in [report48](48-direct-phone-camera.md). It supersedes the missing implementation for the same-network signed-in browser path, with synthetic WebRTC proof. Physical-device compatibility, direct network-camera protocols and signal-quality validation remain open.

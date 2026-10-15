@@ -23,7 +23,7 @@ import time
 from datetime import date, datetime, timedelta
 from typing import Any
 
-from flask import Blueprint, abort, jsonify, request
+from flask import Blueprint, jsonify, request
 from flask_login import current_user
 
 from time_utils import utcnow
@@ -487,6 +487,17 @@ _LEASE_SECONDS = max(TICK_SECONDS * 3, 180)
 _ticker_started = False
 
 
+def _cleanup_expired_cameras():
+    from App import db
+    from intelliplan.services.camera_pairs import cleanup_camera_pairs
+    try:
+        return cleanup_camera_pairs()
+    except Exception as exc:
+        db.session.rollback()
+        logger.error('Camera pairing cleanup failed (%s)', type(exc).__name__)
+        return None
+
+
 def _tick_once(app: Any) -> dict | None:
     """One sweep + flush, if this process wins the lease."""
     from App import db
@@ -529,6 +540,7 @@ def _tick_once(app: Any) -> dict | None:
     if not claimed:
         return None  # another worker owns this tick
 
+    cameras_removed = _cleanup_expired_cameras()
     swept = sweep_all()
     streaks = sweep_streaks()
     # Grade Pulse's background pull rides this tick and its lease rather
@@ -543,7 +555,7 @@ def _tick_once(app: Any) -> dict | None:
         pulse = {"pulled": 0}
     delivered = get_dispatcher().flush()
     _shorten_lease(CronLease, holder, now)
-    return {"swept": swept, "streaks": streaks, "grade_pulse": pulse,
+    return {"swept": swept, "streaks": streaks, "grade_pulse": pulse, "camera_pairs_removed": cameras_removed,
             "delivered": delivered.as_dict()}
 
 
@@ -640,10 +652,11 @@ def cron_notifications():
             "status": "error",
             "message": "unauthorized: that cron secret does not match.",
         }), 401
+    cameras_removed = _cleanup_expired_cameras()
     swept = sweep_all()
     streaks = sweep_streaks()
     delivered = get_dispatcher().flush()
-    return jsonify({"status": "ok", "swept": swept, "streaks": streaks,
+    return jsonify({"status": "ok", "swept": swept, "streaks": streaks, "camera_pairs_removed": cameras_removed,
                     "delivered": delivered.as_dict()})
 
 

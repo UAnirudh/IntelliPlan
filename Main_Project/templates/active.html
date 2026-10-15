@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block page_title %}Active | IntelliPlan — Do the work{% endblock %}
-{% block meta_description %}Run a focused study session against your IntelliPlan schedule. Session timer, goals, break prompts, and an optional on-device focus check-in that never uploads video.{% endblock %}
+{% block meta_description %}Run a focused study session against your IntelliPlan schedule, with goals, break prompts and optional camera check-ins processed on your chosen study device.{% endblock %}
 
 {% block head_extra %}
 <!-- Loaded here rather than in the scripts block. That block is
@@ -11,6 +11,7 @@
      (Jinja parses its tags inside HTML comments too, so this note spells
      the block name out instead of quoting it.) -->
 <script src="{{ url_for('static', filename='js/ip-focus.js') }}?v={{ asset_v }}" defer></script>
+<script src="{{ url_for('static', filename='js/study-camera-peer.js') }}?v={{ asset_v }}" defer></script>
 <!-- Focus enforcement. Loaded next to the tracker because it is driven
      entirely by the tracker's callbacks; on its own it does nothing, and
      for a student who left enforcement off it stays doing nothing. -->
@@ -512,7 +513,7 @@
             <span class="ipa-focus-label">Focus check-in &mdash; optional</span>
           </span>
           <p class="ipa-focus-note" id="ipaFocusNote" role="status">
-            {% if focus_allowed %}Optional check-ins. Video stays on this device; summary counts are saved to your account.
+            {% if focus_allowed %}Optional check-ins. Video stays within your chosen devices; summary counts are saved to your account.
             {% else %}Camera check-ins are unavailable under your current school settings.{% endif %}
           </p>
         </div>
@@ -547,7 +548,7 @@
                aria-label="Live preview of your camera"></video>
         <p class="ipa-focus-note" id="ipaSelfViewNote" hidden>
           This is the picture being checked, on your device. It is not
-          recorded and never leaves this browser.
+          recorded. A paired phone sends video only to this study browser.
         </p>
       </div>
 
@@ -556,8 +557,9 @@
         What leaves my device?
       </button>
       <p class="ipa-focus-note" id="ipaFocusPrivacyText" hidden>
-        Only summary counts reach your account. Video is never recorded and never uploaded &mdash; frames
-        are examined in your browser and discarded. All that reaches us is a count per minute:
+        Summary counts reach your account. With a paired phone, encrypted connection details also pass through IntelliPlan
+        temporarily so the devices can connect. Video is never recorded or uploaded to IntelliPlan; frames
+        are examined in your study browser and discarded. Summary counts record:
         how many checks saw someone, how many didn't. No images, no face data. It's a rough
         signal, not a measurement, so treat it as a nudge rather than a verdict.
       </p>

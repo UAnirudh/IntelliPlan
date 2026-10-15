@@ -142,3 +142,6 @@ Exact assignment deadline times now pass local focused coverage across Scheduler
 
 
 A subsequent scheduler checkpoint repairs known prerequisite handling: dependent work waits for fully scheduled prerequisites, same-day order respects them, saved repairs retain the edges and final clock spill cascades into explicit deferrals.851 focused tests and independent reviews support this scope; automatic dependency discovery and broader quality remain open. See [scheduler prerequisites](47-scheduler-prerequisites.md).
+
+
+Direct phone-camera pairing is now implemented locally for signed-in devices on the same network, with encrypted ephemeral signaling, fresh permission checks, explicit consent, revocation and scheduled cleanup. Real WebRTC between synthetic browser cameras is verified; physical phones, general network/IP streams, RTSP/ONVIF bridges and study-signal accuracy remain open. See [direct phone cameras](48-direct-phone-camera.md). PR98 prerequisite safety is merged/live and its post-release Tests/Security passed; this continuation has fresh Railway plugin confirmation of a successful web deployment. The original brief is still incomplete.

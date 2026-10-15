@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Connect your study camera · IntelliPlan</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/study-camera-phone.css') }}?v={{ asset_v }}">
+  <script src="{{ url_for('static', filename='js/study-camera-peer.js') }}?v={{ asset_v }}" defer></script>
+  <script src="{{ url_for('static', filename='js/study-camera-phone.js') }}?v={{ asset_v }}" defer></script>
+</head>
+<body>
+<main>
+  <p class="eyebrow">IntelliPlan · Study camera</p>
+  <h1>Use this camera at your desk.</h1>
+  <p>Keep your study page open on the other device. Sign into the same IntelliPlan account on this phone before connecting.</p>
+  <p id="cameraDisclosure">When you tap Connect, live video goes to your paired study browser. Audio is off. IntelliPlan passes encrypted, temporary connection details; it does not receive or record your video. Keep both devices on the same network. Camera activity cannot prove that you are studying.</p>
+  <label for="cameraFacing">Camera</label>
+  <select id="cameraFacing"><option value="environment">Back camera</option><option value="user">Front camera</option></select>
+  <div class="actions">
+    <button id="cameraConnect" type="button" aria-describedby="cameraDisclosure">Connect camera</button>
+    <button id="cameraStop" type="button" hidden>Stop sharing</button>
+  </div>
+  <p id="cameraStatus" role="status" aria-live="polite">Camera is off. Open the private link from your study page to connect.</p>
+  <video id="cameraPreview" muted playsinline hidden aria-label="Your camera preview"></video>
+  <p><a href="/login" target="_blank" rel="noopener noreferrer">Sign in on this phone</a> · <a href="/active">Back to studying</a></p>
+</main>
+</body>
+</html>

@@ -1,11 +1,13 @@
 .ipa-camera-menu { margin: 12px 0; font-size: .85rem; }
 .ipa-camera-menu summary { cursor: pointer; padding: 8px 0; }
 .ipa-camera-menu label { display: block; margin: 8px 0 6px; }
-.ipa-camera-menu select {
+.ipa-camera-menu select, .ipa-camera-menu input {
   width: 100%; max-width: 100%; min-height: 44px; padding: 8px;
   border: 1px solid var(--border-strong); border-radius: 8px;
   background: var(--bg-card); color: var(--text-primary); font: inherit;
 }
+.ipa-camera-menu input { box-sizing: border-box; }
+.ipa-camera-menu [hidden] { display: none !important; }
 .ipa-camera-menu :focus-visible, .ipa-selfview-toggle:focus-visible {
   outline: 2px solid var(--accent); outline-offset: 3px;
 }

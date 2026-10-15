@@ -141,7 +141,7 @@ with sync_playwright() as p:
         page.evaluate('''() => {
             window.cameraLists[1]([{deviceId: 'latest', label: 'Latest camera'}]);
         }''')
-        page.wait_for_function("document.querySelector('#ipaCameraSource').options.length === 3")
+        page.wait_for_function("document.querySelector('#ipaCameraSource').querySelector('option[value=\"device:latest\"]') !== null")
         page.evaluate("window.cameraLists[0]([{deviceId: 'stale', label: 'Stale camera'}])")
         assert page.locator('#ipaCameraSource').input_value() == 'rear'
         assert page.locator('#ipaCameraSource').inner_text().find('Stale camera') == -1
@@ -176,7 +176,8 @@ with sync_playwright() as p:
         page.locator('#ipaSelfViewBtn').click()
         page.wait_for_function("document.querySelector('#ipaSelfView').srcObject !== null")
         page.wait_for_function("document.querySelector('#ipaCameraSource').options.length > 2")
-        page.locator('#ipaCameraSource').select_option(index=2)
+        device_value = page.locator('#ipaCameraSource option[value^="device:"]').first.get_attribute('value')
+        page.locator('#ipaCameraSource').select_option(device_value)
         page.wait_for_function('window.IPFocus.activeCamera() !== null')
         toggle(False)
         page.wait_for_timeout(200)

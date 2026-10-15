@@ -557,7 +557,7 @@ def add_cors_headers(response):
 # prefix against the request path so sub-routes (e.g. /login/account) are
 # covered too.
 _FRAME_SENSITIVE_PREFIXES = (
-    "/login", "/register", "/settings", "/connect", "/account",
+    "/login", "/register", "/settings", "/connect", "/account", "/study-camera",
 )
 
 def _is_frame_sensitive(path):
@@ -2846,6 +2846,8 @@ ModelPrior = _prior_models.register(db)
 # from. See intelliplan/models/active_session.py for the privacy contract
 # covering the focus-sample rows.
 ActiveSession, ActiveFocusSample = _as_models.register(db)
+from intelliplan.models import camera_pair as _camera_pair_models
+StudyCameraPair = _camera_pair_models.register(db)
 # "Break it down" checklists — one row per step, keyed by assignment title.
 # Their estimate/actual pairs calibrate the next breakdown's minutes.
 from intelliplan.models import assignment_step as _step_models
@@ -10467,6 +10469,7 @@ def _account_delete_impl():
         ("lessons", "DELETE FROM lessons WHERE user_id = :uid"),
         ("study_sessions", "DELETE FROM study_sessions WHERE user_id = :uid"),
         ("active_sessions", "DELETE FROM active_sessions WHERE user_id = :uid"),
+        ("study_camera_pairs", "DELETE FROM study_camera_pairs WHERE user_id = :uid"),
         ("assignment_steps", "DELETE FROM assignment_steps WHERE user_id = :uid"),
         ("study_points", "DELETE FROM study_points WHERE user_id = :uid"),
         ("study_mastery", "DELETE FROM study_mastery WHERE user_id = :uid"),
@@ -22037,6 +22040,12 @@ app.register_blueprint(learning_graph_bp)
 # ── Active study. Registered here for the same reason: its glue module
 # resolves App lazily. The `active_study` flag is a kill switch (default on).
 from active_glue import active_bp
+from study_camera_glue import study_camera_bp
+app.register_blueprint(study_camera_bp)
+app.view_functions['study_camera.sync'] = limiter.limit(
+    '90 per minute', override_defaults=True,
+    key_func=lambda: 'camera-pair:' + str(current_user.get_id() or 'anonymous')
+)(app.view_functions['study_camera.sync'])
 app.register_blueprint(active_bp)
 # "Break it down" + "Just 5 minutes" (steps reuse the Active timer above), and
 # quick-add from the palette, the extension and bearer-token apps.

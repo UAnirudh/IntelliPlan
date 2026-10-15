@@ -169,6 +169,7 @@ self.addEventListener('fetch', event => {
   // Live surfaces and anything the page caches itself: straight to network,
   // no interception. Getting a stale answer here is worse than an error.
   if (url.pathname.startsWith('/live') ||
+      url.pathname === '/study-camera' ||
       url.pathname.startsWith('/api/') ||
       url.pathname.startsWith('/oauth') ||
       url.pathname.startsWith('/cron/') ||

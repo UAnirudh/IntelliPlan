@@ -77,6 +77,10 @@ jobs:
         env:
           STUDY_CAMERA_OUTPUT: ${{ runner.temp }}/study-camera-proof
         run: python scripts/verify_study_camera_browser.py
+      - name: Direct phone camera WebRTC workflow
+        env:
+          PHONE_CAMERA_OUTPUT: ${{ runner.temp }}/study-camera-proof/paired-phone
+        run: python scripts/verify_phone_camera_browser.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
