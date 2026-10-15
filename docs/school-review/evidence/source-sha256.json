@@ -17,7 +17,7 @@
   },
   {
     "path": "App.py",
-    "sha256": "5f46ef0d74ae56040a0319ebdabae5b53d89e781b4ee79e8fbbeb52d43238f10"
+    "sha256": "5ac489388d6da2c4ecdd7f9eb5584dcba9e29cd95a4e7a424810ae0cb492780c"
   },
   {
     "path": "Main_Project/templates/active.html",
@@ -80,6 +80,10 @@
     "sha256": "34528be30ada5209dabe498a392537bc74c64fb565741431a78728ec4d8f060d"
   },
   {
+    "path": "canvas_helper.py",
+    "sha256": "2d59721290da1a089e0555a52c8f43e84dbf1bc73b598b1fe90c70c2e05e2f09"
+  },
+  {
     "path": "chatbot_api.py",
     "sha256": "1d1ab5414c638254c49928c39d2f6f1d0038ca3a1099b79fcde83f9497619874"
   },
@@ -101,7 +105,7 @@
   },
   {
     "path": "docs/school-review/11-remaining-work.md",
-    "sha256": "ff4242805982dcc2b8b85ecc2c41fc7732d3020f0fb544106e533a6e1371b0ae"
+    "sha256": "7be3ab4988477fea691dcd335c9ed7a740c5df4ef29571831c9eb72d098aa6bb"
   },
   {
     "path": "docs/school-review/37-adaptive-source-policy.md",
@@ -140,12 +144,16 @@
     "sha256": "6a963cfd2548ba99a3932dca78af3d866b1c93f7181a1825f5308015ee5f0338"
   },
   {
+    "path": "docs/school-review/46-exact-assignment-deadlines.md",
+    "sha256": "4f516b63a9f239c953f3b44838a33d4ecae52766bcfe1a765a95a578eb9d432b"
+  },
+  {
     "path": "extra_features.py",
     "sha256": "fb3345bd93b6311ab35ccda535f86b9c505ec985907c3862114cb82da0440e21"
   },
   {
     "path": "followthrough_glue.py",
-    "sha256": "38572d6b966af31eb66c8549febbce246f023c4ca02de3294ed59328ebc23c25"
+    "sha256": "3cede5547c69542530978ca45a1e07b98e8f2c60208e3b625b5b7bd1bbf47f15"
   },
   {
     "path": "google_calendar_helper.py",
@@ -169,7 +177,7 @@
   },
   {
     "path": "intelliplan/api/next_action.py",
-    "sha256": "af7bc18baaa1bd657613b78ace891faa86f9269dac1f85f7458895e079822afa"
+    "sha256": "36d55f4a46ce548df10839bb7b2340f334d18dfb949f54d4d0fd1bd6f4cd631e"
   },
   {
     "path": "intelliplan/email/campaigns.py",
@@ -180,12 +188,32 @@
     "sha256": "9f09e40de0f7a93257db7daf94c97f1f3a8e1895b49fb25a14b42206b90277bb"
   },
   {
+    "path": "intelliplan/intelligence/autopilot.py",
+    "sha256": "b8735721b0c03490fec58fe72b228ad7f37f2786af0022d7fb2789079a06541b"
+  },
+  {
+    "path": "intelliplan/intelligence/calendar_sittings.py",
+    "sha256": "9abd634a8b95cbd0963d9f92ad3c4b9a0d283b4e6c6aa73bae7025f684ecf350"
+  },
+  {
     "path": "intelliplan/intelligence/constraints.py",
-    "sha256": "afdb1b2bc39a4abeb96ae70b0f8db94d0c495d1cc8119f02d810be3b826cb037"
+    "sha256": "054bd71517f3399da9946389b73e9214aad61f9b5d5a015d634acd2cb85a8882"
+  },
+  {
+    "path": "intelliplan/intelligence/deadlines.py",
+    "sha256": "1aff8608c5d86b9a1980050a1b40d40e6ddec31ec9680bdace1585ba13d33c9a"
+  },
+  {
+    "path": "intelliplan/intelligence/overrides.py",
+    "sha256": "3e60ba52729e42064f09b9bf7aa653a0069a8b427a076ece330c76f7d18043cb"
   },
   {
     "path": "intelliplan/intelligence/planner.py",
-    "sha256": "c9eea3b9373c295f709fdd27e19729bd7777b7a5965ea437301630b89d340e8b"
+    "sha256": "454c486eb49d77d5add68ac609f5a5a20145960f9196fd5a5bfdb528ad876a3d"
+  },
+  {
+    "path": "intelliplan/intelligence/rescheduling.py",
+    "sha256": "c057c00eadbc3426cb12adf21b6155da93c4b1738f18a12d2e238f65a09e77ec"
   },
   {
     "path": "intelliplan/learning/__init__.py",
@@ -273,11 +301,11 @@
   },
   {
     "path": "intelliplan/services/next_action.py",
-    "sha256": "82368d4f131d6ee2554605676c42bad3fd7b28c52b106a584c3d467d5447d22d"
+    "sha256": "f6302c28b201043631e9d55b9b09f1973716fa472a6e067440e00a86671f81e1"
   },
   {
     "path": "intelliplan/services/scheduling.py",
-    "sha256": "fdbf63bed712f490dfc582dbfe8c791ba0ed0eee4953ee4147d96f5793c160b8"
+    "sha256": "3391ba5e9f17ad21d800010ebd98f8252d52293ea2a9209497d0193550e3f6fb"
   },
   {
     "path": "intelliplan/services/today.py",
@@ -289,7 +317,7 @@
   },
   {
     "path": "next_action_glue.py",
-    "sha256": "b2de90875b2f1bb8b9c1b68c55a88b91fd3f25a7f0bdae8e262beebca6715608"
+    "sha256": "eb8a7547bf3f814ee16a18068b1dfa2f05d2f1429b3c2b943d3abbc9b64a8bc7"
   },
   {
     "path": "notifications_glue.py",
@@ -301,7 +329,7 @@
   },
   {
     "path": "plani_agent.py",
-    "sha256": "73adf21fd08463dbd18a8c58144d59c2e681bd0d8d7737675042b22ca4d154c0"
+    "sha256": "78873b0ebe1135092af8b641ae8e98be87122216e03b102b53efc4379c089ad5"
   },
   {
     "path": "premium_glue.py",
@@ -310,6 +338,10 @@
   {
     "path": "requirements.txt",
     "sha256": "07649b58feb69b54f80a824415cd6bba40744d9c3ff108e9a0195e979b62beb1"
+  },
+  {
+    "path": "scheduler_engine.py",
+    "sha256": "6dd7843d42df37db991b5f5e7869f3998b57108349da11e311533d42b5d0c896"
   },
   {
     "path": "scripts/check_paid_launch.py",
@@ -756,6 +788,10 @@
     "sha256": "9bbe0e800d8158d95f61d7d78bdaba5b613508978b42cc8b897f9b05cb1a171e"
   },
   {
+    "path": "tests/test_exact_assignment_deadlines.py",
+    "sha256": "b37c025f3bb3f5c9480bfb26c7b5c1fc2d36718887f5fdcb8ced2fecf13a5846"
+  },
+  {
     "path": "tests/test_learning_hub.py",
     "sha256": "91f293ab64ebe42c89cc9ecee1bd62767c1a642a530e53be3ded92e04400d37b"
   },
@@ -785,7 +821,7 @@
   },
   {
     "path": "tests/test_plani_policy.py",
-    "sha256": "d7189db92fb9784ddcbad8e8807e4954207ead8930e6db6c7ad7e68c9ea0162b"
+    "sha256": "0f75fbb36d7fcdff9bac054bca11f88b0beaae04febeb73e032b421788186b1d"
   },
   {
     "path": "tests/test_retrieval.py",

@@ -496,6 +496,7 @@ def _deferral(block: dict, minutes: int, reason: str) -> dict:
         "title": block.get("parent_title") or block.get("assignment") or "Task",
         "minutes": int(minutes),
         "due_date": block.get("due_date") or None,
+        "deadline_at": block.get("deadline_at") or None,
         "reason": reason,
     }
 

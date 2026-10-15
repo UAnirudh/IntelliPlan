@@ -453,6 +453,8 @@ def plan_from_schedule_data(schedule_data: Mapping[str, Any] | None) -> Plan:
     and carrying them into the planner's world would make every day look
     fuller than it is.
     """
+    from intelliplan.intelligence.deadlines import local_deadline
+
     days: list[DayPlan] = []
     for entry in (schedule_data or {}).get("schedule") or []:
         if not isinstance(entry, Mapping):
@@ -483,6 +485,7 @@ def plan_from_schedule_data(schedule_data: Mapping[str, Any] | None) -> Plan:
                     difficulty=str(block.get("difficulty") or "medium").lower(),
                     priority=int(block.get("priority") or 50),
                     due_date=_parse_date(block.get("due_date")),
+                    deadline_at=local_deadline(block.get("deadline_at")),
                     reasons=tuple(block.get("reasons") or ()),
                     parent_title=str(block.get("parent_title") or ""),
                 )
@@ -529,6 +532,7 @@ def tasks_from_plan(plan: Plan) -> list[PlannerTask]:
                 course=s.course,
                 kind=s.kind,
                 due_date=s.due_date,
+                deadline_at=s.deadline_at,
                 est_minutes=s.minutes,
                 difficulty=s.difficulty,
                 priority=s.priority,

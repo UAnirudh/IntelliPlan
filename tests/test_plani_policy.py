@@ -214,6 +214,32 @@ def test_chat_schedule_uses_real_planner_when_provider_is_down(account, monkeypa
     provider.assert_not_called()
 
 
+def test_chat_schedule_preserves_canvas_morning_deadline_in_student_zone(account, monkeypatch):
+    from datetime import datetime
+    provider = fixture_generation(monkeypatch)
+    monkeypatch.setattr(App, 'get_google_token', lambda: None)
+    monkeypatch.setattr(App, 'get_outlook_token', lambda: None)
+    monkeypatch.setattr('intelliplan.scheduler_clock.utcnow', lambda: datetime(2026, 10, 13, 15))
+    monkeypatch.setattr(App, '_planner_busy_by_date', lambda: {})
+    with App.app.app_context():
+        App.db.session.add(App.UserStreak(user_id=account[0], timezone='America/Los_Angeles'))
+        App.db.session.commit()
+    monkeypatch.setattr(App, 'collect_lms_assignments_for_user', lambda uid: [{
+        'id': 'morning', 'source': 'canvas', 'title': 'Morning quiz', 'course': 'Math',
+        'estimated_time': 60, 'due_date': '2026-10-14', 'due_at': '2026-10-14T16:00:00Z'}])
+    result = tool(account, 'generate_schedule', {'preferred_time': 'evening'})
+    assert result.get('status') == 'ok', result
+    blocks = [b for day in result['schedule']['schedule'] for b in day['blocks'] if not b.get('is_break')]
+    assert blocks
+    assert all(b['deadline_at'] == '2026-10-14T09:00:00' for b in blocks)
+    assert all(datetime.fromisoformat(b['end_iso']) <= datetime(2026, 10, 14, 9) for b in blocks)
+    assert all(datetime.fromisoformat(b['start_iso']).date().isoformat() == '2026-10-13' for b in blocks)
+    with App.app.app_context():
+        saved = App.SavedSchedule.query.filter_by(user_id=account[0], is_active=True).one()
+        assert json.loads(saved.schedule_data) == result['schedule']
+    provider.assert_not_called()
+
+
 @pytest.mark.parametrize('window', [
     {'study_start_time': '4:30 PM'}, {'study_end_time': '8:00 PM'}])
 @pytest.mark.parametrize('hours', [2, 0.5])

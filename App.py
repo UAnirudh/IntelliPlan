@@ -4763,7 +4763,7 @@ def enrich_schedule_data(schedule_data, assignments, preferred_time, hours_per_d
             # assignment due tomorrow is never pushed past one due next week.
             # Blocks whose title the model rewrote miss the lookup and get no
             # due date, which the engine treats as "unknown", not "urgent".
-            if assignment_meta.get("due_date"):
+            if assignment_meta.get("due_date") and not block.get('deadline_at'):
                 block["due_date"] = assignment_meta["due_date"]
             block["energy_level"] = energy_level
             block["color"] = PRIORITY_COLORS.get(priority, "#60a5fa")
@@ -12016,6 +12016,12 @@ def _saved_descriptions_for(assignments):
         return {}
 
 
+def _planner_timezone_context(user_id=None):
+    from intelliplan.scheduler_clock import timezone_for
+    zone, offset = timezone_for(user_id)
+    return {'timezone_name': zone, 'timezone_offset_minutes': offset}
+
+
 def _planner_task_rows(normalized_assignments, custom_tasks, descriptions=None):
     """Flatten assignments and free-text custom tasks into planner input.
 
@@ -12071,6 +12077,8 @@ def _planner_task_rows(normalized_assignments, custom_tasks, descriptions=None):
             "course": a.get("course") or "",
             "kind": kind,
             "due_date": a.get("due_date") or "",
+            "due_at": a.get('due_at') or a.get('due_datetime'),
+            "deadline_at": a.get('deadline_at'),
             "est_minutes": est_minutes,
             "difficulty": (a.get("difficulty") or "Medium").lower(),
             "priority": scored.score if scored else _priority_score_for(a),
@@ -12117,6 +12125,8 @@ def _planner_task_rows(normalized_assignments, custom_tasks, descriptions=None):
             # Still empty when unanswered: a missing deadline is the truth,
             # and inventing one would be worse than having none.
             "due_date": task.get("due_date") or "",
+            "due_at": task.get('due_at') or task.get('due_datetime'),
+            "deadline_at": task.get('deadline_at'),
             "est_minutes": est_minutes,
             "difficulty": str(task.get("difficulty") or "medium").lower(),
             "priority": _priority_score_for(task) if task.get("priority") else 50,
@@ -12190,6 +12200,7 @@ def _build_planner_schedule(normalized_assignments, custom_tasks, uid, gid,
             comfort_minutes = None
 
         context = StudentContext(
+            **_planner_timezone_context(uid),
             availability=availability,
             commitments=commitments,
             preferred_time=preferred_time,
@@ -13416,6 +13427,7 @@ def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True) ->
                                 "title": title,
                                 "course": course_map.get(a.get("course_id"), course_map.get(course_id, "Unknown")),
                                 "due_date": due_str,
+                                "due_at": a.get('due_at'),
                                 "priority": priority,
                                 "source": "canvas",
                                 "estimated_time": est_minutes,
@@ -13619,6 +13631,7 @@ def unified_tasks():
                             "title": title,
                             "course": course_map.get(a["course_id"], "Unknown"),
                             "due_date": due_str,
+                            "due_at": a.get('due_at'),
                             "priority": priority,
                             "source": "canvas",
                             "estimated_time": est_minutes,
@@ -15618,6 +15631,7 @@ def recover_schedule():
             comfort = None
         service = SchedulingService(
             StudentContext(
+                **_planner_timezone_context(uid),
                 availability=availability,
                 commitments=commitments,
                 preferred_time=preferred_time,
@@ -17017,6 +17031,7 @@ def extension_tasks():
                                 "title": title,
                                 "course": course_map.get(a["course_id"], "Unknown"),
                                 "due_date": due_str,
+                                "due_at": a.get('due_at'),
                                 "priority": priority,
                                 "source": "canvas",
                                 "estimated_time": est_minutes,

@@ -213,6 +213,7 @@ def get_assignments(canvas_url, token):
                 "title": title,
                 "course": course_map.get(cid, "Unknown Course"),
                 "due_date": due_str[:10],
+                "due_at": a.get('due_at'),
                 "points_possible": points_possible,
                 "priority": priority,
                 "estimated_time": _estimate_minutes(a, points_possible),
@@ -442,6 +443,7 @@ def get_gradebook_detail(canvas_url, token):
                 "omit_from_final_grade": bool(a.get("omit_from_final_grade")),
                 "title": a.get("name", ""),
                 "due_date": (a.get("due_at") or "")[:10],
+                "due_at": a.get('due_at'),
                 "points_possible": points_possible,
                 "points_earned": score_val if score_val is not None else "",
                 "score_label": (
@@ -588,6 +590,7 @@ def get_missing_assignments(canvas_url, token):
                 "title": title,
                 "course": course_name,
                 "due_date": due_date,
+                "due_at": a.get('due_at'),
                 "points_earned": earned if earned is not None else 0,
                 "points_possible": possible,
                 "display_score": sub.get("grade") or "Missing",

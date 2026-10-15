@@ -36,8 +36,10 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field, replace
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any, Callable, Iterable, Mapping, Sequence
+
+from intelliplan.intelligence.deadlines import local_deadline
 
 from intelliplan.intelligence.estimation import EstimationModel
 from intelliplan.intelligence.planner import (
@@ -193,6 +195,7 @@ class _Acc:
     done: int = 0
     missed: int = 0
     future: list[tuple[date, int]] = field(default_factory=list)
+    deadline_at: datetime | None = None
 
 
 def snapshot_from_schedule(
@@ -225,6 +228,7 @@ def snapshot_from_schedule(
                 course=str(block.get("course") or ""),
                 kind=str(block.get("kind") or "homework").strip().lower() or "homework",
                 due=_as_date(block.get("due_date")),
+                deadline_at=local_deadline(block.get('deadline_at')),
                 # Enrichment rewrites ``priority`` into a High/Medium/Low
                 # label and keeps the planner's number as ``priority_score``.
                 priority=_priority(
@@ -278,6 +282,7 @@ def snapshot_from_schedule(
             continue
         a = acc_for(task_id, {
             "assignment": d.get("title"), "due_date": d.get("due_date"), "priority": 60,
+            "deadline_at": d.get('deadline_at'),
         })
         a.remaining += minutes
 
@@ -299,6 +304,7 @@ def snapshot_from_schedule(
                 kind=a.kind,
                 parent_title=a.parent_title,
                 due_date=a.due,
+                deadline_at=a.deadline_at,
                 est_minutes=a.remaining,
                 difficulty=a.difficulty if a.difficulty in ("easy", "medium", "hard") else "medium",
                 priority=a.priority,
@@ -633,6 +639,7 @@ def plan_from_sittings(
                     task_id=tid, title=t.title, course=t.course, kind=t.kind, day=d,
                     minutes=int(m), part_index=index, part_total=len(rows),
                     difficulty=t.difficulty, priority=t.priority, due_date=t.due_date,
+                    deadline_at=t.deadline_at,
                     parent_title=t.parent_title, stage_index=t.stage_index,
                 )
             )
@@ -643,6 +650,7 @@ def plan_from_sittings(
             deferred.append(Deferral(
                 task_id=tid, title=t.title, minutes=need, due_date=t.due_date,
                 reason="Not in the plan as it stands.",
+                deadline_at=t.deadline_at,
             ))
     day_plans = tuple(
         DayPlan(day=d, sessions=tuple(on_day[d]), capacity_minutes=max(0, cap.get(d, 0)),

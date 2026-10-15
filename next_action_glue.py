@@ -241,6 +241,8 @@ def _assignments(user_id: int) -> list[dict]:
                 "title": a.get("title") or "",
                 "course": a.get("course") or "",
                 "due_date": a.get("due_date") or "",
+                "due_at": a.get('due_at') or a.get('due_datetime'),
+                "deadline_at": a.get('deadline_at'),
                 "priority": a.get("priority") or 50,
                 "est_minutes": int(a.get("est_minutes") or 45),
                 "status": a.get("status") or "not_started",
