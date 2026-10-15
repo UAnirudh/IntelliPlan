@@ -42,6 +42,14 @@ Local evidence:
 - Screenshots and logs are under .codex/verification/tutor-browser locally;
   scripts/verify_tutor_exercises_browser.py and the Node checks run in CI.
 
+The first complete local unit run reported4574 passed,33 skipped and3 failed
+follow-through endpoint cases. Those fixtures used host-local date.today() but
+the newly shared scheduler clock correctly used UTC for zero-offset owners;
+after UTC midnight their definitions of today differed. The endpoint fixture
+now freezes the clock to the same08:00TODAY already used to construct its plans.
+All32 follow-through endpoint tests then pass. Production clock logic is
+unchanged. A complete fresh run and hosted PR94 checks remain release gates.
+
 Independent Python, JavaScript and spec review identified slider display and
 mobile option styling issues, which were corrected and rechecked. Hosted and
 release results are tracked separately; this document does not claim deployment.
