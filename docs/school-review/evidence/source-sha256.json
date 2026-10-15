@@ -101,7 +101,7 @@
   },
   {
     "path": "docs/school-review/42-study-camera-inputs.md",
-    "sha256": "60b1db5302880feb38060f0e7c654c18900527a54dc93bd957e9bc514e043e58"
+    "sha256": "e9f17e5d9824b8d50b630f14b96398543c6a1919d8454894a5f8190fe4d59045"
   },
   {
     "path": "extra_features.py",
@@ -293,7 +293,7 @@
   },
   {
     "path": "scripts/verify_study_camera_browser.py",
-    "sha256": "df406acac29db1e9311944e08781ede663cf6381959b435ad5f032e695d2e2aa"
+    "sha256": "022ecbee7a187a03bb1b5901490396875cbbd2647da7203ef7f2b14031fabbdb"
   },
   {
     "path": "scripts/wait_for_deployment.py",

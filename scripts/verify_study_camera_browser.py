@@ -114,12 +114,23 @@ with sync_playwright() as p:
         if essential.is_visible():
             essential.click()
         page.locator('#ipaStart').wait_for(state='visible')
+        # Wait for the menu's first asynchronous toggle/enumeration to finish
+        # before replacing the list provider for the reversed-response case.
+        page.evaluate('''() => {
+            window.originalCameras = window.IPFocus.cameras;
+            window.initialCameraListReady = false;
+            window.IPFocus.cameras = async () => {
+                const devices = await window.originalCameras();
+                window.initialCameraListReady = true;
+                return devices;
+            };
+        }''')
         page.locator('#ipaCameraMenu summary').click()
+        page.wait_for_function('window.initialCameraListReady === true')
         page.wait_for_function("document.querySelector('#ipaCameraSource').options.length >= 2")
         assert page.evaluate('window.IPFocus.activeCamera() === null')
         # Delayed, out-of-order device lists must preserve the latest choice.
         page.evaluate('''() => {
-            window.originalCameras = window.IPFocus.cameras;
             window.cameraLists = [];
             window.IPFocus.cameras = () => new Promise(resolve => window.cameraLists.push(resolve));
             navigator.mediaDevices.dispatchEvent(new Event('devicechange'));

@@ -65,4 +65,7 @@ tutor, paid launch readiness and the rest of the original brief remain open.
 CI follow-up: the rendered verifier isolates native fake-device notifications
 from its deliberately reordered synthetic device-list scenario. Production
 device listeners remain unchanged. Desktop and phone local reruns pass with
-saved observation counts increasing from 3 to 5 across pause/resume.
+saved observation counts increasing from 3 to 5 across pause/resume. A subsequent
+Linux run passed desktop but exposed that the initial menu toggle was still
+queued when the reverse-order test began on phone. The verifier now waits for
+that first enumeration to complete before taking control of the next two lists.
