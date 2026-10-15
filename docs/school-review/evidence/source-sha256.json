@@ -1,11 +1,15 @@
 [
   {
+    "path": ".env.example",
+    "sha256": "92bcfa8e5a3b97f303fa0c1c17112314479b773d1df827e6827eb50fdfbd7f14"
+  },
+  {
     "path": ".gitattributes",
     "sha256": "46763604856c756f83756db32c86d2faab8afbaa27b07f9fec3aebc6c12a58bd"
   },
   {
     "path": ".github/workflows/main.yml",
-    "sha256": "e82f9e5655f678b375c38c4755d5f553b62f43d5d3b71b91ddd322c32b9d308b"
+    "sha256": "fb2e11dde2b4ad2c8d04c48c012a2e7ccbb87e9e2ff0f5d8904126f7e3f27834"
   },
   {
     "path": ".github/workflows/security.yml",
@@ -48,12 +52,28 @@
     "sha256": "394b1a34a9f6d19a39557e65a0682f566e9c3e581e529dbf613942a305ef00f9"
   },
   {
+    "path": "Main_Project/templates/tutor.html",
+    "sha256": "96e97b90dc97c46199e17cb356d1258644a0de52951a9b050f65f7da31657b30"
+  },
+  {
     "path": "active_glue.py",
     "sha256": "9d3b0aba83a125746a4c68a4a7d44417d81a3691cf2fa6e56c918b395d022be5"
   },
   {
+    "path": "adaptive_tutor/modality.py",
+    "sha256": "ef0cc63045fc5802dd518c2dc181e4d518536c56de1c9c059ed68bcab3c013c2"
+  },
+  {
+    "path": "adaptive_tutor/pedagogy.py",
+    "sha256": "cd0609648e0327fc49a1552216a1c713f9069027cf994962c41a3e25ed85f4d3"
+  },
+  {
+    "path": "adaptive_tutor/prompt.py",
+    "sha256": "9e2b15605d5235c55274287a6946c5be00af36de5debb42b5609a428646e475e"
+  },
+  {
     "path": "ai_provider.py",
-    "sha256": "c5df7633cb69800375629ea7bb48e54fc589e19c98545f1f151ce4d5655d143a"
+    "sha256": "ad1ded5823a77f341407475f15ae0af7f4df9406356b3516dba0e026e49947b2"
   },
   {
     "path": "breakdown_glue.py",
@@ -61,7 +81,7 @@
   },
   {
     "path": "chatbot_api.py",
-    "sha256": "cd5c1b6e69667959b8e78562a8ca01222b6c7fdf4205ea3b6f0347f66243bce3"
+    "sha256": "1d1ab5414c638254c49928c39d2f6f1d0038ca3a1099b79fcde83f9497619874"
   },
   {
     "path": "command_center_glue.py",
@@ -77,7 +97,7 @@
   },
   {
     "path": "docs/school-review/11-remaining-work.md",
-    "sha256": "13a87606c5fe5becd2470341a0437a6492c4fd0c00962749d83f1c481f0d2a23"
+    "sha256": "bd3999e66bd4c5846f50b3948212794339efe2b73f83489f4cb30e9f98847402"
   },
   {
     "path": "docs/school-review/37-adaptive-source-policy.md",
@@ -102,6 +122,10 @@
   {
     "path": "docs/school-review/42-study-camera-inputs.md",
     "sha256": "e9f17e5d9824b8d50b630f14b96398543c6a1919d8454894a5f8190fe4d59045"
+  },
+  {
+    "path": "docs/school-review/43-question-led-tutor.md",
+    "sha256": "1c6ceaf06c4b8cc7c95574cd7bbc90618377d13f6413e1c6b65a7d428e72d88c"
   },
   {
     "path": "extra_features.py",
@@ -204,6 +228,10 @@
     "sha256": "0c7da21a2126640db75fd879e2bc5fc8e81986061d1be0b0babb4d67306ed85c"
   },
   {
+    "path": "intelliplan/premium/claude_tutor.py",
+    "sha256": "b06939f8639879c923a4f221d1eea61797aae17da3938fd08fe02f6aa0380d0e"
+  },
+  {
     "path": "intelliplan/repositories/active_sessions.py",
     "sha256": "0ffb93c802ef318b5ba40a18c52a9421b44341248ac0d39d4665314e9bf94405"
   },
@@ -296,6 +324,10 @@
     "sha256": "022ecbee7a187a03bb1b5901490396875cbbd2647da7203ef7f2b14031fabbdb"
   },
   {
+    "path": "scripts/verify_tutor_exercises_browser.py",
+    "sha256": "32813b7fc72d564a4610779e6c49975137e8ae63d2e205136c7decaad7129dfd"
+  },
+  {
     "path": "scripts/wait_for_deployment.py",
     "sha256": "5fb9d4dc59bc6e5b4d0908cff2458ed492ef0df394a8e40c6db319f3f82d585c"
   },
@@ -338,6 +370,10 @@
   {
     "path": "static/js/school_admin.js",
     "sha256": "bab1b2e6fe6159877b3c082033944926f06189c2ba33f20a69a29e0d8c103d16"
+  },
+  {
+    "path": "static/js/tutor-artifacts.js",
+    "sha256": "518d9851a4178d39fcbc30131a01f9494b3b8d35184906815806b38c1282e0ca"
   },
   {
     "path": "static/vendor/learning-content/README.md",
@@ -628,6 +664,10 @@
     "sha256": "d633b24b26d69e309b8b87cc22f0346203843f4e3d73ab727840b2ff72b4303d"
   },
   {
+    "path": "tests/browser/tutor_audio.test.cjs",
+    "sha256": "0c5b5b67aa88ee77b706f6fa105eca2fe453c9cc5063eff32827073beefdc993"
+  },
+  {
     "path": "tests/intelliplan/test_api.py",
     "sha256": "c42a63cf5f43a69251685a6e79f9244decacf6258fec40cd94b761b5db791a8d"
   },
@@ -726,6 +766,14 @@
   {
     "path": "tests/test_study_generate_inputs.py",
     "sha256": "19fbde441ecdefa9bf797d746158185a1684d3a4fdbf0b94f00774eb7300d73f"
+  },
+  {
+    "path": "tests/test_tutor_assignment_api.py",
+    "sha256": "bb2693d07848876e25ab95a4bad7d83315be0acb2f8ea67c23e7d3421e253694"
+  },
+  {
+    "path": "tests/test_tutor_teaching_contract.py",
+    "sha256": "46b2077fdeb948f85d95dc1fc454278c309b01e2ffac3ec7a0a81eb24c56acdd"
   },
   {
     "path": "tests/test_welcome_on_signup.py",

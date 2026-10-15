@@ -615,10 +615,17 @@ main {
   margin-left: auto; text-transform: uppercase;
   font-size: 0.64rem; letter-spacing: 0.09em; opacity: 0.75;
 }
-.tutor-artifact iframe {
-  display: block; width: 100%; border: 0; background: transparent;
-  min-height: 120px;
+.tutor-artifact { overflow-wrap: anywhere; }
+.tutor-artifact .quiz-option {
+  display: block; width: 100%; min-height: 44px; padding: 10px 12px; margin: 8px 0;
+  border: 1px solid var(--border-strong); border-radius: 10px;
+  color: var(--text-primary); background: var(--bg-elevated); font: inherit;
+  text-align: left; white-space: normal; overflow-wrap: anywhere; cursor: pointer;
 }
+.tutor-artifact .quiz-option:focus-visible, .tutor-artifact input:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 3px;
+}
+.tutor-artifact input[type="range"] { flex: 1; min-width: 0; min-height: 44px; accent-color: var(--accent); }
 
 .tutor-modality {
   display: flex; align-items: center; gap: 6px;
@@ -731,13 +738,14 @@ main {
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/></svg>
         Learning profile
       </button>
-      <div class="tutor-modality" id="tutorModality" role="group" aria-label="Learning style">
+      <div class="tutor-modality" id="tutorModality" role="group" aria-label="Learning format">
         <p class="tutor-modality-note" id="tutorModalityNote">Plani adapts to how you learn.</p>
       </div>
       <div class="tutor-voice-row">
         <label for="ttsVoiceSelect">Reading voice</label>
         <select id="ttsVoiceSelect" onchange="setTtsVoice(this.value)"></select>
       </div>
+      <p id="tutorAudioStatus" class="tutor-modality-note" role="status" aria-live="polite"></p>
       <div class="tutor-side-tip">
         <strong>Tip:</strong> Be specific, "explain quadratic equations" beats "help with math".
       </div>
@@ -899,9 +907,9 @@ main {
         <img id="tutorImgThumb" alt="Attached image"
              src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">
         <span class="tutor-img-preview-name" id="tutorImgName"></span>
-        <label id="tutorSolveAllWrap" style="display:inline-flex;align-items:center;gap:6px;font-size:0.74rem;color:var(--text-secondary);cursor:pointer;background:var(--accent-soft);padding:4px 10px;border-radius:999px;border:1px solid var(--border-accent);" title="Detect and solve every problem in the photo">
+        <label id="tutorSolveAllWrap" style="display:inline-flex;align-items:center;gap:6px;font-size:0.74rem;color:var(--text-secondary);cursor:pointer;background:var(--accent-soft);padding:4px 10px;border-radius:999px;border:1px solid var(--border-accent);" title="Find the problems, then choose one to work through">
           <input type="checkbox" id="tutorSolveAll" style="accent-color:var(--accent);width:13px;height:13px;cursor:pointer;">
-          Solve every problem
+          Choose from worksheet
         </label>
         <button class="tutor-img-remove" onclick="clearSnapImage()" aria-label="Remove image" title="Remove image">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -975,6 +983,7 @@ main {
   <section id="educationMilestones" hidden aria-label="Learning milestones"></section>
 </dialog>
 <script src="/static/js/tutor_education.js?v={{ asset_v }}" defer></script>
+<script src="/static/js/tutor-artifacts.js?v={{ asset_v }}"></script>
 
 <!-- Learning profile: onboarding answers + the student model Plani has built -->
 <div class="tutor-panel-backdrop" id="learningPanel" role="dialog" aria-modal="true" aria-labelledby="learningPanelTitle">
@@ -1871,11 +1880,23 @@ if (window.speechSynthesis) {
 // fallback for when that call fails or the key is unset.
 let ttsVoiceId = null;
 let _ttsAudio = null;
+let _ttsGeneration = 0;
+let _ttsRequest = null;
+let _ttsObjectUrl = null;
 try { ttsVoiceId = localStorage.getItem('ip_tutor_voice') || null; } catch (e) {}
 
 function stopSpeaking() {
+  _ttsGeneration += 1;
+  if (_ttsRequest) { _ttsRequest.abort(); _ttsRequest = null; }
   if (_ttsAudio) { try { _ttsAudio.pause(); } catch (e) {} _ttsAudio = null; }
+  if (_ttsObjectUrl) { URL.revokeObjectURL(_ttsObjectUrl); _ttsObjectUrl = null; }
   if (window.speechSynthesis) window.speechSynthesis.cancel();
+  setAudioStatus('');
+}
+
+function setAudioStatus(message) {
+  const status = document.getElementById('tutorAudioStatus');
+  if (status) status.textContent = message;
 }
 
 async function loadVoiceOptions() {
@@ -1923,23 +1944,47 @@ async function speakReply(text) {
     .slice(0, 1200);
   if (!clean) return;
   stopSpeaking();
+  const generation = _ttsGeneration;
+  const controller = new AbortController();
+  _ttsRequest = controller;
+  setAudioStatus('Preparing audio…');
   try {
     const res = await fetch('/api/tutor/speak', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text: clean, voice: ttsVoiceId || undefined }),
+      signal: controller.signal,
     });
+    if (generation !== _ttsGeneration || !ttsEnabled) return;
+    if (res.status === 401 || res.status === 403) {
+      setAudioStatus('Read-aloud is unavailable under your current account or school settings.');
+      return;
+    }
     if (!res.ok) throw new Error('tts ' + res.status);
     const blob = await res.blob();
+    if (generation !== _ttsGeneration || !ttsEnabled) return;
     // Only one reply is ever spoken at a time, and the object URL is revoked
     // when it ends so a long session does not leak a blob per answer.
     const url = URL.createObjectURL(blob);
-    _ttsAudio = new Audio(url);
-    _ttsAudio.onended = _ttsAudio.onerror = () => { URL.revokeObjectURL(url); _ttsAudio = null; };
-    await _ttsAudio.play();
+    _ttsObjectUrl = url;
+    const audio = new Audio(url);
+    _ttsAudio = audio;
+    audio.onended = audio.onerror = () => {
+      URL.revokeObjectURL(url);
+      if (_ttsObjectUrl === url) _ttsObjectUrl = null;
+      if (_ttsAudio === audio) _ttsAudio = null;
+    };
+    await audio.play();
+    if (generation === _ttsGeneration) setAudioStatus('Reading aloud.');
     return;
   } catch (err) {
+    if (generation !== _ttsGeneration || !ttsEnabled || controller.signal.aborted) return;
+    if (_ttsObjectUrl) { URL.revokeObjectURL(_ttsObjectUrl); _ttsObjectUrl = null; }
+    _ttsAudio = null;
+    setAudioStatus(window.speechSynthesis ? 'Server audio unavailable. Using your browser voice.' : 'Audio unavailable. You can read the reply here.');
     _browserSpeak(clean);
+  } finally {
+    if (_ttsRequest === controller) _ttsRequest = null;
   }
 }
 
@@ -1949,7 +1994,7 @@ const MODALITY_ORDER = ['auto', 'auditory', 'visual', 'reading', 'blended'];
 // Sprite marks, not emoji: an emoji renders as whichever face the student's
 // OS ships, ignores the button's colour, and sits off the text baseline.
 const MODALITY_LABELS = {
-  auto:     { label: 'Auto',     icon: 'i-sparkle',   hint: 'Plani detects your best learning style' },
+  auto:     { label: 'Auto',     icon: 'i-sparkle',   hint: 'Try formats based on your preferences and recent feedback' },
   auditory: { label: 'Auditory', icon: 'i-mic',       hint: 'Spoken explanations, read aloud' },
   visual:   { label: 'Visual',   icon: 'i-chart-bar', hint: 'Interactive diagrams and quizzes' },
   reading:  { label: 'Reading',  icon: 'i-book',      hint: 'Text-based explanations' },
@@ -1959,12 +2004,15 @@ const MODALITY_LABELS = {
 loadVoiceOptions();
 
 async function loadAdaptiveProfile() {
+  const generation = _modalityGeneration;
   try {
     const res = await fetch('/api/tutor/adaptive/profile');
     if (!res.ok) return;
     const data = await res.json();
+    if (generation !== _modalityGeneration) return;
     learningProfile = data.profile || null;
     modalityMode    = (data.modality && data.modality.mode) || 'auto';
+    _confirmedModalityMode = modalityMode;
     modalityWeights = (data.modality && data.modality.weights) || null;
     renderModalitySwitcher();
   } catch (err) { /* the tutor still works without the adaptive layer */ }
@@ -1989,29 +2037,48 @@ function renderModalitySwitcher() {
 
 function modalityNote() {
   if (modalityMode !== 'auto') return MODALITY_LABELS[modalityMode].hint;
-  if (!modalityWeights) return 'Plani adapts to how you learn.';
+  if (!modalityWeights) return 'Choose a format to try; you can change it any time.';
   const top = Object.entries(modalityWeights)
     .sort((a, b) => b[1] - a[1])[0];
   if (!top) return 'Plani adapts to how you learn.';
-  return `Detected: ${top[0]} (${Math.round(top[1] * 100)}%)`;
+  return `Suggested format: ${top[0]}. This is tentative; choose what helps.`;
 }
 
+let _modalitySaveQueue = Promise.resolve();
+let _modalityGeneration = 0;
+let _confirmedModalityMode = modalityMode;
 async function setModality(mode) {
-  const previous = modalityMode;
+  const generation = ++_modalityGeneration;
   modalityMode = mode;
   renderModalitySwitcher();
   try {
-    const res = await fetch('/api/tutor/adaptive/modality', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mode }),
+    // Serialize writes as well as guarding the UI: a slower earlier request
+    // must not become the saved preference after the learner's latest choice.
+    const saved = _modalitySaveQueue.catch(() => {}).then(async () => {
+      const res = await fetch('/api/tutor/adaptive/modality', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      _confirmedModalityMode = mode;
+      return data;
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
+    _modalitySaveQueue = saved;
+    const data = await saved;
+    if (generation !== _modalityGeneration) return;
     modalityWeights = data.weights || modalityWeights;
+    if (mode !== 'auto') {
+      ttsEnabled = mode === 'auditory' || mode === 'blended';
+      try { localStorage.setItem('ip_tutor_tts', ttsEnabled ? '1' : '0'); } catch (e) {}
+      _renderTtsState();
+      if (!ttsEnabled) stopSpeaking();
+    }
     renderModalitySwitcher();
   } catch (err) {
-    modalityMode = previous;
+    if (generation !== _modalityGeneration) return;
+    modalityMode = _confirmedModalityMode;
     renderModalitySwitcher();
   }
 }
@@ -2229,9 +2296,8 @@ async function importLearnerMemory() {
 }
 
 /* ── Interactive artifacts ──────────────────────────────────────
-   Plani can emit :::artifact{type="quiz" title="…"} … ::: blocks. Each one
-   renders in its own sandboxed iframe so the artifact's inline scripts can
-   run without touching the page. */
+   Plani emits declarative JSON exercises. The renderer owns interaction code;
+   generated markup and scripts are shown only as text. */
 
 const ARTIFACT_RE = /:::artifact\{([^}]*)\}\n([\s\S]*?):::/g;
 
@@ -2272,95 +2338,9 @@ function parseArtifacts(content) {
   return segments;
 }
 
-const ARTIFACT_CSS = `
-  /* The artifact frame is sandboxed, so it cannot read the app's CSS
-     variables and has to restate them. These are the dark-theme values:
-     the frame used to be navy (#131722) with a #4f7cff accent, which meant
-     every quiz Plani generated opened a window onto a different, bluer
-     product in the middle of the tutor. */
-  :root { color-scheme: light dark; }
-  body {
-    margin: 0; padding: 14px;
-    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
-    color: #ece7df; background: #161512;
-  }
-  h1, h2, h3 { margin: 0 0 10px; font-size: 1.05rem; line-height: 1.3; }
-  p { margin: 0 0 10px; }
-  .card { background:#1f1d1a; border:1px solid #2e2b26; border-radius:12px; padding:12px; margin-bottom:10px; }
-  .quiz-option {
-    display:block; width:100%; text-align:left; margin-bottom:8px; padding:10px 12px;
-    background:#1f1d1a; color:#ece7df; border:1px solid #2e2b26; border-radius:10px;
-    cursor:pointer; font: inherit; transition: background .15s ease, border-color .15s ease;
-  }
-  .quiz-option:hover { border-color:#729ce0; }
-  .quiz-option.correct { background:#17301f; border-color:#67c3a1; }
-  .quiz-option.incorrect { background:#331a18; border-color:#e8776f; }
-  .feedback { margin-top:8px; padding:9px 11px; border-radius:9px; font-size:0.9rem; }
-  .feedback.correct { background:#17301f; color:#9fdcc2; }
-  .feedback.incorrect { background:#331a18; color:#f3b3ad; }
-  .progress-bar { height:7px; border-radius:999px; background:#2e2b26; overflow:hidden; margin:8px 0; }
-  /* Width is the sizing mechanism artifacts set inline; it is deliberately
-     not transitioned — animating width thrashes layout inside the frame. */
-  .progress-fill { height:100%; background:#729ce0; border-radius:999px; }
-  .chart-container { width:100%; overflow-x:auto; }
-  button:not(.quiz-option) {
-    padding:8px 14px; border-radius:9px; border:1px solid #729ce0;
-    background:#729ce0; color:#17150f; cursor:pointer; font: inherit;
-  }
-  input, select, textarea {
-    padding:8px 10px; border-radius:8px; border:1px solid #2e2b26;
-    background:#1f1d1a; color:#ece7df; font: inherit;
-  }
-  table { width:100%; border-collapse:collapse; font-size:0.9rem; }
-  th, td { border:1px solid #2e2b26; padding:7px 9px; text-align:left; }
-  canvas, svg { max-width:100%; }
-`;
-
 function renderArtifact(segment) {
-  const wrap = document.createElement('div');
-  wrap.className = 'tutor-artifact';
-
-  const head = document.createElement('div');
-  head.className = 'tutor-artifact-head';
-  head.innerHTML = `<span>${escHtml(segment.title)}</span>
-    <span class="tutor-artifact-kind">${escHtml(segment.type)}</span>`;
-
-  const frame = document.createElement('iframe');
-  frame.setAttribute('sandbox', 'allow-scripts');
-  frame.setAttribute('title', segment.title);
-  frame.setAttribute('loading', 'lazy');
-  frame.srcdoc = `<!doctype html><html><head><meta charset="utf-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1">
-    <style>${ARTIFACT_CSS}</style></head><body>${segment.content}
-    <script>
-      function _postHeight() {
-        parent.postMessage({ type: 'artifact-height',
-          height: document.documentElement.scrollHeight }, '*');
-      }
-      window.addEventListener('load', _postHeight);
-      new MutationObserver(_postHeight).observe(document.body,
-        { childList: true, subtree: true, attributes: true });
-      document.addEventListener('click', () => setTimeout(_postHeight, 60));
-    <\/script></body></html>`;
-
-  frame.addEventListener('load', () => {
-    frame.dataset.artifactFrame = '1';
-  });
-
-  wrap.appendChild(head);
-  wrap.appendChild(frame);
-  return wrap;
+  return window.IPTutorArtifacts.create(segment);
 }
-
-/* Artifacts report their own height so nothing is clipped or over-padded. */
-window.addEventListener('message', (event) => {
-  if (!event.data || event.data.type !== 'artifact-height') return;
-  document.querySelectorAll('.tutor-artifact iframe').forEach(frame => {
-    if (frame.contentWindow === event.source) {
-      frame.style.height = Math.min(900, Math.max(120, event.data.height + 8)) + 'px';
-    }
-  });
-});
 
 function stripArtifacts(text) {
   ARTIFACT_RE.lastIndex = 0;
@@ -2420,8 +2400,8 @@ async function sendTutorMessage() {
     if (hasImage) {
       endpoint = '/api/tutor/vision';
       const defaultQ = solveAll
-        ? 'Identify and solve every problem in this image.'
-        : 'What is in this image? Explain step by step.';
+        ? 'List the problems in this image and help me choose one to try.'
+        : 'Help me understand this image. Ask me about the first step.';
       body = {
         question: text || defaultQ,
         image_b64: imageB64,
