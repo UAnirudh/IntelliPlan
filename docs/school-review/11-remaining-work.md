@@ -34,6 +34,12 @@ verification passes and filtered runtime error logs are empty. Post-merge
 checks still need confirmation. The separate pre-existing Cloudflare
 Workers build remains failed and is not the Railway production target.
 
+A following read-only paid-launch diagnostic checks account verification flags
+and configured recurring-price properties without enabling billing or creating
+payments.21 local mocked checks pass. Live Stripe, webhook delivery, checkout,
+entitlements and cancellation remain unverified. See
+[paid-launch diagnostics](44-paid-launch-diagnostics.md).
+
 Statuses refer to this local checkpoint. **Verified Working** is limited to the evidence cited; it does not mean production verified. **Implemented but Unverified** means code exists without the required live/operational proof. **Partially Working** means only part of the full requirement is delivered. **Blocked** requires an external prerequisite. **Not Implemented** means the requested capability is absent.
 
 Follow-on user requests originally sequenced the engineering brief before UI refinement and multi-country/language support. The latest steering requests further UI adaptation alongside continued original work, with commits and pushes after each major change and visible results. The branch is pushed and linked to PR 86; the original brief, whole-product UI and localization are not declared complete. Localization scope still requires the existing-product audit.

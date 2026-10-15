@@ -96,8 +96,12 @@
     "sha256": "89d6c401a28657551a5c02cfae1bddbd2b6e89e6b7b49abfb5c2f2c541e5ea1c"
   },
   {
+    "path": "docs/premium.md",
+    "sha256": "32840fd41b828f9587fcd55e023e001a789014d92c85748404b03cbabe124e2f"
+  },
+  {
     "path": "docs/school-review/11-remaining-work.md",
-    "sha256": "4207a2a5cb6b818499f5b3ebba326552f0cdce0c66e1243a461b0690e1a59a39"
+    "sha256": "cc444ed4e3eb93961e6cbb3b4f1a2e23b36d2f05a7e2aa766848fce42cd6f17b"
   },
   {
     "path": "docs/school-review/37-adaptive-source-policy.md",
@@ -126,6 +130,10 @@
   {
     "path": "docs/school-review/43-question-led-tutor.md",
     "sha256": "6272ea340f7b181f209ed55559a5ea8768cb0a43c62b268c8cc351e6b207bf0b"
+  },
+  {
+    "path": "docs/school-review/44-paid-launch-diagnostics.md",
+    "sha256": "035198c9c2ccaf94bb7c4fe0c9d16c65b57a6edcb5da17f57dd3567438bb4d34"
   },
   {
     "path": "extra_features.py",
@@ -232,6 +240,10 @@
     "sha256": "b06939f8639879c923a4f221d1eea61797aae17da3938fd08fe02f6aa0380d0e"
   },
   {
+    "path": "intelliplan/premium/readiness.py",
+    "sha256": "7852d404f984c831821f8a2d7c788703d48a32d0919982e3cade2af05954870a"
+  },
+  {
     "path": "intelliplan/repositories/active_sessions.py",
     "sha256": "0ffb93c802ef318b5ba40a18c52a9421b44341248ac0d39d4665314e9bf94405"
   },
@@ -294,6 +306,10 @@
   {
     "path": "requirements.txt",
     "sha256": "07649b58feb69b54f80a824415cd6bba40744d9c3ff108e9a0195e979b62beb1"
+  },
+  {
+    "path": "scripts/check_paid_launch.py",
+    "sha256": "89e775515b4ea0d6087fc712cc0444d940bd8799b75a8b12f9d5d8f3879875f8"
   },
   {
     "path": "scripts/inventory_learning_routes.py",
@@ -754,6 +770,10 @@
   {
     "path": "tests/test_outlook_calendar_helper.py",
     "sha256": "6a58fec973755eb7c98fe60b88f5611b47250cdd0fa2d800796d6dcea93e776b"
+  },
+  {
+    "path": "tests/test_paid_launch_readiness.py",
+    "sha256": "7705f5d57ff15b3e48a6208d816fc3793d7e7d766c00c3570c253bb6324c9b54"
   },
   {
     "path": "tests/test_plani_policy.py",
