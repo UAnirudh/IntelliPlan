@@ -426,7 +426,7 @@ def _build_service(user_id: int | None, guest_id: str | None, payload: Mapping[s
     )
     comfort = int(round(_hours(payload) * 60)) if payload.get("hours_per_day") else None
     try:
-        busy = _planner_busy_by_date()
+        busy = _planner_busy_by_date(user_id=user_id)
     except Exception:
         busy = {}
     context = StudentContext(

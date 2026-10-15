@@ -40,6 +40,13 @@ payments.21 local mocked checks pass. Live Stripe, webhook delivery, checkout,
 entitlements and cancellation remain unverified. See
 [paid-launch diagnostics](44-paid-launch-diagnostics.md).
 
+PR94 is merged and live at45190438; exact public revision/schema checks pass.
+The next scheduler checkpoint binds background calendar imports to each saved
+plan owner, with isolated credentials, clocks, permissions and cache keys.
+201 local regressions pass; live calendar accounts, deployed background sweeps
+and the broader scheduler requirements remain open. See
+[owner calendar repairs](45-owner-calendar-repairs.md).
+
 Statuses refer to this local checkpoint. **Verified Working** is limited to the evidence cited; it does not mean production verified. **Implemented but Unverified** means code exists without the required live/operational proof. **Partially Working** means only part of the full requirement is delivered. **Blocked** requires an external prerequisite. **Not Implemented** means the requested capability is absent.
 
 Follow-on user requests originally sequenced the engineering brief before UI refinement and multi-country/language support. The latest steering requests further UI adaptation alongside continued original work, with commits and pushes after each major change and visible results. The branch is pushed and linked to PR 86; the original brief, whole-product UI and localization are not declared complete. Localization scope still requires the existing-product audit.
