@@ -17,7 +17,7 @@
   },
   {
     "path": "App.py",
-    "sha256": "139d83eb29e27a475c7056142b72c167a5d3f788475041b5ed1cadbfa44c70e8"
+    "sha256": "ffd2e7b68c06d16398b1e99eaea50b49ea7228208a6467989f9d71391f45f70a"
   },
   {
     "path": "Main_Project/templates/active.html",
@@ -121,7 +121,7 @@
   },
   {
     "path": "docs/school-review/11-remaining-work.md",
-    "sha256": "510fd8d09471122135ff790a7d4eff420b424f816fc3443d59616d6fd06767ac"
+    "sha256": "56890dfae51d2f1a9f37f50958bbec90c28f2bf7f1fb956d6c746fc890d39a55"
   },
   {
     "path": "docs/school-review/37-adaptive-source-policy.md",
@@ -157,7 +157,7 @@
   },
   {
     "path": "docs/school-review/45-owner-calendar-repairs.md",
-    "sha256": "6a963cfd2548ba99a3932dca78af3d866b1c93f7181a1825f5308015ee5f0338"
+    "sha256": "4591709c818e376124f81135226280fe16e15a576b28cbbb0d56d78a273d04f6"
   },
   {
     "path": "docs/school-review/46-exact-assignment-deadlines.md",
@@ -174,6 +174,10 @@
   {
     "path": "docs/school-review/49-network-camera-gateway.md",
     "sha256": "ef05c659a3a731f1435a5198d8879bbd2007d510307f60bf5783fe27a7643db7"
+  },
+  {
+    "path": "docs/school-review/50-calendar-partial-outages.md",
+    "sha256": "03c635565687ee690dbd5692dae0b620eb5dbaa79f3116556477a0aaa59bad6e"
   },
   {
     "path": "extra_features.py",
@@ -889,7 +893,7 @@
   },
   {
     "path": "tests/test_owner_calendar_repairs.py",
-    "sha256": "23526b7340cc3e78af6dec3ee88c068715b8518408dac4841d131ee70db6e952"
+    "sha256": "c318cf8817c34d22de3d1b875e853946f26e4c45dcdcfec5ffea7944bdc972a0"
   },
   {
     "path": "tests/test_paid_launch_readiness.py",

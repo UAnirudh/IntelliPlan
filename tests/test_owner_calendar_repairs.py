@@ -135,3 +135,40 @@ def test_followthrough_service_requests_plan_owners_busy_data(owners, monkeypatc
         service = followthrough_glue._build_service(owners[1], None, {})
         assert service._ctx.busy_by_date == busy
     assert calls == [{'user_id': owners[1]}]
+
+
+@pytest.mark.parametrize('failed_provider', ['google', 'outlook'])
+@pytest.mark.parametrize('failure_stage', ['token', 'fetch'])
+def test_partial_outage_retains_other_calendar_and_classes(owners, monkeypatch, failed_provider, failure_stage):
+    import google_calendar_helper
+    day = '2026-10-13'
+    secret = 'credential-and-event-description-must-not-be-logged'
+    error = RuntimeError(secret)
+    error.resp = Mock(status=401)
+    failed = Mock(side_effect=error)
+    good = Mock(return_value={day: [(600, 630)]})
+    monkeypatch.setattr(google_calendar_helper, 'busy_minutes_by_date', failed if failed_provider == 'google' else good)
+    monkeypatch.setattr(App.outlook_calendar_helper, 'busy_minutes_by_date', failed if failed_provider == 'outlook' else good)
+    if failure_stage == 'token':
+        monkeypatch.setattr(App, 'get_' + failed_provider + '_token', failed)
+    log = Mock()
+    monkeypatch.setattr(App.app.logger, 'warning', log)
+    monkeypatch.setattr(App, '_class_busy_by_date', lambda *args: {day: [(700, 720)]})
+    with App.app.test_request_context('/api/cron/autopilot'):
+        assert App._planner_busy_by_date(user_id=owners[0]) == {day: [(600, 630), (700, 720)]}
+    good.assert_called_once()
+    assert log.call_args.args[1:] == (failed_provider, 'RuntimeError', 401)
+    assert secret not in str(log.call_args)
+
+
+def test_calendar_revocation_during_failure_discards_previous_provider_data(owners, monkeypatch):
+    import google_calendar_helper
+    allowed = [True]
+    monkeypatch.setattr(App, '_calendar_policy_allowed', lambda user_id=None: allowed[0])
+    monkeypatch.setattr(google_calendar_helper, 'busy_minutes_by_date', lambda *a, **kw: {'2026-10-13': [(600, 630)]})
+    def revoke(*args, **kwargs):
+        allowed[0] = False
+        raise RuntimeError('must remain private')
+    monkeypatch.setattr(App.outlook_calendar_helper, 'busy_minutes_by_date', revoke)
+    with App.app.test_request_context():
+        assert App._calendar_busy_by_date(user_id=owners[0]) == {}

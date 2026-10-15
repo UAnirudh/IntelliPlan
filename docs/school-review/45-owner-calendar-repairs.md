@@ -40,3 +40,6 @@ The Railway plugin was unavailable in this continuation and its local CLI
 connection was unauthenticated, so this release has public exact-revision proof
 rather than a fresh Railway plugin status/log inspection. Post-merge hosted
 checks are tracked separately.
+
+
+A subsequent repair isolates provider failures so one unavailable calendar no longer discards busy intervals from the other. See [report50](50-calendar-partial-outages.md). Failed-provider data remains unknown; this is not a conflict-free outage guarantee.
