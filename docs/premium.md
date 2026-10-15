@@ -36,6 +36,19 @@ model chain once the budget is spent.
 
 ## Turning it on
 
+Before enabling billing, run `python scripts/check_paid_launch.py` in the
+configured environment. It makes only read-only Stripe requests and exits
+nonzero for incomplete account verification or unsuitable configured recurring
+prices. It prints allowlisted results, without keys or account details, and
+leaves `BILLING_ENABLED` unchanged. It can assess configuration while selling
+is still disabled. See [Stripe account retrieval](https://docs.stripe.com/api/accounts/retrieve)
+and [price retrieval](https://docs.stripe.com/api/prices/retrieve).
+
+This is a configuration diagnostic, not launch certification: it does not
+verify webhook signing-secret correctness/delivery, checkout, entitlements,
+displayed amounts, tax, profitability or legal readiness. Unconfigured offers
+and top-ups are not assessed. Continue the acceptance ledger before launch.
+
 | Variable | What it does |
 |---|---|
 | `ANTHROPIC_API_KEY` | IntelliPlan's Claude key. Without it Premium answers only on linked keys. |
