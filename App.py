@@ -11778,10 +11778,8 @@ def _planner_busy_by_date(horizon_days=14, *, user_id=None):
     Class time joins it here, so every planner path that already respects
     the calendar also keeps study blocks out of class hours.
 
-    Every failure path returns ``{}`` for its own source. A calendar we
-    cannot reach means we know less about the student's week, not that they
-    get no plan — and a scheduler that hard-fails on a third-party outage is
-    worse than one that occasionally suggests a busy hour.
+    Failed sources contribute no busy data; successful sources and class time
+    remain protected. Missing provider data still limits conflict guarantees.
 
     Memoised per request: plan generation asks more than once, and each ask
     is a round trip to Google and Microsoft.
@@ -11830,7 +11828,11 @@ def _calendar_busy_by_date(horizon_days=14, start=None, *, user_id=None):
     start = start or now_for(uid).date()
     try:
         zone, offset = timezone_for(uid)
-        combined = {}
+    except Exception as e:
+        _log_calendar_busy_failure('clock', e)
+        return {}
+    combined = {}
+    try:
         token = get_google_token(user_id=uid) if explicit_owner else get_google_token()
         if token and allowed() and has_calendar_scope(token):
             from google_calendar_helper import busy_minutes_by_date
@@ -11838,6 +11840,9 @@ def _calendar_busy_by_date(horizon_days=14, start=None, *, user_id=None):
                 token, start, days=horizon_days, utc_offset_minutes=offset, tz_name=zone
             ).items():
                 combined.setdefault(day, []).extend(intervals)
+    except Exception as e:
+        _log_calendar_busy_failure('google', e)
+    try:
         outlook_token = ((get_outlook_token(user_id=uid) if explicit_owner else get_outlook_token())
                          if allowed() else None)
         if outlook_token and allowed():
@@ -11845,10 +11850,20 @@ def _calendar_busy_by_date(horizon_days=14, start=None, *, user_id=None):
                 outlook_token, start, days=horizon_days, utc_offset_minutes=offset, tz_name=zone
             ).items():
                 combined.setdefault(day, []).extend(intervals)
-        return combined if allowed() else {}
     except Exception as e:
-        print(f"[planner] calendar busy lookup failed: {type(e).__name__}")
-        return {}
+        _log_calendar_busy_failure('outlook', e)
+    return combined if allowed() else {}
+
+
+def _log_calendar_busy_failure(provider, error):
+    """Only fixed provider names, exception classes and numeric HTTP status."""
+    status = getattr(getattr(error, 'resp', None), 'status', None)
+    if status is None:
+        status = getattr(getattr(error, 'response', None), 'status_code', None)
+    if type(status) is not int or not 100 <= status <= 599:
+        status = 'unknown'
+    app.logger.warning('Calendar busy lookup failed: provider=%s type=%s status=%s',
+                       provider, type(error).__name__, status)
 
 
 def _class_busy_by_date(user_id, start, horizon_days=14):

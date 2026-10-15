@@ -148,3 +148,6 @@ Direct phone-camera pairing is now implemented locally for signed-in devices on 
 
 
 PR99 phone pairing is now merged/live at1630f1bba2bb1e6adf1499947781bd3d6d13c2e2;4653 local tests passed with33 skipped, hosted pre/post-release Tests and Security passed, and Railway plus the exact public revision/schema check confirm the release. A subsequent network-camera checkpoint, pushed in PR100 and pending hosted checks/release, receives video-only HTTPS WHEP directly from a gateway and includes pinned RTSP bridge instructions. Real MediaMTX/FFmpeg browser proof supports this bounded path; physical cameras, automatic ONVIF discovery and study accuracy remain incomplete. See [network-camera gateways](49-network-camera-gateway.md).
+
+
+The next local scheduler repair retains the healthy calendar and class busy times when a connected provider fails, with fresh revocation checks and privacy-safe HTTP-status diagnostics.63 focused tests and independent reviews pass. Missing-provider busy times, outage disclosure and broad quality remain incomplete. See [partial calendar outages](50-calendar-partial-outages.md).
