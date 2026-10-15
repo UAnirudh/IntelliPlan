@@ -9,7 +9,7 @@
   },
   {
     "path": ".github/workflows/main.yml",
-    "sha256": "c6283e964e66f95cabd091116936a4154f57cba46c8eb3e4560edc336b20167c"
+    "sha256": "d73b9a847c9b4a2225852f8e31f40e6536c379a7c7b90830b82a636170150f04"
   },
   {
     "path": ".github/workflows/security.yml",
@@ -17,7 +17,7 @@
   },
   {
     "path": "App.py",
-    "sha256": "ffd2e7b68c06d16398b1e99eaea50b49ea7228208a6467989f9d71391f45f70a"
+    "sha256": "e584752c25ba5a44974c3a1c84b09c5601627557ce7427fc6ba0c2d8eedac208"
   },
   {
     "path": "Main_Project/templates/active.html",
@@ -121,7 +121,7 @@
   },
   {
     "path": "docs/school-review/11-remaining-work.md",
-    "sha256": "56890dfae51d2f1a9f37f50958bbec90c28f2bf7f1fb956d6c746fc890d39a55"
+    "sha256": "75a58fa0ede786c6ce388b522d2b716cebe38bd2f7d30ee4393b4d25094bbcb8"
   },
   {
     "path": "docs/school-review/37-adaptive-source-policy.md",
@@ -173,11 +173,15 @@
   },
   {
     "path": "docs/school-review/49-network-camera-gateway.md",
-    "sha256": "ef05c659a3a731f1435a5198d8879bbd2007d510307f60bf5783fe27a7643db7"
+    "sha256": "d1a8f8d470ef7fa92243cdd3cf8f26e291b9fcddc0646c8db575ae8b166cb94f"
   },
   {
     "path": "docs/school-review/50-calendar-partial-outages.md",
-    "sha256": "03c635565687ee690dbd5692dae0b620eb5dbaa79f3116556477a0aaa59bad6e"
+    "sha256": "43cd6663766581bba74db1ab2965fe9fc80b071de774dfb0fc2cb00adc2d4c85"
+  },
+  {
+    "path": "docs/school-review/51-calendar-health-aware-planning.md",
+    "sha256": "88bd3ca05fbc9a84d40b26b7fc4ec57af51dee2f2983258f239d17a34ce6ebd4"
   },
   {
     "path": "extra_features.py",
@@ -185,11 +189,11 @@
   },
   {
     "path": "followthrough_glue.py",
-    "sha256": "3cede5547c69542530978ca45a1e07b98e8f2c60208e3b625b5b7bd1bbf47f15"
+    "sha256": "cd8856dcc858d99844a99353ad5312bb7c4bf72edb94d6eb3736e1c2f80930ef"
   },
   {
     "path": "google_calendar_helper.py",
-    "sha256": "29dcb98f104444471bc0853a93db3532eac725ee8c5ae035cb01eb5cdddf379a"
+    "sha256": "7bdf187f0243e9d10eca8fa54feab0d796b32b22d747f3a6e5747eb4a128b15a"
   },
   {
     "path": "intelliplan/api/active.py",
@@ -197,7 +201,7 @@
   },
   {
     "path": "intelliplan/api/adjust.py",
-    "sha256": "4a6db59f28d3853c5bbcdeb6bafe5a193f6b2fa9fb1cbea6c6f798379bcaf392"
+    "sha256": "6a94f10b89476d610b3cc2d6f27bca8e37f99b4f6eb25a2bfd2da5482f7650f6"
   },
   {
     "path": "intelliplan/api/command_center.py",
@@ -340,6 +344,10 @@
     "sha256": "3b312149db02bb78d123439fefce52cc8b17c0cc8b37ced62104cee3893750ce"
   },
   {
+    "path": "intelliplan/services/calendar_availability.py",
+    "sha256": "62aa65c264e24009f82b36cc840705e0e562077fafd46846d958c4a10b7e39ca"
+  },
+  {
     "path": "intelliplan/services/camera_pairs.py",
     "sha256": "669deea90398b4235c45fa38d52f90f95f158846135678d4f416eab963394343"
   },
@@ -369,11 +377,15 @@
   },
   {
     "path": "outlook_calendar_helper.py",
-    "sha256": "78d7edd6e1427d34f19cfd96c8d8b8eb936471e9e0e54dc95786c15859943600"
+    "sha256": "8ffae9fdbdbfc7e6593ef9ec76a5784e6e1bd4a4422d5700d685d7faa4a62154"
+  },
+  {
+    "path": "plan_insert_glue.py",
+    "sha256": "2cdcb2f4710060e33d07a50541425531a1d4ea3efc0e130fc4b4450b0a3f27d4"
   },
   {
     "path": "plani_agent.py",
-    "sha256": "78873b0ebe1135092af8b641ae8e98be87122216e03b102b53efc4379c089ad5"
+    "sha256": "2cf86a1f2929fe6385b9b135d8408853b98d28ed8995a2e2fa14f6c881c52aee"
   },
   {
     "path": "premium_glue.py",
@@ -398,6 +410,10 @@
   {
     "path": "scripts/run_weekly_newsletter_cron.py",
     "sha256": "1c47df311a26ea3b6ffeeb27a4ae13574aaec9c57590df3b538fad3d3abbf620"
+  },
+  {
+    "path": "scripts/verify_calendar_outage_browser.py",
+    "sha256": "550ed891d00133f41765363204f0cde54115aa5056e277385e5ef915f6784f0a"
   },
   {
     "path": "scripts/verify_command_center_ui.py",
@@ -462,6 +478,10 @@
   {
     "path": "static/js/command_remind.js",
     "sha256": "496341e65ae1113aef242321bf87ea7bc6f04910590fac3385e123eb9941e6e3"
+  },
+  {
+    "path": "static/js/followthrough.js",
+    "sha256": "9bec8d4b145525cdbcfe7ad0244f15630c1453e210bd6fad93918d3fc29e9c3c"
   },
   {
     "path": "static/js/ip-active.js",
@@ -848,6 +868,10 @@
     "sha256": "cbf12eea6aee93fab0908a9e6ff4f44db590f2abc0bfe30cf7a28afc09f00059"
   },
   {
+    "path": "tests/test_calendar_completeness.py",
+    "sha256": "7f6d0d6182c7751a7467faca8a53c7e196f2be623d9477d9bbfa62f0ce71e324"
+  },
+  {
     "path": "tests/test_continuity_fallbacks.py",
     "sha256": "49adee78b09d4fed36f67e47b1c0462c8040e3b8b49e3d75b8998f3df101efda"
   },
@@ -872,6 +896,10 @@
     "sha256": "b37c025f3bb3f5c9480bfb26c7b5c1fc2d36718887f5fdcb8ced2fecf13a5846"
   },
   {
+    "path": "tests/test_followthrough_endpoints.py",
+    "sha256": "9a4cf67ff9f159eaa81882788e1a2e0b9bd65e7135ccdaf0e43c3c5be7a5bf9b"
+  },
+  {
     "path": "tests/test_learning_hub.py",
     "sha256": "91f293ab64ebe42c89cc9ecee1bd62767c1a642a530e53be3ded92e04400d37b"
   },
@@ -893,7 +921,7 @@
   },
   {
     "path": "tests/test_owner_calendar_repairs.py",
-    "sha256": "c318cf8817c34d22de3d1b875e853946f26e4c45dcdcfec5ffea7944bdc972a0"
+    "sha256": "5f48714613bd607bc2c1476fa8e9f8872f5d63bfcbeb4d6a8792def7f9748918"
   },
   {
     "path": "tests/test_paid_launch_readiness.py",
@@ -901,7 +929,11 @@
   },
   {
     "path": "tests/test_plani_policy.py",
-    "sha256": "0f75fbb36d7fcdff9bac054bca11f88b0beaae04febeb73e032b421788186b1d"
+    "sha256": "9b9073db642953a0ae8a0cf96c5121b13fd0f714d54c3fa4555f4937401c05e2"
+  },
+  {
+    "path": "tests/test_quick_add_endpoints.py",
+    "sha256": "11a21df17726fc8f8ebf8a66cc2a16a8d9fef9591aa47bf9c11c15c1527123f0"
   },
   {
     "path": "tests/test_retrieval.py",
@@ -909,7 +941,7 @@
   },
   {
     "path": "tests/test_scheduler_clock.py",
-    "sha256": "946f0d0c15cbf2782c87ed3a83990a89b8dbfe83ebc174bc5afd1acf087a0a88"
+    "sha256": "c1995c084b07fb41fd11c6d8217b47608e44271533931cf58a0730c03bd531ce"
   },
   {
     "path": "tests/test_scheduler_prerequisites.py",

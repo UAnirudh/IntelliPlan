@@ -68,3 +68,6 @@ one running replica, no active warnings and no pending operations; the exact
 public revision/schema check passed. Filtered ERROR/Traceback/CRITICAL logs for this deployment since16:50:49UTC contain zero entries at inspection, a bounded observation rather than a general error-free claim. This establishes release health, not
 physical camera compatibility. Fish playback, real tutor pedagogy, Stripe
 transaction proof and the broader original acceptance ledger remain open.
+
+
+Release addendum: PR100 merged atfe97c0b36f699ee4926a06e9f15c48737c5c2c03 and is included in live revision1c8cdc789415c29ed156e5fe731048edf4ed98be. Exact revision/schema and Railway web/newsletter success pass, as does final post-release Tests38778805459. Final hosted pre-release evidence:4655 unit tests,35 Node tests,27 decoded frames on each Linux layout and130 public browser tests passed. Physical camera compatibility remains unverified.

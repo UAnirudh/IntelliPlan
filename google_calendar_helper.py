@@ -5,7 +5,6 @@ import time
 from time_utils import utcnow
 import os
 import requests as http_requests
-import json
 import secrets
 import hashlib
 import base64
@@ -18,6 +17,7 @@ LOGIN_SCOPES = [
 
 CALENDAR_SCOPES = [
     "https://www.googleapis.com/auth/calendar.events",
+    "https://www.googleapis.com/auth/calendar.events.freebusy",
 ]
 
 # The file-picker flow asks for access to individual files the student
@@ -163,7 +163,8 @@ def get_free_busy(token_dict, date_str):
     result = service.freebusy().query(body=body).execute()
     return result.get("calendars", {}).get("primary", {}).get("busy", [])
 
-def busy_minutes_by_date(token_dict, start_date, days=14, utc_offset_minutes=0, tz_name=None):
+def busy_minutes_by_date(token_dict, start_date, days=14, utc_offset_minutes=0, tz_name=None,
+                         require_complete=False):
     """``{date: [(start_minute, end_minute), ...]}`` of committed time.
 
     The scheduler has always subtracted the weekly commitments a student typed
@@ -197,14 +198,25 @@ def busy_minutes_by_date(token_dict, start_date, days=14, utc_offset_minutes=0, 
         "timeMax": time_max,
         "items": [{"id": "primary"}],
     }).execute()
-    periods = result.get("calendars", {}).get("primary", {}).get("busy", []) or []
+    calendars = result.get('calendars') if isinstance(result, dict) else None
+    primary = calendars.get('primary') if isinstance(calendars, dict) else None
+    if isinstance(primary, dict) and primary.get('errors'):
+        raise ValueError('Google calendar availability is incomplete.')
+    if require_complete and (not isinstance(primary, dict) or not isinstance(primary.get('busy'), list)):
+        raise ValueError('Google calendar availability is incomplete.')
+    periods = (primary or {}).get('busy') or []
 
     out = {}
     for period in periods:
         try:
-            start = max(_parse_rfc3339(period.get("start")), to_utc(local_start, tz_name, offset))
-            end = min(_parse_rfc3339(period.get("end")), to_utc(local_end, tz_name, offset))
+            raw_start, raw_end = _parse_rfc3339(period.get('start')), _parse_rfc3339(period.get('end'))
+            if raw_end <= raw_start:
+                raise ValueError('Invalid calendar interval')
+            start = max(raw_start, to_utc(local_start, tz_name, offset))
+            end = min(raw_end, to_utc(local_end, tz_name, offset))
         except Exception:
+            if require_complete:
+                raise ValueError('Google calendar availability is incomplete.') from None
             continue
         for day, intervals in busy_intervals(start, end, tz_name, offset).items():
             out.setdefault(day, []).extend(intervals)

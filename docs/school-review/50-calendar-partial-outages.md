@@ -31,3 +31,6 @@ Those remain acceptance criteria, along with broader scheduler quality.
 
 Delivery: local follow-up on branch codex/calendar-partial-outage, pending
 push, hosted checks and release. Network-camera PR100 is a separate checkpoint.
+
+
+Released in PR101 at1c8cdc789415c29ed156e5fe731048edf4ed98be. Exact public revision/schema and Railway web/newsletter success are verified; final post-release Tests38778805459 passed. The following [strict calendar-health checkpoint](51-calendar-health-aware-planning.md) extends this partial-source preservation with write guards and UI outage handling.

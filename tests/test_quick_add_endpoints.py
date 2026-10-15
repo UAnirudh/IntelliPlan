@@ -118,6 +118,23 @@ def test_without_a_plan_the_task_is_still_saved(client, student):
     assert body["task"]["due_date"] == "2026-10-06"
 
 
+def test_calendar_outage_keeps_added_task_but_does_not_place_it(client, student, monkeypatch):
+    from intelliplan.services.calendar_availability import CalendarUnavailable
+    login(client, student)
+    save_plan(student)
+    before = plan_blocks(student)
+    def outage(**kwargs):
+        assert kwargs == {'user_id': student, 'require_complete': True}
+        raise CalendarUnavailable(('google',))
+    monkeypatch.setattr(App, '_planner_busy_by_date', outage)
+    body = client.post('/api/quick-add', json={'text': 'bio lab fri 2h'}).get_json()
+    assert body['placement']['status'] == 'calendar_unavailable'
+    assert 'unchanged' in body['message']
+    assert plan_blocks(student) == before
+    with App.app.app_context():
+        assert db.session.get(ManualTask, body['task']['id']) is not None
+
+
 def test_a_typed_duration_wins_and_an_untyped_one_is_estimated(client, student):
     login(client, student)
     typed = client.post("/api/quick-add", json={"text": "essay 45m", "schedule": False}).get_json()

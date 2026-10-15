@@ -134,7 +134,7 @@ def test_followthrough_service_requests_plan_owners_busy_data(owners, monkeypatc
         login_user(App.db.session.get(App.User, owners[0]))
         service = followthrough_glue._build_service(owners[1], None, {})
         assert service._ctx.busy_by_date == busy
-    assert calls == [{'user_id': owners[1]}]
+    assert calls == [{'user_id': owners[1], 'require_complete': True}]
 
 
 @pytest.mark.parametrize('failed_provider', ['google', 'outlook'])
@@ -172,3 +172,55 @@ def test_calendar_revocation_during_failure_discards_previous_provider_data(owne
     monkeypatch.setattr(App.outlook_calendar_helper, 'busy_minutes_by_date', revoke)
     with App.app.test_request_context():
         assert App._calendar_busy_by_date(user_id=owners[0]) == {}
+
+
+@pytest.mark.parametrize('provider', ['google', 'outlook'])
+def test_strict_planning_refuses_an_unavailable_connected_calendar(owners, monkeypatch, provider):
+    from intelliplan.services.calendar_availability import CalendarUnavailable
+    import google_calendar_helper
+    monkeypatch.setattr(google_calendar_helper, 'busy_minutes_by_date', lambda *a, **kw: {})
+    monkeypatch.setattr(App.outlook_calendar_helper, 'busy_minutes_by_date', lambda *a, **kw: {})
+    monkeypatch.setattr(App, 'get_' + provider + '_token', lambda **kw: None)
+    with App.app.test_request_context():
+        with pytest.raises(CalendarUnavailable) as error:
+            App._planner_busy_by_date(user_id=owners[0], require_complete=True)
+    assert error.value.providers == (provider,)
+
+
+def test_strict_read_does_not_reuse_best_effort_partial_cache(owners, monkeypatch):
+    from intelliplan.services.calendar_availability import CalendarUnavailable
+    import google_calendar_helper
+    monkeypatch.setattr(google_calendar_helper, 'busy_minutes_by_date', lambda *a, **kw: {'2026-10-13': [(600, 630)]})
+    monkeypatch.setattr(App.outlook_calendar_helper, 'busy_minutes_by_date', Mock(side_effect=RuntimeError('private response')))
+    with App.app.test_request_context():
+        assert App._planner_busy_by_date(user_id=owners[0])
+        with pytest.raises(CalendarUnavailable):
+            App._planner_busy_by_date(user_id=owners[0], require_complete=True)
+
+
+def test_strict_read_preserves_corrupt_google_connection_for_reconnect(owners, monkeypatch):
+    from intelliplan.services.calendar_availability import CalendarUnavailable
+    import google_calendar_helper
+    monkeypatch.setattr(google_calendar_helper, 'busy_minutes_by_date', lambda *a, **kw: {})
+    monkeypatch.setattr(App.outlook_calendar_helper, 'busy_minutes_by_date', lambda *a, **kw: {})
+    row = App.GoogleIntegration.query.filter_by(user_id=owners[0]).one()
+    row.token_data = 'unreadable-fixture'
+    App.db.session.commit()
+    with App.app.test_request_context():
+        login_user(App.db.session.get(App.User, owners[0]))
+        with pytest.raises(CalendarUnavailable):
+            App._planner_busy_by_date(require_complete=True)
+    assert App.GoogleIntegration.query.filter_by(user_id=owners[0]).one().token_data == 'unreadable-fixture'
+
+
+@pytest.mark.parametrize('scopes', [[], ['openid']])
+def test_strict_read_rejects_a_stored_calendar_without_a_usable_scope(owners, monkeypatch, scopes):
+    from intelliplan.services.calendar_availability import CalendarUnavailable
+    monkeypatch.setattr(App.outlook_calendar_helper, 'busy_minutes_by_date', lambda *a, **kw: {})
+    row = App.GoogleIntegration.query.filter_by(user_id=owners[0]).one()
+    row.token_data = json.dumps({'access_token': 'fixture', 'scopes': scopes})
+    App.db.session.commit()
+    with App.app.test_request_context():
+        with pytest.raises(CalendarUnavailable) as error:
+            App._planner_busy_by_date(user_id=owners[0], require_complete=True)
+    assert error.value.providers == ('google',)

@@ -20,6 +20,7 @@ from datetime import date, datetime, timedelta
 from typing import Any, Callable, Sequence
 
 import scheduler_engine
+from intelliplan.services.calendar_availability import CalendarUnavailable
 from time_utils import local_now, valid_timezone
 
 logger = logging.getLogger(__name__)
@@ -64,17 +65,15 @@ def active_plan_row(user_id: int | None, guest_id: str | None) -> Any | None:
 
 
 def _busy_by_date(user_id: int | None) -> dict:
-    """Dated calendar events, only when the request *is* this student — the
-    calendar helpers read ``current_user``, and the extension path has none."""
+    """Load the actual owner's verified availability, including extension calls."""
     try:
-        from flask_login import current_user
-
         from App import _planner_busy_by_date
-
-        if user_id and current_user.is_authenticated and int(current_user.id) == int(user_id):
-            return _planner_busy_by_date() or {}
-    except Exception as exc:
-        logger.warning("calendar busy lookup failed: %s", exc)
+        if user_id:
+            return _planner_busy_by_date(user_id=user_id, require_complete=True) or {}
+    except CalendarUnavailable:
+        raise
+    except Exception:
+        raise CalendarUnavailable(('clock',)) from None
     return {}
 
 
@@ -126,7 +125,10 @@ def insert_into_plan(
         logger.warning("personalization load failed: %s", exc)
         availability, commitments = {}, ""
     preferred = str(data.get("preferred_time") or "evening")
-    busy = _busy_by_date(user_id)
+    try:
+        busy = _busy_by_date(user_id)
+    except CalendarUnavailable as exc:
+        return {'status': 'calendar_unavailable', 'placed': [], 'label': str(exc), 'retryable': True}
 
     def windows_for(day: date):
         return scheduler_engine.windows_for_date(

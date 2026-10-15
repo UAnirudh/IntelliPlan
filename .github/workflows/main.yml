@@ -66,6 +66,10 @@ jobs:
         run: |
           python scripts/verify_tutor_exercises_browser.py
           python scripts/verify_tutor_page_browser.py
+      - name: Calendar outage warning and stale-response workflows
+        env:
+          CALENDAR_BROWSER_OUTPUT: ${{ runner.temp }}/tutor-browser-proof/calendar-health
+        run: python scripts/verify_calendar_outage_browser.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
