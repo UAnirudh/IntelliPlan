@@ -17,7 +17,7 @@
   },
   {
     "path": "App.py",
-    "sha256": "c101df1b1958b8b5961c6fd1edf92bbdd2fb75b3e7398a5ffa8eb6b004e596c2"
+    "sha256": "5f46ef0d74ae56040a0319ebdabae5b53d89e781b4ee79e8fbbeb52d43238f10"
   },
   {
     "path": "Main_Project/templates/active.html",
@@ -101,7 +101,7 @@
   },
   {
     "path": "docs/school-review/11-remaining-work.md",
-    "sha256": "cc444ed4e3eb93961e6cbb3b4f1a2e23b36d2f05a7e2aa766848fce42cd6f17b"
+    "sha256": "ff4242805982dcc2b8b85ecc2c41fc7732d3020f0fb544106e533a6e1371b0ae"
   },
   {
     "path": "docs/school-review/37-adaptive-source-policy.md",
@@ -136,12 +136,16 @@
     "sha256": "035198c9c2ccaf94bb7c4fe0c9d16c65b57a6edcb5da17f57dd3567438bb4d34"
   },
   {
+    "path": "docs/school-review/45-owner-calendar-repairs.md",
+    "sha256": "6a963cfd2548ba99a3932dca78af3d866b1c93f7181a1825f5308015ee5f0338"
+  },
+  {
     "path": "extra_features.py",
     "sha256": "fb3345bd93b6311ab35ccda535f86b9c505ec985907c3862114cb82da0440e21"
   },
   {
     "path": "followthrough_glue.py",
-    "sha256": "bb554f24d745e8996836b4bee62a1b26416a44a653c8e1aac71434b76585b1f0"
+    "sha256": "38572d6b966af31eb66c8549febbce246f023c4ca02de3294ed59328ebc23c25"
   },
   {
     "path": "google_calendar_helper.py",
@@ -770,6 +774,10 @@
   {
     "path": "tests/test_outlook_calendar_helper.py",
     "sha256": "6a58fec973755eb7c98fe60b88f5611b47250cdd0fa2d800796d6dcea93e776b"
+  },
+  {
+    "path": "tests/test_owner_calendar_repairs.py",
+    "sha256": "23526b7340cc3e78af6dec3ee88c068715b8518408dac4841d131ee70db6e952"
   },
   {
     "path": "tests/test_paid_launch_readiness.py",

@@ -3545,15 +3545,19 @@ def save_custom_description(assignment_title, description):
             db.session.add(CustomDescription(guest_session_id=gid, assignment_title=assignment_title, description=description))
     db.session.commit()
 
-def get_google_token():
-    if current_user.is_authenticated:
+def get_google_token(user_id=None):
+    explicit_owner = user_id is not None
+    if explicit_owner and not _calendar_policy_allowed(user_id):
+        return None
+    uid = user_id if explicit_owner else (current_user.id if current_user.is_authenticated else None)
+    if uid is not None:
         # Prefer the active row; fall back to the most recent if none flagged.
         gi = (
             GoogleIntegration.query
-            .filter_by(user_id=current_user.id, is_active=True)
+            .filter_by(user_id=uid, is_active=True)
             .first()
             or GoogleIntegration.query
-            .filter_by(user_id=current_user.id)
+            .filter_by(user_id=uid)
             .order_by(GoogleIntegration.id.desc())
             .first()
         )
@@ -3561,10 +3565,12 @@ def get_google_token():
             try:
                 return json.loads(gi.token_data)
             except (TypeError, json.JSONDecodeError):
+                if explicit_owner:
+                    return None
                 db.session.delete(gi)
                 db.session.commit()
                 return None
-    return session.get("google_token")
+    return None if explicit_owner else session.get("google_token")
 
 
 def get_google_drive_token(account_email=None):
@@ -9339,16 +9345,20 @@ def google_drive_oauth_start():
     return redirect(auth_url)
 
 
-def get_outlook_token():
+def get_outlook_token(user_id=None):
     """Return this user's persisted Microsoft token, refreshing it when due.
 
     A row with no recorded expiry is refreshed rather than trusted: without
     this, a token stored before ``expires_at`` existed was used forever after
     its hour was up, and every calendar read quietly failed.
     """
-    if not current_user.is_authenticated or not OUTLOOK_AVAILABLE:
+    explicit_owner = user_id is not None
+    uid = user_id if explicit_owner else (current_user.id if current_user.is_authenticated else None)
+    if uid is None or not OUTLOOK_AVAILABLE:
         return None
-    row = OutlookIntegration.query.filter_by(user_id=current_user.id).first()
+    if explicit_owner and not _calendar_policy_allowed(uid):
+        return None
+    row = OutlookIntegration.query.filter_by(user_id=uid).first()
     if not row:
         return None
     try:
@@ -9363,6 +9373,8 @@ def get_outlook_token():
         try:
             token = outlook_calendar_helper.refresh_token(token)
             token["expires_at"] = time.time() + int(token.get("expires_in") or 3600)
+            if explicit_owner and not _calendar_policy_allowed(uid):
+                return None
             row.token_data = json.dumps(token)
             db.session.commit()
         except Exception as e:
@@ -11715,20 +11727,22 @@ def api_save_assignment_due_date():
     save_custom_description(title, json.dumps(existing))
     return flask.jsonify({"status": "ok"})
 
-def _calendar_policy_allowed():
+def _calendar_policy_allowed(user_id=None):
     """Calendar helpers run under scheduler and agent routes as well as OAuth."""
-    if not current_user.is_authenticated:
+    user = (User.query.populate_existing().filter_by(id=user_id).first()
+            if user_id is not None else current_user)
+    if user is None or not user.is_authenticated:
         return False
     try:
         from intelliplan.learning import policy as learning_policy
         learning_policy.invalidate_cache()
-        return learning_policy.decision(current_user, 'calendar')[0]
+        return learning_policy.decision(user, 'calendar')[0]
     except Exception:
         app.logger.warning('Calendar policy unavailable', exc_info=True)
         return False
 
 
-def _planner_busy_by_date(horizon_days=14):
+def _planner_busy_by_date(horizon_days=14, *, user_id=None):
     """Dated committed time: connected calendars plus the class timetable.
 
     Weekly commitments typed into settings recur; a dentist appointment does
@@ -11746,23 +11760,28 @@ def _planner_busy_by_date(horizon_days=14):
     Memoised per request: plan generation asks more than once, and each ask
     is a round trip to Google and Microsoft.
     """
-    if not current_user.is_authenticated:
+    explicit_owner = user_id is not None
+    uid = user_id if explicit_owner else (current_user.id if current_user.is_authenticated else None)
+    if uid is None:
         return {}
-    from intelliplan.scheduler_clock import now_for
-    start = now_for(current_user.id).date()
-    if not _calendar_policy_allowed():
-        return _class_busy_by_date(current_user.id, start, horizon_days)
-    memo_key = ("_planner_busy_by_date", int(horizon_days))
+    from intelliplan.scheduler_clock import now_for, timezone_for
+    start = now_for(uid).date()
+    def allowed():
+        return _calendar_policy_allowed(uid) if explicit_owner else _calendar_policy_allowed()
+    if not allowed():
+        return _class_busy_by_date(uid, start, horizon_days)
+    memo_key = ("_planner_busy_by_date", (uid, int(horizon_days), start, timezone_for(uid)))
     try:
         cached = flask.g.get(memo_key[0]) or {}
         if memo_key[1] in cached:
             return {d: list(v) for d, v in cached[memo_key[1]].items()}
     except RuntimeError:
         cached = None  # outside a request: nothing to memoise against
-    combined = _calendar_busy_by_date(horizon_days, start=start)
-    if not _calendar_policy_allowed():
-        return _class_busy_by_date(current_user.id, start, horizon_days)
-    for day, intervals in _class_busy_by_date(current_user.id, start, horizon_days).items():
+    combined = (_calendar_busy_by_date(horizon_days, start=start, user_id=uid) if explicit_owner
+                else _calendar_busy_by_date(horizon_days, start=start))
+    if not allowed():
+        return _class_busy_by_date(uid, start, horizon_days)
+    for day, intervals in _class_busy_by_date(uid, start, horizon_days).items():
         combined.setdefault(day, []).extend(intervals)
     if cached is not None:
         try:
@@ -11773,31 +11792,36 @@ def _planner_busy_by_date(horizon_days=14):
     return combined
 
 
-def _calendar_busy_by_date(horizon_days=14, start=None):
+def _calendar_busy_by_date(horizon_days=14, start=None, *, user_id=None):
     """Busy ranges from Google and Outlook only, ``{date: [(start, end)]}``."""
-    if not _calendar_policy_allowed():
+    explicit_owner = user_id is not None
+    uid = user_id if explicit_owner else (current_user.id if current_user.is_authenticated else None)
+    def allowed():
+        return _calendar_policy_allowed(uid) if explicit_owner else _calendar_policy_allowed()
+    if uid is None or not allowed():
         return {}
     from intelliplan.scheduler_clock import now_for, timezone_for
-    start = start or now_for(current_user.id).date()
+    start = start or now_for(uid).date()
     try:
-        zone, offset = timezone_for(current_user.id)
+        zone, offset = timezone_for(uid)
         combined = {}
-        token = get_google_token()
-        if token and _calendar_policy_allowed() and has_calendar_scope(token):
+        token = get_google_token(user_id=uid) if explicit_owner else get_google_token()
+        if token and allowed() and has_calendar_scope(token):
             from google_calendar_helper import busy_minutes_by_date
             for day, intervals in busy_minutes_by_date(
                 token, start, days=horizon_days, utc_offset_minutes=offset, tz_name=zone
             ).items():
                 combined.setdefault(day, []).extend(intervals)
-        outlook_token = get_outlook_token() if _calendar_policy_allowed() else None
-        if outlook_token and _calendar_policy_allowed():
+        outlook_token = ((get_outlook_token(user_id=uid) if explicit_owner else get_outlook_token())
+                         if allowed() else None)
+        if outlook_token and allowed():
             for day, intervals in outlook_calendar_helper.busy_minutes_by_date(
                 outlook_token, start, days=horizon_days, utc_offset_minutes=offset, tz_name=zone
             ).items():
                 combined.setdefault(day, []).extend(intervals)
-        return combined if _calendar_policy_allowed() else {}
+        return combined if allowed() else {}
     except Exception as e:
-        print(f"[planner] calendar busy lookup failed: {e}")
+        print(f"[planner] calendar busy lookup failed: {type(e).__name__}")
         return {}
 
 
