@@ -72,3 +72,6 @@ that first enumeration to complete before taking control of the next two lists.
 
 
 Subsequent direct phone pairing is covered in [report48](48-direct-phone-camera.md). It supersedes the missing implementation for the same-network signed-in browser path, with synthetic WebRTC proof. Physical-device compatibility, direct network-camera protocols and signal-quality validation remain open.
+
+
+A subsequent local HTTPS WHEP receiver and pinned RTSP gateway configuration now exercise a real synthetic RTSP-to-browser path, with scoped enforced CSP, direct gateway authentication, no audio, permission revocation and independently verified gateway-session cleanup. See [report49](49-network-camera-gateway.md). Physical hardware, automatic ONVIF discovery, broad codec/network compatibility and measurement quality remain open.

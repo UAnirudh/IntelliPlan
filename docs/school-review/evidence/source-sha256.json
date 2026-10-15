@@ -1,7 +1,7 @@
 [
   {
     "path": ".env.example",
-    "sha256": "92bcfa8e5a3b97f303fa0c1c17112314479b773d1df827e6827eb50fdfbd7f14"
+    "sha256": "3aea277ad1c93eb05633340099530a4dd8ee083fa77f6cecae4c23378bef2dc9"
   },
   {
     "path": ".gitattributes",
@@ -9,7 +9,7 @@
   },
   {
     "path": ".github/workflows/main.yml",
-    "sha256": "fa382c6ca3f6654a8c1350bb9e25982dd2238db97c9a167cece9b8896c9e1934"
+    "sha256": "c6283e964e66f95cabd091116936a4154f57cba46c8eb3e4560edc336b20167c"
   },
   {
     "path": ".github/workflows/security.yml",
@@ -17,15 +17,15 @@
   },
   {
     "path": "App.py",
-    "sha256": "5ef4ddd1d54c893d06680c2b8db892443ce6dd551a9b3059d872d4db4e3f090d"
+    "sha256": "139d83eb29e27a475c7056142b72c167a5d3f788475041b5ed1cadbfa44c70e8"
   },
   {
     "path": "Main_Project/templates/active.html",
-    "sha256": "4b881ada55d538156d14ba13565f434b520c48f5c88812c64f86bbe461991131"
+    "sha256": "3bd81b295f87d4f51d9c6c41bc0e834ea28c96dde87cdce189842b76af47e194"
   },
   {
     "path": "Main_Project/templates/active_mobile.html",
-    "sha256": "ceb6995de987db8ee1361e616f7985a63e8d9d959c196b021785d9a550d2d4a6"
+    "sha256": "fc10ec6e03ff4b35991a345b0ed0a04c933316eb03275669d42bf24141271e52"
   },
   {
     "path": "Main_Project/templates/command_center.html",
@@ -37,7 +37,7 @@
   },
   {
     "path": "Main_Project/templates/partials/study_camera_source.html",
-    "sha256": "c08beb835f3e22e6488fb8dc890347783ca5bc8893961b8c9e11943d7e2f25b8"
+    "sha256": "1d2f5ac5f843f3215a077e24a91275a5ad267e311b04bdd995763bb6d3a0c81e"
   },
   {
     "path": "Main_Project/templates/school_admin.html",
@@ -104,6 +104,14 @@
     "sha256": "f107f678c09d0e5632aea2ac98ad8451b4fe96e083aebc9b3858a7b099d91556"
   },
   {
+    "path": "deploy/study-camera/README.md",
+    "sha256": "4307fe5e86ce63958b4fd19a1dd37cff7964b4035ea3bc43abba1c4940fde9a8"
+  },
+  {
+    "path": "deploy/study-camera/mediamtx.example.yml",
+    "sha256": "a3673bf0c2db52b5efb238aff987dab366f6602032dd8b8620a0de20485eab8d"
+  },
+  {
     "path": "deployment/learning-worker.compose.yml",
     "sha256": "89d6c401a28657551a5c02cfae1bddbd2b6e89e6b7b49abfb5c2f2c541e5ea1c"
   },
@@ -113,7 +121,7 @@
   },
   {
     "path": "docs/school-review/11-remaining-work.md",
-    "sha256": "be95f1ed6980aebe01941c3cfb2fffae1f7ada4a328740c90cc045a9653642ac"
+    "sha256": "510fd8d09471122135ff790a7d4eff420b424f816fc3443d59616d6fd06767ac"
   },
   {
     "path": "docs/school-review/37-adaptive-source-policy.md",
@@ -137,7 +145,7 @@
   },
   {
     "path": "docs/school-review/42-study-camera-inputs.md",
-    "sha256": "189a3af06661cf7c69443667dd3bc5621a8a47e407a5d929fee3d41cd94d553a"
+    "sha256": "0a6b639593a313badbc31b1c08a5a4c50d5365f2e563a2a04e04329850dd43a7"
   },
   {
     "path": "docs/school-review/43-question-led-tutor.md",
@@ -161,7 +169,11 @@
   },
   {
     "path": "docs/school-review/48-direct-phone-camera.md",
-    "sha256": "459fb7d76d2752af94409cf3521f1f0350e5a54f1d716fb769ab484010d2a790"
+    "sha256": "25afd585bba1b71d164d5224d843e608089c5fbf0fa16223337266d8ece16d95"
+  },
+  {
+    "path": "docs/school-review/49-network-camera-gateway.md",
+    "sha256": "ef05c659a3a731f1435a5198d8879bbd2007d510307f60bf5783fe27a7643db7"
   },
   {
     "path": "extra_features.py",
@@ -400,6 +412,10 @@
     "sha256": "29f686c065c4f44ffe5579b0d6dadd856a842397d2f271a27599863cd3c7f445"
   },
   {
+    "path": "scripts/verify_network_camera_browser.py",
+    "sha256": "49b2a8bbf88b22defe84cbf9959fe958a3cd12c43737e45270c5b323845dd9cb"
+  },
+  {
     "path": "scripts/verify_phone_camera_browser.py",
     "sha256": "48871940d2f467dfa3e94853fa713f41ca124ff5485d4f23d0be30631d053a5e"
   },
@@ -433,7 +449,7 @@
   },
   {
     "path": "static/css/study-camera.css",
-    "sha256": "237ab9a4996a34586b886997f579d73d2a11030c82de03366ebc52b584b84b3d"
+    "sha256": "b3b379d465a0f6d91e79ef53ccbe0e752d8d6183a824aed095e6be4d9dc08e30"
   },
   {
     "path": "static/js/command_center.js",
@@ -445,11 +461,11 @@
   },
   {
     "path": "static/js/ip-active.js",
-    "sha256": "2165eaa6ca3a2d5adc572d8f0f60f7cac83f874c2dc4121b953902d0328b6e31"
+    "sha256": "1438cbe4a0e9119fd27286ca8763b8a16eeb6614067d3f0f3a350a64db504791"
   },
   {
     "path": "static/js/ip-focus.js",
-    "sha256": "0ad0060e9b07cf140319a5e7a08a49a1e98cc37254cfe17f676c12c4c74df51d"
+    "sha256": "ce3c5bbc74bbb45cd24a3fc288755695e5eeb2bfe85441f63d9cf0e00358bab7"
   },
   {
     "path": "static/js/learning_content.js",
@@ -462,6 +478,10 @@
   {
     "path": "static/js/school_admin.js",
     "sha256": "bab1b2e6fe6159877b3c082033944926f06189c2ba33f20a69a29e0d8c103d16"
+  },
+  {
+    "path": "static/js/study-camera-network.js",
+    "sha256": "0aeccbef4ed7fd8c9b4115ffb1bca58abdb8b426d6b402c1ecb80dc59b495b2b"
   },
   {
     "path": "static/js/study-camera-peer.js",
@@ -772,6 +792,10 @@
     "sha256": "855da12fc780d53faaa9f82f3c881df0c5053764d8ac68f798e2b8113ad24d05"
   },
   {
+    "path": "tests/browser/study_camera_network.test.cjs",
+    "sha256": "3339742d65faf161d202f8acfaa3c229f58d6e82ce45d825035f354853eee9cc"
+  },
+  {
     "path": "tests/browser/tutor_audio.test.cjs",
     "sha256": "0c5b5b67aa88ee77b706f6fa105eca2fe453c9cc5063eff32827073beefdc993"
   },
@@ -886,6 +910,10 @@
   {
     "path": "tests/test_scheduler_prerequisites.py",
     "sha256": "6d51da69b9ea51de9cbea56643d9446b6f1bc5ce8352aa5d911bad0d2333a13a"
+  },
+  {
+    "path": "tests/test_study_camera_gateway_policy.py",
+    "sha256": "9dac40ca3f67f225c560f479ec165db0e1deb97108313d581136f18aa178f2f0"
   },
   {
     "path": "tests/test_study_camera_pairing.py",

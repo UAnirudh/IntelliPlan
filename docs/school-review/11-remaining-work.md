@@ -16,8 +16,8 @@ plugin confirmation. The following camera checkpoint implements browser-visible
 source selection, safe switching/cancellation/disconnection, phone self-view,
 school focus permission gates and preserved cumulative study/session totals.
 Local Node, Python and rendered browser persistence checks pass, with scoped
-independent review. Direct phone pairing, native network-camera paths, hardware
-proof and signal-quality validation remain open. See
+independent review. Later reports48/49 add direct phone pairing and an HTTPS network-camera/RTSP gateway path. Hardware
+proof, broader protocol support and signal-quality validation remain open. See
 [study camera inputs](42-study-camera-inputs.md).
 
 The next local tutor checkpoint shares question-led instructions across text,
@@ -145,3 +145,6 @@ A subsequent scheduler checkpoint repairs known prerequisite handling: dependent
 
 
 Direct phone-camera pairing is now implemented locally for signed-in devices on the same network, with encrypted ephemeral signaling, fresh permission checks, explicit consent, revocation and scheduled cleanup. Real WebRTC between synthetic browser cameras is verified; physical phones, general network/IP streams, RTSP/ONVIF bridges and study-signal accuracy remain open. See [direct phone cameras](48-direct-phone-camera.md). PR98 prerequisite safety is merged/live and its post-release Tests/Security passed; this continuation has fresh Railway plugin confirmation of a successful web deployment. The original brief is still incomplete.
+
+
+PR99 phone pairing is now merged/live at1630f1bba2bb1e6adf1499947781bd3d6d13c2e2;4653 local tests passed with33 skipped, hosted pre/post-release Tests and Security passed, and Railway plus the exact public revision/schema check confirm the release. A subsequent network-camera checkpoint, pushed in PR100 and pending hosted checks/release, receives video-only HTTPS WHEP directly from a gateway and includes pinned RTSP bridge instructions. Real MediaMTX/FFmpeg browser proof supports this bounded path; physical cameras, automatic ONVIF discovery and study accuracy remain incomplete. See [network-camera gateways](49-network-camera-gateway.md).

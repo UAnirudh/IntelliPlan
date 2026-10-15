@@ -4,12 +4,13 @@
   <select id="ipaCameraSource" aria-describedby="ipaCameraSourceNote">
     <option value="">Default or front camera</option>
     <option value="rear">Back camera, when available</option>
+    <option value="network">Network camera or RTSP gateway</option>
     {% if camera_pairing_allowed %}<option value="phone">Pair another phone or browser</option>{% endif %}
   </select>
   <p class="ipa-focus-note" id="ipaCameraListStatus" role="status"></p>
   <p class="ipa-focus-note" id="ipaCameraSourceNote">
     USB webcams, capture cards and virtual cameras appear after your browser grants access.
-    Pair another phone over the same Wi-Fi, or use a network camera exposed as a webcam.
+    Pair another phone over the same Wi-Fi, or connect an HTTPS network-camera gateway.
     Selecting a source keeps the camera off until you enable the check-in.
   </p>
   <div id="ipaPhoneInvite" hidden>
@@ -18,5 +19,19 @@
     <p class="ipa-focus-note" id="ipaPhoneNote">Sign into the same account on both devices. The link expires in two minutes.
       Tap Connect on your phone to send video to this study browser. Audio is off; no video is recorded or sent to IntelliPlan.
       Keep both pages open on the same Wi-Fi. Turn check-ins off to disconnect.</p>
+  </div>
+  <div id="ipaNetworkConfig" hidden>
+    <label for="ipaNetworkUrl">Camera gateway URL (HTTPS WHEP)</label>
+    <input id="ipaNetworkUrl" type="url" inputmode="url" autocomplete="off" spellcheck="false"
+           placeholder="https://camera.example/study/whep" aria-describedby="ipaNetworkNote">
+    <label for="ipaNetworkUser">Gateway username, if required</label>
+    <input id="ipaNetworkUser" type="text" autocomplete="off" spellcheck="false" maxlength="256">
+    <label for="ipaNetworkPassword">Gateway password or access token, if required</label>
+    <input id="ipaNetworkPassword" type="password" autocomplete="new-password" maxlength="2048" data-lpignore="true" data-1p-ignore="true">
+    <p class="ipa-focus-note" id="ipaNetworkNote">Use the camera gateway’s credentials. They are sent only to the gateway you enter,
+      and are not stored or sent to IntelliPlan.
+      Video comes directly from that gateway; IntelliPlan does not proxy or record it.
+      RTSP and ONVIF cameras need a local WebRTC gateway with trusted HTTPS and website access enabled (CORS).
+      The deployment must allow its origin. Enable the check-in after entering its address.</p>
   </div>
 </details>
