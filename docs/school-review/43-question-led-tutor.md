@@ -66,3 +66,12 @@ subjects, and educational quality validation. Instructions and mocked requests
 do not establish effective learning or guaranteed provider compliance. Paid-plan
 launch readiness, direct phone/IP cameras and the broader original brief remain
 open.
+
+The subsequent rendered signed-in tutor fixture now passes at1280 and390px:
+Auditory selection, actual Send, SVG slider interaction, denied speech and
+the real Help me start button all work with scripted API responses. It caught
+a real phone composer overlap. Message padding now tracks the composer's
+measured height plus its phone tab-bar margin. The same unforced click passes
+after that fix. The page fixture runs in CI alongside the component checks;
+live providers, real authentication/session transport and hardware are still
+separate evidence requirements. PR93's post-merge Tests run38682738318 passed.

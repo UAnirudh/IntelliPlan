@@ -239,7 +239,7 @@ main {
   /* Reserve space at the bottom for the floating composer so the last
      message isn't covered by it. The composer is position:absolute
      inside .tutor-main (see below). */
-  padding-bottom: 140px;
+  padding-bottom: var(--tutor-composer-space, 140px);
   display: none; flex-direction: column;
   scrollbar-width: thin; scrollbar-color: var(--border) transparent;
 }
@@ -566,7 +566,7 @@ main {
     left: 0; right: 0; bottom: 0;
     z-index: 10;
   }
-  .tutor-messages { padding-bottom: 130px; }
+  .tutor-messages { padding-bottom: var(--tutor-composer-space, 130px); }
   .tutor-input-inner { border-radius: 14px; }
   #tutorSendBtn { border-radius: 0 12px 12px 0; }
   .tutor-empty-title { font-size: 1.45rem; }
@@ -2545,6 +2545,23 @@ function scrollBottom() {
   const el = document.getElementById('tutorMessages');
   setTimeout(() => { el.scrollTop = el.scrollHeight; }, 60);
 }
+
+// The composer grows with assignment controls, text and the phone tab bar.
+// Reserve its actual footprint so the final message and hint stay tappable.
+function reserveTutorComposerSpace() {
+  const composer = document.querySelector('.tutor-input-wrap');
+  const main = document.querySelector('.tutor-main');
+  if (!composer || !main) return;
+  const margin = parseFloat(getComputedStyle(composer).marginBottom) || 0;
+  main.style.setProperty('--tutor-composer-space',
+    Math.ceil(composer.getBoundingClientRect().height + margin + 16) + 'px');
+}
+const tutorComposer = document.querySelector('.tutor-input-wrap');
+if (tutorComposer && window.ResizeObserver) {
+  new ResizeObserver(reserveTutorComposerSpace).observe(tutorComposer);
+}
+window.addEventListener('resize', reserveTutorComposerSpace);
+reserveTutorComposerSpace();
 
 function visibleTutorText(text) {
   return String(text).replace(/^\[Subject:\s*[^\]]+\]\s*\n?/, '').trim();

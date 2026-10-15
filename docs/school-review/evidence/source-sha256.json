@@ -9,7 +9,7 @@
   },
   {
     "path": ".github/workflows/main.yml",
-    "sha256": "fb2e11dde2b4ad2c8d04c48c012a2e7ccbb87e9e2ff0f5d8904126f7e3f27834"
+    "sha256": "b5a5fbdb7ac7b560351b1f82969e3a09b18244343087ddc0a4ee5ab3fa9b90dc"
   },
   {
     "path": ".github/workflows/security.yml",
@@ -53,7 +53,7 @@
   },
   {
     "path": "Main_Project/templates/tutor.html",
-    "sha256": "e5081a8f413c6151214c9360b3ec853053afeb80fb9ec8f9a6b6a4f880bf48f5"
+    "sha256": "05d94df7c285e8de3512d985c491ac0a908637e4ef2753d1f542c387f5031219"
   },
   {
     "path": "active_glue.py",
@@ -125,7 +125,7 @@
   },
   {
     "path": "docs/school-review/43-question-led-tutor.md",
-    "sha256": "498189e1b5195503a9efc5736e75f913e09e4d6b17173186e4aa2d8406a7c3dc"
+    "sha256": "6272ea340f7b181f209ed55559a5ea8768cb0a43c62b268c8cc351e6b207bf0b"
   },
   {
     "path": "extra_features.py",
@@ -326,6 +326,10 @@
   {
     "path": "scripts/verify_tutor_exercises_browser.py",
     "sha256": "32813b7fc72d564a4610779e6c49975137e8ae63d2e205136c7decaad7129dfd"
+  },
+  {
+    "path": "scripts/verify_tutor_page_browser.py",
+    "sha256": "76261010a42db96c31a89141cf82471bb9ac655cc825b39d9e5fbe9150ff4fd8"
   },
   {
     "path": "scripts/wait_for_deployment.py",

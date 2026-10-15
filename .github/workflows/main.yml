@@ -63,7 +63,9 @@ jobs:
       - name: Tutor SVG, quiz and untrusted-content workflows
         env:
           TUTOR_BROWSER_OUTPUT: ${{ runner.temp }}/tutor-browser-proof
-        run: python scripts/verify_tutor_exercises_browser.py
+        run: |
+          python scripts/verify_tutor_exercises_browser.py
+          python scripts/verify_tutor_page_browser.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
