@@ -143,6 +143,7 @@ def create_active_blueprint(deps: ActiveDeps) -> Blueprint:
             "active_mobile.html" if _wants_phone_layout() else "active.html",
             active_page="active",
             focus_allowed=deps.focus_allowed(),
+            camera_pairing_allowed=deps.current_user_id() is not None,
         )
 
     # ── lifecycle ─────────────────────────────────────────────────────

@@ -501,6 +501,13 @@
   function cameraOptions() {
     var select = $('ipaCameraSource');
     var value = select ? select.value : '';
+    if (value === 'phone') return { source: 'phone', onInvite: function (url) {
+      var wrap = $('ipaPhoneInvite');
+      var input = $('ipaPhoneLink');
+      if (input) input.value = url || '';
+      if (wrap) wrap.hidden = !url;
+      if (url && $('ipaCameraMenu')) $('ipaCameraMenu').open = true;
+    } };
     return value.indexOf('device:') === 0 ? { deviceId: value.slice(7) }
       : { facingMode: value === 'rear' ? 'environment' : 'user' };
   }
@@ -517,7 +524,9 @@
       var selected = select.value;
       // Labels and identifiers stay in this page; they are never sent to us
       // or retained as a cross-session device fingerprint.
-      while (select.options.length > 2) select.remove(2);
+      for (var i = select.options.length - 1; i >= 0; i--) {
+        if (select.options[i].value.indexOf('device:') === 0) select.remove(i);
+      }
       devices.forEach(function (device) {
         if (!device.deviceId) return;
         var option = document.createElement('option');
@@ -638,8 +647,9 @@
             + 'does not prove you are studying. It will never nudge you for sitting still.';
           method.hidden = false;
         } else if (info.ok) {
-          method.textContent = 'Using your browser\'s on-device face detection. '
-            + 'Frames are examined and discarded, never stored or sent.';
+          method.textContent = 'Using your study browser\'s on-device face detection. '
+            + (info.source === 'phone' ? 'Video comes only from your paired phone; it is not recorded.'
+              : 'Frames are examined and discarded, never stored or sent.');
           method.hidden = false;
         } else {
           method.hidden = true;
@@ -847,7 +857,7 @@
     video.hidden = false;
     if (note) {
       note.textContent = 'This is the picture being checked, on your device. '
-        + 'It is not recorded and never leaves this browser.';
+        + 'It is not recorded. A paired phone sends video only to this study browser.';
       note.hidden = false;
     }
     btn.textContent = 'Hide the camera view';

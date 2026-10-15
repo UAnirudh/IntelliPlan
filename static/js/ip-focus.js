@@ -3,14 +3,15 @@
  *
  * WHAT THIS IS
  * ------------
- * A best-effort estimate of whether the student is present and engaged,
+ * A best-effort estimate of presence and movement, not engagement or learning,
  * assembled from two independent sources:
  *
  *   1. Presence signals the browser gives us for free — tab visibility,
  *      window focus, and input idleness. Always available, cheap, exact
  *      about what they measure, and worth more than people expect.
- *   2. An optional camera check-in, entirely on-device. Frames never leave
- *      the machine, nothing is recorded, nothing is uploaded, and no
+ *   2. Optional camera analysis on the study device. A paired phone can send
+ *      video directly to this browser; nothing is recorded or uploaded to
+ *      IntelliPlan, and no
  *      identity information is derived. Two methods, depending on browser:
  *        - FaceDetector where it exists: "is there a face, roughly pointed
  *          this way". Rare in practice — absent in Firefox and Safari,
@@ -178,16 +179,26 @@
   CameraMonitor.prototype.start = function (options) {
     var self = this;
     options = options || {};
+    if (options.source === 'phone') this.available = !!(window.IPStudyCamera && window.RTCPeerConnection);
     if (!this.available) return Promise.resolve(false);
     this.stop();
     this.lastError = null;
     var generation = this.generation;
+    this.source = options.source || 'local';
+    if (this.source === 'phone') this.remote = new window.IPStudyCamera.Peer({
+      onInvite: options.onInvite, onEnded: function (e) {
+        if (generation !== self.generation) return;
+        self.stop();
+        if (options.onEnded) options.onEnded(e);
+      }
+    });
     var video = { width: { ideal: 320 }, height: { ideal: 240 } };
     if (options.deviceId) video.deviceId = { exact: options.deviceId };
     else video.facingMode = { ideal: options.facingMode || 'user' };
     return Promise.resolve().then(function () {
       if (generation !== self.generation) return null;
-      return navigator.mediaDevices.getUserMedia({ video: video, audio: false });
+      return self.remote ? self.remote.start()
+        : navigator.mediaDevices.getUserMedia({ video: video, audio: false });
     })
       .then(function (stream) {
         if (!stream) return false;
@@ -398,6 +409,7 @@
 
   CameraMonitor.prototype.stop = function () {
     this.generation += 1;
+    if (this.remote) { this.remote.stop(); this.remote = null; }
     if (this.stream) {
       this.stream.getTracks().forEach(function (t) { t.onended = null; t.stop(); });
       this.stream = null;
@@ -475,13 +487,14 @@
     if (!this.running) return Promise.resolve(false);
     if (this.camera) this.camera.stop();
     var camera = new CameraMonitor();
+    if (options && options.source === 'phone') camera.available = !!(window.IPStudyCamera && window.RTCPeerConnection);
     this.camera = camera;
     function current() { return self.running && self.camera === camera; }
-    function disconnected() {
+    function disconnected(error) {
       if (!current()) return;
       self.camera = null;
       self.onCameraStatus({ ok: false, reason: 'disconnected',
-        message: 'Camera disconnected. Reconnect it and turn the check-in on to resume.' });
+        message: error && error.message || 'Camera disconnected. Reconnect it and turn the check-in on to resume.' });
     }
     if (!camera.available) {
       this.camera = null;
@@ -489,7 +502,8 @@
         message: 'Camera access is unavailable in this browser. The study timer still works.' });
       return Promise.resolve(false);
     }
-    this.onCameraStatus({ ok: false, pending: true, message: 'Waiting for camera access…' });
+    this.onCameraStatus({ ok: false, pending: true, message: options && options.source === 'phone'
+      ? 'Open the private link in Camera source on your phone. Keep both pages open.' : 'Waiting for camera access…' });
     return camera.start(Object.assign({}, options || {}, { onEnded: disconnected })).then(function (ok) {
       if (!current()) { camera.stop(); return false; }
       if (!ok) {
@@ -505,8 +519,9 @@
         self.camera = null;
         return false;
       }
-      self.onCameraStatus({ ok: true, mode: camera.mode,
-        message: camera.mode === 'face'
+      self.onCameraStatus({ ok: true, mode: camera.mode, source: camera.source,
+        message: camera.source === 'phone' ? 'Phone camera connected. Video stays between your paired devices.' :
+        camera.mode === 'face'
           ? 'Camera check-in on, using face detection. Frames stay on this device.'
           : 'Camera check-in on, watching for movement. Frames stay on this device.' });
       return true;

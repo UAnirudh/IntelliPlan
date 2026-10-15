@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block page_title %}Active | IntelliPlan — Do the work{% endblock %}
-{% block meta_description %}Run a focused study session on your phone. Session timer, goals, break prompts, and an optional on-device focus check-in that never uploads video.{% endblock %}
+{% block meta_description %}Run a focused study session on your phone, with goals, break prompts and optional camera check-ins processed on your chosen study device.{% endblock %}
 
 {% block head_extra %}
 <!-- Scripts load here, not in the scripts block: that block is interpolated
@@ -10,6 +10,7 @@
      (Jinja parses its tags inside HTML comments too, so this note spells the
      block name out instead of quoting it.) -->
 <script src="{{ url_for('static', filename='js/ip-focus.js') }}?v={{ asset_v }}" defer></script>
+<script src="{{ url_for('static', filename='js/study-camera-peer.js') }}?v={{ asset_v }}" defer></script>
 <!-- Focus enforcement. Loaded next to the tracker because it is driven
      entirely by the tracker's callbacks; on its own it does nothing, and
      for a student who left enforcement off it stays doing nothing. -->
@@ -493,7 +494,7 @@
             <span class="ipa-focus-label">Focus check-in &mdash; optional</span>
           </span>
           <p class="ipa-focus-note" id="ipaFocusNote" role="status">
-            {% if focus_allowed %}Optional check-ins. Video stays on this device; summary counts are saved to your account.
+            {% if focus_allowed %}Optional check-ins. Video stays within your chosen devices; summary counts are saved to your account.
             {% else %}Camera check-ins are unavailable under your current school settings.{% endif %}
           </p>
         </div>
@@ -526,8 +527,9 @@
         What leaves my device?
       </button>
       <p class="ipa-focus-note" id="ipaFocusPrivacyText" hidden>
-        Only summary counts reach your account. Video is never recorded or uploaded &mdash; frames are
-        checked on your phone and discarded. All we receive is a count per minute: how many
+        Summary counts reach your account. For a paired camera, encrypted connection details also pass through IntelliPlan temporarily.
+        Video is never recorded or uploaded to IntelliPlan; frames are
+        checked in your study browser and discarded. The counts record how many
         checks saw someone, how many didn't. No images, no face data.
       </p>
 

@@ -29,7 +29,7 @@ function harness(acquire = async () => stream()) {
   const context = vm.createContext({ window: win, document: doc, navigator: { mediaDevices: media },
     Date: Clock, performance: { now: () => clock } });
   vm.runInContext(source, context);
-  return { api: win.IPFocus, calls, timers, media, events, advance: ms => { clock += ms; },
+  return { api: win.IPFocus, win, calls, timers, media, events, advance: ms => { clock += ms; },
     tracker: () => new win.IPFocus.Tracker({ onCameraStatus: info => events.push(info) }) };
 }
 
@@ -211,4 +211,48 @@ test('a restored tracker seeds exact saved totals without opening a camera', () 
   assert.equal(summary.present, 20);
   assert.equal(summary.longest_streak_seconds, 42);
   assert.equal(h.calls.length, 0);
+});
+
+test('phone disconnect clears the active monitor, video and remote tracks', async () => {
+  const h = harness();
+  const captured = stream();
+  let ended;
+  h.win.RTCPeerConnection = function () {};
+  h.win.IPStudyCamera = { Peer: class {
+    constructor(options) { ended = options.onEnded; }
+    start() { return Promise.resolve(captured); }
+    stop() { captured.track.stop(); }
+  } };
+  const tracker = h.tracker();
+  await tracker.start(true, { source: 'phone' });
+  const monitor = h.api.activeCamera();
+  assert.ok(monitor.video);
+  ended(new Error('Remote policy denied'));
+  assert.equal(tracker.camera, null);
+  assert.equal(h.api.activeCamera(), null);
+  assert.equal(monitor.video, null);
+  assert.equal(captured.track.stopped, true);
+  assert.equal(h.calls.length, 0, 'receiver must never open a local camera');
+  tracker.stop();
+});
+
+test('a late paired stream cannot revive a stopped monitor', async () => {
+  const h = harness();
+  let deliver;
+  let stopped = 0;
+  h.win.RTCPeerConnection = function () {};
+  h.win.IPStudyCamera = { Peer: class {
+    start() { return new Promise(resolve => { deliver = resolve; }); }
+    stop() { stopped += 1; }
+  } };
+  const camera = new h.api.CameraMonitor();
+  const pending = camera.start({ source: 'phone' });
+  await Promise.resolve();
+  camera.stop();
+  const late = stream();
+  deliver(late);
+  assert.equal(await pending, false);
+  assert.equal(h.api.activeCamera(), null);
+  assert.equal(late.track.stopped, true);
+  assert.ok(stopped > 0);
 });
