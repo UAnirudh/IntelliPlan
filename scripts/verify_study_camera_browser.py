@@ -54,6 +54,17 @@ with sync_playwright() as p:
             App.ActiveSession.query.delete()
             App.db.session.commit()
         context = browser.new_context(viewport={'width': 390 if mobile else 1280, 'height': 900})
+        # The fake Chromium device can emit native changes during startup. This
+        # scenario owns device-change timing so its deliberately reversed lists
+        # are not superseded by an unrelated native notification.
+        context.add_init_script('''
+            const listen = navigator.mediaDevices.addEventListener.bind(navigator.mediaDevices);
+            navigator.mediaDevices.addEventListener = (name, callback, options) => {
+                if (name === 'devicechange') {
+                    listen(name, event => { if (!event.isTrusted) callback(event); }, options);
+                } else { listen(name, callback, options); }
+            };
+        ''')
         page = context.new_page()
         def toggle(enabled):
             if page.locator('#ipaFocusToggle').is_checked() != enabled:

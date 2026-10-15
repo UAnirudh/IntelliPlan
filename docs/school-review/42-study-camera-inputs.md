@@ -62,3 +62,7 @@ or network cameras exposed as system webcams can use this source picker, but
 that does not implement the missing direct connection paths. The user's broad
 all-camera requirement is therefore still partial. The question-led visual/audio
 tutor, paid launch readiness and the rest of the original brief remain open.
+CI follow-up: the rendered verifier isolates native fake-device notifications
+from its deliberately reordered synthetic device-list scenario. Production
+device listeners remain unchanged. Desktop and phone local reruns pass with
+saved observation counts increasing from 3 to 5 across pause/resume.
