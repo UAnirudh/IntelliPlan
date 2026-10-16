@@ -121,7 +121,7 @@
   },
   {
     "path": "docs/school-review/11-remaining-work.md",
-    "sha256": "822b6c966814399eef2f1e12a26cbea88c3fe2838873167432f83a6fccb18cca"
+    "sha256": "d949954e1d6bb3884992520c9afff5973fc72aff40894180d54267bfd2f2381d"
   },
   {
     "path": "docs/school-review/37-adaptive-source-policy.md",
@@ -198,6 +198,10 @@
   {
     "path": "docs/school-review/55-prerequisite-clock-order.md",
     "sha256": "759f2157eefb41af2dcea0d75f75b0093aa2d2efa6479303fd6419fca5fe563b"
+  },
+  {
+    "path": "docs/school-review/56-paid-offer-price-checks.md",
+    "sha256": "eeb1806ba018658adb971053c80dda17dd32eb7ab13ef598c7ac89558cb17c97"
   },
   {
     "path": "extra_features.py",
@@ -336,12 +340,16 @@
     "sha256": "a915ac44b166f7711cd279eca8ee918280431d4d7f4bb8bbcfba705b82440eab"
   },
   {
+    "path": "intelliplan/premium/catalog.py",
+    "sha256": "63d56d3d8feffecc61e3a0222e9f1ae876cf4fe0a36fd4a4bd00f95a613c8a4d"
+  },
+  {
     "path": "intelliplan/premium/claude_tutor.py",
     "sha256": "b06939f8639879c923a4f221d1eea61797aae17da3938fd08fe02f6aa0380d0e"
   },
   {
     "path": "intelliplan/premium/readiness.py",
-    "sha256": "7852d404f984c831821f8a2d7c788703d48a32d0919982e3cade2af05954870a"
+    "sha256": "ec94702f559e367ac5e6c4ed27b45be61fb1b81ff72340fdf627e3428ba55a4a"
   },
   {
     "path": "intelliplan/repositories/active_sessions.py",
@@ -961,7 +969,7 @@
   },
   {
     "path": "tests/test_paid_launch_readiness.py",
-    "sha256": "7705f5d57ff15b3e48a6208d816fc3793d7e7d766c00c3570c253bb6324c9b54"
+    "sha256": "f6f56a293564c05fa195c3f01ef5a626f95cc98692b9232a3547ea310e970c20"
   },
   {
     "path": "tests/test_plani_policy.py",

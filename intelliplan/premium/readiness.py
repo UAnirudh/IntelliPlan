@@ -1,9 +1,27 @@
 """Read-only paid-launch diagnostics. Never enables billing or creates payments."""
 from __future__ import annotations
 
+from decimal import Decimal, InvalidOperation
 from urllib.parse import quote, urlsplit
 
+from intelliplan.growth import plans
 from intelliplan.premium import catalog
+
+
+def _fixed_amount_matches(price, advertised):
+    """Compare fixed USD base amounts without rounding a subcent price."""
+    try:
+        expected = Decimal(str(advertised)) * 100
+        actual = price.get('unit_amount')
+        decimal = price.get('unit_amount_decimal')
+        return (expected.is_finite() and expected > 0 and expected == expected.to_integral_value()
+                and type(actual) is int and actual == expected
+                and (decimal is None or Decimal(str(decimal)) == expected)
+                and price.get('billing_scheme') == 'per_unit'
+                and price.get('custom_unit_amount') is None
+                and price.get('transform_quantity') is None)
+    except (InvalidOperation, TypeError, ValueError):
+        return False
 
 
 def check_launch(env, retrieve):
@@ -47,30 +65,33 @@ def check_launch(env, retrieve):
         # Provider errors may contain keys, account PII or request details.
         check('account_read', False, 'Could not read account readiness; inspect Stripe directly.')
 
-    offers = [('pro_monthly', 'STRIPE_PRICE_ID', 'month'),
-              ('pro_yearly', 'STRIPE_PRICE_ID_YEARLY', 'year')]
-    for plan in catalog.plans().values():
+    offers = [('pro_monthly', 'STRIPE_PRICE_ID', 'month', plans.PRO_PRICES_USD[plans.MONTHLY]),
+              ('pro_yearly', 'STRIPE_PRICE_ID_YEARLY', 'year', plans.PRO_PRICES_USD[plans.YEARLY])]
+    for plan in catalog.plans(env).values():
         for interval, variable in plan.stripe_price_env.items():
-            offers.append((f'{plan.id}_{interval}', variable, 'year' if interval == catalog.YEARLY else 'month'))
+            offers.append((f'{plan.id}_{interval}', variable, interval, plan.price_usd[interval]))
+    offers.append(('topup', 'STRIPE_PRICE_ID_TOPUP', None, catalog.topup(env).price_usd))
     configured = 0
     price_ids = set()
-    for name, variable, interval in offers:
+    for name, variable, interval, amount in offers:
         value = (env.get(variable) or '').strip()
         if not value:
             continue  # Unconfigured offers are not sold by the existing app.
-        configured += 1
+        configured += int(interval is not None)
         check(name + '_unique', value not in price_ids, 'Each offer must use its own Stripe Price.')
         price_ids.add(value)
         try:
             price = retrieve('/v1/prices/' + quote(value, safe=''))
             recurring = price.get('recurring') or {}
+            recurrence_ok = (price.get('type') == 'one_time' and price.get('recurring') is None
+                             if interval is None else price.get('type') == 'recurring'
+                             and recurring.get('interval') == interval
+                             and recurring.get('interval_count') == 1
+                             and recurring.get('usage_type') == 'licensed')
             valid = (price.get('active') is True and price.get('livemode') is True
-                     and price.get('type') == 'recurring' and price.get('currency') == 'usd'
-                     and isinstance(price.get('unit_amount'), int) and price['unit_amount'] > 0
-                     and recurring.get('interval') == interval
-                     and recurring.get('interval_count') == 1
-                     and recurring.get('usage_type') == 'licensed')
-            check(name, valid, 'Price must be active, live, positive USD and use the advertised recurring interval.')
+                     and price.get('currency') == 'usd' and recurrence_ok
+                     and _fixed_amount_matches(price, amount))
+            check(name, valid, 'Price must be active, live, fixed USD matching the displayed amount and purchase interval.')
         except Exception:
             check(name, False, 'Could not read this offer; inspect its configured Stripe Price.')
     check('configured_offer', configured > 0, 'Configure at least one recurring paid offer.')
@@ -78,5 +99,5 @@ def check_launch(env, retrieve):
             'billing_enabled': billing_enabled, 'checks': checks,
             'limitations': ['Does not enable billing or create any payment.',
                             'Does not prove webhook delivery, checkout, entitlement correctness, tax or legal readiness.',
-                            'Does not validate displayed price amounts against Stripe amounts or profitability.',
-                            'Unconfigured offers and top-ups are not assessed.']}
+                            'Base amounts are compared before taxes, discounts and fees; profitability is not assessed.',
+                            'Unconfigured offers are not assessed. This diagnostic does not guard runtime checkout.']}
