@@ -36,9 +36,9 @@ YEARLY = "year"
 SELLABLE = (PREMIUM, PREMIUM_BYOK)
 
 
-def _env_float(name: str, default: float) -> float:
+def _env_float(name: str, default: float, env=None) -> float:
     try:
-        value = float(os.getenv(name, default))
+        value = float((os.environ if env is None else env).get(name, default))
     except (TypeError, ValueError):
         return default
     return max(0.0, value)
@@ -62,15 +62,15 @@ class Plan:
         return os.getenv(self.stripe_price_env.get(interval, ""), "").strip()
 
 
-def premium() -> Plan:
+def premium(env=None) -> Plan:
     return Plan(
         id=PREMIUM,
         name="Premium",
         price_usd={
-            MONTHLY: _env_float("PREMIUM_PRICE_USD", 20.0),
-            YEARLY: _env_float("PREMIUM_PRICE_USD_YEARLY", 192.0),
+            MONTHLY: _env_float("PREMIUM_PRICE_USD", 20.0, env),
+            YEARLY: _env_float("PREMIUM_PRICE_USD_YEARLY", 192.0, env),
         },
-        ai_budget_usd=_env_float("PREMIUM_AI_BUDGET_USD", 20.0),
+        ai_budget_usd=_env_float("PREMIUM_AI_BUDGET_USD", 20.0, env),
         byok=False,
         stripe_price_env={MONTHLY: "STRIPE_PRICE_ID_PREMIUM",
                           YEARLY: "STRIPE_PRICE_ID_PREMIUM_YEARLY"},
@@ -85,15 +85,15 @@ def premium() -> Plan:
     )
 
 
-def premium_byok() -> Plan:
+def premium_byok(env=None) -> Plan:
     return Plan(
         id=PREMIUM_BYOK,
         name="Premium (your own AI account)",
         price_usd={
-            MONTHLY: _env_float("PREMIUM_BYOK_PRICE_USD", 8.0),
-            YEARLY: _env_float("PREMIUM_BYOK_PRICE_USD_YEARLY", 76.0),
+            MONTHLY: _env_float("PREMIUM_BYOK_PRICE_USD", 8.0, env),
+            YEARLY: _env_float("PREMIUM_BYOK_PRICE_USD_YEARLY", 76.0, env),
         },
-        ai_budget_usd=_env_float("PREMIUM_BYOK_AI_BUDGET_USD", 1.0),
+        ai_budget_usd=_env_float("PREMIUM_BYOK_AI_BUDGET_USD", 1.0, env),
         byok=True,
         stripe_price_env={MONTHLY: "STRIPE_PRICE_ID_PREMIUM_BYOK",
                           YEARLY: "STRIPE_PRICE_ID_PREMIUM_BYOK_YEARLY"},
@@ -105,8 +105,8 @@ def premium_byok() -> Plan:
     )
 
 
-def plans() -> dict[str, Plan]:
-    return {p.id: p for p in (premium(), premium_byok())}
+def plans(env=None) -> dict[str, Plan]:
+    return {p.id: p for p in (premium(env), premium_byok(env))}
 
 
 def get(plan_id: str | None) -> Plan | None:
@@ -145,15 +145,15 @@ class TopUp:
         return os.getenv("STRIPE_PRICE_ID_TOPUP", "").strip()
 
 
-def topup() -> TopUp:
+def topup(env=None) -> TopUp:
     """A one-time purchase that adds AI budget to the current month.
 
     Credit is less than the price on purpose: the card fee is charged on
     the price, and a top-up that credits every cent loses money.
     """
     return TopUp(
-        price_usd=_env_float("PREMIUM_TOPUP_PRICE_USD", 5.0),
-        credit_usd=_env_float("PREMIUM_TOPUP_CREDIT_USD", 4.0),
+        price_usd=_env_float("PREMIUM_TOPUP_PRICE_USD", 5.0, env),
+        credit_usd=_env_float("PREMIUM_TOPUP_CREDIT_USD", 4.0, env),
     )
 
 

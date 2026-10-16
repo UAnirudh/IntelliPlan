@@ -184,3 +184,10 @@ independent 500-instance clock-slot oracle fits all 309 feasible instances,
 compared with 16 baseline misses, and checks real output bounds, transitions,
 dependencies and conservation. Broader optimality remains open. See
 [prerequisite clock order](55-prerequisite-clock-order.md).
+
+The next read-only paid-launch diagnostic compares configured Stripe base
+amounts with all displayed recurring offers and top-ups, rejects unsupported
+pricing shapes, and keeps explicit environment snapshots isolated. 38 focused
+and 147 broader checks pass. Runtime checkout enforcement, final tax/discount
+amounts and live provider proof remain separate launch requirements. See
+[paid-offer price checks](56-paid-offer-price-checks.md).
