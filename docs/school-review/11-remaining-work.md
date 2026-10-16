@@ -161,3 +161,11 @@ sixth page fetch. Loopback stalled-response and disposable owner tests cover
 timeout propagation. These are socket bounds, not total operation deadlines;
 live authentication and broad quality remain open. See
 [calendar transport guards](52-calendar-transport-guards.md).
+
+A dependency-quality checkpoint separates finish-early preferences from actual
+deadline bounds and schedules urgent ready work across dependency branches.
+An independent exhaustive oracle over 2,000 small generated cases finds all
+261 feasible schedules, compared with 71 missed feasible cases at the baseline.
+Clocked repairs and transitive deadline input-order regressions are covered.
+This is bounded quality evidence, not general optimality or real-student
+outcome proof. See [scheduler feasibility](53-scheduler-feasibility-oracle.md).
