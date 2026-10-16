@@ -721,7 +721,11 @@ def api_premium_topup():
     try:
         import stripe
 
+        from intelliplan.premium.readiness import validate_checkout_offer
+
         stripe.api_key = key
+        if not validate_checkout_offer(os.environ, stripe.Price.retrieve, plan="topup", interval=None):
+            raise RuntimeError("Configured Stripe top-up Price does not match the advertised offer.")
         session = stripe.checkout.Session.create(
             mode="payment",
             line_items=[{"price": price, "quantity": 1}],

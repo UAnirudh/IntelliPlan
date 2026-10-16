@@ -121,7 +121,7 @@
   },
   {
     "path": "docs/school-review/11-remaining-work.md",
-    "sha256": "d949954e1d6bb3884992520c9afff5973fc72aff40894180d54267bfd2f2381d"
+    "sha256": "db6d34f033af06fa084c40573d0fc3425c8b38dd8f2f89e92d7399de66000137"
   },
   {
     "path": "docs/school-review/37-adaptive-source-policy.md",
@@ -204,6 +204,10 @@
     "sha256": "eeb1806ba018658adb971053c80dda17dd32eb7ab13ef598c7ac89558cb17c97"
   },
   {
+    "path": "docs/school-review/57-runtime-checkout-price-guards.md",
+    "sha256": "2368c0938e25e2bd813f8297b619c7c5bbeaa9964847c4d64bd108301f028613"
+  },
+  {
     "path": "extra_features.py",
     "sha256": "fb3345bd93b6311ab35ccda535f86b9c505ec985907c3862114cb82da0440e21"
   },
@@ -217,7 +221,7 @@
   },
   {
     "path": "growth_glue.py",
-    "sha256": "313e31b371b9927eb3daaa87a082f8488543326b0aa23f34f974e322e4b244e2"
+    "sha256": "8c55cad35793e2e410e784159088c3392cad86cb5d2972d443d3600246c724e7"
   },
   {
     "path": "intelliplan/api/active.py",
@@ -349,7 +353,7 @@
   },
   {
     "path": "intelliplan/premium/readiness.py",
-    "sha256": "ec94702f559e367ac5e6c4ed27b45be61fb1b81ff72340fdf627e3428ba55a4a"
+    "sha256": "3e02211551d70966eb92c63d01257cf539dd690d3bba298f67e6b6f45448de01"
   },
   {
     "path": "intelliplan/repositories/active_sessions.py",
@@ -421,7 +425,7 @@
   },
   {
     "path": "premium_glue.py",
-    "sha256": "c808f5d023e92701ed6d0a95f8359503766212c79f7c164f4f96d933dc0fcf51"
+    "sha256": "da9b09c99c3e31b0856688baae9d358fd951648a3a34840ceaace9ff833806ca"
   },
   {
     "path": "requirements.txt",
@@ -941,7 +945,7 @@
   },
   {
     "path": "tests/test_growth_app.py",
-    "sha256": "89eab988928797a0593317fd54353cd00228e17fbdc1cf120c5b882b58a8a194"
+    "sha256": "8aa8e3c584b748370374f6e5b5d3f41b3f2754b15c965c3159dd1fc3691a1652"
   },
   {
     "path": "tests/test_learning_hub.py",
@@ -969,7 +973,7 @@
   },
   {
     "path": "tests/test_paid_launch_readiness.py",
-    "sha256": "f6f56a293564c05fa195c3f01ef5a626f95cc98692b9232a3547ea310e970c20"
+    "sha256": "cc725be0ce3cfb36b95dfa0d0f9dc0c54bfa014f59cd0a5f16eb069614afcc64"
   },
   {
     "path": "tests/test_plani_policy.py",

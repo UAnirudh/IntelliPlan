@@ -24,6 +24,54 @@ def _fixed_amount_matches(price, advertised):
         return False
 
 
+def _offer_catalog(env):
+    offers = [('pro_monthly', 'STRIPE_PRICE_ID', 'month', plans.PRO_PRICES_USD[plans.MONTHLY]),
+              ('pro_yearly', 'STRIPE_PRICE_ID_YEARLY', 'year', plans.PRO_PRICES_USD[plans.YEARLY])]
+    for plan in catalog.plans(env).values():
+        for interval, variable in plan.stripe_price_env.items():
+            offers.append((f'{plan.id}_{interval}', variable, interval, plan.price_usd[interval]))
+    offers.append(('topup', 'STRIPE_PRICE_ID_TOPUP', None, catalog.topup(env).price_usd))
+    return offers
+
+
+def _price_matches_offer(price, *, interval, amount):
+    if not isinstance(price, dict) and hasattr(price, 'to_dict'):
+        price = price.to_dict()
+    if not isinstance(price, dict):
+        return False
+    recurring = price.get('recurring')
+    if not isinstance(recurring, dict) and hasattr(recurring, 'to_dict'):
+        recurring = recurring.to_dict()
+    recurrence_ok = (price.get('type') == 'one_time' and recurring is None
+                     if interval is None else price.get('type') == 'recurring'
+                     and isinstance(recurring, dict)
+                     and recurring.get('interval') == interval
+                     and recurring.get('interval_count') == 1
+                     and recurring.get('usage_type') == 'licensed')
+    return (price.get('active') is True and price.get('livemode') is True
+            and price.get('currency') == 'usd' and recurrence_ok
+            and _fixed_amount_matches(price, amount))
+
+
+def validate_checkout_offer(env, retrieve_price, *, plan='pro', interval='month'):
+    """Verify the selected offer's unique Price and live Stripe metadata before Checkout."""
+    offers = _offer_catalog(env)
+    target_name = 'topup' if plan == 'topup' else f'pro_{interval}ly' if plan == 'pro' else f'{plan}_{interval}'
+    target = next((row for row in offers if row[0] == target_name), None)
+    if target is None:
+        return False
+    _, target_variable, target_interval, amount = target
+    price_id = (env.get(target_variable) or '').strip()
+    if not price_id:
+        return False
+    if sum(1 for _, variable, _, _ in offers if (env.get(variable) or '').strip() == price_id) != 1:
+        return False
+    try:
+        return _price_matches_offer(retrieve_price(price_id), interval=target_interval, amount=amount)
+    except Exception:
+        return False
+
+
 def check_launch(env, retrieve):
     """Return only allowlisted results; provider objects and keys never escape.
 
@@ -65,12 +113,7 @@ def check_launch(env, retrieve):
         # Provider errors may contain keys, account PII or request details.
         check('account_read', False, 'Could not read account readiness; inspect Stripe directly.')
 
-    offers = [('pro_monthly', 'STRIPE_PRICE_ID', 'month', plans.PRO_PRICES_USD[plans.MONTHLY]),
-              ('pro_yearly', 'STRIPE_PRICE_ID_YEARLY', 'year', plans.PRO_PRICES_USD[plans.YEARLY])]
-    for plan in catalog.plans(env).values():
-        for interval, variable in plan.stripe_price_env.items():
-            offers.append((f'{plan.id}_{interval}', variable, interval, plan.price_usd[interval]))
-    offers.append(('topup', 'STRIPE_PRICE_ID_TOPUP', None, catalog.topup(env).price_usd))
+    offers = _offer_catalog(env)
     configured = 0
     price_ids = set()
     for name, variable, interval, amount in offers:
@@ -82,15 +125,7 @@ def check_launch(env, retrieve):
         price_ids.add(value)
         try:
             price = retrieve('/v1/prices/' + quote(value, safe=''))
-            recurring = price.get('recurring') or {}
-            recurrence_ok = (price.get('type') == 'one_time' and price.get('recurring') is None
-                             if interval is None else price.get('type') == 'recurring'
-                             and recurring.get('interval') == interval
-                             and recurring.get('interval_count') == 1
-                             and recurring.get('usage_type') == 'licensed')
-            valid = (price.get('active') is True and price.get('livemode') is True
-                     and price.get('currency') == 'usd' and recurrence_ok
-                     and _fixed_amount_matches(price, amount))
+            valid = _price_matches_offer(price, interval=interval, amount=amount)
             check(name, valid, 'Price must be active, live, fixed USD matching the displayed amount and purchase interval.')
         except Exception:
             check(name, False, 'Could not read this offer; inspect its configured Stripe Price.')
@@ -100,4 +135,4 @@ def check_launch(env, retrieve):
             'limitations': ['Does not enable billing or create any payment.',
                             'Does not prove webhook delivery, checkout, entitlement correctness, tax or legal readiness.',
                             'Base amounts are compared before taxes, discounts and fees; profitability is not assessed.',
-                            'Unconfigured offers are not assessed. This diagnostic does not guard runtime checkout.']}
+                            'Unconfigured offers are not assessed by this diagnostic.']}

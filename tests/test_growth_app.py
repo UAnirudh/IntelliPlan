@@ -264,8 +264,34 @@ class _FakeStripe:
     """Records what checkout and the portal were asked for."""
 
     def __init__(self):
-        self.checkouts, self.portals = [], []
+        self.checkouts, self.portals, self.retrieved_prices = [], [], []
+        self.prices = {
+            "price_month": {
+                "active": True,
+                "livemode": True,
+                "type": "recurring",
+                "currency": "usd",
+                "unit_amount": 500,
+                "billing_scheme": "per_unit",
+                "recurring": {"interval": "month", "interval_count": 1, "usage_type": "licensed"},
+            },
+            "price_year": {
+                "active": True,
+                "livemode": True,
+                "type": "recurring",
+                "currency": "usd",
+                "unit_amount": 4800,
+                "billing_scheme": "per_unit",
+                "recurring": {"interval": "year", "interval_count": 1, "usage_type": "licensed"},
+            },
+        }
         outer = self
+
+        class _Prices:
+            @staticmethod
+            def retrieve(price_id):
+                outer.retrieved_prices.append(price_id)
+                return outer.prices[price_id]
 
         class _Sessions:
             @staticmethod
@@ -279,6 +305,7 @@ class _FakeStripe:
                 outer.portals.append(params)
                 return type("P", (), {"url": "https://billing.test/portal"})()
 
+        self.Price = _Prices
         self.checkout = type("C", (), {"Session": _Sessions})
         self.billing_portal = type("B", (), {"Session": _Portal})
 

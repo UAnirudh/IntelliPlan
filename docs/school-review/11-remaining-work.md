@@ -191,3 +191,12 @@ pricing shapes, and keeps explicit environment snapshots isolated. 38 focused
 and 147 broader checks pass. Runtime checkout enforcement, final tax/discount
 amounts and live provider proof remain separate launch requirements. See
 [paid-offer price checks](56-paid-offer-price-checks.md).
+
+The next runtime paid-plan slice validates the selected subscription or top-up
+offer's active, live, unique, fixed USD Price and purchase interval against the
+shared catalog immediately before `stripe.checkout.Session.create`, failing
+closed across student Checkout, parent payment links and AI top-ups when a
+Price mismatches or retrieval fails. 59 readiness/runtime checks and 168
+combined billing/growth/Premium tests pass. Live Stripe proof, final
+tax/discount amounts and historical reconciliation remain open. See
+[runtime checkout price guards](57-runtime-checkout-price-guards.md).

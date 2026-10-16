@@ -580,6 +580,10 @@ def _checkout_for(student: Any, *, payer_is_student: bool, interval: str = plans
     stripe, price = _stripe(interval, plan)
     if stripe is None:
         return None
+    from intelliplan.premium.readiness import validate_checkout_offer
+
+    if not validate_checkout_offer(os.environ, stripe.Price.retrieve, plan=plan, interval=interval):
+        raise RuntimeError("Configured Stripe Price does not match the advertised offer.")
     params: dict[str, Any] = {
         "mode": "subscription",
         "line_items": [{"price": price, "quantity": 1}],
