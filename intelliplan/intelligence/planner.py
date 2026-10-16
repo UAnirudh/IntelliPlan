@@ -572,9 +572,9 @@ def _work_order_key(task, part_index=0):
             task.stage_index, getattr(task, 'id', getattr(task, 'task_id', '')), part_index)
 
 
-def _dependency_order(sessions):
-    """Keep each prerequisite's same-day sittings before its dependents."""
-    pending = sorted(sessions, key=lambda s: _work_order_key(s, s.part_index))
+def _ready_work_order(sessions, key):
+    """Order ready work without putting a dependent before its prerequisite."""
+    pending = sorted(sessions, key=key)
     ordered = []
     while pending:
         remaining = {s.task_id for s in pending}
@@ -582,6 +582,22 @@ def _dependency_order(sessions):
         pending.remove(next_session)
         ordered.append(next_session)
     return ordered
+
+
+def _dependency_order(sessions):
+    """Let an early same-day dependent lend urgency to its prerequisites.
+
+    A parent with a later personal deadline must still happen before the
+    dependent's morning cutoff, ahead of unrelated work due that evening.
+    Original assignment deadlines remain unchanged for display and repair.
+    """
+    ordered = _ready_work_order(sessions, lambda s: _work_order_key(s, s.part_index))
+    urgency = {session.task_id: _work_order_key(session)[:4] for session in ordered}
+    for session in reversed(ordered):
+        for parent in session.depends_on:
+            if parent in urgency:
+                urgency[parent] = min(urgency[parent], urgency[session.task_id])
+    return _ready_work_order(ordered, lambda s: (urgency[s.task_id], _work_order_key(s, s.part_index)))
 
 
 def _deadline_fits(item, day, state, ctx):

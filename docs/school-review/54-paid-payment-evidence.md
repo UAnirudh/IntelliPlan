@@ -49,3 +49,13 @@ reconciliation, refunds/disputes/cancellation, prorated plan changes, every
 event ordering, amount/currency agreement and concurrency with referral
 writes remain launch work. This slice does not certify paid-launch readiness
 or complete the original acceptance ledger.
+
+Release: PR105 merged at 89fcf5c8d63981e294506805cb461496c34c51fa.
+Hosted checks passed 4,783 unit tests (16 skipped), 130 public browser tests
+(1 skipped), all component/device workflows and Security. Exact public
+revision and schema readiness passed. Railway plugin confirmed web deployment
+7883cb86-7d43-4710-a6ec-e7bd7e5f264a and newsletter
+4a1d77e0-f03b-4a32-8a12-2fd19feb6965 SUCCESS with no issues. A bounded
+filtered startup error scan returned zero entries. This verifies deployment
+and required schema presence, not live Stripe transactions. Post-merge
+Tests 38856297854 remains running at this record's creation.

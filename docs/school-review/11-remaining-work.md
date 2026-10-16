@@ -177,3 +177,10 @@ entitlements from older replays. New nullable payment watermarks use additive
 migration and release-health checks. Synthetic signed-webhook tests pass;
 live billing remains disabled and broader launch requirements are open.
 See [paid payment evidence](54-paid-payment-evidence.md).
+
+The next clock-quality slice lets early dependent work lend ordering urgency
+to its prerequisites while preserving original assignment deadlines. An
+independent 500-instance clock-slot oracle fits all 309 feasible instances,
+compared with 16 baseline misses, and checks real output bounds, transitions,
+dependencies and conservation. Broader optimality remains open. See
+[prerequisite clock order](55-prerequisite-clock-order.md).
