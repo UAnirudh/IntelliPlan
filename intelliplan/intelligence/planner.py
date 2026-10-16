@@ -53,6 +53,7 @@ No Flask, no ORM, no clock reads. ``today`` is always passed in.
 
 from __future__ import annotations
 
+import heapq
 import math
 from dataclasses import dataclass, field, replace
 from datetime import date, datetime, timedelta
@@ -981,36 +982,45 @@ def _index_by_task(items: Sequence[_Item]) -> dict[str, list[_Item]]:
     return out
 
 
-def _dependency_layers(items: Sequence[_Item]) -> dict[str, int]:
-    """Depth of each task in the prerequisite graph, 0 for tasks with none.
+def _allocation_order(items: Sequence[_Item]) -> list[_Item]:
+    """Choose the most urgent ready sitting, releasing children after parents.
 
-    Placing in layer order is what makes the live bounds in :func:`_dep_bounds`
-    useful: by the time a dependent is placed, everything it waits on already
-    has a day. Cycles are broken by refusing to recurse rather than by raising
-    — a cycle in dependency data is a data problem, and it must not cost the
-    student their whole plan.
+    Absolute graph layers let an unrelated, less urgent root take the only
+    day a ready dependent can use. A heap keeps deadline order across the
+    ready frontier without repeatedly scanning the entire workload.
     """
-    deps: dict[str, tuple[str, ...]] = {}
-    for it in items:
-        deps.setdefault(it.task.id, it.task.depends_on)
+    by_task = _index_by_task(items)
+    pending = {key: len(group) for key, group in by_task.items()}
+    dependencies = {key: set(group[0].task.depends_on).intersection(by_task)
+                    for key, group in by_task.items()}
+    children: dict[str, set[str]] = {}
+    for key, parents in dependencies.items():
+        for parent in parents:
+            children.setdefault(parent, set()).add(key)
 
-    layer: dict[str, int] = {}
+    def key(item):
+        return (item.hard_latest, -item.task.priority, -_difficulty_rank(item.task.difficulty),
+                item.task.id, item.part_index)
 
-    def depth(task_id: str, seen: frozenset[str]) -> int:
-        if task_id in layer:
-            return layer[task_id]
-        if task_id in seen:
-            return 0
-        parents = [d for d in deps.get(task_id, ()) if d in deps]
-        value = 0 if not parents else 1 + max(
-            depth(p, seen | {task_id}) for p in parents
-        )
-        layer[task_id] = value
-        return value
-
-    for task_id in deps:
-        depth(task_id, frozenset())
-    return layer
+    positions = {id(item): index for index, item in enumerate(items)}
+    ready = [(key(item), positions[id(item)], item) for item in items
+             if not dependencies[item.task.id]]
+    heapq.heapify(ready)
+    ordered = []
+    while ready:
+        _, _, item = heapq.heappop(ready)
+        ordered.append(item)
+        pending[item.task.id] -= 1
+        if pending[item.task.id] == 0:
+            for child in children.get(item.task.id, ()):
+                dependencies[child].discard(item.task.id)
+                if not dependencies[child]:
+                    for sitting in by_task[child]:
+                        heapq.heappush(ready, (key(sitting), positions[id(sitting)], sitting))
+    # Cycles remain bounded and fail actual prerequisite placement checks;
+    # unrelated work still gets a plan, and every blocked minute is retained.
+    ordered.extend(sorted((item for item in items if pending[item.task.id]), key=key))
+    return ordered
 
 
 def _dep_bounds(
@@ -1041,27 +1051,36 @@ def _dep_bounds(
 def _apply_dependencies(items: list[_Item], days: Sequence[date]) -> None:
     """Tighten windows so prerequisites cannot be scheduled after dependents.
 
-    One pass of constraint propagation: a dependent's earliest day moves
-    forward past its prerequisite's latest, and a prerequisite's latest
-    moves back before its dependent's. This is a *hint* to the search, not
-    the guarantee — the guarantee comes from :func:`_dep_bounds`, which reads
-    real placements. Cycles are ignored rather than diagnosed.
+    Propagate hard deadlines from children to parents in reverse topological
+    order, then release bounds forward. Soft buffers must never become hard
+    deadlines. Live placement bounds still enforce actual prerequisite order.
+    Cycles remain unplaceable rather than costing unrelated tasks their plan.
     """
     by_task: dict[str, list[_Item]] = {}
     for it in items:
         by_task.setdefault(it.task.id, []).append(it)
 
-    for task_id, group in by_task.items():
+    ordered_tasks = list(dict.fromkeys(item.task.id for item in _allocation_order(items)))
+    for task_id in reversed(ordered_tasks):
+        group = by_task[task_id]
         for dep_id in group[0].task.depends_on:
             prereq = by_task.get(dep_id)
             if not prereq:
                 continue
-            prereq_latest = min(i.latest for i in group)
+            # Finish-early buffer is a preference, not an earlier hard deadline.
+            # Prerequisite work can share the dependent's actual due day.
+            prereq_latest = min(i.hard_latest for i in group)
             for p in prereq:
                 if p.fixed:
                     continue
                 p.latest = min(p.latest, max(p.earliest, prereq_latest - timedelta(days=1)))
                 p.hard_latest = min(p.hard_latest, prereq_latest)
+    for task_id in ordered_tasks:
+        group = by_task[task_id]
+        for dep_id in group[0].task.depends_on:
+            prereq = by_task.get(dep_id)
+            if not prereq:
+                continue
             prereq_earliest = min(p.earliest for p in prereq)
             for g in group:
                 if g.fixed:
@@ -1089,23 +1108,8 @@ def _assign(
     than forced somewhere — the caller retries them once local search has
     rearranged what is already down.
     """
-    # Layer first: a dependent placed before its prerequisite has nothing to
-    # constrain it, and the live bounds in _dep_bounds only bite once the work
-    # they refer to has a day. Within a layer, deadline order still decides —
-    # the work with the least freedom claims its days first.
-    layers = _dependency_layers(items)
     by_task = _index_by_task(items)
-    ordered = sorted(
-        (it for it in items if not it.fixed),
-        key=lambda it: (
-            layers.get(it.task.id, 0),
-            it.hard_latest,
-            -it.task.priority,
-            -_difficulty_rank(it.task.difficulty),
-            it.task.id,
-            it.part_index,
-        ),
-    )
+    ordered = _allocation_order([it for it in items if not it.fixed])
     for item in ordered:
         _place_best(item, days, state, config, by_task, ctx)
 
@@ -1177,16 +1181,7 @@ def _retry_deferred(
 ) -> None:
     """Second chance for unplaced work, hardest-constrained first."""
     by_task = _index_by_task(items)
-    unplaced = sorted(
-        (it for it in items if it.day is None),
-        key=lambda it: (
-            it.hard_latest,
-            -it.task.priority,
-            -_difficulty_rank(it.task.difficulty),
-            it.task.id,
-            it.part_index,
-        ),
-    )
+    unplaced = _allocation_order([it for it in items if it.day is None])
     for item in unplaced:
         _place_best(item, days, state, config, by_task, ctx)
 
