@@ -10,7 +10,7 @@ this checkpoint; release and full-suite results follow separately. None of
 these four broad goals or the original brief is declared complete. See
 [smart scheduler calendar work](41-smart-scheduler-calendar.md).
 
-PR92 is merged and live at main75c2784, with4562 hosted unit tests and130
+PR92 is merged and live at main75c2784, with4562 hosted unit tests and 130
 public browser tests passing, exact-revision health verification and Railway
 plugin confirmation. The following camera checkpoint implements browser-visible
 source selection, safe switching/cancellation/disconnection, phone self-view,
@@ -154,3 +154,10 @@ The next local scheduler repair retains the healthy calendar and class busy time
 
 
 A subsequent strict calendar-health checkpoint pauses computed plan changes when a connected source is unavailable, retains tasks that could not be placed, exposes a retry reason in Scheduler/chat, and removes stale forecasts. Provider response completeness, scoped Google availability permission, reflow/insertion guards and out-of-order UI replies are covered by the new tests. See [calendar health](51-calendar-health-aware-planning.md); real calendar accounts, broad scheduling quality and the original brief remain incomplete.
+
+The next transport slice tightens Google socket timeouts including credential
+refresh, restricts Outlook paging/redirect destinations and avoids an unused
+sixth page fetch. Loopback stalled-response and disposable owner tests cover
+timeout propagation. These are socket bounds, not total operation deadlines;
+live authentication and broad quality remain open. See
+[calendar transport guards](52-calendar-transport-guards.md).

@@ -1,5 +1,7 @@
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
+from google_auth_httplib2 import AuthorizedHttp
+import httplib2
 from datetime import datetime, timedelta, timezone
 import time
 from time_utils import utcnow
@@ -28,6 +30,7 @@ DRIVE_SCOPES = [
 ]
 
 SCOPES = CALENDAR_SCOPES + LOGIN_SCOPES
+CALENDAR_HTTP_TIMEOUT_SECONDS = 15
 
 def _redirect_uri(redirect_uri=None):
     return redirect_uri or os.getenv("GOOGLE_REDIRECT_URI") or "https://intelliplan.tech/oauth2callback"
@@ -152,7 +155,13 @@ def get_calendar_service(token_dict):
         client_secret=os.getenv("GOOGLE_CLIENT_SECRET"),
         scopes=SCOPES
     )
-    return build("calendar", "v3", credentials=creds), creds
+    # A separate transport per service keeps credentials/connections isolated.
+    # The same socket timeout covers both API calls and automatic token refresh.
+    transport = AuthorizedHttp(
+        creds, http=httplib2.Http(timeout=CALENDAR_HTTP_TIMEOUT_SECONDS),
+        max_refresh_attempts=1,
+    )
+    return build("calendar", "v3", http=transport, static_discovery=True), creds
 
 def get_free_busy(token_dict, date_str):
     service, _ = get_calendar_service(token_dict)

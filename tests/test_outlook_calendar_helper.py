@@ -4,6 +4,8 @@ import outlook_calendar_helper as outlook
 
 
 class _Response:
+    status_code = 200
+
     def __init__(self, payload):
         self.payload = payload
     def raise_for_status(self):

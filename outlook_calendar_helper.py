@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import os
 from datetime import date, datetime, timedelta, timezone
-from urllib.parse import urlencode
+from urllib.parse import unquote, urlencode, urlsplit
 
 import requests
 
@@ -93,10 +93,35 @@ def _token_request(payload: dict, scopes=SCOPES) -> dict:
 
 
 def graph_get(token: dict, path: str, params: dict | None = None) -> dict:
-    url = path if path.startswith("https://") else f"{GRAPH}{path}"
-    response = requests.get(url, params=params, headers=_headers(token), timeout=15)
+    url = _graph_url(path)
+    response = requests.get(url, params=params, headers=_headers(token), timeout=15,
+                            allow_redirects=False)
+    if 300 <= response.status_code < 400:
+        raise ValueError('Outlook calendar returned an unexpected redirect.')
     response.raise_for_status()
     return response.json()
+
+
+def _graph_url(path: str) -> str:
+    """Keep bearer-authenticated reads on this Graph origin and API version."""
+    if not isinstance(path, str) or any(ch.isspace() or ord(ch) < 32 for ch in path) or '\\' in path:
+        raise ValueError('Outlook calendar returned an invalid URL.')
+    url = f"{GRAPH}{path}" if path.startswith('/') and not path.startswith('//') else path
+    try:
+        parsed = urlsplit(url)
+        decoded_path = unquote(parsed.path)
+        valid = (parsed.scheme == 'https' and parsed.hostname == 'graph.microsoft.com'
+                 and parsed.port in (None, 443) and parsed.username is None
+                 and parsed.password is None and not parsed.fragment
+                 and parsed.path.startswith('/v1.0/')
+                 and not any(segment in ('.', '..') for segment in decoded_path.split('/'))
+                 and '\\' not in decoded_path
+                 and not any(ord(ch) < 32 for ch in decoded_path))
+    except ValueError:
+        valid = False
+    if not valid:
+        raise ValueError('Outlook calendar returned an invalid URL.')
+    return url
 
 
 def graph_post(token: dict, path: str, body: dict) -> dict:
@@ -140,12 +165,19 @@ def _calendar_view(token: dict, start_utc: datetime, end_utc: datetime,
             raise ValueError('Outlook calendar availability is incomplete.')
         out.extend(e for e in data.get("value", []) if isinstance(e, dict))
         next_link = data.get("@odata.nextLink")
-        if not next_link or not str(next_link).startswith(GRAPH):
-            if next_link and require_complete:
-                raise ValueError('Outlook calendar availability is incomplete.')
+        if not next_link:
             break
-        if page + 1 == max_pages and require_complete:
-            raise ValueError('Outlook calendar availability exceeds the safe import limit.')
+        try:
+            # Validate even when graph_get is replaced by an injected adapter.
+            _graph_url(next_link)
+        except ValueError:
+            if require_complete:
+                raise ValueError('Outlook calendar availability is incomplete.') from None
+            break
+        if page + 1 == max_pages:
+            if require_complete:
+                raise ValueError('Outlook calendar availability exceeds the safe import limit.')
+            break
         data = graph_get(token, next_link)
     return out
 

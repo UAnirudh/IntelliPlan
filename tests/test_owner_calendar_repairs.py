@@ -198,6 +198,23 @@ def test_strict_read_does_not_reuse_best_effort_partial_cache(owners, monkeypatc
             App._planner_busy_by_date(user_id=owners[0], require_complete=True)
 
 
+@pytest.mark.parametrize('provider', ['google', 'outlook'])
+def test_socket_timeout_is_private_and_cannot_certify_empty_availability(owners, monkeypatch, provider):
+    import socket
+    import google_calendar_helper
+    from intelliplan.services.calendar_availability import CalendarUnavailable
+    monkeypatch.setattr(google_calendar_helper, 'busy_minutes_by_date', lambda *a, **kw: {})
+    monkeypatch.setattr(App.outlook_calendar_helper, 'busy_minutes_by_date', lambda *a, **kw: {})
+    helper = google_calendar_helper if provider == 'google' else App.outlook_calendar_helper
+    monkeypatch.setattr(helper, 'busy_minutes_by_date', Mock(side_effect=socket.timeout('private-host-details')))
+    with App.app.test_request_context():
+        with pytest.raises(CalendarUnavailable) as error:
+            App._planner_busy_by_date(user_id=owners[0], require_complete=True)
+    assert error.value.providers == (provider,)
+    assert error.value.response()['retryable'] is True
+    assert 'private-host-details' not in str(error.value.response())
+
+
 def test_strict_read_preserves_corrupt_google_connection_for_reconnect(owners, monkeypatch):
     from intelliplan.services.calendar_availability import CalendarUnavailable
     import google_calendar_helper
