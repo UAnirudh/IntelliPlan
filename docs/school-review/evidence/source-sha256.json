@@ -121,7 +121,7 @@
   },
   {
     "path": "docs/school-review/11-remaining-work.md",
-    "sha256": "75a58fa0ede786c6ce388b522d2b716cebe38bd2f7d30ee4393b4d25094bbcb8"
+    "sha256": "e4225fe98d3fff480ccd1b2ed05677f4909eddee7c2c4a44e3f9fc1b308cd963"
   },
   {
     "path": "docs/school-review/37-adaptive-source-policy.md",
@@ -181,7 +181,11 @@
   },
   {
     "path": "docs/school-review/51-calendar-health-aware-planning.md",
-    "sha256": "88bd3ca05fbc9a84d40b26b7fc4ec57af51dee2f2983258f239d17a34ce6ebd4"
+    "sha256": "118bc30e8a3e98f12090d987a7399f40f304f46f193592ad083dd00d40635531"
+  },
+  {
+    "path": "docs/school-review/52-calendar-transport-guards.md",
+    "sha256": "ac897b0f90c57a77b1015ae031809a85bfb67c777bbd669a7eaa412ca4368791"
   },
   {
     "path": "extra_features.py",
@@ -193,7 +197,7 @@
   },
   {
     "path": "google_calendar_helper.py",
-    "sha256": "7bdf187f0243e9d10eca8fa54feab0d796b32b22d747f3a6e5747eb4a128b15a"
+    "sha256": "2342824ab24bc7dfaf62413275b894e587eb8d11f7f3678f22790cb12a62a735"
   },
   {
     "path": "intelliplan/api/active.py",
@@ -377,7 +381,7 @@
   },
   {
     "path": "outlook_calendar_helper.py",
-    "sha256": "8ffae9fdbdbfc7e6593ef9ec76a5784e6e1bd4a4422d5700d685d7faa4a62154"
+    "sha256": "220ce33b4bd9adc3916914454a9b23d35ff289bfb6e487c243cb66f51d0d9f00"
   },
   {
     "path": "plan_insert_glue.py",
@@ -393,7 +397,7 @@
   },
   {
     "path": "requirements.txt",
-    "sha256": "07649b58feb69b54f80a824415cd6bba40744d9c3ff108e9a0195e979b62beb1"
+    "sha256": "d96d922ebc2c0daa1dc49d3054309a664769e76cd48df64333792c1ab16aa8d1"
   },
   {
     "path": "scheduler_engine.py",
@@ -872,6 +876,10 @@
     "sha256": "7f6d0d6182c7751a7467faca8a53c7e196f2be623d9477d9bbfa62f0ce71e324"
   },
   {
+    "path": "tests/test_calendar_transport.py",
+    "sha256": "fc0ee03de50777adbd3467af8b6b6f4219cfc323dc217d5033027f4dc6a10d0d"
+  },
+  {
     "path": "tests/test_continuity_fallbacks.py",
     "sha256": "49adee78b09d4fed36f67e47b1c0462c8040e3b8b49e3d75b8998f3df101efda"
   },
@@ -917,11 +925,11 @@
   },
   {
     "path": "tests/test_outlook_calendar_helper.py",
-    "sha256": "6a58fec973755eb7c98fe60b88f5611b47250cdd0fa2d800796d6dcea93e776b"
+    "sha256": "9d04fb71178a9716c268741b1250315973de589359c2fd8eaa3a129e1be29071"
   },
   {
     "path": "tests/test_owner_calendar_repairs.py",
-    "sha256": "5f48714613bd607bc2c1476fa8e9f8872f5d63bfcbeb4d6a8792def7f9748918"
+    "sha256": "c4f87f78fa2db4cfa9c6737cd8e9c7b1b516d1c98d6f9d95e90a4a162e805a79"
   },
   {
     "path": "tests/test_paid_launch_readiness.py",
