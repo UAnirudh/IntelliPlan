@@ -121,7 +121,7 @@
   },
   {
     "path": "docs/school-review/11-remaining-work.md",
-    "sha256": "db6d34f033af06fa084c40573d0fc3425c8b38dd8f2f89e92d7399de66000137"
+    "sha256": "d8b0438665c4476a48670e8ae7065d515c6209ece7131d2f500a9d06fbd86d00"
   },
   {
     "path": "docs/school-review/37-adaptive-source-policy.md",
@@ -208,6 +208,10 @@
     "sha256": "2368c0938e25e2bd813f8297b619c7c5bbeaa9964847c4d64bd108301f028613"
   },
   {
+    "path": "docs/school-review/58-billing-revocations-and-referral-locks.md",
+    "sha256": "b5506fe92e1697b4c3b337a5935a8c877b230e932f6f89d213c173e4d69ce81d"
+  },
+  {
     "path": "extra_features.py",
     "sha256": "fb3345bd93b6311ab35ccda535f86b9c505ec985907c3862114cb82da0440e21"
   },
@@ -221,7 +225,7 @@
   },
   {
     "path": "growth_glue.py",
-    "sha256": "8c55cad35793e2e410e784159088c3392cad86cb5d2972d443d3600246c724e7"
+    "sha256": "85062aa4adcb8c52a01b39e844557f0c8d5822364212baaa6ffd0dae91c2a693"
   },
   {
     "path": "intelliplan/api/active.py",
@@ -341,7 +345,7 @@
   },
   {
     "path": "intelliplan/premium/billing_events.py",
-    "sha256": "a915ac44b166f7711cd279eca8ee918280431d4d7f4bb8bbcfba705b82440eab"
+    "sha256": "672d2165c4be42845f01c0319e4b5968f082f5db17a74eabe991b6ed065eee62"
   },
   {
     "path": "intelliplan/premium/catalog.py",
@@ -425,7 +429,7 @@
   },
   {
     "path": "premium_glue.py",
-    "sha256": "da9b09c99c3e31b0856688baae9d358fd951648a3a34840ceaace9ff833806ca"
+    "sha256": "fff6ef70777c418752c210b52d30a1be93a3ab8296370f2ebdaa5c1469d6b456"
   },
   {
     "path": "requirements.txt",
@@ -901,7 +905,7 @@
   },
   {
     "path": "tests/test_billing_entitlements.py",
-    "sha256": "7437597ac99f3c27fe55a608b679def8d5e43404db8e3422c0548d351343bb08"
+    "sha256": "aa4191e4822f73dc139badb8307ab46eea6a704f3e30445e83b5ce7917b00715"
   },
   {
     "path": "tests/test_calendar_busy_time.py",

@@ -13,6 +13,7 @@ import App
 import growth_glue
 import premium_glue
 from intelliplan.premium.billing_events import paid_period
+from time_utils import utcnow
 
 NOW = datetime(2026, 10, 19, 12)
 END = int(datetime(2026, 11, 19, 12, tzinfo=timezone.utc).timestamp())
@@ -278,3 +279,152 @@ def test_actual_sdk_parses_signed_invoice_and_persists_its_period(owner, monkeyp
                                headers={'Stripe-Signature': f't={stamp},v1={signature}'})
     assert response.status_code == 200
     assert App.db.session.get(App.User, owner).paid_until == datetime(2026, 11, 19, 12)
+
+
+@pytest.mark.parametrize('kind', [
+    'customer.subscription.deleted',
+    'invoice.payment_failed',
+    'invoice.marked_uncollectible',
+    'invoice.voided',
+    'charge.refunded',
+    'charge.dispute.created',
+    'charge.dispute.funds_withdrawn',
+])
+def test_subscription_revocation_ends_stripe_access_and_preserves_referral_bonus(owner, kind):
+    paid = invoice(owner)
+    paid['created'] = 100
+    assert growth_glue.apply_billing_event(paid, now=NOW)
+
+    # First verify revocation without extra referral time ends access immediately.
+    if kind.startswith('invoice.'):
+        rev = deepcopy(invoice(owner))
+        rev['type'] = kind
+        rev['created'] = 200
+        rev['data']['object']['status'] = 'uncollectible'
+    elif kind == 'customer.subscription.deleted':
+        rev = {'type': kind, 'created': 200, 'data': {'object': {
+            'customer': 'cus_synthetic', 'current_period_end': END,
+            'metadata': {'user_id': str(owner), 'plan': 'premium'},
+        }}}
+    else:
+        rev = {'type': kind, 'created': 200, 'data': {'object': {
+            'customer': 'cus_synthetic', 'refunded': True, 'amount': 2000, 'amount_refunded': 2000,
+            'metadata': {'user_id': str(owner), 'period_end': END},
+        }}}
+    assert growth_glue.apply_billing_event(rev, now=NOW)
+    user = App.db.session.get(App.User, owner)
+    assert user.paid_until == NOW
+    assert user.stripe_paid_until == datetime(2026, 11, 19, 12)
+    assert user.plan_tier is None
+    assert user.stripe_event_created == 200
+
+    # Replay of the earlier invoice (created=100) must not restore revoked access.
+    assert growth_glue.apply_billing_event(paid, now=NOW)
+    user = App.db.session.get(App.User, owner)
+    assert user.paid_until == NOW
+    assert user.plan_tier is None
+
+    # Now grant a newer invoice + earned referral time, then revoke: referral time stays Pro.
+    newer = invoice(owner)
+    newer['created'] = 300
+    newer['data']['object']['lines']['data'][0]['period']['end'] = END + 30 * 86400
+    assert growth_glue.apply_billing_event(newer, now=NOW)
+    user = App.db.session.get(App.User, owner)
+    referral_end = datetime(2027, 2, 1, 12)
+    user.paid_until = referral_end
+    App.db.session.commit()
+
+    rev2 = deepcopy(rev)
+    rev2['created'] = 400
+    if 'current_period_end' in rev2['data']['object']:
+        rev2['data']['object']['current_period_end'] = END + 30 * 86400
+    elif 'lines' in rev2['data']['object']:
+        rev2['data']['object']['lines']['data'][0]['period']['end'] = END + 30 * 86400
+    else:
+        rev2['data']['object']['metadata']['period_end'] = END + 30 * 86400
+    assert growth_glue.apply_billing_event(rev2, now=NOW)
+    user = App.db.session.get(App.User, owner)
+    assert user.paid_until == referral_end
+    assert user.stripe_paid_until == datetime(2026, 12, 19, 12)
+    assert user.plan_tier is None
+
+
+def test_stale_revocation_for_prior_period_does_not_cancel_renewed_subscription(owner):
+    renewed = invoice(owner)
+    renewed['created'] = 300
+    renewed['data']['object']['lines']['data'][0]['period']['end'] = END + 30 * 86400
+    assert growth_glue.apply_billing_event(renewed, now=NOW)
+
+    stale_void = invoice(owner)
+    stale_void['type'] = 'invoice.voided'
+    stale_void['created'] = 350
+    stale_void['data']['object']['status'] = 'void'
+    # stale_void has period.end == END < renewed stripe_paid_until (END + 30d)
+    assert growth_glue.apply_billing_event(stale_void, now=NOW)
+    user = App.db.session.get(App.User, owner)
+    assert user.plan_tier == 'premium'
+    assert user.stripe_paid_until == datetime(2026, 12, 19, 12)
+
+
+def test_partial_refund_does_not_revoke_subscription_or_topup(owner):
+    paid = invoice(owner)
+    paid['created'] = 100
+    assert growth_glue.apply_billing_event(paid, now=NOW)
+    assert growth_glue.apply_billing_event(topup(owner), now=NOW)
+
+    partial_sub = {'type': 'charge.refunded', 'created': 200, 'data': {'object': {
+        'customer': 'cus_synthetic', 'refunded': False, 'amount': 2000, 'amount_refunded': 500,
+        'metadata': {'user_id': str(owner)},
+    }}}
+    partial_topup = {'type': 'charge.refunded', 'created': 200, 'data': {'object': {
+        'id': 'ch_topup_1', 'refunded': False, 'amount': 500, 'amount_refunded': 100,
+        'metadata': {'user_id': str(owner), 'kind': 'ai_topup'},
+    }}}
+    assert not growth_glue.apply_billing_event(partial_sub, now=NOW)
+    assert not growth_glue.apply_billing_event(partial_topup, now=NOW)
+    user = App.db.session.get(App.User, owner)
+    assert user.plan_tier == 'premium'
+    assert premium_glue.granted_micro(owner, NOW.strftime('%Y-%m')) == 4_000_000
+
+
+@pytest.mark.parametrize('kind', ['charge.refunded', 'charge.dispute.created', 'charge.dispute.funds_withdrawn'])
+def test_topup_refund_or_dispute_claws_back_credit_idempotently(owner, kind):
+    assert growth_glue.apply_billing_event(topup(owner), now=NOW)
+    period = utcnow().strftime('%Y-%m')
+    assert premium_glue.granted_micro(owner, period) == 4_000_000
+
+    rev = {'type': kind, 'created': 200, 'data': {'object': {
+        'id': 'ch_topup_rev', 'payment_intent': 'pi_topup_1',
+        'refunded': True, 'amount': 500, 'amount_refunded': 500,
+        'metadata': {'user_id': str(owner), 'kind': 'ai_topup'},
+    }}}
+    assert growth_glue.apply_billing_event(rev, now=NOW)
+    assert growth_glue.apply_billing_event(rev, now=NOW)
+    assert premium_glue.granted_micro(owner, period) == 0
+
+
+def test_referral_settlement_locks_and_preserves_concurrent_invoice_grant(owner):
+    inviter = App.db.session.get(App.User, owner)
+    referee = App.User(email=f'ref-{uuid4().hex}@example.test', password_hash='x',
+                       birth_year=2000, referred_by_id=owner, created_at=NOW - timedelta(days=1))
+    App.db.session.add(referee)
+    App.db.session.commit()
+    App.db.session.add(App.SavedSchedule(user_id=referee.id, schedule_data='{}', created_at=NOW))
+    App.db.session.commit()
+
+    # Simulate an invoice arriving and updating the DB row while caller holds an older ORM instance.
+    paid = invoice(owner)
+    paid['created'] = 250
+    assert growth_glue.apply_billing_event(paid, now=NOW)
+
+    try:
+        granted = growth_glue.settle_referral_rewards(inviter, now=NOW)
+        assert granted == 1
+        refreshed = App.db.session.get(App.User, owner)
+        assert refreshed.plan_tier == 'premium'
+        assert refreshed.stripe_paid_until == datetime(2026, 11, 19, 12)
+        assert refreshed.paid_until == datetime(2026, 11, 19, 12) + timedelta(days=30)
+    finally:
+        App.SavedSchedule.query.filter_by(user_id=referee.id).delete()
+        App.User.query.filter_by(id=referee.id).delete()
+        App.db.session.commit()

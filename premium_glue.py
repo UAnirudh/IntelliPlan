@@ -731,6 +731,7 @@ def api_premium_topup():
             line_items=[{"price": price, "quantity": 1}],
             client_reference_id=str(current_user.id),
             metadata={"user_id": str(current_user.id), "kind": "ai_topup"},
+            payment_intent_data={"metadata": {"user_id": str(current_user.id), "kind": "ai_topup"}},
             customer=getattr(current_user, "stripe_customer_id", None) or None,
             success_url=f"{_base_url()}/settings/ai?paid=1",
             cancel_url=f"{_base_url()}/settings/ai",
@@ -741,8 +742,28 @@ def api_premium_topup():
     return jsonify({"status": "ok", "url": session.url})
 
 
+def revoke_credit(user_id: int, amount_micro: int, *, reason: str = "refund",
+                  stripe_ref: str, now: datetime | None = None) -> bool:
+    """Claw back top-up budget on full refund or dispute. Idempotent on ``stripe_ref``."""
+    from App import AICreditGrant, db
+
+    if amount_micro <= 0 or not stripe_ref:
+        return False
+    if AICreditGrant.query.filter_by(stripe_ref=stripe_ref).first():
+        return False
+    db.session.add(AICreditGrant(user_id=user_id, period=_period(now), amount_micro=-amount_micro,
+                                 reason=reason[:16], stripe_ref=stripe_ref[:128]))
+    try:
+        db.session.commit()
+    except Exception as exc:
+        db.session.rollback()
+        logger.warning("credit revocation failed (duplicate webhook?): %s", exc)
+        return False
+    return True
+
+
 def apply_billing_event(user: Any, event: Any) -> str:
-    """Credit a confirmed top-up; subscription periods are handled in growth."""
+    """Credit a confirmed top-up or claw back a refunded/disputed top-up."""
     kind = event["type"]
     obj = event["data"]["object"]
     meta = obj.get("metadata") or {}
@@ -756,6 +777,22 @@ def apply_billing_event(user: Any, event: Any) -> str:
             # A duplicate is successful; a storage failure must be retried.
             raise RuntimeError('Paid top-up credit could not be persisted.')
         return "topup"
+    if kind in {'charge.refunded', 'charge.dispute.created', 'charge.dispute.funds_withdrawn'} and meta.get('kind') == 'ai_topup':
+        if kind == 'charge.refunded' and obj.get('refunded') is not True:
+            amount = obj.get('amount')
+            refunded = obj.get('amount_refunded')
+            if not (type(amount) is int and type(refunded) is int and amount > 0 and refunded >= amount):
+                return ''
+        ref_id = obj.get('payment_intent') or obj.get('charge') or obj.get('id')
+        if not ref_id:
+            raise ValueError('Top-up revocation event is missing a stable reference.')
+        from App import AICreditGrant
+        ref = f"rev:{ref_id}"
+        reason = 'refund' if kind == 'charge.refunded' else 'dispute'
+        revoked = revoke_credit(user.id, catalog.topup().credit_micro, reason=reason, stripe_ref=ref)
+        if not revoked and not AICreditGrant.query.filter_by(stripe_ref=ref, user_id=user.id).first():
+            raise RuntimeError('Top-up credit revocation could not be persisted.')
+        return "topup_revoked"
     return ""
 
 

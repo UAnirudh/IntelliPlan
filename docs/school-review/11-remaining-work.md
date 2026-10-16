@@ -200,3 +200,12 @@ Price mismatches or retrieval fails. 59 readiness/runtime checks and 168
 combined billing/growth/Premium tests pass. Live Stripe proof, final
 tax/discount amounts and historical reconciliation remain open. See
 [runtime checkout price guards](57-runtime-checkout-price-guards.md).
+
+The next billing-lifecycle slice handles verified subscription deletions,
+failed/voided/uncollectible invoices, full charge refunds and disputes while
+preserving earned referral time beyond the revoked Stripe period and clawing
+back refunded/disputed AI top-ups idempotently. Referral reward writers now
+lock and refresh user/referee rows before extending `paid_until`. 181 combined
+billing/growth/Premium checks pass. Live Stripe delivery and historical
+reconciliation remain open. See
+[billing revocations and referral locks](58-billing-revocations-and-referral-locks.md).

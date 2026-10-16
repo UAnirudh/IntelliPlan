@@ -319,7 +319,20 @@ def grant_signup_reward(new_user: Any, now: datetime | None = None) -> bool:
     if not getattr(new_user, "referred_by_id", None):
         return False
     now = now or utcnow()
-    _referral_month(new_user, now)
+    target = new_user
+    if getattr(new_user, "id", None) is not None:
+        from App import User
+
+        try:
+            locked = User.query.filter_by(id=int(new_user.id)).with_for_update().populate_existing().first()
+            if locked is not None:
+                target = locked
+        except Exception:
+            pass
+    _referral_month(target, now)
+    if target is not new_user:
+        new_user.paid_until = target.paid_until
+        new_user.plan_tier = target.plan_tier
     return True
 
 
@@ -329,7 +342,9 @@ def _referral_month(user: Any, now: datetime) -> None:
     Without resetting the tier, a lapsed Premium subscriber's referral month
     would reopen Premium -- and its dollar AI budget -- for free.
     """
-    if plans.plan_for(getattr(user, "paid_until", None), now) != plans.PAID:
+    stripe_end = getattr(user, "stripe_paid_until", None)
+    if plans.plan_for(getattr(user, "paid_until", None), now) != plans.PAID or (
+            stripe_end is not None and stripe_end <= now):
         user.plan_tier = None
     user.paid_until = plans.extend_paid_until(user.paid_until, now, plans.REFERRAL_REWARD_DAYS)
 
@@ -365,13 +380,16 @@ def settle_referral_rewards(inviter: Any, now: datetime | None = None) -> int:
 
     now = now or utcnow()
     try:
+        locked_inviter = User.query.filter_by(id=int(inviter.id)).with_for_update().populate_existing().first()
+        target = locked_inviter or inviter
         already = User.query.filter(
-            User.referred_by_id == inviter.id, User.referral_rewarded_at.isnot(None)
+            User.referred_by_id == target.id, User.referral_rewarded_at.isnot(None)
         ).count()
         pending = (
             User.query.filter(
-                User.referred_by_id == inviter.id, User.referral_rewarded_at.is_(None)
+                User.referred_by_id == target.id, User.referral_rewarded_at.is_(None)
             )
+            .with_for_update()
             .order_by(User.created_at.asc())
             .limit(50)
             .all()
@@ -389,11 +407,14 @@ def settle_referral_rewards(inviter: Any, now: datetime | None = None) -> int:
         # referral cannot be "saved up" to pay out after the cap is raised.
         referee.referral_rewarded_at = now
         if already + granted < plans.REFERRAL_MAX_REWARDS:
-            _referral_month(inviter, now)
+            _referral_month(target, now)
             granted += 1
     if pending:
         try:
             db.session.commit()
+            if target is not inviter:
+                inviter.paid_until = target.paid_until
+                inviter.plan_tier = target.plan_tier
         except Exception as exc:
             db.session.rollback()
             logger.warning("referral settle commit failed: %s", exc)
@@ -777,12 +798,19 @@ def apply_billing_event(event: Any, now: datetime | None = None) -> bool:
     now = now or utcnow()
     kind = event["type"]
     obj = event["data"]["object"]
-    if kind in {"checkout.session.completed", "checkout.session.async_payment_succeeded"} and (
-            obj.get("metadata") or {}).get("kind") == "ai_topup":
-        # A one-time AI budget top-up: credit it, leave the plan window alone.
+    if kind in {
+        "checkout.session.completed",
+        "checkout.session.async_payment_succeeded",
+        "charge.refunded",
+        "charge.dispute.created",
+        "charge.dispute.funds_withdrawn",
+    } and (obj.get("metadata") or {}).get("kind") == "ai_topup":
+        # A one-time AI budget top-up or its refund/dispute: leave the plan window alone.
         import premium_glue
 
-        if obj.get('payment_status') != 'paid' or obj.get('mode') != 'payment' or not obj.get('id'):
+        if kind in {"checkout.session.completed", "checkout.session.async_payment_succeeded"} and (
+            obj.get('payment_status') != 'paid' or obj.get('mode') != 'payment' or not obj.get('id')
+        ):
             return False
         try:
             user = User.query.get(int((obj.get("metadata") or {}).get("user_id")))
@@ -790,13 +818,69 @@ def apply_billing_event(event: Any, now: datetime | None = None) -> bool:
             user = None
         if user is None:
             return False
-        premium_glue.apply_billing_event(user, event)
+        return bool(premium_glue.apply_billing_event(user, event))
+    from intelliplan.premium.billing_events import paid_period, revoked_period
+
+    revocation = revoked_period(event)
+    if revocation is not None:
+        created = event.get('created', 0)
+        if isinstance(created, bool) or not isinstance(created, int) or created < 0:
+            raise ValueError('Revocation event has an invalid event timestamp.')
+        user = None
+        if revocation.user_id is not None:
+            user = User.query.filter_by(id=int(revocation.user_id)).with_for_update().populate_existing().first()
+        elif revocation.customer:
+            matches = (
+                User.query.filter_by(stripe_customer_id=revocation.customer)
+                .with_for_update()
+                .populate_existing()
+                .limit(2)
+                .all()
+            )
+            if len(matches) > 1:
+                raise ValueError('Revocation customer matches multiple accounts.')
+            user = matches[0] if matches else None
+        if user is None:
+            return False
+        if revocation.user_id is not None and revocation.customer and user.stripe_customer_id and (
+            user.stripe_customer_id != revocation.customer
+        ):
+            db.session.rollback()
+            return False
+        current_stripe_end = user.stripe_paid_until
+        current_created = user.stripe_event_created or 0
+        if current_stripe_end is None:
+            db.session.rollback()
+            return True
+        if revocation.target_end is not None:
+            if revocation.target_end < current_stripe_end:
+                db.session.rollback()
+                return True
+            if revocation.target_end > current_stripe_end and created < current_created:
+                db.session.rollback()
+                return True
+            if revocation.target_end == current_stripe_end and created < current_created:
+                db.session.rollback()
+                return True
+        elif created < current_created:
+            db.session.rollback()
+            return True
+        # Preserve extra referral time earned beyond the Stripe period, and keep
+        # stripe_paid_until at the adjudicated period watermark so older invoice
+        # replays cannot restore revoked access while newer payments still apply.
+        if user.paid_until is not None and user.paid_until <= current_stripe_end:
+            user.paid_until = now
+        if revocation.target_end is not None and revocation.target_end > current_stripe_end:
+            user.stripe_paid_until = revocation.target_end
+        user.plan_tier = None
+        if created > current_created:
+            user.stripe_event_created = created
+        db.session.commit()
         return True
     # Checkout completion is not payment/period evidence. Delayed methods can
     # still fail, and repeated delivery must never reset a rolling 31-day grant.
     if kind != 'invoice.paid':
         return False
-    from intelliplan.premium.billing_events import paid_period
     period = paid_period(obj)
     if period is None:
         return False
