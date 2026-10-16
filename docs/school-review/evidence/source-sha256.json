@@ -121,7 +121,7 @@
   },
   {
     "path": "docs/school-review/11-remaining-work.md",
-    "sha256": "15fb4756f842a5bc7dd63ce78808d1a7134214ed40737e6561913062d343c3a8"
+    "sha256": "822b6c966814399eef2f1e12a26cbea88c3fe2838873167432f83a6fccb18cca"
   },
   {
     "path": "docs/school-review/37-adaptive-source-policy.md",
@@ -193,7 +193,11 @@
   },
   {
     "path": "docs/school-review/54-paid-payment-evidence.md",
-    "sha256": "4263fe6c31151c024255e32b79bd5b3c74e792f4baba2a9f9bd0e4c573ad85c0"
+    "sha256": "8f71a9faf22e50e37557405d289f5ef34f16eb642391914167b77afc2465f0c1"
+  },
+  {
+    "path": "docs/school-review/55-prerequisite-clock-order.md",
+    "sha256": "759f2157eefb41af2dcea0d75f75b0093aa2d2efa6479303fd6419fca5fe563b"
   },
   {
     "path": "extra_features.py",
@@ -265,7 +269,7 @@
   },
   {
     "path": "intelliplan/intelligence/planner.py",
-    "sha256": "2c99b67950b10ab0469170f2c0918b5c88d39b0a44e751ce42034c7d3840fd57"
+    "sha256": "b5483ccc399875629b84eb7e6193bf81f7216dd837dd3e2c2948c8b0c4af3d11"
   },
   {
     "path": "intelliplan/intelligence/rescheduling.py",
@@ -978,6 +982,10 @@
   {
     "path": "tests/test_scheduler_clock.py",
     "sha256": "c1995c084b07fb41fd11c6d8217b47608e44271533931cf58a0730c03bd531ce"
+  },
+  {
+    "path": "tests/test_scheduler_clock_oracle.py",
+    "sha256": "9f56cb5a703509ba2349542c7edb4773ed64c721509ec824a08d3e5b8c72ba6f"
   },
   {
     "path": "tests/test_scheduler_feasibility_oracle.py",
