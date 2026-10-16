@@ -169,3 +169,11 @@ An independent exhaustive oracle over 2,000 small generated cases finds all
 Clocked repairs and transitive deadline input-order regressions are covered.
 This is bounded quality evidence, not general optimality or real-student
 outcome proof. See [scheduler feasibility](53-scheduler-feasibility-oracle.md).
+
+The next paid-plan slice requires verified payment/service-period evidence,
+handles current Stripe SDK events and asynchronous top-ups, retries failed
+credit persistence, rejects ambiguous prices and protects newer invoice
+entitlements from older replays. New nullable payment watermarks use additive
+migration and release-health checks. Synthetic signed-webhook tests pass;
+live billing remains disabled and broader launch requirements are open.
+See [paid payment evidence](54-paid-payment-evidence.md).

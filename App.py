@@ -740,6 +740,9 @@ class User(UserMixin, db.Model):
     streak_emails_opt_in = db.Column(db.Boolean, default=True)
     #: Stripe customer, once the student (or whoever pays) has checked out.
     stripe_customer_id = db.Column(db.String(64), nullable=True)
+    #: Stripe period/event watermark, separate from referral-extended access.
+    stripe_paid_until = db.Column(db.DateTime, nullable=True)
+    stripe_event_created = db.Column(db.BigInteger, nullable=True)
     #: Free-plan tutor messages this month, and when the count resets
     #: (chatbot_api._check_and_increment_tutor_limit). The tutor read these
     #: for weeks before either existed, so every signed-in student's message
@@ -22350,6 +22353,8 @@ def _migrate_user_columns():
         ("users", "referral_rewarded_at", "TIMESTAMP"),
         ("users", "streak_emails_opt_in", "BOOLEAN DEFAULT TRUE"),
         ("users", "stripe_customer_id", "VARCHAR(64)"),
+        ("users", "stripe_paid_until", "TIMESTAMP"),
+        ("users", "stripe_event_created", "BIGINT"),
         ("users", "first_touch_json", "TEXT"),
         # users — free-plan tutor message counter (chatbot_api.py)
         ("users", "monthly_tutor_messages", "INTEGER DEFAULT 0"),
@@ -22630,7 +22635,8 @@ def health_check():
         "users_columns": sorted(_existing_columns("users")),
         "notion_columns": sorted(_existing_columns("notion_integrations")),
     }
-    expected = {"id", "email", "password_hash", "referral_code", "referred_by_id"}
+    expected = {"id", "email", "password_hash", "referral_code", "referred_by_id",
+                "stripe_paid_until", "stripe_event_created"}
     out["users_schema_ok"] = expected.issubset(set(out["users_columns"]))
     response = flask.jsonify(out)
     response.headers['Cache-Control'] = 'no-store'

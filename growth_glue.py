@@ -766,13 +766,20 @@ def apply_billing_event(event: Any, now: datetime | None = None) -> bool:
     """
     from App import User, db
 
+    # Current Stripe SDK resources are not dicts; normalize only after the
+    # webhook signature has been verified. Legacy SDK dicts remain supported.
+    if not isinstance(event, dict):
+        event = event.to_dict()
     now = now or utcnow()
     kind = event["type"]
     obj = event["data"]["object"]
-    if kind == "checkout.session.completed" and (obj.get("metadata") or {}).get("kind") == "ai_topup":
+    if kind in {"checkout.session.completed", "checkout.session.async_payment_succeeded"} and (
+            obj.get("metadata") or {}).get("kind") == "ai_topup":
         # A one-time AI budget top-up: credit it, leave the plan window alone.
         import premium_glue
 
+        if obj.get('payment_status') != 'paid' or obj.get('mode') != 'payment' or not obj.get('id'):
+            return False
         try:
             user = User.query.get(int((obj.get("metadata") or {}).get("user_id")))
         except (TypeError, ValueError):
@@ -781,32 +788,43 @@ def apply_billing_event(event: Any, now: datetime | None = None) -> bool:
             return False
         premium_glue.apply_billing_event(user, event)
         return True
-    if kind == "checkout.session.completed":
-        uid = obj.get("client_reference_id") or (obj.get("metadata") or {}).get("user_id")
-        period_end = now + timedelta(days=31)
-    elif kind == "invoice.paid":
-        lines = ((obj.get("lines") or {}).get("data") or [{}])
-        meta = (obj.get("subscription_details") or {}).get("metadata") or lines[0].get("metadata") or {}
-        uid = meta.get("user_id")
-        end = ((lines[0].get("period") or {}).get("end"))
-        period_end = datetime.utcfromtimestamp(int(end)) if end else now + timedelta(days=31)
-    else:
+    # Checkout completion is not payment/period evidence. Delayed methods can
+    # still fail, and repeated delivery must never reset a rolling 31-day grant.
+    if kind != 'invoice.paid':
         return False
+    from intelliplan.premium.billing_events import paid_period
+    period = paid_period(obj)
+    if period is None:
+        return False
+    uid, period_end = period.user_id, period.end
+    if period_end <= now:
+        return False
+    created = event.get('created', 0)
+    if isinstance(created, bool) or not isinstance(created, int) or created < 0:
+        raise ValueError('Paid invoice has an invalid event timestamp.')
     try:
-        user = User.query.get(int(uid))
+        user = User.query.filter_by(id=int(uid)).with_for_update().populate_existing().first()
     except (TypeError, ValueError):
         user = None
     if user is None:
         logger.warning("stripe %s for unknown user %r", kind, uid)
         return False
+    if user.stripe_paid_until is not None:
+        current = (user.stripe_paid_until, user.stripe_event_created or 0)
+        incoming = (period_end, created)
+        if incoming < current:
+            db.session.rollback()
+            return True  # Acknowledge an older retry without changing access.
+        if incoming == current and user.plan_tier != period.plan:
+            raise ValueError('Paid invoice conflicts with an existing entitlement timestamp.')
     # Never shorten a window: referral months already earned stay earned.
     if user.paid_until is None or period_end > user.paid_until:
         user.paid_until = period_end
-    import premium_glue
-
-    premium_glue.apply_billing_event(user, event)
-    if obj.get("customer"):
-        user.stripe_customer_id = str(obj["customer"])[:64]
+    user.plan_tier = period.plan
+    user.stripe_paid_until = period_end
+    user.stripe_event_created = created
+    if period.customer:
+        user.stripe_customer_id = str(period.customer)[:64]
     db.session.commit()
     return True
 

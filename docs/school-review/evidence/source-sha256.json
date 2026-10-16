@@ -17,7 +17,7 @@
   },
   {
     "path": "App.py",
-    "sha256": "e584752c25ba5a44974c3a1c84b09c5601627557ce7427fc6ba0c2d8eedac208"
+    "sha256": "6887ee40ec225d5ea8ec15c7dea501ce5587b05a42fd5abbdc712ff56ed59464"
   },
   {
     "path": "Main_Project/templates/active.html",
@@ -121,7 +121,7 @@
   },
   {
     "path": "docs/school-review/11-remaining-work.md",
-    "sha256": "425398e42424e0a01745c610b284a7eee36523484e33f57496b71e73784a61f1"
+    "sha256": "15fb4756f842a5bc7dd63ce78808d1a7134214ed40737e6561913062d343c3a8"
   },
   {
     "path": "docs/school-review/37-adaptive-source-policy.md",
@@ -185,11 +185,15 @@
   },
   {
     "path": "docs/school-review/52-calendar-transport-guards.md",
-    "sha256": "ac897b0f90c57a77b1015ae031809a85bfb67c777bbd669a7eaa412ca4368791"
+    "sha256": "0f59af75aa3d355826de16da3b14daf7bcdc6529ab94d1dbc1e083290af9c49f"
   },
   {
     "path": "docs/school-review/53-scheduler-feasibility-oracle.md",
-    "sha256": "80828e0e7ddf6e738c172c35ec18a84aed8dc7d97f3ef7805ff3bcba3a73667d"
+    "sha256": "b0c5a00a7c295cf98fdd6389e2410fa6c66a361e07b8d63a3a3ce3c7c94c39ed"
+  },
+  {
+    "path": "docs/school-review/54-paid-payment-evidence.md",
+    "sha256": "4263fe6c31151c024255e32b79bd5b3c74e792f4baba2a9f9bd0e4c573ad85c0"
   },
   {
     "path": "extra_features.py",
@@ -202,6 +206,10 @@
   {
     "path": "google_calendar_helper.py",
     "sha256": "2342824ab24bc7dfaf62413275b894e587eb8d11f7f3678f22790cb12a62a735"
+  },
+  {
+    "path": "growth_glue.py",
+    "sha256": "313e31b371b9927eb3daaa87a082f8488543326b0aa23f34f974e322e4b244e2"
   },
   {
     "path": "intelliplan/api/active.py",
@@ -320,6 +328,10 @@
     "sha256": "c988f8d6108134052367aed13b21f0a57184e82a1e7bae2a5e6afc6136adab8d"
   },
   {
+    "path": "intelliplan/premium/billing_events.py",
+    "sha256": "a915ac44b166f7711cd279eca8ee918280431d4d7f4bb8bbcfba705b82440eab"
+  },
+  {
     "path": "intelliplan/premium/claude_tutor.py",
     "sha256": "b06939f8639879c923a4f221d1eea61797aae17da3938fd08fe02f6aa0380d0e"
   },
@@ -397,7 +409,7 @@
   },
   {
     "path": "premium_glue.py",
-    "sha256": "720dedcec1c9f963fe51cd3d4a81f8cb8136b62362ad36517d5a13dda7e60fe1"
+    "sha256": "c808f5d023e92701ed6d0a95f8359503766212c79f7c164f4f96d933dc0fcf51"
   },
   {
     "path": "requirements.txt",
@@ -872,6 +884,10 @@
     "sha256": "98c264c940b60b60a87194460c430ac1e0cb80131b9586d55022200265fa5a6a"
   },
   {
+    "path": "tests/test_billing_entitlements.py",
+    "sha256": "7437597ac99f3c27fe55a608b679def8d5e43404db8e3422c0548d351343bb08"
+  },
+  {
     "path": "tests/test_calendar_busy_time.py",
     "sha256": "cbf12eea6aee93fab0908a9e6ff4f44db590f2abc0bfe30cf7a28afc09f00059"
   },
@@ -912,6 +928,10 @@
     "sha256": "9a4cf67ff9f159eaa81882788e1a2e0b9bd65e7135ccdaf0e43c3c5be7a5bf9b"
   },
   {
+    "path": "tests/test_growth_app.py",
+    "sha256": "89eab988928797a0593317fd54353cd00228e17fbdc1cf120c5b882b58a8a194"
+  },
+  {
     "path": "tests/test_learning_hub.py",
     "sha256": "91f293ab64ebe42c89cc9ecee1bd62767c1a642a530e53be3ded92e04400d37b"
   },
@@ -942,6 +962,10 @@
   {
     "path": "tests/test_plani_policy.py",
     "sha256": "9b9073db642953a0ae8a0cf96c5121b13fd0f714d54c3fa4555f4937401c05e2"
+  },
+  {
+    "path": "tests/test_premium.py",
+    "sha256": "ed3b5f1a2d4f97b9ec28c83ce3f22f502141b6e49a8f4bfff33b8e7961590583"
   },
   {
     "path": "tests/test_quick_add_endpoints.py",

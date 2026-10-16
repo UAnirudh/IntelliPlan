@@ -43,3 +43,12 @@ Graph paging requires retaining the complete next-link query, described in
 The original acceptance ledger, scheduler quality benchmarks, meaningful study
 signals/physical devices, live tutor/Fish behavior and paid-launch proof remain
 open. No new UI, billing activation or schema changes are part of this slice.
+
+Release: PR103 merged at 275145a215a56ffc8d7f6b06f7e1f620c8b917eb.
+Hosted checks passed 4,724 unit tests (16 skipped), 130 public browser tests
+(1 skipped) and all Security jobs. Post-merge Tests 38828877543 passed.
+Public exact-revision/schema verification passed. Railway plugin confirmed
+web b633a96b-44cd-4137-a3e7-9ad7db5d4248 and newsletter
+7abb1e9e-37a5-41e3-b833-bec0421bb3f5 SUCCESS, no issues; the bounded
+filtered web startup error scan returned zero entries. Live provider accounts
+remain unverified.
