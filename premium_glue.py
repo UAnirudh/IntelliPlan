@@ -738,32 +738,20 @@ def api_premium_topup():
 
 
 def apply_billing_event(user: Any, event: Any) -> str:
-    """Premium's part of a verified Stripe event. Returns what it did.
-
-    Called by growth_glue's webhook handler after it has found the user.
-    ``"topup"`` means the event was a top-up and must not touch the plan
-    window; ``"plan"`` means ``plan_tier`` was set; ``""`` means nothing.
-    """
+    """Credit a confirmed top-up; subscription periods are handled in growth."""
     kind = event["type"]
     obj = event["data"]["object"]
     meta = obj.get("metadata") or {}
-    if kind == "checkout.session.completed" and meta.get("kind") == "ai_topup":
-        grant_credit(user.id, catalog.topup().credit_micro, reason="topup",
-                     stripe_ref=f"cs:{obj.get('id')}")
+    if kind in {'checkout.session.completed', 'checkout.session.async_payment_succeeded'} and meta.get('kind') == 'ai_topup':
+        if obj.get('payment_status') != 'paid' or obj.get('mode') != 'payment' or not obj.get('id'):
+            return ''
+        from App import AICreditGrant
+        ref = f"cs:{obj['id']}"
+        granted = grant_credit(user.id, catalog.topup().credit_micro, reason='topup', stripe_ref=ref)
+        if not granted and not AICreditGrant.query.filter_by(stripe_ref=ref, user_id=user.id).first():
+            # A duplicate is successful; a storage failure must be retried.
+            raise RuntimeError('Paid top-up credit could not be persisted.')
         return "topup"
-    plan_id = meta.get("plan")
-    if kind == "invoice.paid":
-        lines = ((obj.get("lines") or {}).get("data") or [{}])
-        meta = (obj.get("subscription_details") or {}).get("metadata") or lines[0].get("metadata") or {}
-        plan_id = meta.get("plan")
-        if not plan_id:
-            price = ((lines[0].get("price") or {}).get("id")) or \
-                (((lines[0].get("pricing") or {}).get("price_details") or {}).get("price"))
-            found = catalog.plan_for_price(price or "")
-            plan_id = found[0] if found else None
-    if plan_id in catalog.SELLABLE or plan_id == PRO:
-        user.plan_tier = plan_id
-        return "plan"
     return ""
 
 

@@ -226,16 +226,19 @@ def test_webhook_rejects_unsigned_events(client, monkeypatch):
     assert res.status_code == 400
 
 
-def test_billing_events_set_the_window_idempotently(client):
+def test_billing_events_set_the_window_idempotently(client, monkeypatch):
+    monkeypatch.setenv('STRIPE_PRICE_ID', 'price_pro_test')
     with App.app.app_context():
         uid = make_user()
         end = int((datetime.utcnow() + timedelta(days=30)).timestamp())
         event = {
             "type": "invoice.paid",
             "data": {"object": {
+                "status": "paid",
                 "customer": "cus_123",
                 "subscription_details": {"metadata": {"user_id": str(uid)}},
-                "lines": {"data": [{"period": {"end": end}}]},
+                "lines": {"data": [{"type": "subscription", "price": {"id": "price_pro_test"},
+                                      "period": {"end": end}}]},
             }},
         }
         assert growth_glue.apply_billing_event(event)
@@ -344,16 +347,19 @@ def test_parent_link_can_pay_yearly(client, stripe_stub):
     assert stripe_stub.checkouts[0]["client_reference_id"] == str(uid)
 
 
-def test_yearly_invoice_opens_a_year_long_window(client):
+def test_yearly_invoice_opens_a_year_long_window(client, monkeypatch):
+    monkeypatch.setenv('STRIPE_PRICE_ID_YEARLY', 'price_year_test')
     with App.app.app_context():
         uid = make_user()
         end = int((datetime.utcnow() + timedelta(days=365)).timestamp())
         event = {
             "type": "invoice.paid",
             "data": {"object": {
+                "status": "paid",
                 "customer": "cus_year",
                 "subscription_details": {"metadata": {"user_id": str(uid)}},
-                "lines": {"data": [{"period": {"end": end}}]},
+                "lines": {"data": [{"type": "subscription", "price": {"id": "price_year_test"},
+                                      "period": {"end": end}}]},
             }},
         }
         assert growth_glue.apply_billing_event(event)

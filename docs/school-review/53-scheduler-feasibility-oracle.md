@@ -46,3 +46,12 @@ stochastic completion, every repair intent or the full cost objective. No real
 student outcome improvement, universal dependency inference or optimality is
 claimed. Physical study signals, live tutor/Fish behavior, paid-launch evidence,
 course quality and the rest of the original acceptance ledger remain open.
+
+Release: PR104 merged at 884cd3b0b5dcebf008a8c80cbe863549c35d4989.
+Hosted exact-head checks passed 4,751 unit tests (16 skipped), 130 public
+browser tests (1 skipped), all tutor/camera workflows and Security. Public
+exact-revision/schema verification passed. Railway plugin confirmed web
+f9f012fb-c82b-4cdb-a546-cab7e84eeb8c and newsletter
+795cec1a-45f6-426b-a02c-8b45ad70ea0d SUCCESS, one web replica, no issues.
+The bounded filtered web startup error scan returned zero entries.
+Post-merge Tests 38830046439 is still running at this record's creation.

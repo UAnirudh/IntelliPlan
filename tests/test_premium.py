@@ -8,7 +8,7 @@ budget arithmetic, the ledger and the fallbacks are exercised end to end.
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta
+from datetime import timedelta, timezone
 from types import SimpleNamespace
 
 import pytest
@@ -508,13 +508,17 @@ def test_status_reports_the_meter(client):
     assert data["tier"] == "premium" and data["budget_usd"] == 20.0
 
 
-def test_a_checkout_event_sets_the_premium_tier(client):
+def test_a_paid_invoice_sets_the_premium_tier(client, monkeypatch):
     import growth_glue
 
+    monkeypatch.setenv('STRIPE_PRICE_ID_PREMIUM', 'price_premium_test')
     uid = _user(client, tier=None)
-    event = {"type": "checkout.session.completed", "data": {"object": {
-        "client_reference_id": str(uid), "customer": "cus_1",
-        "metadata": {"user_id": str(uid), "plan": "premium"}}}}
+    end = int((utcnow() + timedelta(days=30)).replace(tzinfo=timezone.utc).timestamp())
+    event = {"type": "invoice.paid", "data": {"object": {
+        "status": "paid", "customer": "cus_1",
+        "parent": {"subscription_details": {"metadata": {"user_id": str(uid), "plan": "premium"}}},
+        "lines": {"data": [{"type": "subscription", "price": {"id": "price_premium_test"},
+                             "period": {"end": end}}]}}}}
     with App.app.app_context():
         assert growth_glue.apply_billing_event(event)
         assert premium_glue.current_tier(db.session.get(User, uid)) == "premium"
@@ -527,7 +531,8 @@ def test_a_top_up_event_credits_without_extending_the_plan(client):
     with App.app.app_context():
         before = db.session.get(User, uid).paid_until
     event = {"type": "checkout.session.completed", "data": {"object": {
-        "id": "cs_topup_1", "metadata": {"user_id": str(uid), "kind": "ai_topup"}}}}
+        "id": "cs_topup_1", "mode": "payment", "payment_status": "paid",
+        "metadata": {"user_id": str(uid), "kind": "ai_topup"}}}}
     with App.app.app_context():
         assert growth_glue.apply_billing_event(event)
         assert growth_glue.apply_billing_event(event)  # retried webhook
