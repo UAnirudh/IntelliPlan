@@ -217,3 +217,11 @@ responsive and navigation evidence passes; hosted and release proof remain
 separate. The existing FoundrList homepage badge is preserved. See
 [simpler sign-in](59-simpler-sign-in.md). Whole-product chat-first interaction,
 localization and the original engineering requirements remain incomplete.
+
+The billing audit now requires a matching already-paid service period before
+revoking access. Different-period failures preserve access/watermarks, and
+missing-period events remain retryable without mutation. All twelve initial
+regressions failed against the prior implementation; the final focused
+billing/growth/Premium run passes219 tests. Provider-backed refund/dispute
+reconciliation and full paid launch remain incomplete. See
+[paid-period revocation safety](61-paid-period-revocation-safety.md).
