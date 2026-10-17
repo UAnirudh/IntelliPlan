@@ -195,8 +195,9 @@ def test_streak_email_respects_a_custom_kind_list_without_streaks():
 
 @pytest.fixture
 def hooks():
+    original_resolver, original_gate = ai_provider._plan_resolver, ai_provider._usage_gate
     yield
-    ai_provider.set_account_hooks(None, None)
+    ai_provider.set_account_hooks(original_resolver, original_gate)
 
 
 def _stub_chain(monkeypatch, seen):

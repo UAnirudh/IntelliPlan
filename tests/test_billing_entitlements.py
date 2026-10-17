@@ -366,6 +366,94 @@ def test_stale_revocation_for_prior_period_does_not_cancel_renewed_subscription(
     assert user.stripe_paid_until == datetime(2026, 12, 19, 12)
 
 
+@pytest.mark.parametrize('kind', [
+    'invoice.payment_failed', 'invoice.marked_uncollectible', 'invoice.voided',
+    'customer.subscription.deleted', 'charge.refunded', 'charge.dispute.created',
+])
+def test_other_period_revocation_preserves_paid_access_and_later_payment(owner, kind):
+    paid = invoice(owner)
+    paid['created'] = 100
+    assert growth_glue.apply_billing_event(paid, now=NOW)
+    if kind.startswith('invoice.'):
+        rev = deepcopy(paid)
+        rev['data']['object']['status'] = 'open'
+        rev['data']['object']['lines']['data'][0]['period']['end'] = END + 30 * 86400
+    else:
+        rev = {'data': {'object': {
+            'customer': 'cus_synthetic', 'current_period_end': END + 30 * 86400,
+            'refunded': True,
+            'metadata': {'user_id': str(owner), 'period_end': END + 30 * 86400},
+        }}}
+    rev.update(type=kind, created=300)
+    assert growth_glue.apply_billing_event(rev, now=NOW)
+    user = App.db.session.get(App.User, owner)
+    assert (user.paid_until, user.stripe_paid_until, user.plan_tier, user.stripe_event_created) == (
+        datetime(2026, 11, 19, 12), datetime(2026, 11, 19, 12), 'premium', 100)
+
+    # Payment succeeds after an earlier attempt failed. Its older event must
+    # still apply: an unrelated failure must not advance the paid watermark.
+    renewal = deepcopy(paid)
+    renewal['created'] = 200
+    renewal['data']['object']['lines']['data'][0]['period']['end'] = END + 30 * 86400
+    assert growth_glue.apply_billing_event(renewal, now=NOW)
+    assert App.db.session.get(App.User, owner).paid_until == datetime(2026, 12, 19, 12)
+
+
+@pytest.mark.parametrize('kind', [
+    'invoice.payment_failed', 'invoice.marked_uncollectible', 'invoice.voided',
+    'customer.subscription.deleted', 'charge.refunded', 'charge.dispute.created',
+])
+def test_missing_revocation_period_retries_without_changing_entitlement(owner, kind):
+    paid = invoice(owner)
+    paid['created'] = 100
+    assert growth_glue.apply_billing_event(paid, now=NOW)
+    rev = {'type': kind, 'created': 200, 'data': {'object': {
+        'customer': 'cus_synthetic', 'refunded': True,
+        'metadata': {'user_id': str(owner)},
+    }}}
+    with pytest.raises(ValueError, match='service period'):
+        growth_glue.apply_billing_event(rev, now=NOW)
+    user = App.db.session.get(App.User, owner)
+    assert (user.paid_until, user.plan_tier, user.stripe_event_created) == (
+        datetime(2026, 11, 19, 12), 'premium', 100)
+
+
+def test_signed_unresolved_refund_retries_then_period_reconciliation_can_revoke(owner, monkeypatch):
+    paid = invoice(owner)
+    paid['created'] = 100
+    assert growth_glue.apply_billing_event(paid, now=NOW)
+    monkeypatch.setenv('BILLING_ENABLED', '1')
+    monkeypatch.setenv('STRIPE_SECRET_KEY', 'sk_test_synthetic_no_external_requests')
+    secret = 'whsec_synthetic_refund_retry'
+    monkeypatch.setenv('STRIPE_WEBHOOK_SECRET', secret)
+    monkeypatch.setattr(growth_glue, 'utcnow', lambda: NOW)
+    event = {'type': 'charge.refunded', 'created': 200, 'data': {'object': {
+        'id': 'ch_synthetic_unresolved', 'customer': 'cus_synthetic', 'refunded': True,
+        'metadata': {'user_id': str(owner)},
+    }}}
+
+    def deliver(client):
+        body = json.dumps(event).encode()
+        stamp = str(int(time.time()))
+        signature = hmac.new(secret.encode(), stamp.encode() + b'.' + body, hashlib.sha256).hexdigest()
+        return client.post('/api/billing/webhook', data=body,
+                           headers={'Stripe-Signature': f't={stamp},v1={signature}'})
+
+    with App.app.test_client() as client:
+        response = deliver(client)
+        assert response.status_code == 500
+        assert response.get_json() == {'status': 'error'}
+        user = App.db.session.get(App.User, owner)
+        assert (user.paid_until, user.plan_tier, user.stripe_event_created) == (
+            datetime(2026, 11, 19, 12), 'premium', 100)
+        # Declared synthetic evidence, not a live Stripe reconciliation claim.
+        event['data']['object']['metadata']['period_end'] = END
+        assert deliver(client).status_code == 200
+        assert deliver(client).status_code == 200
+    user = App.db.session.get(App.User, owner)
+    assert (user.paid_until, user.plan_tier, user.stripe_event_created) == (NOW, None, 200)
+
+
 def test_partial_refund_does_not_revoke_subscription_or_topup(owner):
     paid = invoice(owner)
     paid['created'] = 100

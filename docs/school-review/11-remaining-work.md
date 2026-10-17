@@ -223,3 +223,11 @@ authenticated page owner, discards unowned legacy caches, rejects stale account
 requests before provider work and guards late replies/navigation after reset.
 230 focused Python and seven Node cases pass; hosted and deployment proof
 remain separate. See [account-scoped chat](60-account-scoped-chat.md).
+
+The billing audit now requires a matching already-paid service period before
+revoking access. Different-period failures preserve access/watermarks, and
+missing-period events remain retryable without mutation. All twelve initial
+regressions failed against the prior implementation; the final focused
+billing/growth/Premium run passes219 tests. Provider-backed refund/dispute
+reconciliation and full paid launch remain incomplete. See
+[paid-period revocation safety](61-paid-period-revocation-safety.md).

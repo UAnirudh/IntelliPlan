@@ -823,6 +823,11 @@ def apply_billing_event(event: Any, now: datetime | None = None) -> bool:
 
     revocation = revoked_period(event)
     if revocation is not None:
+        if revocation.target_end is None:
+            # A customer can have other invoices/subscriptions/charges. Identity
+            # alone cannot tie a failure or refund to the access already paid for.
+            # Keep the webhook retryable until its service period is reconciled.
+            raise ValueError('Revocation requires a verified service period.')
         created = event.get('created', 0)
         if isinstance(created, bool) or not isinstance(created, int) or created < 0:
             raise ValueError('Revocation event has an invalid event timestamp.')
@@ -852,17 +857,7 @@ def apply_billing_event(event: Any, now: datetime | None = None) -> bool:
         if current_stripe_end is None:
             db.session.rollback()
             return True
-        if revocation.target_end is not None:
-            if revocation.target_end < current_stripe_end:
-                db.session.rollback()
-                return True
-            if revocation.target_end > current_stripe_end and created < current_created:
-                db.session.rollback()
-                return True
-            if revocation.target_end == current_stripe_end and created < current_created:
-                db.session.rollback()
-                return True
-        elif created < current_created:
+        if revocation.target_end != current_stripe_end or created < current_created:
             db.session.rollback()
             return True
         # Preserve extra referral time earned beyond the Stripe period, and keep
@@ -870,8 +865,6 @@ def apply_billing_event(event: Any, now: datetime | None = None) -> bool:
         # replays cannot restore revoked access while newer payments still apply.
         if user.paid_until is not None and user.paid_until <= current_stripe_end:
             user.paid_until = now
-        if revocation.target_end is not None and revocation.target_end > current_stripe_end:
-            user.stripe_paid_until = revocation.target_end
         user.plan_tier = None
         if created > current_created:
             user.stripe_event_created = created

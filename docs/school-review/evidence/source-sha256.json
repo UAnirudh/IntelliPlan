@@ -125,7 +125,7 @@
   },
   {
     "path": "docs/school-review/11-remaining-work.md",
-    "sha256": "02bf7aa6fa4cb2f24477ccfd2e0fe285dd10fd398766667245a7b1fa4a5bceac"
+    "sha256": "a17cd8af0caf65764ac669d6a4270918a420aa190147eae00d486bc84fb54922"
   },
   {
     "path": "docs/school-review/37-adaptive-source-policy.md",
@@ -224,6 +224,10 @@
     "sha256": "4312da6c1173cf36276f9d2098218c8609dc90a28e6724bcf90ab6a675098e12"
   },
   {
+    "path": "docs/school-review/61-paid-period-revocation-safety.md",
+    "sha256": "db240b7524c611d2787f51d23bb65ed8935a122b37513d000ac241dfb0af0f30"
+  },
+  {
     "path": "extra_features.py",
     "sha256": "fb3345bd93b6311ab35ccda535f86b9c505ec985907c3862114cb82da0440e21"
   },
@@ -237,7 +241,7 @@
   },
   {
     "path": "growth_glue.py",
-    "sha256": "85062aa4adcb8c52a01b39e844557f0c8d5822364212baaa6ffd0dae91c2a693"
+    "sha256": "b04f6d1c96378815ca9b1fd6f79fc57eec885056c081f58f527dd0daca1e819d"
   },
   {
     "path": "intelliplan/api/active.py",
@@ -925,7 +929,7 @@
   },
   {
     "path": "tests/test_billing_entitlements.py",
-    "sha256": "aa4191e4822f73dc139badb8307ab46eea6a704f3e30445e83b5ce7917b00715"
+    "sha256": "cff5e040f8db561af4b3b8b7b433b02274ce5c082e988faf1b39c8143b21d103"
   },
   {
     "path": "tests/test_calendar_busy_time.py",
@@ -970,6 +974,10 @@
   {
     "path": "tests/test_growth_app.py",
     "sha256": "8aa8e3c584b748370374f6e5b5d3f41b3f2754b15c965c3159dd1fc3691a1652"
+  },
+  {
+    "path": "tests/test_growth_rules.py",
+    "sha256": "e29eb691f48e9d01f9b61bc70b9d7323f74a20976dde4091916d32fdac18e5bf"
   },
   {
     "path": "tests/test_learning_hub.py",
