@@ -209,3 +209,11 @@ lock and refresh user/referee rows before extending `paid_until`. 181 combined
 billing/growth/Premium checks pass. Live Stripe delivery and historical
 reconciliation remain open. See
 [billing revocations and referral locks](58-billing-revocations-and-referral-locks.md).
+
+A focused sign-in simplification keeps Google/email visible and moves all five
+guest school connections behind a native disclosure, with session-expiry
+notice and navigation links that work without JavaScript. Local keyboard,
+responsive and navigation evidence passes; hosted and release proof remain
+separate. The existing FoundrList homepage badge is preserved. See
+[simpler sign-in](59-simpler-sign-in.md). Whole-product chat-first interaction,
+localization and the original engineering requirements remain incomplete.

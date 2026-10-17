@@ -1,9 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <style>
-  /* ChatGPT-glass auth card — the shared recipe every /login* sibling uses.
-     Structure and selectors untouched so the Playwright anchors
-     (Create Account / Sign In links, LMS logos, Google button) all hold. */
+  /* Match the shared auth surfaces while keeping the first choice simple. */
   .login-wrap .login-card {
     background: var(--glass-bg);
     border: 1px solid var(--glass-border);
@@ -58,6 +56,44 @@
   .login-wrap .btn-guest:hover .arrow {
     transform: translateX(3px);
   }
+  .login-wrap .school-login {
+    margin-top: 1.5rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border);
+  }
+  .login-wrap .school-login summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    min-height: 48px;
+    padding: 0.5rem 0;
+    color: var(--text-primary);
+    font-weight: 600;
+    cursor: pointer;
+    list-style: none;
+  }
+  .login-wrap .school-login summary::-webkit-details-marker { display: none; }
+  .login-wrap .school-login summary::after { content: '+'; font-size: 1.25rem; }
+  .login-wrap .school-login[open] summary::after { content: '−'; }
+  .login-wrap .school-login summary:focus-visible {
+    outline: 2px solid var(--focus-ring, var(--accent));
+    outline-offset: 4px;
+    border-radius: var(--r-sm);
+  }
+  .login-wrap .school-login-hint {
+    display: block;
+    margin-top: 0.25rem;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 400;
+  }
+  .login-wrap .school-login-note {
+    margin: 0.5rem 0 1rem;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    line-height: 1.5;
+  }
   @media (prefers-reduced-motion: reduce) {
     .login-wrap .btn-google, .login-wrap .btn-guest,
     .login-wrap .account-buttons .btn-primary, .login-wrap .btn-guest .arrow {
@@ -78,7 +114,7 @@
         <img src="/static/icons/icon-192.png" alt="Logo">
       </div>
       <h1 class="login-title">Sign in to IntelliPlan</h1>
-      <p class="login-subtitle">Choose how you want to get started</p>
+      <p class="login-subtitle">Pick up where you left off.</p>
     </div>
 
     <!-- Google Sign In -->
@@ -100,59 +136,61 @@
       <a href="/login/account" class="btn-secondary">Sign In</a>
     </div>
 
-    <div class="divider"><span>or continue as guest</span></div>
-
-    <!-- Guest options, real <button> elements, not links, so they match Create Account / Sign In -->
-    <div class="guest-options ipd-anim ipd-d3">
-      <button type="button" class="btn-guest canvas" onclick="window.location.href='/login/canvas'">
+    <details class="school-login">
+      <summary>
+        <span>Connect a school account<span class="school-login-hint">Continue as a guest, without signing up</span></span>
+      </summary>
+      <p class="school-login-note">Guest mode resets when your session expires. Create an account above to keep your work across devices.</p>
+    <div class="guest-options">
+      <a class="btn-guest canvas" href="/login/canvas">
         <img src="/static/logos/canvas.svg" alt="Canvas LMS" width="32" height="32" style="width:32px;height:32px;border-radius:8px;flex-shrink:0;object-fit:cover;">
         <span class="text">
           <span class="title">Canvas LMS</span>
           <span class="subtitle">Guest, connect with access token</span>
         </span>
         <span class="arrow" aria-hidden="true">→</span>
-      </button>
+      </a>
 
-      <button type="button" class="btn-guest studentvue" onclick="window.location.href='/login/studentvue'">
+      <a class="btn-guest studentvue" href="/login/studentvue">
         <img src="/static/logos/studentvue.svg" alt="StudentVue" width="32" height="32" style="width:32px;height:32px;border-radius:8px;flex-shrink:0;object-fit:cover;">
         <span class="text">
           <span class="title">StudentVue</span>
           <span class="subtitle">Guest, connect with district credentials</span>
         </span>
         <span class="arrow" aria-hidden="true">→</span>
-      </button>
+      </a>
 
-      <button type="button" class="btn-guest hac" onclick="window.location.href='/login/hac'">
+      <a class="btn-guest hac" href="/login/hac">
         <img src="/static/logos/hac.svg" alt="Home Access Center" width="32" height="32" style="width:32px;height:32px;border-radius:8px;flex-shrink:0;object-fit:cover;">
         <span class="text">
           <span class="title">Home Access Center</span>
           <span class="subtitle">Guest, connect with district credentials</span>
         </span>
         <span class="arrow" aria-hidden="true">→</span>
-      </button>
+      </a>
 
-      <button type="button" class="btn-guest schoology" onclick="window.location.href='/login/schoology'">
+      <a class="btn-guest schoology" href="/login/schoology">
         <img src="/static/logos/schoology.svg" alt="Schoology" width="32" height="32" style="width:32px;height:32px;border-radius:8px;flex-shrink:0;object-fit:cover;">
         <span class="text">
           <span class="title">Schoology</span>
           <span class="subtitle">API key required · <span class="highlight">not recommended</span></span>
         </span>
         <span class="arrow" aria-hidden="true">→</span>
-      </button>
+      </a>
 
-      <button type="button" class="btn-guest" onclick="window.location.href='/connect'" style="border-color:color-mix(in srgb, var(--accent) 25%, var(--border));">
+      <a class="btn-guest" href="/connect" style="border-color:color-mix(in srgb, var(--accent) 25%, var(--border));">
         <img src="/static/logos/google-classroom.svg" alt="More school platforms" width="32" height="32" style="width:32px;height:32px;border-radius:8px;flex-shrink:0;object-fit:cover;">
         <span class="text">
           <span class="title">More school platforms</span>
           <span class="subtitle">Google Classroom, Blackboard, Moodle &amp; more</span>
         </span>
         <span class="arrow" aria-hidden="true">→</span>
-      </button>
+      </a>
     </div>
+    </details>
 
     <div class="login-footer">
-      Creating an account saves your data across devices.<br>
-      Guest mode resets when your session expires.
+      Your account keeps your work across devices.
     </div>
   </div>
   </div>
