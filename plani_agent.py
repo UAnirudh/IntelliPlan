@@ -1491,6 +1491,11 @@ def plani_agent():
         return jsonify({"status": "error", "error": "auth_required",
                         "reply": "Please log in to use Plani."}), 401
 
+    expected_owner = request.headers.get('X-IntelliPlan-Chat-Owner')
+    if expected_owner is not None and expected_owner != str(user_id):
+        return jsonify(status='error', error='account_changed',
+                       reply='Your account changed. Reload this page before continuing.'), 409
+
     data = request.get_json(silent=True) or {}
     if not isinstance(data, dict):
         return jsonify(status='error', error='invalid_request'), 400
