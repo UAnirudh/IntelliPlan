@@ -138,6 +138,12 @@ class TestLandingPage:
 
 
 class TestLoginPage:
+    def _show_school_connections(self, page: Page):
+        # PR checks also visit the previous live release before deployment.
+        disclosure = page.locator("details.school-login")
+        if disclosure.count() and not disclosure.evaluate("el => el.open"):
+            disclosure.locator("summary").click()
+
     def test_login_page_loads(self, page: Page):
         go(page, "/login")
         expect(page.get_by_text("Sign in to IntelliPlan")).to_be_visible()
@@ -165,29 +171,27 @@ class TestLoginPage:
         page.get_by_role("link", name="Sign In", exact=True).click()
         assert_url_matches(page, "/login/account")
 
-    # These four target the guest-login buttons by role, not by page text.
-    # get_by_text("StudentVue") matched any element containing the word, so
-    # naming the LMSes in marketing copy elsewhere on the page broke them with
-    # a strict-mode violation. ("Canvas LMS" survived only by luck — the copy
-    # says "Canvas", not "Canvas LMS".) The buttons are what these tests mean,
-    # and role queries also skip the aria-hidden brand panel by construction.
-
+    # Scope connection labels to their group so marketing copy cannot match.
     def test_canvas_option_visible(self, page: Page):
         go(page, "/login")
-        expect(page.get_by_role("button", name="Canvas LMS")).to_be_visible()
+        self._show_school_connections(page)
+        expect(page.locator(".guest-options").get_by_text("Canvas LMS", exact=True)).to_be_visible()
 
     def test_studentvue_option_visible(self, page: Page):
         go(page, "/login")
-        expect(page.get_by_role("button", name="StudentVue")).to_be_visible()
+        self._show_school_connections(page)
+        expect(page.locator(".guest-options").get_by_text("StudentVue", exact=True)).to_be_visible()
 
     def test_canvas_link_works(self, page: Page):
         go(page, "/login")
-        page.get_by_role("button", name="Canvas LMS").click()
+        self._show_school_connections(page)
+        page.locator(".guest-options").get_by_text("Canvas LMS", exact=True).click()
         assert_url_matches(page, "/login/canvas")
 
     def test_studentvue_link_works(self, page: Page):
         go(page, "/login")
-        page.get_by_role("button", name="StudentVue").click()
+        self._show_school_connections(page)
+        page.locator(".guest-options").get_by_text("StudentVue", exact=True).click()
         assert_url_matches(page, "/login/studentvue")
 
 

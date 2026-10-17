@@ -36,6 +36,10 @@
     "sha256": "25de72047ea051d0d51548b73ede41901c0283ae683e199b6cb0ea0c9dd779ea"
   },
   {
+    "path": "Main_Project/templates/login.html",
+    "sha256": "c45e7426602066dbfe6b405a4eb9609443c1f75579bca3caf1e8b86b0efd44c6"
+  },
+  {
     "path": "Main_Project/templates/partials/study_camera_source.html",
     "sha256": "1d2f5ac5f843f3215a077e24a91275a5ad267e311b04bdd995763bb6d3a0c81e"
   },
@@ -121,7 +125,7 @@
   },
   {
     "path": "docs/school-review/11-remaining-work.md",
-    "sha256": "d8b0438665c4476a48670e8ae7065d515c6209ece7131d2f500a9d06fbd86d00"
+    "sha256": "f1e9e74eda15c1d795b8ab10a7d0c2d68e83ee057adf0d8097846f8ab34ee6f1"
   },
   {
     "path": "docs/school-review/37-adaptive-source-policy.md",
@@ -210,6 +214,10 @@
   {
     "path": "docs/school-review/58-billing-revocations-and-referral-locks.md",
     "sha256": "b5506fe92e1697b4c3b337a5935a8c877b230e932f6f89d213c173e4d69ce81d"
+  },
+  {
+    "path": "docs/school-review/59-simpler-sign-in.md",
+    "sha256": "30ca8059c1f8a4bb21130879ff1ab620507885b32276ea73fc7f9c4a759dad93"
   },
   {
     "path": "extra_features.py",
@@ -850,6 +858,10 @@
   {
     "path": "study_camera_glue.py",
     "sha256": "c1736f696c1cca712ff38213e8df611b38b08c2bdc8f751751ce5161b8c3f20f"
+  },
+  {
+    "path": "test_intelliplan.py",
+    "sha256": "64080a4909322e4190215ced38e98816f1f4926e17ca1fce992ea324f1e532a8"
   },
   {
     "path": "tests/browser/study_camera.test.cjs",
