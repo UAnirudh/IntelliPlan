@@ -43,3 +43,11 @@ Provider contracts: [subscription webhook events](https://docs.stripe.com/billin
 [Charge object](https://docs.stripe.com/api/charges/object) and
 [Dispute object](https://docs.stripe.com/api/disputes/object).
 The original product transformation remains incomplete.
+
+Released as PR111 at e9e795ff9c66069e7735c64cdcd8eedb0ef86e01. Both final-head
+hosted Tests and Security passed, followed by postmerge Tests39006460080 and
+Security39006460139. Public exact-revision/schema checks pass. Railway plugin
+confirms web51956d06-f556-4f2f-975d-a89220602381 and
+newsletter3ee73018-b1f0-4066-9838-0c60d38ac0ec SUCCESS, one running web replica
+and no issues/pending work. A bounded filtered runtime-error scan returned zero
+entries. This establishes release health, not live Stripe or reconciliation proof.

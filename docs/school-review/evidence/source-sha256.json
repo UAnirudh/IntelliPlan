@@ -129,7 +129,7 @@
   },
   {
     "path": "docs/offline-architecture.md",
-    "sha256": "fc8f89bceb61a7fef95bb83bcd40166871aee27ebe89b867cc12ce531ae2cae1"
+    "sha256": "5ebf81451caa44526aef34becbdcb0bef40abcaa777a9a676ae1fd8ae2de6fc0"
   },
   {
     "path": "docs/premium.md",
@@ -237,11 +237,11 @@
   },
   {
     "path": "docs/school-review/61-paid-period-revocation-safety.md",
-    "sha256": "db240b7524c611d2787f51d23bb65ed8935a122b37513d000ac241dfb0af0f30"
+    "sha256": "fb11c7078bb685053e7c0080b195dc4fe641052f0aa7ac18f018ad715ee511ce"
   },
   {
     "path": "docs/school-review/62-account-bound-offline.md",
-    "sha256": "54fdf57be10a558ad62fe60e1a310ca957b71a9559a067ef73ddcb379898c22e"
+    "sha256": "b6fc64b6ddbd6b4ea06ddb94482b09a91239ea1a40cd55d5e920cbff2b1edbf4"
   },
   {
     "path": "extra_features.py",
@@ -441,7 +441,7 @@
   },
   {
     "path": "intelliplan/sync/idempotency.py",
-    "sha256": "5aa3837664fb40e3bc24fe1dbf250b25f631a98ad4a8b87b4ddad90334c3c2c2"
+    "sha256": "17e48055649685954494ff86c644f716bc0b9b70736cb581df8ffa4f939b55ec"
   },
   {
     "path": "mobile/package-lock.json",

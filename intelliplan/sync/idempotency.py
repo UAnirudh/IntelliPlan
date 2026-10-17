@@ -111,7 +111,11 @@ def install(app: Any, db: Any, current_user_id: Callable[[], int | None]) -> typ
 
     @app.after_request
     def _record_op(response):  # pragma: no cover - exercised via client
-        if not request.path.startswith('/static/') and _owner():
+        # A route may have deleted/signed out its account or closed its ORM
+        # session. Cache safety must not reload that account after the route.
+        # Keep existing stronger no-store contracts (including camera APIs).
+        if (not request.path.startswith('/static/')
+                and not response.cache_control.no_store):
             response.headers['Cache-Control'] = 'private, no-store'
         op_id = getattr(g, "ip_sync_op_id", None)
         if not op_id or response.headers.get(REPLAY_HEADER):

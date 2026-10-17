@@ -97,11 +97,9 @@ This is why the queue is in IndexedDB. It used to be in localStorage, which
 a worker cannot read, so a wake-up could only poke an open tab — the one
 case where the queue would have flushed by itself.
 
-Historically, entries parked by the old localStorage queue were adopted into IndexedDB on
-first load and the old key is cleared. They get an op id at migration time,
-which makes their replays idempotent *with each other*; it cannot help
-against an attempt the server already saw unkeyed, and claiming otherwise
-would be worse than the gap.
+Legacy localStorage entries remain in their original store. They have no
+trustworthy owner, so they cannot be automatically replayed or assigned to the
+next account. Owner-validated recovery remains an explicit unresolved task.
 
 ## The replay ledger
 
@@ -140,8 +138,10 @@ The service worker:
 
 - **Static assets**: stale-while-revalidate. Safe because every URL carries
   a `?v=` fingerprint derived from file mtimes, so a deploy is a new key.
-- **Navigations**: network first, then that exact page from cache, then a
-  generic offline card. The page cache is capped at 24 entries.
+- **Navigations**: network first, then an exact permitted public-page copy
+  only when its response allowed caching, then the generic offline card.
+  Private rendered pages are never an offline fallback. The current conservative
+  server no-store rule also prevents public rendered-page caching.
 - **`/api/`, `/live`, `/oauth`, `/cron/`**: not intercepted at all.
 - Only genuine `200`s are cached — never redirects, which would otherwise
   pin a `/login` bounce in place of the real page.

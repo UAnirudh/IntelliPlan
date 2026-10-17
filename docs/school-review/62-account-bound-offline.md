@@ -28,8 +28,10 @@ is still required. No production records or queued edits were deleted.
 
 `static/js/ip-offline.js` keys new reads by owner and URL and sends the same
 owner assertion. It never falls back to cached reads after HTTP 4xx denial.
-Legacy unscoped copies are not selected. Authenticated non-static responses use
-`private, no-store`. The service worker caches only an explicit public-page
+Legacy unscoped copies are not selected. Non-static responses conservatively use
+`private, no-store` unless an existing no-store contract already applies. The
+response hook never reloads account state after a route has deleted/signed out
+the account. The service worker caches only an explicit public-page
 allowlist, respects those response directives and never searches old private
 page caches on navigation failure. Its activation removes the obsolete HTML
 cache; static update activation still requires the existing reload handshake.
@@ -65,3 +67,9 @@ offline operation and all packaged-client paths. The initial row read and
 replacement are not one serialized operation. Shared-origin JavaScript can
 still access browser storage; account keying is not encryption or an XSS defense.
 The original product transformation and school-adoption requirements remain open.
+
+The first full run exposed22 regressions: account state was accessed after a
+route expired/deleted it, and20 camera tests required the existing exact
+no-store contract. The response hook now avoids that account read and preserves
+existing no-store headers. Independent Python review approved the correction;
+fresh focused/full/hosted results remain required before release.
