@@ -155,16 +155,19 @@
       IP.toast('Report sent. Thanks for flagging it.', 'success');
     }).catch(function (err) {
       if (navigator.onLine === false || (err && err.retriable)) {
-        IP.queue.push({
+        return IP.queue.push({
           url: '/api/bug-report',
           body: { category: dlg.querySelector('#ipBugKind').value, message: message,
                   page_url: location.href, diagnostics: diag },
           label: 'bug report'
+        }).then(function () {
+          dlg.close();
+          field.value = '';
+          IP.toast('Saved. Your report sends as soon as you are back online.', 'info');
+        }, function () {
+          errEl.textContent = 'This report could not be saved offline. Your text is still here; reconnect and retry.';
+          errEl.hidden = false;
         });
-        dlg.close();
-        field.value = '';
-        IP.toast('Saved. Your report sends as soon as you are back online.', 'info');
-        return;
       }
       errEl.textContent = err.friendly ? err.friendly() : 'Could not send the report.';
       errEl.hidden = false;

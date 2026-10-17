@@ -25,3 +25,11 @@ image were verified, and its postmerge Tests/Security passed.
 This is a focused reduction in sign-in choice overload. Whole-product
 chat-first simplification, localization and the original acceptance ledger
 remain incomplete. No authentication, school policy or billing settings change.
+
+Release verification: PR109 merged at279fbecae4b646e1d4ddc35825ad5ce1477c1259.
+The exact public revision/schema check passed. Fresh production Chromium
+checks at375/1280px, JavaScript enabled/disabled, keyboard disclosure and
+visible preserved destinations passed. The homepage rawHTML and single visible
+loaded FoundrList badge also passed. Railway web5cc3d08b and newsletterf28c572b
+were SUCCESS/noissues; filtered startup errors0. Postmerge Tests39005377997
+and Security39005377999 passed before the next release.

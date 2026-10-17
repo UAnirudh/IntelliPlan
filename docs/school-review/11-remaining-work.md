@@ -231,3 +231,12 @@ regressions failed against the prior implementation; the final focused
 billing/growth/Premium run passes219 tests. Provider-backed refund/dispute
 reconciliation and full paid launch remain incomplete. See
 [paid-period revocation safety](61-paid-period-revocation-safety.md).
+
+The offline audit now binds new pending writes and API read copies to their
+account, checks owner assertions before routes/replay, retains failed and
+unowned legacy work, waits for durable enqueue before save confirmation and
+excludes private rendered HTML from shared offline navigation. Local29 sync
+tests and real Chromium storage/worker/service-worker scenarios pass.
+Broader storage, stale-tab cleanup, legacy recovery and concurrent replay
+serialization remain incomplete. See
+[account-bound offline state](62-account-bound-offline.md).

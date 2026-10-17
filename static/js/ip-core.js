@@ -432,19 +432,20 @@
 
     /** Park a write. Resolves with the new queue length. */
     push: function (entry) {
-      if (!Core) return Promise.resolve(0);
+      if (!Core) return Promise.reject(new Error('Offline storage unavailable'));
       return Core.enqueue(entry)
-        .then(refreshCount)
-        .catch(function () { return queueCount; });
+        .then(refreshCount);
     },
 
     /** Replay every parked write. Resolves with {sent, failed, kept}. */
     flush: function () {
       if (!Core) return Promise.resolve({ sent: 0, failed: 0, kept: 0 });
       return Core.flush().then(function (r) {
-        noteCount(r.kept);
-        if (r.sent) IP.emit('queue:flushed', { sent: r.sent, failed: r.failed });
-        return r;
+        return refreshCount().then(function () {
+          if (r.owner !== Core.pageOwner()) return { sent: 0, failed: 0, kept: queueCount };
+          if (r.sent) IP.emit('queue:flushed', { sent: r.sent, failed: r.failed });
+          return r;
+        });
       });
     },
 

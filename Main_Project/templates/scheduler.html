@@ -1574,7 +1574,7 @@ function pushProgress() {
     IP.queue.push({
       url: '/schedule/progress', method: 'POST', body: body,
       dedupeKey: 'schedule-progress', label: 'schedule progress'
-    });
+    }).catch(() => IP.toast('Progress is kept on this page but could not be queued. Reconnect and retry before leaving.', 'error'));
     return;
   }
 
@@ -1586,7 +1586,7 @@ function pushProgress() {
       IP.queue.push({
         url: '/schedule/progress', method: 'POST', body: body,
         dedupeKey: 'schedule-progress', label: 'schedule progress'
-      });
+      }).catch(() => IP.toast('Progress could not be queued. Reconnect and retry before leaving.', 'error'));
     }
   });
 }

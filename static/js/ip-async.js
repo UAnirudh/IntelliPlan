@@ -409,13 +409,27 @@
   IP.optimistic = function (cfg) {
     var label = cfg.label || 'change';
 
+    function failed(err) {
+      try { cfg.rollback(); }
+      catch (e) { IP.report(e, { kind: 'optimistic.rollback' }); }
+      var msg = err && err.friendly ? err.friendly() : 'Could not save your ' + label + '. Reconnect and retry.';
+      if (cfg.onError) cfg.onError(err);
+      else IP.toast(msg, 'error', { action: 'Retry', onAction: function () { IP.optimistic(cfg); } });
+      throw err;
+    }
+
+    function park(message) {
+      return IP.queue.push(cfg.queueOnOffline).then(function () {
+        IP.toast(message, 'info');
+        return { queued: true };
+      }, failed);
+    }
+
     try { cfg.apply(); }
     catch (e) { IP.report(e, { kind: 'optimistic.apply' }); return Promise.reject(e); }
 
     if (navigator.onLine === false && cfg.queueOnOffline) {
-      IP.queue.push(cfg.queueOnOffline);
-      IP.toast('Saved offline. This will sync when you reconnect.', 'info');
-      return Promise.resolve({ queued: true });
+      return park('Saved offline. This will sync when you reconnect.');
     }
 
     return cfg.commit().then(function (res) {
@@ -423,17 +437,9 @@
       return res;
     }, function (err) {
       if (err && err.retriable && cfg.queueOnOffline) {
-        IP.queue.push(cfg.queueOnOffline);
-        IP.toast('Could not reach the server. Your ' + label + ' will sync automatically.', 'info');
-        return { queued: true };
+        return park('Could not reach the server. Your ' + label + ' will sync automatically.');
       }
-      try { cfg.rollback(); }
-      catch (e) { IP.report(e, { kind: 'optimistic.rollback' }); }
-
-      var msg = err && err.friendly ? err.friendly() : 'Could not save your ' + label + '.';
-      if (cfg.onError) cfg.onError(err);
-      else IP.toast(msg, 'error', { action: 'Retry', onAction: function () { IP.optimistic(cfg); } });
-      throw err;
+      return failed(err);
     });
   };
 

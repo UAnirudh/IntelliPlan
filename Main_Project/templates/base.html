@@ -2,6 +2,7 @@
 <html lang="en" data-theme="light">
 <head>
   <meta charset="UTF-8" />
+  <meta name="ip-account-owner" content="{{ current_user.id if current_user is defined and current_user.is_authenticated else '' }}" />
   {# viewport-fit=cover is REQUIRED for env(safe-area-inset-*) to resolve to
      real values on notched iPhones, without it the insets are always 0. #}
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
