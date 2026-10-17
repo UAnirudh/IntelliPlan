@@ -8,7 +8,9 @@
 (function () {
   'use strict';
 
-  var STORE = 'ip_cc_thread_v1';
+  var STORE = 'ip_cc_thread_v2';
+  var owner = '';
+  var requestSerial = 0;
   var MAX_KEEP = 40;
   var thread, inner, input, send;
   var history = [];      // {role, content} sent to the agent
@@ -32,8 +34,10 @@
   }
 
   function save() {
+    if (!owner) return;
     try {
       sessionStorage.setItem(STORE, JSON.stringify({
+        owner: owner,
         history: history.slice(-MAX_KEEP), log: log.slice(-MAX_KEEP)
       }));
     } catch (e) { /* storage full or blocked: session-only */ }
@@ -133,6 +137,7 @@
     input.value = '';
     input.style.height = 'auto';
     sending = true;
+    var requestId = ++requestSerial;
     update();
     dropIntro();
     push({ t: 'msg', role: 'user', text: content });
@@ -143,15 +148,24 @@
     fetch('/api/plani/agent', {
       method: 'POST',
       credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-IntelliPlan-Chat-Owner': owner },
       body: JSON.stringify({ messages: history.slice(-12) })
     })
       .then(function (r) {
         return r.json().catch(function () { return {}; }).then(function (data) { return { status: r.status, data: data }; });
       })
       .then(function (res) {
+        if (requestId !== requestSerial) return;
         typing(false);
         var data = res.data || {};
+        if (data.error === 'account_changed') {
+          ++requestSerial;
+          history = [];
+          log = [];
+          try { sessionStorage.removeItem(STORE); } catch (e) {}
+          location.reload();
+          return;
+        }
         if (res.status === 401) {
           push({ t: 'msg', role: 'assistant', text: 'Sign in so I can work with your tasks and calendar: /login' });
           return;
@@ -166,15 +180,19 @@
         // Plani's navigate_to tool: go where it said, after the reply has
         // been read. The conversation is saved, so coming back restores it.
         if (data.navigate && /^\/[a-z0-9\-\/]*$/i.test(data.navigate)) {
-          setTimeout(function () { location.href = data.navigate; }, 1200);
+          setTimeout(function () {
+            if (requestId === requestSerial) location.href = data.navigate;
+          }, 1200);
         }
       })
       .catch(function () {
+        if (requestId !== requestSerial) return;
         typing(false);
         push({ t: 'msg', role: 'assistant', text: 'I could not reach IntelliPlan. Check your connection and try again.' });
         save();
       })
       .finally(function () {
+        if (requestId !== requestSerial) return;
         sending = false;
         update();
         scrollDown();
@@ -185,7 +203,13 @@
 
   function restore() {
     try {
+      // Legacy entries have no account provenance and cannot be migrated.
+      sessionStorage.removeItem('ip_cc_thread_v1');
       var saved = JSON.parse(sessionStorage.getItem(STORE) || 'null');
+      if (!owner || (saved && saved.owner !== owner)) {
+        sessionStorage.removeItem(STORE);
+        return;
+      }
       if (!saved || !Array.isArray(saved.log) || !saved.log.length) return;
       history = Array.isArray(saved.history) ? saved.history : [];
       dropIntro();
@@ -226,6 +250,8 @@
     input = document.getElementById('chatInput');
     send = document.getElementById('sendMessage');
     if (!thread || !inner || !input || !send) return;
+    var host = document.querySelector('[data-chat-owner]');
+    owner = host ? (host.getAttribute('data-chat-owner') || '') : '';
 
     document.getElementById('chatComposer').addEventListener('submit', function (e) {
       e.preventDefault();
@@ -247,6 +273,7 @@
       if (b) submit(b.dataset.prompt);
     });
     document.getElementById('newConversation').addEventListener('click', function () {
+      ++requestSerial;
       try { sessionStorage.removeItem(STORE); } catch (e) {}
       location.reload();
     });

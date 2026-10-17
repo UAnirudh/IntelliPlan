@@ -187,6 +187,13 @@ def test_an_account_with_no_work_is_offered_a_way_to_bring_some_in(client):
     assert "What should I focus on today?" not in html
 
 
+def test_command_chat_owner_comes_from_the_signed_in_account(client):
+    uid = _make_user(completed=True)
+    _sign_in(client, uid)
+    html = client.get('/command-center').get_data(as_text=True)
+    assert f'data-chat-owner="{uid}"' in html
+
+
 def test_reminders_are_offered_while_every_channel_is_off(client):
     assert 'id="commandRemind"' in _command_center(client)
 
