@@ -1,0 +1,63 @@
+{
+  "date": "2026-09-23",
+  "theme": "Prompting habits power users have",
+  "hook": {
+    "lines": ["The longer", "you chat,", "the *dumber*", "it gets."],
+    "sub": "+ 6 more things AI power users know"
+  },
+  "tips": [
+    {
+      "headline": "Long chats make it *dumber.*",
+      "why": "18 top models were tested. Every one got worse as the chat got longer.",
+      "label": "Hand it off",
+      "prompt": "Summarize this chat as a brief I can paste into a new chat.",
+      "source": "Chroma, 2025"
+    },
+    {
+      "headline": "It’s a *people-pleaser.*",
+      "why": "It learned from human ratings, and people rate agreement highly.",
+      "label": "Hide that it’s yours",
+      "prompt": "A classmate wrote this. Grade it harshly against this rubric.",
+      "source": "Anthropic, 2023"
+    },
+    {
+      "headline": "It can’t see *letters.*",
+      "why": "It reads text in chunks called tokens, so it miscounts words and letters.",
+      "label": "Make it use code",
+      "prompt": "Use code to count the words in my essay.",
+      "source": "How LLMs read"
+    },
+    {
+      "headline": "You’re on the *wrong model.*",
+      "why": "Thinking modes work step by step before they answer. Use them for hard problems.",
+      "label": "Switch modes",
+      "prompt": "Model menu → Thinking (or Reasoning) for math, code and plans.",
+      "source": "ChatGPT · Claude · Gemini"
+    },
+    {
+      "headline": "Document first. *Question last.*",
+      "why": "Paste the long text, then ask. Up to 30% better answers in tests.",
+      "label": "Order matters",
+      "prompt": "[paste the article]  Now: what are the 3 main risks?",
+      "source": "Anthropic docs"
+    },
+    {
+      "headline": "Say what to do. *And why.*",
+      "why": "“Don’t” still plants the idea. A clear target plus a reason gets followed.",
+      "label": "Target + reason",
+      "prompt": "Explain it in 5 short sentences, because my grandma is reading it.",
+      "source": "Anthropic docs"
+    },
+    {
+      "headline": "Make it *write the prompt.*",
+      "why": "It knows what it needs. Save the prompts that work and reuse them.",
+      "label": "After a great answer",
+      "prompt": "Write the prompt that would get this exact result in one shot.",
+      "source": "Power-user habit"
+    }
+  ],
+  "cta": {
+    "lines": ["Save this.", "Follow for", "*one a day.*"],
+    "sub": "New AI tips every morning."
+  }
+}
