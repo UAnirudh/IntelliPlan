@@ -217,3 +217,9 @@ responsive and navigation evidence passes; hosted and release proof remain
 separate. The existing FoundrList homepage badge is preserved. See
 [simpler sign-in](59-simpler-sign-in.md). Whole-product chat-first interaction,
 localization and the original engineering requirements remain incomplete.
+
+The next chat privacy slice binds browser conversation restoration to the
+authenticated page owner, discards unowned legacy caches, rejects stale account
+requests before provider work and guards late replies/navigation after reset.
+230 focused Python and seven Node cases pass; hosted and deployment proof
+remain separate. See [account-scoped chat](60-account-scoped-chat.md).

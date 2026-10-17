@@ -139,6 +139,7 @@ def create_command_center_blueprint(deps: CommandCenterDeps) -> Blueprint:
         deps.emit_signal(uid, "command_center_opened", subject_type="briefing")
         return render_template("command_center.html",
                                active_page="command_center",
+                               chat_owner=str(uid),
                                **deps.page_context(uid))
 
     # ── API ──────────────────────────────────────────────────────────

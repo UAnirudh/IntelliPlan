@@ -5,7 +5,7 @@
 {# A fixed app surface: the header row and composer stay put and only the
    conversation scrolls. It used to be a tall page inside the app shell's
    own <main>, so the whole page scrolled and the composer drifted. #}
-<section class="command-chat" aria-label="Command Center" data-assistant-name="{{ assistant_name }}">
+<section class="command-chat" aria-label="Command Center" data-assistant-name="{{ assistant_name }}" data-chat-owner="{{ chat_owner }}">
   <div class="command-chat__header">
     <h1 class="command-chat__title">Command Center</h1>
     <div class="command-chat__actions">

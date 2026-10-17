@@ -72,6 +72,29 @@ def signed_client(account):
     return client
 
 
+@pytest.mark.parametrize('owner', ['another-account', ''])
+def test_chat_rejects_stale_account_before_provider_work(account, monkeypatch, owner):
+    provider = Mock(side_effect=AssertionError('provider must not receive stale history'))
+    monkeypatch.setattr(plani, 'ai_available', provider)
+    response = signed_client(account).post('/api/plani/agent',
+        headers={'X-IntelliPlan-Chat-Owner': owner},
+        json={'messages': [{'role': 'user', 'content': 'Private old account conversation'}]})
+    assert response.status_code == 409
+    assert response.get_json()['error'] == 'account_changed'
+    assert 'Private old account' not in response.get_data(as_text=True)
+    provider.assert_not_called()
+
+
+@pytest.mark.parametrize('include_owner', [True, False])
+def test_chat_current_owner_and_legacy_clients_keep_normal_gates(account, monkeypatch, include_owner):
+    provider = Mock(return_value=False)
+    monkeypatch.setattr(plani, 'ai_available', provider)
+    headers = {'X-IntelliPlan-Chat-Owner': str(account[0])} if include_owner else {}
+    response = signed_client(account).post('/api/plani/agent', headers=headers, json={'message': 'Help'})
+    assert response.status_code == 503
+    provider.assert_called_once()
+
+
 @pytest.mark.parametrize(('name', 'key'), [
     ('get_schedule', 'scheduler'), ('generate_schedule', 'scheduler'),
     ('adjust_schedule', 'scheduler'),
