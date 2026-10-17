@@ -77,11 +77,20 @@ REVIEWS = Table(
 _READY = False
 
 
+def _mongo(db):
+    if getattr(db, "is_mongo_store", False) is not True:
+        return None
+    from .mongo_store import MongoFlashcards
+    return MongoFlashcards(db)
+
+
 def _now() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 def ensure_tables(db) -> None:
+    if native := _mongo(db):
+        return native.ensure_tables()
     global _READY
     if _READY:
         return
@@ -93,6 +102,8 @@ def ensure_tables(db) -> None:
 
 def create_deck(db, user_id: int, name: str, *, description: str = "",
                 source: str = "manual") -> int:
+    if native := _mongo(db):
+        return native.create_deck(user_id, name, description=description, source=source)
     res = db.session.execute(DECKS.insert().values(
         user_id=user_id, name=name.strip()[:200] or "Untitled deck",
         description=(description or "")[:2000], source=source,
@@ -109,6 +120,8 @@ def create_deck(db, user_id: int, name: str, *, description: str = "",
 def list_decks(db, user_id: int) -> list[dict]:
     """Every deck with the two counts a student actually acts on: how many
     cards are due right now, and how many have never been seen."""
+    if native := _mongo(db):
+        return native.list_decks(user_id)
     now = _now()
     rows = db.session.execute(
         select(DECKS).where(DECKS.c.user_id == user_id, DECKS.c.archived.isnot(True))
@@ -140,6 +153,8 @@ def list_decks(db, user_id: int) -> list[dict]:
 
 
 def get_deck(db, user_id: int, deck_id: int) -> dict | None:
+    if native := _mongo(db):
+        return native.get_deck(user_id, deck_id)
     row = db.session.execute(
         select(DECKS).where(DECKS.c.id == deck_id, DECKS.c.user_id == user_id)
     ).mappings().first()
@@ -147,6 +162,8 @@ def get_deck(db, user_id: int, deck_id: int) -> dict | None:
 
 
 def delete_deck(db, user_id: int, deck_id: int) -> bool:
+    if native := _mongo(db):
+        return native.delete_deck(user_id, deck_id)
     if not get_deck(db, user_id, deck_id):
         return False
     card_ids = [r[0] for r in db.session.execute(
@@ -160,6 +177,8 @@ def delete_deck(db, user_id: int, deck_id: int) -> bool:
 
 
 def update_deck(db, user_id: int, deck_id: int, **fields) -> bool:
+    if native := _mongo(db):
+        return native.update_deck(user_id, deck_id, **fields)
     allowed = {k: v for k, v in fields.items()
                if k in ("name", "description", "new_per_day", "target_retention", "archived")}
     if not allowed or not get_deck(db, user_id, deck_id):
@@ -174,6 +193,8 @@ def update_deck(db, user_id: int, deck_id: int, **fields) -> bool:
 
 def add_cards(db, user_id: int, deck_id: int, cards: list) -> int:
     """Bulk insert. ``cards`` are ParsedCard-shaped: front, back, tags, type."""
+    if native := _mongo(db):
+        return native.add_cards(user_id, deck_id, cards)
     if not cards:
         return 0
     now = _now()
@@ -221,6 +242,8 @@ def due_queue(db, user_id: int, deck_id: int | None = None, limit: int = 60) -> 
     ones who is shown new material first ends the session with the reviews
     undone, which is exactly the backlog spaced repetition exists to prevent.
     """
+    if native := _mongo(db):
+        return native.due_queue(user_id, deck_id, limit)
     now = _now()
     where = [CARDS.c.user_id == user_id, CARDS.c.suspended.isnot(True)]
     if deck_id:
@@ -281,6 +304,8 @@ def due_forecast(db, user_id: int, start: datetime, days: int = 7) -> dict[str, 
     against. Anything already overdue is counted on the first day, because
     that is when the student will actually face it.
     """
+    if native := _mongo(db):
+        return native.due_forecast(user_id, start, days)
     ensure_tables(db)
     first = start.date()
     last = first + timedelta(days=max(1, days) - 1)
@@ -306,6 +331,8 @@ def due_forecast(db, user_id: int, start: datetime, days: int = 7) -> dict[str, 
 
 def grade_card(db, user_id: int, card_id: int, rating: int) -> dict | None:
     """Apply a grade and persist both the new schedule and the review row."""
+    if native := _mongo(db):
+        return native.grade_card(user_id, card_id, rating)
     row = db.session.execute(
         select(CARDS).where(CARDS.c.id == card_id, CARDS.c.user_id == user_id)
     ).mappings().first()
@@ -350,6 +377,8 @@ def grade_card(db, user_id: int, card_id: int, rating: int) -> dict | None:
 
 def card_previews(db, user_id: int, card_id: int) -> dict[str, float] | None:
     """What each button would schedule, for the button labels."""
+    if native := _mongo(db):
+        return native.card_previews(user_id, card_id)
     row = db.session.execute(
         select(CARDS).where(CARDS.c.id == card_id, CARDS.c.user_id == user_id)
     ).mappings().first()
@@ -369,6 +398,8 @@ def card_previews(db, user_id: int, card_id: int) -> dict[str, float] | None:
 
 def stats(db, user_id: int) -> dict:
     """Counts a student reads at a glance, plus the week's review history."""
+    if native := _mongo(db):
+        return native.stats(user_id)
     now = _now()
     total = db.session.execute(
         select(func.count()).where(CARDS.c.user_id == user_id)).scalar() or 0

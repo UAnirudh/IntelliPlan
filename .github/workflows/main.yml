@@ -18,7 +18,7 @@ jobs:
       - name: Install app dependencies
         # pytest explicitly: the unit-test step below runs before the
         # Playwright install that used to be the only thing pulling it in.
-        run: pip install -r requirements.txt pytest
+        run: pip install -r requirements.txt -r requirements-mongodb.txt pytest
       - name: Import smoke test (catches dup routes, syntax errors, missing imports)
         env:
           DATABASE_URL: "sqlite:///:memory:"
