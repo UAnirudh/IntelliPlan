@@ -70,6 +70,8 @@ jobs:
         env:
           CALENDAR_BROWSER_OUTPUT: ${{ runner.temp }}/tutor-browser-proof/calendar-health
         run: python scripts/verify_calendar_outage_browser.py
+      - name: Offline account isolation and durable queue workflows
+        run: python scripts/verify_offline_owner_browser.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:

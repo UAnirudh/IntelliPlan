@@ -30,6 +30,12 @@ def build_blueprint(SyncOp: type, current_user_id: Callable[[], int | None]) -> 
         except (TypeError, ValueError):
             return 0
 
+    @bp.route("/api/sync/owner", methods=["GET"])
+    def current_owner():
+        response = jsonify({"owner": str(_owner()) if _owner() else None})
+        response.headers['Cache-Control'] = 'private, no-store'
+        return response
+
     @bp.route("/api/sync/ops/check", methods=["POST"])
     def check_ops():
         data = request.get_json(silent=True) or {}

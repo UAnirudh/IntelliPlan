@@ -3,6 +3,21 @@
 How IntelliPlan behaves without a connection, what it deliberately refuses
 to do, and where the seams are.
 
+## Account ownership and recovery
+
+New queued writes and read-cache entries are bound to the authenticated page
+owner. Background replay verifies the current server account and sends an owner
+assertion checked before mutation. Shared page-cache fallback now contains only
+public HTML; authenticated private pages show the offline card. HTTP permission
+denials never trigger cached API fallback. See the code-linked acceptance and
+browser evidence in [report62](school-review/62-account-bound-offline.md).
+
+Unowned legacy writes remain stored but cannot be safely auto-assigned. Failed
+writes remain stored after HTTP rejection or retry exhaustion, and a full queue
+rejects the new enqueue instead of evicting existing work. UI save confirmation
+waits for storage commit. Legacy owner-validated recovery and comprehensive
+concurrent worker/page serialization remain incomplete.
+
 ## The shape of it
 
 Four pieces, each with one job:
@@ -27,7 +42,7 @@ say which it had received. The worker now leaves `/api/` alone entirely.
 
 ## Reads
 
-`IP.offline.read(url)` fetches, stores the result in IndexedDB on success,
+`IP.offline.read(url)` fetches, stores the result by owner and URL on success,
 and falls back to the stored copy on failure. It resolves with:
 
 ```js
@@ -52,8 +67,8 @@ A write attempted offline is parked in `IP.queue` with:
 - a `dedupeKey`, so repeated edits to the same field collapse to the latest.
 
 On reconnect (the `online` event, or a page load) the queue replays each
-entry with an `X-IP-Op-Id` header. A 4xx is treated as permanent and
-dropped; anything else is retried up to five times.
+entry with `X-IP-Op-Id` and `X-IP-Queue-Owner` headers. Rejected or repeatedly
+failing entries remain stored. Ownership failures do not consume retry counts.
 
 `IP.request` also mints an op id for any **mutating request with retries
 enabled**. Before this, `retryUnsafe: true` could apply a write twice on a
@@ -82,11 +97,9 @@ This is why the queue is in IndexedDB. It used to be in localStorage, which
 a worker cannot read, so a wake-up could only poke an open tab — the one
 case where the queue would have flushed by itself.
 
-Entries parked by the old localStorage queue are adopted into IndexedDB on
-first load and the old key is cleared. They get an op id at migration time,
-which makes their replays idempotent *with each other*; it cannot help
-against an attempt the server already saw unkeyed, and claiming otherwise
-would be worse than the gap.
+Legacy localStorage entries remain in their original store. They have no
+trustworthy owner, so they cannot be automatically replayed or assigned to the
+next account. Owner-validated recovery remains an explicit unresolved task.
 
 ## The replay ledger
 
@@ -125,8 +138,10 @@ The service worker:
 
 - **Static assets**: stale-while-revalidate. Safe because every URL carries
   a `?v=` fingerprint derived from file mtimes, so a deploy is a new key.
-- **Navigations**: network first, then that exact page from cache, then a
-  generic offline card. The page cache is capped at 24 entries.
+- **Navigations**: network first, then an exact permitted public-page copy
+  only when its response allowed caching, then the generic offline card.
+  Private rendered pages are never an offline fallback. The current conservative
+  server no-store rule also prevents public rendered-page caching.
 - **`/api/`, `/live`, `/oauth`, `/cron/`**: not intercepted at all.
 - Only genuine `200`s are cached — never redirects, which would otherwise
   pin a `/login` bounce in place of the real page.

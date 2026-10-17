@@ -19,3 +19,9 @@ owner binding and reset races. Independent Python, JavaScript and spec reviews
 found no issues in the reviewed scope; the final delayed-navigation guard has
 its own passing regression. Hosted and deployment checks remain release gates.
 The original acceptance ledger remains incomplete.
+
+Release verification: PR110 merged at03de1f1e6cf90080b70ec29a0aeaf094371f2318,
+after PR109's exact-revision postmerge gate passed. Public revision/schema
+checks passed; Railway weba3499019 and newsletter88f27ea1 are SUCCESS/noissues.
+Postmerge Tests39005887231 passed. Production source delivery is verified;
+no real student's conversation or consent was created for testing.

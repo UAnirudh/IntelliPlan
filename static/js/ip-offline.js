@@ -67,15 +67,17 @@
     });
   }
 
-  function putRead(url, data) {
+  function putRead(url, data, owner) {
+    if (!owner) return Promise.resolve();
     return tx('readwrite', function (store) {
-      store.put({ url: url, data: data, ts: Date.now() });
+      store.put({ url: owner + '\n' + url, owner: owner, data: data, ts: Date.now() });
     }).catch(function () { /* a cache that cannot write is not an error */ });
   }
 
-  function getRead(url) {
+  function getRead(url, owner) {
+    if (!owner) return Promise.resolve(null);
     return tx('readonly', function (store) {
-      return store.get(url);
+      return store.get(owner + '\n' + url);
     }).catch(function () { return null; });
   }
 
@@ -90,18 +92,23 @@
    */
   function read(url, options) {
     var opts = options || {};
+    var owner = Core ? Core.pageOwner() : '';
     var offlineNow = navigator.onLine === false;
 
     var fromNetwork = offlineNow
       ? Promise.reject(new Error('offline'))
       : IP.request(url, { retries: opts.retries != null ? opts.retries : 1,
+                          dedupe: false,
+                          headers: owner ? { 'X-IP-Queue-Owner': owner } : {},
                           timeout: opts.timeout });
 
     return fromNetwork.then(function (data) {
-      putRead(url, data);
+      putRead(url, data, owner);
       return { data: data, fromCache: false, cachedAt: Date.now(), stale: false };
     }, function (err) {
-      return getRead(url).then(function (row) {
+      // An authentication or policy denial is not an offline network failure.
+      if (err && err.status >= 400 && err.status < 500) throw err;
+      return getRead(url, owner).then(function (row) {
         if (!row) throw err;
         var age = Date.now() - (row.ts || 0);
         return {
@@ -115,11 +122,12 @@
   }
 
   function cachedAt(url) {
-    return getRead(url).then(function (row) { return row ? row.ts : null; });
+    return getRead(url, Core ? Core.pageOwner() : '').then(function (row) { return row ? row.ts : null; });
   }
 
   function forget(url) {
-    return tx('readwrite', function (store) { store.delete(url); })
+    var owner = Core ? Core.pageOwner() : '';
+    return tx('readwrite', function (store) { store.delete(owner + '\n' + url); })
       .catch(function () {});
   }
 
@@ -206,6 +214,7 @@
     navigator.serviceWorker.addEventListener('message', function (event) {
       var data = event.data || {};
       if (data.type === 'ip-queue-flushed' && IP.queue) {
+        if (!Core || !data.result || data.result.owner !== Core.pageOwner()) return;
         IP.queue.refresh().then(renderStatus);
         var sent = (data.result || {}).sent || 0;
         if (sent && IP.toast) {

@@ -231,3 +231,36 @@ def test_ops_check_does_not_reveal_another_students_ops(client, user_id):
     body = client.post("/api/sync/ops/check",
                        json={"op_ids": ["op-private"]}).get_json()
     assert body["applied"] == {}
+
+
+@pytest.mark.parametrize('owner_header', ['', '999999', '0'])
+def test_stale_offline_owner_cannot_mutate_or_record_replay(client, user_id, owner_header):
+    login(client, user_id)
+    response = client.post('/dismiss', json={'title': 'Other account work'}, headers={
+        OP_ID_HEADER: 'op-stale-owner', 'X-IP-Queue-Owner': owner_header})
+    assert response.status_code == 409
+    assert response.get_json()['error'] == 'account_changed'
+    with App.app.app_context():
+        assert not DismissedAssignment.query.filter_by(user_id=user_id).count()
+        assert not App.SyncOp.query.filter_by(user_id=user_id, op_id='op-stale-owner').count()
+
+
+def test_matching_offline_owner_replays_and_signed_out_request_is_preserved(client, user_id):
+    login(client, user_id)
+    headers = {OP_ID_HEADER: 'op-owned', 'X-IP-Queue-Owner': str(user_id)}
+    assert client.post('/dismiss', json={'title': 'Owned work'}, headers=headers).status_code == 200
+    assert client.post('/dismiss', json={'title': 'Owned work'}, headers=headers).headers[REPLAY_HEADER] == '1'
+    with client.session_transaction() as session:
+        session.clear()
+    # Check before ledger replay, even when the operation was already applied.
+    assert client.post('/dismiss', json={'title': 'Owned work'}, headers=headers).status_code == 409
+
+
+def test_offline_identity_and_reads_cannot_use_a_stale_owner(client, user_id):
+    assert client.get('/api/sync/owner').get_json() == {'owner': None}
+    login(client, user_id)
+    identity = client.get('/api/sync/owner')
+    assert identity.get_json() == {'owner': str(user_id)}
+    assert 'no-store' in identity.headers['Cache-Control']
+    assert client.get('/api/sync/owner', headers={'X-IP-Queue-Owner': 'stale'}).status_code == 409
+    assert 'no-store' in client.get('/dashboard').headers['Cache-Control']

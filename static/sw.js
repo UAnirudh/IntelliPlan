@@ -38,7 +38,11 @@
 importScripts('/static/js/ip-queue-core.js');
 
 const CACHE_NAME = 'intelliplan-v5';
-const PAGE_CACHE = 'intelliplan-pages-v1';
+const PAGE_CACHE = 'intelliplan-public-pages-v2';
+// Rendered signed-in HTML carries private account data. It must not be a
+// shared offline fallback after logout/account switching. Account-scoped API
+// copies remain owned by IP.offline; only a public shell is cached here.
+const PUBLIC_PAGES = new Set(['/', '/offline', '/privacy', '/terms', '/cookies']);
 
 // The shell a student is most likely to return to. Anything failing to
 // precache must not fail the install — one 302 on /dashboard for a signed-
@@ -154,6 +158,7 @@ function isCacheableResponse(response) {
          response.ok &&
          response.status === 200 &&
          response.type !== 'opaqueredirect' &&
+         !/no-store|private/i.test(response.headers.get('Cache-Control') || '') &&
          !response.redirected;
 }
 
@@ -201,14 +206,16 @@ self.addEventListener('fetch', event => {
     event.respondWith((async () => {
       try {
         const resp = await fetch(request);
-        if (isCacheableResponse(resp)) {
+        if (PUBLIC_PAGES.has(url.pathname) && !url.search && isCacheableResponse(resp)) {
           const cache = await caches.open(PAGE_CACHE);
           cache.put(request, resp.clone());
           trimCache(PAGE_CACHE, MAX_CACHED_PAGES);
         }
         return resp;
       } catch (err) {
-        const cached = await caches.match(request, { ignoreSearch: true });
+        const publicCache = await caches.open(PAGE_CACHE);
+        const cached = PUBLIC_PAGES.has(url.pathname) && !url.search
+          ? await publicCache.match(request, { ignoreSearch: false }) : null;
         if (cached) return cached;
         const offline = await caches.match(OFFLINE_PAGE);
         return offline || new Response(OFFLINE_HTML, {

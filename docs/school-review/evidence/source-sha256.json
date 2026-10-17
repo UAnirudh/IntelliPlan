@@ -9,7 +9,7 @@
   },
   {
     "path": ".github/workflows/main.yml",
-    "sha256": "47707c18758d676944f59b4b2690669ab7a6a5e73c64998a00505e9631dd5151"
+    "sha256": "1675c0b25551f5eb5bbe9f1b9ca6d3163035263c6a3fc97beb6ed4661895d523"
   },
   {
     "path": ".github/workflows/security.yml",
@@ -28,6 +28,10 @@
     "sha256": "fc10ec6e03ff4b35991a345b0ed0a04c933316eb03275669d42bf24141271e52"
   },
   {
+    "path": "Main_Project/templates/base.html",
+    "sha256": "04bee315650b4ed375246785b82837a5a0a0971872a23084340552f882f3a25c"
+  },
+  {
     "path": "Main_Project/templates/command_center.html",
     "sha256": "bc3f8ef6afb1c6f1b3240fce32969b813d78c90362043551c5ab1950396f2341"
   },
@@ -42,6 +46,10 @@
   {
     "path": "Main_Project/templates/partials/study_camera_source.html",
     "sha256": "1d2f5ac5f843f3215a077e24a91275a5ad267e311b04bdd995763bb6d3a0c81e"
+  },
+  {
+    "path": "Main_Project/templates/scheduler.html",
+    "sha256": "4dd13784b4cfb18110e3cd5ddd236b867d6a2175a5c988439403306624fd3dac"
   },
   {
     "path": "Main_Project/templates/school_admin.html",
@@ -120,12 +128,16 @@
     "sha256": "89d6c401a28657551a5c02cfae1bddbd2b6e89e6b7b49abfb5c2f2c541e5ea1c"
   },
   {
+    "path": "docs/offline-architecture.md",
+    "sha256": "5ebf81451caa44526aef34becbdcb0bef40abcaa777a9a676ae1fd8ae2de6fc0"
+  },
+  {
     "path": "docs/premium.md",
     "sha256": "32840fd41b828f9587fcd55e023e001a789014d92c85748404b03cbabe124e2f"
   },
   {
     "path": "docs/school-review/11-remaining-work.md",
-    "sha256": "a17cd8af0caf65764ac669d6a4270918a420aa190147eae00d486bc84fb54922"
+    "sha256": "ed0e069f03dee5eed7508328617504e0abb3d1e55f3c27961373c81311e67fed"
   },
   {
     "path": "docs/school-review/37-adaptive-source-policy.md",
@@ -217,15 +229,19 @@
   },
   {
     "path": "docs/school-review/59-simpler-sign-in.md",
-    "sha256": "30ca8059c1f8a4bb21130879ff1ab620507885b32276ea73fc7f9c4a759dad93"
+    "sha256": "929efc52fab44c4f74d2820471e4f1e898afa2751b79614abf76811d9195a892"
   },
   {
     "path": "docs/school-review/60-account-scoped-chat.md",
-    "sha256": "4312da6c1173cf36276f9d2098218c8609dc90a28e6724bcf90ab6a675098e12"
+    "sha256": "08c1274f6a222199df132fd65cca1fcb40d32e55f953cf6a4b6990843b324168"
   },
   {
     "path": "docs/school-review/61-paid-period-revocation-safety.md",
-    "sha256": "db240b7524c611d2787f51d23bb65ed8935a122b37513d000ac241dfb0af0f30"
+    "sha256": "fb11c7078bb685053e7c0080b195dc4fe641052f0aa7ac18f018ad715ee511ce"
+  },
+  {
+    "path": "docs/school-review/62-account-bound-offline.md",
+    "sha256": "b6fc64b6ddbd6b4ea06ddb94482b09a91239ea1a40cd55d5e920cbff2b1edbf4"
   },
   {
     "path": "extra_features.py",
@@ -420,6 +436,14 @@
     "sha256": "12019a17cc9882fde64038073a96e99c97aaae5de4b12f7e488d5e01ac59c75d"
   },
   {
+    "path": "intelliplan/sync/api.py",
+    "sha256": "97a8ab6efd3369de665544c82c85b5be561c03b7e5f9a435a8c7312430a014ae"
+  },
+  {
+    "path": "intelliplan/sync/idempotency.py",
+    "sha256": "17e48055649685954494ff86c644f716bc0b9b70736cb581df8ffa4f939b55ec"
+  },
+  {
     "path": "mobile/package-lock.json",
     "sha256": "ef0fcf565c8447430683766c479650eac73d27546f4fb8e8655c97ea5f6f0176"
   },
@@ -492,6 +516,10 @@
     "sha256": "49b2a8bbf88b22defe84cbf9959fe958a3cd12c43737e45270c5b323845dd9cb"
   },
   {
+    "path": "scripts/verify_offline_owner_browser.py",
+    "sha256": "53430c84dfc6763fb742e76ef94b53f7fe5d6333e50fe057d57529242458a5b9"
+  },
+  {
     "path": "scripts/verify_phone_camera_browser.py",
     "sha256": "48871940d2f467dfa3e94853fa713f41ca124ff5485d4f23d0be30631d053a5e"
   },
@@ -544,8 +572,28 @@
     "sha256": "1438cbe4a0e9119fd27286ca8763b8a16eeb6614067d3f0f3a350a64db504791"
   },
   {
+    "path": "static/js/ip-async.js",
+    "sha256": "7b1bebf9cff633cc9216c5cd2c2322203f2cf9289808f284fd9b6e228c39f6fd"
+  },
+  {
+    "path": "static/js/ip-core.js",
+    "sha256": "f17e0faf77102637104933acdbc22c6dee04bd71683b05aa12c550a7f934e8ee"
+  },
+  {
     "path": "static/js/ip-focus.js",
     "sha256": "ce3c5bbc74bbb45cd24a3fc288755695e5eeb2bfe85441f63d9cf0e00358bab7"
+  },
+  {
+    "path": "static/js/ip-offline.js",
+    "sha256": "209ebd42cd0c1c160f6152afb16a0aa6779e7c196fb15d31850401f5bc91b51b"
+  },
+  {
+    "path": "static/js/ip-queue-core.js",
+    "sha256": "97e723098e554e3341d0d15af32ff8b18819853427c66b8f1f1124d7acbcd044"
+  },
+  {
+    "path": "static/js/ip-report.js",
+    "sha256": "3c2da9e9948ebed4ff5a19ef0b05b3b7ccfc91f7334d89c7fd5a6107db39db85"
   },
   {
     "path": "static/js/learning_content.js",
@@ -577,7 +625,7 @@
   },
   {
     "path": "static/sw.js",
-    "sha256": "8421be4bea2624c516b47888b838d44ff85837836b7700d48c4c890511c0d02e"
+    "sha256": "ed0f0b0f9f98234522e33a322fa10c226af81491209b82de600badd5ef91f9f3"
   },
   {
     "path": "static/vendor/learning-content/README.md",
@@ -1054,6 +1102,10 @@
   {
     "path": "tests/test_study_generate_inputs.py",
     "sha256": "19fbde441ecdefa9bf797d746158185a1684d3a4fdbf0b94f00774eb7300d73f"
+  },
+  {
+    "path": "tests/test_sync_idempotency.py",
+    "sha256": "9a6ad1bbd2ed3e6905452545d3458318ffb209fd9cbba0bf3086b831a102ed18"
   },
   {
     "path": "tests/test_tutor_assignment_api.py",

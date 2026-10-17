@@ -38,6 +38,19 @@
   var MAX_TRIES   = 5;
   var OP_ID_HEADER = 'X-IP-Op-Id';
 
+  function pageOwner() {
+    var meta = scope.document && scope.document.querySelector('meta[name="ip-account-owner"]');
+    return meta ? meta.content : '';
+  }
+
+  function networkOwner() {
+    return fetch('/api/sync/owner', { credentials: 'same-origin', cache: 'no-store', redirect: 'error' })
+      .then(function (resp) {
+        if (!resp.ok) throw new Error('Account verification unavailable');
+        return resp.json();
+      }).then(function (data) { return typeof data.owner === 'string' ? data.owner : ''; });
+  }
+
   /* ── Connection ───────────────────────────────────────────────────── */
 
   var dbPromise = null;
@@ -100,7 +113,7 @@
 
   /* ── Queue ────────────────────────────────────────────────────────── */
 
-  function all() {
+  function storedItems() {
     return tx(QUEUE_STORE, 'readonly', function (store) {
       return store.getAll();
     }).then(function (rows) {
@@ -108,9 +121,15 @@
     }).catch(function () { return []; });
   }
 
+  function all() {
+    var owner = pageOwner();
+    return storedItems().then(function (rows) {
+      return owner ? rows.filter(function (row) { return row.owner === owner; }) : [];
+    });
+  }
+
   function size() {
-    return tx(QUEUE_STORE, 'readonly', function (store) { return store.count(); })
-      .catch(function () { return 0; });
+    return all().then(function (rows) { return rows.length; });
   }
 
   function remove(id) {
@@ -119,8 +138,7 @@
   }
 
   function put(item) {
-    return tx(QUEUE_STORE, 'readwrite', function (store) { store.put(item); })
-      .catch(function () {});
+    return tx(QUEUE_STORE, 'readwrite', function (store) { store.put(item); });
   }
 
   /**
@@ -132,7 +150,10 @@
    * ledger in intelliplan/sync for why that is the whole ballgame.
    */
   function enqueue(entry) {
+    var owner = pageOwner();
+    if (!owner) return Promise.reject(new Error('Sign in before saving an offline change'));
     var item = {
+      owner: owner,
       id: 'q' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
       opId: entry.opId || newOpId(),
       url: entry.url,
@@ -148,14 +169,14 @@
       if (item.dedupeKey) {
         doomed = rows.filter(function (r) { return r.dedupeKey === item.dedupeKey; });
       }
-      // Oldest-out when full. A queue that refuses new writes because it is
-      // full loses the write the student just made, which is the one they
-      // are still looking at.
-      var surplus = (rows.length - doomed.length) - (MAX_ITEMS - 1);
-      if (surplus > 0) doomed = doomed.concat(rows.slice(0, surplus));
+      if (rows.length - doomed.length >= MAX_ITEMS) {
+        throw new Error('Offline queue full. Reconnect before saving more changes.');
+      }
 
-      return Promise.all(doomed.map(function (r) { return remove(r.id); }))
-        .then(function () { return put(item); })
+      return tx(QUEUE_STORE, 'readwrite', function (store) {
+          doomed.forEach(function (row) { store.delete(row.id); });
+          store.put(item);
+        })
         .then(function () { return item; });
     });
   }
@@ -165,6 +186,7 @@
   function sendOne(item) {
     var headers = { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' };
     if (item.opId) headers[OP_ID_HEADER] = item.opId;
+    headers['X-IP-Queue-Owner'] = item.owner;
     var body = item.body;
     if (body != null && typeof body !== 'string') {
       headers['Content-Type'] = 'application/json';
@@ -190,36 +212,49 @@
    */
   function flush() {
     if (scope.navigator && scope.navigator.onLine === false) {
-      return size().then(function (n) { return { sent: 0, failed: 0, kept: n }; });
+      return size().then(function (n) { return { owner: pageOwner(), sent: 0, failed: 0, kept: n }; });
     }
-    return all().then(function (items) {
-      if (!items.length) return { sent: 0, failed: 0, kept: 0 };
+    var verifiedOwner = '';
+    return networkOwner().then(function (owner) {
+      verifiedOwner = owner;
+      return storedItems().then(function (rows) {
+        if (scope.document && owner !== pageOwner()) return [];
+        return owner ? rows.filter(function (row) { return row.owner === owner; }) : [];
+      });
+    }).then(function (items) {
+      if (!items.length) return { owner: verifiedOwner, sent: 0, failed: 0, kept: 0 };
       var sent = 0, failed = 0, kept = 0;
 
       return items.reduce(function (chain, item) {
         return chain.then(function () {
           return sendOne(item).then(function (resp) {
             if (resp.ok) { sent++; return remove(item.id); }
-            // 4xx is a verdict, not a hiccup: the same bytes will be
-            // rejected the same way forever, so drop it rather than loop.
-            // 429 is the exception — that one means "later".
+            // Re-authentication may recover this exact operation. Preserve it
+            // without consuming retries or assigning it to the new account.
+            if (resp.status === 401 || resp.status === 403 || resp.status === 409) {
+              kept++;
+              return;
+            }
+            // Keep rejected work for recovery; a server verdict is not
+            // permission to discard the student's only durable copy.
             if (resp.status >= 400 && resp.status < 500 && resp.status !== 429) {
               failed++;
-              return remove(item.id);
+              kept++;
+              item.lastStatus = resp.status;
+              return put(item);
             }
             throw new Error('http ' + resp.status);
           });
         }).catch(function () {
-          item.tries = (item.tries || 0) + 1;
-          if (item.tries >= MAX_TRIES) { failed++; return remove(item.id); }
+          item.tries = Math.min(MAX_TRIES, (item.tries || 0) + 1);
           kept++;
           return put(item);
         });
       }, Promise.resolve()).then(function () {
-        return { sent: sent, failed: failed, kept: kept };
+        return { owner: verifiedOwner, sent: sent, failed: failed, kept: kept };
       });
     }).catch(function () {
-      return { sent: 0, failed: 0, kept: 0 };
+      return size().then(function (n) { return { owner: pageOwner(), sent: 0, failed: 0, kept: n }; });
     });
   }
 
@@ -236,15 +271,9 @@
    */
   function migrateFrom(items) {
     if (!Array.isArray(items) || !items.length) return Promise.resolve(0);
-    return items.reduce(function (chain, old) {
-      return chain.then(function (n) {
-        return enqueue({
-          opId: old.opId || newOpId(),
-          url: old.url, method: old.method, body: old.body,
-          dedupeKey: old.dedupeKey, label: old.label
-        }).then(function () { return n + 1; });
-      });
-    }, Promise.resolve(0));
+    // Legacy writes have no trustworthy owner. Keep the original localStorage
+    // copy for explicit recovery; do not assign it to whoever signs in next.
+    return Promise.reject(new Error('Legacy offline changes need owner recovery'));
   }
 
   scope.IPQueueCore = {
@@ -255,6 +284,8 @@
     MAX_ITEMS: MAX_ITEMS,
     MAX_TRIES: MAX_TRIES,
     newOpId: newOpId,
+    pageOwner: pageOwner,
+    networkOwner: networkOwner,
     enqueue: enqueue,
     all: all,
     size: size,

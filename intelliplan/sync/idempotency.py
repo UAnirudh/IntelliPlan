@@ -25,7 +25,7 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
-from flask import g, request
+from flask import g, jsonify, request
 
 from .models import (
     MAX_BODY_BYTES,
@@ -75,6 +75,11 @@ def install(app: Any, db: Any, current_user_id: Callable[[], int | None]) -> typ
     @app.before_request
     def _short_circuit_replays():  # pragma: no cover - exercised via client
         g.ip_sync_op_id = None
+        queued_owner = request.headers.get('X-IP-Queue-Owner')
+        if queued_owner is not None and (not _owner() or queued_owner != str(_owner())):
+            # Check before the replay ledger and route: a cookie can change
+            # accounts between background-sync preflight and this request.
+            return jsonify({'status': 'error', 'error': 'account_changed'}), 409
         if request.method not in MUTATING:
             return None
         op_id = _clean_op_id(request.headers.get(OP_ID_HEADER))
@@ -106,6 +111,12 @@ def install(app: Any, db: Any, current_user_id: Callable[[], int | None]) -> typ
 
     @app.after_request
     def _record_op(response):  # pragma: no cover - exercised via client
+        # A route may have deleted/signed out its account or closed its ORM
+        # session. Cache safety must not reload that account after the route.
+        # Keep existing stronger no-store contracts (including camera APIs).
+        if (not request.path.startswith('/static/')
+                and not response.cache_control.no_store):
+            response.headers['Cache-Control'] = 'private, no-store'
         op_id = getattr(g, "ip_sync_op_id", None)
         if not op_id or response.headers.get(REPLAY_HEADER):
             return response
