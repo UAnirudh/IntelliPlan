@@ -420,6 +420,45 @@ def verify(store):
     if public_keys.resolve_digest(key_digest) is not None:
         raise AssertionError('A revoked native API credential was accepted')
     checks['native_api_key_verification'] = True
+    from intelliplan.persistence.mongo_api_keys import KeySlotsFull
+    key_owner = accounts.create(email=f'key-owner-{run_id}@example.invalid', password_hash='synthetic-hash')
+    # An aged synthetic account may auto-approve read-only scopes. The age is
+    # set only in this dedicated test database, never on a source account.
+    store.database.users.update_one({'id': key_owner.id}, {'$set': {
+        'created_at': (datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=2)).isoformat()}})
+    key_values = {'app_name': 'Synthetic runtime key', 'app_url': 'https://example.invalid',
+                  'use_case': 'A synthetic runtime check for developer credential persistence.',
+                  'expected_volume': 'low', 'contact_email': key_owner.email, 'scopes': 'read:profile'}
+    def submit_key(_):
+        try:
+            return public_keys.submit(key_owner.id, key_values)
+        except KeySlotsFull:
+            return None
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        applications = list(executor.map(submit_key, range(8)))
+    if sum(value is not None for value in applications) != 5:
+        raise AssertionError('Concurrent developer applications exceeded the five-slot limit')
+    key_row, key_secret = next(value for value in applications if value is not None)
+    if public_keys.resolve_digest(api_keys.hash_key(key_secret)) is None:
+        raise AssertionError('A read-only native key did not auto-approve')
+    rolled_row, rolled_secret = public_keys.roll(key_owner.id, key_row.id)
+    if public_keys.resolve_digest(api_keys.hash_key(key_secret)) is not None or public_keys.resolve_digest(api_keys.hash_key(rolled_secret)) is None:
+        raise AssertionError('Native developer-key rotation did not replace the secret')
+    public_keys.revoke(key_owner.id, rolled_row.id)
+    if public_keys.resolve_digest(api_keys.hash_key(rolled_secret)) is not None:
+        raise AssertionError('Native developer-key revocation did not invalidate the secret')
+    pending, _ = public_keys.submit(key_owner.id, {**key_values, 'scopes': 'write:tasks'})
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        from intelliplan.persistence.mongo_api_keys import KeyStateConflict
+        def approve_key(_):
+            try:
+                return public_keys.decide(pending.id, True, 'Synthetic approved review')
+            except KeyStateConflict:
+                return None
+        approvals = list(executor.map(approve_key, range(8)))
+    if sum(value is not None for value in approvals) != 1:
+        raise AssertionError('Concurrent admin decisions minted multiple secrets')
+    checks['atomic_developer_key_lifecycle'] = True
 
     from intelliplan.persistence.mongo_linked_accounts import MongoLinkedAccounts
     linked = MongoLinkedAccounts(store)

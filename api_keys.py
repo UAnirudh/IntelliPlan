@@ -26,7 +26,7 @@ Blueprint: 'developer_api_bp', mounted at /developers.
 
 import hashlib
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from functools import wraps
 
 from flask import Blueprint, jsonify, request, current_app
@@ -85,6 +85,14 @@ MAX_KEYS_PER_USER = 5
 
 
 # ── Model access ──────────────────────────────────────────────────────
+def _native_keys():
+    store = current_app.extensions.get('mongo_store')
+    if store is None:
+        return None
+    from intelliplan.persistence.mongo_api_keys import MongoAPIKeys
+    return MongoAPIKeys(store)
+
+
 def _db():
     return current_app.intelliplan_db
 
@@ -164,7 +172,7 @@ def _account_old_enough(user):
     created = getattr(user, "created_at", None)
     if not created:
         return False
-    now = datetime.utcnow() if created.tzinfo is None else utcnow()
+    now = datetime.utcnow() if created.tzinfo is None else datetime.now(timezone.utc)
     return (now - created) >= MIN_ACCOUNT_AGE
 
 
@@ -223,11 +231,13 @@ def list_scopes():
 @developer_api_bp.route("/applications", methods=["GET"])
 @login_required
 def my_applications():
-    db, ApiKey = _db(), _ApiKey()
-    rows = (db.session.query(ApiKey)
-            .filter_by(user_id=current_user.id)
-            .order_by(ApiKey.created_at.desc())
-            .all())
+    native = _native_keys()
+    if native is not None:
+        rows = native.list(user_id=current_user.id)
+    else:
+        db, ApiKey = _db(), _ApiKey()
+        rows = (db.session.query(ApiKey).filter_by(user_id=current_user.id)
+                .order_by(ApiKey.created_at.desc()).all())
     return jsonify({
         "status": "ok",
         "applications": [r.to_dict() for r in rows],
@@ -242,7 +252,6 @@ def my_applications():
 def apply_for_key():
     """Submit an application. Read-only ones come back with the secret in the
     same response; the rest come back as 'pending'."""
-    db, ApiKey = _db(), _ApiKey()
     body = request.get_json(silent=True) or {}
 
     app_name = (body.get("app_name") or "").strip()[:120]
@@ -270,6 +279,26 @@ def apply_for_key():
     if volume not in VOLUME_LIMITS:
         volume = "low"
 
+    native = _native_keys()
+    if native is not None:
+        from intelliplan.persistence.mongo_api_keys import KeySlotsFull
+        try:
+            row, secret = native.submit(current_user.id, {
+                'app_name': app_name, 'app_url': (body.get('app_url') or '').strip()[:512],
+                'use_case': use_case, 'expected_volume': volume,
+                'contact_email': (body.get('contact_email') or current_user.email or '').strip()[:255],
+                'scopes': ' '.join(scopes)})
+        except KeySlotsFull:
+            return _err(f'You already have {MAX_KEYS_PER_USER} open applications or keys. Revoke one before applying again.', 409)
+        if secret:
+            _notify_applicant(row, approved=True)
+            return jsonify(status='approved', message='Approved. Copy the key now — this is the only time we show it.',
+                           key=secret, application=row.to_dict()), 201
+        _notify_reviewers(row)
+        return jsonify(status='pending', message="Submitted. Write access is reviewed by a person, usually within two business days. We'll email you either way.",
+                       application=row.to_dict()), 202
+
+    db, ApiKey = _db(), _ApiKey()
     open_rows = (db.session.query(ApiKey)
                  .filter(ApiKey.user_id == current_user.id,
                          ApiKey.status.in_(("pending", "active")))
@@ -316,6 +345,10 @@ def apply_for_key():
 @developer_api_bp.route("/keys/<int:key_id>/revoke", methods=["POST"])
 @login_required
 def revoke_key(key_id):
+    native = _native_keys()
+    if native is not None:
+        row = native.revoke(current_user.id, key_id)
+        return jsonify(status='ok', application=row.to_dict()) if row else _err('No such key.', 404)
     db, ApiKey = _db(), _ApiKey()
     row = db.session.get(ApiKey, key_id)
     if not row or row.user_id != current_user.id:
@@ -332,8 +365,18 @@ def revoke_key(key_id):
 @developer_api_bp.route("/keys/<int:key_id>/roll", methods=["POST"])
 @login_required
 def roll_key(key_id):
-    """Replace the secret on an already-approved key. The old one stops
-    working the instant this returns — that is the point of rolling."""
+    """Replace an approved key's secret, invalidating its previous value."""
+    native = _native_keys()
+    if native is not None:
+        from intelliplan.persistence.mongo_api_keys import KeyStateConflict
+        try:
+            row, secret = native.roll(current_user.id, key_id)
+        except KeyStateConflict:
+            return _err('Only an active key can be rolled.', 409)
+        if row is None:
+            return _err('No such key.', 404)
+        return jsonify(status='ok', message='Rolled. The previous key stopped working just now.',
+                       key=secret, application=row.to_dict())
     db, ApiKey = _db(), _ApiKey()
     row = db.session.get(ApiKey, key_id)
     if not row or row.user_id != current_user.id:
@@ -355,8 +398,11 @@ def roll_key(key_id):
 def _admin_only(fn):
     @wraps(fn)
     def wrapper(*a, **kw):
-        from App import is_admin
-        if not current_user.is_authenticated or not is_admin(current_user):
+        checker = current_app.extensions.get('admin_checker')
+        if checker is None and _native_keys() is None:
+            from App import is_admin
+            checker = is_admin
+        if not current_user.is_authenticated or checker is None or not checker(current_user):
             return _err("Admins only.", 403)
         return fn(*a, **kw)
     return wrapper
@@ -366,6 +412,18 @@ def _admin_only(fn):
 @login_required
 @_admin_only
 def admin_list_applications():
+    native = _native_keys()
+    if native is not None:
+        from intelliplan.persistence.accounts import accounts
+        rows = native.list(status=(request.args.get('status') or 'pending').lower(), limit=200)
+        result = []
+        for row in rows:
+            value = row.to_dict()
+            owner = accounts().get(row.user_id)
+            value['owner'] = {'id': row.user_id, 'email': getattr(owner, 'email', '') or '',
+                              'name': getattr(owner, 'name', '') or ''}
+            result.append(value)
+        return jsonify(status='ok', applications=result)
     db, ApiKey = _db(), _ApiKey()
     status = (request.args.get("status") or "pending").lower()
     q = db.session.query(ApiKey)
@@ -388,6 +446,24 @@ def admin_list_applications():
 @login_required
 @_admin_only
 def admin_decide(key_id):
+    native = _native_keys()
+    if native is not None:
+        from intelliplan.persistence.mongo_api_keys import KeyStateConflict
+        body = request.get_json(silent=True) or {}
+        decision = (body.get('decision') or '').lower()
+        if decision not in ('approve', 'deny'):
+            return _err("decision must be 'approve' or 'deny'.", 400)
+        try:
+            row, secret = native.decide(key_id, decision == 'approve', (body.get('note') or '').strip())
+        except KeyStateConflict:
+            return _err('This application has already been decided.', 409)
+        if row is None:
+            return _err('No such application.', 404)
+        sent = _notify_applicant(row, approved=decision == 'approve', secret=secret)
+        result = {'status': 'ok', 'application': row.to_dict()}
+        if decision == 'approve':
+            result['emailed_secret'] = bool(sent)
+        return jsonify(result)
     db, ApiKey = _db(), _ApiKey()
     row = db.session.get(ApiKey, key_id)
     if not row:
@@ -414,6 +490,21 @@ def admin_decide(key_id):
 
 # ── Notifications ─────────────────────────────────────────────────────
 def _notify_reviewers(row):
+    if _native_keys() is not None:
+        sender = current_app.extensions.get('email_sender')
+        if sender is None:
+            return False
+        addresses = current_app.config.get('ADMIN_EMAILS') or []
+        if isinstance(addresses, str):
+            addresses = [value.strip() for value in addresses.split(',') if value.strip()]
+        sent = False
+        for address in list(addresses)[:5]:
+            try:
+                sent = bool(sender(address, f'IntelliPlan API application: {row.app_name}',
+                    f'{row.contact_email} applied for {row.scopes}.\n\nUse case:\n{row.use_case}\n\nReview at /developers (admin).')) or sent
+            except Exception:
+                pass
+        return sent
     try:
         from App import _send_email, ADMIN_EMAILS
         for addr in list(ADMIN_EMAILS)[:5]:
@@ -428,6 +519,21 @@ def _notify_reviewers(row):
 
 
 def _notify_applicant(row, approved, secret=None):
+    if _native_keys() is not None:
+        sender = current_app.extensions.get('email_sender')
+        if sender is None or not row.contact_email:
+            return False
+        if approved:
+            body = f'Your IntelliPlan API application for "{row.app_name}" is approved.\n\nScopes: {row.scopes}\nRate limit: {row.rate_limit_per_min} requests/minute\n\n'
+            body += f'Your key:\n{secret}\n\nStore it now — we cannot show it again.\n' if secret else 'Your key is on the /developers page.\n'
+            subject = 'Your IntelliPlan API key'
+        else:
+            body = f'Your IntelliPlan API application for "{row.app_name}" was not approved.\n\n{row.review_note or "No further detail was given."}'
+            subject = 'About your IntelliPlan API application'
+        try:
+            return bool(sender(row.contact_email, subject, body))
+        except Exception:
+            return False
     try:
         from App import _send_email
         if not row.contact_email:

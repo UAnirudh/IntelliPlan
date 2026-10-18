@@ -95,7 +95,7 @@ explicitly marked superseded and cannot pass snapshot validation.
 | Policy acknowledgements | Owner-scoped reads and transactional version updates use SQL/Mongo repositories; existing signup and guest behavior retained |
 | Desktop sign-in handoff | Native and SQL ticket issuance and atomic single-use redemption; PKCE burn, expiry and issuance epoch preserved; legacy tickets treated as epoch zero |
 | Mobile browser handoff | SQL/native single-use code issuance/replacement/redemption, expiry and credential epochs; browser clears prior data, rotates SID and stamps immutable proof; first-party bearer required |
-| Native API credential verification | API user reads use account repository; native API key digest/status/scope reads and nullable atomic usage counters implemented; developer key-management routes still pending |
+| Native API credentials | API user reads use account repository; digest/status/scope reads and atomic usage counters implemented; native applications, approval/denial, rotation and revocation implemented; admin/mail callbacks require startup wiring |
 | Extension credentials | Native and SQL issue/reuse/lookup/revoke operations; existing opaque tokens retained; stale verified password cannot issue new credentials |
 | Student identity | Explicit native/SQL profile reads and partial saves; onboarding form, settings identity API, onboarding chat and assistant-name lookup use the boundary |
 | Personalization/phone preferences | Explicit native/SQL partial updates; existing web normalization and bounds retained; removing a phone atomically clears SMS opt-in |
@@ -262,7 +262,7 @@ Atlas-specific checks remain pending the restricted test connection.
 
 ## Real local MongoDB verification on 2026-10-18
 
-All twenty-three checks in `mongodb-runtime-local-20261018.json` passed against an
+All twenty-four checks in `mongodb-runtime-local-20261018.json` passed against an
 isolated, single-member MongoDB 8.0.34 replica set using PyMongo. This was a real
 MongoDB server, not a mocked transaction fixture. The official runtime archive's
 SHA-256 was checked before running it. The server bound only to localhost,
@@ -423,3 +423,23 @@ Twenty-three real MongoDB checks passed: concurrent mobile redemption accepted
 one claimant, concurrent issuance left one unspent code, twelve API usage touches
 retained every increment, and account erasure raced safely with ticket issuance.
 Atlas native-driver access and final deployment/cutover remain pending.
+
+## Developer API credential lifecycle continuation
+
+Native developer applications recheck the saved owner's age and serialize the
+five-open-slot limit with the parent account. Read-only applications may
+auto-approve under the existing rules; write scopes wait for administrator
+review. Roll/revoke operations are owner scoped. Pending-only decisions accept
+one approval and one minted secret, even with competing reviewers. Views omit
+secret hashes; unknown/compressed fields survive partial updates.
+
+Native admin routes require an injected checker and fail closed if it is absent.
+Native notifications use an injected mail sender after the transaction; approval
+reports `emailed_secret: false` when that sender is missing or fails. Actual mail
+provider delivery and full application startup remain unverified.
+
+Five native HTTP lifecycle tests and the existing SQL key tests passed in a
+32-test run; the final key/mobile-browser suite passed 34 tests. Independent review passed five native HTTP tests and Ruff with no
+scoped blocker. Twenty-four real MongoDB checks passed, including eight competing
+applications accepting exactly five, rotation/revocation invalidating previous
+secrets, and eight admin decisions accepting exactly one approval.
