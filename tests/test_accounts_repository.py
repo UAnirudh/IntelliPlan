@@ -1,6 +1,7 @@
 """Run the real bearer-auth blueprint with either repository and no App import."""
 from datetime import datetime, timedelta
 import time
+import json
 
 import mongomock
 import pytest
@@ -14,10 +15,12 @@ import desktop_auth
 from intelliplan.persistence.accounts import AccountExists, IdentityConflict, PasswordConflict, SQLAccounts
 from intelliplan.persistence.desktop import SQLDesktopTickets
 from intelliplan.persistence.extensions import SQLExtensionTokens
+from intelliplan.persistence.identity import SQLIdentities
 from intelliplan.persistence.mongo import MongoStore
 from intelliplan.persistence.mongo_accounts import MongoAccounts
 from intelliplan.persistence.mongo_desktop import MongoDesktopTickets
 from intelliplan.persistence.mongo_extensions import MongoExtensionTokens
+from intelliplan.persistence.mongo_identity import MongoIdentities
 
 
 @pytest.fixture(params=["mongo", "sql"])
@@ -37,6 +40,8 @@ def account_app(request, monkeypatch):
         tickets.ensure_indexes()
         tokens = MongoExtensionTokens(store)
         tokens.ensure_indexes()
+        profiles = MongoIdentities(store)
+        profiles.ensure_indexes()
     else:
         db = SQLAlchemy(app)
 
@@ -106,15 +111,32 @@ def account_app(request, monkeypatch):
             token = db.Column(db.String, nullable=False, unique=True)
             created_at = db.Column(db.DateTime, nullable=False)
 
+        class UserIdentity(db.Model):
+            __tablename__ = 'user_identities'
+            id = db.Column(db.Integer, primary_key=True)
+            user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, unique=True)
+            grade_level = db.Column(db.String)
+            focus_areas = db.Column(db.Text, default='[]')
+            goals = db.Column(db.Text, default='')
+            completed = db.Column(db.Boolean, default=False)
+            availability = db.Column(db.Text, default='{}')
+            weekly_commitments = db.Column(db.Text, default='')
+            class_schedule = db.Column(db.Text, default='[]')
+            assistant_name = db.Column(db.String)
+            created_at = db.Column(db.DateTime, default=datetime.utcnow)
+            updated_at = db.Column(db.DateTime, default=datetime.utcnow)
+
         with app.app_context():
             db.create_all()
         repo = SQLAccounts(db, User, reset_model=ResetToken,
                            policy_model=PolicyAcknowledgement, security_model=SecurityEvent)
         tickets = SQLDesktopTickets(db, DesktopAuthCode, User)
         tokens = SQLExtensionTokens(db, ExtensionToken, User)
+        profiles = SQLIdentities(db, UserIdentity, User)
     app.extensions["accounts_repository"] = repo
     app.extensions['desktop_tickets_repository'] = tickets
     app.extensions['extension_tokens_repository'] = tokens
+    app.extensions['identity_repository'] = profiles
     app.extensions["account_passwords"] = passwords
     manager = LoginManager(app)
     manager.user_loader(repo.get)
@@ -351,6 +373,80 @@ def test_stale_password_cannot_issue_new_extension_credentials(account_app):
         tokens.issue(user.id, expected_hash='old-hash')
     with pytest.raises(PasswordConflict):
         tokens.issue(999999)
+
+
+def test_identity_partial_updates_keep_other_fields_and_owner(account_app):
+    app, repo, _ = account_app
+    profiles = app.extensions['identity_repository']
+    one = repo.create(email='profile-one@example.test', password_hash='hash')
+    two = repo.create(email='profile-two@example.test', password_hash='hash')
+    assert profiles.get(one.id) is None
+    created = profiles.get_or_create(one.id)
+    assert profiles.get_or_create(one.id).id == created.id
+    profiles.save(one.id, {'goals': 'Keep my goals', 'focus_areas': json.dumps(['Math']),
+                           'assistant_name': 'Nova', 'completed': True})
+    saved = profiles.save(one.id, {'availability': json.dumps({'Mon': '16:00-18:00'})})
+    assert saved.goals == 'Keep my goals'
+    assert saved.focus_areas == '["Math"]'
+    assert saved.completed is True
+    assert saved.user_id == one.id
+    assert profiles.get_or_create(two.id).goals == ''
+    import assistant_name
+    assert assistant_name.for_user(one.id) == 'Nova'
+    assert assistant_name.for_user(two.id) == ''
+
+
+def test_identity_rejects_missing_owners_and_identity_overrides(account_app):
+    app, repo, _ = account_app
+    profiles = app.extensions['identity_repository']
+    one = repo.create(email='profile-validation@example.test', password_hash='hash')
+    with pytest.raises(ValueError):
+        profiles.save(one.id, {'user_id': 42, 'goals': 'overwrite'})
+    assert profiles.get(one.id) is None
+    with pytest.raises(LookupError):
+        profiles.get_or_create(999999)
+
+
+def test_explicit_identity_patch_cannot_be_lost_to_a_stale_cached_record(account_app):
+    app, repo, _ = account_app
+    profiles = app.extensions['identity_repository']
+    user = repo.create(email='profile-stale@example.test', password_hash='hash')
+    cached = profiles.get_or_create(user.id)
+    assert cached.goals == ''
+    if isinstance(profiles, MongoIdentities):
+        profiles.store.database.user_identities.update_one({'user_id': user.id},
+            {'$set': {'goals': 'independent update', 'weekly_commitments': 'keep newer field'}})
+    else:
+        with profiles.db.engine.begin() as connection:
+            connection.execute(profiles.model.__table__.update().where(
+                profiles.model.user_id == user.id).values(
+                    goals='independent update', weekly_commitments='keep newer field'))
+    assert cached.goals == ''
+    saved = profiles.save(user.id, {'goals': ''})
+    assert saved.goals == ''
+    assert saved.weekly_commitments == 'keep newer field'
+
+
+def test_native_migrated_identity_preserves_unknown_fields_and_decodes_compressed_goals():
+    from intelliplan.persistence.codec import pack_document
+    client = mongomock.MongoClient()
+    store = MongoStore('mongodb://test', 'profiles', client_factory=lambda *a, **k: client)
+    store.transaction = lambda work: work(store.database, None)
+    store.database.users.insert_one({'id': 42})
+    store.database.user_identities.insert_one(pack_document({
+        'id': 90, 'user_id': 42, 'goals': 'A long restored goal. ' * 2000,
+        'focus_areas': 'not valid json', 'availability': '[]',
+        'created_at': '2026-01-01T00:00:00.123456', 'custom_legacy_field': 'keep'}))
+    profiles = MongoIdentities(store)
+    saved = profiles.save(42, {'grade_level': '10th grade'})
+    assert saved.goals == 'A long restored goal. ' * 2000
+    assert saved.created_at.microsecond == 123456
+    assert saved.custom_legacy_field == 'keep'
+    assert saved.focus_list() == []
+    assert saved.avail_dict() == {}
+    assert saved.class_list() == []
+    profiles.save(42, {'goals': 'short replacement'})
+    assert profiles.get(42).goals == 'short replacement'
 
 
 def test_failed_signins_lock_atomically_and_stale_credentials_cannot_clear_failures(account_app):

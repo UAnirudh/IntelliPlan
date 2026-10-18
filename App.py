@@ -44,6 +44,7 @@ import secret_box
 from intelliplan.persistence.accounts import AccountExists, IdentityConflict, PasswordConflict, accounts as account_repository
 from intelliplan.persistence.desktop import desktop_tickets, ensure_sql_ticket_epoch
 from intelliplan.persistence.extensions import extension_tokens
+from intelliplan.persistence.identity import identities
 from intelliplan.persistence.login import EpochLoginManager
 from intelliplan.integrations.document_content import CloudDocumentError
 import policy_versions
@@ -7343,12 +7344,7 @@ FOCUS_AREA_CHOICES = [
 
 
 def _get_or_create_identity(user_id):
-    identity = UserIdentity.query.filter_by(user_id=user_id).first()
-    if not identity:
-        identity = UserIdentity(user_id=user_id)
-        db.session.add(identity)
-        db.session.commit()
-    return identity
+    return identities().get_or_create(user_id)
 
 
 def _ai_personalization_enabled(user=None):
@@ -7415,7 +7411,7 @@ def build_student_context(user_id=None, grades_summary=None, depth="full"):
         uid = user_id if user_id is not None else (current_user.id if current_user.is_authenticated else None)
         if not uid:
             return ""
-        u = db.session.get(User, uid)
+        u = account_repository().get(uid)
         if not u or not _ai_personalization_enabled(u):
             return ""
         identity = _get_or_create_identity(uid)
@@ -7705,11 +7701,8 @@ def onboarding():
         focus = request.form.getlist("focus_areas")
         focus = [f.strip()[:48] for f in focus if f.strip()][:12]
         goals = (request.form.get("goals") or "").strip()[:1000]
-        identity.grade_level = grade or None
-        identity.focus_areas = json.dumps(focus)
-        identity.goals = goals
-        identity.completed = True
-        db.session.commit()
+        identities().save(current_user.id, {'grade_level': grade or None,
+            'focus_areas': json.dumps(focus), 'goals': goals, 'completed': True})
         # Clear the resume-state so we don't bounce them back into the chat
         # next time they hit /onboarding (a real bug in the prior flow).
         for k in ("onb_mode", "onb_step", "onb_messages"):
@@ -7739,37 +7732,37 @@ def update_identity():
     if not is_logged_in():
         return jsonify({"error": "auth required"}), 401
     payload = request.get_json(silent=True) or {}
-    identity = _get_or_create_identity(current_user.id)
+    changes = {}
     if "grade_level" in payload:
-        identity.grade_level = str(payload.get("grade_level") or "").strip()[:32] or None
+        changes['grade_level'] = str(payload.get("grade_level") or "").strip()[:32] or None
     if "focus_areas" in payload:
         raw = payload.get("focus_areas") or []
         if isinstance(raw, list):
-            identity.focus_areas = json.dumps([str(x).strip()[:48] for x in raw if str(x).strip()][:12])
+            changes['focus_areas'] = json.dumps([str(x).strip()[:48] for x in raw if str(x).strip()][:12])
     if "goals" in payload:
-        identity.goals = str(payload.get("goals") or "").strip()[:1000]
+        changes['goals'] = str(payload.get("goals") or "").strip()[:1000]
     if "availability" in payload:
         av = payload.get("availability") or {}
         if isinstance(av, dict):
-            identity.availability = json.dumps(av)
+            changes['availability'] = json.dumps(av)
     if "weekly_commitments" in payload:
-        identity.weekly_commitments = str(payload.get("weekly_commitments") or "").strip()[:500]
+        changes['weekly_commitments'] = str(payload.get("weekly_commitments") or "").strip()[:500]
     if "assistant_name" in payload:
         # Empty, or nothing usable left after cleaning, means the default.
         chosen = assistant_name.clean(payload.get("assistant_name"))
-        identity.assistant_name = (
+        changes['assistant_name'] = (
             chosen if chosen and chosen != assistant_name.DEFAULT_NAME else None
         )
     if "class_schedule" in payload:
         cs = payload.get("class_schedule") or []
         if isinstance(cs, list):
-            identity.class_schedule = json.dumps(cs[:50])
+            changes['class_schedule'] = json.dumps(cs[:50])
     # Any save finishes onboarding unless the caller says otherwise: Settings
     # posts here without the key. Onboarding sends completed=false for its
     # mid-flow saves so leaving to connect a school does not end setup.
     if payload.get("completed", True):
-        identity.completed = True
-    db.session.commit()
+        changes['completed'] = True
+    identity = identities().save(current_user.id, changes)
     # When the client signals completion, wipe the resume-state so a future
     # visit to /onboarding starts fresh at "Quick or Custom" rather than
     # silently dumping the user back into the chat they already finished.
@@ -7953,19 +7946,21 @@ def api_onboarding_chat():
         extracted = {}
     # Auto-persist any extracted fields immediately so refresh-mid-flow is safe.
     try:
+        changes = {}
         if extracted.get("grade_level"):
-            identity.grade_level = str(extracted["grade_level"])[:32]
+            changes['grade_level'] = str(extracted["grade_level"])[:32]
         if isinstance(extracted.get("focus_areas"), list) and extracted["focus_areas"]:
             cur = identity.focus_list()
             merged = list(dict.fromkeys(cur + [str(x)[:48] for x in extracted["focus_areas"] if str(x).strip()]))[:12]
-            identity.focus_areas = json.dumps(merged)
+            changes['focus_areas'] = json.dumps(merged)
         if extracted.get("goals"):
-            identity.goals = str(extracted["goals"])[:1000]
+            changes['goals'] = str(extracted["goals"])[:1000]
         if extracted.get("weekly_commitments"):
-            identity.weekly_commitments = str(extracted["weekly_commitments"])[:500]
+            changes['weekly_commitments'] = str(extracted["weekly_commitments"])[:500]
         if isinstance(extracted.get("availability"), dict) and extracted["availability"]:
-            identity.availability = json.dumps(extracted["availability"])
-        db.session.commit()
+            changes['availability'] = json.dumps(extracted["availability"])
+        if changes:
+            identity = identities().save(current_user.id, changes)
     except Exception as _pe:
         print(f"[onboarding-chat] persist failed: {_pe}")
         try: db.session.rollback()

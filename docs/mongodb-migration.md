@@ -95,8 +95,9 @@ explicitly marked superseded and cannot pass snapshot validation.
 | Policy acknowledgements | Owner-scoped reads and transactional version updates use SQL/Mongo repositories; existing signup and guest behavior retained |
 | Desktop sign-in handoff | Native and SQL ticket issuance and atomic single-use redemption; PKCE burn, expiry and issuance epoch preserved; legacy tickets treated as epoch zero |
 | Extension credentials | Native and SQL issue/reuse/lookup/revoke operations; existing opaque tokens retained; stale verified password cannot issue new credentials |
+| Student identity | Explicit native/SQL profile reads and partial saves; onboarding form, settings identity API, onboarding chat and assistant-name lookup use the boundary |
 | Adaptive tutor learner model | Six native collections implemented: profiles, mastery, mistakes, learner memory, imports and summaries; shared validation and response formats; owner checks and transactional mutations |
-| Remaining accounts and domains | Provider credential storage, identity profile edits, account erasure, LMS, scheduling, tutor chat/checks/education plans, Primer, Family, learning, notifications, groups and billing still need porting; application-wide startup remains SQLAlchemy |
+| Remaining accounts and domains | Provider credential storage, age/consent and account preference updates, account erasure/archive lifecycle, LMS, scheduling, tutor chat/checks/education plans, Primer, Family, learning, notifications, groups and billing still need porting; application-wide startup remains SQLAlchemy |
 | Railway | Production variables and deployment unchanged; no MongoDB cutover |
 
 The native flashcard unit tests exercise an 800-card import, seeded IDs,
@@ -225,3 +226,26 @@ approved the scoped action in chat on 2026-10-18, but the retry still returned
 "User did not confirm the execution". Connector confirmation remains unresolved;
 do not bypass the rejection through another API or credential. The existing production database and verified
 rehearsal remain unchanged.
+
+## Student identity continuation
+
+Student identity profiles now have native and SQL repositories with explicit
+partial updates. Ownership and business IDs cannot be overwritten through the
+patch API. New profiles coordinate with the parent account's lifecycle and
+enforce one identity per account. Migrated JSON text, compressed goals, unknown
+fields and microsecond timestamps are preserved. SQL saves refresh cached mapped
+state under the parent lock, so an explicit patch is not silently dropped when
+another connection changed a cached field.
+
+Onboarding form saves, `/identity`, `/api/identity`, onboarding-chat extraction,
+settings/profile reads, personalization reads and the chosen-assistant-name
+lookup use the boundary. Archive restoration remains part of the unported
+archive lifecycle and still uses SQL mapped records. Age/parental-consent and
+notification-preference updates also remain to be ported separately.
+
+The account/identity/onboarding/Plani/source-policy run passed 292 tests before
+the final stale-cache regression fix. The final affected account/identity/
+onboarding suite passed 96 tests, and review independently verified the two
+SQL/native stale-cache regressions. The native runtime script now also checks
+concurrent profile creation and preservation of unrelated partial updates; those
+real-driver checks remain pending the restricted test connection.

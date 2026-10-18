@@ -64,20 +64,10 @@ def for_user(user_id: int | None) -> str:
     if not user_id:
         return ""
     try:
-        from App import UserIdentity, db
+        from intelliplan.persistence.identity import identities
 
-        row = (
-            db.session.query(UserIdentity.assistant_name)
-            .filter(UserIdentity.user_id == int(user_id))
-            .first()
-        )
-        return clean(row[0]) if row and row[0] else ""
+        row = identities().get(user_id)
+        return clean(row.assistant_name) if row else ""
     except Exception as exc:  # a missing column must not take a page down
         print(f"[assistant_name] lookup failed: {exc}")
-        try:
-            from App import db
-
-            db.session.rollback()
-        except Exception:
-            pass
         return ""

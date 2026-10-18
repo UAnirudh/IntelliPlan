@@ -22,6 +22,7 @@ import desktop_auth  # noqa: E402
 from intelliplan.persistence.mongo import MongoStore  # noqa: E402
 from intelliplan.persistence.mongo_accounts import MongoAccounts  # noqa: E402
 from intelliplan.persistence.mongo_desktop import MongoDesktopTickets  # noqa: E402
+from intelliplan.persistence.mongo_identity import MongoIdentities  # noqa: E402
 
 
 class DeliberateRollback(Exception):
@@ -82,6 +83,21 @@ def verify(store):
     if sum(result is not None for result in results) != 1:
         raise AssertionError('A desktop ticket was consumed more than once')
     checks['single_use_desktop_handoff'] = True
+
+    identities = MongoIdentities(store)
+    identities.ensure_indexes()
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        profiles = list(executor.map(lambda _: identities.get_or_create(user.id), range(8)))
+    if len({profile.id for profile in profiles}) != 1:
+        raise AssertionError('Concurrent identity creation duplicated the profile')
+    patches = [{'goals': 'synthetic goal'}, {'grade_level': '10th grade'},
+               {'weekly_commitments': 'synthetic commitment'}, {'availability': '{"Mon":"16:00"}'}]
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        list(executor.map(lambda patch: identities.save(user.id, patch), patches))
+    profile = identities.get(user.id)
+    if any(getattr(profile, field) != value for patch in patches for field, value in patch.items()):
+        raise AssertionError('Concurrent identity updates lost unrelated fields')
+    checks['concurrent_identity_updates'] = True
 
     class OwnedTutor(MongoTutor):
         def _owner(self):
