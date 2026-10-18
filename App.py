@@ -41,6 +41,7 @@ import net_guard
 import study_resources
 import request_guards
 import secret_box
+from intelliplan.persistence.accounts import accounts as account_repository
 from intelliplan.integrations.document_content import CloudDocumentError
 import policy_versions
 import parental_notice
@@ -1344,40 +1345,14 @@ def issue_password_reset(user):
     Returns the raw token, which exists only in the email. Nothing anywhere
     else can reconstruct it.
     """
-    # An earlier link staying valid means a stolen inbox has more than one
-    # chance, and revoking by requesting again is behaviour people expect.
-    PasswordResetToken.query.filter_by(user_id=user.id, used_at=None).update(
-        {"used_at": datetime.utcnow()})
-
     raw = secrets_module.token_urlsafe(32)
-    db.session.add(PasswordResetToken(
-        user_id=user.id,
-        token_hash=_hash_reset_token(raw),
-        expires_at=datetime.utcnow() + timedelta(minutes=PASSWORD_RESET_TTL_MINUTES),
-        requested_ip=_client_ip(),
-    ))
-    db.session.commit()
+    account_repository().issue_reset(user.id, token_hash=_hash_reset_token(raw),
+        requested_ip=_client_ip(), ttl_minutes=PASSWORD_RESET_TTL_MINUTES)
     return raw
 
 
-def consume_password_reset(raw):
-    """Return the user for a valid token and burn it, else None."""
-    if not raw:
-        return None
-    row = PasswordResetToken.query.filter_by(
-        token_hash=_hash_reset_token(raw)).first()
-    if row is None or not row.is_usable():
-        return None
-    row.used_at = datetime.utcnow()
-    db.session.commit()
-    return db.session.get(User, row.user_id)
-
-
 def recent_reset_requests(user_id):
-    since = datetime.utcnow() - timedelta(hours=1)
-    return PasswordResetToken.query.filter(
-        PasswordResetToken.user_id == user_id,
-        PasswordResetToken.created_at >= since).count()
+    return account_repository().recent_resets(user_id)
 
 
 class SecurityEvent(db.Model):
@@ -2949,7 +2924,7 @@ def load_user(user_id):
     # which calls is_logged_in() → load_user → the same exception, so
     # users see only the raw "Server Error" fallback with no way out.
     try:
-        return db.session.get(User, int(user_id))
+        return account_repository().get(user_id)
     except Exception as _e:
         try:
             db.session.rollback()
@@ -8310,9 +8285,7 @@ def reset_password():
                        "Request a new one below.")
 
     if request.method == "GET":
-        row = PasswordResetToken.query.filter_by(
-            token_hash=_hash_reset_token(token)).first() if token else None
-        if row is None or not row.is_usable():
+        if not token or not account_repository().reset_usable(_hash_reset_token(token)):
             return render_template("reset_password.html", active_page="login",
                                    invalid=True, error=expired_message)
         return render_template("reset_password.html", active_page="login",
@@ -8329,25 +8302,28 @@ def reset_password():
         return render_template("reset_password.html", active_page="login",
                                token=token, error="Those don't match.")
 
-    user = consume_password_reset(token)
-    if user is None:
+    repository = account_repository()
+    token_hash = _hash_reset_token(token)
+    if not token or not repository.reset_usable(token_hash):
+        log_security_event("password_reset_invalid_token")
+        return render_template("reset_password.html", active_page="login",
+                               invalid=True, error=expired_message)
+    changed = repository.complete_reset(token_hash,
+        password_hash=bcrypt.generate_password_hash(password).decode("utf-8"))
+    if changed is None:
         log_security_event("password_reset_invalid_token")
         return render_template("reset_password.html", active_page="login",
                                invalid=True, error=expired_message)
 
-    user.password_hash = bcrypt.generate_password_hash(password).decode("utf-8")
-    # A reset is how someone recovers an account that may be compromised, so
-    # it has to end whatever access the other party had. Clearing the lockout
-    # too: they have just proved control of the inbox.
-    user.failed_login_count = 0
-    user.login_locked_until = None
-    db.session.commit()
-
-    _invalidate_other_sessions(user)
+    user = repository.get(changed.user_id)
+    if user is None:
+        return render_template("reset_password.html", active_page="login",
+                               invalid=True, error=expired_message)
     log_security_event("password_reset_completed", user=user)
 
     _rotate_session_on_login()
     login_user(user, remember=True)
+    session["session_epoch"] = changed.session_epoch
     return redirect("/command-center")
 
 

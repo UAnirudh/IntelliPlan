@@ -18,8 +18,8 @@ from adaptive_tutor.prompt import build_adaptive_prompt
 from adaptive_tutor.strategy import learning_stage, teaching_move
 
 
-@pytest.fixture
-def app():
+@pytest.fixture(params=['sql', 'mongo'])
+def app(request, monkeypatch):
     application = Flask(__name__)
     application.config.update(
         SECRET_KEY='test-secret',
@@ -27,7 +27,22 @@ def app():
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
         TESTING=True,
     )
-    SQLAlchemy(application)
+    if request.param == 'sql':
+        SQLAlchemy(application)
+    else:
+        import mongomock
+        from intelliplan.persistence.mongo import MongoStore
+        client = mongomock.MongoClient()
+        backend = MongoStore('mongodb://test', 'tutor', client_factory=lambda *a, **k: client)
+        # Unit tests exercise repository behavior only. Real driver transaction
+        # rollback/concurrency requires the separate replica-set integration run.
+        monkeypatch.setattr(backend, 'transaction', lambda work: work(backend.database, None))
+        application.extensions['mongo_store'] = backend
+
+        def no_sql():
+            raise AssertionError('Native tutor accessed SQL persistence')
+
+        monkeypatch.setattr(store, '_db', no_sql)
     LoginManager(application)
     application.register_blueprint(adaptive_tutor_bp)
 

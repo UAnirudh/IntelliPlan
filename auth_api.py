@@ -402,6 +402,7 @@ with App.py's web routes (/login, /register, /logout).
 import os
 import time
 import urllib.parse
+from intelliplan.persistence.accounts import AccountExists, PasswordConflict, SQLAccounts
 from flask import Blueprint, jsonify, request, current_app, session
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
@@ -429,6 +430,19 @@ LEGACY_ALLOWED_ORIGINS = [
 def _models():
     from App import db, User, bcrypt
     return db, User, bcrypt
+
+
+def _accounts():
+    repository = current_app.extensions.get("accounts_repository")
+    if repository is not None:
+        return repository
+    db, User, _ = _models()
+    return SQLAccounts(db, User)
+
+
+def _passwords():
+    provider = current_app.extensions.get("account_passwords")
+    return provider if provider is not None else _models()[2]
 
 
 # ── Token helpers ─────────────────────────────────────────────
@@ -463,8 +477,7 @@ def get_token_user():
     payload = verify_token(token)
     if not payload:
         return None
-    _, User, _ = _models()
-    return User.query.get(payload.get("user_id"))
+    return _accounts().get(payload.get("user_id"))
 
 
 def user_to_dict(user):
@@ -542,7 +555,7 @@ def api_register():
     if request.method == "OPTIONS":
         return _options()
 
-    db, User, bcrypt = _models()
+    repository, bcrypt = _accounts(), _passwords()
     data = request.get_json(silent=True) or {}
     email    = (data.get("email") or "").lower().strip()
     password = data.get("password") or ""
@@ -554,16 +567,14 @@ def api_register():
     # made the phone app and extension the weaker way into an account.
     if len(password) < MIN_PASSWORD_LENGTH:
         return _err(f"Password must be at least {MIN_PASSWORD_LENGTH} characters.", 400)
-    if User.query.filter_by(email=email).first():
+    if repository.by_email(email):
         return _err("An account with that email already exists.", 409)
 
     pw_hash = bcrypt.generate_password_hash(password).decode("utf-8")
     try:
-        user = User(email=email, password_hash=pw_hash, name=name)
-    except TypeError:
-        user = User(email=email, password_hash=pw_hash)
-    db.session.add(user)
-    db.session.commit()
+        user = repository.create(email=email, password_hash=pw_hash, name=name)
+    except AccountExists:
+        return _err("An account with that email already exists.", 409)
 
     return _ok({"token": make_token(user), "user": user_to_dict(user)}, 201)
 
@@ -574,7 +585,7 @@ def api_login():
     if request.method == "OPTIONS":
         return _options()
 
-    _, User, bcrypt = _models()
+    repository, bcrypt = _accounts(), _passwords()
     data = request.get_json(silent=True) or {}
     email    = (data.get("email") or "").lower().strip()
     password = data.get("password") or ""
@@ -582,8 +593,8 @@ def api_login():
     if not email or not password:
         return _err("Email and password are required.", 400)
 
-    user = User.query.filter_by(email=email).first()
-    if not user or not bcrypt.check_password_hash(user.password_hash, password):
+    user = repository.by_email(email)
+    if not user or not user.password_hash or not bcrypt.check_password_hash(user.password_hash, password):
         return _err("Invalid email or password.", 401)
 
     return _ok({"token": make_token(user), "user": user_to_dict(user)})
@@ -610,8 +621,7 @@ def api_logout():
 
 @auth_bp.route("/api/auth/debug", methods=["GET"])
 def api_debug():
-    _, User, _ = _models()
-    return _ok({"total_users": User.query.count()})
+    return _ok({"total_users": _accounts().count()})
 
 
 # ── Password ──────────────────────────────────────────────────
@@ -655,7 +665,7 @@ def api_set_password():
     if not getattr(current_user, "is_authenticated", False):
         return _err("Sign in first.", 401)
 
-    db, User, bcrypt = _models()
+    repository, bcrypt = _accounts(), _passwords()
     data = request.get_json(silent=True) or {}
     current = (data.get("current_password") or "").strip()
     new = (data.get("new_password") or "").strip()
@@ -663,7 +673,7 @@ def api_set_password():
     if len(new) < _MIN_PASSWORD_LEN:
         return _err(f"Password must be at least {_MIN_PASSWORD_LEN} characters.", 400)
 
-    user = db.session.get(User, current_user.id)
+    user = repository.get(current_user.id)
     if user is None:
         return _err("Sign in first.", 401)
 
@@ -693,8 +703,14 @@ def api_set_password():
                 reason="reauth_required",
             )
 
-    user.password_hash = bcrypt.generate_password_hash(new).decode("utf-8")
-    db.session.commit()
+    try:
+        changed = repository.change_password(user.id, expected_hash=user.password_hash,
+                                            password_hash=bcrypt.generate_password_hash(new).decode("utf-8"))
+    except PasswordConflict:
+        return _err("Account credentials changed. Sign in again.", 409)
+    # Keep this authenticated browser usable; other cookie sessions carry the
+    # older epoch and are refused by App.py's existing session stamp check.
+    session["session_epoch"] = changed.session_epoch
     # Never log the password, and do not echo it back.
     print(f"[auth] password set for user id={user.id}")
     return _ok({"had_password": bool(current)})
@@ -713,8 +729,7 @@ def api_password_status():
     if not getattr(current_user, "is_authenticated", False):
         return _err("Sign in first.", 401)
 
-    db, User, _ = _models()
-    user = db.session.get(User, current_user.id)
+    user = _accounts().get(current_user.id)
     if user is None:
         return _err("Sign in first.", 401)
     return _ok({"has_password": bool(user.password_hash)})

@@ -144,6 +144,14 @@ def test_a_made_up_token_is_refused(client, account):
     assert bcrypt.check_password_hash(password_now(account), OLD)
 
 
+def test_invalid_reset_links_do_not_hash_passwords(client, monkeypatch):
+    def must_not_hash(*args, **kwargs):
+        raise AssertionError('Invalid reset link reached password hashing')
+
+    monkeypatch.setattr(App.bcrypt, 'generate_password_hash', must_not_hash)
+    assert b"expired or has already been used" in submit(client, 'not-a-real-token').data
+
+
 def test_the_token_is_stored_hashed(client, account):
     """A database read must not yield working reset links for every account
     with one outstanding."""

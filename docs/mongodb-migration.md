@@ -89,7 +89,10 @@ explicitly marked superseded and cannot pass snapshot validation.
 | Large text | Lossless bounded compression/decompression; every snapshot document round-tripped exactly |
 | Web sessions | MongoDB interface implemented and locally tested; not wired into App.py |
 | Flashcards | Native CRUD, imports, queues, review history, forecast, counts, deletion, and owner scoping implemented and locally tested |
-| Accounts, LMS, scheduling, tutor, Family, learning, notifications, groups, billing and other features | Still use SQLAlchemy/PostgreSQL; application-wide port remains outstanding |
+| Account API | Explicit SQL/Mongo repositories and plain native UserMixin records; registration, login, bearer lookup, password/status API tested without importing App.py |
+| Password resets | Native and SQL repositories atomically consume links, replace credentials and advance session epoch; web reset route and user loader now use the repository boundary |
+| Adaptive tutor learner model | Six native collections implemented: profiles, mastery, mistakes, learner memory, imports and summaries; shared validation and response formats; owner checks and transactional mutations |
+| Remaining accounts and domains | Browser registration/login/OAuth, account erasure, security logging, LMS, scheduling, tutor chat/checks/education plans, Primer, Family, learning, notifications, groups and billing still need porting; application-wide startup remains SQLAlchemy |
 | Railway | Production variables and deployment unchanged; no MongoDB cutover |
 
 The native flashcard unit tests exercise an 800-card import, seeded IDs,
@@ -110,3 +113,46 @@ Do not change Railway DATABASE_URL to a MongoDB URI. The current App.py still
 initializes SQLAlchemy and database-backed sessions. Keep the existing SECRET_KEY
 and integration-encryption keys during the eventual cutover. The remaining port
 must be completed before generating final Railway connection instructions.
+
+## Rewrite continuation: accounts and learner model
+
+The account API selects an explicitly injected `accounts_repository` and
+`account_passwords` provider. The legacy app continues using SQL; no production
+feature creates Mongo-only users while other features reference PostgreSQL IDs.
+Native accounts preserve all restored fields and precise date values. New
+accounts retain the existing defaults for consent, privacy, preferences and plan.
+Nullable unique Google/referral identifiers use partial indexes.
+
+Password changes compare the hash actually verified by the caller and return
+the exact epoch from that atomic write. A later reset cannot cause a stale
+browser to acquire the newer epoch. Reset completion burns outstanding links,
+changes the credential, clears lockout and advances the epoch in one transaction.
+The web reset route rejects invalid tokens before expensive password hashing,
+then rechecks validity inside the transaction. Email delivery remains outside it.
+
+The native tutor is selected only through an explicitly registered `mongo_store`.
+Its tests forbid SQL access. Learner reads/writes check current user/guest
+ownership, and child mutations touch the parent profile in the same transaction.
+Account removal must still coordinate new profile creation before cutover.
+Stronger unique indexes were preflighted against the Atlas rehearsal: no duplicate
+profile user/guest keys, active mistake keys or conversation-summary keys were
+found. Repeat this preflight against the final snapshot.
+
+Validation during this continuation: 57 account/API/web-password tests passed,
+70 shared/native tutor tests passed, and the added zero-limit native tutor
+regression passed in a focused run. Review covered these boundaries and the
+runtime verification script; it does not certify the full application.
+
+`scripts/check_mongodb_runtime.py --env-file <private file>` checks real driver
+connectivity, transaction rollback, concurrent ID allocation, single-use reset
+consumption and concurrent mastery updates. It refuses every database except
+`intelliplan_runtime_test`, retains synthetic evidence, and sanitizes errors.
+It currently reports `configuration_required`: a native `MONGODB_URI` has not
+been supplied. These real-driver checks have not passed yet.
+
+Atlas administration service-account credentials configure MCP management
+access; they do not replace the application's driver connection URI. The user
+has entered the service-account fields directly in the local Codex configuration.
+The Windows MCP launcher uses Node directly to preserve the npm version-range
+argument. Configuration parsing passed; live MCP authentication verification is
+pending. Codex must restart to expose the newly configured tools to the agent.
