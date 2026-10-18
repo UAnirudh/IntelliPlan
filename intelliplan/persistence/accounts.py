@@ -12,6 +12,7 @@ from flask import current_app
 from sqlalchemy import and_, case, func, literal, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from time_utils import utcnow
+from intelliplan.persistence.json_values import dumps_exact, loads_exact
 
 
 class AccountExists(ValueError):
@@ -35,7 +36,24 @@ REGISTRATION_FIELDS = frozenset({
 PREFERENCE_FIELDS = frozenset({
     'ai_personalization_opt_in', 'phone', 'sms_reminders_opt_in',
     'push_reminders_opt_in', 'reminder_lead_minutes', 'sms_carrier',
+    'focus_enforcement', 'focus_grace_seconds', 'focus_alarm_file',
+    'premium_model_pref', 'premium_clarify',
 })
+
+
+def patch_lms_preferences(raw, patch):
+    if patch.keys() - {'grade_source', 'assignment_sources'}:
+        raise ValueError('Unsupported LMS preference fields')
+    if not patch and isinstance(raw, str):
+        return raw
+    try:
+        values = loads_exact(raw) if isinstance(raw, str) else (raw or {})
+    except (TypeError, ValueError):
+        values = {}
+    if not isinstance(values, dict):
+        values = {}
+    updated = {**values, **patch}
+    return raw if isinstance(raw, str) and updated == values else dumps_exact(updated)
 
 
 def preference_fields(values):
@@ -156,6 +174,18 @@ class SQLAccounts:
             self.db.session.commit()
             self.db.session.expire_all()
             return self.get(user_id)
+        except Exception:
+            self.db.session.rollback()
+            raise
+
+    def set_lms_sources(self, user_id, patch):
+        try:
+            user = self.model.query.populate_existing().filter_by(id=int(user_id)).with_for_update().first()
+            if user is None:
+                raise LookupError('Account no longer exists')
+            user.lms_preferences = patch_lms_preferences(user.lms_preferences, patch)
+            self.db.session.commit()
+            return user
         except Exception:
             self.db.session.rollback()
             raise

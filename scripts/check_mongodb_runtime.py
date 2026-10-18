@@ -244,6 +244,24 @@ def verify(store):
     if accounts.set_preferences(user.id, {}).sms_reminders_opt_in:
         raise AssertionError('Empty preference update changed the SMS invariant')
     checks['atomic_account_preferences'] = True
+
+    from intelliplan.persistence.codec import update_fields
+    store.database.users.update_one({'id': user.id}, update_fields({
+        'lms_preferences': '{"precise":0.12345678901234567890123456789,"future_setting":' + json.dumps('x' * 20000) + '}'}))
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        grade = executor.submit(accounts.set_lms_sources, user.id, {'grade_source': 'canvas'})
+        assignments = executor.submit(accounts.set_lms_sources, user.id, {'assignment_sources': ['manual']})
+        grade.result()
+        assignments.result()
+    saved_preferences = json.loads(accounts.get(user.id).lms_preferences, parse_float=Decimal)
+    if saved_preferences != {'future_setting': 'x' * 20000, 'precise': Decimal('0.12345678901234567890123456789'),
+                             'grade_source': 'canvas', 'assignment_sources': ['manual']}:
+        raise AssertionError('Concurrent LMS preference updates lost restored fields')
+    accounts.set_preferences(user.id, {'focus_enforcement': 'alarm', 'focus_grace_seconds': 40})
+    preferred = accounts.set_preferences(user.id, {'premium_model_pref': 'auto', 'premium_clarify': False})
+    if preferred.focus_enforcement != 'alarm' or preferred.focus_grace_seconds != 40 or preferred.premium_clarify:
+        raise AssertionError('Focus/premium preference updates lost unrelated settings')
+    checks['atomic_lms_source_preferences'] = True
     with ThreadPoolExecutor(max_workers=4) as executor:
         children = list(executor.map(lambda _: accounts.establish_age(user.id,
             birth_year=datetime.now(timezone.utc).year - 10, parent_email=f'parent-{run_id}@example.invalid'), range(8)))

@@ -3116,14 +3116,20 @@ def get_user_lms_prefs():
     if not current_user.is_authenticated:
         return _default_lms_prefs()
     raw = getattr(current_user, "lms_preferences", None) or "{}"
+    return _lms_preferences_payload(raw)
+
+
+def _lms_preferences_payload(raw, *, allow_empty=False):
     try:
         prefs = json.loads(raw) if isinstance(raw, str) else (raw or {})
     except Exception:
         prefs = {}
+    if not isinstance(prefs, dict):
+        prefs = {}
     out = _default_lms_prefs()
     if prefs.get("grade_source"):
         out["grade_source"] = prefs["grade_source"]
-    if isinstance(prefs.get("assignment_sources"), list) and prefs["assignment_sources"]:
+    if isinstance(prefs.get("assignment_sources"), list) and (prefs["assignment_sources"] or allow_empty):
         out["assignment_sources"] = prefs["assignment_sources"]
     return out
 
@@ -19541,8 +19547,10 @@ def api_focus_enforcement():
     if not current_user.is_authenticated:
         return flask.jsonify({"status": "error", "error": "login required"}), 401
 
+    saved = current_user
     if request.method == "POST":
         body = request.get_json(silent=True) or {}
+        changes = {}
 
         mode = str(body.get("mode") or "").strip().lower()
         if mode:
@@ -19551,21 +19559,21 @@ def api_focus_enforcement():
                     "status": "error",
                     "message": "Unknown enforcement mode.",
                 }), 400
-            current_user.focus_enforcement = mode
+            changes['focus_enforcement'] = mode
 
         if "grace_seconds" in body:
             try:
                 lo, hi = FOCUS_GRACE_BOUNDS
-                current_user.focus_grace_seconds = max(lo, min(hi, int(body["grace_seconds"])))
+                changes['focus_grace_seconds'] = max(lo, min(hi, int(body["grace_seconds"])))
             except (TypeError, ValueError):
                 return flask.jsonify({
                     "status": "error",
                     "message": "Grace period must be a number of seconds.",
                 }), 400
 
-        db.session.commit()
+        saved = account_repository().set_preferences(current_user.id, changes)
 
-    return flask.jsonify(_focus_settings_payload(current_user))
+    return flask.jsonify(_focus_settings_payload(saved))
 
 
 @app.route("/api/focus/alarm", methods=["POST", "DELETE"])
@@ -19587,9 +19595,8 @@ def api_focus_alarm():
                 os.remove(path)
             except OSError:
                 pass
-        current_user.focus_alarm_file = None
-        db.session.commit()
-        return flask.jsonify(_focus_settings_payload(current_user))
+        saved = account_repository().set_preferences(current_user.id, {'focus_alarm_file': None})
+        return flask.jsonify(_focus_settings_payload(saved))
 
     upload = request.files.get("sound")
     if not upload or not upload.filename:
@@ -19627,9 +19634,8 @@ def api_focus_alarm():
 
     with open(os.path.join(ALARM_UPLOAD_FOLDER, stored_name + ext), "wb") as fh:
         fh.write(blob)
-    current_user.focus_alarm_file = stored_name + ext
-    db.session.commit()
-    return flask.jsonify(_focus_settings_payload(current_user))
+    saved = account_repository().set_preferences(current_user.id, {'focus_alarm_file': stored_name + ext})
+    return flask.jsonify(_focus_settings_payload(saved))
 
 
 @app.route("/uploads/focus-alarm/<int:user_id>")
@@ -22852,20 +22858,16 @@ def api_lms_sources():
                 {"login_type": a.login_type, "name": a.name, "is_active": bool(a.is_active)}
                 for a in accounts
             ],
-            "integrations": {
-                "google_classroom": bool(ClassroomIntegration.query.filter_by(user_id=current_user.id).first()),
-                "blackboard": bool(BlackboardIntegration.query.filter_by(user_id=current_user.id).first()),
-                "moodle": bool(MoodleIntegration.query.filter_by(user_id=current_user.id).first()),
-            },
+            "integrations": linked_accounts_repository().integration_presence(current_user.id),
         })
     body = request.get_json(silent=True) or {}
-    prefs = get_user_lms_prefs()
+    changes = {}
     if body.get("grade_source"):
-        prefs["grade_source"] = str(body["grade_source"])[:32]
+        changes["grade_source"] = str(body["grade_source"])[:32]
     if isinstance(body.get("assignment_sources"), list):
-        prefs["assignment_sources"] = [str(s)[:32] for s in body["assignment_sources"]][:12]
-    current_user.lms_preferences = json.dumps(prefs)
-    db.session.commit()
+        changes["assignment_sources"] = [str(s)[:32] for s in body["assignment_sources"]][:12]
+    saved = account_repository().set_lms_sources(current_user.id, changes)
+    prefs = _lms_preferences_payload(saved.lms_preferences, allow_empty=True)
     return jsonify({"status": "ok", "preferences": prefs})
 
 

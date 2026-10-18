@@ -3,8 +3,7 @@
 This is an ownership plan, not a SQL translation layer. Keep the policy in
 sync with account-deletion registry coverage whenever a domain adds an owner.
 """
-from decimal import Decimal
-import json
+from intelliplan.persistence.json_values import dumps_exact, loads_exact
 
 from intelliplan.persistence.codec import unpack_document, update_fields
 from intelliplan.learning.governance import anonymize_audit_value
@@ -121,33 +120,12 @@ ANONYMIZED_REFERENCES = {
 }
 
 
-def _exact_json_text(value):
-    """Serialize parsed JSON numbers without converting Decimal to float."""
-    if isinstance(value, Decimal):
-        if not value.is_finite():
-            raise ValueError('Audit JSON contains a non-finite number')
-        return str(value)
-    if isinstance(value, list):
-        return '[' + ','.join(_exact_json_text(item) for item in value) + ']'
-    if isinstance(value, dict):
-        return '{' + ','.join(json.dumps(key, ensure_ascii=False) + ':' + _exact_json_text(item)
-                              for key, item in value.items()) + '}'
-    return json.dumps(value, ensure_ascii=False, allow_nan=False)
-
-
 def _audit_changes(value, user_id):
     if not isinstance(value, str):
         return anonymize_audit_value(value, user_id)
-
-    def invalid_number(raw):
-        raise ValueError('Audit JSON contains a non-JSON number')
-
-    # Ordinary integer references remain ints for the shared scrubber. Very
-    # large unrelated integers avoid Python's bounded int-string conversion.
-    decoded = json.loads(value, parse_float=Decimal, parse_constant=invalid_number,
-                         parse_int=lambda raw: int(raw) if len(raw) <= 20 else Decimal(raw))
+    decoded = loads_exact(value)
     cleaned = anonymize_audit_value(decoded, user_id)
-    return value if cleaned == decoded else _exact_json_text(cleaned)
+    return value if cleaned == decoded else dumps_exact(cleaned)
 
 
 class MongoErasure:

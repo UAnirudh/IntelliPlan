@@ -45,6 +45,11 @@ class MongoLinkedAccounts:
         row = self.collection.find_one({'user_id': int(user_id), 'is_active': True}, sort=[('id', 1)])
         return LinkedAccount(row) if row is not None else None
 
+    def integration_presence(self, user_id):
+        return {name: self.store.database[collection].find_one({'user_id': int(user_id)}, {'_id': 1}) is not None
+                for name, collection in (('google_classroom', 'classroom_integrations'),
+                                         ('blackboard', 'blackboard_integrations'), ('moodle', 'moodle_integrations'))}
+
     def by_type(self, user_id, login_type):
         row = self.collection.find_one({'user_id': int(user_id), 'login_type': login_type},
                                        sort=[('is_active', -1), ('id', -1)])

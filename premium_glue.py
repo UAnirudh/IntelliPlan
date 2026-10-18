@@ -578,23 +578,22 @@ def api_premium_preferences():
     denied = _login_required()
     if denied:
         return denied
-    from App import db
-
+    from intelliplan.persistence.accounts import accounts
     data = request.get_json(silent=True) or {}
+    changes = {}
     if "model_pref" in data:
         pref = str(data.get("model_pref") or "").strip().lower()
         if pref not in router.PREFERENCES:
             return jsonify({"status": "error", "message": "Unknown answer depth."}), 400
-        current_user.premium_model_pref = pref
+        changes['premium_model_pref'] = pref
     if "clarify" in data:
-        current_user.premium_clarify = bool(data.get("clarify"))
+        changes['premium_clarify'] = bool(data.get("clarify"))
     try:
-        db.session.commit()
+        saved = accounts().set_preferences(current_user.id, changes)
     except Exception:
-        db.session.rollback()
         return jsonify({"status": "error", "message": "Could not save that."}), 500
-    return jsonify({"status": "ok", "model_pref": current_user.premium_model_pref,
-                    "clarify": bool(current_user.premium_clarify)})
+    return jsonify({"status": "ok", "model_pref": saved.premium_model_pref,
+                    "clarify": bool(saved.premium_clarify)})
 
 
 @premium_bp.route("/api/premium/usage", methods=["GET"])

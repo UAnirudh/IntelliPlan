@@ -97,6 +97,7 @@ explicitly marked superseded and cannot pass snapshot validation.
 | Extension credentials | Native and SQL issue/reuse/lookup/revoke operations; existing opaque tokens retained; stale verified password cannot issue new credentials |
 | Student identity | Explicit native/SQL profile reads and partial saves; onboarding form, settings identity API, onboarding chat and assistant-name lookup use the boundary |
 | Personalization/phone preferences | Explicit native/SQL partial updates; existing web normalization and bounds retained; removing a phone atomically clears SMS opt-in |
+| Focus/premium/LMS preferences | Focus enforcement, alarm-file metadata and premium model preferences use account partial writes; LMS source JSON updates merge under the parent lock/write with exact unknown numbers preserved |
 | Age and parental approval | Immutable first age write and atomic single-use approval in SQL/native repositories; native denial conditionally erases only an account still awaiting that token |
 | Account erasure | Explicit native ownership policy, transactional deletion and shared-reference anonymization; upload quarantine/rollback and authenticated-session cleanup tested; archive restore still pending |
 | Linked LMS profiles | SQL/native encrypted credential reads, create/activate, switch, rename and delete; owner-scoped profile management and grade/policy readers use the boundary |
@@ -257,7 +258,7 @@ Atlas-specific checks remain pending the restricted test connection.
 
 ## Real local MongoDB verification on 2026-10-18
 
-All fifteen checks in `mongodb-runtime-local-20261018.json` passed against an
+All sixteen checks in `mongodb-runtime-local-20261018.json` passed against an
 isolated, single-member MongoDB 8.0.34 replica set using PyMongo. This was a real
 MongoDB server, not a mocked transaction fixture. The official runtime archive's
 SHA-256 was checked before running it. The server bound only to localhost,
@@ -336,3 +337,19 @@ The real local MongoDB run passed fifteen checks, including concurrent profile
 creation/switching, competing Canvas refreshes, late-disconnect rejection and a
 deliberate failure after the OAuth token write to verify mirrored-write rollback.
 Other providers, remaining feature domains, native startup and cutover are pending.
+
+## Focus, premium and LMS preferences continuation
+
+Focus settings validate the whole submitted patch before saving. Alarm uploads
+and removal persist their filename through the account repository. This retains
+the existing filesystem workflow; broader upload lifecycle coordination remains
+a separate cutover requirement. Premium answer preferences use partial writes.
+LMS source reads include native owner-scoped integration-presence checks; writes
+merge partial fields in a parent transaction rather than replacing a stale request
+snapshot. Unknown plain/compressed JSON values retain exact fractions, exponents
+and large integers. Empty/no-op patches preserve original text byte-for-byte.
+
+The affected account/preferences/erasure/profile/premium/focus suite passed 188
+tests. Native web tests exercise persistence, validation, alarm upload/removal,
+and owner-scoped LMS source reads. Sixteen real local MongoDB checks passed,
+including concurrent LMS preference patches over compressed precise JSON.

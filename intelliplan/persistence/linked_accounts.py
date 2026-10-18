@@ -31,6 +31,12 @@ class SQLLinkedAccounts:
     def active(self, user_id):
         return next(iter(self.list(user_id, active=True)), None)
 
+    def integration_presence(self, user_id):
+        from App import BlackboardIntegration, ClassroomIntegration, MoodleIntegration
+        return {name: model.query.filter_by(user_id=int(user_id)).first() is not None
+                for name, model in (('google_classroom', ClassroomIntegration),
+                                    ('blackboard', BlackboardIntegration), ('moodle', MoodleIntegration))}
+
     def by_type(self, user_id, login_type):
         rows = self.list(user_id, login_type=login_type)
         return max(rows, key=lambda row: (bool(row.is_active), row.id), default=None)

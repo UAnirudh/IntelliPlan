@@ -11,7 +11,7 @@ from pymongo.errors import DuplicateKeyError
 
 from intelliplan.persistence.accounts import (
     AccountExists, CredentialChange, IdentityConflict, LoginFailures, PasswordConflict, normalize_email,
-    initial_age_values, policy_acknowledgements, policy_owner, preference_fields, registration_fields,
+    initial_age_values, patch_lms_preferences, policy_acknowledgements, policy_owner, preference_fields, registration_fields,
 )
 from intelliplan.persistence.codec import pack_document, unpack_document, update_fields
 from time_utils import utcnow
@@ -113,6 +113,19 @@ class MongoAccounts:
         if row is None:
             raise LookupError('Account no longer exists')
         return Account(row)
+
+    def set_lms_sources(self, user_id, patch):
+        def write(db, active):
+            row = db.users.find_one_and_update({'id': int(user_id)}, {'$inc': {'_preferences_revision': 1}},
+                return_document=ReturnDocument.AFTER, session=active)
+            if row is None:
+                raise LookupError('Account no longer exists')
+            raw = unpack_document(row).get('lms_preferences')
+            values = patch_lms_preferences(raw, patch)
+            updated = db.users.find_one_and_update({'_id': row['_id']}, update_fields({'lms_preferences': values}),
+                return_document=ReturnDocument.AFTER, session=active)
+            return Account(updated)
+        return self.store.transaction(write)
 
     def establish_age(self, user_id, *, birth_year, parent_email=None):
         consent_token = secrets.token_urlsafe(24)

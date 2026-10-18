@@ -71,6 +71,12 @@ def account_app(request, monkeypatch):
             push_reminders_opt_in = db.Column(db.Boolean, default=False)
             reminder_lead_minutes = db.Column(db.Integer, default=60)
             sms_carrier = db.Column(db.String, default='tmobile')
+            focus_enforcement = db.Column(db.String, default='off')
+            focus_grace_seconds = db.Column(db.Integer, default=25)
+            focus_alarm_file = db.Column(db.String)
+            premium_model_pref = db.Column(db.String, default='auto')
+            premium_clarify = db.Column(db.Boolean, default=True)
+            lms_preferences = db.Column(db.Text, default='{}')
 
         class ResetToken(db.Model):
             __tablename__ = 'password_reset_tokens'
@@ -697,3 +703,118 @@ def test_migrated_account_keeps_all_fields_and_precise_dates():
     assert changed.session_epoch == 1
     assert repo.get(42).custom_legacy_field == "keep"
     assert repo.get(42).marketing_consent_version == "original-version"
+
+
+def test_focus_premium_and_lms_preferences_use_partial_writes(account_app):
+    _, repo, *_ = account_app
+    user = repo.create(email='domain-prefs@example.test', password_hash='synthetic-hash')
+    focused = repo.set_preferences(user.id, {'focus_enforcement': 'alarm', 'focus_grace_seconds': 40})
+    assert focused.focus_enforcement == 'alarm'
+    premium = repo.set_preferences(user.id, {'premium_model_pref': 'auto', 'premium_clarify': False})
+    assert premium.focus_grace_seconds == 40
+    assert premium.premium_clarify is False
+    repo.set_lms_sources(user.id, {'grade_source': 'canvas'})
+    saved = repo.set_lms_sources(user.id, {'assignment_sources': ['manual', 'canvas']})
+    assert json.loads(saved.lms_preferences) == {'grade_source': 'canvas', 'assignment_sources': ['manual', 'canvas']}
+    assert saved.password_hash == 'synthetic-hash'
+    assert saved.focus_enforcement == 'alarm'
+    with pytest.raises(ValueError):
+        repo.set_lms_sources(user.id, {'user_id': 999})
+    assert json.loads(repo.get(user.id).lms_preferences)['grade_source'] == 'canvas'
+
+
+def test_native_lms_preferences_preserve_compressed_unknown_fields(account_app):
+    _, repo, *_ = account_app
+    if not isinstance(repo, MongoAccounts):
+        return
+    from intelliplan.persistence.codec import pack_document
+    user = repo.create(email='compressed-prefs@example.test', password_hash='synthetic-hash')
+    values = {'unknown_future': 'x' * 20000, 'grade_source': 'canvas'}
+    repo.collection.update_one({'id': user.id}, {'$set': pack_document({'lms_preferences': json.dumps(values)})})
+    saved = repo.set_lms_sources(user.id, {'assignment_sources': ['manual']})
+    assert json.loads(saved.lms_preferences) == {**values, 'assignment_sources': ['manual']}
+    assert repo.get(user.id).password_hash == 'synthetic-hash'
+
+
+def test_native_focus_premium_and_lms_patch_web_handlers(account_app, monkeypatch):
+    _, repo, *_ = account_app
+    if not isinstance(repo, MongoAccounts):
+        return
+    import App
+    import premium_glue
+    user = repo.create(email='native-domain-web@example.test', password_hash='synthetic-hash')
+    monkeypatch.setattr(App, 'current_user', user)
+    monkeypatch.setattr(premium_glue, 'current_user', user)
+    monkeypatch.setitem(App.app.extensions, 'accounts_repository', repo)
+    monkeypatch.setitem(App.app.extensions, 'mongo_store', repo.store)
+    with App.app.test_request_context('/api/focus/enforcement', method='POST', json={'mode': 'alarm', 'grace_seconds': 99999}):
+        response = App.api_focus_enforcement()
+        assert response.get_json()['mode'] == 'alarm'
+        assert response.get_json()['grace_seconds'] == App.FOCUS_GRACE_BOUNDS[1]
+    with App.app.test_request_context('/api/focus/enforcement', method='POST', json={'mode': 'stakes', 'grace_seconds': 'invalid'}):
+        assert App.api_focus_enforcement()[1] == 400
+    assert repo.get(user.id).focus_enforcement == 'alarm'
+    with App.app.test_request_context('/api/premium/preferences', method='POST', json={'clarify': False}):
+        assert premium_glue.api_premium_preferences().get_json()['clarify'] is False
+    with App.app.test_request_context('/api/settings/lms-sources', method='PATCH', json={'grade_source': 'canvas'}):
+        assert App.api_lms_sources().get_json()['preferences']['grade_source'] == 'canvas'
+    with App.app.test_request_context('/api/settings/lms-sources', method='PATCH', json={'assignment_sources': ['manual']}):
+        assert App.api_lms_sources().get_json()['preferences'] == {'grade_source': 'canvas', 'assignment_sources': ['manual']}
+    saved = repo.get(user.id)
+    assert saved.focus_enforcement == 'alarm'
+    assert saved.premium_clarify is False
+    repo.store.database.classroom_integrations.insert_one({'user_id': user.id + 1})
+    repo.store.database.blackboard_integrations.insert_one({'user_id': user.id})
+    monkeypatch.setattr(App, 'current_user', saved)
+    with App.app.test_request_context('/api/settings/lms-sources'):
+        payload = App.api_lms_sources().get_json()
+        assert payload['integrations'] == {'google_classroom': False, 'blackboard': True, 'moodle': False}
+        assert payload['preferences'] == {'grade_source': 'canvas', 'assignment_sources': ['manual']}
+
+
+def test_native_focus_alarm_upload_and_removal_persist(account_app, monkeypatch, tmp_path):
+    _, repo, *_ = account_app
+    if not isinstance(repo, MongoAccounts):
+        return
+    import io
+    import App
+    user = repo.create(email='native-alarm-web@example.test', password_hash='synthetic-hash')
+    monkeypatch.setattr(App, 'current_user', user)
+    monkeypatch.setitem(App.app.extensions, 'accounts_repository', repo)
+    monkeypatch.setattr(App, 'ALARM_UPLOAD_FOLDER', str(tmp_path))
+    with App.app.test_request_context('/api/focus/alarm', method='POST', data={'sound': (io.BytesIO(b'RIFF' + b'0' * 64), 'sound.wav')}):
+        response = App.api_focus_alarm()
+        assert response.get_json()['alarm_url']
+    saved = repo.get(user.id)
+    assert saved.focus_alarm_file == f'user_{user.id}.wav'
+    assert (tmp_path / saved.focus_alarm_file).read_bytes().startswith(b'RIFF')
+    monkeypatch.setattr(App, 'current_user', saved)
+    with App.app.test_request_context('/api/focus/alarm', method='DELETE'):
+        assert App.api_focus_alarm().get_json()['alarm_url'] == ''
+    assert repo.get(user.id).focus_alarm_file is None
+    assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.parametrize('padding', ['', 'x' * 20000])
+def test_lms_preference_patch_preserves_exact_unknown_json_numbers(account_app, padding):
+    _, repo, *_ = account_app
+    from decimal import Decimal
+    from intelliplan.persistence.codec import update_fields
+    user = repo.create(email='precise-prefs@example.test', password_hash='synthetic-hash')
+    raw = ('{ "grade_source" : "canvas", "fraction":0.12345678901234567890123456789,'
+           '"exponent":1.234567890123456789e+88,"huge":1234567890123456789012345678901234567890,'
+           '"padding":' + json.dumps(padding) + '}')
+    if isinstance(repo, MongoAccounts):
+        repo.collection.update_one({'id': user.id}, update_fields({'lms_preferences': raw}))
+    else:
+        repo.db.session.execute(repo.model.__table__.update().where(repo.model.id == user.id).values(lms_preferences=raw))
+        repo.db.session.commit()
+    assert repo.set_lms_sources(user.id, {}).lms_preferences == raw
+    assert repo.set_lms_sources(user.id, {'grade_source': 'canvas'}).lms_preferences == raw
+    saved = repo.set_lms_sources(user.id, {'assignment_sources': ['manual']})
+    decoded = json.loads(saved.lms_preferences, parse_float=Decimal)
+    assert decoded['fraction'] == Decimal('0.12345678901234567890123456789')
+    assert decoded['exponent'] == Decimal('1.234567890123456789e+88')
+    assert decoded['huge'] == 1234567890123456789012345678901234567890
+    assert decoded['padding'] == padding
+    assert decoded['assignment_sources'] == ['manual']
