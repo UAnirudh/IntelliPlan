@@ -62,6 +62,12 @@ def account_app(request, monkeypatch):
             parent_consent_granted = db.Column(db.Boolean, default=False)
             parent_consent_token = db.Column(db.String)
             marketing_emails_opt_in = db.Column(db.Boolean, default=False)
+            ai_personalization_opt_in = db.Column(db.Boolean, default=False)
+            phone = db.Column(db.String)
+            sms_reminders_opt_in = db.Column(db.Boolean, default=False)
+            push_reminders_opt_in = db.Column(db.Boolean, default=False)
+            reminder_lead_minutes = db.Column(db.Integer, default=60)
+            sms_carrier = db.Column(db.String, default='tmobile')
 
         class ResetToken(db.Model):
             __tablename__ = 'password_reset_tokens'
@@ -394,6 +400,29 @@ def test_identity_partial_updates_keep_other_fields_and_owner(account_app):
     import assistant_name
     assert assistant_name.for_user(one.id) == 'Nova'
     assert assistant_name.for_user(two.id) == ''
+
+
+def test_account_preferences_preserve_other_fields_and_clear_sms_without_a_phone(account_app):
+    _, repo, _ = account_app
+    user = repo.create(email='preferences@example.test', password_hash='keep-hash')
+    changed = repo.set_preferences(user.id, {'phone': '+12065550101', 'sms_reminders_opt_in': True,
+        'push_reminders_opt_in': True, 'reminder_lead_minutes': 45})
+    assert changed.sms_reminders_opt_in is True
+    cleared = repo.set_preferences(user.id, {'phone': None})
+    assert cleared.phone is None
+    assert cleared.sms_reminders_opt_in is False
+    changed = repo.set_preferences(user.id, {'sms_reminders_opt_in': True,
+                                            'ai_personalization_opt_in': True})
+    assert changed.sms_reminders_opt_in is False
+    assert changed.push_reminders_opt_in is True
+    assert changed.reminder_lead_minutes == 45
+    assert changed.ai_personalization_opt_in is True
+    assert changed.password_hash == 'keep-hash'
+    assert repo.set_preferences(user.id, {}).sms_reminders_opt_in is False
+    with pytest.raises(ValueError):
+        repo.set_preferences(user.id, {'password_hash': 'overwrite'})
+    with pytest.raises(LookupError):
+        repo.set_preferences(999999, {'phone': None})
 
 
 def test_identity_rejects_missing_owners_and_identity_overrides(account_app):

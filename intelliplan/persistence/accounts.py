@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from flask import current_app
-from sqlalchemy import case, func, or_, select, update
+from sqlalchemy import and_, case, func, literal, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from time_utils import utcnow
 
@@ -30,6 +30,18 @@ REGISTRATION_FIELDS = frozenset({
     'parent_consent_granted', 'parent_consent_token', 'marketing_emails_opt_in',
     'marketing_opt_in_at', 'marketing_consent_version',
 })
+
+PREFERENCE_FIELDS = frozenset({
+    'ai_personalization_opt_in', 'phone', 'sms_reminders_opt_in',
+    'push_reminders_opt_in', 'reminder_lead_minutes', 'sms_carrier',
+})
+
+
+def preference_fields(values):
+    changes = dict(values)
+    if changes.keys() - PREFERENCE_FIELDS:
+        raise ValueError('Unsupported account preference fields')
+    return changes
 
 
 def registration_fields(attributes):
@@ -106,6 +118,27 @@ class SQLAccounts:
 
     def count(self):
         return self.model.query.count()
+
+    def set_preferences(self, user_id, values):
+        values = preference_fields(values)
+        # Derive the SMS invariant from the row being updated, not a caller's
+        # possibly stale account snapshot. A removed phone cannot stay opted in.
+        phone = literal(values['phone']) if 'phone' in values else self.model.phone
+        opt_in = values.get('sms_reminders_opt_in', self.model.sms_reminders_opt_in)
+        values['sms_reminders_opt_in'] = case(
+            (and_(phone.is_not(None), phone != ''), opt_in), else_=False)
+        try:
+            changed = self.db.session.execute(update(self.model).where(
+                self.model.id == int(user_id)).values(**values).returning(self.model.id),
+                execution_options={'synchronize_session': False}).scalar_one_or_none()
+            if changed is None:
+                raise LookupError('Account no longer exists')
+            self.db.session.commit()
+            self.db.session.expire_all()
+            return self.get(user_id)
+        except Exception:
+            self.db.session.rollback()
+            raise
 
     def latest_policy(self, doc, *, user_id=None, guest_session_id=None):
         owner = policy_owner(user_id=user_id, guest_session_id=guest_session_id)

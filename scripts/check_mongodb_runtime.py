@@ -98,6 +98,14 @@ def verify(store):
     user = accounts.create(email=f'runtime-{run_id}@example.invalid',
                            name='Synthetic runtime check', password_hash='synthetic-unusable-hash')
     checks = {'driver_ping': True}
+    accounts.set_preferences(user.id, {'phone': '+12065550101', 'sms_reminders_opt_in': True,
+                                      'push_reminders_opt_in': True})
+    saved_preferences = accounts.set_preferences(user.id, {'phone': None})
+    if saved_preferences.sms_reminders_opt_in or not saved_preferences.push_reminders_opt_in:
+        raise AssertionError('Account preference update lost fields or retained SMS without a phone')
+    if accounts.set_preferences(user.id, {}).sms_reminders_opt_in:
+        raise AssertionError('Empty preference update changed the SMS invariant')
+    checks['atomic_account_preferences'] = True
 
     def rollback(db, active):
         db['_runtime_probes'].insert_one({'run_id': run_id, 'test': 'rollback'}, session=active)

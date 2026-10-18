@@ -10,7 +10,7 @@ from pymongo.errors import DuplicateKeyError
 
 from intelliplan.persistence.accounts import (
     AccountExists, CredentialChange, IdentityConflict, LoginFailures, PasswordConflict, normalize_email,
-    policy_acknowledgements, policy_owner, registration_fields,
+    policy_acknowledgements, policy_owner, preference_fields, registration_fields,
 )
 from intelliplan.persistence.codec import pack_document, unpack_document, update_fields
 from time_utils import utcnow
@@ -98,6 +98,19 @@ class MongoAccounts:
 
     def count(self):
         return self.collection.count_documents({})
+
+    def set_preferences(self, user_id, values):
+        values = preference_fields(values)
+        stages = [{'$set': {field: {'$literal': value} for field, value in values.items()}}] if values else []
+        stages.append({'$set': {'sms_reminders_opt_in': {'$cond': [
+                {'$in': [{'$ifNull': ['$phone', None]}, [None, '']]}, False,
+                {'$ifNull': ['$sms_reminders_opt_in', False]},
+            ]}}})
+        row = self.collection.find_one_and_update({'id': int(user_id)}, stages,
+            return_document=ReturnDocument.AFTER)
+        if row is None:
+            raise LookupError('Account no longer exists')
+        return Account(row)
 
     def latest_policy(self, doc, *, user_id=None, guest_session_id=None):
         owner = policy_owner(user_id=user_id, guest_session_id=guest_session_id)

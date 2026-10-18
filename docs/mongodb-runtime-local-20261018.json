@@ -1,9 +1,10 @@
 {
   "status": "passed",
   "environment": "isolated_local_mongodb_8.0.34",
-  "run_id": "a295cfe85d194ef3b3d8ec3235798d93",
+  "run_id": "2e8f46e20d2b4237863454d5eccc2333",
   "checks": {
     "driver_ping": true,
+    "atomic_account_preferences": true,
     "transaction_rollback": true,
     "concurrent_ids": true,
     "single_use_reset": true,

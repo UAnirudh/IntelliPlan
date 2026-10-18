@@ -96,8 +96,9 @@ explicitly marked superseded and cannot pass snapshot validation.
 | Desktop sign-in handoff | Native and SQL ticket issuance and atomic single-use redemption; PKCE burn, expiry and issuance epoch preserved; legacy tickets treated as epoch zero |
 | Extension credentials | Native and SQL issue/reuse/lookup/revoke operations; existing opaque tokens retained; stale verified password cannot issue new credentials |
 | Student identity | Explicit native/SQL profile reads and partial saves; onboarding form, settings identity API, onboarding chat and assistant-name lookup use the boundary |
+| Personalization/phone preferences | Explicit native/SQL partial updates; existing web normalization and bounds retained; removing a phone atomically clears SMS opt-in |
 | Adaptive tutor learner model | Six native collections implemented: profiles, mastery, mistakes, learner memory, imports and summaries; shared validation and response formats; owner checks and transactional mutations |
-| Remaining accounts and domains | Provider credential storage, age/consent and account preference updates, account erasure/archive lifecycle, LMS, scheduling, tutor chat/checks/education plans, Primer, Family, learning, notifications, groups and billing still need porting; application-wide startup remains SQLAlchemy |
+| Remaining accounts and domains | Provider credential storage, age/consent and other account preferences, account erasure/archive lifecycle, LMS, scheduling, tutor chat/checks/education plans, Primer, Family, learning, notifications, groups and billing still need porting; application-wide startup remains SQLAlchemy |
 | Railway | Production variables and deployment unchanged; no MongoDB cutover |
 
 The native flashcard unit tests exercise an 800-card import, seeded IDs,
@@ -252,13 +253,13 @@ Atlas-specific checks remain pending the restricted test connection.
 
 ## Real local MongoDB verification on 2026-10-18
 
-All ten checks in `mongodb-runtime-local-20261018.json` passed against an
+All eleven checks in `mongodb-runtime-local-20261018.json` passed against an
 isolated, single-member MongoDB 8.0.34 replica set using PyMongo. This was a real
 MongoDB server, not a mocked transaction fixture. The official runtime archive's
 SHA-256 was checked before running it. The server bound only to localhost,
 contained synthetic data, and shut down when the checks finished.
 
-The checks covered driver connectivity, deliberate transaction rollback,
+The checks covered driver connectivity, atomic account preferences, deliberate transaction rollback,
 concurrent IDs, single-use reset and desktop codes, concurrent partial identity
 updates, concurrent extension-token reuse, concurrent flashcard reviews with
 complete history, concurrent mastery evidence, and shared web sessions across
@@ -269,3 +270,10 @@ These results validate the implemented native repository operations. They do
 not verify Atlas network/credential configuration, all browser/mobile flows,
 full MongoDB application startup, remaining domain ports, or production cutover.
 `application_ready` and `atlas_verified` remain false in the evidence.
+
+Personalization and phone reminder preferences use an allowlisted partial-update
+boundary. The SMS flag is derived from the authoritative phone field in the same
+write, so clearing a phone cannot leave SMS opted in or overwrite unrelated
+preferences. The repository/onboarding/policy run passed 119 tests, and three
+web-route tests verified authorization, normalization, clamping, removal and
+personalization toggling. The updated eleven-check real-MongoDB run passed too.

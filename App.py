@@ -19653,11 +19653,11 @@ def api_profile_ai_personalization():
     if not current_user.is_authenticated:
         return flask.jsonify({"status": "error"}), 401
     body = request.get_json(silent=True) or {}
-    current_user.ai_personalization_opt_in = bool(body.get("enabled"))
-    db.session.commit()
+    user = account_repository().set_preferences(current_user.id,
+        {'ai_personalization_opt_in': bool(body.get('enabled'))})
     return flask.jsonify({
         "status": "ok",
-        "ai_personalization_opt_in": current_user.ai_personalization_opt_in,
+        "ai_personalization_opt_in": user.ai_personalization_opt_in,
     })
 
 
@@ -19668,21 +19668,19 @@ def api_profile_phone():
     if request.method == "GET":
         return flask.jsonify(_profile_payload(current_user))
     body = request.get_json(silent=True) or {}
+    changes = {}
     if "phone" in body:
         normalised = _normalise_phone(body.get("phone") or "")
-        current_user.phone = normalised or None
+        changes['phone'] = normalised or None
     if "sms_reminders_opt_in" in body:
-        current_user.sms_reminders_opt_in = bool(body.get("sms_reminders_opt_in"))
-        # Clearing the phone means you can't be reminded — also clear the flag.
-        if not current_user.phone:
-            current_user.sms_reminders_opt_in = False
+        changes['sms_reminders_opt_in'] = bool(body.get('sms_reminders_opt_in'))
     if "push_reminders_opt_in" in body:
-        current_user.push_reminders_opt_in = bool(body.get("push_reminders_opt_in"))
+        changes['push_reminders_opt_in'] = bool(body.get('push_reminders_opt_in'))
     if "reminder_lead_minutes" in body:
         try:
             lead = int(body.get("reminder_lead_minutes") or 60)
             # Clamp to 5 minutes .. 7 days
-            current_user.reminder_lead_minutes = max(5, min(lead, 10080))
+            changes['reminder_lead_minutes'] = max(5, min(lead, 10080))
         except (TypeError, ValueError):
             pass
     if "sms_carrier" in body:
@@ -19690,9 +19688,9 @@ def api_profile_phone():
         # Silently fall back to T-Mobile for unknown values.
         if carrier not in SMS_CARRIER_GATEWAYS:
             carrier = "tmobile"
-        current_user.sms_carrier = carrier
-    db.session.commit()
-    return flask.jsonify(_profile_payload(current_user))
+        changes['sms_carrier'] = carrier
+    user = account_repository().set_preferences(current_user.id, changes)
+    return flask.jsonify(_profile_payload(user))
 
 
 @app.route("/api/profile/phone/test", methods=["POST"])
