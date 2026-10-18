@@ -170,6 +170,7 @@ def verify_erasure(store, run_id, user, tutor):
         return OwnedTutor(store).get_or_create_profile()
 
     from intelliplan.persistence.mongo_linked_accounts import MongoLinkedAccounts
+    from intelliplan.persistence.mongo_app_links import MongoAppLinks
 
     for label, collection, create_child in (
         ('deck', 'fc_decks', lambda identity: MongoFlashcards(store).create_deck(identity, 'Synthetic racing deck')),
@@ -177,6 +178,8 @@ def verify_erasure(store, run_id, user, tutor):
         ('learner', 'adaptive_student_profile', learner_profile),
         ('linked', 'linked_accounts', lambda identity: MongoLinkedAccounts(store).create_active(
             identity, 'Synthetic racing school', 'studentvue', {'password': 'synthetic'})),
+        ('mobile', 'app_link_codes', lambda identity: MongoAppLinks(store).issue(
+            identity, code_hash=uuid.uuid4().hex * 2, next_path='/settings')),
     ):
         account = accounts.create(email=f'erasure-race-{label}-{run_id}@example.invalid', password_hash='synthetic-hash')
         gate = Barrier(2)
@@ -376,6 +379,47 @@ def verify(store):
     else:
         raise AssertionError('A revoked cookie epoch issued an extension credential')
     checks['concurrent_extension_handoff'] = True
+
+    import app_link
+    from intelliplan.persistence.mongo_app_links import MongoAppLinks
+    mobile_links = MongoAppLinks(store)
+    mobile_links.ensure_indexes()
+    mobile_code = app_link.new_code()
+    mobile_links.issue(user.id, code_hash=app_link.hash_code(mobile_code), next_path='/settings', expected_epoch=1)
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        mobile_claims = list(executor.map(lambda _: mobile_links.redeem(mobile_code), range(8)))
+    if sum(result is not None for result in mobile_claims) != 1:
+        raise AssertionError('Concurrent mobile browser claims reused a code')
+    claimed_mobile = next(result for result in mobile_claims if result is not None)
+    if claimed_mobile.session_epoch != 1 or claimed_mobile.next_path != '/settings':
+        raise AssertionError('Mobile handoff lost the issuance proof or destination')
+    mobile_codes = [app_link.new_code() for _ in range(8)]
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        list(executor.map(lambda code: mobile_links.issue(user.id, code_hash=app_link.hash_code(code),
+            next_path='/oauth/canvas', expected_epoch=1), mobile_codes))
+    live_mobile = store.database.app_link_codes.count_documents({'user_id': user.id, 'used_at': None})
+    if live_mobile != 1:
+        raise AssertionError('Concurrent mobile handoff issuance retained multiple live codes')
+    checks['single_use_mobile_browser_handoff'] = True
+    import api_keys
+    from intelliplan.persistence.mongo_api_keys import MongoAPIKeys
+    public_keys = MongoAPIKeys(store)
+    public_keys.ensure_indexes()
+    synthetic_key, key_prefix, key_digest = api_keys.generate_key()
+    key_id = store.next_id('api_keys')
+    store.database.api_keys.insert_one({'id': key_id, 'user_id': user.id, 'key_hash': key_digest,
+        'key_prefix': key_prefix, 'status': 'active', 'scopes': 'read:profile', 'request_count': None})
+    resolved = public_keys.resolve_digest(api_keys.hash_key(synthetic_key))
+    if resolved is None or resolved.user_id != user.id or resolved.scope_list() != ['read:profile']:
+        raise AssertionError('Native API key lookup lost the owner or scope')
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        list(executor.map(lambda _: public_keys.touch(key_id, user.id), range(12)))
+    if store.database.api_keys.find_one({'id': key_id})['request_count'] != 12:
+        raise AssertionError('Concurrent API usage touches lost increments')
+    store.database.api_keys.update_one({'id': key_id}, {'$set': {'status': 'revoked'}})
+    if public_keys.resolve_digest(key_digest) is not None:
+        raise AssertionError('A revoked native API credential was accepted')
+    checks['native_api_key_verification'] = True
 
     from intelliplan.persistence.mongo_linked_accounts import MongoLinkedAccounts
     linked = MongoLinkedAccounts(store)

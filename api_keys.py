@@ -125,6 +125,10 @@ def resolve_api_key(raw):
     """
     if not looks_like_api_key(raw):
         return None
+    store = current_app.extensions.get('mongo_store')
+    if store is not None:
+        from intelliplan.persistence.mongo_api_keys import MongoAPIKeys
+        return MongoAPIKeys(store).resolve_digest(hash_key(raw))
     try:
         db, ApiKey = _db(), _ApiKey()
     except AttributeError:
@@ -139,6 +143,11 @@ def touch_key(row):
     """Record that a key was used. Best-effort: a failure here must never
     turn a working API call into a 500."""
     try:
+        store = current_app.extensions.get('mongo_store')
+        if store is not None:
+            from intelliplan.persistence.mongo_api_keys import MongoAPIKeys
+            MongoAPIKeys(store).touch(row.id, row.user_id)
+            return
         db = _db()
         row.last_used_at = utcnow()
         row.request_count = (row.request_count or 0) + 1

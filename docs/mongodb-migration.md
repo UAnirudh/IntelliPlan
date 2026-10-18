@@ -94,6 +94,8 @@ explicitly marked superseded and cannot pass snapshot validation.
 | Password resets | Native and SQL repositories atomically consume links, replace credentials and advance session epoch; web reset route and user loader now use the repository boundary |
 | Policy acknowledgements | Owner-scoped reads and transactional version updates use SQL/Mongo repositories; existing signup and guest behavior retained |
 | Desktop sign-in handoff | Native and SQL ticket issuance and atomic single-use redemption; PKCE burn, expiry and issuance epoch preserved; legacy tickets treated as epoch zero |
+| Mobile browser handoff | SQL/native single-use code issuance/replacement/redemption, expiry and credential epochs; browser clears prior data, rotates SID and stamps immutable proof; first-party bearer required |
+| Native API credential verification | API user reads use account repository; native API key digest/status/scope reads and nullable atomic usage counters implemented; developer key-management routes still pending |
 | Extension credentials | Native and SQL issue/reuse/lookup/revoke operations; existing opaque tokens retained; stale verified password cannot issue new credentials |
 | Student identity | Explicit native/SQL profile reads and partial saves; onboarding form, settings identity API, onboarding chat and assistant-name lookup use the boundary |
 | Personalization/phone preferences | Explicit native/SQL partial updates; existing web normalization and bounds retained; removing a phone atomically clears SMS opt-in |
@@ -260,7 +262,7 @@ Atlas-specific checks remain pending the restricted test connection.
 
 ## Real local MongoDB verification on 2026-10-18
 
-All twenty-one checks in `mongodb-runtime-local-20261018.json` passed against an
+All twenty-three checks in `mongodb-runtime-local-20261018.json` passed against an
 isolated, single-member MongoDB 8.0.34 replica set using PyMongo. This was a real
 MongoDB server, not a mocked transaction fixture. The official runtime archive's
 SHA-256 was checked before running it. The server bound only to localhost,
@@ -398,3 +400,26 @@ keys, zero duplicated guest keys, and zero ambiguous user/guest owners on
 2026-10-18. Repeat against the final snapshot before building native unique indexes.
 Full tutor request dependencies, remaining domains, native startup and cutover
 are still incomplete.
+
+## Mobile browser handoff continuation
+
+Mobile browser codes now issue, replace previous unspent codes and redeem through
+SQL/native repositories. Redemption is atomic, validates the stored destination,
+expires after ninety seconds and carries the issuance credential epoch. Existing
+SQL tickets gain an additive epoch column under the deployment schema lock;
+legacy tickets default to epoch zero. Browser login clears prior session data,
+rotates the server session ID and stamps the immutable redemption epoch.
+
+Scoped developer API keys cannot mint full browser sessions. The handoff accepts
+first-party bearer identity only, including rejection when an API key accompanies
+a JWT. Native API key authentication reads MongoDB status/scopes and increments
+usage atomically; revoked keys fail immediately and duplicate active hashes fail
+closed. Developer key management, broader REST endpoint storage and native app
+startup remain to be ported.
+
+The combined account/mobile/browser/API-key/additive-migration suite passed 167
+tests. Independent review found and verified the scoped-key escalation fix.
+Twenty-three real MongoDB checks passed: concurrent mobile redemption accepted
+one claimant, concurrent issuance left one unspent code, twelve API usage touches
+retained every increment, and account erasure raced safely with ticket issuance.
+Atlas native-driver access and final deployment/cutover remain pending.

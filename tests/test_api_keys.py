@@ -268,3 +268,26 @@ def test_health_needs_no_credential(client):
 def test_docs_list_every_scope(client):
     scopes = client.get("/api/v1/docs").get_json()["scopes"]
     assert set(scopes) == set(api_keys.SCOPES)
+
+
+@pytest.mark.parametrize('header_mode', ['key_header', 'bearer_key', 'key_and_token'])
+def test_scoped_developer_key_cannot_mint_full_browser_session(client, header_mode):
+    import auth_api
+    user_id = make_user('apitest+handoff@example.com')
+    login(client, user_id)
+    secret = apply_for(client, ['read:profile']).get_json()['key']
+    if header_mode == 'bearer_key':
+        headers = {'Authorization': 'Bearer ' + secret}
+    else:
+        headers = {'X-API-Key': secret}
+    if header_mode == 'key_and_token':
+        with App.app.app_context():
+            headers['Authorization'] = 'Bearer ' + auth_api.make_token(db.session.get(User, user_id))
+    before = 0
+    with App.app.app_context():
+        before = App.AppLinkCode.query.filter_by(user_id=user_id).count()
+    response = client.post('/api/v1/link/session', json={'provider': 'settings'}, headers=headers)
+    assert response.status_code == 403
+    assert response.get_json()['error'] == 'first_party_required'
+    with App.app.app_context():
+        assert App.AppLinkCode.query.filter_by(user_id=user_id).count() == before

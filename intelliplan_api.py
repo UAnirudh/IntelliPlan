@@ -53,6 +53,18 @@ def _models():
     return a.intelliplan_db, a.intelliplan_user_model, a.intelliplan_bcrypt
 
 
+def _accounts():
+    repository = current_app.extensions.get('accounts_repository')
+    if repository is not None:
+        return repository
+    if current_app.extensions.get('mongo_store') is not None:
+        from intelliplan.persistence.accounts import accounts
+        return accounts()
+    from intelliplan.persistence.accounts import SQLAccounts
+    db, User, _ = _models()
+    return SQLAccounts(db, User)
+
+
 def _app():
     return current_app
 
@@ -117,6 +129,8 @@ def _stamp_response(response):
 
 def _site_handler(name):
     """The App-level error handler this one displaced, if it exists."""
+    if current_app.extensions.get('mongo_store') is not None:
+        return current_app.extensions.get('site_error_handlers', {}).get(name)
     import App  # lazy: App imports this module, so this cannot be top-level
 
     return getattr(App, name, None)
@@ -176,8 +190,7 @@ def _resolve_credential():
         row = resolve_api_key(raw_key)
         if not row:
             return None, None, []
-        db, User, _ = _models()
-        user = db.session.get(User, row.user_id)
+        user = _accounts().get(row.user_id)
         if not user:
             return None, None, []
         return user, row, row.scope_list()
@@ -188,8 +201,7 @@ def _resolve_credential():
     payload = verify_token(token)
     if not payload:
         return None, None, []
-    db, User, _ = _models()
-    user = db.session.get(User, payload.get("user_id"))
+    user = _accounts().get(payload.get("user_id"))
     if not user:
         return None, None, []
     return user, None, ALL_SCOPES
@@ -723,14 +735,14 @@ def mint_link_session():
     Body: {"provider": "canvas" | "google" | "notion" | <app_link.PAGES>}
     Returns: {"url": "https://…/link/<code>", "expires_in": 90}
 
-    read:profile rather than a write scope: this proves who the caller is
-    and hands that identity to a browser. It grants nothing the caller does
-    not already hold — the bearer token it was minted from can reach every
-    one of these routes directly.
+    Only first-party bearer identity can mint a full browser session.
+    Developer API keys retain their scopes and cannot elevate through handoff.
     """
     import app_link
 
-    db, User, _ = _models()
+    if getattr(g, 'api_key_row', None) is not None:
+        return _fail('first_party_required', 'Browser sign-in requires a first-party session token.', 403)
+
     body = request.get_json(silent=True) or {}
     provider = (body.get("provider") or "").strip().lower()
 
@@ -740,23 +752,10 @@ def mint_link_session():
             "provider must be one of: "
             + ", ".join(app_link.LINKABLE + app_link.PAGES) + ".", 400)
 
-    AppLinkCode = current_app.intelliplan_app_link_code_model
+    from intelliplan.persistence.app_links import app_link_tickets
     code = app_link.new_code()
-    db.session.add(AppLinkCode(
-        code_hash=app_link.hash_code(code),
-        user_id=g.api_user.id,
-        next_path=next_path,
-    ))
-
-    # Codes this account already minted and never spent are burned here.
-    # A student who taps Connect, backs out, and taps again should not
-    # leave a live credential behind for every attempt.
-    (db.session.query(AppLinkCode)
-        .filter(AppLinkCode.user_id == g.api_user.id,
-                AppLinkCode.used_at.is_(None),
-                AppLinkCode.code_hash != app_link.hash_code(code))
-        .update({"used_at": utcnow()}, synchronize_session=False))
-    db.session.commit()
+    app_link_tickets().issue(g.api_user.id, code_hash=app_link.hash_code(code),
+        next_path=next_path, expected_epoch=int(getattr(g.api_user, 'session_epoch', 0) or 0))
 
     base = (current_app.config.get("APP_BASE_URL")
             or os.getenv("APP_BASE_URL")

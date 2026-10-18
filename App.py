@@ -43,6 +43,7 @@ import request_guards
 import secret_box
 from intelliplan.persistence.accounts import AccountExists, IdentityConflict, PasswordConflict, accounts as account_repository
 from intelliplan.persistence.desktop import desktop_tickets, ensure_sql_ticket_epoch
+from intelliplan.persistence.app_links import app_link_tickets, ensure_sql_link_epoch
 from intelliplan.persistence.extensions import extension_tokens
 from intelliplan.persistence.identity import identities
 from intelliplan.persistence.login import EpochLoginManager
@@ -975,6 +976,7 @@ class AppLinkCode(db.Model):
     # makes a replay fail: the row has to stick around long enough to say
     # "already used" rather than "never existed".
     used_at = db.Column(db.DateTime, nullable=True)
+    session_epoch = db.Column(db.Integer, default=0)
 
 
 class NotionIntegration(db.Model):
@@ -2906,6 +2908,7 @@ with app.app_context(), _db_boot.schema_lock(db.engine) as _schema_work_is_ours:
     if _schema_work_is_ours:
         db.create_all()
         ensure_sql_ticket_epoch(db)
+        ensure_sql_link_epoch(db)
         apply_study_schema_migrations()
         apply_media_balance_migrations(db)
         apply_command_center_migrations(db)
@@ -8495,39 +8498,22 @@ def app_link_redeem(code):
     either valid or it is somebody probing, and the two deserve the same
     reply.
     """
-    now = datetime.utcnow()
-
-    if not app_link.is_valid_code(code):
+    redemption = app_link_tickets().redeem(code)
+    if redemption is None:
         return redirect(url_for("login"))
-
-    row = AppLinkCode.query.filter_by(code_hash=app_link.hash_code(code)).first()
-    if row is None or row.used_at is not None:
-        return redirect(url_for("login"))
-    if app_link.is_expired(row.created_at, now):
-        return redirect(url_for("login"))
-    # Constant-time even though the lookup was by hash: the row was found
-    # by an indexed equality match, and this is the comparison that
-    # actually authorises.
-    if not app_link.codes_match(code, row.code_hash):
-        return redirect(url_for("login"))
-
-    user = db.session.get(User, row.user_id)
-    if user is None:
-        return redirect(url_for("login"))
-
-    # Burned before the session is granted, so a crash between the two
-    # leaves a spent code rather than a live one.
-    row.used_at = now
-    db.session.commit()
-
-    login_user(user, remember=True)
+    session.clear()
+    login_user(redemption.user, remember=True)
+    session['session_epoch'] = redemption.session_epoch
+    regenerate = getattr(flask.current_app.session_interface, 'regenerate', None)
+    if regenerate is not None:
+        regenerate(session)
     session.permanent = True
     # Tells the OAuth callbacks to bounce back to the app instead of
     # rendering a web page the student cannot get out of.
     session["app_link_return"] = True
     session.modified = True
 
-    return redirect(row.next_path)
+    return redirect(redemption.next_path)
 
 
 @app.route("/oauth/canvas/check")

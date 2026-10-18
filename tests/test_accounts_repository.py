@@ -21,6 +21,8 @@ from intelliplan.persistence.mongo_accounts import MongoAccounts
 from intelliplan.persistence.mongo_desktop import MongoDesktopTickets
 from intelliplan.persistence.mongo_extensions import MongoExtensionTokens
 from intelliplan.persistence.mongo_identity import MongoIdentities
+from intelliplan.persistence.app_links import SQLAppLinks
+from intelliplan.persistence.mongo_app_links import MongoAppLinks
 
 
 @pytest.fixture(params=["mongo", "sql"])
@@ -42,6 +44,8 @@ def account_app(request, monkeypatch):
         tokens.ensure_indexes()
         profiles = MongoIdentities(store)
         profiles.ensure_indexes()
+        links = MongoAppLinks(store)
+        links.ensure_indexes()
     else:
         db = SQLAlchemy(app)
 
@@ -81,6 +85,16 @@ def account_app(request, monkeypatch):
             monthly_tutor_messages = db.Column(db.Integer, default=0)
             tutor_reset_date = db.Column(db.DateTime)
             first_touch_json = db.Column(db.Text)
+
+        class AppLinkCode(db.Model):
+            __tablename__ = 'app_link_codes'
+            id = db.Column(db.Integer, primary_key=True)
+            user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+            code_hash = db.Column(db.String, unique=True)
+            next_path = db.Column(db.String)
+            created_at = db.Column(db.DateTime)
+            used_at = db.Column(db.DateTime)
+            session_epoch = db.Column(db.Integer, default=0)
 
         class ResetToken(db.Model):
             __tablename__ = 'password_reset_tokens'
@@ -152,14 +166,18 @@ def account_app(request, monkeypatch):
         tickets = SQLDesktopTickets(db, DesktopAuthCode, User)
         tokens = SQLExtensionTokens(db, ExtensionToken, User)
         profiles = SQLIdentities(db, UserIdentity, User)
+        links = SQLAppLinks(db, AppLinkCode, User)
     app.extensions["accounts_repository"] = repo
     app.extensions['desktop_tickets_repository'] = tickets
     app.extensions['extension_tokens_repository'] = tokens
     app.extensions['identity_repository'] = profiles
+    app.extensions['app_link_tickets_repository'] = links
     app.extensions["account_passwords"] = passwords
     manager = LoginManager(app)
     manager.user_loader(repo.get)
     app.register_blueprint(auth_api.auth_bp)
+    from intelliplan_api import api_bp
+    app.register_blueprint(api_bp)
 
     @app.before_request
     def clear_cached_login():
@@ -895,3 +913,81 @@ def test_native_role_first_touch_and_tutor_web_boundaries(account_app, monkeypat
         assert repo.get(user.id).first_touch_json == first
     assert repo.get(user.id).role == 'parent'
     assert repo.get(user.id).monthly_tutor_messages == 1
+
+
+def test_mobile_browser_ticket_is_single_use_and_new_issue_burns_previous(account_app):
+    app, repo, *_ = account_app
+    import app_link
+    tickets = app.extensions['app_link_tickets_repository']
+    user = repo.create(email='mobile-link@example.test', password_hash='synthetic-hash')
+    first, second = app_link.new_code(), app_link.new_code()
+    tickets.issue(user.id, code_hash=app_link.hash_code(first), next_path='/settings')
+    tickets.issue(user.id, code_hash=app_link.hash_code(second), next_path='/oauth/canvas')
+    assert tickets.redeem(first) is None
+    redemption = tickets.redeem(second)
+    assert redemption.user.id == user.id
+    assert redemption.session_epoch == 0
+    assert redemption.next_path == '/oauth/canvas'
+    assert tickets.redeem(second) is None
+    with pytest.raises(ValueError):
+        tickets.issue(user.id, code_hash=app_link.hash_code(app_link.new_code()), next_path='https://attacker.invalid')
+
+
+def test_mobile_browser_ticket_rejects_reset_and_expired_codes(account_app):
+    app, repo, *_ = account_app
+    import app_link
+    tickets = app.extensions['app_link_tickets_repository']
+    user = repo.create(email='mobile-reset@example.test', password_hash='old-hash')
+    code = app_link.new_code()
+    tickets.issue(user.id, code_hash=app_link.hash_code(code), next_path='/settings', expected_epoch=0)
+    repo.change_password(user.id, password_hash='new-hash', expected_hash='old-hash')
+    assert tickets.redeem(code) is None
+    with pytest.raises(ValueError):
+        tickets.issue(user.id, code_hash=app_link.hash_code(app_link.new_code()), next_path='/settings', expected_epoch=0)
+    expired = app_link.new_code()
+    tickets.issue(user.id, code_hash=app_link.hash_code(expired), next_path='/settings', expected_epoch=1)
+    cutoff = datetime.utcnow() - timedelta(seconds=app_link.CODE_TTL_SECONDS + 1)
+    if isinstance(tickets, MongoAppLinks):
+        tickets.store.database.app_link_codes.update_one({'code_hash': app_link.hash_code(expired)}, {'$set': {'created_at': cutoff.isoformat()}})
+    else:
+        tickets.model.query.filter_by(code_hash=app_link.hash_code(expired)).update({'created_at': cutoff})
+        tickets.db.session.commit()
+    assert tickets.redeem(expired) is None
+
+
+def test_authenticated_api_mints_mobile_browser_code_without_legacy_model_access(account_app):
+    app, repo, *_ = account_app
+    user = repo.create(email='mobile-mint@example.test', password_hash='synthetic-hash')
+    client = app.test_client()
+    assert client.post('/api/v1/link/session', json={'provider': 'settings'}).status_code == 401
+    token = auth_api.make_token(user)
+    response = client.post('/api/v1/link/session', json={'provider': 'settings'}, headers={'Authorization': 'Bearer ' + token})
+    assert response.status_code == 200
+    code = response.get_json()['url'].rsplit('/', 1)[1]
+    redemption = app.extensions['app_link_tickets_repository'].redeem(code)
+    assert redemption.user.id == user.id
+    assert redemption.next_path == '/settings'
+    rejected = client.post('/api/v1/link/session', json={'provider': '//attacker.invalid'}, headers={'Authorization': 'Bearer ' + token})
+    assert rejected.status_code == 400
+
+
+def test_native_api_key_cannot_elevate_into_a_browser_session(account_app):
+    app, repo, *_ = account_app
+    if not isinstance(repo, MongoAccounts):
+        return
+    import api_keys
+    user = repo.create(email='native-api-key-link@example.test', password_hash='synthetic-hash')
+    secret, prefix, digest = api_keys.generate_key()
+    repo.store.database.api_keys.insert_one({'id': 1, 'user_id': user.id, 'key_hash': digest,
+        'key_prefix': prefix, 'status': 'active', 'scopes': 'read:profile', 'request_count': None})
+    app.extensions['mongo_store'] = repo.store
+    client = app.test_client()
+    response = client.post('/api/v1/link/session', json={'provider': 'settings'}, headers={'X-API-Key': secret})
+    assert response.status_code == 403
+    assert response.get_json()['error'] == 'first_party_required'
+    assert repo.store.database.app_link_codes.count_documents({'user_id': user.id}) == 0
+    assert repo.store.database.api_keys.find_one({'id': 1})['request_count'] == 1
+    repo.store.database.api_keys.update_one({'id': 1}, {'$set': {'scopes': 'read:identity'}})
+    assert client.post('/api/v1/link/session', json={'provider': 'settings'}, headers={'X-API-Key': secret}).status_code == 403
+    repo.store.database.api_keys.update_one({'id': 1}, {'$set': {'status': 'revoked'}})
+    assert client.post('/api/v1/link/session', json={'provider': 'settings'}, headers={'X-API-Key': secret}).status_code == 401
