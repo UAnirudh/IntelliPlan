@@ -84,7 +84,7 @@ explicitly marked superseded and cannot pass snapshot validation.
 | Component | Status |
 | --- | --- |
 | Connection lifecycle | Native MongoStore implemented; lazy clients, fork handling, majority writes |
-| Transaction boundary | Driver-managed transaction callback implemented; real Atlas rollback/concurrency tests pending |
+| Transaction boundary | Driver-managed transaction callback implemented; real local MongoDB 8.0.34 rollback/concurrency checks passed; Atlas checks pending |
 | ID allocation | Atomic counters and bulk range reservation implemented and locally tested |
 | Large text | Lossless bounded compression/decompression; every snapshot document round-tripped exactly |
 | Web sessions | MongoDB interface implemented and locally tested; not wired into App.py |
@@ -248,4 +248,24 @@ the final stale-cache regression fix. The final affected account/identity/
 onboarding suite passed 96 tests, and review independently verified the two
 SQL/native stale-cache regressions. The native runtime script now also checks
 concurrent profile creation and preservation of unrelated partial updates; those
-real-driver checks remain pending the restricted test connection.
+Atlas-specific checks remain pending the restricted test connection.
+
+## Real local MongoDB verification on 2026-10-18
+
+All ten checks in `mongodb-runtime-local-20261018.json` passed against an
+isolated, single-member MongoDB 8.0.34 replica set using PyMongo. This was a real
+MongoDB server, not a mocked transaction fixture. The official runtime archive's
+SHA-256 was checked before running it. The server bound only to localhost,
+contained synthetic data, and shut down when the checks finished.
+
+The checks covered driver connectivity, deliberate transaction rollback,
+concurrent IDs, single-use reset and desktop codes, concurrent partial identity
+updates, concurrent extension-token reuse, concurrent flashcard reviews with
+complete history, concurrent mastery evidence, and shared web sessions across
+two Flask instances including rotation and logout. No source or rehearsal rows
+were used. Synthetic records are retained outside the repository.
+
+These results validate the implemented native repository operations. They do
+not verify Atlas network/credential configuration, all browser/mobile flows,
+full MongoDB application startup, remaining domain ports, or production cutover.
+`application_ready` and `atlas_verified` remain false in the evidence.

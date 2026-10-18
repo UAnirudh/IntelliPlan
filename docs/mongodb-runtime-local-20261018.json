@@ -1,0 +1,23 @@
+{
+  "status": "passed",
+  "environment": "isolated_local_mongodb_8.0.34",
+  "run_id": "a295cfe85d194ef3b3d8ec3235798d93",
+  "checks": {
+    "driver_ping": true,
+    "transaction_rollback": true,
+    "concurrent_ids": true,
+    "single_use_reset": true,
+    "single_use_desktop_handoff": true,
+    "concurrent_identity_updates": true,
+    "concurrent_extension_handoff": true,
+    "concurrent_flashcard_reviews": true,
+    "concurrent_mastery_updates": true,
+    "native_session_lifecycle": true
+  },
+  "application_ready": false,
+  "verified_on": "2026-10-18",
+  "data_kind": "synthetic_only",
+  "atlas_verified": false,
+  "official_runtime_archive_sha256": "6b021a0864494e4decf278b36477a29eb36072432773e4e62c2f42c302630db0",
+  "official_runtime_archive_url": "https://fastdl.mongodb.org/windows/mongodb-windows-x86_64-8.0.34.zip"
+}
