@@ -1,7 +1,7 @@
 {
   "status": "passed",
   "environment": "isolated_local_mongodb_8.0.34",
-  "run_id": "97af5ea8a80a420ba835475ab6f0d7cc",
+  "run_id": "586c5a79eaea4ba2a1af4f80f78d1cc2",
   "checks": {
     "driver_ping": true,
     "atomic_account_preferences": true,
@@ -12,6 +12,8 @@
     "single_use_desktop_handoff": true,
     "concurrent_identity_updates": true,
     "concurrent_extension_handoff": true,
+    "concurrent_lms_profiles": true,
+    "atomic_canvas_credentials": true,
     "concurrent_flashcard_reviews": true,
     "concurrent_mastery_updates": true,
     "native_session_lifecycle": true,

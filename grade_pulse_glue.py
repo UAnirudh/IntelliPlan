@@ -314,7 +314,8 @@ def _rollback() -> None:
 
 def pull_user(user_id: int) -> dict[str, int]:
     """Fetch one student's LMS now and observe it. Network: only here."""
-    from App import LinkedAccount, collect_lms_assignments_for_user
+    from App import collect_lms_assignments_for_user
+    from intelliplan.persistence.linked_accounts import linked_accounts
 
     out = {"assignments": 0, "grades": 0}
     # collect_lms_assignments_for_user observes what it fetches itself (see
@@ -324,7 +325,7 @@ def pull_user(user_id: int) -> dict[str, int]:
     except Exception as exc:
         logger.info("grade pulse pull: assignments failed for %s: %s", user_id, exc)
 
-    acct = LinkedAccount.query.filter_by(user_id=user_id, is_active=True).first()
+    acct = linked_accounts().active(user_id)
     if acct is not None:
         try:
             creds = acct.get_credentials() or {}

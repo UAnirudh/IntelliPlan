@@ -835,6 +835,10 @@ class UserIdentity(db.Model):
         }
 
 
+from intelliplan.persistence.linked_accounts import linked_accounts as linked_accounts_repository
+from intelliplan.persistence.canvas import canvas_integrations
+
+
 class LinkedAccount(db.Model):
     __tablename__ = "linked_accounts"
     id = db.Column(db.Integer, primary_key=True)
@@ -3127,9 +3131,7 @@ def get_user_lms_prefs():
 def _linked_account_by_type(login_type):
     if not current_user.is_authenticated or not login_type:
         return None
-    acct = LinkedAccount.query.filter_by(
-        user_id=current_user.id, login_type=login_type
-    ).order_by(LinkedAccount.is_active.desc(), LinkedAccount.id.desc()).first()
+    acct = linked_accounts_repository().by_type(current_user.id, login_type)
     if not acct:
         return None
     creds = acct.get_credentials()
@@ -3173,15 +3175,39 @@ def _refresh_canvas_if_stale(creds):
         return creds
     if not CANVAS_OAUTH_AVAILABLE or not current_user.is_authenticated:
         return creds
-    row = CanvasIntegration.query.filter_by(user_id=current_user.id).first()
-    if not row or not row.refresh_token:
-        return creds
+    row = canvas_integrations().get(current_user.id)
+    if not row:
+        try:
+            session['canvas_needs_reconnect'] = True
+        except RuntimeError:
+            pass
+        return None
+
+    same_grant = (creds.get('canvas_token') == row.access_token or
+                  (creds.get('canvas_refresh_token') and creds.get('canvas_refresh_token') == row.refresh_token))
+    if creds.get('canvas_url') != row.canvas_base or not same_grant:
+        # Only one OAuth grant is stored per user. An older linked profile
+        # must reconnect rather than send a different school's/account's token.
+        try:
+            session['canvas_needs_reconnect'] = True
+        except RuntimeError:
+            pass
+        return None
 
     now = utcnow()
     fresh_enough = (row.token_expires_at
                     and row.token_expires_at > now + timedelta(seconds=CANVAS_REFRESH_SKEW_SECONDS))
     if fresh_enough and creds.get("canvas_token"):
+        creds['canvas_token'] = row.access_token
+        creds['canvas_token_expires_at'] = row.token_expires_at.isoformat()
         return creds
+
+    if not row.refresh_token:
+        try:
+            session['canvas_needs_reconnect'] = True
+        except RuntimeError:
+            pass
+        return None
 
     try:
         tokens = refresh_canvas_token(row.refresh_token, row.canvas_base)
@@ -3205,26 +3231,21 @@ def _refresh_canvas_if_stale(creds):
     if not access_token:
         return creds
     ttl = tokens.get("expires_in")
-    row.access_token = access_token
-    row.token_expires_at = now + timedelta(seconds=int(ttl)) if ttl else None
-
-    # The linked account is what the fetch paths actually read, so the fresh
-    # token has to land there too or the refresh changes nothing.
-    acct = LinkedAccount.query.filter_by(
-        user_id=current_user.id, is_active=True, login_type="canvas").first()
-    if acct:
-        stored = acct.get_credentials()
-        stored["canvas_token"] = access_token
-        stored["canvas_token_expires_at"] = (
-            row.token_expires_at.isoformat() if row.token_expires_at else None)
-        acct.set_credentials(stored)
-    try:
-        db.session.commit()
-    except Exception:
-        db.session.rollback()
+    expires_at = now + timedelta(seconds=int(ttl)) if ttl else None
+    saved = canvas_integrations().refresh(
+        current_user.id, row, access_token=access_token,
+        refresh_token=tokens.get("refresh_token"), expires_at=expires_at)
+    if not saved:
+        # A disconnect, reconnect or competing refresh superseded this network request.
+        active = linked_accounts_repository().active(current_user.id)
+        if active is None:
+            return None
+        values = active.get_credentials()
+        values["login_type"] = active.login_type
+        return values
     try:
         session.pop("canvas_needs_reconnect", None)
-    except Exception:
+    except RuntimeError:
         pass
     creds["canvas_token"] = access_token
     return creds
@@ -3297,7 +3318,7 @@ def _refresh_guest_canvas_if_stale(creds):
 
 def get_active_account():
     if current_user.is_authenticated:
-        acct = LinkedAccount.query.filter_by(user_id=current_user.id, is_active=True).first()
+        acct = linked_accounts_repository().active(current_user.id)
         if acct:
             creds = acct.get_credentials()
             creds["login_type"] = acct.login_type
@@ -7031,7 +7052,7 @@ def api_integrations_status():
 
     if current_user.is_authenticated:
         uid = current_user.id
-        for acct in LinkedAccount.query.filter_by(user_id=uid, is_active=True).all():
+        for acct in linked_accounts_repository().list(uid, active=True):
             if acct.login_type in integrations_catalog.BY_ID:
                 connected.add(acct.login_type)
                 if acct.name:
@@ -8157,7 +8178,7 @@ def login_account():
                 if joined_gid:
                     return redirect(url_for("groups_page") + f"?open={joined_gid}")
                 try:
-                    acct = LinkedAccount.query.filter_by(user_id=user.id, is_active=True).first()
+                    acct = linked_accounts_repository().active(user.id)
                 except Exception:
                     acct = None
                 if not acct:
@@ -8372,11 +8393,8 @@ def login_canvas():
             if test is not None and test.status_code == 200:
                 creds = {"canvas_token": token, "canvas_url": canvas_url}
                 if current_user.is_authenticated:
-                    LinkedAccount.query.filter_by(user_id=current_user.id).update({"is_active": False})
-                    acct = LinkedAccount(user_id=current_user.id, name=profile_name, login_type="canvas", is_active=True)
-                    acct.set_credentials(creds)
-                    db.session.add(acct)
-                    db.session.commit()
+                    linked_accounts_repository().create_active(
+                        current_user.id, profile_name, "canvas", creds)
                 else:
                     session.permanent = True
                     session["canvas_token"] = token
@@ -8446,12 +8464,8 @@ def login_calendar_feed():
 
     creds = {"feed_url": stored_url}
     if current_user.is_authenticated:
-        LinkedAccount.query.filter_by(user_id=current_user.id).update({"is_active": False})
-        acct = LinkedAccount(user_id=current_user.id, name=profile_name,
-                             login_type="calendar_feed", is_active=True)
-        acct.set_credentials(creds)
-        db.session.add(acct)
-        db.session.commit()
+        linked_accounts_repository().create_active(
+            current_user.id, profile_name, "calendar_feed", creds)
     else:
         session.permanent = True
         session["feed_url"] = stored_url
@@ -8602,35 +8616,11 @@ def oauth_canvas_callback():
         # Persist long-lived OAuth tokens in their own table for refresh,
         # AND mirror short-lived access_token onto LinkedAccount so the
         # existing /live, /grades, /classes paths keep working unchanged.
-        existing_oauth = CanvasIntegration.query.filter_by(user_id=current_user.id).first()
-        if existing_oauth:
-            existing_oauth.canvas_base = tokens.get("canvas_base") or canvas_base
-            existing_oauth.access_token = access_token
-            existing_oauth.refresh_token = refresh_token or existing_oauth.refresh_token
-            existing_oauth.token_expires_at = expires_at
-            existing_oauth.canvas_user_id = canvas_user_id or existing_oauth.canvas_user_id
-            existing_oauth.canvas_user_name = canvas_user_name or existing_oauth.canvas_user_name
-            existing_oauth.connected_at = utcnow()
-        else:
-            db.session.add(CanvasIntegration(
-                user_id=current_user.id,
-                canvas_base=tokens.get("canvas_base") or canvas_base,
-                access_token=access_token,
-                refresh_token=refresh_token,
-                token_expires_at=expires_at,
-                canvas_user_id=canvas_user_id,
-                canvas_user_name=canvas_user_name,
-            ))
-        LinkedAccount.query.filter_by(user_id=current_user.id).update({"is_active": False})
-        acct = LinkedAccount(
-            user_id=current_user.id,
-            name=canvas_user_name or profile_name,
-            login_type="canvas",
-            is_active=True,
-        )
-        acct.set_credentials(creds)
-        db.session.add(acct)
-        db.session.commit()
+        canvas_integrations().connect(
+            current_user.id, canvas_base=tokens.get("canvas_base") or canvas_base,
+            access_token=access_token, refresh_token=refresh_token, expires_at=expires_at,
+            canvas_user_id=canvas_user_id, canvas_user_name=canvas_user_name,
+            profile_name=profile_name, credentials=creds)
     else:
         session.permanent = True
         session["canvas_token"] = access_token
@@ -8661,7 +8651,7 @@ def oauth_canvas_status():
     """
     if not current_user.is_authenticated:
         return flask.jsonify({"connected": False, "reason": "signed_out"})
-    row = CanvasIntegration.query.filter_by(user_id=current_user.id).first()
+    row = canvas_integrations().get(current_user.id)
     if not row:
         return flask.jsonify({"connected": False, "oauth": False})
     return flask.jsonify({
@@ -8690,28 +8680,14 @@ def oauth_canvas_disconnect():
     per-account settings if they reconnect later.
     """
     if current_user.is_authenticated:
-        ci = CanvasIntegration.query.filter_by(user_id=current_user.id).first()
+        ci = canvas_integrations().get(current_user.id)
         if ci and ci.access_token:
             try:
                 revoke_canvas_token(ci.access_token, ci.canvas_base)
             except Exception:
                 pass
-        if ci:
-            db.session.delete(ci)
-        for acct in LinkedAccount.query.filter_by(
-                user_id=current_user.id, login_type="canvas").all():
-            stored = acct.get_credentials()
-            # The token is what makes this row dangerous; strip it even on
-            # rows that were already inactive.
-            for key in ("canvas_token", "canvas_refresh_token",
-                        "canvas_token_expires_at", "canvas_oauth"):
-                stored.pop(key, None)
-            acct.set_credentials(stored)
-            acct.is_active = False
-        try:
-            db.session.commit()
-        except Exception:
-            db.session.rollback()
+        if not canvas_integrations().disconnect(current_user.id, ci):
+            return flask.jsonify({"status": "error", "message": "The Canvas connection changed. Try again."}), 409
     session.pop("canvas_token", None)
     session.pop("canvas_url", None)
     session.pop("canvas_refresh_token", None)
@@ -8740,11 +8716,8 @@ def login_studentvue():
             if login_status == "ok":
                 creds = {"sv_username": username, "sv_password": password, "sv_district_url": district_url}
                 if current_user.is_authenticated:
-                    LinkedAccount.query.filter_by(user_id=current_user.id).update({"is_active": False})
-                    acct = LinkedAccount(user_id=current_user.id, name=profile_name, login_type="studentvue", is_active=True)
-                    acct.set_credentials(creds)
-                    db.session.add(acct)
-                    db.session.commit()
+                    linked_accounts_repository().create_active(
+                        current_user.id, profile_name, "studentvue", creds)
                 else:
                     session.permanent = True
                     session["sv_username"] = username
@@ -8815,11 +8788,8 @@ def login_hac():
             if login_status == "ok":
                 creds = {"hac_username": username, "hac_password": password, "hac_district_url": district_url}
                 if current_user.is_authenticated:
-                    LinkedAccount.query.filter_by(user_id=current_user.id).update({"is_active": False})
-                    acct = LinkedAccount(user_id=current_user.id, name=profile_name, login_type="hac", is_active=True)
-                    acct.set_credentials(creds)
-                    db.session.add(acct)
-                    db.session.commit()
+                    linked_accounts_repository().create_active(
+                        current_user.id, profile_name, "hac", creds)
                 else:
                     session.permanent = True
                     session["hac_username"] = username
@@ -8845,11 +8815,8 @@ def login_schoology():
                 if test_schoology_login(key, secret):
                     creds = {"schoology_key": key, "schoology_secret": secret}
                     if current_user.is_authenticated:
-                        LinkedAccount.query.filter_by(user_id=current_user.id).update({"is_active": False})
-                        acct = LinkedAccount(user_id=current_user.id, name=profile_name, login_type="schoology", is_active=True)
-                        acct.set_credentials(creds)
-                        db.session.add(acct)
-                        db.session.commit()
+                        linked_accounts_repository().create_active(
+                            current_user.id, profile_name, "schoology", creds)
                     else:
                         session["schoology_key"] = key
                         session["schoology_secret"] = secret
@@ -10173,7 +10140,7 @@ def profiles_list():
         if login_type:
             return flask.jsonify({"is_guest": True, "profiles": [{"id": "guest", "name": "Guest Session", "login_type": login_type, "is_active": True}], "active": "guest"})
         return flask.jsonify({"is_guest": True, "profiles": [], "active": None})
-    accounts = LinkedAccount.query.filter_by(user_id=current_user.id).all()
+    accounts = linked_accounts_repository().list(current_user.id)
     active = next((a for a in accounts if a.is_active), None)
     return flask.jsonify({
         "is_guest": False,
@@ -10187,12 +10154,8 @@ def profiles_switch():
     if not current_user.is_authenticated:
         return flask.jsonify({"status": "error"})
     profile_id = (request.json or {}).get("id")
-    acct = LinkedAccount.query.filter_by(user_id=current_user.id, profile_id=profile_id).first()
-    if not acct:
+    if not linked_accounts_repository().switch(current_user.id, profile_id):
         return flask.jsonify({"status": "error"})
-    LinkedAccount.query.filter_by(user_id=current_user.id).update({"is_active": False})
-    acct.is_active = True
-    db.session.commit()
     return flask.jsonify({"status": "ok"})
 
 @app.route("/profiles/delete", methods=["POST"])
@@ -10200,10 +10163,7 @@ def profiles_delete():
     if not current_user.is_authenticated:
         return flask.jsonify({"status": "error"})
     profile_id = (request.json or {}).get("id")
-    acct = LinkedAccount.query.filter_by(user_id=current_user.id, profile_id=profile_id).first()
-    if acct:
-        db.session.delete(acct)
-        db.session.commit()
+    linked_accounts_repository().delete(current_user.id, profile_id)
     return flask.jsonify({"status": "ok"})
 
 @app.route("/profiles/rename", methods=["POST"])
@@ -10212,10 +10172,8 @@ def profiles_rename():
         return flask.jsonify({"status": "error"})
     profile_id = (request.json or {}).get("id")
     name = (request.json or {}).get("name", "").strip()
-    acct = LinkedAccount.query.filter_by(user_id=current_user.id, profile_id=profile_id).first()
-    if acct and name:
-        acct.name = name
-        db.session.commit()
+    if name:
+        linked_accounts_repository().rename(current_user.id, profile_id, name)
     return flask.jsonify({"status": "ok"})
 
 @app.route("/account/delete", methods=["POST"])
@@ -13358,7 +13316,7 @@ def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True) ->
     # Active LMS account (resolves through the LinkedAccount table)
     acct_dict = None
     try:
-        acct = LinkedAccount.query.filter_by(user_id=user_id, is_active=True).first()
+        acct = linked_accounts_repository().active(user_id)
         capability = learning_policy.source_capability(acct.login_type) if acct else None
         if acct and permissions.get(capability, True):
             creds = acct.get_credentials() or {}
@@ -17004,7 +16962,7 @@ def extension_tasks():
         tasks = []
         dismissed_rows = DismissedAssignment.query.filter_by(user_id=user.id).all()
         dismissed = _DismissedSet(r.title for r in dismissed_rows)
-        acct = LinkedAccount.query.filter_by(user_id=user.id, is_active=True).first()
+        acct = linked_accounts_repository().active(user.id)
         if acct:
             creds = acct.get_credentials()
             login_type = acct.login_type
@@ -17114,7 +17072,7 @@ def extension_grades():
         return ext_response([], 401)
     try:
         live = []
-        acct = LinkedAccount.query.filter_by(user_id=user.id, is_active=True).first()
+        acct = linked_accounts_repository().active(user.id)
         if acct and acct.login_type == "studentvue":
             creds = acct.get_credentials()
             try:
@@ -19981,7 +19939,7 @@ def api_snapshot():
     }
 
     try:
-        acct = LinkedAccount.query.filter_by(user_id=u.id, is_active=True).first()
+        acct = linked_accounts_repository().active(u.id)
         if acct:
             snapshot["linked_account"] = {
                 "provider": acct.provider,
@@ -22886,7 +22844,7 @@ def api_lms_sources():
         return jsonify({"status": "error", "message": "login required"}), 401
     if request.method == "GET":
         prefs = get_user_lms_prefs()
-        accounts = LinkedAccount.query.filter_by(user_id=current_user.id).all()
+        accounts = linked_accounts_repository().list(current_user.id)
         return jsonify({
             "status": "ok",
             "preferences": prefs,

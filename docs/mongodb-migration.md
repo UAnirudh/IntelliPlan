@@ -99,6 +99,8 @@ explicitly marked superseded and cannot pass snapshot validation.
 | Personalization/phone preferences | Explicit native/SQL partial updates; existing web normalization and bounds retained; removing a phone atomically clears SMS opt-in |
 | Age and parental approval | Immutable first age write and atomic single-use approval in SQL/native repositories; native denial conditionally erases only an account still awaiting that token |
 | Account erasure | Explicit native ownership policy, transactional deletion and shared-reference anonymization; upload quarantine/rollback and authenticated-session cleanup tested; archive restore still pending |
+| Linked LMS profiles | SQL/native encrypted credential reads, create/activate, switch, rename and delete; owner-scoped profile management and grade/policy readers use the boundary |
+| Canvas OAuth | SQL/native token storage, refresh rotation, status and disconnect; grant and linked-profile writes are transactional; stale refresh/disconnect cannot overwrite reconnection |
 | Adaptive tutor learner model | Six native collections implemented: profiles, mastery, mistakes, learner memory, imports and summaries; shared validation and response formats; owner checks and transactional mutations |
 | Remaining accounts and domains | Provider credential storage, other account preferences, archive lifecycle, LMS, scheduling, tutor chat/checks/education plans, Primer, Family, learning, notifications, groups and billing still need porting; application-wide startup remains SQLAlchemy |
 | Railway | Production variables and deployment unchanged; no MongoDB cutover |
@@ -255,7 +257,7 @@ Atlas-specific checks remain pending the restricted test connection.
 
 ## Real local MongoDB verification on 2026-10-18
 
-All thirteen checks in `mongodb-runtime-local-20261018.json` passed against an
+All fifteen checks in `mongodb-runtime-local-20261018.json` passed against an
 isolated, single-member MongoDB 8.0.34 replica set using PyMongo. This was a real
 MongoDB server, not a mocked transaction fixture. The official runtime archive's
 SHA-256 was checked before running it. The server bound only to localhost,
@@ -311,3 +313,26 @@ The focused native-erasure/session/flashcard/tutor/legacy-deletion suite passed
 107 tests. Independent review passed 15 erasure/session tests and found no
 remaining scoped blocker. All thirteen real-MongoDB checks passed. Full app
 startup, remaining domains, Atlas access and cutover remain incomplete.
+
+## LMS profiles and Canvas continuation
+
+All production LinkedAccount and CanvasIntegration query sites now use explicit
+repositories. Profile creation and switching serialize with the parent account,
+leaving one active profile. Existing encrypted or legacy plaintext credentials,
+compressed fields, unknown fields and original profile IDs remain readable.
+Profile selectors reject object-valued input and cannot select another owner.
+
+Canvas callbacks save the OAuth grant and linked credentials in one transaction.
+Refresh accepts the exact connection proof captured before the network request,
+handles rotated refresh tokens and updates only the matching active OAuth profile.
+Disconnect removes secrets from inactive profiles too and rejects a proof made
+obsolete by reconnection. Selecting an older OAuth school/account requires
+reconnection when its grant differs from the stored grant; another school's token
+is never paired with that profile's URL. A matching grant uses its authoritative
+current token even if the profile's copy is stale.
+
+The combined profile/encryption/LMS/Canvas/policy suite passed 164 tests.
+The real local MongoDB run passed fifteen checks, including concurrent profile
+creation/switching, competing Canvas refreshes, late-disconnect rejection and a
+deliberate failure after the OAuth token write to verify mirrored-write rollback.
+Other providers, remaining feature domains, native startup and cutover are pending.

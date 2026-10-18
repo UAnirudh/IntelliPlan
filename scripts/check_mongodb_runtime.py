@@ -166,10 +166,14 @@ def verify_erasure(store, run_id, user, tutor):
                 return {'user_id': identity}
         return OwnedTutor(store).get_or_create_profile()
 
+    from intelliplan.persistence.mongo_linked_accounts import MongoLinkedAccounts
+
     for label, collection, create_child in (
         ('deck', 'fc_decks', lambda identity: MongoFlashcards(store).create_deck(identity, 'Synthetic racing deck')),
         ('identity', 'user_identities', lambda identity: MongoIdentities(store).get_or_create(identity)),
         ('learner', 'adaptive_student_profile', learner_profile),
+        ('linked', 'linked_accounts', lambda identity: MongoLinkedAccounts(store).create_active(
+            identity, 'Synthetic racing school', 'studentvue', {'password': 'synthetic'})),
     ):
         account = accounts.create(email=f'erasure-race-{label}-{run_id}@example.invalid', password_hash='synthetic-hash')
         gate = Barrier(2)
@@ -327,6 +331,69 @@ def verify(store):
     else:
         raise AssertionError('A revoked cookie epoch issued an extension credential')
     checks['concurrent_extension_handoff'] = True
+
+    from intelliplan.persistence.mongo_linked_accounts import MongoLinkedAccounts
+    linked = MongoLinkedAccounts(store)
+    linked.ensure_indexes()
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        profiles = list(executor.map(lambda index: linked.create_active(
+            user.id, f'Synthetic school {index}', 'studentvue',
+            {'password': f'synthetic-{run_id}-{index}'}), range(8)))
+    if len(linked.list(user.id, active=True)) != 1:
+        raise AssertionError('Concurrent LMS connections left multiple active profiles')
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        switched = list(executor.map(lambda row: linked.switch(user.id, row.profile_id), profiles))
+    if not all(switched) or len(linked.list(user.id, active=True)) != 1:
+        raise AssertionError('Concurrent LMS profile switches lost the active invariant')
+    try:
+        unauthorized = linked.switch(user.id + 1000000, profiles[0].profile_id)
+    except LookupError:
+        unauthorized = False
+    if unauthorized:
+        raise AssertionError('LMS profile switch crossed an account boundary')
+    checks['concurrent_lms_profiles'] = True
+
+    from intelliplan.persistence.mongo_canvas import MongoCanvas
+    canvas = MongoCanvas(store)
+    canvas.ensure_indexes()
+    def connect_canvas(token):
+        canvas.connect(user.id, canvas_base='https://synthetic.instructure.com',
+            access_token=token, refresh_token='synthetic-refresh', expires_at=None,
+            canvas_user_id='synthetic', canvas_user_name='Runtime', profile_name='Runtime',
+            credentials={'canvas_token': token, 'canvas_oauth': True,
+                         'canvas_url': 'https://synthetic.instructure.com'})
+    connect_canvas('synthetic-original')
+    previous = canvas.get(user.id)
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        refreshed = list(executor.map(lambda index: canvas.refresh(user.id, previous,
+            access_token=f'synthetic-fresh-{index}', refresh_token=f'synthetic-rotated-{index}',
+            expires_at=None), range(8)))
+    if sum(refreshed) != 1:
+        raise AssertionError('Concurrent Canvas refresh accepted a stale connection proof')
+    current = canvas.get(user.id)
+    if linked.active(user.id).get_credentials()['canvas_token'] != current.access_token:
+        raise AssertionError('Canvas OAuth and profile tokens diverged')
+    # Fail after updating the OAuth row: driver rollback must restore that row.
+    profile = linked.active(user.id)
+    raw_profile = store.database.linked_accounts.find_one({'id': profile.id})
+    store.database.linked_accounts.update_one({'id': profile.id}, {'$set': {'credentials': 'invalid-json'}})
+    try:
+        canvas.refresh(user.id, current, access_token='must-rollback', refresh_token=None, expires_at=None)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError('Canvas rollback probe did not fail')
+    if canvas.get(user.id).access_token != current.access_token:
+        raise AssertionError('Canvas token update escaped transaction rollback')
+    store.database.linked_accounts.replace_one({'id': profile.id}, raw_profile)
+    connect_canvas('synthetic-reconnected')
+    if canvas.disconnect(user.id, current):
+        raise AssertionError('A stale disconnect erased a new Canvas connection')
+    if not canvas.disconnect(user.id, canvas.get(user.id)) or canvas.get(user.id) is not None:
+        raise AssertionError('Canvas disconnect did not remove the OAuth connection')
+    if any('canvas_token' in row.get_credentials() for row in linked.list(user.id, login_type='canvas')):
+        raise AssertionError('Canvas disconnect retained a linked-profile credential')
+    checks['atomic_canvas_credentials'] = True
 
     cards = MongoFlashcards(store)
     cards.ensure_tables()

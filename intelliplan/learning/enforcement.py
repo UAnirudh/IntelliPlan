@@ -106,15 +106,14 @@ def install(app):
                     return jsonify(error='authentication_required', message='Sign in to use AI assistance so your current policy can be checked.'), 401
                 return None
             if live_data:
-                from App import LinkedAccount
-                linked = LinkedAccount.query.filter_by(user_id=user.id, is_active=True).first()
+                from intelliplan.persistence.linked_accounts import linked_accounts
+                linked = linked_accounts().active(user.id)
                 if grade_data:
                     raw = getattr(user, 'lms_preferences', None) or '{}'
                     prefs = json.loads(raw) if isinstance(raw, str) else raw
                     source = (prefs.get('grade_source') or 'active').strip().lower()
                     if source in policy.LMS_SOURCES:
-                        chosen = LinkedAccount.query.filter_by(user_id=user.id, login_type=source).order_by(
-                            LinkedAccount.is_active.desc(), LinkedAccount.id.desc()).first()
+                        chosen = linked_accounts().by_type(user.id, source)
                         linked = chosen or linked
                 source = policy.source_capability(linked.login_type) if linked else None
                 if source:
