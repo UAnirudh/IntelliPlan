@@ -6,9 +6,9 @@ changes through the repository rather than depending on an ORM session.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import datetime, timedelta
 from flask import current_app
-from sqlalchemy import func, select, update
+from sqlalchemy import case, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from time_utils import utcnow
 
@@ -21,14 +21,58 @@ class PasswordConflict(ValueError):
     """The credential changed since the caller proved knowledge of it."""
 
 
+class IdentityConflict(ValueError):
+    """A verified provider identity conflicts with an existing binding."""
+
+
+REGISTRATION_FIELDS = frozenset({
+    'role', 'phone', 'sms_reminders_opt_in', 'birth_year', 'parent_email',
+    'parent_consent_granted', 'parent_consent_token', 'marketing_emails_opt_in',
+    'marketing_opt_in_at', 'marketing_consent_version',
+})
+
+
+def registration_fields(attributes):
+    values = dict(attributes or {})
+    if values.keys() - REGISTRATION_FIELDS:
+        raise ValueError('Unsupported account registration fields')
+    return values
+
+
+def policy_acknowledgements(values):
+    result = []
+    for value in values:
+        if value.keys() - {'doc', 'version', 'user_agent'}:
+            raise ValueError('Unsupported policy acknowledgement fields')
+        result.append({'doc': value['doc'], 'version': int(value['version']),
+                       'user_agent': str(value.get('user_agent') or '')[:256]})
+    return tuple(result)
+
+
 @dataclass(frozen=True)
 class CredentialChange:
     user_id: int
     session_epoch: int
 
 
+@dataclass(frozen=True)
+class LoginFailures:
+    attempts: int
+    locked_until: datetime | None
+
+
 def normalize_email(value: str) -> str:
     return value.strip().lower()
+
+
+def policy_owner(*, user_id=None, guest_session_id=None):
+    if (user_id is None) == (guest_session_id is None):
+        raise ValueError('Exactly one policy owner is required')
+    if user_id is not None:
+        return {'user_id': int(user_id)}
+    if not isinstance(guest_session_id, str) or not guest_session_id:
+        raise ValueError('A guest session is required')
+    return {'guest_session_id': guest_session_id}
 
 
 def accounts():
@@ -37,15 +81,18 @@ def accounts():
         return repository
     # Import only for the legacy backend. A native app must never import App.py
     # here, because importing it initializes a PostgreSQL engine and migrations.
-    from App import PasswordResetToken, User, db
-    return SQLAccounts(db, User, reset_model=PasswordResetToken)
+    from App import PasswordResetToken, PolicyAcknowledgement, SecurityEvent, User, db
+    return SQLAccounts(db, User, reset_model=PasswordResetToken,
+                       policy_model=PolicyAcknowledgement, security_model=SecurityEvent)
 
 
 class SQLAccounts:
-    def __init__(self, db, model, *, reset_model=None):
+    def __init__(self, db, model, *, reset_model=None, policy_model=None, security_model=None):
         self.db = db
         self.model = model
         self.reset_model = reset_model
+        self.policy_model = policy_model
+        self.security_model = security_model
 
     def get(self, user_id):
         try:
@@ -60,15 +107,132 @@ class SQLAccounts:
     def count(self):
         return self.model.query.count()
 
-    def create(self, *, email, password_hash, name):
-        user = self.model(email=normalize_email(email), password_hash=password_hash, name=name)
+    def latest_policy(self, doc, *, user_id=None, guest_session_id=None):
+        owner = policy_owner(user_id=user_id, guest_session_id=guest_session_id)
+        return self.policy_model.query.filter_by(doc=doc, **owner).order_by(
+            self.policy_model.version.desc()).first()
+
+    def has_policy(self, *, user_id):
+        return self.policy_model.query.filter_by(user_id=int(user_id)).first() is not None
+
+    def acknowledge_policy(self, doc, version, *, user_id=None, guest_session_id=None, user_agent=''):
+        owner = policy_owner(user_id=user_id, guest_session_id=guest_session_id)
+        try:
+            if user_id is not None:
+                found = self.db.session.execute(select(self.model.id).where(
+                    self.model.id == int(user_id)).with_for_update()).scalar_one_or_none()
+                if found is None:
+                    raise LookupError('Account no longer exists')
+            row = self.latest_policy(doc, **owner)
+            accepted = int(row.version) if row is not None else 0
+            if accepted < int(version):
+                self.db.session.add(self.policy_model(doc=doc, version=int(version),
+                    user_agent=str(user_agent or '')[:256], **owner))
+                accepted = int(version)
+            self.db.session.commit()
+            return accepted
+        except Exception:
+            self.db.session.rollback()
+            raise
+
+    def resolve_google(self, *, google_id, email, name, allow_email_link=False):
+        """Resolve only after the caller authenticates the Google subject."""
+        if not google_id:
+            raise ValueError('Google identity is required')
+        for attempt in range(2):
+            try:
+                user = self.model.query.populate_existing().filter_by(google_id=google_id).first()
+                if user is not None:
+                    return user, False
+                user = self.model.query.populate_existing().filter_by(
+                    email=normalize_email(email)).with_for_update().first()
+                created = user is None
+                if user is None:
+                    user = self.model(email=normalize_email(email), google_id=google_id,
+                                      name=name, password_hash='')
+                    self.db.session.add(user)
+                else:
+                    if not allow_email_link:
+                        raise IdentityConflict('Sign in to your existing account before linking Google')
+                    if user.google_id not in (None, google_id):
+                        raise IdentityConflict('This account is linked to a different Google identity')
+                    values = {'google_id': google_id}
+                    if not user.name:
+                        values['name'] = name
+                    changed = self.db.session.execute(update(self.model).where(
+                        self.model.id == user.id, or_(self.model.google_id.is_(None),
+                            self.model.google_id == google_id)).values(**values),
+                        execution_options={'synchronize_session': False})
+                    if changed.rowcount != 1:
+                        raise IdentityConflict('This account is linked to a different Google identity')
+                self.db.session.commit()
+                self.db.session.expire_all()
+                return user, created
+            except IntegrityError:
+                self.db.session.rollback()
+                if attempt:
+                    raise
+            except Exception:
+                self.db.session.rollback()
+                raise
+
+    def record_event(self, **values):
+        if self.security_model is None:
+            raise RuntimeError('Security event model is required')
+        self.db.session.add(self.security_model(**values))
+        self.db.session.commit()
+
+    def failed_login(self, user_id, *, threshold=8, lock_minutes=15):
+        now = utcnow()
+        attempts = func.coalesce(self.model.failed_login_count, 0) + 1
+        locked = attempts >= threshold
+        row = self.db.session.execute(update(self.model).where(
+            self.model.id == int(user_id), or_(self.model.login_locked_until.is_(None),
+                self.model.login_locked_until <= now),
+        ).values(failed_login_count=case((locked, 0), else_=attempts),
+            login_locked_until=case((locked, now + timedelta(minutes=lock_minutes)),
+                                   else_=self.model.login_locked_until)).returning(
+            self.model.failed_login_count, self.model.login_locked_until),
+            execution_options={'synchronize_session': False}).first()
+        self.db.session.commit()
+        self.db.session.expire_all()
+        if row is None:
+            return None
+        return LoginFailures(threshold if row[1] and row[1] > now else int(row[0]), row[1])
+
+    def clear_failures(self, user_id, *, expected_hash):
+        now = utcnow()
+        result = self.db.session.execute(update(self.model).where(
+            self.model.id == int(user_id), self.model.password_hash == expected_hash,
+            or_(self.model.login_locked_until.is_(None), self.model.login_locked_until <= now),
+        ).values(failed_login_count=0, login_locked_until=None).returning(
+            func.coalesce(self.model.session_epoch, 0)),
+            execution_options={'synchronize_session': False})
+        epoch = result.scalar_one_or_none()
+        self.db.session.commit()
+        self.db.session.expire_all()
+        return CredentialChange(int(user_id), int(epoch or 0)) if epoch is not None else None
+
+    def create(self, *, email, password_hash, name=None, attributes=None, acknowledgements=()):
+        acknowledgements = policy_acknowledgements(acknowledgements)
+        user = self.model(email=normalize_email(email), password_hash=password_hash, name=name,
+                          **registration_fields(attributes))
         self.db.session.add(user)
         try:
+            if acknowledgements:
+                if self.policy_model is None:
+                    raise RuntimeError('Policy acknowledgement model is required')
+                self.db.session.flush()
+                for acknowledgement in acknowledgements:
+                    self.db.session.add(self.policy_model(user_id=user.id, **acknowledgement))
             self.db.session.commit()
         except IntegrityError:
             self.db.session.rollback()
             if self.by_email(email) is not None:
                 raise AccountExists("An account with that email already exists.") from None
+            raise
+        except Exception:
+            self.db.session.rollback()
             raise
         return user
 

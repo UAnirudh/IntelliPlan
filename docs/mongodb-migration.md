@@ -90,9 +90,13 @@ explicitly marked superseded and cannot pass snapshot validation.
 | Web sessions | MongoDB interface implemented and locally tested; not wired into App.py |
 | Flashcards | Native CRUD, imports, queues, review history, forecast, counts, deletion, and owner scoping implemented and locally tested |
 | Account API | Explicit SQL/Mongo repositories and plain native UserMixin records; registration, login, bearer lookup, password/status API tested without importing App.py |
+| Browser accounts | Registration and policy acknowledgements, password sign-in lookups/lockouts, user loaders, security events, password resets and Google identity resolution use the repository boundary; downstream feature hooks still need porting |
 | Password resets | Native and SQL repositories atomically consume links, replace credentials and advance session epoch; web reset route and user loader now use the repository boundary |
+| Policy acknowledgements | Owner-scoped reads and transactional version updates use SQL/Mongo repositories; existing signup and guest behavior retained |
+| Desktop sign-in handoff | Native and SQL ticket issuance and atomic single-use redemption; PKCE burn, expiry and issuance epoch preserved; legacy tickets treated as epoch zero |
+| Extension credentials | Native and SQL issue/reuse/lookup/revoke operations; existing opaque tokens retained; stale verified password cannot issue new credentials |
 | Adaptive tutor learner model | Six native collections implemented: profiles, mastery, mistakes, learner memory, imports and summaries; shared validation and response formats; owner checks and transactional mutations |
-| Remaining accounts and domains | Browser registration/login/OAuth, account erasure, security logging, LMS, scheduling, tutor chat/checks/education plans, Primer, Family, learning, notifications, groups and billing still need porting; application-wide startup remains SQLAlchemy |
+| Remaining accounts and domains | Provider credential storage, identity profile edits, account erasure, LMS, scheduling, tutor chat/checks/education plans, Primer, Family, learning, notifications, groups and billing still need porting; application-wide startup remains SQLAlchemy |
 | Railway | Production variables and deployment unchanged; no MongoDB cutover |
 
 The native flashcard unit tests exercise an 800-card import, seeded IDs,
@@ -106,8 +110,8 @@ and rejection of unsupported JSON arrays.
 Focused evidence: 25 native migration/persistence/flashcard tests, 23 database
 boot tests, and 38 PostgreSQL/original-flashcard tests passed locally. Required
 real Atlas transaction/concurrency, browser, mobile, deployment, and final
-maintenance-window checks have not passed yet. Review approval covers migration
-tooling and the isolated flashcard port only.
+maintenance-window checks have not passed yet. Repository-boundary reviews do
+not certify full application readiness.
 
 Do not change Railway DATABASE_URL to a MongoDB URI. The current App.py still
 initializes SQLAlchemy and database-backed sessions. Keep the existing SECRET_KEY
@@ -145,7 +149,7 @@ runtime verification script; it does not certify the full application.
 
 `scripts/check_mongodb_runtime.py --env-file <private file>` checks real driver
 connectivity, transaction rollback, concurrent ID allocation, single-use reset
-consumption and concurrent mastery updates. It refuses every database except
+and desktop-ticket consumption, and concurrent mastery updates. It refuses every database except
 `intelliplan_runtime_test`, retains synthetic evidence, and sanitizes errors.
 It currently reports `configuration_required`: a native `MONGODB_URI` has not
 been supplied. These real-driver checks have not passed yet.
@@ -153,6 +157,71 @@ been supplied. These real-driver checks have not passed yet.
 Atlas administration service-account credentials configure MCP management
 access; they do not replace the application's driver connection URI. The user
 has entered the service-account fields directly in the local Codex configuration.
-The Windows MCP launcher uses Node directly to preserve the npm version-range
-argument. Configuration parsing passed; live MCP authentication verification is
-pending. Codex must restart to expose the newly configured tools to the agent.
+The shared npm cache had a missing dependency file. A complete isolated runtime
+was installed at `%USERPROFILE%/.codex/runtimes/mongodb-mcp-2.1.2`, and the Windows
+MCP launcher now uses Node directly with that runtime. Configuration parsing and
+an actual MCP initialize/tools/connect-cluster exchange passed: the service
+account connected to Cluster0. Codex must restart to expose the newly configured
+tools to the agent.
+
+## Browser account continuation
+
+Browser registration now saves the account and policy acknowledgements in one
+repository transaction, with explicit allowlists preventing ownership/ID
+overrides. Existing parental-consent and marketing gates remain in the web flow.
+Google identity lookup/link/create uses a transaction and preserves password
+hashes and original account IDs. SQL linking refreshes cached mapped state and
+conditionally updates only an unbound/matching identity. The callback rejects
+unverified Google email claims. Email auto-linking is limited to Gmail/Google
+hosted claims; other existing accounts require password sign-in before linking.
+
+Failed-login counts and lockout activation use atomic database updates. Successful
+password authentication captures the exact credential epoch in the conditional
+update, then stamps that epoch after login so a concurrent reset cannot upgrade
+an old-password session. Browser reset, signup, onboarding and Google identity
+regressions passed in a 109-test focused run.
+
+`EpochLoginManager` signs the remember-cookie payload with the issuance epoch
+while retaining numeric business/session IDs and Flask-Login's cookie settings.
+Legacy remember cookies remain valid only while the account epoch is zero. Actual
+pre-reset remember-cookie replay with the session cookie removed is rejected.
+Legacy ordinary sessions without an epoch are also treated as epoch zero, so
+they cannot adopt a later password-reset epoch. The combined
+remember/reset/session-cookie/password suite passed 53 tests.
+These guarantees concern browser sessions; API key and stateless bearer-token
+revocation policy remains a separate application acceptance item.
+The cookie guard explicitly distinguishes request-token authentication; a fresh
+mobile bearer token still works after changing the password. Account, policy,
+Google callback and password-reset checks passed in a 168-test focused run.
+
+Policy acknowledgement reads and writes now use the account repositories.
+Authenticated updates lock/touch the parent account to coordinate lifecycle;
+accepted versions never move backwards and guest/account ownership stays separate.
+
+Desktop ticket claims use conditional writes, so concurrent claimants cannot
+both consume a code. Tickets record the credential epoch at issuance. Legacy
+tickets use zero; a reset invalidates them. Redemption returns an immutable
+epoch proof that is stamped after login, preventing a later reset from upgrading
+the issued session. The SQL epoch column is added inside the existing schema lock
+and preserves legacy rows. Extension credentials preserve existing token values,
+owner IDs and revocation behavior. All issuance paths use the repositories.
+Cookie-authorized extension handoff also checks the exact authenticated epoch
+under the parent lock/write, so a reset during the handoff cannot grant a
+persistent credential. Existing extension-token validity is unchanged.
+The client-port run passed 136 tests, covering shared SQL/native repositories,
+full-app desktop exchange, extension task sync, and Focus Shield. The additive
+ticket-column migration passed its preservation/idempotency test. These runs
+overlap other counts above and must not be added together. Native unit fixtures
+emulate transactions; real Atlas concurrency remains unverified.
+The combined account/browser/client run passed 273 tests. After the final
+extension-issuance race fix, the affected account/extension suite passed 71
+tests, including a full-app reset-between-check-and-issuance regression.
+
+Live native-driver verification is blocked on the Atlas connector's mandatory
+confirmation for creating `intelliplan_runtime_driver`, scoped to read/write on
+`intelliplan_runtime_test` in Cluster0. The connector explicitly rejected the
+unconfirmed `atlas-create-db-user` action; no runtime user was created. The user
+approved the scoped action in chat on 2026-10-18, but the retry still returned
+"User did not confirm the execution". Connector confirmation remains unresolved;
+do not bypass the rejection through another API or credential. The existing production database and verified
+rehearsal remain unchanged.

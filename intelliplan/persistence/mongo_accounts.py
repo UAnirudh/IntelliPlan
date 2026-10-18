@@ -2,13 +2,17 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from types import SimpleNamespace
 
 from flask_login import UserMixin
 from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError
 
-from intelliplan.persistence.accounts import AccountExists, CredentialChange, PasswordConflict, normalize_email
-from intelliplan.persistence.codec import pack_document, unpack_document
+from intelliplan.persistence.accounts import (
+    AccountExists, CredentialChange, IdentityConflict, LoginFailures, PasswordConflict, normalize_email,
+    policy_acknowledgements, policy_owner, registration_fields,
+)
+from intelliplan.persistence.codec import pack_document, unpack_document, update_fields
 from time_utils import utcnow
 
 
@@ -73,6 +77,12 @@ class MongoAccounts:
         self.store.database.password_reset_tokens.create_index("id", unique=True)
         self.store.database.password_reset_tokens.create_index("token_hash", unique=True)
         self.store.database.password_reset_tokens.create_index([("user_id", 1), ("created_at", -1)])
+        self.store.database.policy_acknowledgements.create_index('id', unique=True)
+        self.store.database.policy_acknowledgements.create_index([('user_id', 1), ('doc', 1)])
+        self.store.database.policy_acknowledgements.create_index([('guest_session_id', 1), ('doc', 1)])
+        self.store.database.security_events.create_index('id', unique=True)
+        self.store.database.security_events.create_index([('user_id', 1), ('created_at', -1)])
+        self.store.database.security_events.create_index([('event', 1), ('created_at', -1)])
 
     def get(self, user_id):
         try:
@@ -89,17 +99,124 @@ class MongoAccounts:
     def count(self):
         return self.collection.count_documents({})
 
-    def create(self, *, email, password_hash, name):
-        document = {**DEFAULTS, "id": self.store.next_id("users"),
-                    "email": normalize_email(email), "password_hash": password_hash,
-                    "name": name, "created_at": utcnow().isoformat()}
+    def latest_policy(self, doc, *, user_id=None, guest_session_id=None):
+        owner = policy_owner(user_id=user_id, guest_session_id=guest_session_id)
+        row = self.store.database.policy_acknowledgements.find_one(
+            {'doc': doc, **owner}, sort=[('version', -1)])
+        return SimpleNamespace(**unpack_document(row)) if row else None
+
+    def has_policy(self, *, user_id):
+        return self.store.database.policy_acknowledgements.find_one(
+            {'user_id': int(user_id)}, {'_id': 1}) is not None
+
+    def acknowledge_policy(self, doc, version, *, user_id=None, guest_session_id=None, user_agent=''):
+        owner = policy_owner(user_id=user_id, guest_session_id=guest_session_id)
+
+        def write(db, active):
+            if user_id is not None:
+                # Coordinate account-owned child writes with account removal.
+                if not db.users.update_one({'id': int(user_id)}, {'$inc': {'_auth_revision': 1}},
+                                           session=active).matched_count:
+                    raise LookupError('Account no longer exists')
+            row = db.policy_acknowledgements.find_one({'doc': doc, **owner},
+                sort=[('version', -1)], session=active)
+            accepted = int(row['version']) if row else 0
+            if accepted < int(version):
+                db.policy_acknowledgements.insert_one({
+                    'id': self.store.next_id('policy_acknowledgements', session=active),
+                    'user_id': None, 'guest_session_id': None, **owner,
+                    'doc': doc, 'version': int(version),
+                    'user_agent': str(user_agent or '')[:256],
+                    'acknowledged_at': utcnow().isoformat()}, session=active)
+                accepted = int(version)
+            return accepted
+
+        return self.store.transaction(write)
+
+    def resolve_google(self, *, google_id, email, name, allow_email_link=False):
+        if not google_id:
+            raise ValueError('Google identity is required')
+
+        def write(db, active):
+            row = db.users.find_one({'google_id': google_id}, session=active)
+            if row is not None:
+                return Account(row), False
+            row = db.users.find_one({'email': normalize_email(email)}, session=active)
+            if row is not None:
+                if not allow_email_link:
+                    raise IdentityConflict('Sign in to your existing account before linking Google')
+                if row.get('google_id') not in (None, google_id):
+                    raise IdentityConflict('This account is linked to a different Google identity')
+                values = {'google_id': google_id}
+                if not unpack_document(row).get('name'):
+                    values['name'] = name
+                changed = db.users.find_one_and_update({'_id': row['_id']}, update_fields(values),
+                    return_document=ReturnDocument.AFTER, session=active)
+                return Account(changed), False
+            row = {**DEFAULTS, 'id': self.store.next_id('users', session=active),
+                   'email': normalize_email(email), 'google_id': google_id, 'name': name,
+                   'password_hash': '', 'created_at': utcnow().isoformat()}
+            db.users.insert_one(pack_document(row), session=active)
+            return Account(row), True
+
+        for attempt in range(2):
+            try:
+                return self.store.transaction(write)
+            except DuplicateKeyError:
+                if attempt:
+                    raise
+
+    def record_event(self, **values):
+        self.store.database.security_events.insert_one({
+            'id': self.store.next_id('security_events'), 'created_at': utcnow().isoformat(), **values})
+
+    def failed_login(self, user_id, *, threshold=8, lock_minutes=15):
+        now = utcnow()
+        attempts = {'$add': [{'$ifNull': ['$failed_login_count', 0]}, 1]}
+        locked = {'$gte': [attempts, threshold]}
+        row = self.collection.find_one_and_update({'id': int(user_id), '$or': [
+            {'login_locked_until': None}, {'login_locked_until': {'$lte': now.isoformat()}}]},
+            [{'$set': {'failed_login_count': {'$cond': [locked, 0, attempts]},
+                'login_locked_until': {'$cond': [locked,
+                    {'$literal': (now + timedelta(minutes=lock_minutes)).isoformat()}, '$login_locked_until']}}}],
+            return_document=ReturnDocument.AFTER)
+        if row is None:
+            return None
+        until = Account(row).login_locked_until
+        return LoginFailures(threshold if until and until > now else int(row['failed_login_count']), until)
+
+    def clear_failures(self, user_id, *, expected_hash):
+        row = self.collection.find_one_and_update({'id': int(user_id), 'password_hash': expected_hash,
+            '$or': [{'login_locked_until': None}, {'login_locked_until': {'$lte': utcnow().isoformat()}}]},
+            {'$set': {'failed_login_count': 0, 'login_locked_until': None}},
+            return_document=ReturnDocument.AFTER)
+        return CredentialChange(int(user_id), int(row.get('session_epoch') or 0)) if row else None
+
+    def create(self, *, email, password_hash, name=None, attributes=None, acknowledgements=()):
+        attributes = registration_fields(attributes)
+        acknowledgements = policy_acknowledgements(acknowledgements)
+        for key in DATE_FIELDS & attributes.keys():
+            if isinstance(attributes[key], datetime):
+                attributes[key] = attributes[key].isoformat()
+
+        def write(db, active):
+            document = {**DEFAULTS, **attributes, 'id': self.store.next_id('users', session=active),
+                        'email': normalize_email(email), 'password_hash': password_hash,
+                        'name': name, 'created_at': utcnow().isoformat()}
+            db.users.insert_one(pack_document(document), session=active)
+            for acknowledgement in acknowledgements:
+                db.policy_acknowledgements.insert_one({
+                    'id': self.store.next_id('policy_acknowledgements', session=active),
+                    'user_id': document['id'], 'guest_session_id': None,
+                    'acknowledged_at': document['created_at'], **acknowledgement}, session=active)
+            return Account(document)
+
         try:
-            self.collection.insert_one(pack_document(document))
+            return self.store.transaction(write)
         except DuplicateKeyError:
             if self.by_email(email) is not None:
                 raise AccountExists("An account with that email already exists.") from None
             raise
-        return Account(document)
 
     def change_password(self, user_id, *, expected_hash, password_hash):
         # Match the hash the user actually proved. A concurrent password reset

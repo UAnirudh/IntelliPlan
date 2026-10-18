@@ -1,5 +1,5 @@
 """Run the real bearer-auth blueprint with either repository and no App import."""
-from datetime import datetime
+from datetime import datetime, timedelta
 import time
 
 import mongomock
@@ -10,9 +10,14 @@ from flask_login import LoginManager, UserMixin
 from flask_sqlalchemy import SQLAlchemy
 
 import auth_api
-from intelliplan.persistence.accounts import AccountExists, PasswordConflict, SQLAccounts
+import desktop_auth
+from intelliplan.persistence.accounts import AccountExists, IdentityConflict, PasswordConflict, SQLAccounts
+from intelliplan.persistence.desktop import SQLDesktopTickets
+from intelliplan.persistence.extensions import SQLExtensionTokens
 from intelliplan.persistence.mongo import MongoStore
 from intelliplan.persistence.mongo_accounts import MongoAccounts
+from intelliplan.persistence.mongo_desktop import MongoDesktopTickets
+from intelliplan.persistence.mongo_extensions import MongoExtensionTokens
 
 
 @pytest.fixture(params=["mongo", "sql"])
@@ -28,6 +33,10 @@ def account_app(request, monkeypatch):
         store.seed_id("users", 1000)
         repo = MongoAccounts(store)
         repo.ensure_indexes()
+        tickets = MongoDesktopTickets(store)
+        tickets.ensure_indexes()
+        tokens = MongoExtensionTokens(store)
+        tokens.ensure_indexes()
     else:
         db = SQLAlchemy(app)
 
@@ -36,11 +45,18 @@ def account_app(request, monkeypatch):
             id = db.Column(db.Integer, primary_key=True)
             email = db.Column(db.String, nullable=False, unique=True)
             name = db.Column(db.String)
+            google_id = db.Column(db.String, unique=True)
             password_hash = db.Column(db.String, default="")
             created_at = db.Column(db.DateTime, default=datetime.utcnow)
             session_epoch = db.Column(db.Integer, default=0)
             failed_login_count = db.Column(db.Integer, default=0)
             login_locked_until = db.Column(db.DateTime)
+            birth_year = db.Column(db.Integer)
+            role = db.Column(db.String, default='student')
+            parent_email = db.Column(db.String)
+            parent_consent_granted = db.Column(db.Boolean, default=False)
+            parent_consent_token = db.Column(db.String)
+            marketing_emails_opt_in = db.Column(db.Boolean, default=False)
 
         class ResetToken(db.Model):
             __tablename__ = 'password_reset_tokens'
@@ -52,10 +68,53 @@ def account_app(request, monkeypatch):
             created_at = db.Column(db.DateTime, nullable=False)
             requested_ip = db.Column(db.String)
 
+        class PolicyAcknowledgement(db.Model):
+            __tablename__ = 'policy_acknowledgements'
+            id = db.Column(db.Integer, primary_key=True)
+            user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+            guest_session_id = db.Column(db.String)
+            doc = db.Column(db.String, nullable=False)
+            version = db.Column(db.Integer, nullable=False)
+            acknowledged_at = db.Column(db.DateTime, default=datetime.utcnow)
+            user_agent = db.Column(db.String)
+
+        class SecurityEvent(db.Model):
+            __tablename__ = 'security_events'
+            id = db.Column(db.Integer, primary_key=True)
+            user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+            email = db.Column(db.String)
+            event = db.Column(db.String, nullable=False)
+            detail = db.Column(db.String)
+            ip = db.Column(db.String)
+            user_agent = db.Column(db.String)
+            created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+        class DesktopAuthCode(db.Model):
+            __tablename__ = 'desktop_auth_codes'
+            id = db.Column(db.Integer, primary_key=True)
+            user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+            code_hash = db.Column(db.String, nullable=False, unique=True)
+            code_challenge = db.Column(db.String, nullable=False)
+            created_at = db.Column(db.DateTime, nullable=False)
+            used_at = db.Column(db.DateTime)
+            session_epoch = db.Column(db.Integer, default=0)
+
+        class ExtensionToken(db.Model):
+            __tablename__ = 'extension_tokens'
+            id = db.Column(db.Integer, primary_key=True)
+            user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+            token = db.Column(db.String, nullable=False, unique=True)
+            created_at = db.Column(db.DateTime, nullable=False)
+
         with app.app_context():
             db.create_all()
-        repo = SQLAccounts(db, User, reset_model=ResetToken)
+        repo = SQLAccounts(db, User, reset_model=ResetToken,
+                           policy_model=PolicyAcknowledgement, security_model=SecurityEvent)
+        tickets = SQLDesktopTickets(db, DesktopAuthCode, User)
+        tokens = SQLExtensionTokens(db, ExtensionToken, User)
     app.extensions["accounts_repository"] = repo
+    app.extensions['desktop_tickets_repository'] = tickets
+    app.extensions['extension_tokens_repository'] = tokens
     app.extensions["account_passwords"] = passwords
     manager = LoginManager(app)
     manager.user_loader(repo.get)
@@ -138,6 +197,263 @@ def test_duplicate_create_is_a_repository_error(account_app):
     repo.create(email="same@example.test", name="One", password_hash="hash")
     with pytest.raises(AccountExists):
         repo.create(email="SAME@example.test", name="Two", password_hash="hash")
+
+
+def test_browser_signup_preserves_consent_and_policy_records(account_app):
+    _, repo, _ = account_app
+    user = repo.create(email='child@example.test', password_hash='hash', attributes={
+        'birth_year': 2018, 'role': 'student', 'parent_email': 'parent@example.test',
+        'parent_consent_granted': False, 'parent_consent_token': 'synthetic-consent',
+        'marketing_emails_opt_in': False,
+    }, acknowledgements=[{'doc': 'privacy', 'version': 2, 'user_agent': 'synthetic agent'}])
+    saved = repo.get(user.id)
+    assert saved.birth_year == 2018
+    assert saved.parent_email == 'parent@example.test'
+    assert saved.parent_consent_granted is False
+    assert saved.marketing_emails_opt_in is False
+    if isinstance(repo, MongoAccounts):
+        records = list(repo.store.database.policy_acknowledgements.find({'user_id': user.id}))
+        assert [(r['doc'], r['version']) for r in records] == [('privacy', 2)]
+    else:
+        records = repo.policy_model.query.filter_by(user_id=user.id).all()
+        assert [(r.doc, r.version) for r in records] == [('privacy', 2)]
+
+
+def test_signup_cannot_override_identity_or_policy_ownership(account_app):
+    _, repo, _ = account_app
+    with pytest.raises(ValueError):
+        repo.create(email='blocked@example.test', password_hash='hash', attributes={'id': 42})
+    with pytest.raises(ValueError):
+        repo.create(email='blocked@example.test', password_hash='hash',
+            acknowledgements=[{'doc': 'privacy', 'version': 2, 'user_id': 42}])
+    assert repo.by_email('blocked@example.test') is None
+
+
+def test_policy_versions_are_owner_scoped_and_never_move_backwards(account_app):
+    _, repo, _ = account_app
+    one = repo.create(email='policy-one@example.test', password_hash='hash')
+    two = repo.create(email='policy-two@example.test', password_hash='hash')
+    assert not repo.has_policy(user_id=one.id)
+    assert repo.acknowledge_policy('privacy', 2, user_id=one.id, user_agent='x' * 300) == 2
+    assert repo.acknowledge_policy('privacy', 1, user_id=one.id) == 2
+    assert repo.acknowledge_policy('privacy', 2, user_id=one.id) == 2
+    assert repo.acknowledge_policy('privacy', 3, guest_session_id='guest-one') == 3
+    assert repo.latest_policy('privacy', user_id=one.id).version == 2
+    assert repo.latest_policy('privacy', user_id=one.id).user_agent == 'x' * 256
+    assert repo.latest_policy('privacy', user_id=two.id) is None
+    assert repo.latest_policy('privacy', guest_session_id='guest-one').version == 3
+    assert repo.latest_policy('privacy', guest_session_id='guest-two') is None
+    assert repo.has_policy(user_id=one.id)
+    assert not repo.has_policy(user_id=two.id)
+
+
+def test_policy_requires_one_owner_and_refuses_missing_accounts(account_app):
+    _, repo, _ = account_app
+    for owner in ({}, {'user_id': 42, 'guest_session_id': 'guest'}, {'guest_session_id': ''}):
+        with pytest.raises(ValueError):
+            repo.acknowledge_policy('privacy', 2, **owner)
+    with pytest.raises(LookupError):
+        repo.acknowledge_policy('privacy', 2, user_id=999999)
+    assert repo.latest_policy('privacy', user_id=999999) is None
+
+
+def test_desktop_handoff_is_single_use_and_pkce_bound(account_app):
+    app, repo, _ = account_app
+    tickets = app.extensions['desktop_tickets_repository']
+    user = repo.create(email='desktop@example.test', password_hash='hash')
+    verifier = desktop_auth.new_verifier()
+    code_hash = desktop_auth.hash_code(desktop_auth.new_code())
+    tickets.issue(user.id, code_hash=code_hash, code_challenge=desktop_auth.challenge_for(verifier))
+    redemption = tickets.redeem(code_hash=code_hash, verifier=verifier)
+    assert redemption.user.id == user.id
+    assert redemption.session_epoch == 0
+    assert tickets.redeem(code_hash=code_hash, verifier=verifier) is None
+    stolen_hash = desktop_auth.hash_code(desktop_auth.new_code())
+    tickets.issue(user.id, code_hash=stolen_hash, code_challenge=desktop_auth.challenge_for(verifier))
+    assert tickets.redeem(code_hash=stolen_hash, verifier=desktop_auth.new_verifier()) is None
+    assert tickets.redeem(code_hash=stolen_hash, verifier=verifier) is None
+
+
+def test_desktop_expired_and_malformed_verifiers_cannot_authenticate(account_app):
+    app, repo, _ = account_app
+    tickets = app.extensions['desktop_tickets_repository']
+    user = repo.create(email='desktop-expired@example.test', password_hash='hash')
+    verifier = desktop_auth.new_verifier()
+    tickets.issue(user.id, code_hash='synthetic-hash', code_challenge=desktop_auth.challenge_for(verifier))
+    assert tickets.redeem(code_hash='synthetic-hash', verifier='short') is None
+    expired = datetime.utcnow() - timedelta(seconds=desktop_auth.CODE_TTL_SECONDS)
+    if isinstance(tickets, MongoDesktopTickets):
+        tickets.store.database.desktop_auth_codes.update_one({'code_hash': 'synthetic-hash'},
+            {'$set': {'created_at': expired.isoformat()}})
+    else:
+        tickets.model.query.filter_by(code_hash='synthetic-hash').one().created_at = expired
+        tickets.db.session.commit()
+    assert tickets.redeem(code_hash='synthetic-hash', verifier=verifier) is None
+
+
+def test_desktop_ticket_cannot_be_created_for_missing_owner(account_app):
+    app, _, _ = account_app
+    tickets = app.extensions['desktop_tickets_repository']
+    with pytest.raises(LookupError):
+        tickets.issue(999999, code_hash='unknown-owner',
+                      code_challenge=desktop_auth.challenge_for(desktop_auth.new_verifier()))
+
+
+def test_desktop_ticket_epoch_cannot_be_upgraded_after_password_reset(account_app):
+    app, repo, _ = account_app
+    tickets = app.extensions['desktop_tickets_repository']
+    user = repo.create(email='desktop-reset@example.test', password_hash='hash')
+    verifier = desktop_auth.new_verifier()
+    challenge = desktop_auth.challenge_for(verifier)
+    tickets.issue(user.id, code_hash='before-reset', code_challenge=challenge, expected_epoch=0)
+    repo.change_password(user.id, expected_hash='hash', password_hash='reset')
+    assert tickets.redeem(code_hash='before-reset', verifier=verifier) is None
+    with pytest.raises(ValueError):
+        tickets.issue(user.id, code_hash='stale-browser', code_challenge=challenge, expected_epoch=0)
+    tickets.issue(user.id, code_hash='fresh', code_challenge=challenge, expected_epoch=1)
+    proof = tickets.redeem(code_hash='fresh', verifier=verifier)
+    repo.change_password(user.id, expected_hash='reset', password_hash='later-reset')
+    assert proof.session_epoch == 1
+    assert repo.get(user.id).session_epoch == 2
+
+
+def test_extension_tokens_reuse_and_revoke_only_the_selected_credential(account_app):
+    app, repo, _ = account_app
+    tokens = app.extensions['extension_tokens_repository']
+    owner = repo.create(email='extension@example.test', password_hash='hash')
+    other = repo.create(email='extension-other@example.test', password_hash='other-hash')
+    first = tokens.issue(owner.id, expected_hash='hash')
+    second = tokens.issue(owner.id, expected_hash='hash')
+    other_token = tokens.issue(other.id)
+    assert first != second
+    assert tokens.issue(owner.id, reuse=True) == first
+    assert tokens.user_for(first).id == owner.id
+    tokens.revoke(first)
+    assert tokens.user_for(first) is None
+    assert tokens.user_for(second).id == owner.id
+    assert tokens.user_for(other_token).id == other.id
+    assert tokens.user_for('invented-token') is None
+    assert tokens.user_for(None) is None
+
+
+def test_stale_password_cannot_issue_new_extension_credentials(account_app):
+    app, repo, _ = account_app
+    tokens = app.extensions['extension_tokens_repository']
+    user = repo.create(email='extension-race@example.test', password_hash='old-hash')
+    existing = tokens.issue(user.id, expected_epoch=0)
+    repo.change_password(user.id, expected_hash='old-hash', password_hash='new-hash')
+    with pytest.raises(PasswordConflict):
+        tokens.issue(user.id, reuse=True, expected_epoch=0)
+    with pytest.raises(PasswordConflict):
+        tokens.issue(user.id, expected_epoch=0)
+    assert tokens.user_for(existing).id == user.id
+    with pytest.raises(PasswordConflict):
+        tokens.issue(user.id, expected_hash='old-hash')
+    with pytest.raises(PasswordConflict):
+        tokens.issue(999999)
+
+
+def test_failed_signins_lock_atomically_and_stale_credentials_cannot_clear_failures(account_app):
+    _, repo, _ = account_app
+    user = repo.create(email='locked@example.test', password_hash='original')
+    for attempt in range(1, 8):
+        change = repo.failed_login(user.id)
+        assert change.attempts == attempt
+        assert change.locked_until is None
+    assert not repo.clear_failures(user.id, expected_hash='stale')
+    assert repo.get(user.id).failed_login_count == 7
+    change = repo.failed_login(user.id)
+    assert change.attempts == 8
+    assert change.locked_until is not None
+    assert repo.get(user.id).failed_login_count == 0
+    assert repo.failed_login(user.id) is None
+    assert not repo.clear_failures(user.id, expected_hash='original')
+    assert repo.get(user.id).session_epoch == 0
+
+
+def test_successful_authentication_clears_failed_attempts_and_records_audit(account_app):
+    _, repo, _ = account_app
+    user = repo.create(email='audit@example.test', password_hash='original')
+    repo.failed_login(user.id)
+    assert repo.clear_failures(user.id, expected_hash='original')
+    assert repo.get(user.id).failed_login_count == 0
+    repo.record_event(user_id=user.id, email=user.email, event='login_success',
+                      detail='', ip='127.0.0.1', user_agent='synthetic agent')
+    if isinstance(repo, MongoAccounts):
+        event = repo.store.database.security_events.find_one({'user_id': user.id})
+        assert event['event'] == 'login_success'
+    else:
+        assert repo.security_model.query.filter_by(user_id=user.id).one().event == 'login_success'
+
+
+def test_google_signup_and_repeat_signin_resolve_one_account(account_app):
+    _, repo, _ = account_app
+    first, created = repo.resolve_google(google_id='provider-subject-1',
+                                         email='google@example.test', name='Google Student')
+    assert created is True
+    assert first.password_hash == ''
+    again, created = repo.resolve_google(google_id='provider-subject-1',
+                                         email='google@example.test', name='New provider name')
+    assert created is False
+    assert again.id == first.id
+    assert repo.count() == 1
+
+
+def test_verified_google_identity_links_existing_email_without_replacing_password(account_app):
+    _, repo, _ = account_app
+    existing = repo.create(email='linked@example.test', name='Original name', password_hash='preserved-hash')
+    linked, created = repo.resolve_google(google_id='provider-subject-2',
+                                          email='LINKED@example.test', name='Provider name', allow_email_link=True)
+    assert created is False
+    assert linked.id == existing.id
+    assert linked.password_hash == 'preserved-hash'
+    assert linked.name == 'Original name'
+    assert linked.google_id == 'provider-subject-2'
+
+
+def test_google_link_cannot_replace_an_existing_identity(account_app):
+    _, repo, _ = account_app
+    original, _ = repo.resolve_google(google_id='provider-original',
+                                      email='bound@example.test', name='Original')
+    with pytest.raises(IdentityConflict):
+        repo.resolve_google(google_id='provider-other', email='bound@example.test', name='Other', allow_email_link=True)
+    assert repo.get(original.id).google_id == 'provider-original'
+    assert repo.count() == 1
+
+
+def test_google_link_reads_authoritative_binding_despite_cached_account(account_app):
+    _, repo, _ = account_app
+    cached = repo.create(email='stale@example.test', name='Original', password_hash='original')
+    user_id = cached.id
+    if isinstance(repo, MongoAccounts):
+        repo.collection.update_one({'id': user_id}, {'$set': {'google_id': 'already-bound'}})
+    else:
+        with repo.db.engine.begin() as connection:
+            connection.execute(repo.model.__table__.update().where(
+                repo.model.id == user_id).values(google_id='already-bound'))
+    assert cached.google_id is None
+    with pytest.raises(IdentityConflict):
+        repo.resolve_google(google_id='replacement', email='stale@example.test',
+                            name='Replacement', allow_email_link=True)
+    assert repo.get(user_id).google_id == 'already-bound'
+
+
+def test_email_match_alone_cannot_link_google_without_authority(account_app):
+    _, repo, _ = account_app
+    user = repo.create(email='third-party@example.test', password_hash='original')
+    with pytest.raises(IdentityConflict):
+        repo.resolve_google(google_id='new-google-subject', email=user.email, name='Provider')
+    assert repo.get(user.id).google_id is None
+
+
+def test_authentication_returns_exact_epoch_before_a_later_password_reset(account_app):
+    _, repo, _ = account_app
+    user = repo.create(email='signin-race@example.test', password_hash='original')
+    authentication = repo.clear_failures(user.id, expected_hash='original')
+    assert authentication.session_epoch == 0
+    repo.change_password(user.id, expected_hash='original', password_hash='new')
+    assert authentication.session_epoch == 0
+    assert repo.get(user.id).session_epoch == 1
 
 
 def test_reset_is_single_use_and_changes_password_and_epoch_together(account_app):

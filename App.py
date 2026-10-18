@@ -41,7 +41,10 @@ import net_guard
 import study_resources
 import request_guards
 import secret_box
-from intelliplan.persistence.accounts import accounts as account_repository
+from intelliplan.persistence.accounts import AccountExists, IdentityConflict, PasswordConflict, accounts as account_repository
+from intelliplan.persistence.desktop import desktop_tickets, ensure_sql_ticket_epoch
+from intelliplan.persistence.extensions import extension_tokens
+from intelliplan.persistence.login import EpochLoginManager
 from intelliplan.integrations.document_content import CloudDocumentError
 import policy_versions
 import parental_notice
@@ -88,7 +91,7 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import inspect, text
 from sqlalchemy.exc import IntegrityError
 from flask_login import (
-    LoginManager, UserMixin, login_user, logout_user,
+    UserMixin, login_user, logout_user,
     current_user, user_logged_in
 )
 from flask_bcrypt import Bcrypt
@@ -333,7 +336,7 @@ os.makedirs(app.config["NOTES_UPLOAD_FOLDER"], exist_ok=True)
 
 db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
-login_manager = LoginManager(app)
+login_manager = EpochLoginManager(app)
 login_manager.login_view = "login"
 
 
@@ -940,6 +943,7 @@ class DesktopAuthCode(db.Model):
     # makes a replay fail: the row has to stick around long enough to say
     # "already used" rather than "never existed".
     used_at = db.Column(db.DateTime, nullable=True)
+    session_epoch = db.Column(db.Integer, default=0)
 
 
 class AppLinkCode(db.Model):
@@ -1399,15 +1403,14 @@ def log_security_event(event, user=None, email=None, detail=""):
     system less safe, not more.
     """
     try:
-        db.session.add(SecurityEvent(
+        account_repository().record_event(
             user_id=getattr(user, "id", None),
             email=(email or getattr(user, "email", None) or "")[:255] or None,
             event=str(event)[:64],
             detail=str(detail or "")[:512],
             ip=_client_ip(),
             user_agent=(request.headers.get("User-Agent") or "")[:256],
-        ))
-        db.session.commit()
+        )
     except Exception as exc:
         try:
             db.session.rollback()
@@ -1466,17 +1469,15 @@ def register_failed_login(user, email):
         log_security_event("login_failed_unknown_account", email=email)
         return
     try:
-        count = int(getattr(user, "failed_login_count", 0) or 0) + 1
-        user.failed_login_count = count
-        if count >= LOGIN_LOCKOUT_THRESHOLD:
-            user.login_locked_until = datetime.utcnow() + timedelta(
-                minutes=LOGIN_LOCKOUT_MINUTES)
-            user.failed_login_count = 0
-            db.session.commit()
+        change = account_repository().failed_login(user.id,
+            threshold=LOGIN_LOCKOUT_THRESHOLD, lock_minutes=LOGIN_LOCKOUT_MINUTES)
+        if change is None:
+            return
+        count = change.attempts
+        if change.locked_until and change.locked_until > utcnow():
             log_security_event("account_locked", user=user,
                                detail=f"{count} consecutive failures")
             return
-        db.session.commit()
         log_security_event("login_failed", user=user, detail=f"attempt {count}")
     except Exception as exc:
         try:
@@ -1489,15 +1490,13 @@ def register_failed_login(user, email):
 def clear_failed_logins(user):
     """A correct password ends the streak."""
     try:
-        if getattr(user, "failed_login_count", 0) or getattr(user, "login_locked_until", None):
-            user.failed_login_count = 0
-            user.login_locked_until = None
-            db.session.commit()
+        return account_repository().clear_failures(user.id, expected_hash=user.password_hash)
     except Exception:
         try:
             db.session.rollback()
         except Exception:
             pass
+        return False
 
 
 class PolicyAcknowledgement(db.Model):
@@ -2901,6 +2900,7 @@ with app.app_context(), _db_boot.schema_lock(db.engine) as _schema_work_is_ours:
     # False when a sibling worker in this deployment already did it.
     if _schema_work_is_ours:
         db.create_all()
+        ensure_sql_ticket_epoch(db)
         apply_study_schema_migrations()
         apply_media_balance_migrations(db)
         apply_command_center_migrations(db)
@@ -2948,7 +2948,7 @@ def load_user_from_request(req):
     if not user_id:
         return None
     try:
-        return db.session.get(User, int(user_id))
+        return account_repository().get(user_id)
     except Exception:
         return None
 
@@ -7196,14 +7196,14 @@ def register():
             # Same defensive lookup as login — re-run the migration if
             # the SELECT trips on a missing column.
             try:
-                _existing = User.query.filter_by(email=email).first()
+                _existing = account_repository().by_email(email)
             except Exception as _e:
                 print(f"[register] User lookup failed: {_e}")
                 try: db.session.rollback()
                 except Exception: pass
                 try:
                     _run_boot_migration_once()
-                    _existing = User.query.filter_by(email=email).first()
+                    _existing = account_repository().by_email(email)
                 except Exception:
                     _existing = None
             if _existing:
@@ -7257,8 +7257,8 @@ def register():
                     # picked up by an export later. Same shape as sms_optin
                     # above: no prerequisite, no opt-in.
                     marketing_optin = False
-                user = User(
-                    email=email, password_hash=pw_hash,
+                user = account_repository().create(
+                    email=email, password_hash=pw_hash, attributes=dict(
                     role="parent" if _is_family_auth_request() else "student",
                     phone=phone_norm, sms_reminders_opt_in=sms_optin,
                     birth_year=birth_year_val,
@@ -7270,15 +7270,10 @@ def register():
                     marketing_consent_version=(
                         "weekly_v1" if marketing_optin else None
                     ),
-                )
-                db.session.add(user)
-                db.session.flush()
-                for doc in policy_versions.all_docs():
-                    db.session.add(PolicyAcknowledgement(
-                        user_id=user.id, doc=doc, version=policy_versions.current_version(doc),
-                        user_agent=(request.headers.get("User-Agent") or "")[:256],
-                    ))
-                db.session.commit()
+                ), acknowledgements=[{
+                    'doc': doc, 'version': policy_versions.current_version(doc),
+                    'user_agent': (request.headers.get('User-Agent') or '')[:256],
+                } for doc in policy_versions.all_docs()])
                 # Fire the parental consent email out-of-band.
                 if under_13 and parent_email_raw:
                     try:
@@ -8069,32 +8064,13 @@ def desktop_auth_exchange():
     if not code or not desktop_auth.is_valid_verifier(verifier):
         return refuse()
 
-    row = DesktopAuthCode.query.filter_by(
-        code_hash=desktop_auth.hash_code(code)
-    ).first()
-    if row is None or row.used_at is not None:
-        return refuse()
-    if desktop_auth.is_expired(row.created_at, datetime.utcnow()):
-        return refuse()
-    if not desktop_auth.verifier_matches(verifier, row.code_challenge):
-        # A valid code with the wrong verifier is the signature of a stolen
-        # deep link, so burn it rather than letting them try again.
-        row.used_at = datetime.utcnow()
-        db.session.commit()
-        print("[DESKTOP AUTH] verifier mismatch — code burned")
+    redemption = desktop_tickets().redeem(code_hash=desktop_auth.hash_code(code), verifier=verifier)
+    if redemption is None:
         return refuse()
 
-    user = User.query.get(row.user_id)
-    if user is None:
-        return refuse()
-
-    # Burn before issuing. If the commit below fails the student retries a
-    # sign-in; if it succeeded and we crashed after, the code must not still
-    # be live.
-    row.used_at = datetime.utcnow()
-    db.session.commit()
-
+    user = redemption.user
     login_user(user, remember=True)
+    session['session_epoch'] = redemption.session_epoch
     session.permanent = True
     session.modified = True
     print(f"[DESKTOP AUTH] exchanged code for session, user id={user.id}")
@@ -8106,12 +8082,13 @@ def desktop_auth_exchange():
 def login_account():
     if current_user.is_authenticated:
         return redirect(_family_home_url() if _is_family_auth_request() else "/command-center")
-    error = None
+    error = ("Sign in with your existing password before linking this Google account."
+             if request.method == 'GET' and request.args.get('reason') == 'google_link_required' else None)
     if request.method == "POST":
         email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "").strip()
         try:
-            user = User.query.filter_by(email=email).first()
+            user = account_repository().by_email(email)
         except Exception as _e:
             # If the SELECT itself blows up (e.g. a new column hasn't
             # been migrated yet on production), retry the migration and
@@ -8123,7 +8100,7 @@ def login_account():
                 pass
             try:
                 _run_boot_migration_once()
-                user = User.query.filter_by(email=email).first()
+                user = account_repository().by_email(email)
             except Exception as _e2:
                 print(f"[login] retry also failed: {_e2}")
                 user = None
@@ -8166,12 +8143,17 @@ def login_account():
                     if _is_family_auth_request():
                         return render_template("parent_auth.html", mode="login", error=error)
                     return render_template("login_account.html", active_page="login", error=error)
-                clear_failed_logins(user)
+                authentication = clear_failed_logins(user)
+                if not authentication:
+                    template = "parent_auth.html" if _is_family_auth_request() else "login_account.html"
+                    return render_template(template, mode="login", active_page="login",
+                        error="Your account changed while signing in. Please try again.")
                 # Session fixation: an attacker who can plant a session id
                 # before sign-in would otherwise still hold a valid one after.
                 # Everything worth keeping across the boundary is re-derived.
                 _rotate_session_on_login()
                 login_user(user, remember=True)
+                session['session_epoch'] = authentication.session_epoch
                 log_security_event("login_success", user=user)
                 if _is_family_auth_request():
                     return redirect(_family_home_url())
@@ -8228,7 +8210,7 @@ def forgot_password():
         return render_template("forgot_password.html", active_page="login",
                                sent=True, message=sent_message)
 
-    user = User.query.filter_by(email=email).first()
+    user = account_repository().by_email(email)
     if user is None:
         log_security_event("password_reset_unknown_address", email=email)
         return render_template("forgot_password.html", active_page="login",
@@ -8982,6 +8964,10 @@ def _handle_google_callback():
         print("[GOOGLE CALLBACK] FATAL: missing sub or email in userinfo")
         return redirect(url_for("login"))
 
+    if userinfo.get('email_verified') is not True:
+        log_security_event('google_email_unverified', email=email)
+        return redirect(url_for('login'))
+
     if purpose == "drive":
         if not current_user.is_authenticated:
             return redirect(url_for("login", next="/study-files"))
@@ -9051,46 +9037,18 @@ def _handle_google_callback():
             return redirect(app_link.deep_link("connected", provider="google"))
         return redirect(url_for("settings") if session.pop("oauth_return_to_settings", False) else "/command-center")
 
-    # ── Find or create User (defensive — see login_account for rationale) ──
-    _is_new_signup = False
+    # Resolve the subject returned by Google's authenticated userinfo endpoint
+    # through one repository transaction before storing provider integrations.
     try:
-        user = User.query.filter_by(google_id=google_id).first()
-    except Exception as _e:
-        print(f"[GOOGLE CALLBACK] User.query failed, retrying after migration: {_e}")
-        try: db.session.rollback()
-        except Exception: pass
-        try:
-            _run_boot_migration_once()
-            user = User.query.filter_by(google_id=google_id).first()
-        except Exception as _e2:
-            print(f"[GOOGLE CALLBACK] User.query still failing after migration: {_e2}")
-            return redirect(url_for("login") + "?err=oauth_db")
-    if not user:
-        try:
-            user = User.query.filter_by(email=email).first()
-        except Exception:
-            user = None
-        if user:
-            # Existing email-based account — link the Google ID
-            user.google_id = google_id
-            if not user.name:
-                user.name = name
-            print(f"[GOOGLE CALLBACK] linked google_id to existing user id={user.id}")
-        else:
-            # Brand-new user — create the account
-            user = User(
-                email=email,
-                google_id=google_id,
-                name=name,
-                password_hash="",
-            )
-            db.session.add(user)
-            _is_new_signup = True
-            print("[GOOGLE CALLBACK] created new user")
-    else:
-        print(f"[GOOGLE CALLBACK] found existing google user id={user.id}")
-
-    db.session.commit()
+        user, _is_new_signup = account_repository().resolve_google(
+            google_id=google_id, email=email, name=name,
+            allow_email_link=(email.endswith('@gmail.com') or bool(userinfo.get('hd'))))
+    except IdentityConflict:
+        log_security_event('google_identity_link_refused', email=email)
+        return redirect(url_for('login_account', reason='google_link_required'))
+    except Exception:
+        app.logger.exception('Google account identity could not be resolved')
+        return redirect(url_for('login') + '?err=oauth_db')
 
     # Welcome only a genuinely new account. Linking Google to an existing
     # login is not a signup, and the returning user has had this email
@@ -9146,12 +9104,8 @@ def _handle_google_callback():
         desktop_challenge = session.pop("desktop_auth_challenge", None)
         if desktop_challenge and desktop_auth.is_valid_challenge(desktop_challenge):
             code = desktop_auth.new_code()
-            db.session.add(DesktopAuthCode(
-                code_hash=desktop_auth.hash_code(code),
-                code_challenge=desktop_challenge,
-                user_id=user.id,
-            ))
-            db.session.commit()
+            desktop_tickets().issue(user.id, code_hash=desktop_auth.hash_code(code),
+                code_challenge=desktop_challenge, expected_epoch=session.get('session_epoch', 0))
             # The code itself is deliberately not logged.
             print(f"[DESKTOP AUTH] minted code for user id={user.id}")
             return redirect(desktop_auth.deep_link_for(code))
@@ -10876,13 +10830,9 @@ def cookies_page():
 # ── Policy change acknowledgement ─────────────────────────────
 
 def _policy_ack_row(doc):
-    query = PolicyAcknowledgement.query.filter(PolicyAcknowledgement.doc == doc)
-    if current_user.is_authenticated:
-        query = query.filter(PolicyAcknowledgement.user_id == current_user.id)
-    else:
-        query = query.filter(
-            PolicyAcknowledgement.guest_session_id == get_guest_session_id())
-    return query.order_by(PolicyAcknowledgement.version.desc()).first()
+    owner = ({'user_id': current_user.id} if current_user.is_authenticated
+             else {'guest_session_id': get_guest_session_id()})
+    return account_repository().latest_policy(doc, **owner)
 
 
 def _policy_accepted_version(doc):
@@ -10934,8 +10884,7 @@ def _never_accepted_any_policy():
     created = getattr(current_user, "created_at", None)
     if created is None or utcnow() - created > FIRST_TIME_POLICY_WINDOW:
         return False
-    return PolicyAcknowledgement.query.filter(
-        PolicyAcknowledgement.user_id == current_user.id).first() is None
+    return not account_repository().has_policy(user_id=current_user.id)
 
 
 @app.route("/api/policy/pending", methods=["GET"])
@@ -10993,22 +10942,12 @@ def api_policy_acknowledge():
         return flask.jsonify({"status": "error",
                               "message": "That version does not exist."}), 400
 
-    row = _policy_ack_row(doc)
-    if row and int(row.version or 0) >= version:
-        return flask.jsonify({"status": "ok", "version": row.version})
-
     owner = ({"user_id": current_user.id} if current_user.is_authenticated
              else {"guest_session_id": get_guest_session_id()})
-    db.session.add(PolicyAcknowledgement(
-        doc=doc,
-        version=version,
-        user_agent=(request.headers.get("User-Agent") or "")[:256],
-        **owner,
-    ))
     try:
-        db.session.commit()
+        version = account_repository().acknowledge_policy(doc, version,
+            user_agent=request.headers.get('User-Agent') or '', **owner)
     except Exception as e:
-        db.session.rollback()
         print(f"[policy] acknowledge failed: {e}")
         return flask.jsonify({"status": "error",
                               "message": "Could not record that. Please try again."}), 500
@@ -16923,30 +16862,19 @@ def extension_login():
         password = data.get("password", "").strip()
         if not email or not password:
             return flask.jsonify({"status": "error", "message": "Email and password required"}), 400
-        try:
-            user = User.query.filter_by(email=email).first()
-        except Exception as lookup_error:
-            # A failing User SELECT here is almost always a schema that is
-            # behind the code — a column the model knows about and the
-            # database does not. Retry the migration once and look again,
-            # rather than returning 500 to every extension user until
-            # somebody notices.
-            print(f"[extension-login] user lookup failed, retrying migration: {lookup_error}")
-            db.session.rollback()
-            _run_boot_migration_once()
-            user = User.query.filter_by(email=email).first()
+        user = account_repository().by_email(email)
 
         if not user or not user.password_hash or not bcrypt.check_password_hash(user.password_hash, password):
             # 401, not 200. A failed login is not a successful request, and
             # a client that only checks the status code was being told it
             # had signed in.
             return flask.jsonify({"status": "error", "message": "Invalid email or password"}), 401
-        token = secrets_module.token_hex(32)
-        db.session.add(ExtensionToken(user_id=user.id, token=token))
-        db.session.commit()
+        token = extension_tokens().issue(user.id, expected_hash=user.password_hash)
         resp = flask.jsonify({"status": "ok", "token": token, "email": user.email})
         resp.headers["Access-Control-Allow-Origin"] = "*"
         return resp
+    except PasswordConflict:
+        return flask.jsonify({"status": "error", "message": "Invalid email or password"}), 401
     except Exception as e:
         # Never return the exception text. This endpoint is unauthenticated,
         # and str(e) on a SQLAlchemy error contains the failing SQL and the
@@ -16970,15 +16898,11 @@ def extension_register():
             return flask.jsonify({"status": "error", "message": "Email and password required"})
         if len(password) < 8:
             return flask.jsonify({"status": "error", "message": "Password must be at least 8 characters"})
-        if User.query.filter_by(email=email).first():
+        if account_repository().by_email(email):
             return flask.jsonify({"status": "error", "message": "Account already exists"})
         pw_hash = bcrypt.generate_password_hash(password).decode("utf-8")
-        user = User(email=email, password_hash=pw_hash)
-        db.session.add(user)
-        db.session.commit()
-        token = secrets_module.token_hex(32)
-        db.session.add(ExtensionToken(user_id=user.id, token=token))
-        db.session.commit()
+        user = account_repository().create(email=email, password_hash=pw_hash)
+        token = extension_tokens().issue(user.id, expected_hash=user.password_hash)
         # Extension signups collect no birth year, so the eligibility gate
         # holds this back as unknown_age until the account is completed on
         # the web. Called anyway rather than special-cased: a signup path
@@ -16987,6 +16911,8 @@ def extension_register():
         resp = flask.jsonify({"status": "ok", "token": token, "email": user.email})
         resp.headers["Access-Control-Allow-Origin"] = "*"
         return resp
+    except AccountExists:
+        return flask.jsonify({"status": "error", "message": "Account already exists"})
     except Exception as e:
         # Same reasoning as extension_login: no exception text to an
         # unauthenticated caller.
@@ -17002,8 +16928,7 @@ def extension_logout():
         return response
     token = request.headers.get("X-Extension-Token")
     if token:
-        ExtensionToken.query.filter_by(token=token).delete()
-        db.session.commit()
+        extension_tokens().revoke(token)
     resp = flask.jsonify({"status": "ok"})
     resp.headers["Access-Control-Allow-Origin"] = "*"
     return resp
@@ -17012,10 +16937,7 @@ def get_extension_user(token):
     if not token:
         return None
     try:
-        row = ExtensionToken.query.filter_by(token=token).first()
-        if not row:
-            return None
-        return db.session.get(User, row.user_id)
+        return extension_tokens().user_for(token)
     except Exception:
         return None
 
@@ -17303,14 +17225,11 @@ def extension_session_token():
         r = flask.jsonify({"status": "error", "message": "Not logged in"})
         return _cors(r), 401
 
-    import secrets as _secrets
-    existing = ExtensionToken.query.filter_by(user_id=current_user.id).first()
-    if existing:
-        token = existing.token
-    else:
-        token = _secrets.token_hex(32)
-        db.session.add(ExtensionToken(user_id=current_user.id, token=token))
-        db.session.commit()
+    expected_epoch = session.get('session_epoch', 0) if session.get('_user_id') is not None else None
+    try:
+        token = extension_tokens().issue(current_user.id, reuse=True, expected_epoch=expected_epoch)
+    except PasswordConflict:
+        return _cors(flask.jsonify({'status': 'error', 'message': 'Please sign in again.'})), 401
 
     r = flask.jsonify({"status": "ok", "token": token, "email": current_user.email})
     return _cors(r), 200
@@ -22630,19 +22549,28 @@ def _check_session_stamp():
     try:
         if not current_user.is_authenticated:
             return None
+        # Request-loader bearer authentication does not establish a cookie
+        # identity. Its token policy is separate from browser-session epochs.
+        if session.get('_user_id') is None:
+            return None
         current = int(getattr(current_user, "session_epoch", 0) or 0)
         seen = session.get("session_epoch")
         if seen is None:
-            # Stamp existing sessions on first sight rather than logging
-            # everyone out the moment this ships.
-            session["session_epoch"] = current
-            return None
-        if int(seen) < current:
+            # Legacy sessions predate version binding. Accept them only
+            # until the first credential change, as for legacy remember cookies.
+            seen = 0
+            if current == 0:
+                session["session_epoch"] = 0
+                return None
+        if int(seen) != current:
             logout_user()
             session.clear()
             return redirect(url_for("login"))
     except Exception as exc:
         print(f"[security] session stamp check failed: {exc}")
+        logout_user()
+        session.clear()
+        return redirect(url_for('login'))
     return None
 
 

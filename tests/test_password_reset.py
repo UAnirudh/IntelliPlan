@@ -152,6 +152,54 @@ def test_invalid_reset_links_do_not_hash_passwords(client, monkeypatch):
     assert b"expired or has already been used" in submit(client, 'not-a-real-token').data
 
 
+def test_password_reset_during_signin_does_not_upgrade_the_old_password_session(client, account, monkeypatch):
+    original_clear = App.clear_failed_logins
+
+    def reset_after_verification(user):
+        authentication = original_clear(user)
+        repository = App.account_repository()
+        repository.issue_reset(user.id, token_hash='synthetic-signin-race', requested_ip='test')
+        repository.complete_reset('synthetic-signin-race', password_hash='new-synthetic-hash')
+        return authentication
+
+    monkeypatch.setattr(App, 'clear_failed_logins', reset_after_verification)
+    response = client.post('/login/account', data={'email': 'rst+a@example.com', 'password': OLD}, headers=HEADERS)
+    assert response.status_code == 302
+    with client.session_transaction() as cookie:
+        assert cookie['session_epoch'] == 0
+    response = client.get('/command-center')
+    assert response.status_code == 302
+    with client.session_transaction() as cookie:
+        assert '_user_id' not in cookie
+
+
+def test_pre_reset_remember_cookie_cannot_restore_a_browser_session(client, account):
+    assert client.post('/login/account', data={
+        'email': 'rst+a@example.com', 'password': OLD}, headers=HEADERS).status_code == 302
+    remembered = client.get_cookie('remember_token').value
+    submit(client, issue(account))
+    replay = App.app.test_client()
+    replay.set_cookie('remember_token', remembered)
+    response = replay.get('/command-center')
+    assert response.status_code == 302
+    with replay.session_transaction() as cookie:
+        assert '_user_id' not in cookie
+
+
+def test_unstamped_legacy_session_cannot_adopt_a_later_reset_epoch(client, account):
+    with App.app.app_context():
+        user = db.session.get(User, account)
+        user.session_epoch = 1
+        db.session.commit()
+    with client.session_transaction() as cookie:
+        cookie['_user_id'] = str(account)
+        cookie['_fresh'] = True
+        cookie.pop('session_epoch', None)
+    assert client.get('/command-center').status_code == 302
+    with client.session_transaction() as cookie:
+        assert '_user_id' not in cookie
+
+
 def test_the_token_is_stored_hashed(client, account):
     """A database read must not yield working reset links for every account
     with one outstanding."""

@@ -245,3 +245,28 @@ def test_grades_are_private_to_their_owner(client, student):
 
 def test_an_unauthenticated_caller_gets_no_grades(client, student):
     assert client.get("/extension/grades").status_code == 401
+
+
+def test_reset_between_cookie_check_and_extension_handoff_refuses_credential(client, student, monkeypatch):
+    with client.session_transaction() as cookie:
+        cookie['_user_id'] = str(student)
+        cookie['_fresh'] = True
+        cookie['session_epoch'] = 0
+    with App.app.app_context():
+        tokens = App.extension_tokens()
+    issue = tokens.issue
+
+    def reset_before_issue(user_id, **values):
+        account = App.account_repository().get(user_id)
+        App.account_repository().change_password(user_id,
+            expected_hash=account.password_hash, password_hash='synthetic-reset-hash')
+        return issue(user_id, **values)
+
+    monkeypatch.setattr(tokens, 'issue', reset_before_issue)
+    monkeypatch.setattr(App, 'extension_tokens', lambda: tokens)
+    response = client.get('/extension/session-token')
+    assert response.status_code == 401
+    assert 'token' not in response.get_json()
+    with App.app.app_context():
+        assert ExtensionToken.query.filter_by(user_id=student).count() == 1
+        assert App.get_extension_user(TOKEN).id == student

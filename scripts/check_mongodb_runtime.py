@@ -18,8 +18,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from dotenv import dotenv_values  # noqa: E402
 
 from adaptive_tutor.mongo_store import MongoTutor  # noqa: E402
+import desktop_auth  # noqa: E402
 from intelliplan.persistence.mongo import MongoStore  # noqa: E402
 from intelliplan.persistence.mongo_accounts import MongoAccounts  # noqa: E402
+from intelliplan.persistence.mongo_desktop import MongoDesktopTickets  # noqa: E402
 
 
 class DeliberateRollback(Exception):
@@ -68,6 +70,18 @@ def verify(store):
     if accounts.get(user.id).session_epoch != 1:
         raise AssertionError('Credential epoch did not change exactly once')
     checks['single_use_reset'] = True
+
+    tickets = MongoDesktopTickets(store)
+    tickets.ensure_indexes()
+    verifier = desktop_auth.new_verifier()
+    code_hash = desktop_auth.hash_code(desktop_auth.new_code())
+    tickets.issue(user.id, code_hash=code_hash, code_challenge=desktop_auth.challenge_for(verifier))
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        results = list(executor.map(lambda _: tickets.redeem(
+            code_hash=code_hash, verifier=verifier), range(8)))
+    if sum(result is not None for result in results) != 1:
+        raise AssertionError('A desktop ticket was consumed more than once')
+    checks['single_use_desktop_handoff'] = True
 
     class OwnedTutor(MongoTutor):
         def _owner(self):
