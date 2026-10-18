@@ -154,6 +154,10 @@ def accounts():
     repository = current_app.extensions.get("accounts_repository")
     if repository is not None:
         return repository
+    store = current_app.extensions.get('mongo_store')
+    if store is not None:
+        from intelliplan.persistence.mongo_accounts import MongoAccounts
+        return MongoAccounts(store)
     # Import only for the legacy backend. A native app must never import App.py
     # here, because importing it initializes a PostgreSQL engine and migrations.
     from App import PasswordResetToken, PolicyAcknowledgement, SecurityEvent, User, db

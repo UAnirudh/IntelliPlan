@@ -132,6 +132,9 @@ def verify_erasure(store, run_id, user, tutor):
         raise AssertionError('Erasure retained owned account data')
     if store.database.adaptive_student_profile.count_documents({'user_id': user.id}):
         raise AssertionError('Erasure retained the learner profile')
+    if any(store.database[name].count_documents({'user_id': user.id})
+           for name in ('tutor_memory', 'tutor_conversations')):
+        raise AssertionError('Erasure retained native tutor history')
     if accounts.get(peer.id) is None or accounts.get(peer.id).referred_by_id is not None:
         raise AssertionError('Erasure removed or failed to unlink another account')
     if store.database.study_groups.find_one({'id': group_id})['owner_id'] is not None:
@@ -437,6 +440,38 @@ def verify(store):
         raise AssertionError('Canvas disconnect retained a linked-profile credential')
     checks['atomic_canvas_credentials'] = True
 
+    import chatbot_api as tutor_api
+    from intelliplan.persistence.mongo_tutor_history import MongoTutorHistory
+    history = MongoTutorHistory(store, lambda: (user.id, None), tutor_api._normalize_tutor_messages,
+        tutor_api._merge_tutor_messages, tutor_api._default_tutor_profile)
+    history.ensure_indexes()
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        memories = list(executor.map(lambda _: history.load_memory(), range(8)))
+    if len({row['id'] for row in memories}) != 1:
+        raise AssertionError('Concurrent tutor memory creation duplicated an owner')
+    memory_id = memories[0]['id']
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        list(executor.map(lambda _: history.record_profile_turn(memory_id,
+            '[Subject: Math] Help me with algebra', 'Synthetic example', tutor_api._update_tutor_profile), range(12)))
+    if json.loads(history.load_memory()['profile_json'])['turns'] != 12:
+        raise AssertionError('Concurrent tutor profile updates lost turns')
+    conversation = history.create_conversation('Synthetic concurrent conversation')
+    common = [{'role': 'user', 'content': 'Synthetic start'}, {'role': 'assistant', 'content': 'Ready'}]
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        list(executor.map(lambda index: history.save_conversation(conversation,
+            common + [{'role': 'user', 'content': f'Synthetic branch {index}'}]), range(8)))
+    transcript = json.loads(history.get_conversation(conversation)['messages_json'])
+    if len(transcript) != 10 or {row['content'] for row in transcript[2:]} != {f'Synthetic branch {index}' for index in range(8)}:
+        raise AssertionError('Concurrent tutor conversation saves lost or duplicated history')
+    checks['concurrent_tutor_history'] = True
+    guest_history = MongoTutorHistory(store, lambda: (None, f'synthetic-guest-{run_id}'),
+        tutor_api._normalize_tutor_messages, tutor_api._merge_tutor_messages, tutor_api._default_tutor_profile)
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        guest_memories = list(executor.map(lambda _: guest_history.load_memory(), range(8)))
+    if len({row['id'] for row in guest_memories}) != 1 or guest_history.get_conversation(conversation) is not None:
+        raise AssertionError('Tutor guest memory duplicated or crossed an account boundary')
+    checks['isolated_guest_tutor_memory'] = True
+
     cards = MongoFlashcards(store)
     cards.ensure_tables()
     deck_id = cards.create_deck(user.id, f'Synthetic runtime deck {run_id}')
@@ -470,6 +505,8 @@ def verify(store):
     verify_sessions(store, run_id, user.id, 1)
     checks['native_session_lifecycle'] = True
     verify_erasure(store, run_id, user, tutor)
+    if store.database.tutor_memory.find_one({'id': guest_memories[0]['id']}) is None:
+        raise AssertionError('Account erasure removed guest tutor memory')
     checks['native_account_erasure_and_rollback'] = True
     store.database['_runtime_checks'].insert_one({'run_id': run_id, 'checks': checks,
                                              'application_ready': False})

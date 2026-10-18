@@ -104,6 +104,7 @@ explicitly marked superseded and cannot pass snapshot validation.
 | Linked LMS profiles | SQL/native encrypted credential reads, create/activate, switch, rename and delete; owner-scoped profile management and grade/policy readers use the boundary |
 | Canvas OAuth | SQL/native token storage, refresh rotation, status and disconnect; grant and linked-profile writes are transactional; stale refresh/disconnect cannot overwrite reconnection |
 | Adaptive tutor learner model | Six native collections implemented: profiles, mastery, mistakes, learner memory, imports and summaries; shared validation and response formats; owner checks and transactional mutations |
+| Tutor conversations/profile memory | Native owner-scoped conversation CRUD, compressed transcript reads/writes and atomic profile-turn updates; user/guest HTTP history routes work without a SQL engine |
 | Remaining accounts and domains | Provider credential storage, other account preferences, archive lifecycle, LMS, scheduling, tutor chat/checks/education plans, Primer, Family, learning, notifications, groups and billing still need porting; application-wide startup remains SQLAlchemy |
 | Railway | Production variables and deployment unchanged; no MongoDB cutover |
 
@@ -259,7 +260,7 @@ Atlas-specific checks remain pending the restricted test connection.
 
 ## Real local MongoDB verification on 2026-10-18
 
-All nineteen checks in `mongodb-runtime-local-20261018.json` passed against an
+All twenty-one checks in `mongodb-runtime-local-20261018.json` passed against an
 isolated, single-member MongoDB 8.0.34 replica set using PyMongo. This was a real
 MongoDB server, not a mocked transaction fixture. The official runtime archive's
 SHA-256 was checked before running it. The server bound only to localhost,
@@ -370,3 +371,30 @@ attempts against a limit of seven accepted exactly seven, the next month reset
 worked, eight first-touch attempts accepted exactly one, and saved child age
 prevented a parent-role change. Full tutor, billing and insight domain storage,
 native application startup, Atlas access and cutover remain incomplete.
+
+## Tutor conversation and profile-memory continuation
+
+Tutor memory and conversation functions select an explicit native repository
+before touching SQL. User and guest records remain separate; authenticated
+mutations coordinate with account removal. Compressed legacy transcript fields,
+unknown fields, precise profile JSON numbers and original IDs remain readable.
+Profile-turn updates recompute against the current stored profile inside the
+transaction, preventing concurrent requests from losing counts. Conversation
+saves merge distinct branches without duplicating their common prefix.
+Account and identity repository factories also honor an explicitly configured
+native store, so these tutor helper paths do not initialize SQL.
+
+The tutor-history/assignment/premium/cloud-documents/counter suite passed 126
+tests. Six native history/helper/HTTP tests passed after the last helper test was
+added. Independent review passed five native/HTTP tests with no scoped blocker.
+Three cloud OAuth fixture failures reproduced against the committed baseline;
+fixtures now provide verified Google email and an explicit test callback host.
+Twenty-one real local MongoDB checks passed, including concurrent account/guest
+memory creation, twelve profile-turn writes, eight concurrent conversation
+branches, and account erasure that retains guest memory.
+
+A read-only Atlas rehearsal preflight found zero duplicated tutor-memory user
+keys, zero duplicated guest keys, and zero ambiguous user/guest owners on
+2026-10-18. Repeat against the final snapshot before building native unique indexes.
+Full tutor request dependencies, remaining domains, native startup and cutover
+are still incomplete.

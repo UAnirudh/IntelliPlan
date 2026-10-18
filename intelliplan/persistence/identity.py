@@ -22,6 +22,10 @@ def identities():
     repository = current_app.extensions.get('identity_repository')
     if repository is not None:
         return repository
+    store = current_app.extensions.get('mongo_store')
+    if store is not None:
+        from intelliplan.persistence.mongo_identity import MongoIdentities
+        return MongoIdentities(store)
     from App import User, UserIdentity, db
     return SQLIdentities(db, UserIdentity, User)
 
