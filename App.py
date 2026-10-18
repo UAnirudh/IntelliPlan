@@ -19088,24 +19088,19 @@ def account_age_gate():
                 error = "Your parent or guardian's email must be different from your own."
 
         if not error:
-            current_user.birth_year = birth_year_val
-            current_user.parent_consent_granted = not under_13
-            if under_13:
-                current_user.parent_email = parent_email_raw
-                current_user.parent_consent_token = secrets_module.token_urlsafe(24)
-                # COPPA: no marketing to a child without verified consent.
-                current_user.marketing_emails_opt_in = False
-                current_user.marketing_opt_in_at = None
-            db.session.commit()
+            user = account_repository().establish_age(current_user.id,
+                birth_year=birth_year_val, parent_email=parent_email_raw)
+            under_13 = (age_from_birth_year(user.birth_year, utcnow()) < 13
+                        and not user.parent_consent_granted)
 
             if under_13:
                 try:
                     consent_url = (f"{APP_BASE_URL}/parent/consent"
-                                   f"?token={current_user.parent_consent_token}")
+                                   f"?token={user.parent_consent_token}")
                     deny_url = (f"{APP_BASE_URL}/parent/deny"
-                                f"?token={current_user.parent_consent_token}")
-                    body = parental_notice.email_body(current_user.email, consent_url, deny_url, APP_BASE_URL)
-                    _send_email(current_user.parent_email,
+                                f"?token={user.parent_consent_token}")
+                    body = parental_notice.email_body(user.email, consent_url, deny_url, APP_BASE_URL)
+                    _send_email(user.parent_email,
                                 "Consent needed: your child's IntelliPlan account", body)
                     print("[coppa] parental notice delivery attempted")
                 except Exception as _e:
@@ -19113,7 +19108,7 @@ def account_age_gate():
                 return redirect("/account/age/pending")
 
             print(f"[coppa] birth year recorded for user id={current_user.id}")
-            _welcome_after_age_known(current_user)
+            _welcome_after_age_known(user)
             return redirect(next_path)
 
     return render_template("age_gate.html", error=error, next_path=next_path,
@@ -19141,7 +19136,7 @@ def parent_consent():
     token = request.values.get("token", "").strip()
     if not token:
         return "Missing consent token.", 400
-    user = User.query.filter_by(parent_consent_token=token).first()
+    user = account_repository().by_parent_token(token)
     if not user:
         # Was rendering error.html with error_title/error_message, which that
         # template does not read — it takes error_code/message. The result was
@@ -19164,11 +19159,9 @@ def parent_consent():
     if request.form.get("acknowledged") != "yes":
         return "Read the parental notice and explicitly choose to approve.", 400
     if not user.parent_consent_granted:
-        user.parent_consent_at = utcnow()
-        user.parent_consent_notice_version = parental_notice.NOTICE_VERSION
-        user.parent_consent_granted = True
-        user.parent_consent_token = None  # one-shot
-        db.session.commit()
+        user = account_repository().approve_parent(token, notice_version=parental_notice.NOTICE_VERSION)
+        if user is None:
+            return _mini_page('Link not valid', '<h1>Link not valid</h1><p>This consent link no longer works.</p>'), 404
         _welcome_after_age_known(user)
     # Render a tiny inline confirmation — no template needed.
     return (
@@ -19195,7 +19188,10 @@ def parent_deny():
     token = request.values.get("token", "").strip()
     if not token:
         return "Missing consent token.", 400
-    user = User.query.filter_by(parent_consent_token=token).first()
+    # The legacy deletion path must serialize with the repository's atomic
+    # approval before deciding this is still a pending account. MongoDB erasure
+    # is part of the remaining account-lifecycle port.
+    user = User.query.populate_existing().filter_by(parent_consent_token=token).with_for_update().first()
     if not user:
         return (
             _mini_page(

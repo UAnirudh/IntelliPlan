@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+import secrets
 from flask import current_app
 from sqlalchemy import and_, case, func, literal, or_, select, update
 from sqlalchemy.exc import IntegrityError
@@ -42,6 +43,25 @@ def preference_fields(values):
     if changes.keys() - PREFERENCE_FIELDS:
         raise ValueError('Unsupported account preference fields')
     return changes
+
+
+def initial_age_values(birth_year, parent_email, *, email, consent_token):
+    from intelliplan.email.eligibility import age_from_birth_year
+    birth_year = int(birth_year)
+    now = utcnow()
+    if not 1900 <= birth_year <= now.year:
+        raise ValueError('Please enter a valid birth year.')
+    child = age_from_birth_year(birth_year, now) < 13
+    parent_email = normalize_email(parent_email or '')
+    if child and ('@' not in parent_email or parent_email == normalize_email(email)):
+        raise ValueError('A different parent or guardian email is required.')
+    values = {'birth_year': birth_year, 'parent_consent_granted': not child,
+              'parent_email': parent_email if child else None,
+              'parent_consent_token': consent_token if child else None,
+              'parent_consent_at': None, 'parent_consent_notice_version': None}
+    if child:
+        values.update(marketing_emails_opt_in=False, marketing_opt_in_at=None)
+    return values
 
 
 def registration_fields(attributes):
@@ -136,6 +156,45 @@ class SQLAccounts:
             self.db.session.commit()
             self.db.session.expire_all()
             return self.get(user_id)
+        except Exception:
+            self.db.session.rollback()
+            raise
+
+    def establish_age(self, user_id, *, birth_year, parent_email=None):
+        consent_token = secrets.token_urlsafe(24)
+        try:
+            user = self.model.query.populate_existing().filter_by(id=int(user_id)).with_for_update().first()
+            if user is None:
+                raise LookupError('Account no longer exists')
+            if user.birth_year is None:
+                values = initial_age_values(birth_year, parent_email,
+                                            email=user.email, consent_token=consent_token)
+                for field, value in values.items():
+                    setattr(user, field, value)
+            self.db.session.commit()
+            return user
+        except Exception:
+            self.db.session.rollback()
+            raise
+
+    def by_parent_token(self, token):
+        if not token:
+            return None
+        return self.model.query.populate_existing().filter_by(parent_consent_token=token).first()
+
+    def approve_parent(self, token, *, notice_version):
+        if not token:
+            return None
+        try:
+            user_id = self.db.session.execute(update(self.model).where(
+                self.model.parent_consent_token == token,
+                or_(self.model.parent_consent_granted.is_(False), self.model.parent_consent_granted.is_(None)),
+            ).values(parent_consent_granted=True, parent_consent_token=None,
+                     parent_consent_at=utcnow(), parent_consent_notice_version=notice_version).returning(
+                         self.model.id), execution_options={'synchronize_session': False}).scalar_one_or_none()
+            self.db.session.commit()
+            self.db.session.expire_all()
+            return self.get(user_id) if user_id is not None else None
         except Exception:
             self.db.session.rollback()
             raise

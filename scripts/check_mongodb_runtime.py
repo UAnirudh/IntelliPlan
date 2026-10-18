@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 import json
 from pathlib import Path
 import sys
@@ -106,6 +107,22 @@ def verify(store):
     if accounts.set_preferences(user.id, {}).sms_reminders_opt_in:
         raise AssertionError('Empty preference update changed the SMS invariant')
     checks['atomic_account_preferences'] = True
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        children = list(executor.map(lambda _: accounts.establish_age(user.id,
+            birth_year=datetime.now().year - 10, parent_email=f'parent-{run_id}@example.invalid'), range(8)))
+    consent_tokens = {child.parent_consent_token for child in children}
+    if len(consent_tokens) != 1 or None in consent_tokens:
+        raise AssertionError('Concurrent initial age writes replaced the consent token')
+    consent_token = next(iter(consent_tokens))
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        approvals = list(executor.map(lambda _: accounts.approve_parent(
+            consent_token, notice_version='synthetic-runtime'), range(8)))
+    if sum(result is not None for result in approvals) != 1:
+        raise AssertionError('Parental consent was consumed more than once')
+    approved = accounts.get(user.id)
+    if not approved.parent_consent_granted or approved.parent_consent_token is not None:
+        raise AssertionError('Parental consent was not recorded atomically')
+    checks['single_use_parental_consent'] = True
 
     def rollback(db, active):
         db['_runtime_probes'].insert_one({'run_id': run_id, 'test': 'rollback'}, session=active)

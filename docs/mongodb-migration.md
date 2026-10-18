@@ -97,8 +97,9 @@ explicitly marked superseded and cannot pass snapshot validation.
 | Extension credentials | Native and SQL issue/reuse/lookup/revoke operations; existing opaque tokens retained; stale verified password cannot issue new credentials |
 | Student identity | Explicit native/SQL profile reads and partial saves; onboarding form, settings identity API, onboarding chat and assistant-name lookup use the boundary |
 | Personalization/phone preferences | Explicit native/SQL partial updates; existing web normalization and bounds retained; removing a phone atomically clears SMS opt-in |
+| Age and parental approval | Immutable first age write and atomic single-use approval in SQL/native repositories; web flow uses persisted state; native denial/erasure still pending |
 | Adaptive tutor learner model | Six native collections implemented: profiles, mastery, mistakes, learner memory, imports and summaries; shared validation and response formats; owner checks and transactional mutations |
-| Remaining accounts and domains | Provider credential storage, age/consent and other account preferences, account erasure/archive lifecycle, LMS, scheduling, tutor chat/checks/education plans, Primer, Family, learning, notifications, groups and billing still need porting; application-wide startup remains SQLAlchemy |
+| Remaining accounts and domains | Provider credential storage, other account preferences, account erasure/archive lifecycle, LMS, scheduling, tutor chat/checks/education plans, Primer, Family, learning, notifications, groups and billing still need porting; application-wide startup remains SQLAlchemy |
 | Railway | Production variables and deployment unchanged; no MongoDB cutover |
 
 The native flashcard unit tests exercise an 800-card import, seeded IDs,
@@ -242,7 +243,8 @@ Onboarding form saves, `/identity`, `/api/identity`, onboarding-chat extraction,
 settings/profile reads, personalization reads and the chosen-assistant-name
 lookup use the boundary. Archive restoration remains part of the unported
 archive lifecycle and still uses SQL mapped records. Age/parental-consent and
-notification-preference updates also remain to be ported separately.
+other notification preferences also remain to be ported separately. The age step
+and parental approval were ported in the continuation below.
 
 The account/identity/onboarding/Plani/source-policy run passed 292 tests before
 the final stale-cache regression fix. The final affected account/identity/
@@ -253,7 +255,7 @@ Atlas-specific checks remain pending the restricted test connection.
 
 ## Real local MongoDB verification on 2026-10-18
 
-All eleven checks in `mongodb-runtime-local-20261018.json` passed against an
+All twelve checks in `mongodb-runtime-local-20261018.json` passed against an
 isolated, single-member MongoDB 8.0.34 replica set using PyMongo. This was a real
 MongoDB server, not a mocked transaction fixture. The official runtime archive's
 SHA-256 was checked before running it. The server bound only to localhost,
@@ -277,3 +279,13 @@ write, so clearing a phone cannot leave SMS opted in or overwrite unrelated
 preferences. The repository/onboarding/policy run passed 119 tests, and three
 web-route tests verified authorization, normalization, clamping, removal and
 personalization toggling. The updated eleven-check real-MongoDB run passed too.
+
+Age collection now records the first valid birth year under the parent account
+lock/write. Concurrent submissions preserve the first stored year and consent
+link. Child accounts lose marketing opt-in; approval stores notice evidence and
+burns the link atomically. The web flow uses the saved account rather than stale
+request input. Legacy SQL denial refetches/locks the account before deciding that
+it is still pending; native denial and full erasure remain unported.
+The age/consent/account/policy run passed 156 tests. Independent SQL/native age
+contracts passed four tests. All twelve real-MongoDB checks passed, including
+eight concurrent initial-age submissions and eight single-use approval attempts.

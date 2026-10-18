@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from types import SimpleNamespace
+import secrets
 
 from flask_login import UserMixin
 from pymongo import ReturnDocument
@@ -10,7 +11,7 @@ from pymongo.errors import DuplicateKeyError
 
 from intelliplan.persistence.accounts import (
     AccountExists, CredentialChange, IdentityConflict, LoginFailures, PasswordConflict, normalize_email,
-    policy_acknowledgements, policy_owner, preference_fields, registration_fields,
+    initial_age_values, policy_acknowledgements, policy_owner, preference_fields, registration_fields,
 )
 from intelliplan.persistence.codec import pack_document, unpack_document, update_fields
 from time_utils import utcnow
@@ -74,6 +75,7 @@ class MongoAccounts:
         for field in ("google_id", "referral_code"):
             self.collection.create_index(field, unique=True,
                 partialFilterExpression={field: {"$type": "string"}})
+        self.collection.create_index('parent_consent_token')
         self.store.database.password_reset_tokens.create_index("id", unique=True)
         self.store.database.password_reset_tokens.create_index("token_hash", unique=True)
         self.store.database.password_reset_tokens.create_index([("user_id", 1), ("created_at", -1)])
@@ -111,6 +113,39 @@ class MongoAccounts:
         if row is None:
             raise LookupError('Account no longer exists')
         return Account(row)
+
+    def establish_age(self, user_id, *, birth_year, parent_email=None):
+        consent_token = secrets.token_urlsafe(24)
+
+        def write(db, active):
+            row = db.users.find_one_and_update({'id': int(user_id)}, {'$inc': {'_auth_revision': 1}},
+                return_document=ReturnDocument.AFTER, session=active)
+            if row is None:
+                raise LookupError('Account no longer exists')
+            if row.get('birth_year') is None:
+                values = initial_age_values(birth_year, parent_email,
+                                            email=row['email'], consent_token=consent_token)
+                row = db.users.find_one_and_update({'_id': row['_id']}, update_fields(values),
+                    return_document=ReturnDocument.AFTER, session=active)
+            return Account(row)
+
+        return self.store.transaction(write)
+
+    def by_parent_token(self, token):
+        if not token:
+            return None
+        row = self.collection.find_one({'parent_consent_token': token})
+        return Account(row) if row else None
+
+    def approve_parent(self, token, *, notice_version):
+        if not token:
+            return None
+        row = self.collection.find_one_and_update({'parent_consent_token': token,
+            'parent_consent_granted': {'$ne': True}}, update_fields({
+                'parent_consent_granted': True, 'parent_consent_token': None,
+                'parent_consent_at': utcnow().isoformat(), 'parent_consent_notice_version': notice_version,
+            }), return_document=ReturnDocument.AFTER)
+        return Account(row) if row else None
 
     def latest_policy(self, doc, *, user_id=None, guest_session_id=None):
         owner = policy_owner(user_id=user_id, guest_session_id=guest_session_id)

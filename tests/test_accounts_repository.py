@@ -61,7 +61,10 @@ def account_app(request, monkeypatch):
             parent_email = db.Column(db.String)
             parent_consent_granted = db.Column(db.Boolean, default=False)
             parent_consent_token = db.Column(db.String)
+            parent_consent_at = db.Column(db.DateTime)
+            parent_consent_notice_version = db.Column(db.String)
             marketing_emails_opt_in = db.Column(db.Boolean, default=False)
+            marketing_opt_in_at = db.Column(db.DateTime)
             ai_personalization_opt_in = db.Column(db.Boolean, default=False)
             phone = db.Column(db.String)
             sms_reminders_opt_in = db.Column(db.Boolean, default=False)
@@ -423,6 +426,47 @@ def test_account_preferences_preserve_other_fields_and_clear_sms_without_a_phone
         repo.set_preferences(user.id, {'password_hash': 'overwrite'})
     with pytest.raises(LookupError):
         repo.set_preferences(999999, {'phone': None})
+
+
+def test_initial_age_is_recorded_once_and_child_consent_is_single_use(account_app):
+    _, repo, _ = account_app
+    user = repo.create(email='child-age@example.test', password_hash='hash',
+        attributes={'marketing_emails_opt_in': True, 'marketing_opt_in_at': datetime.utcnow()})
+    child = repo.establish_age(user.id, birth_year=datetime.utcnow().year - 10,
+                               parent_email='PARENT@example.test')
+    token = child.parent_consent_token
+    assert token
+    assert child.parent_consent_granted is False
+    assert child.marketing_emails_opt_in is False
+    assert child.marketing_opt_in_at is None
+    assert repo.by_parent_token(token).id == user.id
+    unchanged = repo.establish_age(user.id, birth_year=2000)
+    assert unchanged.birth_year == datetime.utcnow().year - 10
+    assert unchanged.parent_consent_token == token
+    approved = repo.approve_parent(token, notice_version='synthetic-v1')
+    assert approved.parent_consent_granted is True
+    assert approved.parent_consent_at is not None
+    assert approved.parent_consent_notice_version == 'synthetic-v1'
+    assert approved.parent_consent_token is None
+    assert approved.marketing_emails_opt_in is False
+    assert repo.approve_parent(token, notice_version='replayed') is None
+    assert repo.by_parent_token(token) is None
+
+
+def test_initial_age_validation_and_adult_exemption(account_app):
+    _, repo, _ = account_app
+    user = repo.create(email='age-validate@example.test', password_hash='hash')
+    for values in ({'birth_year': 1899}, {'birth_year': datetime.utcnow().year + 1},
+                   {'birth_year': datetime.utcnow().year - 10},
+                   {'birth_year': datetime.utcnow().year - 10, 'parent_email': user.email}):
+        with pytest.raises(ValueError):
+            repo.establish_age(user.id, **values)
+        assert repo.get(user.id).birth_year is None
+    adult = repo.establish_age(user.id, birth_year=2000)
+    assert adult.parent_consent_granted is True
+    assert adult.parent_consent_token is None
+    assert repo.by_parent_token(None) is None
+    assert repo.approve_parent('', notice_version='unused') is None
 
 
 def test_identity_rejects_missing_owners_and_identity_overrides(account_app):
