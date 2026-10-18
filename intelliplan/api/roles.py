@@ -126,9 +126,14 @@ def api_role():
         return jsonify({"error": "invalid_role"}), 400
     if new_role == "parent" and current_user.birth_year and datetime.utcnow().year - current_user.birth_year < 18:
         return jsonify({"error": "adult_account_required"}), 403
-    current_user.role = new_role
-    _db().session.commit()
-    return jsonify({"role": current_user.role})
+    from intelliplan.persistence.accounts import accounts
+    try:
+        saved = accounts().set_role(current_user.id, new_role)
+    except ValueError as exc:
+        if str(exc) == 'adult_account_required':
+            return jsonify({"error": "adult_account_required"}), 403
+        raise
+    return jsonify({"role": saved.role})
 
 
 @bp.route("/api/roles/invite", methods=["POST"])

@@ -1069,35 +1069,9 @@ def _check_and_increment_tutor_limit():
     """
     if not current_user.is_authenticated:
         return True, None, None
-    from datetime import timedelta
-    db = _get_db()
-    now = datetime.utcnow()
-    # Monthly reset
-    if current_user.tutor_reset_date is None or now >= current_user.tutor_reset_date:
-        current_user.monthly_tutor_messages = 0
-        if now.month == 12:
-            current_user.tutor_reset_date = datetime(now.year + 1, 1, 1)
-        else:
-            current_user.tutor_reset_date = datetime(now.year, now.month + 1, 1)
-        db.session.commit()
-    # Paid plans bypass. This read ``current_user.pro_active``, which no
-    # model has ever defined: the AttributeError was swallowed, so every
-    # paying student was held to the free plan's monthly message count.
-    try:
-        from growth_glue import current_plan
-        from intelliplan.growth import plans as _plans
-        if current_plan(current_user) == _plans.PAID:
-            return True, None, None
-    except Exception as exc:
-        print(f'[tutor] plan check failed: {exc}')
+    from intelliplan.persistence.accounts import accounts
     limit = int(current_app.config.get('FREE_TUTOR_MESSAGES_PER_MONTH', 50))
-    used = current_user.monthly_tutor_messages or 0
-    if used >= limit:
-        return False, 0, limit
-    # Increment
-    current_user.monthly_tutor_messages = used + 1
-    db.session.commit()
-    return True, limit - used - 1, limit
+    return accounts().consume_tutor_message(current_user.id, limit)
 
 
 def _prepare_adaptive_turn(modality_mode=None, student_message=''):

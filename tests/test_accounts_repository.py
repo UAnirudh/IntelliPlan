@@ -77,6 +77,10 @@ def account_app(request, monkeypatch):
             premium_model_pref = db.Column(db.String, default='auto')
             premium_clarify = db.Column(db.Boolean, default=True)
             lms_preferences = db.Column(db.Text, default='{}')
+            paid_until = db.Column(db.DateTime)
+            monthly_tutor_messages = db.Column(db.Integer, default=0)
+            tutor_reset_date = db.Column(db.DateTime)
+            first_touch_json = db.Column(db.Text)
 
         class ResetToken(db.Model):
             __tablename__ = 'password_reset_tokens'
@@ -818,3 +822,76 @@ def test_lms_preference_patch_preserves_exact_unknown_json_numbers(account_app, 
     assert decoded['huge'] == 1234567890123456789012345678901234567890
     assert decoded['padding'] == padding
     assert decoded['assignment_sources'] == ['manual']
+
+
+def test_tutor_allowance_caps_and_resets_months_and_bypasses_paid_accounts(account_app):
+    _, repo, *_ = account_app
+    user = repo.create(email='allowance-repo@example.test', password_hash='synthetic-hash')
+    now = datetime(2026, 12, 20, 10)
+    assert repo.consume_tutor_message(user.id, 2, now=now) == (True, 1, 2)
+    assert repo.consume_tutor_message(user.id, 2, now=now) == (True, 0, 2)
+    assert repo.consume_tutor_message(user.id, 2, now=now) == (False, 0, 2)
+    saved = repo.get(user.id)
+    assert saved.monthly_tutor_messages == 2
+    assert saved.tutor_reset_date == datetime(2027, 1, 1)
+    assert repo.consume_tutor_message(user.id, 2, now=datetime(2027, 1, 1)) == (True, 1, 2)
+    if isinstance(repo, MongoAccounts):
+        repo.collection.update_one({'id': user.id}, {'$set': {'paid_until': '2027-02-01T00:00:00'}})
+    else:
+        saved = repo.get(user.id)
+        saved.paid_until = datetime(2027, 2, 1)
+        repo.db.session.commit()
+    assert repo.consume_tutor_message(user.id, 0, now=datetime(2027, 1, 2)) == (True, None, None)
+    assert repo.get(user.id).monthly_tutor_messages == 1
+
+
+def test_role_change_checks_saved_age_and_rejects_privilege_fields(account_app):
+    _, repo, *_ = account_app
+    child = repo.create(email='role-child@example.test', password_hash='synthetic-hash', attributes={'birth_year': datetime.utcnow().year - 12})
+    assert repo.set_role(child.id, 'teacher').role == 'teacher'
+    with pytest.raises(ValueError, match='adult_account_required'):
+        repo.set_role(child.id, 'parent')
+    with pytest.raises(ValueError, match='invalid_role'):
+        repo.set_role(child.id, 'admin')
+    assert repo.get(child.id).role == 'teacher'
+    adult = repo.create(email='role-adult@example.test', password_hash='synthetic-hash', attributes={'birth_year': 2000})
+    assert repo.set_role(adult.id, 'parent').role == 'parent'
+
+
+def test_first_touch_is_saved_once_without_resurrecting_an_account(account_app):
+    _, repo, *_ = account_app
+    user = repo.create(email='first-touch@example.test', password_hash='synthetic-hash')
+    assert repo.remember_first_touch(user.id, '{"channel":"first"}')
+    assert not repo.remember_first_touch(user.id, '{"channel":"later"}')
+    assert repo.get(user.id).first_touch_json == '{"channel":"first"}'
+    assert not repo.remember_first_touch(99999, '{"channel":"missing"}')
+    assert repo.get(99999) is None
+    with pytest.raises(ValueError):
+        repo.remember_first_touch(user.id, 'x' * 1001)
+
+
+def test_native_role_first_touch_and_tutor_web_boundaries(account_app, monkeypatch):
+    _, repo, *_ = account_app
+    if not isinstance(repo, MongoAccounts):
+        return
+    import App
+    import chatbot_api
+    import insight_glue
+    import importlib
+    roles = importlib.import_module('intelliplan.api.roles')
+    user = repo.create(email='native-transition-web@example.test', password_hash='synthetic-hash', attributes={'birth_year': 2000})
+    monkeypatch.setitem(App.app.extensions, 'accounts_repository', repo)
+    monkeypatch.setattr(chatbot_api, 'current_user', user)
+    monkeypatch.setattr(insight_glue, 'current_user', user)
+    monkeypatch.setattr(roles, 'current_user', user)
+    with App.app.test_request_context('/api/roles/role', method='POST', json={'role': 'parent'}):
+        assert roles.api_role.__wrapped__().get_json()['role'] == 'parent'
+    with App.app.test_request_context('/'):
+        assert chatbot_api._check_and_increment_tutor_limit() == (True, 49, 50)
+        insight_glue._remember_first_touch('synthetic-first', 'test-rule')
+        first = repo.get(user.id).first_touch_json
+        App.session['ip_first_touch'] = {'channel': 'later'}
+        insight_glue._remember_first_touch('synthetic-later', 'test-rule')
+        assert repo.get(user.id).first_touch_json == first
+    assert repo.get(user.id).role == 'parent'
+    assert repo.get(user.id).monthly_tutor_messages == 1

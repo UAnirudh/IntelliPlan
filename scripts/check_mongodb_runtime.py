@@ -263,6 +263,20 @@ def verify(store):
         raise AssertionError('Focus/premium preference updates lost unrelated settings')
     checks['atomic_lms_source_preferences'] = True
     with ThreadPoolExecutor(max_workers=4) as executor:
+        attempts = list(executor.map(lambda _: accounts.consume_tutor_message(user.id, 7), range(20)))
+    if sum(result[0] for result in attempts) != 7 or accounts.get(user.id).monthly_tutor_messages != 7:
+        raise AssertionError('Concurrent tutor requests exceeded or lost the allowance')
+    reset_at = accounts.get(user.id).tutor_reset_date
+    if accounts.consume_tutor_message(user.id, 7, now=reset_at) != (True, 6, 7):
+        raise AssertionError('Tutor allowance did not reset at the next UTC month')
+    checks['atomic_tutor_allowance'] = True
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        touches = list(executor.map(lambda index: accounts.remember_first_touch(
+            user.id, json.dumps({'channel': f'synthetic-{index}'})), range(8)))
+    if sum(touches) != 1 or not accounts.get(user.id).first_touch_json:
+        raise AssertionError('Concurrent attribution replaced the first touch')
+    checks['single_write_first_touch'] = True
+    with ThreadPoolExecutor(max_workers=4) as executor:
         children = list(executor.map(lambda _: accounts.establish_age(user.id,
             birth_year=datetime.now(timezone.utc).year - 10, parent_email=f'parent-{run_id}@example.invalid'), range(8)))
     consent_tokens = {child.parent_consent_token for child in children}
@@ -278,6 +292,16 @@ def verify(store):
     if not approved.parent_consent_granted or approved.parent_consent_token is not None:
         raise AssertionError('Parental consent was not recorded atomically')
     checks['single_use_parental_consent'] = True
+    try:
+        accounts.set_role(user.id, 'parent')
+    except ValueError as exc:
+        if str(exc) != 'adult_account_required':
+            raise
+    else:
+        raise AssertionError('Child account changed to a parent role')
+    if accounts.set_role(user.id, 'student').role != 'student':
+        raise AssertionError('Native role update failed')
+    checks['role_age_eligibility'] = True
 
     def rollback(db, active):
         db['_runtime_probes'].insert_one({'run_id': run_id, 'test': 'rollback'}, session=active)

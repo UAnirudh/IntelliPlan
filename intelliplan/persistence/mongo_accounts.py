@@ -11,7 +11,8 @@ from pymongo.errors import DuplicateKeyError
 
 from intelliplan.persistence.accounts import (
     AccountExists, CredentialChange, IdentityConflict, LoginFailures, PasswordConflict, normalize_email,
-    initial_age_values, patch_lms_preferences, policy_acknowledgements, policy_owner, preference_fields, registration_fields,
+    checked_role, initial_age_values, patch_lms_preferences, policy_acknowledgements, policy_owner,
+    preference_fields, registration_fields, tutor_allowance,
 )
 from intelliplan.persistence.codec import pack_document, unpack_document, update_fields
 from time_utils import utcnow
@@ -113,6 +114,39 @@ class MongoAccounts:
         if row is None:
             raise LookupError('Account no longer exists')
         return Account(row)
+
+    def consume_tutor_message(self, user_id, limit, *, now=None):
+        now = now or utcnow()
+        def write(db, active):
+            row = db.users.find_one_and_update({'id': int(user_id)}, {'$inc': {'_allowance_revision': 1}},
+                return_document=ReturnDocument.AFTER, session=active)
+            if row is None:
+                raise LookupError('Account no longer exists')
+            result, values = tutor_allowance(Account(row), limit, now)
+            if values:
+                values = {key: value.isoformat() if isinstance(value, datetime) else value for key, value in values.items()}
+                db.users.update_one({'_id': row['_id']}, update_fields(values), session=active)
+            return result
+        return self.store.transaction(write)
+
+    def set_role(self, user_id, role):
+        def write(db, active):
+            row = db.users.find_one_and_update({'id': int(user_id)}, {'$inc': {'_role_revision': 1}},
+                return_document=ReturnDocument.AFTER, session=active)
+            if row is None:
+                raise LookupError('Account no longer exists')
+            value = checked_role(role, row.get('birth_year'), utcnow())
+            updated = db.users.find_one_and_update({'_id': row['_id']}, update_fields({'role': value}),
+                return_document=ReturnDocument.AFTER, session=active)
+            return Account(updated)
+        return self.store.transaction(write)
+
+    def remember_first_touch(self, user_id, value):
+        if not isinstance(value, str) or not value or len(value) > 1000:
+            raise ValueError('Invalid first-touch payload')
+        return bool(self.collection.update_one({'id': int(user_id), '$or': [
+            {'first_touch_json': None}, {'first_touch_json': ''}]},
+            update_fields({'first_touch_json': value})).matched_count)
 
     def set_lms_sources(self, user_id, patch):
         def write(db, active):

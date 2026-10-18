@@ -123,17 +123,16 @@ def _remember_first_touch(channel: str, rule: str) -> None:
     """
     from flask import session
 
-    from App import db
+    from intelliplan.persistence.accounts import accounts
 
     if not session.get("ip_first_touch"):
         session["ip_first_touch"] = _first_touch(channel, rule)
         session.modified = True
     if getattr(current_user, "is_authenticated", False) and not current_user.first_touch_json:
         try:
-            current_user.first_touch_json = json.dumps(session["ip_first_touch"])[:1000]
-            db.session.commit()
+            accounts().remember_first_touch(current_user.id, json.dumps(session["ip_first_touch"])[:1000])
         except Exception:
-            db.session.rollback()
+            pass
 
 
 def _capture(response):

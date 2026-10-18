@@ -98,6 +98,7 @@ explicitly marked superseded and cannot pass snapshot validation.
 | Student identity | Explicit native/SQL profile reads and partial saves; onboarding form, settings identity API, onboarding chat and assistant-name lookup use the boundary |
 | Personalization/phone preferences | Explicit native/SQL partial updates; existing web normalization and bounds retained; removing a phone atomically clears SMS opt-in |
 | Focus/premium/LMS preferences | Focus enforcement, alarm-file metadata and premium model preferences use account partial writes; LMS source JSON updates merge under the parent lock/write with exact unknown numbers preserved |
+| Role/attribution/tutor allowance | Role changes recheck stored age under lock; first-touch attribution is single-write; monthly tutor reset, cap and increment serialize on the authoritative account with paid bypass |
 | Age and parental approval | Immutable first age write and atomic single-use approval in SQL/native repositories; native denial conditionally erases only an account still awaiting that token |
 | Account erasure | Explicit native ownership policy, transactional deletion and shared-reference anonymization; upload quarantine/rollback and authenticated-session cleanup tested; archive restore still pending |
 | Linked LMS profiles | SQL/native encrypted credential reads, create/activate, switch, rename and delete; owner-scoped profile management and grade/policy readers use the boundary |
@@ -258,7 +259,7 @@ Atlas-specific checks remain pending the restricted test connection.
 
 ## Real local MongoDB verification on 2026-10-18
 
-All sixteen checks in `mongodb-runtime-local-20261018.json` passed against an
+All nineteen checks in `mongodb-runtime-local-20261018.json` passed against an
 isolated, single-member MongoDB 8.0.34 replica set using PyMongo. This was a real
 MongoDB server, not a mocked transaction fixture. The official runtime archive's
 SHA-256 was checked before running it. The server bound only to localhost,
@@ -353,3 +354,19 @@ The affected account/preferences/erasure/profile/premium/focus suite passed 188
 tests. Native web tests exercise persistence, validation, alarm upload/removal,
 and owner-scoped LMS source reads. Sixteen real local MongoDB checks passed,
 including concurrent LMS preference patches over compressed precise JSON.
+
+## Atomic account transitions continuation
+
+Role changes validate the saved birth year under the same account lock/write.
+Existing student/teacher/parent behavior is retained. First-touch attribution
+keeps the first accepted value through a conditional write, including when
+requests race. The existing consent gate continues to control when it is called.
+The free tutor counter now resets and increments under the account lock/write;
+paid status comes from that authoritative row, and paid users bypass the counter.
+
+The account/tutor-counter/insight/premium/policy suite passed 206 tests, including
+native request-boundary checks. Nineteen real MongoDB checks passed: twenty tutor
+attempts against a limit of seven accepted exactly seven, the next month reset
+worked, eight first-touch attempts accepted exactly one, and saved child age
+prevented a parent-role change. Full tutor, billing and insight domain storage,
+native application startup, Atlas access and cutover remain incomplete.

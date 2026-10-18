@@ -89,6 +89,31 @@ def registration_fields(attributes):
     return values
 
 
+def checked_role(role, birth_year, now):
+    if role not in ('student', 'teacher', 'parent'):
+        raise ValueError('invalid_role')
+    if role == 'parent' and birth_year and now.year - int(birth_year) < 18:
+        raise ValueError('adult_account_required')
+    return role
+
+
+def tutor_allowance(user, limit, now):
+    """Return allowance result and the account fields to save under its lock."""
+    if user.paid_until is not None and user.paid_until > now:
+        return (True, None, None), {}
+    limit = max(0, int(limit))
+    reset = user.tutor_reset_date is None or now >= user.tutor_reset_date
+    used = 0 if reset else (user.monthly_tutor_messages or 0)
+    values = {}
+    if reset:
+        values.update(monthly_tutor_messages=0, tutor_reset_date=(
+            datetime(now.year + 1, 1, 1) if now.month == 12 else datetime(now.year, now.month + 1, 1)))
+    if used >= limit:
+        return (False, 0, limit), values
+    values['monthly_tutor_messages'] = used + 1
+    return (True, limit - used - 1, limit), values
+
+
 def policy_acknowledgements(values):
     result = []
     for value in values:
@@ -174,6 +199,46 @@ class SQLAccounts:
             self.db.session.commit()
             self.db.session.expire_all()
             return self.get(user_id)
+        except Exception:
+            self.db.session.rollback()
+            raise
+
+    def consume_tutor_message(self, user_id, limit, *, now=None):
+        try:
+            user = self.model.query.populate_existing().filter_by(id=int(user_id)).with_for_update().first()
+            if user is None:
+                raise LookupError('Account no longer exists')
+            result, values = tutor_allowance(user, limit, now or utcnow())
+            for key, value in values.items():
+                setattr(user, key, value)
+            self.db.session.commit()
+            return result
+        except Exception:
+            self.db.session.rollback()
+            raise
+
+    def set_role(self, user_id, role):
+        try:
+            user = self.model.query.populate_existing().filter_by(id=int(user_id)).with_for_update().first()
+            if user is None:
+                raise LookupError('Account no longer exists')
+            user.role = checked_role(role, user.birth_year, utcnow())
+            self.db.session.commit()
+            return user
+        except Exception:
+            self.db.session.rollback()
+            raise
+
+    def remember_first_touch(self, user_id, value):
+        if not isinstance(value, str) or not value or len(value) > 1000:
+            raise ValueError('Invalid first-touch payload')
+        try:
+            changed = self.db.session.execute(update(self.model).where(
+                self.model.id == int(user_id), or_(self.model.first_touch_json.is_(None), self.model.first_touch_json == '')
+            ).values(first_touch_json=value), execution_options={'synchronize_session': False}).rowcount
+            self.db.session.commit()
+            self.db.session.expire_all()
+            return bool(changed)
         except Exception:
             self.db.session.rollback()
             raise
