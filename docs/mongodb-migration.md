@@ -97,9 +97,10 @@ explicitly marked superseded and cannot pass snapshot validation.
 | Extension credentials | Native and SQL issue/reuse/lookup/revoke operations; existing opaque tokens retained; stale verified password cannot issue new credentials |
 | Student identity | Explicit native/SQL profile reads and partial saves; onboarding form, settings identity API, onboarding chat and assistant-name lookup use the boundary |
 | Personalization/phone preferences | Explicit native/SQL partial updates; existing web normalization and bounds retained; removing a phone atomically clears SMS opt-in |
-| Age and parental approval | Immutable first age write and atomic single-use approval in SQL/native repositories; web flow uses persisted state; native denial/erasure still pending |
+| Age and parental approval | Immutable first age write and atomic single-use approval in SQL/native repositories; native denial conditionally erases only an account still awaiting that token |
+| Account erasure | Explicit native ownership policy, transactional deletion and shared-reference anonymization; upload quarantine/rollback and authenticated-session cleanup tested; archive restore still pending |
 | Adaptive tutor learner model | Six native collections implemented: profiles, mastery, mistakes, learner memory, imports and summaries; shared validation and response formats; owner checks and transactional mutations |
-| Remaining accounts and domains | Provider credential storage, other account preferences, account erasure/archive lifecycle, LMS, scheduling, tutor chat/checks/education plans, Primer, Family, learning, notifications, groups and billing still need porting; application-wide startup remains SQLAlchemy |
+| Remaining accounts and domains | Provider credential storage, other account preferences, archive lifecycle, LMS, scheduling, tutor chat/checks/education plans, Primer, Family, learning, notifications, groups and billing still need porting; application-wide startup remains SQLAlchemy |
 | Railway | Production variables and deployment unchanged; no MongoDB cutover |
 
 The native flashcard unit tests exercise an 800-card import, seeded IDs,
@@ -140,7 +141,7 @@ then rechecks validity inside the transaction. Email delivery remains outside it
 The native tutor is selected only through an explicitly registered `mongo_store`.
 Its tests forbid SQL access. Learner reads/writes check current user/guest
 ownership, and child mutations touch the parent profile in the same transaction.
-Account removal must still coordinate new profile creation before cutover.
+New account-owned profiles touch the user in the creation transaction to coordinate account removal.
 Stronger unique indexes were preflighted against the Atlas rehearsal: no duplicate
 profile user/guest keys, active mistake keys or conversation-summary keys were
 found. Repeat this preflight against the final snapshot.
@@ -154,8 +155,8 @@ runtime verification script; it does not certify the full application.
 connectivity, transaction rollback, concurrent ID allocation, single-use reset
 and desktop-ticket consumption, and concurrent mastery updates. It refuses every database except
 `intelliplan_runtime_test`, retains synthetic evidence, and sanitizes errors.
-It currently reports `configuration_required`: a native `MONGODB_URI` has not
-been supplied. These real-driver checks have not passed yet.
+For Atlas it currently reports `configuration_required`: a native `MONGODB_URI` has not
+been supplied. The isolated local real-driver checks below passed.
 
 Atlas administration service-account credentials configure MCP management
 access; they do not replace the application's driver connection URI. The user
@@ -164,8 +165,7 @@ The shared npm cache had a missing dependency file. A complete isolated runtime
 was installed at `%USERPROFILE%/.codex/runtimes/mongodb-mcp-2.1.2`, and the Windows
 MCP launcher now uses Node directly with that runtime. Configuration parsing and
 an actual MCP initialize/tools/connect-cluster exchange passed: the service
-account connected to Cluster0. Codex must restart to expose the newly configured
-tools to the agent.
+account connected to Cluster0. The configured MongoDB tools are now exposed to the agent.
 
 ## Browser account continuation
 
@@ -255,7 +255,7 @@ Atlas-specific checks remain pending the restricted test connection.
 
 ## Real local MongoDB verification on 2026-10-18
 
-All twelve checks in `mongodb-runtime-local-20261018.json` passed against an
+All thirteen checks in `mongodb-runtime-local-20261018.json` passed against an
 isolated, single-member MongoDB 8.0.34 replica set using PyMongo. This was a real
 MongoDB server, not a mocked transaction fixture. The official runtime archive's
 SHA-256 was checked before running it. The server bound only to localhost,
@@ -265,7 +265,9 @@ The checks covered driver connectivity, atomic account preferences, deliberate t
 concurrent IDs, single-use reset and desktop codes, concurrent partial identity
 updates, concurrent extension-token reuse, concurrent flashcard reviews with
 complete history, concurrent mastery evidence, and shared web sessions across
-two Flask instances including rotation and logout. No source or rehearsal rows
+two Flask instances including rotation and logout. Account erasure also passed deliberate
+rollback, concurrent child creation, pending-denial versus approval, legacy binary
+session cleanup, and exact JSON audit anonymization checks. No source or rehearsal rows
 were used. Synthetic records are retained outside the repository.
 
 These results validate the implemented native repository operations. They do
@@ -285,7 +287,27 @@ lock/write. Concurrent submissions preserve the first stored year and consent
 link. Child accounts lose marketing opt-in; approval stores notice evidence and
 burns the link atomically. The web flow uses the saved account rather than stale
 request input. Legacy SQL denial refetches/locks the account before deciding that
-it is still pending; native denial and full erasure remain unported.
+it is still pending. Native denial now conditionally erases the pending account in one transaction.
 The age/consent/account/policy run passed 156 tests. Independent SQL/native age
 contracts passed four tests. All twelve real-MongoDB checks passed, including
 eight concurrent initial-age submissions and eight single-use approval attempts.
+
+## Native account-erasure continuation
+
+The explicit ownership policy covers every current foreign key into users,
+dependent learner/course rows, sessions, and shared references. Migrated plain
+or compressed JSON-text audit payloads are scrubbed without rounding unrelated
+numbers. New flashcard decks, learner profiles, security events and authenticated
+sessions coordinate writes with the parent account to avoid resurrecting deleted
+data. Every future domain writer must retain this lifecycle coordination.
+
+Uploaded files are quarantined before deletion and restored after a known
+transaction failure. If MongoDB reports an unknown commit outcome, the files
+remain quarantined and the request reports that verification is required; it
+does not restore files into an account that may already have been deleted.
+Shared lesson filenames and changed upload inventories abort safely.
+
+The focused native-erasure/session/flashcard/tutor/legacy-deletion suite passed
+107 tests. Independent review passed 15 erasure/session tests and found no
+remaining scoped blocker. All thirteen real-MongoDB checks passed. Full app
+startup, remaining domains, Atlas access and cutover remain incomplete.

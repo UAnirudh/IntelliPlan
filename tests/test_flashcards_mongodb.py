@@ -15,6 +15,7 @@ def db():
     # Unit tests exercise business behavior. Real replica-set transaction
     # rollback/retry is a separate required Atlas acceptance check.
     result.transaction = lambda callback: callback(result.database, None)
+    result.database.users.insert_many([{'id': 1}, {'id': 2}])
     flashcards.ensure_tables(result)
     return result
 

@@ -215,8 +215,15 @@ class MongoAccounts:
                     raise
 
     def record_event(self, **values):
-        self.store.database.security_events.insert_one({
-            'id': self.store.next_id('security_events'), 'created_at': utcnow().isoformat(), **values})
+        def write(db, active):
+            user_id = values.get('user_id')
+            if user_id is not None and not db.users.update_one({'id': int(user_id)},
+                {'$inc': {'_auth_revision': 1}}, session=active).matched_count:
+                return
+            db.security_events.insert_one({
+                'id': self.store.next_id('security_events', session=active),
+                'created_at': utcnow().isoformat(), **values}, session=active)
+        self.store.transaction(write)
 
     def failed_login(self, user_id, *, threshold=8, lock_minutes=15):
         now = utcnow()

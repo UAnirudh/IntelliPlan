@@ -8,10 +8,12 @@ from __future__ import annotations
 
 import argparse
 from concurrent.futures import ThreadPoolExecutor
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 import json
 from pathlib import Path
 import sys
+from threading import Barrier
 import uuid
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -23,29 +25,33 @@ from adaptive_tutor.mongo_store import MongoTutor  # noqa: E402
 import desktop_auth  # noqa: E402
 from flashcards.mongo_store import MongoFlashcards  # noqa: E402
 from intelliplan.persistence.accounts import PasswordConflict  # noqa: E402
+from intelliplan.persistence.codec import pack_document, unpack_document  # noqa: E402
 from intelliplan.persistence.mongo import MongoStore  # noqa: E402
 from intelliplan.persistence.mongo_accounts import MongoAccounts  # noqa: E402
 from intelliplan.persistence.mongo_desktop import MongoDesktopTickets  # noqa: E402
 from intelliplan.persistence.mongo_identity import MongoIdentities  # noqa: E402
 from intelliplan.persistence.mongo_extensions import MongoExtensionTokens  # noqa: E402
-from intelliplan.persistence.sessions import MongoSessionInterface  # noqa: E402
+from intelliplan.persistence.mongo_erasure import MongoErasure  # noqa: E402
+from intelliplan.persistence.sessions import MongoSession, MongoSessionInterface  # noqa: E402
 
 
 class DeliberateRollback(Exception):
     pass
 
 
-def verify_sessions(store, run_id):
+def verify_sessions(store, run_id, user_id, epoch):
     cookie_name = f'runtime_{run_id}'
 
     def session_app(name):
         app = Flask(name)
         app.config.update(SECRET_KEY='synthetic-runtime-only', SESSION_COOKIE_NAME=cookie_name,
                           SESSION_KEY_PREFIX=f'runtime:{run_id}:')
-        app.session_interface = MongoSessionInterface(app, store.database)
+        app.session_interface = MongoSessionInterface(app, store)
 
         @app.get('/write')
         def write():
+            session['_user_id'] = str(user_id)
+            session['session_epoch'] = epoch
             session['runtime_marker'] = run_id
             return {'ok': True}
 
@@ -86,6 +92,133 @@ def verify_sessions(store, run_id):
         raise AssertionError('The native session survived logout')
 
 
+def verify_erasure(store, run_id, user, tutor):
+    accounts = MongoAccounts(store)
+    peer = accounts.create(email=f'peer-{run_id}@example.invalid', password_hash='synthetic-peer-hash')
+    store.database.users.update_one({'id': peer.id}, {'$set': {'referred_by_id': user.id}})
+    group_id = store.next_id('study_groups')
+    store.database.study_groups.insert_one({'id': group_id, 'owner_id': user.id, 'name': 'Synthetic shared group'})
+    audit_ids = []
+    for padding in ('', 'A' * 20000):
+        audit_id = store.next_id('learning_policy_audit')
+        audit_ids.append(audit_id)
+        changes = ('{"target_user_ids":[' + str(user.id) + ',' + str(peer.id) + '],'
+                   '"precise":0.12345678901234567890123456789,"padding":' + json.dumps(padding) + '}')
+        store.database.learning_policy_audit.insert_one(pack_document({
+            'id': audit_id, 'actor_id': peer.id, 'changes': changes}))
+    serializer = MongoSessionInterface(Flask(f'erasure-{run_id}'), store).serializer
+    for kind, identity in (('own', user.id), ('peer', peer.id)):
+        store.database.sessions.insert_one({'session_id': f'legacy-{kind}-{run_id}',
+            'expiry': (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(),
+            'data': serializer.encode({'_user_id': str(identity)})})
+
+    def fail_decoder(value):
+        raise DeliberateRollback()
+
+    try:
+        MongoErasure(store, session_decoder=fail_decoder).erase(user.id)
+    except DeliberateRollback:
+        pass
+    else:
+        raise AssertionError('Deliberate erasure failure did not propagate')
+    if accounts.get(user.id) is None or store.database.fc_cards.count_documents({'user_id': user.id}) != 50:
+        raise AssertionError('Failed erasure did not roll back owned data')
+    if accounts.get(peer.id).referred_by_id != user.id:
+        raise AssertionError('Failed erasure did not roll back shared references')
+    erasure = MongoErasure(store, session_decoder=serializer.decode)
+    if not erasure.erase(user.id, expected_uploads=erasure.upload_names(user.id)):
+        raise AssertionError('Native account erasure failed')
+    if accounts.get(user.id) is not None or store.database.fc_cards.count_documents({'user_id': user.id}):
+        raise AssertionError('Erasure retained owned account data')
+    if store.database.adaptive_student_profile.count_documents({'user_id': user.id}):
+        raise AssertionError('Erasure retained the learner profile')
+    if accounts.get(peer.id) is None or accounts.get(peer.id).referred_by_id is not None:
+        raise AssertionError('Erasure removed or failed to unlink another account')
+    if store.database.study_groups.find_one({'id': group_id})['owner_id'] is not None:
+        raise AssertionError('Shared group was not retained anonymously')
+    for audit_id in audit_ids:
+        row = store.database.learning_policy_audit.find_one({'id': audit_id})
+        changes = json.loads(unpack_document(row)['changes'], parse_float=Decimal)
+        if changes['target_user_ids'] != [peer.id] or changes['precise'] != Decimal('0.12345678901234567890123456789'):
+            raise AssertionError('Erasure retained migrated audit references or lost JSON precision')
+    if store.database.sessions.find_one({'session_id': f'legacy-own-{run_id}'}) is not None:
+        raise AssertionError('Erasure retained an owned legacy binary session')
+    if store.database.sessions.find_one({'session_id': f'legacy-peer-{run_id}'}) is None:
+        raise AssertionError('Erasure removed another account session')
+    for create in (lambda: MongoFlashcards(store).create_deck(user.id, 'Cannot resurrect'),
+                   tutor.get_or_create_profile, lambda: MongoIdentities(store).get_or_create(user.id)):
+        try:
+            create()
+        except LookupError:
+            pass
+        else:
+            raise AssertionError('A deleted account recreated child records')
+    app = Flask(f'post-erasure-session-{run_id}')
+    interface = MongoSessionInterface(app, store)
+    stale = MongoSession({'_user_id': str(user.id), 'session_epoch': 1}, sid=f'deleted-{run_id}')
+    interface._upsert_session(timedelta(hours=1), stale, f'runtime:deleted-{run_id}')
+    if store.database.sessions.count_documents({'user_id': user.id}):
+        raise AssertionError('A stale response recreated an erased session')
+
+    def learner_profile(identity):
+        class OwnedTutor(MongoTutor):
+            def _owner(self):
+                return {'user_id': identity}
+        return OwnedTutor(store).get_or_create_profile()
+
+    for label, collection, create_child in (
+        ('deck', 'fc_decks', lambda identity: MongoFlashcards(store).create_deck(identity, 'Synthetic racing deck')),
+        ('identity', 'user_identities', lambda identity: MongoIdentities(store).get_or_create(identity)),
+        ('learner', 'adaptive_student_profile', learner_profile),
+    ):
+        account = accounts.create(email=f'erasure-race-{label}-{run_id}@example.invalid', password_hash='synthetic-hash')
+        gate = Barrier(2)
+
+        def create():
+            gate.wait(timeout=10)
+            try:
+                return create_child(account.id)
+            except LookupError:
+                return None
+
+        def remove():
+            gate.wait(timeout=10)
+            return MongoErasure(store, session_decoder=serializer.decode).erase(account.id)
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            created, removed = executor.submit(create), executor.submit(remove)
+            created.result()
+            if not removed.result():
+                raise AssertionError('Concurrent account erasure did not finish')
+        if accounts.get(account.id) is not None or store.database[collection].count_documents({'user_id': account.id}):
+            raise AssertionError('Concurrent erasure left an orphan child')
+
+    pending = accounts.create(email=f'pending-race-{run_id}@example.invalid', password_hash='synthetic-hash')
+    pending = accounts.establish_age(pending.id, birth_year=datetime.now(timezone.utc).year - 10,
+                                     parent_email=f'parent-race-{run_id}@example.invalid')
+    pending_token = pending.parent_consent_token
+    gate = Barrier(2)
+
+    def approve():
+        gate.wait(timeout=10)
+        return accounts.approve_parent(pending_token, notice_version='synthetic-race')
+
+    def deny():
+        gate.wait(timeout=10)
+        return MongoErasure(store, session_decoder=serializer.decode).erase(
+            pending.id, pending_token=pending_token)
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        approval, denial = executor.submit(approve), executor.submit(deny)
+        approved, denied = approval.result(), denial.result()
+    remaining = accounts.get(pending.id)
+    if denied:
+        if approved is not None or remaining is not None:
+            raise AssertionError('A denied pending account also received approval')
+    elif approved is None or remaining is None or not remaining.parent_consent_granted:
+        raise AssertionError('Concurrent parental decisions left an inconsistent account')
+
+
 def verify(store):
     if store.database.name != 'intelliplan_runtime_test':
         raise ValueError('Only the dedicated intelliplan_runtime_test database is allowed')
@@ -109,7 +242,7 @@ def verify(store):
     checks['atomic_account_preferences'] = True
     with ThreadPoolExecutor(max_workers=4) as executor:
         children = list(executor.map(lambda _: accounts.establish_age(user.id,
-            birth_year=datetime.now().year - 10, parent_email=f'parent-{run_id}@example.invalid'), range(8)))
+            birth_year=datetime.now(timezone.utc).year - 10, parent_email=f'parent-{run_id}@example.invalid'), range(8)))
     consent_tokens = {child.parent_consent_token for child in children}
     if len(consent_tokens) != 1 or None in consent_tokens:
         raise AssertionError('Concurrent initial age writes replaced the consent token')
@@ -225,8 +358,10 @@ def verify(store):
     if len(mastery) != 1 or mastery[0]['total_attempts'] != 12 or mastery[0]['correct_attempts'] != 12:
         raise AssertionError('Concurrent learner updates lost evidence')
     checks['concurrent_mastery_updates'] = True
-    verify_sessions(store, run_id)
+    verify_sessions(store, run_id, user.id, 1)
     checks['native_session_lifecycle'] = True
+    verify_erasure(store, run_id, user, tutor)
+    checks['native_account_erasure_and_rollback'] = True
     store.database['_runtime_checks'].insert_one({'run_id': run_id, 'checks': checks,
                                              'application_ready': False})
     return {'run_id': run_id, 'checks': checks, 'application_ready': False}

@@ -42,6 +42,9 @@ class MongoFlashcards:
 
     def create_deck(self, user_id, name, *, description="", source="manual"):
         def write(db, active):
+            if not db.users.update_one({'id': int(user_id)}, {'$inc': {'_learning_revision': 1}},
+                                       session=active).matched_count:
+                raise LookupError('Account no longer exists')
             identifier = self.store.next_id("fc_decks", session=active)
             created = now().isoformat()
             db.fc_decks.insert_one({"id": identifier, "user_id": user_id,

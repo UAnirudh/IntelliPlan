@@ -45,7 +45,10 @@ def test_clients_are_lazy_and_recreated_after_a_fork():
 def make_app(database):
     app = Flask(__name__)
     app.secret_key = "test-only"
-    app.session_interface = MongoSessionInterface(app, database)
+    backend = MongoStore('mongodb://test', database.name, client_factory=lambda *a, **k: database.client)
+    backend.transaction = lambda work: work(backend.database, None)
+    database.users.update_one({'id': 42}, {'$setOnInsert': {'session_epoch': 0}}, upsert=True)
+    app.session_interface = MongoSessionInterface(app, backend)
 
     @app.get("/set")
     def set_value():
@@ -123,3 +126,15 @@ def test_prepare_migrated_sessions_preserves_original_data_and_adds_ttl():
     assert row["expiry"] == future
     assert isinstance(row["expires_at"], datetime)
     assert prepare_sessions(db) == 0
+
+
+def test_owned_session_save_cannot_resurrect_a_deleted_account():
+    db = mongomock.MongoClient().intelliplan
+    app = make_app(db)
+    client = app.test_client()
+    assert client.get('/set').status_code == 200
+    assert db.sessions.find_one()['user_id'] == 42
+    db.users.delete_one({'id': 42})
+    client.get('/read')
+    assert db.sessions.count_documents({'user_id': 42}) == 0
+    assert client.get('/read').json.get('_user_id') is None

@@ -90,22 +90,33 @@ class MongoTutor:
         owner = self._owner()
         row = self.db[PROFILE].find_one(owner)
         if row is None:
-            now = utcnow().isoformat()
-            values = {"id": self.store.next_id(PROFILE), "user_id": None,
-                "guest_session_id": None, **owner, "grade_level": None,
-                "subjects_json": "[]", "short_term_goals": None, "long_term_goals": None,
-                "explanation_style": "balanced", "explanation_length": "medium",
-                "difficulty_level": "medium", "interests_json": "[]",
-                "onboarding_completed": False, "learning_modality": "auto",
-                "created_at": now, "updated_at": now}
-            # The unique owner index makes concurrent first requests converge.
+            def write(db, active):
+                if owner.get('user_id') is not None:
+                    if not db.users.update_one({'id': owner['user_id']},
+                        {'$inc': {'_learning_revision': 1}}, session=active).matched_count:
+                        raise LookupError('Account no longer exists')
+                existing = db[PROFILE].find_one(owner, session=active)
+                if existing is not None:
+                    return existing
+                now = utcnow().isoformat()
+                values = {"id": self.store.next_id(PROFILE, session=active), "user_id": None,
+                    "guest_session_id": None, **owner, "grade_level": None,
+                    "subjects_json": "[]", "short_term_goals": None, "long_term_goals": None,
+                    "explanation_style": "balanced", "explanation_length": "medium",
+                    "difficulty_level": "medium", "interests_json": "[]",
+                    "onboarding_completed": False, "learning_modality": "auto",
+                    "created_at": now, "updated_at": now}
+                db[PROFILE].insert_one(values, session=active)
+                return values
+
+            # The unique guest index still converges anonymous first requests.
             from pymongo.errors import DuplicateKeyError
             try:
-                self.db[PROFILE].update_one(owner, {"$setOnInsert": values}, upsert=True)
+                row = self.store.transaction(write)
             except DuplicateKeyError:
-                if self.db[PROFILE].find_one(owner) is None:
+                row = self.db[PROFILE].find_one(owner)
+                if row is None:
                     raise
-            row = self.db[PROFILE].find_one(owner)
         return _profile_to_dict(public(row))
 
     def update_profile(self, profile_id, payload):

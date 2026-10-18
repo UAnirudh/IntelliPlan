@@ -13,6 +13,7 @@ def native_tutor(monkeypatch):
     client = mongomock.MongoClient()
     backend = MongoStore('mongodb://test', 'tutor', client_factory=lambda *a, **k: client)
     monkeypatch.setattr(backend, 'transaction', lambda work: work(backend.database, None))
+    backend.database.users.insert_one({'id': 42})
     app = Flask(__name__)
     app.secret_key = 'native-tutor-test'
     app.extensions['mongo_store'] = backend

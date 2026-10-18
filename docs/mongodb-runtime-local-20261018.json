@@ -1,7 +1,7 @@
 {
   "status": "passed",
   "environment": "isolated_local_mongodb_8.0.34",
-  "run_id": "f879496ff88347b59f2def816018af1c",
+  "run_id": "97af5ea8a80a420ba835475ab6f0d7cc",
   "checks": {
     "driver_ping": true,
     "atomic_account_preferences": true,
@@ -14,7 +14,8 @@
     "concurrent_extension_handoff": true,
     "concurrent_flashcard_reviews": true,
     "concurrent_mastery_updates": true,
-    "native_session_lifecycle": true
+    "native_session_lifecycle": true,
+    "native_account_erasure_and_rollback": true
   },
   "application_ready": false,
   "verified_on": "2026-10-18",

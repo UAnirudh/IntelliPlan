@@ -10260,6 +10260,9 @@ def _account_delete_impl():
     except Exception as _ce:
         print(f"[account_delete] could not read current_user.id: {_ce}")
         return flask.jsonify({"status": "error", "message": "Session error"}), 500
+    native_store = app.extensions.get('mongo_store')
+    if native_store is not None:
+        return _native_account_delete_impl(user_id, native_store)
     from account_uploads import owned_upload_paths, remove_uploads, quarantine_uploads, restore_uploads
     try:
         uploads = owned_upload_paths(
@@ -10536,6 +10539,51 @@ def _account_delete_impl():
     logout_user()
     session.clear()
     return flask.jsonify({"status": "ok"})
+
+
+def _native_account_delete_impl(user_id, store, *, pending_token=None):
+    from account_uploads import owned_upload_paths, quarantine_uploads, remove_uploads, restore_uploads
+    from intelliplan.persistence.mongo_erasure import MongoErasure
+
+    decoder = getattr(getattr(app.session_interface, 'serializer', None), 'decode', None)
+    erasure = MongoErasure(store, session_decoder=decoder)
+    try:
+        expected = erasure.upload_names(user_id)
+        uploads = owned_upload_paths(user_id, app.config['NOTES_UPLOAD_FOLDER'], LESSON_UPLOAD_FOLDER,
+                                     expected['course_notes'], expected['lessons'])
+        staged = quarantine_uploads(uploads)
+    except Exception:
+        app.logger.exception('Native account upload staging failed for user id=%s', user_id)
+        return flask.jsonify({'status': 'error', 'message': 'Could not remove uploaded files. Please retry.'}), 500
+    try:
+        deleted = erasure.erase(user_id, expected_uploads=expected, pending_token=pending_token)
+    except Exception as exc:
+        if getattr(exc, 'has_error_label', lambda label: False)('UnknownTransactionCommitResult'):
+            # Restoring files could resurrect data after a commit whose reply
+            # was lost. Retain quarantined originals for outcome verification.
+            app.logger.exception('Native erasure outcome uncertain for user id=%s', user_id)
+            return flask.jsonify({'status': 'error',
+                'message': 'Deletion outcome needs verification. Your files are quarantined; please contact support.'}), 500
+        restore_uploads(staged)
+        app.logger.exception('Native account deletion failed for user id=%s', user_id)
+        return flask.jsonify({'status': 'error', 'message': 'Could not delete the account. Please retry.'}), 500
+    if not deleted:
+        restore_uploads(staged)
+        return flask.jsonify({'status': 'error', 'message': 'Account or approval link no longer valid.'}), 404
+
+    def clear_own_session():
+        if current_user.is_authenticated and int(current_user.id) == int(user_id):
+            logout_user()
+            session.clear()
+
+    try:
+        remove_uploads(quarantine for _, quarantine in staged)
+    except OSError:
+        app.logger.exception('Native account removed; quarantined upload cleanup requires support for user id=%s', user_id)
+        clear_own_session()
+        return flask.jsonify({'status': 'error', 'message': 'Account removed; file cleanup needs support.'}), 500
+    clear_own_session()
+    return flask.jsonify({'status': 'ok'}), 200
 
 # ── DATA ROUTES ───────────────────────────────────────────────
 @app.route("/live")
@@ -19188,10 +19236,13 @@ def parent_deny():
     token = request.values.get("token", "").strip()
     if not token:
         return "Missing consent token.", 400
-    # The legacy deletion path must serialize with the repository's atomic
-    # approval before deciding this is still a pending account. MongoDB erasure
-    # is part of the remaining account-lifecycle port.
-    user = User.query.populate_existing().filter_by(parent_consent_token=token).with_for_update().first()
+    native_store = app.extensions.get('mongo_store')
+    if native_store is not None:
+        user = account_repository().by_parent_token(token)
+    else:
+        # Serialize legacy SQL denial with atomic approval before deciding
+        # this is still pending. Native erasure rechecks inside its transaction.
+        user = User.query.populate_existing().filter_by(parent_consent_token=token).with_for_update().first()
     if not user:
         return (
             _mini_page(
@@ -19226,12 +19277,18 @@ def parent_deny():
         return "Explicitly confirm removal of this pending signup.", 400
     child_email = user.email
     try:
-        PolicyAcknowledgement.query.filter_by(user_id=user.id).delete(synchronize_session=False)
-        db.session.delete(user)
-        db.session.commit()
+        if native_store is not None:
+            response = app.make_response(_native_account_delete_impl(user.id, native_store, pending_token=token))
+            if response.status_code != 200:
+                return response
+        else:
+            PolicyAcknowledgement.query.filter_by(user_id=user.id).delete(synchronize_session=False)
+            db.session.delete(user)
+            db.session.commit()
         print(f"[coppa] denied + deleted pending account: {child_email}")
     except Exception as _e:
-        db.session.rollback()
+        if native_store is None:
+            db.session.rollback()
         print(f"[coppa] deny delete failed for {child_email}: {_e}")
         return "Could not remove the account right now. Please try again later.", 500
     return (

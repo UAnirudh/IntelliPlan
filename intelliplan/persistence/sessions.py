@@ -34,9 +34,11 @@ class MongoSessionInterface(ServerSideSessionInterface):
     session_class = MongoSession
     ttl = True
 
-    def __init__(self, app, database):
-        self.store = database["sessions"]
+    def __init__(self, app, backend):
+        self.backend = backend
+        self.store = backend.database["sessions"]
         self.store.create_index("session_id", unique=True)
+        self.store.create_index('user_id')
         self.store.create_index("expires_at", expireAfterSeconds=0)
         super().__init__(
             app, key_prefix=app.config.get("SESSION_KEY_PREFIX", "session:"),
@@ -65,7 +67,24 @@ class MongoSessionInterface(ServerSideSessionInterface):
 
     def _upsert_session(self, session_lifetime, session, store_id):
         expiry = datetime.now(timezone.utc) + session_lifetime
-        self.store.update_one({"session_id": store_id}, {"$set": {
+        user_id = str(session.get('_user_id') or '')
+        values = {
             "data": self.serializer.encode(session), "expiry": expiry.isoformat(),
             "expires_at": expiry,
-        }}, upsert=True)
+            'user_id': int(user_id) if user_id.isdigit() else None,
+        }
+        if not user_id.isdigit():
+            self.store.update_one({'session_id': store_id}, {'$set': values}, upsert=True)
+            return
+
+        def write(db, active):
+            epoch = int(session.get('session_epoch') or 0)
+            owner = {'id': int(user_id), '$expr': {
+                '$eq': [{'$ifNull': ['$session_epoch', 0]}, epoch]}}
+            if not db.users.update_one(owner, {'$inc': {'_session_revision': 1}},
+                                       session=active).matched_count:
+                db.sessions.delete_one({'session_id': store_id}, session=active)
+                return
+            db.sessions.update_one({'session_id': store_id}, {'$set': values}, upsert=True, session=active)
+
+        self.backend.transaction(write)
