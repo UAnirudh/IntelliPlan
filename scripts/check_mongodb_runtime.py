@@ -604,6 +604,37 @@ def verify(store):
         raise AssertionError('Lifecycle send was reclaimed after acceptance')
     checks['atomic_lifecycle_email_claims'] = True
 
+    notice_address = accounts.get(user.id).email
+    store.database.users.update_one({'id': user.id}, {'$set': {
+        'marketing_emails_opt_in': True, 'email_reminders_opt_in': True,
+        'marketing_opt_in_at': '2026-10-01T00:00:00'}})
+    original_transaction = store.transaction
+    def force_unsubscribe_rollback(operation):
+        def fail_after_write(db, active):
+            operation(db, active)
+            raise DeliberateRollback()
+        return original_transaction(fail_after_write)
+    try:
+        store.transaction = force_unsubscribe_rollback
+        try:
+            mail.unsubscribe(notice_address)
+            raise AssertionError('Unsubscribe rollback check did not abort')
+        except DeliberateRollback:
+            pass
+    finally:
+        store.transaction = original_transaction
+    if mail.is_suppressed(notice_address) or not accounts.get(user.id).marketing_emails_opt_in:
+        raise AssertionError('Aborted unsubscribe partially changed suppression or account settings')
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        if not all(executor.map(lambda _: mail.unsubscribe(notice_address.upper()), range(8))):
+            raise AssertionError('Concurrent unsubscribe failed')
+    unsubscribed = accounts.get(user.id)
+    if not mail.is_suppressed(notice_address) or unsubscribed.marketing_emails_opt_in or not unsubscribed.email_reminders_opt_in:
+        raise AssertionError('Unsubscribe did not atomically preserve notification preferences')
+    if unsubscribed.marketing_opt_in_at.isoformat() != '2026-10-01T00:00:00':
+        raise AssertionError('Unsubscribe changed dated consent evidence')
+    checks['native_unsubscribe_and_rollback'] = True
+
     from intelliplan.persistence.mongo_learning_policy import MongoLearningPolicy
     from intelliplan.learning import policy as learning_policy
     school_policy = MongoLearningPolicy(store)

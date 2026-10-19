@@ -20573,6 +20573,9 @@ def email_unsubscribe(token):
     "sign in first" as an unsubscribe mechanism. POST is accepted because
     List-Unsubscribe-Post one-click sends one.
     """
+    if flask.current_app.extensions.get('mongo_store') is not None:
+        from intelliplan.email.unsubscribe import native_unsubscribe
+        return native_unsubscribe(token, _mini_page)
     from intelliplan.email.eligibility import suppress
     from intelliplan.email.sender import parse_unsubscribe_token
 

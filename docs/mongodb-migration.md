@@ -478,3 +478,10 @@ Validation: 78 affected native/legacy policy, premium and email tests passed bef
 Native lifecycle claims now serialize with account erasure, deduplicate each user/campaign, retry definite failures with fresh claim tokens and reject stale outcomes. A raised provider exception leaves pending status because acceptance is unknown; the injected sender contract must reserve falsy responses for definite nonacceptance. Current account eligibility, suppression, age, address and school notification policy are rechecked after rendering. Native unsubscribe signing/URLs and template base URLs avoid the SQL application. A missing sender consumes no claim.
 
 Validation: 78 affected native/legacy email and eligibility tests passed, including nine native real-template/headers/retry/consent cases. Independent scoped review and final Ruff passed. Official local MongoDB passed 29 checks, including concurrent lifecycle claims and retry-token protection. No email was sent to real recipients. Actual provider delivery, campaign sweeps/unsubscribe endpoint, full native startup and Atlas runtime remain pending. Atlas test was retried after user confirmation but the saved driver URI was still empty, so no cloud test writes occurred. Production unchanged.
+
+
+### Native signed unsubscribe endpoint (2026-10-18)
+
+Logged-out GET and one-click POST unsubscribe now dispatch natively when MongoDB is configured. The transaction persists the normalized address suppression and switches off marketing on exact matching addresses, retaining reminder consent, dated consent evidence and unknown fields. Malformed signatures/addresses return 400; storage failures return 503 without claiming success. Suppression remains independent of deleted accounts.
+
+Validation: 47 native/legacy email tests passed; independent review and scoped Ruff passed. Official local MongoDB passed 30 checks, including eight concurrent unsubscribes and a forced abort proving suppression and visible preferences roll back together. No real email sent. Full app startup, campaign sweeps and Atlas driver verification remain pending; production unchanged.

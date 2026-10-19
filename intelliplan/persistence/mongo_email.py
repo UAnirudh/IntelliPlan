@@ -42,6 +42,27 @@ class MongoEmailState:
         except DuplicateKeyError:
             return self.is_suppressed(address)
 
+    def unsubscribe(self, address):
+        address = address.strip().lower()
+        if not address:
+            return False
+        def write(db, active):
+            if db.email_suppressions.find_one({'email': address}, session=active) is None:
+                db.email_suppressions.insert_one(pack_document({
+                    'id': self.store.next_id('email_suppressions', session=active),
+                    'email': address, 'reason': 'unsubscribe', 'created_at': utcnow().isoformat(),
+                }), session=active)
+            # Preserve reminder consent and dated marketing evidence. Changing
+            # existing accounts here also coordinates with account erasure.
+            db.users.update_many({'email': {'$regex': '^' + re.escape(address) + '$', '$options': 'i'}},
+                update_fields({'marketing_emails_opt_in': False}), session=active)
+            return True
+        try:
+            return self.store.transaction(write)
+        except DuplicateKeyError:
+            # A concurrent suppression may have won; re-run the entire update.
+            return self.store.transaction(write)
+
     def claim_budget_notice(self, user_id, period):
         if not isinstance(period, str) or not re.fullmatch(r'\d{4}-(0[1-9]|1[0-2])', period):
             raise ValueError('Invalid budget period')
