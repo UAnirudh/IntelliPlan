@@ -39,6 +39,73 @@ class DeliberateRollback(Exception):
     pass
 
 
+def verify_google_grants(store, user_id):
+    """Exercise real transaction conflicts, source-compatible tokens and revocation."""
+    import secret_box
+    from intelliplan.persistence.mongo_google import MongoGoogle
+    from intelliplan.persistence.json_values import loads_exact
+
+    calendar, drive = MongoGoogle(store), MongoGoogle(store, 'drive')
+    calendar.ensure_indexes()
+    drive.ensure_indexes()
+    high_water = max(20000, (store.database['_sequences'].find_one(
+        {'_id': 'google_integrations'}) or {}).get('value', 0))
+    store.seed_id('google_integrations', high_water)
+
+    def connect(index):
+        return calendar.connect(user_id, token={'token': f'synthetic-calendar-{index}'},
+            account_email=f'calendar-{index}@example.invalid', account_name='Synthetic')
+
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        grants = list(executor.map(connect, range(8)))
+    rows = calendar.list(user_id)
+    if len(rows) != 8 or sum(bool(row.is_active) for row in rows) != 1:
+        raise AssertionError('Concurrent Google connections lost accounts or active selection')
+    if min(row.id for row in grants) <= high_water:
+        raise AssertionError('Google allocation ignored restored sequence high water')
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        list(executor.map(lambda grant: calendar.activate(user_id, grant.id), grants))
+    if sum(bool(row.is_active) for row in calendar.list(user_id)) != 1:
+        raise AssertionError('Concurrent Google activation selected multiple accounts')
+    selected = calendar.get(user_id)
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        results = list(executor.map(lambda index: calendar.refresh(user_id, selected,
+            json.dumps({'token': f'synthetic-refresh-{index}'})), range(8)))
+    if sum(results) != 1:
+        raise AssertionError('Google accepted stale concurrent refresh proof')
+    current = calendar.get(user_id)
+    removed, was_active, promoted = calendar.remove(user_id, current.id, expected=current)
+    if not removed or not was_active or promoted is None or not promoted.is_active:
+        raise AssertionError('Google removal did not promote a remaining account')
+    calendar.disconnect(user_id)
+    if calendar.refresh(user_id, promoted, '{}') or calendar.list(user_id):
+        raise AssertionError('Google refresh restored a disconnected account')
+
+    def connect_drive(index):
+        return drive.connect(user_id, token={'token': f'synthetic-drive-{index}',
+            'refresh_token': 'synthetic-refresh', 'precise': Decimal('0.1234567890123456789')},
+            account_email='google-drive@example.invalid', account_name='Synthetic')
+
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        list(executor.map(connect_drive, range(8)))
+    if len(drive.list(user_id)) != 1:
+        raise AssertionError('Concurrent Google Drive connection duplicated a grant')
+    original = drive.get(user_id)
+    changed = drive.connect(user_id, token={'token': 'synthetic-replacement'},
+        account_email='google-drive@example.invalid', account_name='Synthetic')
+    token = loads_exact(changed.token_data)
+    if token['refresh_token'] != 'synthetic-refresh' or token['precise'] != Decimal('0.1234567890123456789'):
+        raise AssertionError('Google Drive reconnect lost token metadata')
+    raw = store.database.google_drive_integrations.find_one({'user_id': user_id})
+    if not secret_box.is_encrypted(raw['token_data']):
+        raise AssertionError('Google Drive credentials were not encrypted')
+    if drive.refresh(user_id, original, '{}'):
+        raise AssertionError('Google Drive refresh overwrote a reconnected grant')
+    drive.disconnect(user_id)
+    if drive.refresh(user_id, changed, '{}') or drive.get(user_id):
+        raise AssertionError('Google Drive refresh restored a disconnected account')
+
+
 def verify_sessions(store, run_id, user_id, epoch):
     cookie_name = f'runtime_{run_id}'
 
@@ -773,6 +840,9 @@ def verify(store):
         if drive.refresh(user.id, current_drive, '{}') or drive.get(user.id) is not None:
             raise AssertionError('OneDrive refresh resurrected a disconnected grant')
         checks['atomic_onedrive_grants'] = True
+        verify_google_grants(store, user.id)
+        checks['atomic_google_calendar_grants'] = True
+        checks['atomic_google_drive_grants'] = True
     finally:
         if original_encryption is None:
             os.environ.pop('DATA_ENCRYPTION_KEY', None)

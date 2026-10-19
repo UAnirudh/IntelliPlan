@@ -533,3 +533,24 @@ The user completed the private database password and current workstation network
 Coverage includes transaction rollback, ID allocation and independent restored OneDrive counters, concurrent account/preferences/LMS/Canvas/tutor updates, authentication handoffs, developer keys, integer AI spending/credits, linked provider credentials, email suppression/claims/unsubscribe, institution policy reads, Outlook/OneDrive grant races, flashcard reviews, learner mastery, sessions and account erasure including rollback/child-creation races. Test data is synthetic and isolated. No Supabase reads/writes or production cutover occurred in this run.
 
 Full application readiness remains false: remaining SQL-dependent application domains and bootstrap/session wiring, complete browser/mobile workflows, live provider integrations and final maintenance snapshot/restore/comparison plus Railway deployment verification are not complete. The successful driver run is not permission or evidence to switch production. Existing source and rehearsal copies are retained.
+
+## Google Calendar and Drive native grant port (2026-10-19)
+
+Saved Google Calendar accounts, active selection, removal/promotion, OAuth linking,
+Drive grants and refreshes now use explicit SQL/native repositories. Native writes
+serialize on the owner and preserve source IDs, unknown fields and exact token JSON
+numbers. Refresh proof prevents overwriting reconnects or recreating disconnected
+grants; a revoked Drive client stops subsequent provider requests. Restored duplicate
+Drive emails retain the newest-grant lookup behavior. Authenticated users cannot
+reuse cookie tokens after disconnect. Calendar provider failures retain saved grants.
+
+Validation: 120 existing Google/cloud/calendar tests passed; all 11 dedicated native
+Google tests passed, and the earlier joint native Google/Microsoft run passed 19
+tests before adding the calendar-export regression. Scoped Ruff and diff checks
+passed. Read-only review approved the selector fix and transaction boundaries.
+Real local MongoDB 8.0.34 passed 36 runtime checks, including concurrent multi-account
+connection/activation, stale refresh rejection, active-account promotion, Drive token
+metadata preservation and encrypted credentials. Evidence: `mongodb-runtime-local-google-20261019.json`.
+Atlas verification for these two new checks is pending. All data used for runtime
+checks is synthetic in the dedicated test database. No live Google OAuth/provider
+acceptance or whole-app native startup is claimed. Production remains on Supabase.

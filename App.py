@@ -839,6 +839,7 @@ class UserIdentity(db.Model):
 from intelliplan.persistence.linked_accounts import linked_accounts as linked_accounts_repository
 from intelliplan.persistence.canvas import canvas_integrations
 from intelliplan.persistence.outlook import outlook_accounts, onedrive_accounts
+from intelliplan.persistence.google import google_accounts
 
 
 class LinkedAccount(db.Model):
@@ -3588,48 +3589,43 @@ def get_google_token(user_id=None):
     uid = user_id if explicit_owner else (current_user.id if current_user.is_authenticated else None)
     if uid is not None:
         # Prefer the active row; fall back to the most recent if none flagged.
-        gi = (
-            GoogleIntegration.query
-            .filter_by(user_id=uid, is_active=True)
-            .first()
-            or GoogleIntegration.query
-            .filter_by(user_id=uid)
-            .order_by(GoogleIntegration.id.desc())
-            .first()
-        )
+        gi = google_accounts().get(uid)
         if gi:
             try:
-                return json.loads(gi.token_data)
-            except (TypeError, json.JSONDecodeError):
-                if explicit_owner:
-                    return None
-                db.session.delete(gi)
-                db.session.commit()
+                token = json.loads(gi.token_data)
+                if not isinstance(token, dict):
+                    raise ValueError('Invalid Google token')
+                flask.g._google_grant = (uid, gi)
+                return token
+            except (TypeError, ValueError):
+                if not explicit_owner:
+                    google_accounts().remove(uid, gi.id, expected=gi)
                 return None
+        # A disconnected authenticated account must not reuse stale cookie data.
+        return None
     return None if explicit_owner else session.get("google_token")
 
 
 def get_google_drive_token(account_email=None):
     if not current_user.is_authenticated:
         return None
-    query = GoogleDriveIntegration.query.filter_by(user_id=current_user.id)
-    if account_email:
-        query = query.filter_by(account_email=account_email)
-    row = query.order_by(GoogleDriveIntegration.id.desc()).first()
+    repository = google_accounts('drive')
+    row = repository.get(current_user.id, account_email=account_email)
     if not row:
         return None
     try:
         token = json.loads(row.token_data)
         if float(token.get("expires_at") or 0) <= time.time() + 90:
             token = refresh_access_token(token)
-            row.token_data = json.dumps(token)
-            db.session.commit()
+            if not repository.refresh(current_user.id, row, json.dumps(token)):
+                return None
         if not google_drive_helper.has_drive_scope(token):
             return None
         return token
     except Exception as e:
-        print(f"Google Drive token refresh failed: {e}")
+        print(f"Google Drive token refresh failed: {type(e).__name__}")
         return None
+
 
 def _refresh_notion_row(ni):
     """Renew ``ni``'s access token in place when it is close to expiring.
@@ -7081,7 +7077,9 @@ def api_integrations_status():
         for key, model, detail_field in rows:
             try:
                 row = (outlook_accounts().get(uid) if key == 'outlook_calendar' else
-                       onedrive_accounts().get(uid) if key == 'onedrive' else model.query.filter_by(user_id=uid).first())
+                       onedrive_accounts().get(uid) if key == 'onedrive' else
+                       google_accounts().get(uid) if key == 'google_calendar' else
+                       google_accounts('drive').get(uid) if key == 'google_drive' else model.query.filter_by(user_id=uid).first())
             except Exception:
                 # A table a migration has not reached yet must not take the
                 # whole list down -- the other nine are still useful.
@@ -8929,22 +8927,8 @@ def _handle_google_callback():
             return redirect(url_for("login", next="/study-files"))
         if not google_drive_helper.has_drive_scope(token_dict):
             return redirect("/study-files?drive_error=scope")
-        row = GoogleDriveIntegration.query.filter_by(
-            user_id=current_user.id, account_email=email
-        ).first()
-        existing = json.loads(row.token_data) if row else {}
-        token_dict = merge_token_data(existing, token_dict)
-        values = {
-            "token_data": json.dumps(token_dict),
-            "account_email": email,
-            "account_name": name,
-        }
-        if row:
-            for key, value in values.items():
-                setattr(row, key, value)
-        else:
-            db.session.add(GoogleDriveIntegration(user_id=current_user.id, **values))
-        db.session.commit()
+        google_accounts('drive').connect(current_user.id, token=token_dict,
+            account_email=email, account_name=name)
         _forget_document_matches()
         return redirect("/study-files?google_drive=connected")
 
@@ -8953,36 +8937,11 @@ def _handle_google_callback():
             print("[GOOGLE CALLBACK] calendar link attempted without an authenticated app user")
             return redirect(url_for("login"))
         user = current_user
-        if user.email.lower() == email and not user.google_id:
-            user.google_id = google_id
-        if not user.name:
-            user.name = name
-        db.session.commit()
+        google_accounts().capture_profile(user.id, email=email, subject=google_id, name=name)
         if has_calendar_scope(token_dict):
-            # Multi-account: match the row by account_email so a second
-            # Google sign-in adds a new row instead of overwriting the first.
-            gi = (
-                GoogleIntegration.query
-                .filter_by(user_id=user.id, account_email=email)
-                .first()
-            )
-            existing_token = json.loads(gi.token_data) if gi else {}
-            token_dict = merge_token_data(existing_token, token_dict)
-            # Newly-linked account becomes the active one.
-            GoogleIntegration.query.filter_by(user_id=user.id).update({"is_active": False})
-            if gi:
-                gi.token_data = json.dumps(token_dict)
-                gi.account_name = name or gi.account_name
-                gi.is_active = True
-            else:
-                db.session.add(GoogleIntegration(
-                    user_id=user.id,
-                    token_data=json.dumps(token_dict),
-                    account_email=email,
-                    account_name=name,
-                    is_active=True,
-                ))
-            db.session.commit()
+            grant = google_accounts().connect(user.id, token=token_dict,
+                account_email=email, account_name=name)
+            token_dict = json.loads(grant.token_data)
             session["google_token"] = token_dict
             session.permanent = True
             session.modified = True
@@ -9022,27 +8981,9 @@ def _handle_google_callback():
 
     # ── Persist the Google token for calendar use ──
     if has_calendar_scope(token_dict):
-        gi = (
-            GoogleIntegration.query
-            .filter_by(user_id=user.id, account_email=email)
-            .first()
-        )
-        existing_token = json.loads(gi.token_data) if gi else {}
-        token_dict = merge_token_data(existing_token, token_dict)
-        GoogleIntegration.query.filter_by(user_id=user.id).update({"is_active": False})
-        if gi:
-            gi.token_data = json.dumps(token_dict)
-            gi.account_name = name or gi.account_name
-            gi.is_active = True
-        else:
-            db.session.add(GoogleIntegration(
-                user_id=user.id,
-                token_data=json.dumps(token_dict),
-                account_email=email,
-                account_name=name,
-                is_active=True,
-            ))
-        db.session.commit()
+        grant = google_accounts().connect(user.id, token=token_dict,
+            account_email=email, account_name=name)
+        token_dict = json.loads(grant.token_data)
         session["google_token"] = token_dict
         session.permanent = True
         session.modified = True
@@ -9132,12 +9073,7 @@ def gcal_status():
     """List the user's connected Google accounts and which one is active."""
     if not current_user.is_authenticated:
         return flask.jsonify({"connected": False, "accounts": [], "active_id": None})
-    rows = (
-        GoogleIntegration.query
-        .filter_by(user_id=current_user.id)
-        .order_by(GoogleIntegration.id.asc())
-        .all()
-    )
+    rows = google_accounts().list(current_user.id)
     accounts = [{
         "id": r.id,
         "email": r.account_email or "",
@@ -9162,12 +9098,12 @@ def gcal_activate():
     row_id = body.get("id")
     if not row_id:
         return flask.jsonify({"status": "error", "message": "id required"}), 400
-    target = GoogleIntegration.query.filter_by(user_id=current_user.id, id=row_id).first()
+    try:
+        target = google_accounts().activate(current_user.id, row_id)
+    except (TypeError, ValueError):
+        target = None
     if not target:
         return flask.jsonify({"status": "error", "message": "not found"}), 404
-    GoogleIntegration.query.filter_by(user_id=current_user.id).update({"is_active": False})
-    target.is_active = True
-    db.session.commit()
     try:
         session["google_token"] = json.loads(target.token_data)
         session.modified = True
@@ -9185,20 +9121,16 @@ def gcal_remove():
     row_id = body.get("id")
     if not row_id:
         return flask.jsonify({"status": "error", "message": "id required"}), 400
-    target = GoogleIntegration.query.filter_by(user_id=current_user.id, id=row_id).first()
-    if not target:
+    try:
+        removed, was_active, nxt = google_accounts().remove(current_user.id, row_id)
+    except (TypeError, ValueError):
+        removed, was_active, nxt = False, False, None
+    if not removed:
         return flask.jsonify({"status": "error", "message": "not found"}), 404
-    was_active = bool(target.is_active)
-    db.session.delete(target)
-    db.session.commit()
     if was_active:
-        # Promote the next-most-recent account to active.
-        nxt = GoogleIntegration.query.filter_by(user_id=current_user.id).order_by(GoogleIntegration.id.desc()).first()
         if nxt:
-            nxt.is_active = True
-            db.session.commit()
             try: session["google_token"] = json.loads(nxt.token_data)
-            except Exception: pass
+            except Exception: session.pop("google_token", None)
         else:
             session.pop("google_token", None)
         session.modified = True
@@ -9218,10 +9150,8 @@ def google_oauth_callback():
 @app.route("/oauth/google/disconnect", methods=["POST"])
 def google_disconnect():
     if current_user.is_authenticated:
-        GoogleIntegration.query.filter_by(user_id=current_user.id).delete()
-        db.session.commit()
-    else:
-        session.pop("google_token", None)
+        google_accounts().disconnect(current_user.id)
+    session.pop("google_token", None)
     return flask.jsonify({"status": "ok"})
 
 
@@ -9229,8 +9159,7 @@ def google_disconnect():
 def google_drive_disconnect():
     if not current_user.is_authenticated:
         return jsonify({"status": "error", "message": "Sign in first."}), 401
-    GoogleDriveIntegration.query.filter_by(user_id=current_user.id).delete(synchronize_session=False)
-    db.session.commit()
+    google_accounts('drive').disconnect(current_user.id)
     _forget_document_matches()
     return jsonify({"status": "ok"})
 
@@ -9456,7 +9385,7 @@ def study_files_page():
 def cloud_documents_status():
     if not current_user.is_authenticated:
         return jsonify({"status": "error", "message": "Sign in to connect study files."}), 401
-    google = GoogleDriveIntegration.query.filter_by(user_id=current_user.id).order_by(GoogleDriveIntegration.id.desc()).first()
+    google = google_accounts('drive').get(current_user.id)
     one = onedrive_accounts().get(current_user.id)
     return jsonify({
         "status": "ok",
@@ -9484,8 +9413,7 @@ def google_drive_picker_token():
     token = get_google_drive_token()
     if not token:
         return jsonify({"status": "error", "message": "Connect Google Drive first."}), 403
-    account = (GoogleDriveIntegration.query.filter_by(user_id=current_user.id)
-               .order_by(GoogleDriveIntegration.id.desc()).first())
+    account = google_accounts('drive').get(current_user.id)
     response = jsonify({
         "access_token": token.get("token") or token.get("access_token"),
         "account_email": account.account_email if account else "",
@@ -9603,13 +9531,8 @@ def import_cloud_document():
         return jsonify({"status": "ok", "id": existing.id, "already_imported": True})
     account_email = ""
     if provider == "google_drive":
-        drive_accounts = GoogleDriveIntegration.query.filter_by(user_id=current_user.id)
         requested_account = str(body.get("account_email") or "").strip().lower()
-        if requested_account:
-            drive_accounts = drive_accounts.filter_by(account_email=requested_account)
-        else:
-            drive_accounts = drive_accounts.order_by(GoogleDriveIntegration.id.desc())
-        drive_account = drive_accounts.first()
+        drive_account = google_accounts('drive').get(current_user.id, account_email=requested_account or None)
         if not drive_account:
             return jsonify({"status": "error", "message": "Connect this Google account first."}), 403
         account_email = drive_account.account_email
@@ -9631,9 +9554,7 @@ def import_cloud_document():
         link = CloudDocumentLink(
             user_id=current_user.id, note_id=note.id, provider=provider,
             external_file_id=external_id,
-            account_email=(GoogleDriveIntegration.query.filter_by(
-                user_id=current_user.id, account_email=account_email
-            ).first().account_email if provider == "google_drive" else ""),
+            account_email=account_email if provider == "google_drive" else "",
             mime_type=mime,
             web_url=(info.get("webViewLink") or info.get("webUrl") or "")[:2048], etag=str(etag or "")[:512],
         )
@@ -9800,8 +9721,7 @@ def _cloud_doc_row(user_id, provider):
         if provider == "google_drive":
             # Several Google accounts may be linked; the newest is the one
             # the student most recently chose, matching get_google_drive_token.
-            return (GoogleDriveIntegration.query.filter_by(user_id=user_id)
-                    .order_by(GoogleDriveIntegration.id.desc()).first())
+            return google_accounts('drive').get(user_id)
         if provider == "onedrive":
             return onedrive_accounts().get(user_id)
     except Exception as e:
@@ -9831,24 +9751,17 @@ def _cloud_doc_client(user_id, provider):
         return None
     if not isinstance(token, dict):
         return None
-    model = GoogleDriveIntegration if provider == "google_drive" else OneDriveIntegration
-    row_id = row.id
     expected_grant = row
 
     def persist(fresh):
         nonlocal expected_grant
-        if provider == 'onedrive':
-            from cloud_token_client import TokenExpired
-            serialized = json.dumps(fresh)
-            if not onedrive_accounts().refresh(user_id, expected_grant, serialized):
-                raise TokenExpired('Cloud document connection changed. Reconnect before continuing.')
-            from types import SimpleNamespace
-            expected_grant = SimpleNamespace(**{**vars(expected_grant), 'token_data': serialized})
-            return
-        target = db.session.get(model, row_id)
-        if target:
-            target.token_data = json.dumps(fresh)
-            db.session.commit()
+        from cloud_token_client import TokenExpired
+        serialized = json.dumps(fresh)
+        repository = onedrive_accounts() if provider == 'onedrive' else google_accounts('drive')
+        if not repository.refresh(user_id, expected_grant, serialized):
+            raise TokenExpired('Cloud document connection changed. Reconnect before continuing.')
+        from types import SimpleNamespace
+        expected_grant = SimpleNamespace(**{**vars(expected_grant), 'token_data': serialized})
 
     if provider == "google_drive":
         return google_drive_helper.DriveClient(token, on_refresh=persist)
@@ -10025,9 +9938,6 @@ def calendar_events():
     except Exception as e:
         print(f"Calendar events error: {e}")
         session.pop("google_token", None)
-        if current_user.is_authenticated:
-            GoogleIntegration.query.filter_by(user_id=current_user.id).delete()
-            db.session.commit()
         if outlook_events is not None:
             return flask.jsonify({"connected": True, "events": outlook_events,
                                   "error": safe_error_message(e)})
@@ -10058,6 +9968,7 @@ def calendar_export():
     response says which.
     """
     google_token = get_google_token() if GCAL_AVAILABLE else None
+    google_proof = getattr(flask.g, '_google_grant', None)
     outlook_token = get_outlook_token()
     if not google_token and not outlook_token:
         if not GCAL_AVAILABLE and not (OUTLOOK_AVAILABLE and outlook_calendar_helper.configured()):
@@ -10084,12 +9995,12 @@ def calendar_export():
                 session["google_token"] = {**token, "token": new_token}
                 session.modified = True
                 if current_user.is_authenticated:
-                    gi = GoogleIntegration.query.filter_by(user_id=current_user.id).first()
-                    if gi:
-                        td = json.loads(gi.token_data)
+                    if google_proof and google_proof[0] == current_user.id:
+                        from intelliplan.persistence.json_values import dumps_exact, loads_exact
+                        gi = google_proof[1]
+                        td = loads_exact(gi.token_data)
                         td["token"] = new_token
-                        gi.token_data = json.dumps(td)
-                        db.session.commit()
+                        google_accounts().refresh(current_user.id, gi, dumps_exact(td))
             providers["google"] = {"created": len(ids), "skipped": skipped}
         except Exception as e:
             print(f"Calendar export error: {e}")
@@ -11746,8 +11657,7 @@ def _calendar_busy_by_date(horizon_days=14, start=None, *, user_id=None, require
     combined = {}
     failed = []
     try:
-        stored_google = (GoogleIntegration.query.filter_by(user_id=uid).first()
-                         if require_complete else None)
+        stored_google = google_accounts().get(uid) if require_complete else None
         token = (get_google_token(user_id=uid) if explicit_owner or stored_google
                  else get_google_token())
         if require_complete and stored_google and allowed() and (not token or not has_calendar_scope(token)):
@@ -16769,7 +16679,7 @@ def debug_auth():
         "session_keys": list(session.keys()),
         "has_google_session": "google_token" in session,
         "has_notion_session": "notion_token" in session,
-        "google_db_row": GoogleIntegration.query.filter_by(user_id=current_user.id).first() is not None if current_user.is_authenticated else False,
+        "google_db_row": google_accounts().get(current_user.id) is not None if current_user.is_authenticated else False,
         "notion_db_row": NotionIntegration.query.filter_by(user_id=current_user.id).first() is not None if current_user.is_authenticated else False,
     })
 
