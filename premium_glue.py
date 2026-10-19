@@ -34,7 +34,7 @@ from contextvars import ContextVar
 from typing import Any
 from ai_provider import AIUnavailable
 
-from flask import Blueprint, g, has_request_context, jsonify, redirect, render_template, request
+from flask import Blueprint, current_app, g, has_app_context, has_request_context, jsonify, redirect, render_template, request
 from flask_login import current_user
 
 from time_utils import utcnow
@@ -94,7 +94,28 @@ def _period(now: datetime | None = None) -> str:
     return growth_plans.period_key(now or utcnow())
 
 
+def _native_ledger():
+    if not has_app_context():
+        return None
+    store = current_app.extensions.get('mongo_store')
+    if store is None:
+        return None
+    from intelliplan.persistence.mongo_ai_ledger import MongoAILedger
+    return MongoAILedger(store)
+
+
+def _has_credit(user_id, reference):
+    ledger = _native_ledger()
+    if ledger is not None:
+        return ledger.has_credit(user_id, reference)
+    from App import AICreditGrant
+    return AICreditGrant.query.filter_by(stripe_ref=reference, user_id=user_id).first() is not None
+
+
 def spent_micro(user_id: int, period: str, source: str = SOURCE_PLATFORM) -> int:
+    ledger = _native_ledger()
+    if ledger is not None:
+        return ledger.spent(user_id, period, source)
     from sqlalchemy import func
 
     from App import AISpendEvent, db
@@ -106,6 +127,9 @@ def spent_micro(user_id: int, period: str, source: str = SOURCE_PLATFORM) -> int
 
 
 def granted_micro(user_id: int, period: str) -> int:
+    ledger = _native_ledger()
+    if ledger is not None:
+        return ledger.granted(user_id, period)
     from sqlalchemy import func
 
     from App import AICreditGrant, db
@@ -152,8 +176,6 @@ def record_spend(user_id: int, *, provider: str, model: str, usage: pricing.Usag
     Its own connection and transaction, like the AI allowance counter, so
     recording spend never commits or rolls back what the request has pending.
     """
-    from App import AISpendEvent, db
-
     now = now or utcnow()
     cost = pricing.cost_micro(model, usage) if source != SOURCE_BYOK else 0
     if source == SOURCE_BYOK:
@@ -161,6 +183,20 @@ def record_spend(user_id: int, *, provider: str, model: str, usage: pricing.Usag
         cost_shadow = pricing.cost_micro(model, usage) if pricing.known(model) else 0
     else:
         cost_shadow = cost
+    ledger = _native_ledger()
+    if ledger is not None:
+        try:
+            ledger.record(user_id, {
+                'period': _period(now), 'created_at': now.isoformat(), 'provider': provider[:16],
+                'model': model[:64], 'source': source, 'purpose': purpose[:16], 'tier': tier or None,
+                'input_tokens': usage.input_tokens, 'output_tokens': usage.output_tokens,
+                'cache_read_tokens': usage.cache_read_tokens, 'cache_write_tokens': usage.cache_write_tokens,
+                'cost_micro': cost_shadow,
+            })
+        except Exception as exc:
+            logger.error('Could not record AI spend: %s', type(exc).__name__)
+        return cost
+    from App import AISpendEvent, db
     try:
         with db.engine.begin() as conn:
             conn.execute(AISpendEvent.__table__.insert().values(
@@ -180,6 +216,12 @@ def record_spend(user_id: int, *, provider: str, model: str, usage: pricing.Usag
 def grant_credit(user_id: int, amount_micro: int, *, reason: str = "topup",
                  stripe_ref: str | None = None, now: datetime | None = None) -> bool:
     """Add budget to the current month. Idempotent on ``stripe_ref``."""
+    ledger = _native_ledger()
+    if ledger is not None:
+        if type(amount_micro) is not int or amount_micro <= 0:
+            return False
+        return ledger.credit(user_id, amount_micro, period=_period(now), reason=reason,
+                             stripe_ref=stripe_ref, now=now or utcnow())
     from App import AICreditGrant, db
 
     if amount_micro <= 0:
@@ -602,12 +644,15 @@ def api_premium_usage():
     denied = _login_required()
     if denied:
         return denied
-    from App import AISpendEvent
-
     period = _period()
-    rows = AISpendEvent.query.filter(AISpendEvent.user_id == current_user.id,
-                                     AISpendEvent.period == period,
-                                     AISpendEvent.source != SOURCE_ROUTER).all()
+    ledger = _native_ledger()
+    if ledger is not None:
+        rows = ledger.usage(current_user.id, period)
+    else:
+        from App import AISpendEvent
+        rows = AISpendEvent.query.filter(AISpendEvent.user_id == current_user.id,
+                                         AISpendEvent.period == period,
+                                         AISpendEvent.source != SOURCE_ROUTER).all()
     by_day: dict[str, int] = {}
     by_model: dict[str, dict] = {}
     for r in rows:
@@ -744,6 +789,12 @@ def api_premium_topup():
 def revoke_credit(user_id: int, amount_micro: int, *, reason: str = "refund",
                   stripe_ref: str, now: datetime | None = None) -> bool:
     """Claw back top-up budget on full refund or dispute. Idempotent on ``stripe_ref``."""
+    ledger = _native_ledger()
+    if ledger is not None:
+        if type(amount_micro) is not int or amount_micro <= 0 or not stripe_ref:
+            return False
+        return ledger.credit(user_id, -amount_micro, period=_period(now), reason=reason,
+                             stripe_ref=stripe_ref, now=now or utcnow())
     from App import AICreditGrant, db
 
     if amount_micro <= 0 or not stripe_ref:
@@ -769,10 +820,9 @@ def apply_billing_event(user: Any, event: Any) -> str:
     if kind in {'checkout.session.completed', 'checkout.session.async_payment_succeeded'} and meta.get('kind') == 'ai_topup':
         if obj.get('payment_status') != 'paid' or obj.get('mode') != 'payment' or not obj.get('id'):
             return ''
-        from App import AICreditGrant
         ref = f"cs:{obj['id']}"
         granted = grant_credit(user.id, catalog.topup().credit_micro, reason='topup', stripe_ref=ref)
-        if not granted and not AICreditGrant.query.filter_by(stripe_ref=ref, user_id=user.id).first():
+        if not granted and not _has_credit(user.id, ref):
             # A duplicate is successful; a storage failure must be retried.
             raise RuntimeError('Paid top-up credit could not be persisted.')
         return "topup"
@@ -785,11 +835,10 @@ def apply_billing_event(user: Any, event: Any) -> str:
         ref_id = obj.get('payment_intent') or obj.get('charge') or obj.get('id')
         if not ref_id:
             raise ValueError('Top-up revocation event is missing a stable reference.')
-        from App import AICreditGrant
         ref = f"rev:{ref_id}"
         reason = 'refund' if kind == 'charge.refunded' else 'dispute'
         revoked = revoke_credit(user.id, catalog.topup().credit_micro, reason=reason, stripe_ref=ref)
-        if not revoked and not AICreditGrant.query.filter_by(stripe_ref=ref, user_id=user.id).first():
+        if not revoked and not _has_credit(user.id, ref):
             raise RuntimeError('Top-up credit revocation could not be persisted.')
         return "topup_revoked"
     return ""

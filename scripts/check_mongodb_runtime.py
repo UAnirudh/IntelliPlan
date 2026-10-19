@@ -555,6 +555,25 @@ def verify(store):
         raise AssertionError('Tutor guest memory duplicated or crossed an account boundary')
     checks['isolated_guest_tutor_memory'] = True
 
+    from intelliplan.persistence.mongo_ai_ledger import MongoAILedger
+    ledger = MongoAILedger(store)
+    ledger.ensure_indexes()
+    credit_ref = f'synthetic-credit:{run_id}'
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        credits = list(executor.map(lambda _: ledger.credit(user.id, 1000000,
+            period='2026-10', reason='test', stripe_ref=credit_ref, now=datetime(2026, 10, 18)), range(8)))
+    if sum(credits) != 1 or ledger.granted(user.id, '2026-10') != 1000000:
+        raise AssertionError('Concurrent AI credits were duplicated')
+    values = {'period': '2026-10', 'created_at': datetime(2026, 10, 18).isoformat(),
+        'provider': 'synthetic', 'model': 'synthetic', 'source': 'platform', 'purpose': 'test',
+        'tier': None, 'input_tokens': 1, 'output_tokens': 1, 'cache_read_tokens': 0,
+        'cache_write_tokens': 0, 'cost_micro': 2**53 + 1}
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        list(executor.map(lambda _: ledger.record(user.id, values), range(8)))
+    if ledger.spent(user.id, '2026-10', 'platform') != 8 * (2**53 + 1):
+        raise AssertionError('AI spending totals lost integer precision or concurrent writes')
+    checks['atomic_ai_ledger'] = True
+
     cards = MongoFlashcards(store)
     cards.ensure_tables()
     deck_id = cards.create_deck(user.id, f'Synthetic runtime deck {run_id}')

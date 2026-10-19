@@ -443,3 +443,10 @@ Five native HTTP lifecycle tests and the existing SQL key tests passed in a
 scoped blocker. Twenty-four real MongoDB checks passed, including eight competing
 applications accepting exactly five, rotation/revocation invalidating previous
 secrets, and eight admin decisions accepting exactly one approval.
+
+
+### AI spending and credits: local native verification (2026-10-18)
+
+Native spend recording, integer totals, user/month/source isolation, top-up credits, refund/dispute revocations, payment reference deduplication and the usage breakdown now dispatch to MongoDB. Child writes coordinate with account deletion. Credit failures propagate for payment-event retry; duplicate success is checked against the owner. Index creation is a required startup prerequisite.
+
+Validation: 57 native and existing premium tests passed; independent review approved the scoped change. The official local MongoDB run passed 25 checks, including eight concurrent payment retries yielding one credit and concurrent amounts above floating-point precision remaining exact. This does not establish a strict concurrent spending cap. Linked provider keys, email warnings, full billing routes/startup and Atlas driver validation remain pending. Application readiness remains false; no production changes.
