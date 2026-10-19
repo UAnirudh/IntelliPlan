@@ -744,6 +744,35 @@ def verify(store):
         if microsoft.refresh(user.id, fresh_grant, '{}') or microsoft.get(user.id) is not None:
             raise AssertionError('Outlook refresh resurrected a disconnected grant')
         checks['atomic_outlook_calendar_grants'] = True
+
+        from intelliplan.persistence.mongo_outlook import MongoOneDrive
+        drive = MongoOneDrive(store)
+        drive.ensure_indexes()
+        previous_outlook_sequence = store.database['_sequences'].find_one({'_id': 'outlook_integrations'})['value']
+        drive_high_water = max(10000, (store.database['_sequences'].find_one({'_id': 'onedrive_integrations'}) or {}).get('value', 0))
+        store.seed_id('onedrive_integrations', drive_high_water)
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            list(executor.map(lambda index: drive.connect(user.id,
+                token_data=json.dumps({'access_token': f'synthetic-drive-{index}'}),
+                account_email='synthetic-drive@example.invalid', account_name='Synthetic'), range(8)))
+        if store.database.onedrive_integrations.count_documents({'user_id': user.id}) != 1:
+            raise AssertionError('Concurrent OneDrive connection duplicated a grant')
+        expected_drive = drive.get(user.id)
+        if expected_drive.id <= drive_high_water:
+            raise AssertionError('OneDrive allocation ignored restored sequence high water')
+        if store.database['_sequences'].find_one({'_id': 'outlook_integrations'})['value'] != previous_outlook_sequence:
+            raise AssertionError('OneDrive allocation changed the Outlook sequence')
+        drive.connect(user.id, token_data=json.dumps({'access_token': 'synthetic-replacement'}),
+            account_email='synthetic-drive@example.invalid', account_name='Synthetic')
+        if drive.refresh(user.id, expected_drive, '{}'):
+            raise AssertionError('Stale OneDrive refresh overwrote replacement')
+        current_drive = drive.get(user.id)
+        if not secret_box.is_encrypted(store.database.onedrive_integrations.find_one({'user_id': user.id})['token_data']):
+            raise AssertionError('OneDrive credential was not encrypted')
+        drive.disconnect(user.id)
+        if drive.refresh(user.id, current_drive, '{}') or drive.get(user.id) is not None:
+            raise AssertionError('OneDrive refresh resurrected a disconnected grant')
+        checks['atomic_onedrive_grants'] = True
     finally:
         if original_encryption is None:
             os.environ.pop('DATA_ENCRYPTION_KEY', None)

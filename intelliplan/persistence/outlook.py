@@ -17,6 +17,19 @@ def outlook_accounts():
     return SQLOutlook(db, OutlookIntegration, User)
 
 
+
+def onedrive_accounts():
+    repository = current_app.extensions.get('onedrive_repository')
+    if repository is not None:
+        return repository
+    store = current_app.extensions.get('mongo_store')
+    if store is not None:
+        from intelliplan.persistence.mongo_outlook import MongoOneDrive
+        return MongoOneDrive(store)
+    from App import OneDriveIntegration, User, db
+    return SQLOutlook(db, OneDriveIntegration, User)
+
+
 def same_grant(current, expected):
     return current is not None and expected is not None and all(
         getattr(current, field, None) == getattr(expected, field, None)

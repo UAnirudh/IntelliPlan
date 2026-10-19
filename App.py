@@ -838,7 +838,7 @@ class UserIdentity(db.Model):
 
 from intelliplan.persistence.linked_accounts import linked_accounts as linked_accounts_repository
 from intelliplan.persistence.canvas import canvas_integrations
-from intelliplan.persistence.outlook import outlook_accounts
+from intelliplan.persistence.outlook import outlook_accounts, onedrive_accounts
 
 
 class LinkedAccount(db.Model):
@@ -7080,7 +7080,8 @@ def api_integrations_status():
         )
         for key, model, detail_field in rows:
             try:
-                row = outlook_accounts().get(uid) if key == 'outlook_calendar' else model.query.filter_by(user_id=uid).first()
+                row = (outlook_accounts().get(uid) if key == 'outlook_calendar' else
+                       onedrive_accounts().get(uid) if key == 'onedrive' else model.query.filter_by(user_id=uid).first())
             except Exception:
                 # A table a migration has not reached yet must not take the
                 # whole list down -- the other nine are still useful.
@@ -9323,7 +9324,7 @@ def _microsoft_back(purpose, outcome):
 def get_onedrive_token():
     if not current_user.is_authenticated or not ONEDRIVE_AVAILABLE:
         return None
-    row = OneDriveIntegration.query.filter_by(user_id=current_user.id).first()
+    row = onedrive_accounts().get(current_user.id)
     if not row:
         return None
     try:
@@ -9331,11 +9332,11 @@ def get_onedrive_token():
         if float(token.get("expires_at") or 0) <= time.time() + 90:
             token = onedrive_helper.refresh_token(token)
             token["expires_at"] = time.time() + int(token.get("expires_in") or 3600)
-            row.token_data = json.dumps(token)
-            db.session.commit()
+            if not onedrive_accounts().refresh(current_user.id, row, json.dumps(token)):
+                return None
         return token
     except Exception as e:
-        print(f"OneDrive token refresh failed: {e}")
+        print(f"OneDrive token refresh failed: {type(e).__name__}")
         return None
 
 
@@ -9395,18 +9396,9 @@ def outlook_oauth_callback():
             token = onedrive_helper.exchange_code(code, code_verifier)
             token["expires_at"] = time.time() + int(token.get("expires_in") or 3600)
             account = onedrive_helper.profile(token)
-            row = OneDriveIntegration.query.filter_by(user_id=current_user.id).first()
-            values = {
-                "token_data": json.dumps(token),
-                "account_email": account.get("mail") or account.get("userPrincipalName"),
-                "account_name": account.get("displayName"),
-            }
-            if row:
-                for key, value in values.items():
-                    setattr(row, key, value)
-            else:
-                db.session.add(OneDriveIntegration(user_id=current_user.id, **values))
-            db.session.commit()
+            onedrive_accounts().connect(current_user.id, token_data=json.dumps(token),
+                account_email=account.get('mail') or account.get('userPrincipalName'),
+                account_name=account.get('displayName'))
             _forget_document_matches()
             return _microsoft_back(purpose, "connected")
         token = outlook_calendar_helper.exchange_code(code)
@@ -9417,7 +9409,7 @@ def outlook_oauth_callback():
             account_email=email, account_name=account.get('displayName'))
         return _microsoft_back(purpose, "connected")
     except Exception as e:
-        if purpose == 'onedrive' or flask.current_app.extensions.get('mongo_store') is None:
+        if flask.current_app.extensions.get('mongo_store') is None:
             db.session.rollback()
         print(f"Microsoft OAuth callback ({purpose}) failed: {type(e).__name__}")
         return _microsoft_back(purpose, "error")
@@ -9433,8 +9425,7 @@ def outlook_disconnect():
 @app.route("/oauth/onedrive/disconnect", methods=["POST"])
 def onedrive_disconnect():
     if current_user.is_authenticated:
-        OneDriveIntegration.query.filter_by(user_id=current_user.id).delete()
-        db.session.commit()
+        onedrive_accounts().disconnect(current_user.id)
         _forget_document_matches()
     return flask.jsonify({"status": "ok"})
 
@@ -9466,7 +9457,7 @@ def cloud_documents_status():
     if not current_user.is_authenticated:
         return jsonify({"status": "error", "message": "Sign in to connect study files."}), 401
     google = GoogleDriveIntegration.query.filter_by(user_id=current_user.id).order_by(GoogleDriveIntegration.id.desc()).first()
-    one = OneDriveIntegration.query.filter_by(user_id=current_user.id).first()
+    one = onedrive_accounts().get(current_user.id)
     return jsonify({
         "status": "ok",
         "google_drive": bool(google),
@@ -9812,11 +9803,12 @@ def _cloud_doc_row(user_id, provider):
             return (GoogleDriveIntegration.query.filter_by(user_id=user_id)
                     .order_by(GoogleDriveIntegration.id.desc()).first())
         if provider == "onedrive":
-            return OneDriveIntegration.query.filter_by(user_id=user_id).first()
+            return onedrive_accounts().get(user_id)
     except Exception as e:
         # A table a migration has not reached yet reads as "not connected".
         print(f"[cloud-docs] lookup failed: {type(e).__name__}")
-        db.session.rollback()
+        if flask.current_app.extensions.get('mongo_store') is None:
+            db.session.rollback()
     return None
 
 
@@ -9841,8 +9833,18 @@ def _cloud_doc_client(user_id, provider):
         return None
     model = GoogleDriveIntegration if provider == "google_drive" else OneDriveIntegration
     row_id = row.id
+    expected_grant = row
 
     def persist(fresh):
+        nonlocal expected_grant
+        if provider == 'onedrive':
+            from cloud_token_client import TokenExpired
+            serialized = json.dumps(fresh)
+            if not onedrive_accounts().refresh(user_id, expected_grant, serialized):
+                raise TokenExpired('Cloud document connection changed. Reconnect before continuing.')
+            from types import SimpleNamespace
+            expected_grant = SimpleNamespace(**{**vars(expected_grant), 'token_data': serialized})
+            return
         target = db.session.get(model, row_id)
         if target:
             target.token_data = json.dumps(fresh)

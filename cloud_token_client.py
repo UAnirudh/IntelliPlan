@@ -58,11 +58,16 @@ class TokenClient:
         self.token = dict(token or {})
         self.on_refresh = on_refresh
         self.refreshed = False
+        self._connection_invalidated = False
 
     # -- token lifecycle --------------------------------------------------
 
     def _refresh(self, token: dict) -> dict:  # pragma: no cover - abstract
         raise NotImplementedError
+
+    def _check_connection(self):
+        if self._connection_invalidated:
+            raise TokenExpired('Cloud document connection changed. Reconnect before continuing.')
 
     def _needs_refresh(self) -> bool:
         if not self.token.get(self.access_key):
@@ -77,6 +82,7 @@ class TokenClient:
         return bool(expires_at) and expires_at <= time.time() + REFRESH_MARGIN
 
     def refresh(self) -> dict:
+        self._check_connection()
         if not self.token.get("refresh_token"):
             raise TokenExpired("no refresh token")
         try:
@@ -100,6 +106,12 @@ class TokenClient:
         if self.on_refresh:
             try:
                 self.on_refresh(dict(merged))
+            except TokenExpired:
+                # A revoked/replaced connection must stop before another
+                # provider request, even when the refreshed token works.
+                self.token = {}
+                self._connection_invalidated = True
+                raise
             except Exception as exc:
                 # Failing to persist is not a reason to fail this request --
                 # the in-memory token still works for the rest of it.
@@ -107,6 +119,7 @@ class TokenClient:
         return merged
 
     def headers(self, extra: Optional[dict] = None) -> dict:
+        self._check_connection()
         out = {"Authorization": f"Bearer {self.token.get(self.access_key, '')}"}
         if extra:
             out.update(extra)
@@ -115,6 +128,7 @@ class TokenClient:
     def request(self, method: str, url: str, *, headers: Optional[dict] = None,
                 timeout=DEFAULT_TIMEOUT, **kwargs) -> requests.Response:
         """Send one request, renewing the token before or after as needed."""
+        self._check_connection()
         if self._needs_refresh():
             self.refresh()
         response = requests.request(method, url, headers=self.headers(headers),
