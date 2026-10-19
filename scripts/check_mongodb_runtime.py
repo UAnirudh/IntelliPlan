@@ -149,6 +149,57 @@ def verify_notion_grants(store, user_id):
         raise AssertionError('Notion refresh recreated a disconnected grant')
 
 
+def verify_lms_grants(store, user_id):
+    import secret_box
+    from intelliplan.persistence.lms_grants import SCHEMAS
+    from intelliplan.persistence.mongo_lms_grants import MongoLMSGrants
+    from time_utils import utcnow
+
+    for provider in SCHEMAS:
+        repository = MongoLMSGrants(store, provider)
+        repository.ensure_indexes()
+        high_water = max(30000, (store.database['_sequences'].find_one(
+            {'_id': repository.collection_name}) or {}).get('value', 0))
+        store.seed_id(repository.collection_name, high_water)
+
+        def connect(index):
+            if provider == 'moodle':
+                return repository.connect(user_id, ws_token=f'synthetic-ws-{index}',
+                    moodle_url='https://moodle.example.invalid', moodle_username='Synthetic')
+            values = {'access_token': f'synthetic-access-{index}', 'refresh_token': 'synthetic-refresh',
+                'token_expires_at': utcnow() + timedelta(hours=1)}
+            values.update({'institution_url': 'https://school.example.invalid'} if provider == 'blackboard' else
+                {'account_email': 'student@example.invalid'})
+            return repository.connect(user_id, **values)
+
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            list(executor.map(connect, range(8)))
+        collection = store.database[repository.collection_name]
+        original = repository.get(user_id)
+        if collection.count_documents({'user_id': user_id}) != 1 or original.id <= high_water:
+            raise AssertionError('LMS concurrent connect duplicated a grant or ignored source counter')
+        raw = collection.find_one({'user_id': user_id})
+        if not all(secret_box.is_encrypted(raw[key]) for key in repository.secrets):
+            raise AssertionError('LMS credentials were not encrypted')
+        if provider != 'moodle':
+            with ThreadPoolExecutor(max_workers=4) as executor:
+                refreshed = list(executor.map(lambda index: repository.refresh(user_id, original,
+                    access_token=f'synthetic-new-{index}', refresh_token=f'synthetic-rotated-{index}',
+                    token_expires_at=utcnow() + timedelta(hours=2)), range(8)))
+            if sum(bool(value) for value in refreshed) != 1:
+                raise AssertionError('LMS refresh accepted stale concurrent grant proof')
+            current = repository.get(user_id)
+            if not current.refresh_token.startswith('synthetic-rotated-'):
+                raise AssertionError('LMS refresh token rotation was lost')
+            repository.disconnect(user_id)
+            if repository.refresh(user_id, current, access_token='must-not-save'):
+                raise AssertionError('LMS refresh recreated a disconnected grant')
+        else:
+            repository.disconnect(user_id)
+        if repository.get(user_id) is not None:
+            raise AssertionError('LMS disconnect retained a grant')
+
+
 def verify_sessions(store, run_id, user_id, epoch):
     cookie_name = f'runtime_{run_id}'
 
@@ -339,7 +390,7 @@ def verify_erasure(store, run_id, user, tutor):
         raise AssertionError('Concurrent parental decisions left an inconsistent account')
 
 
-def verify(store):
+def verify(store, *, progress=False):
     if store.database.name != 'intelliplan_runtime_test':
         raise ValueError('Only the dedicated intelliplan_runtime_test database is allowed')
     if not store.ping():
@@ -351,7 +402,14 @@ def verify(store):
     accounts.ensure_indexes()
     user = accounts.create(email=f'runtime-{run_id}@example.invalid',
                            name='Synthetic runtime check', password_hash='synthetic-unusable-hash')
-    checks = {'driver_ping': True}
+    checks = {}
+
+    def mark(name):
+        checks[name] = True
+        if progress:
+            print(json.dumps({'status': 'checkpoint', 'completed': name}), flush=True)
+
+    mark('driver_ping')
     accounts.set_preferences(user.id, {'phone': '+12065550101', 'sms_reminders_opt_in': True,
                                       'push_reminders_opt_in': True})
     saved_preferences = accounts.set_preferences(user.id, {'phone': None})
@@ -359,7 +417,7 @@ def verify(store):
         raise AssertionError('Account preference update lost fields or retained SMS without a phone')
     if accounts.set_preferences(user.id, {}).sms_reminders_opt_in:
         raise AssertionError('Empty preference update changed the SMS invariant')
-    checks['atomic_account_preferences'] = True
+    mark('atomic_account_preferences')
 
     store.database.users.update_one({'id': user.id}, update_fields({
         'lms_preferences': '{"precise":0.12345678901234567890123456789,"future_setting":' + json.dumps('x' * 20000) + '}'}))
@@ -376,7 +434,7 @@ def verify(store):
     preferred = accounts.set_preferences(user.id, {'premium_model_pref': 'auto', 'premium_clarify': False})
     if preferred.focus_enforcement != 'alarm' or preferred.focus_grace_seconds != 40 or preferred.premium_clarify:
         raise AssertionError('Focus/premium preference updates lost unrelated settings')
-    checks['atomic_lms_source_preferences'] = True
+    mark('atomic_lms_source_preferences')
     with ThreadPoolExecutor(max_workers=4) as executor:
         attempts = list(executor.map(lambda _: accounts.consume_tutor_message(user.id, 7), range(20)))
     if sum(result[0] for result in attempts) != 7 or accounts.get(user.id).monthly_tutor_messages != 7:
@@ -384,13 +442,13 @@ def verify(store):
     reset_at = accounts.get(user.id).tutor_reset_date
     if accounts.consume_tutor_message(user.id, 7, now=reset_at) != (True, 6, 7):
         raise AssertionError('Tutor allowance did not reset at the next UTC month')
-    checks['atomic_tutor_allowance'] = True
+    mark('atomic_tutor_allowance')
     with ThreadPoolExecutor(max_workers=4) as executor:
         touches = list(executor.map(lambda index: accounts.remember_first_touch(
             user.id, json.dumps({'channel': f'synthetic-{index}'})), range(8)))
     if sum(touches) != 1 or not accounts.get(user.id).first_touch_json:
         raise AssertionError('Concurrent attribution replaced the first touch')
-    checks['single_write_first_touch'] = True
+    mark('single_write_first_touch')
     with ThreadPoolExecutor(max_workers=4) as executor:
         children = list(executor.map(lambda _: accounts.establish_age(user.id,
             birth_year=datetime.now(timezone.utc).year - 10, parent_email=f'parent-{run_id}@example.invalid'), range(8)))
@@ -406,7 +464,7 @@ def verify(store):
     approved = accounts.get(user.id)
     if not approved.parent_consent_granted or approved.parent_consent_token is not None:
         raise AssertionError('Parental consent was not recorded atomically')
-    checks['single_use_parental_consent'] = True
+    mark('single_use_parental_consent')
     try:
         accounts.set_role(user.id, 'parent')
     except ValueError as exc:
@@ -416,7 +474,7 @@ def verify(store):
         raise AssertionError('Child account changed to a parent role')
     if accounts.set_role(user.id, 'student').role != 'student':
         raise AssertionError('Native role update failed')
-    checks['role_age_eligibility'] = True
+    mark('role_age_eligibility')
 
     def rollback(db, active):
         db['_runtime_probes'].insert_one({'run_id': run_id, 'test': 'rollback'}, session=active)
@@ -428,13 +486,13 @@ def verify(store):
         pass
     if probes.count_documents({'run_id': run_id, 'test': 'rollback'}) != 0:
         raise AssertionError('Transaction did not roll back')
-    checks['transaction_rollback'] = True
+    mark('transaction_rollback')
 
     with ThreadPoolExecutor(max_workers=4) as executor:
         ids = list(executor.map(lambda _: store.next_id('_runtime_probes'), range(24)))
     if len(set(ids)) != 24:
         raise AssertionError('Concurrent ID allocations overlapped')
-    checks['concurrent_ids'] = True
+    mark('concurrent_ids')
 
     token_hash = f'synthetic-{run_id}'
     accounts.issue_reset(user.id, token_hash=token_hash, requested_ip='runtime-test')
@@ -445,7 +503,7 @@ def verify(store):
         raise AssertionError('A reset token was consumed more than once')
     if accounts.get(user.id).session_epoch != 1:
         raise AssertionError('Credential epoch did not change exactly once')
-    checks['single_use_reset'] = True
+    mark('single_use_reset')
 
     tickets = MongoDesktopTickets(store)
     tickets.ensure_indexes()
@@ -457,7 +515,7 @@ def verify(store):
             code_hash=code_hash, verifier=verifier), range(8)))
     if sum(result is not None for result in results) != 1:
         raise AssertionError('A desktop ticket was consumed more than once')
-    checks['single_use_desktop_handoff'] = True
+    mark('single_use_desktop_handoff')
 
     identities = MongoIdentities(store)
     identities.ensure_indexes()
@@ -472,7 +530,7 @@ def verify(store):
     profile = identities.get(user.id)
     if any(getattr(profile, field) != value for patch in patches for field, value in patch.items()):
         raise AssertionError('Concurrent identity updates lost unrelated fields')
-    checks['concurrent_identity_updates'] = True
+    mark('concurrent_identity_updates')
 
     tokens = MongoExtensionTokens(store)
     tokens.ensure_indexes()
@@ -487,7 +545,7 @@ def verify(store):
         pass
     else:
         raise AssertionError('A revoked cookie epoch issued an extension credential')
-    checks['concurrent_extension_handoff'] = True
+    mark('concurrent_extension_handoff')
 
     import app_link
     from intelliplan.persistence.mongo_app_links import MongoAppLinks
@@ -509,7 +567,7 @@ def verify(store):
     live_mobile = store.database.app_link_codes.count_documents({'user_id': user.id, 'used_at': None})
     if live_mobile != 1:
         raise AssertionError('Concurrent mobile handoff issuance retained multiple live codes')
-    checks['single_use_mobile_browser_handoff'] = True
+    mark('single_use_mobile_browser_handoff')
     import api_keys
     from intelliplan.persistence.mongo_api_keys import MongoAPIKeys
     public_keys = MongoAPIKeys(store)
@@ -528,7 +586,7 @@ def verify(store):
     store.database.api_keys.update_one({'id': key_id}, {'$set': {'status': 'revoked'}})
     if public_keys.resolve_digest(key_digest) is not None:
         raise AssertionError('A revoked native API credential was accepted')
-    checks['native_api_key_verification'] = True
+    mark('native_api_key_verification')
     from intelliplan.persistence.mongo_api_keys import KeySlotsFull
     key_owner = accounts.create(email=f'key-owner-{run_id}@example.invalid', password_hash='synthetic-hash')
     # An aged synthetic account may auto-approve read-only scopes. The age is
@@ -567,7 +625,7 @@ def verify(store):
         approvals = list(executor.map(approve_key, range(8)))
     if sum(value is not None for value in approvals) != 1:
         raise AssertionError('Concurrent admin decisions minted multiple secrets')
-    checks['atomic_developer_key_lifecycle'] = True
+    mark('atomic_developer_key_lifecycle')
 
     from intelliplan.persistence.mongo_linked_accounts import MongoLinkedAccounts
     linked = MongoLinkedAccounts(store)
@@ -588,7 +646,7 @@ def verify(store):
         unauthorized = False
     if unauthorized:
         raise AssertionError('LMS profile switch crossed an account boundary')
-    checks['concurrent_lms_profiles'] = True
+    mark('concurrent_lms_profiles')
 
     from intelliplan.persistence.mongo_canvas import MongoCanvas
     canvas = MongoCanvas(store)
@@ -630,7 +688,7 @@ def verify(store):
         raise AssertionError('Canvas disconnect did not remove the OAuth connection')
     if any('canvas_token' in row.get_credentials() for row in linked.list(user.id, login_type='canvas')):
         raise AssertionError('Canvas disconnect retained a linked-profile credential')
-    checks['atomic_canvas_credentials'] = True
+    mark('atomic_canvas_credentials')
 
     import chatbot_api as tutor_api
     from intelliplan.persistence.mongo_tutor_history import MongoTutorHistory
@@ -655,14 +713,14 @@ def verify(store):
     transcript = json.loads(history.get_conversation(conversation)['messages_json'])
     if len(transcript) != 10 or {row['content'] for row in transcript[2:]} != {f'Synthetic branch {index}' for index in range(8)}:
         raise AssertionError('Concurrent tutor conversation saves lost or duplicated history')
-    checks['concurrent_tutor_history'] = True
+    mark('concurrent_tutor_history')
     guest_history = MongoTutorHistory(store, lambda: (None, f'synthetic-guest-{run_id}'),
         tutor_api._normalize_tutor_messages, tutor_api._merge_tutor_messages, tutor_api._default_tutor_profile)
     with ThreadPoolExecutor(max_workers=4) as executor:
         guest_memories = list(executor.map(lambda _: guest_history.load_memory(), range(8)))
     if len({row['id'] for row in guest_memories}) != 1 or guest_history.get_conversation(conversation) is not None:
         raise AssertionError('Tutor guest memory duplicated or crossed an account boundary')
-    checks['isolated_guest_tutor_memory'] = True
+    mark('isolated_guest_tutor_memory')
 
     from intelliplan.persistence.mongo_ai_ledger import MongoAILedger
     ledger = MongoAILedger(store)
@@ -681,7 +739,7 @@ def verify(store):
         list(executor.map(lambda _: ledger.record(user.id, values), range(8)))
     if ledger.spent(user.id, '2026-10', 'platform') != 8 * (2**53 + 1):
         raise AssertionError('AI spending totals lost integer precision or concurrent writes')
-    checks['atomic_ai_ledger'] = True
+    mark('atomic_ai_ledger')
 
     from intelliplan.persistence.mongo_email import MongoEmailState
     mail = MongoEmailState(store)
@@ -695,7 +753,7 @@ def verify(store):
         claims = list(executor.map(lambda _: mail.claim_budget_notice(user.id, '2026-10'), range(8)))
     if sum(row is not None for row in claims) != 1 or mail.claim_budget_notice(user.id, '2026-09') is not None:
         raise AssertionError('Concurrent or stale monthly budget notices were claimed repeatedly')
-    checks['atomic_email_suppression_and_notice'] = True
+    mark('atomic_email_suppression_and_notice')
 
     with ThreadPoolExecutor(max_workers=4) as executor:
         sends = list(executor.map(lambda _: mail.claim_send(user.id, f'synthetic-lifecycle:{run_id}'), range(8)))
@@ -712,7 +770,7 @@ def verify(store):
         raise AssertionError('Lifecycle retry completion failed')
     if mail.claim_send(user.id, f'synthetic-lifecycle:{run_id}') is not None:
         raise AssertionError('Lifecycle send was reclaimed after acceptance')
-    checks['atomic_lifecycle_email_claims'] = True
+    mark('atomic_lifecycle_email_claims')
 
     notice_address = accounts.get(user.id).email
     store.database.users.update_one({'id': user.id}, {'$set': {
@@ -743,7 +801,7 @@ def verify(store):
         raise AssertionError('Unsubscribe did not atomically preserve notification preferences')
     if unsubscribed.marketing_opt_in_at.isoformat() != '2026-10-01T00:00:00':
         raise AssertionError('Unsubscribe changed dated consent evidence')
-    checks['native_unsubscribe_and_rollback'] = True
+    mark('native_unsubscribe_and_rollback')
 
     cohort_now = datetime(2026, 10, 18, 12)
     cohort = accounts.create(email=f'synthetic-cohort-{run_id}@example.invalid', password_hash='synthetic-cohort')
@@ -757,7 +815,7 @@ def verify(store):
     if (user.id, f'synthetic-lifecycle:{run_id}') not in mail.onboarding_history(
             [user.id], [f'synthetic-lifecycle:{run_id}']):
         raise AssertionError('Native onboarding send history omitted an accepted message')
-    checks['native_onboarding_progress'] = True
+    mark('native_onboarding_progress')
 
     campaign_key = f'synthetic-campaign:{run_id}'
     initial_cohort = mail.campaign_candidates(oldest=cohort_now - timedelta(days=4),
@@ -772,7 +830,7 @@ def verify(store):
         raise AssertionError('Native campaign selection included an accepted send')
     if {candidate.id for candidate in mail.campaign_candidates(admins={cohort.email})} != {cohort.id}:
         raise AssertionError('Native campaign test-recipient selection broadened its scope')
-    checks['native_campaign_selection'] = True
+    mark('native_campaign_selection')
 
     from intelliplan.persistence.mongo_learning_policy import MongoLearningPolicy
     from intelliplan.learning import policy as learning_policy
@@ -801,7 +859,7 @@ def verify(store):
         learning_policy.invalidate_cache()
         if learning_policy.decision(user, 'tutor') != (False, 'policy_unavailable'):
             raise AssertionError('Missing institution parent did not fail closed')
-    checks['native_institution_policy'] = True
+    mark('native_institution_policy')
 
     import os
     import secret_box
@@ -830,7 +888,7 @@ def verify(store):
         providers.unlink(user.id, 'openai')
         if providers.mark(replacement, ok=True) or providers.list(user.id):
             raise AssertionError('Provider status recreated an unlinked credential')
-        checks['atomic_provider_key_lifecycle'] = True
+        mark('atomic_provider_key_lifecycle')
 
         from intelliplan.persistence.mongo_outlook import MongoOutlook
         microsoft = MongoOutlook(store)
@@ -853,7 +911,7 @@ def verify(store):
         microsoft.disconnect(user.id)
         if microsoft.refresh(user.id, fresh_grant, '{}') or microsoft.get(user.id) is not None:
             raise AssertionError('Outlook refresh resurrected a disconnected grant')
-        checks['atomic_outlook_calendar_grants'] = True
+        mark('atomic_outlook_calendar_grants')
 
         from intelliplan.persistence.mongo_outlook import MongoOneDrive
         drive = MongoOneDrive(store)
@@ -882,12 +940,16 @@ def verify(store):
         drive.disconnect(user.id)
         if drive.refresh(user.id, current_drive, '{}') or drive.get(user.id) is not None:
             raise AssertionError('OneDrive refresh resurrected a disconnected grant')
-        checks['atomic_onedrive_grants'] = True
+        mark('atomic_onedrive_grants')
         verify_google_grants(store, user.id)
-        checks['atomic_google_calendar_grants'] = True
-        checks['atomic_google_drive_grants'] = True
+        mark('atomic_google_calendar_grants')
+        mark('atomic_google_drive_grants')
         verify_notion_grants(store, user.id)
-        checks['atomic_notion_grants'] = True
+        mark('atomic_notion_grants')
+        verify_lms_grants(store, user.id)
+        mark('atomic_classroom_grants')
+        mark('atomic_blackboard_grants')
+        mark('atomic_moodle_grants')
     finally:
         if original_encryption is None:
             os.environ.pop('DATA_ENCRYPTION_KEY', None)
@@ -910,7 +972,7 @@ def verify(store):
         raise AssertionError('Concurrent flashcard grading lost history')
     if cards.grade_card(user.id + 1000000, card_id, 3) is not None:
         raise AssertionError('Flashcard grading crossed an account boundary')
-    checks['concurrent_flashcard_reviews'] = True
+    mark('concurrent_flashcard_reviews')
 
     class OwnedTutor(MongoTutor):
         def _owner(self):
@@ -924,13 +986,13 @@ def verify(store):
     mastery = tutor.list_mastery(profile['id'])
     if len(mastery) != 1 or mastery[0]['total_attempts'] != 12 or mastery[0]['correct_attempts'] != 12:
         raise AssertionError('Concurrent learner updates lost evidence')
-    checks['concurrent_mastery_updates'] = True
+    mark('concurrent_mastery_updates')
     verify_sessions(store, run_id, user.id, 1)
-    checks['native_session_lifecycle'] = True
+    mark('native_session_lifecycle')
     verify_erasure(store, run_id, user, tutor)
     if store.database.tutor_memory.find_one({'id': guest_memories[0]['id']}) is None:
         raise AssertionError('Account erasure removed guest tutor memory')
-    checks['native_account_erasure_and_rollback'] = True
+    mark('native_account_erasure_and_rollback')
     store.database['_runtime_checks'].insert_one({'run_id': run_id, 'checks': checks,
                                              'application_ready': False})
     return {'run_id': run_id, 'checks': checks, 'application_ready': False}
@@ -939,6 +1001,7 @@ def verify(store):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--env-file', required=True, type=Path)
+    parser.add_argument('--progress', action='store_true', help='Print credential-free check completion markers')
     args = parser.parse_args()
     values = dotenv_values(args.env_file)
     uri = values.get('MONGODB_URI')
@@ -950,7 +1013,7 @@ def main():
     store = None
     try:
         store = MongoStore(uri, database)
-        result = verify(store)
+        result = verify(store, progress=args.progress)
     except Exception as exc:
         # Driver exceptions can include server/connection details. Return a
         # classification only so test logs cannot disclose connection secrets.

@@ -1013,8 +1013,11 @@ def test_source_refresh_rechecks_before_persisting_tokens(account, monkeypatch, 
         result = getattr(App, helper)(row if source == 'notion' else account[0])
         if revoked:
             assert result == (None if source == 'notion' else (None, None))
+        elif source == 'notion':
+            assert result == 'new-fixture'
         else:
-            assert result == ('new-fixture' if source == 'notion' else ('new-fixture', row))
+            assert result[0] == 'new-fixture'
+            assert result[1].id == row.id and result[1].user_id == account[0]
         App.db.session.expire_all()
         saved = model.query.filter_by(user_id=account[0]).one()
         assert getattr(saved, 'token' if source == 'notion' else 'access_token') == (

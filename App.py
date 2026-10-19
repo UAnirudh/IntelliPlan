@@ -841,6 +841,7 @@ from intelliplan.persistence.canvas import canvas_integrations
 from intelliplan.persistence.outlook import outlook_accounts, onedrive_accounts
 from intelliplan.persistence.google import google_accounts
 from intelliplan.persistence.notion import notion_accounts
+from intelliplan.persistence.lms_grants import lms_grants
 
 
 class LinkedAccount(db.Model):
@@ -6126,7 +6127,7 @@ def _classroom_access_token_for(user_id):
     Returns None if no Classroom integration exists or refresh fails."""
     if not _lms_policy_allowed('google_classroom', user_id):
         return None, None
-    row = ClassroomIntegration.query.filter_by(user_id=user_id).order_by(ClassroomIntegration.id.desc()).first()
+    row = lms_grants('google_classroom').get(user_id)
     if not row:
         return None, None
     now = utcnow()
@@ -6137,12 +6138,16 @@ def _classroom_access_token_for(user_id):
             data = _classroom_refresh_token(row.refresh_token)
             if not _lms_policy_allowed('google_classroom', user_id):
                 return None, None
-            row.access_token = data.get("access_token", row.access_token)
             ttl = int(data.get("expires_in", 3600))
-            row.token_expires_at = now + timedelta(seconds=ttl)
-            db.session.commit()
+            values = {'access_token': data.get("access_token") or row.access_token,
+                'token_expires_at': now + timedelta(seconds=ttl)}
+            if data.get('refresh_token'):
+                values['refresh_token'] = data['refresh_token']
+            row = lms_grants('google_classroom').refresh(user_id, row, **values)
+            if not row:
+                return None, None
         except Exception as e:
-            print(f"[classroom] refresh failed for user {user_id}: {e}")
+            print(f"[classroom] refresh failed: {type(e).__name__}")
             return None, row
     return (row.access_token, row) if _lms_policy_allowed('google_classroom', user_id) else (None, None)
 
@@ -6473,7 +6478,7 @@ def _blackboard_refresh_token(institution_url, refresh_token):
 def _blackboard_access_token_for(user_id):
     if not _lms_policy_allowed('blackboard', user_id):
         return None, None
-    row = BlackboardIntegration.query.filter_by(user_id=user_id).order_by(BlackboardIntegration.id.desc()).first()
+    row = lms_grants('blackboard').get(user_id)
     if not row:
         return None, None
     now = utcnow()
@@ -6483,12 +6488,16 @@ def _blackboard_access_token_for(user_id):
             data = _blackboard_refresh_token(row.institution_url, row.refresh_token)
             if not _lms_policy_allowed('blackboard', user_id):
                 return None, None
-            row.access_token = data.get("access_token", row.access_token)
             ttl = int(data.get("expires_in", 3600))
-            row.token_expires_at = now + timedelta(seconds=ttl)
-            db.session.commit()
+            values = {'access_token': data.get("access_token") or row.access_token,
+                'token_expires_at': now + timedelta(seconds=ttl)}
+            if data.get('refresh_token'):
+                values['refresh_token'] = data['refresh_token']
+            row = lms_grants('blackboard').refresh(user_id, row, **values)
+            if not row:
+                return None, None
         except Exception as e:
-            print(f"[blackboard] refresh failed for user {user_id}: {e}")
+            print(f"[blackboard] refresh failed: {type(e).__name__}")
             return None, row
     return (row.access_token, row) if _lms_policy_allowed('blackboard', user_id) else (None, None)
 
@@ -6741,18 +6750,9 @@ def api_lms_connect_moodle_manual():
     except Exception as e:
         return jsonify({"status": "error",
                         "message": f"Could not verify with Moodle: {e}"}), 400
-    row = MoodleIntegration.query.filter_by(user_id=current_user.id).order_by(MoodleIntegration.id.desc()).first()
-    now = utcnow()
-    if not row:
-        row = MoodleIntegration(user_id=current_user.id, moodle_url=moodle_url, ws_token=ws_token)
-        db.session.add(row)
-    row.moodle_url = moodle_url
-    row.ws_token = ws_token
-    row.moodle_user_id = str(info.get("userid") or "") or None
-    row.moodle_username = info.get("username") or None
-    row.moodle_fullname = info.get("fullname") or None
-    row.connected_at = now
-    db.session.commit()
+    row = lms_grants('moodle').connect(current_user.id, moodle_url=moodle_url, ws_token=ws_token,
+        moodle_user_id=str(info.get("userid") or "") or None,
+        moodle_username=info.get("username") or None, moodle_fullname=info.get("fullname") or None)
     return jsonify({"status": "ok",
                     "fullname": row.moodle_fullname,
                     "username": row.moodle_username,
@@ -6764,18 +6764,16 @@ def api_blackboard_disconnect():
     if not current_user.is_authenticated:
         return jsonify({"status": "error", "message": "login required"}), 401
     try:
-        BlackboardIntegration.query.filter_by(user_id=current_user.id).delete()
-        db.session.commit()
+        lms_grants('blackboard').disconnect(current_user.id)
         return jsonify({"status": "ok"})
     except Exception as e:
-        db.session.rollback()
         return jsonify({"status": "error", "message": safe_error_message(e)}), 500
 
 @app.route("/api/lms/status/blackboard", methods=["GET"])
 def api_blackboard_status():
     if not current_user.is_authenticated:
         return jsonify({"status": "error", "message": "login required"}), 401
-    row = BlackboardIntegration.query.filter_by(user_id=current_user.id).order_by(BlackboardIntegration.id.desc()).first()
+    row = lms_grants('blackboard').get(current_user.id)
     if not row:
         return jsonify({"status": "ok", "connected": False})
     return jsonify({"status": "ok", "connected": True,
@@ -6788,18 +6786,16 @@ def api_moodle_disconnect():
     if not current_user.is_authenticated:
         return jsonify({"status": "error", "message": "login required"}), 401
     try:
-        MoodleIntegration.query.filter_by(user_id=current_user.id).delete()
-        db.session.commit()
+        lms_grants('moodle').disconnect(current_user.id)
         return jsonify({"status": "ok"})
     except Exception as e:
-        db.session.rollback()
         return jsonify({"status": "error", "message": safe_error_message(e)}), 500
 
 @app.route("/api/lms/status/moodle", methods=["GET"])
 def api_moodle_status():
     if not current_user.is_authenticated:
         return jsonify({"status": "error", "message": "login required"}), 401
-    row = MoodleIntegration.query.filter_by(user_id=current_user.id).order_by(MoodleIntegration.id.desc()).first()
+    row = lms_grants('moodle').get(current_user.id)
     if not row:
         return jsonify({"status": "ok", "connected": False})
     return jsonify({"status": "ok", "connected": True,
@@ -6850,20 +6846,15 @@ def api_lms_callback(provider):
             # a second call to /users/me, which some instances restrict.
             info = {"id": tok.get("user_id")} if tok.get("user_id") else {}
             info = {**_blackboard_get_userinfo(institution, access), **{k: v for k, v in info.items() if v}}
-            row = BlackboardIntegration.query.filter_by(user_id=current_user.id).order_by(BlackboardIntegration.id.desc()).first()
-            now = utcnow()
-            if not row:
-                row = BlackboardIntegration(user_id=current_user.id, institution_url=institution, access_token=access)
-                db.session.add(row)
-            row.institution_url = institution
-            row.access_token = access
+            values = {'institution_url': institution, 'access_token': access,
+                'token_expires_at': utcnow() + timedelta(seconds=ttl)}
+            if info.get('id') or info.get('userId'):
+                values['bb_user_id'] = info.get('id') or info.get('userId')
+            if info.get('userName') or info.get('username'):
+                values['bb_username'] = info.get('userName') or info.get('username')
             if refresh:
-                row.refresh_token = refresh
-            row.token_expires_at = now + timedelta(seconds=ttl)
-            row.bb_user_id = (info.get("id") or info.get("userId") or "") or row.bb_user_id
-            row.bb_username = info.get("userName") or info.get("username") or row.bb_username
-            row.connected_at = now
-            db.session.commit()
+                values['refresh_token'] = refresh
+            row = lms_grants('blackboard').connect(current_user.id, **values)
             print(f"[blackboard callback] connected {row.bb_username or current_user.email}")
         except Exception as e:
             print(f"[blackboard callback] FAILED: {e}")
@@ -6890,19 +6881,14 @@ def api_lms_callback(provider):
                 print(f"[classroom callback] no access_token, keys={sorted(tok.keys())}")
                 return redirect("/connect?lms_error=1")
             info = _classroom_get_userinfo(access)
-            row = ClassroomIntegration.query.filter_by(user_id=current_user.id).order_by(ClassroomIntegration.id.desc()).first()
-            now = utcnow()
-            if not row:
-                row = ClassroomIntegration(user_id=current_user.id, access_token=access)
-                db.session.add(row)
-            row.access_token = access
-            if refresh:  # Google only returns refresh on first consent
-                row.refresh_token = refresh
-            row.token_expires_at = now + timedelta(seconds=ttl)
-            row.account_email = info.get("email") or row.account_email
-            row.account_name = info.get("name") or row.account_name
-            row.connected_at = now
-            db.session.commit()
+            values = {'access_token': access, 'token_expires_at': utcnow() + timedelta(seconds=ttl)}
+            if info.get('email'):
+                values['account_email'] = info['email']
+            if info.get('name'):
+                values['account_name'] = info['name']
+            if refresh:
+                values['refresh_token'] = refresh
+            row = lms_grants('google_classroom').connect(current_user.id, **values)
             print(f"[classroom callback] connected {row.account_email or current_user.email}")
         except Exception as e:
             print(f"[classroom callback] FAILED: {e}")
@@ -6920,11 +6906,9 @@ def api_classroom_disconnect():
     if not current_user.is_authenticated:
         return jsonify({"status": "error", "message": "login required"}), 401
     try:
-        ClassroomIntegration.query.filter_by(user_id=current_user.id).delete()
-        db.session.commit()
+        lms_grants('google_classroom').disconnect(current_user.id)
         return jsonify({"status": "ok"})
     except Exception as e:
-        db.session.rollback()
         return jsonify({"status": "error", "message": safe_error_message(e)}), 500
 
 
@@ -7086,7 +7070,7 @@ def api_integrations_status():
                 row = (outlook_accounts().get(uid) if key == 'outlook_calendar' else
                        onedrive_accounts().get(uid) if key == 'onedrive' else
                        google_accounts().get(uid) if key == 'google_calendar' else
-                       google_accounts('drive').get(uid) if key == 'google_drive' else model.query.filter_by(user_id=uid).first())
+                       google_accounts('drive').get(uid) if key == 'google_drive' else lms_grants(key).get(uid))
             except Exception:
                 # A table a migration has not reached yet must not take the
                 # whole list down -- the other nine are still useful.
@@ -7123,7 +7107,7 @@ def api_classroom_status():
     """Lightweight status check so the UI can render Connected / Not connected."""
     if not current_user.is_authenticated:
         return jsonify({"status": "error", "message": "login required"}), 401
-    row = ClassroomIntegration.query.filter_by(user_id=current_user.id).order_by(ClassroomIntegration.id.desc()).first()
+    row = lms_grants('google_classroom').get(current_user.id)
     if not row:
         return jsonify({"status": "ok", "connected": False})
     return jsonify({
@@ -13310,7 +13294,7 @@ def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True) ->
 
     # Moodle
     try:
-        mrow = MoodleIntegration.query.filter_by(user_id=user_id).order_by(MoodleIntegration.id.desc()).first() if permissions['moodle'] else None
+        mrow = lms_grants('moodle').get(user_id) if permissions['moodle'] else None
         if mrow and mrow.moodle_url and mrow.ws_token:
             for a in _moodle_fetch_assignments(mrow.moodle_url, mrow.ws_token, mrow.moodle_user_id):
                 if a.get("title") and a["title"] not in dismissed:
@@ -13526,7 +13510,7 @@ def unified_tasks():
     # ── Moodle (independent of active LMS account) ──
     try:
         if current_user.is_authenticated and "moodle" in assignment_sources and _lms_policy_allowed('moodle'):
-            mrow = MoodleIntegration.query.filter_by(user_id=current_user.id).order_by(MoodleIntegration.id.desc()).first()
+            mrow = lms_grants('moodle').get(current_user.id)
             if mrow and mrow.moodle_url and mrow.ws_token:
                 for a in _moodle_fetch_assignments(mrow.moodle_url, mrow.ws_token, mrow.moodle_user_id):
                     if a.get("title") in dismissed:

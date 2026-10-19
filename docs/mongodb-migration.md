@@ -577,3 +577,28 @@ reconnect and stale selection/disconnect refusal. See
 37-check suite returned NetworkTimeout; a retry is pending. No live Notion requests
 were sent by tests, no source writes or Railway changes were made, and full native
 application startup/production cutover remain incomplete.
+
+## Classroom, Blackboard and Moodle native grants (2026-10-19)
+
+Classroom/Blackboard OAuth callbacks and rotating-token refreshes, Moodle manual
+connection, all three status/disconnect paths and assignment credential readers
+now use explicit SQL/native repositories. Latest source row selection, restored
+duplicates/null owners, unknown fields, precise timestamps and independent IDs
+are preserved. Parent writes serialize connects/refreshes with erasure; frozen
+record/credential/expiry/origin proof prevents reconnect overwrite and resurrection.
+A changed Google email, Blackboard institution or Blackboard user identity clears
+omitted refresh credentials and stale identity metadata.
+
+Validation: 63 existing Blackboard tests passed; the joint run with 13 native LMS
+cases passed 76 tests. After adding the same-school Blackboard account-switch
+regressions, all 15 native LMS cases passed. Ten affected school-policy refresh
+cases passed after replacing an ORM object-identity assertion with token, owner and
+record-ID assertions; stored-token/revocation checks remain. Scoped Ruff, compilation,
+diff checks and read-only review passed. Real local MongoDB passed all 40 runtime
+checks; evidence: `mongodb-runtime-local-lms-20261019.json`.
+
+Two Atlas runs of the earlier 37-check suite hit NetworkTimeout. An expanded
+40-check run is in progress with opt-in credential-free completion markers to
+locate any timeout. The most recent fully completed Atlas evidence remains the
+36-check Google run. No source writes, live school-provider calls, paid resource
+activation, Railway changes or production readiness are claimed.
