@@ -2,6 +2,8 @@
 
 Production remains on Supabase until every cutover requirement below passes.
 The Atlas connector is connected to the existing free Cluster0 in US_WEST_2.
+On 2026-10-19 the native driver passed 34 isolated Atlas runtime checks; this
+does not establish full application or production readiness.
 
 ## Required outcomes
 
@@ -522,3 +524,12 @@ Production is not ready: Google calendar/Drive and other application domains, fu
 The private driver URI is now populated and targets intelliplan_runtime_test, but still contains the literal password placeholder. The native driver ping timed out before any test writes. Read-only Atlas inspection confirmed the existing free Cluster0 is available, with one /32 access entry that does not match the current workstation IPv4 address. Attempting to add only the current workstation address through the Atlas connector was rejected as not confirmed; no network access entry was created. Manual password substitution and current-IP allowlisting are required before retry. No credentials or network addresses are recorded here. Supabase and production unchanged.
 
 Independent final review of the OneDrive counter and permanent client invalidation fixes passed, including an isolated repeated-request/header/refresh check with zero provider requests after revocation.
+
+
+### Native Atlas runtime verified (2026-10-19)
+
+The user completed the private database password and current workstation network-access setup. Native PyMongo verification against intelliplan_runtime_test on the existing free Cluster0 passed all 34 checks. This confirms the connection, permissions, native index creation and ported-domain behavior on Atlas, rather than only the connector/local server. Sanitized evidence: mongodb-runtime-atlas-20261019.json.
+
+Coverage includes transaction rollback, ID allocation and independent restored OneDrive counters, concurrent account/preferences/LMS/Canvas/tutor updates, authentication handoffs, developer keys, integer AI spending/credits, linked provider credentials, email suppression/claims/unsubscribe, institution policy reads, Outlook/OneDrive grant races, flashcard reviews, learner mastery, sessions and account erasure including rollback/child-creation races. Test data is synthetic and isolated. No Supabase reads/writes or production cutover occurred in this run.
+
+Full application readiness remains false: remaining SQL-dependent application domains and bootstrap/session wiring, complete browser/mobile workflows, live provider integrations and final maintenance snapshot/restore/comparison plus Railway deployment verification are not complete. The successful driver run is not permission or evidence to switch production. Existing source and rehearsal copies are retained.
