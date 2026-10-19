@@ -2,7 +2,7 @@
 
 Production remains on Supabase until every cutover requirement below passes.
 The Atlas connector is connected to the existing free Cluster0 in US_WEST_2.
-On 2026-10-19 the native driver passed 34 isolated Atlas runtime checks; this
+On 2026-10-19 the native driver passed 36 isolated Atlas runtime checks; this
 does not establish full application or production readiness.
 
 ## Required outcomes
@@ -554,3 +554,26 @@ metadata preservation and encrypted credentials. Evidence: `mongodb-runtime-loca
 Atlas verification for these two new checks is pending. All data used for runtime
 checks is synthetic in the dedicated test database. No live Google OAuth/provider
 acceptance or whole-app native startup is claimed. Production remains on Supabase.
+
+## Google Atlas acceptance and Notion port (2026-10-19)
+
+Google Calendar/Drive passed all 36 runtime checks on Atlas, run
+`58d3509b6e854fb68e7fcfdb42af2e4b`; see `mongodb-runtime-atlas-google-20261019.json`.
+This supersedes the pending Atlas status of the Google batch above.
+
+Notion manual/OAuth connections, metadata, selected database, disconnect and token
+pair rotation use SQL/native repositories. Parent coordination and frozen grant
+proof prevent stale refreshes or remote-create callbacks overwriting reconnects.
+Manual reconnect clears old OAuth refresh/expiry while retaining database selection.
+Authenticated requests cannot reuse disconnected cookie grants or recreate one by
+selecting a database. The LMS policy owner lookup now uses the account repository.
+
+Validation: all 207 tests in the dedicated native Notion, existing Notion OAuth,
+owner-calendar and full Plani policy suites passed together. Scoped Ruff, compile
+and read-only code review passed. Real local MongoDB passed 37 runtime checks,
+including concurrent Notion connect/rotation, encrypted token-pair storage, manual
+reconnect and stale selection/disconnect refusal. See
+`mongodb-runtime-local-notion-20261019.json`. The first Atlas run of this new
+37-check suite returned NetworkTimeout; a retry is pending. No live Notion requests
+were sent by tests, no source writes or Railway changes were made, and full native
+application startup/production cutover remain incomplete.

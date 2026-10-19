@@ -106,6 +106,49 @@ def verify_google_grants(store, user_id):
         raise AssertionError('Google Drive refresh restored a disconnected account')
 
 
+def verify_notion_grants(store, user_id):
+    import secret_box
+    from intelliplan.persistence.mongo_notion import MongoNotion
+
+    notion = MongoNotion(store)
+    notion.ensure_indexes()
+
+    def connect(index):
+        return notion.connect(user_id, token=f'synthetic-notion-{index}', oauth={
+            'refresh_token': 'synthetic-notion-refresh', 'duplicated_template_id': 'synthetic-template',
+            'expires_at': datetime.now(timezone.utc) + timedelta(hours=1)})
+
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        list(executor.map(connect, range(8)))
+    if store.database.notion_integrations.count_documents({'user_id': user_id}) != 1:
+        raise AssertionError('Concurrent Notion connections duplicated a grant')
+    original = notion.get(user_id)
+    if original.database_id != 'synthetic-template':
+        raise AssertionError('Notion template was not selected as initial database')
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        changed = list(executor.map(lambda index: notion.refresh(user_id, original, {
+            'access_token': f'synthetic-renewed-{index}', 'refresh_token': f'synthetic-rotated-{index}',
+            'expires_at': datetime.now(timezone.utc) + timedelta(hours=2)}), range(8)))
+    if sum(changed) != 1:
+        raise AssertionError('Concurrent Notion refresh accepted stale token pair')
+    current = notion.get(user_id)
+    if not current.refresh_token.startswith('synthetic-rotated-'):
+        raise AssertionError('Notion did not store rotated refresh token')
+    raw = store.database.notion_integrations.find_one({'user_id': user_id})
+    if not all(secret_box.is_encrypted(raw[key]) for key in ('token', 'refresh_token')):
+        raise AssertionError('Notion token pair was not encrypted')
+    if not notion.select_database(user_id, 'synthetic-chosen', expected=current):
+        raise AssertionError('Notion database selection rejected current grant')
+    manual = notion.connect(user_id, token='synthetic-manual')
+    if manual.refresh_token is not None or manual.token_expires_at is not None or manual.database_id != 'synthetic-chosen':
+        raise AssertionError('Notion manual reconnect lost selection or retained OAuth refresh')
+    if notion.select_database(user_id, 'stale-selection', expected=current):
+        raise AssertionError('Notion stale selection changed a reconnected grant')
+    notion.disconnect(user_id)
+    if notion.refresh(user_id, manual, {'access_token': 'must-not-save'}) or notion.get(user_id):
+        raise AssertionError('Notion refresh recreated a disconnected grant')
+
+
 def verify_sessions(store, run_id, user_id, epoch):
     cookie_name = f'runtime_{run_id}'
 
@@ -843,6 +886,8 @@ def verify(store):
         verify_google_grants(store, user.id)
         checks['atomic_google_calendar_grants'] = True
         checks['atomic_google_drive_grants'] = True
+        verify_notion_grants(store, user.id)
+        checks['atomic_notion_grants'] = True
     finally:
         if original_encryption is None:
             os.environ.pop('DATA_ENCRYPTION_KEY', None)

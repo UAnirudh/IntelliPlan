@@ -840,6 +840,7 @@ from intelliplan.persistence.linked_accounts import linked_accounts as linked_ac
 from intelliplan.persistence.canvas import canvas_integrations
 from intelliplan.persistence.outlook import outlook_accounts, onedrive_accounts
 from intelliplan.persistence.google import google_accounts
+from intelliplan.persistence.notion import notion_accounts
 
 
 class LinkedAccount(db.Model):
@@ -3648,33 +3649,39 @@ def _refresh_notion_row(ni):
     try:
         fresh = refresh_notion_token(ni.refresh_token)
     except Exception as e:
-        print(f"[notion] token refresh failed for user {ni.user_id}: {e}")
+        print(f"[notion] token refresh failed: {type(e).__name__}")
         return ni.token if _lms_policy_allowed('notion', ni.user_id) else None
     if not _lms_policy_allowed('notion', ni.user_id):
         return None
     if not fresh.get("access_token"):
         print(f"[notion] refresh returned no access token for user {ni.user_id}")
         return ni.token
-    ni.token = fresh["access_token"]
-    if fresh.get("refresh_token"):
-        ni.refresh_token = fresh["refresh_token"]
-    ni.token_expires_at = fresh.get("expires_at")
     try:
-        db.session.commit()
+        if not notion_accounts().refresh(ni.user_id, ni, fresh):
+            return None
     except Exception as e:
-        db.session.rollback()
-        print(f"[notion] could not persist refreshed token for user {ni.user_id}: {e}")
-    return ni.token
+        print(f"[notion] could not persist refreshed token: {type(e).__name__}")
+        return None
+    return fresh["access_token"]
 
 
 def get_notion_token_and_db():
     if current_user.is_authenticated:
         if not _lms_policy_allowed('notion'):
             return None, None
-        ni = NotionIntegration.query.filter_by(user_id=current_user.id).first()
+        repository = notion_accounts()
+        ni = repository.get(current_user.id)
         if ni and ni.token:
-            return _refresh_notion_row(ni), ni.database_id
+            token = _refresh_notion_row(ni)
+            current = repository.get(current_user.id)
+            if (token and current and current.id == ni.id and current.token == token
+                    and current.connected_at == ni.connected_at
+                    and _lms_policy_allowed('notion')):
+                flask.g._notion_grant = current
+                return token, current.database_id
+        return None, None
     return session.get("notion_token"), session.get("notion_database_id")
+
 
 def get_study_profile(user_id=None, guest_id=None):
     if user_id:
@@ -6103,7 +6110,7 @@ def _lms_policy_allowed(source, user_id=None):
         if flask.has_request_context() and (not current_user.is_authenticated or current_user.id != uid):
             return False
         from intelliplan.learning import policy as learning_policy
-        owner = db.session.get(User, uid)
+        owner = account_repository().get(uid)
         capability = learning_policy.source_capability(source)
         if not owner or not capability:
             return False
@@ -7089,7 +7096,7 @@ def api_integrations_status():
                 details[key] = getattr(row, detail_field, "") or ""
 
         try:
-            ni = NotionIntegration.query.filter_by(user_id=uid).first()
+            ni = notion_accounts().get(uid)
             if ni:
                 connected.add("notion")
                 details["notion"] = ni.workspace_name or ""
@@ -12822,40 +12829,7 @@ def oauth_notion_callback():
     session["notion_token"] = access_token
     session.modified = True
     if current_user.is_authenticated:
-        existing = NotionIntegration.query.filter_by(user_id=current_user.id).first()
-        template_id = tokens.get("duplicated_template_id")
-        if existing:
-            existing.token = access_token
-            existing.auth_type = "oauth"
-            existing.workspace_id = tokens.get("workspace_id")
-            existing.workspace_name = tokens.get("workspace_name")
-            existing.workspace_icon = tokens.get("workspace_icon")
-            existing.bot_id = tokens.get("bot_id")
-            existing.refresh_token = tokens.get("refresh_token") or existing.refresh_token
-            existing.token_expires_at = tokens.get("expires_at")
-            existing.duplicated_template_id = template_id or existing.duplicated_template_id
-            existing.connected_at = utcnow()
-            # Don't clobber database_id if the user already chose one.
-            if template_id and not existing.database_id:
-                existing.database_id = template_id
-        else:
-            db.session.add(NotionIntegration(
-                user_id=current_user.id,
-                token=access_token,
-                auth_type="oauth",
-                workspace_id=tokens.get("workspace_id"),
-                workspace_name=tokens.get("workspace_name"),
-                workspace_icon=tokens.get("workspace_icon"),
-                bot_id=tokens.get("bot_id"),
-                refresh_token=tokens.get("refresh_token"),
-                token_expires_at=tokens.get("expires_at"),
-                duplicated_template_id=template_id,
-                # Duplicating the template is the user saying "use this one".
-                # Making them pick it from a list afterwards would be asking a
-                # question they just answered.
-                database_id=template_id,
-            ))
-        db.session.commit()
+        notion_accounts().connect(current_user.id, token=access_token, oauth=tokens)
     return redirect(url_for("settings") + "?notion=connected")
 
 
@@ -12873,7 +12847,7 @@ def notion_status():
         })
     workspace = None
     if current_user.is_authenticated:
-        ni = NotionIntegration.query.filter_by(user_id=current_user.id).first()
+        ni = notion_accounts().get(current_user.id)
         if ni and ni.workspace_name:
             workspace = {
                 "id": ni.workspace_id,
@@ -12946,25 +12920,8 @@ def notion_connect():
     session["notion_token"] = token
     session.modified = True
     if current_user.is_authenticated:
-        existing = NotionIntegration.query.filter_by(user_id=current_user.id).first()
-        if existing:
-            existing.token = token
-            # Keep the previously-selected database so re-pasting the token to
-            # refresh the connection doesn't silently stop the task sync. The
-            # user can still change it from "Pick a database".
-            existing.auth_type = "manual"
-            existing.workspace_name = workspace_name
-            existing.bot_id = bot_id
-            existing.connected_at = utcnow()
-        else:
-            db.session.add(NotionIntegration(
-                user_id=current_user.id,
-                token=token,
-                auth_type="manual",
-                workspace_name=workspace_name,
-                bot_id=bot_id,
-            ))
-        db.session.commit()
+        notion_accounts().connect(current_user.id, token=token,
+            workspace_name=workspace_name, bot_id=bot_id)
     try:
         dbs = get_notion_databases(token)
     except Exception as e:
@@ -12978,11 +12935,9 @@ def notion_connect():
 @app.route("/notion/disconnect", methods=["POST"])
 def notion_disconnect():
     if current_user.is_authenticated:
-        NotionIntegration.query.filter_by(user_id=current_user.id).delete()
-        db.session.commit()
-    else:
-        session.pop("notion_token", None)
-        session.pop("notion_database_id", None)
+        notion_accounts().disconnect(current_user.id)
+    session.pop("notion_token", None)
+    session.pop("notion_database_id", None)
     return flask.jsonify({"status": "ok"})
 
 @app.route("/notion/set-database", methods=["POST"])
@@ -12991,15 +12946,8 @@ def notion_set_database():
     if not db_id:
         return flask.jsonify({"status": "error"})
     if current_user.is_authenticated:
-        ni = NotionIntegration.query.filter_by(user_id=current_user.id).first()
-        if ni:
-            ni.database_id = db_id
-            db.session.commit()
-        else:
-            token = session.get("notion_token")
-            if token:
-                db.session.add(NotionIntegration(user_id=current_user.id, token=token, database_id=db_id))
-                db.session.commit()
+        if not notion_accounts().select_database(current_user.id, db_id):
+            return flask.jsonify({"status": "error", "message": "Connect Notion first."}), 409
     session["notion_database_id"] = db_id
     session.modified = True
     return flask.jsonify({"status": "ok"})
@@ -13056,10 +13004,10 @@ def notion_create_database_route():
         return flask.jsonify({"status": "error", "message": safe_error_message(e)}), 500
     # Auto-select the new database as the active target.
     if current_user.is_authenticated:
-        ni = NotionIntegration.query.filter_by(user_id=current_user.id).first()
-        if ni:
-            ni.database_id = new_id
-            db.session.commit()
+        proof = getattr(flask.g, '_notion_grant', None)
+        if proof is None or not notion_accounts().select_database(current_user.id, new_id, expected=proof):
+            return flask.jsonify({"status": "error", "message": "The Notion connection changed. Reconnect before selecting the new database.",
+                "database_id": new_id}), 409
     session["notion_database_id"] = new_id
     session.modified = True
     return flask.jsonify({"status": "ok", "database_id": new_id, "name": name})
@@ -16680,7 +16628,7 @@ def debug_auth():
         "has_google_session": "google_token" in session,
         "has_notion_session": "notion_token" in session,
         "google_db_row": google_accounts().get(current_user.id) is not None if current_user.is_authenticated else False,
-        "notion_db_row": NotionIntegration.query.filter_by(user_id=current_user.id).first() is not None if current_user.is_authenticated else False,
+        "notion_db_row": notion_accounts().get(current_user.id) is not None if current_user.is_authenticated else False,
     })
 
 # ── NOTES HELPERS ─────────────────────────────────────────────
