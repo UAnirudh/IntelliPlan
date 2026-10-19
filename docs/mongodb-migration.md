@@ -86,7 +86,7 @@ explicitly marked superseded and cannot pass snapshot validation.
 | Component | Status |
 | --- | --- |
 | Connection lifecycle | Native MongoStore implemented; lazy clients, fork handling, majority writes |
-| Transaction boundary | Driver-managed transaction callback implemented; real local MongoDB 8.0.34 rollback/concurrency checks passed; Atlas checks pending |
+| Transaction boundary | Driver-managed transaction callback implemented; rollback/concurrency checks passed on real local MongoDB 8.0.34 and Atlas |
 | ID allocation | Atomic counters and bulk range reservation implemented and locally tested |
 | Large text | Lossless bounded compression/decompression; every snapshot document round-tripped exactly |
 | Web sessions | MongoDB interface implemented and locally tested; not wired into App.py |
@@ -107,6 +107,9 @@ explicitly marked superseded and cannot pass snapshot validation.
 | Account erasure | Explicit native ownership policy, transactional deletion and shared-reference anonymization; upload quarantine/rollback and authenticated-session cleanup tested; archive restore still pending |
 | Linked LMS profiles | SQL/native encrypted credential reads, create/activate, switch, rename and delete; owner-scoped profile management and grade/policy readers use the boundary |
 | Canvas OAuth | SQL/native token storage, refresh rotation, status and disconnect; grant and linked-profile writes are transactional; stale refresh/disconnect cannot overwrite reconnection |
+| Google Calendar and Drive | Native account selection/linking, refresh and disconnect implemented; owner/grant races and exact restored token metadata passed local and Atlas checks |
+| Notion | Native manual/OAuth connections, selected database, rotating token pair and disconnect implemented; route/policy suites and local concurrency checks passed |
+| Classroom, Blackboard and Moodle | Native connection/status/disconnect, assignment credential readers and conditional OAuth rotation implemented; local real concurrency and native/legacy tests passed |
 | Adaptive tutor learner model | Six native collections implemented: profiles, mastery, mistakes, learner memory, imports and summaries; shared validation and response formats; owner checks and transactional mutations |
 | Tutor conversations/profile memory | Native owner-scoped conversation CRUD, compressed transcript reads/writes and atomic profile-turn updates; user/guest HTTP history routes work without a SQL engine |
 | Remaining accounts and domains | Provider credential storage, other account preferences, archive lifecycle, LMS, scheduling, tutor chat/checks/education plans, Primer, Family, learning, notifications, groups and billing still need porting; application-wide startup remains SQLAlchemy |
@@ -602,3 +605,22 @@ Two Atlas runs of the earlier 37-check suite hit NetworkTimeout. An expanded
 locate any timeout. The most recent fully completed Atlas evidence remains the
 36-check Google run. No source writes, live school-provider calls, paid resource
 activation, Railway changes or production readiness are claimed.
+
+## Expanded Atlas run: incomplete final erasure check (2026-10-19)
+
+The progress-enabled expanded Atlas run completed **39 of 40 checks**, including
+all native Google Calendar/Drive, Notion, Classroom, Blackboard and Moodle grant
+checks. It then returned `NetworkTimeout` during the combined account-erasure and
+rollback verification. Its result is **incomplete**, not a full-suite pass.
+Evidence: `mongodb-runtime-atlas-lms-partial-20261019.json`.
+
+This supersedes the pending run statuses above. The previous fully completed
+Atlas suite still contains 36 checks (Google batch), while local real MongoDB
+completed all 40. The final expanded erasure check must pass on Atlas before
+its acceptance gate can be closed. No retry changed timeouts, disabled transaction
+checks, deleted prior diagnostic data, changed source data or changed production.
+
+Remaining application work includes core task/schedule persistence, unported
+learning/Family/notification and related domains, native full-App startup/session
+wiring, complete user-flow acceptance and the fresh maintenance-frozen final copy.
+Only after those gates pass can Railway receive production MongoDB variables.
