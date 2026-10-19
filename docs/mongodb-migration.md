@@ -450,3 +450,10 @@ secrets, and eight admin decisions accepting exactly one approval.
 Native spend recording, integer totals, user/month/source isolation, top-up credits, refund/dispute revocations, payment reference deduplication and the usage breakdown now dispatch to MongoDB. Child writes coordinate with account deletion. Credit failures propagate for payment-event retry; duplicate success is checked against the owner. Index creation is a required startup prerequisite.
 
 Validation: 57 native and existing premium tests passed; independent review approved the scoped change. The official local MongoDB run passed 25 checks, including eight concurrent payment retries yielding one credit and concurrent amounts above floating-point precision remaining exact. This does not establish a strict concurrent spending cap. Linked provider keys, email warnings, full billing routes/startup and Atlas driver validation remain pending. Application readiness remains false; no production changes.
+
+
+### Linked AI-provider keys: local native verification (2026-10-18)
+
+Native provider-key listing/linking/unlinking and status updates now use owner-scoped MongoDB operations. New credentials require working encryption, current adult eligibility is checked inside the transaction, and changes coordinate with account deletion. Replacement preserves unknown fields. Status completion checks the stored credential version and key, preventing a stale failed request from disabling replacement or relinked credentials. Error records and public views omit secrets; legacy plaintext remains readable for migration compatibility, with encryption on replacement.
+
+Validation: 61 native/legacy premium tests passed. Independent scoped review and Ruff passed. Official local MongoDB verification passed 26 checks, including concurrent linking, encrypted storage and stale status rejection. No real provider calls or email delivery were tested. School-policy checks, email warnings, full billing and native app startup are still pending, as is Atlas driver validation. Production remains unchanged.

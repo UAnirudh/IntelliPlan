@@ -287,7 +287,20 @@ def _is_adult(user: Any, now: datetime | None = None) -> bool:
     return (now or utcnow()).year - int(year) - 1 >= 18
 
 
+def _native_ai_accounts():
+    if not has_app_context():
+        return None
+    store = current_app.extensions.get('mongo_store')
+    if store is None:
+        return None
+    from intelliplan.persistence.mongo_ai_accounts import MongoAIAccounts
+    return MongoAIAccounts(store)
+
+
 def linked_accounts(user_id: int, *, active_only: bool = False) -> list[Any]:
+    repository = _native_ai_accounts()
+    if repository is not None:
+        return repository.list(user_id, active_only=active_only)
     from App import LinkedAIAccount
 
     rows = LinkedAIAccount.query.filter_by(user_id=user_id).all()
@@ -311,6 +324,13 @@ def _account_view(row: Any) -> dict:
 
 
 def _mark_key(row: Any, *, ok: bool, error: str | None = None) -> None:
+    repository = _native_ai_accounts()
+    if repository is not None:
+        try:
+            repository.mark(row, ok=ok, error=error)
+        except Exception as exc:
+            logger.warning('Provider key status could not be saved: %s', type(exc).__name__)
+        return
     from App import db
 
     try:
@@ -689,8 +709,6 @@ def api_ai_accounts_link():
         return denied
     import secret_box
 
-    from App import LinkedAIAccount, db
-
     if not byok_enabled():
         return jsonify({"status": "error", "message": "Linking AI accounts isn't available yet."}), 503
     if not _is_adult(current_user):
@@ -709,6 +727,16 @@ def api_ai_accounts_link():
     check = byok.verify(provider, key)
     if not check.ok:
         return jsonify({"status": "error", "message": check.message}), 400
+    repository = _native_ai_accounts()
+    if repository is not None:
+        try:
+            row = repository.link(current_user.id, provider, key)
+        except PermissionError:
+            return jsonify({'status': 'error', 'message': 'You need to be 18 or older to link an AI account.'}), 403
+        except Exception:
+            return jsonify({'status': 'error', 'message': 'Could not save that. Try again.'}), 500
+        return jsonify({'status': 'ok', 'message': check.message, 'account': _account_view(row)})
+    from App import LinkedAIAccount, db
     row = LinkedAIAccount.query.filter_by(user_id=current_user.id, provider=provider).first()
     if row is None:
         row = LinkedAIAccount(user_id=current_user.id, provider=provider)
@@ -730,6 +758,10 @@ def api_ai_accounts_unlink(provider):
     denied = _login_required()
     if denied:
         return denied
+    repository = _native_ai_accounts()
+    if repository is not None:
+        repository.unlink(current_user.id, str(provider).lower())
+        return jsonify({'status': 'ok'})
     from App import LinkedAIAccount, db
 
     LinkedAIAccount.query.filter_by(user_id=current_user.id,

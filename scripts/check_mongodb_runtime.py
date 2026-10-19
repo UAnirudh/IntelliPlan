@@ -574,6 +574,41 @@ def verify(store):
         raise AssertionError('AI spending totals lost integer precision or concurrent writes')
     checks['atomic_ai_ledger'] = True
 
+    import os
+    import secret_box
+    from cryptography.fernet import Fernet
+    from intelliplan.persistence.mongo_ai_accounts import MongoAIAccounts
+    original_encryption = os.environ.get('DATA_ENCRYPTION_KEY')
+    try:
+        os.environ['DATA_ENCRYPTION_KEY'] = Fernet.generate_key().decode()
+        secret_box.reset_cache()
+        providers = MongoAIAccounts(store)
+        providers.ensure_indexes()
+        # Runtime owner is an adult synthetic account at this point.
+        store.database.users.update_one({'id': user.id}, {'$set': {'birth_year': 1990}})
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            list(executor.map(lambda index: providers.link(user.id, 'openai',
+                'sk-synthetic-' + run_id + str(index)), range(8)))
+        if store.database.linked_ai_accounts.count_documents({'user_id': user.id, 'provider': 'openai'}) != 1:
+            raise AssertionError('Concurrent provider account linking duplicated a credential')
+        old_key = providers.list(user.id)[0]
+        replacement = providers.link(user.id, 'openai', 'sk-synthetic-replacement-' + run_id)
+        if providers.mark(old_key, ok=False) or not providers.mark(replacement, ok=True):
+            raise AssertionError('Stale provider status changed a replacement credential')
+        raw_key = store.database.linked_ai_accounts.find_one({'id': replacement.id})
+        if not secret_box.is_encrypted(raw_key['api_key']):
+            raise AssertionError('Provider credential was stored without encryption')
+        providers.unlink(user.id, 'openai')
+        if providers.mark(replacement, ok=True) or providers.list(user.id):
+            raise AssertionError('Provider status recreated an unlinked credential')
+        checks['atomic_provider_key_lifecycle'] = True
+    finally:
+        if original_encryption is None:
+            os.environ.pop('DATA_ENCRYPTION_KEY', None)
+        else:
+            os.environ['DATA_ENCRYPTION_KEY'] = original_encryption
+        secret_box.reset_cache()
+
     cards = MongoFlashcards(store)
     cards.ensure_tables()
     deck_id = cards.create_deck(user.id, f'Synthetic runtime deck {run_id}')
