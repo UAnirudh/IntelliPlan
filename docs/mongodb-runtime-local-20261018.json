@@ -1,7 +1,7 @@
 {
   "status": "passed",
   "environment": "isolated_local_mongodb_8.0.34",
-  "run_id": "c5a0798eb9604ad7adfb197085815795",
+  "run_id": "c35a427f49cd4742a29f5244020eb5ce",
   "checks": {
     "driver_ping": true,
     "atomic_account_preferences": true,
@@ -27,6 +27,7 @@
     "atomic_email_suppression_and_notice": true,
     "atomic_lifecycle_email_claims": true,
     "native_unsubscribe_and_rollback": true,
+    "native_onboarding_progress": true,
     "native_institution_policy": true,
     "atomic_provider_key_lifecycle": true,
     "concurrent_flashcard_reviews": true,

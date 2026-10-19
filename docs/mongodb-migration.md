@@ -485,3 +485,10 @@ Validation: 78 affected native/legacy email and eligibility tests passed, includ
 Logged-out GET and one-click POST unsubscribe now dispatch natively when MongoDB is configured. The transaction persists the normalized address suppression and switches off marketing on exact matching addresses, retaining reminder consent, dated consent evidence and unknown fields. Malformed signatures/addresses return 400; storage failures return 503 without claiming success. Suppression remains independent of deleted accounts.
 
 Validation: 47 native/legacy email tests passed; independent review and scoped Ruff passed. Official local MongoDB passed 30 checks, including eight concurrent unsubscribes and a forced abort proving suppression and visible preferences roll back together. No real email sent. Full app startup, campaign sweeps and Atlas driver verification remain pending; production unchanged.
+
+
+### Native onboarding email sweep (2026-10-18)
+
+Onboarding now reads native connection, saved-plan and completed-session goals per owner, native cohort dates and existing send history. Restored ISO-offset dates and BSON dates normalize to UTC; pending/accepted messages remain deduplicated while definite failures retry within the normal age window. Candidate results honor the requested limit; timestamp compatibility currently requires streaming user records to select the cohort. Actual cron execution/sending was not performed.
+
+Validation: 32 native/legacy onboarding and lifecycle tests passed, independent review and Ruff passed. Official local MongoDB passed 31 checks, including restored timestamp cohort selection, owner progress isolation and accepted-send history. Campaign newsletters/welcome selection, full native startup and Atlas verification remain pending. No production changes.

@@ -1,6 +1,7 @@
 """Address suppressions persist independently of deleted/recreated accounts."""
 import re
 import secrets
+from datetime import timezone
 from types import SimpleNamespace
 
 from pymongo import ReturnDocument
@@ -112,3 +113,42 @@ class MongoEmailState:
                 update_fields(values), session=active)
             return result.matched_count == 1
         return self.store.transaction(write)
+
+    def onboarding_exists(self, model_name, user_id):
+        collections = {'LinkedAccount': 'linked_accounts', 'CanvasIntegration': 'canvas_integrations',
+            'GoogleIntegration': 'google_integrations', 'ClassroomIntegration': 'classroom_integrations',
+            'BlackboardIntegration': 'blackboard_integrations', 'MoodleIntegration': 'moodle_integrations',
+            'NotionIntegration': 'notion_integrations', 'SavedSchedule': 'saved_schedules'}
+        name = collections.get(model_name)
+        if name is None:
+            raise ValueError('Unsupported onboarding goal')
+        return self.store.database[name].find_one({'user_id': int(user_id)}, {'_id': 1}) is not None
+
+    def completed_session(self, user_id):
+        return self.store.database.active_sessions.find_one(
+            {'user_id': int(user_id), 'state': 'completed'}, {'_id': 1}) is not None
+
+    @staticmethod
+    def utc_naive(value):
+        return value.astimezone(timezone.utc).replace(tzinfo=None) if value.tzinfo else value
+
+    def onboarding_candidates(self, oldest, youngest, limit):
+        # Restored timestamps can be ISO strings; native fixtures may use BSON
+        # dates. Decode through Account rather than compare unlike BSON types.
+        oldest, youngest = self.utc_naive(oldest), self.utc_naive(youngest)
+        result = []
+        if limit <= 0:
+            return result
+        for raw in self.store.database.users.find({}).sort('id', 1):
+            account = Account(raw)
+            created = getattr(account, 'created_at', None)
+            if created is not None and oldest <= self.utc_naive(created) <= youngest:
+                result.append(account)
+                if len(result) >= limit:
+                    break
+        return result
+
+    def onboarding_history(self, user_ids, step_keys):
+        rows = self.store.database.email_sends.find({'user_id': {'$in': list(user_ids)},
+            'email_key': {'$in': list(step_keys)}, 'status': {'$ne': 'failed'}}, {'user_id': 1, 'email_key': 1})
+        return [(row['user_id'], row['email_key']) for row in rows]

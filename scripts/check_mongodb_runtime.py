@@ -635,6 +635,20 @@ def verify(store):
         raise AssertionError('Unsubscribe changed dated consent evidence')
     checks['native_unsubscribe_and_rollback'] = True
 
+    cohort_now = datetime(2026, 10, 18, 12)
+    cohort = accounts.create(email=f'synthetic-cohort-{run_id}@example.invalid', password_hash='synthetic-cohort')
+    store.database.users.update_one({'id': cohort.id}, {'$set': {
+        'created_at': (cohort_now - timedelta(days=3)).replace(tzinfo=timezone.utc).isoformat()}})
+    cohort_rows = mail.onboarding_candidates(cohort_now - timedelta(days=11), cohort_now - timedelta(days=2), 10000)
+    if not any(candidate.id == cohort.id for candidate in cohort_rows):
+        raise AssertionError('Native onboarding omitted a restored ISO timestamp')
+    if mail.onboarding_exists('SavedSchedule', cohort.id) or mail.completed_session(cohort.id):
+        raise AssertionError('Native onboarding progress crossed an account boundary')
+    if (user.id, f'synthetic-lifecycle:{run_id}') not in mail.onboarding_history(
+            [user.id], [f'synthetic-lifecycle:{run_id}']):
+        raise AssertionError('Native onboarding send history omitted an accepted message')
+    checks['native_onboarding_progress'] = True
+
     from intelliplan.persistence.mongo_learning_policy import MongoLearningPolicy
     from intelliplan.learning import policy as learning_policy
     school_policy = MongoLearningPolicy(store)
