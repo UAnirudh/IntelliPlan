@@ -152,13 +152,13 @@ def live_stats() -> list[dict]:
     the newsletter must not depend on a database read succeeding."""
     integrations = "10"
     try:
-        from App import LinkedAccount, db
-
-        distinct = (
-            db.session.query(LinkedAccount.login_type)
-            .distinct()
-            .count()
-        )
+        from .sender import _native_state
+        native = _native_state()
+        if native is not None:
+            distinct = native.integration_types()
+        else:
+            from App import LinkedAccount, db
+            distinct = db.session.query(LinkedAccount.login_type).distinct().count()
         if distinct:
             integrations = str(max(distinct, 6))
     except Exception as exc:

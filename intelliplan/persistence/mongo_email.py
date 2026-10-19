@@ -152,3 +152,39 @@ class MongoEmailState:
         rows = self.store.database.email_sends.find({'user_id': {'$in': list(user_ids)},
             'email_key': {'$in': list(step_keys)}, 'status': {'$ne': 'failed'}}, {'user_id': 1, 'email_key': 1})
         return [(row['user_id'], row['email_key']) for row in rows]
+
+    def settled_send_users(self, email_key):
+        return set(self.store.database.email_sends.distinct('user_id',
+            {'email_key': email_key, 'status': {'$ne': 'failed'}}))
+
+    def campaign_candidates(self, *, oldest=None, newest=None, email_key=None, limit=None,
+                            opted_in=False, admins=None):
+        excluded = self.settled_send_users(email_key) if email_key else set()
+        query = {'marketing_emails_opt_in': True} if opted_in else {}
+        result = []
+        if limit is not None and limit <= 0:
+            return result
+        for raw in self.store.database.users.find(query).sort('id', 1):
+            if raw['id'] in excluded:
+                continue
+            if opted_in and raw.get('marketing_emails_opt_in') is not True:
+                continue
+            account = Account(raw)
+            if admins is not None and (account.email or '').strip().lower() not in admins:
+                continue
+            if oldest is not None or newest is not None:
+                created = getattr(account, 'created_at', None)
+                if created is None:
+                    continue
+                created = self.utc_naive(created)
+                if oldest is not None and created < self.utc_naive(oldest):
+                    continue
+                if newest is not None and created > self.utc_naive(newest):
+                    continue
+            result.append(account)
+            if limit is not None and len(result) >= limit:
+                break
+        return result
+
+    def integration_types(self):
+        return len(self.store.database.linked_accounts.distinct('login_type', {'login_type': {'$ne': None}}))

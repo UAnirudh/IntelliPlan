@@ -649,6 +649,21 @@ def verify(store):
         raise AssertionError('Native onboarding send history omitted an accepted message')
     checks['native_onboarding_progress'] = True
 
+    campaign_key = f'synthetic-campaign:{run_id}'
+    initial_cohort = mail.campaign_candidates(oldest=cohort_now - timedelta(days=4),
+        newest=cohort_now - timedelta(days=2), email_key=campaign_key, limit=10000)
+    if not any(candidate.id == cohort.id for candidate in initial_cohort):
+        raise AssertionError('Native campaign selection omitted its eligible cohort')
+    campaign_claim = mail.claim_send(cohort.id, campaign_key)
+    mail.record_send(campaign_claim, 'sent', 'synthetic-campaign-provider-id')
+    repeated_cohort = mail.campaign_candidates(oldest=cohort_now - timedelta(days=4),
+        newest=cohort_now - timedelta(days=2), email_key=campaign_key, limit=10000)
+    if any(candidate.id == cohort.id for candidate in repeated_cohort):
+        raise AssertionError('Native campaign selection included an accepted send')
+    if {candidate.id for candidate in mail.campaign_candidates(admins={cohort.email})} != {cohort.id}:
+        raise AssertionError('Native campaign test-recipient selection broadened its scope')
+    checks['native_campaign_selection'] = True
+
     from intelliplan.persistence.mongo_learning_policy import MongoLearningPolicy
     from intelliplan.learning import policy as learning_policy
     school_policy = MongoLearningPolicy(store)

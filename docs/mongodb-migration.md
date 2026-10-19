@@ -492,3 +492,10 @@ Validation: 47 native/legacy email tests passed; independent review and scoped R
 Onboarding now reads native connection, saved-plan and completed-session goals per owner, native cohort dates and existing send history. Restored ISO-offset dates and BSON dates normalize to UTC; pending/accepted messages remain deduplicated while definite failures retry within the normal age window. Candidate results honor the requested limit; timestamp compatibility currently requires streaming user records to select the cohort. Actual cron execution/sending was not performed.
 
 Validation: 32 native/legacy onboarding and lifecycle tests passed, independent review and Ruff passed. Official local MongoDB passed 31 checks, including restored timestamp cohort selection, owner progress isolation and accepted-send history. Campaign newsletters/welcome selection, full native startup and Atlas verification remain pending. No production changes.
+
+
+### Native lifecycle campaign selection (2026-10-18)
+
+Welcome/feedback cohorts, active-use probes, newsletter consent audiences, thank-you accepted history, explicit administrator test-recipient selection and integration-count reads now dispatch to MongoDB. Existing scheduling/dry-run defaults and full sender eligibility remain in place. Candidate timestamp handling supports restored ISO offsets/BSON dates; empty admin configuration selects nobody. Queries stream user records to preserve restored date compatibility, so scan work can exceed the result limit. No real campaigns were run.
+
+Validation: 82 affected native/legacy mail, weekly and onboarding tests passed; independent scoped review and Ruff passed. Official local MongoDB passed 32 checks, including accepted-send exclusion and exact synthetic test-recipient scope. Actual email delivery, admin route persistence, calendar/provider and other application domains, full native app startup, Atlas runtime and final cutover remain pending. Production unchanged.
