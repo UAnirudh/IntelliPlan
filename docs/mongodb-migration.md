@@ -105,6 +105,9 @@ explicitly marked superseded and cannot pass snapshot validation.
 | Role/attribution/tutor allowance | Role changes recheck stored age under lock; first-touch attribution is single-write; monthly tutor reset, cap and increment serialize on the authoritative account with paid bypass |
 | Age and parental approval | Immutable first age write and atomic single-use approval in SQL/native repositories; native denial conditionally erases only an account still awaiting that token |
 | Account erasure | Explicit native ownership policy, transactional deletion and shared-reference anonymization; upload quarantine/rollback and authenticated-session cleanup tested; archive restore still pending |
+| Timetable | SQL/native class CRUD, transactional imports/settings and scheduler busy reads implemented; source/capacity/rollback tests passed |
+| Timeline plan edits | SQL/native active-plan reads and exact schedule/progress conditional moves implemented; general scheduler persistence still pending |
+| Manual tasks | SQL/native browser and guest CRUD/list plus unified manual reader implemented; agent/import/statistics consumers still pending |
 | Linked LMS profiles | SQL/native encrypted credential reads, create/activate, switch, rename and delete; owner-scoped profile management and grade/policy readers use the boundary |
 | Canvas OAuth | SQL/native token storage, refresh rotation, status and disconnect; grant and linked-profile writes are transactional; stale refresh/disconnect cannot overwrite reconnection |
 | Google Calendar and Drive | Native account selection/linking, refresh and disconnect implemented; owner/grant races and exact restored token metadata passed local and Atlas checks |
@@ -676,3 +679,31 @@ General plan creation/activation and other schedule consumers remain unported.
 Timeline class/calendar availability is checked before the conditional plan save;
 the save does not assert a new timetable-revision proof. Full native App startup
 and production cutover remain incomplete. No source or Railway changes occurred.
+
+## Browser and guest manual tasks (2026-10-19)
+
+Manual task create/list/update/delete and the unified-task manual read path now
+use explicit owner-scoped SQL/native repositories. Signed-in writes coordinate
+on the account row/document with erasure; guest scope requires null user_id plus
+the exact guest ID. Completion transition detection runs under the same transaction
+so simultaneous completion requests cannot each claim the first transition.
+Late Notion page results can update only a still-existing owner task.
+
+Shared field validation preserves SQL text/nullability/length behavior and rejects
+structured values, null titles, malformed completion and invalid estimated times.
+The browser returns 400 for invalid task fields/payloads. Source timestamps, large
+codec notes, IDs and unknown columns are preserved by partial writes.
+
+Validation: all 31 dedicated native-task and affected cache/policy tests passed
+(final run, 156 unrelated cases deselected). Scoped Ruff, compile/diff checks and
+independent read-only review passed after fixing malformed text acceptance. Real
+local MongoDB passed all 43 runtime checks, including eight concurrent task creates,
+one completion transition among eight callers, retained large notes, guest/foreign
+isolation and no post-delete resurrection. Evidence:
+`mongodb-runtime-local-manual-tasks-20261019.json`. No new Atlas pass is claimed.
+
+Other manual task consumers (agent tools, imports, statistics), general schedule
+creation/activation, learning/Family/notifications and other SQL domains still
+need porting. Streak/pet reward persistence and full native App/session startup are
+not established by this batch. Production remains on Supabase; no deployment or
+final data cutover has occurred.

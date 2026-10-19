@@ -842,6 +842,7 @@ from intelliplan.persistence.outlook import outlook_accounts, onedrive_accounts
 from intelliplan.persistence.google import google_accounts
 from intelliplan.persistence.notion import notion_accounts
 from intelliplan.persistence.lms_grants import lms_grants
+from intelliplan.persistence.manual_tasks import tasks as task_repository
 
 
 class LinkedAccount(db.Model):
@@ -13527,10 +13528,10 @@ def unified_tasks():
     try:
         if "manual" in assignment_sources:
             if current_user.is_authenticated:
-                manual = ManualTask.query.filter_by(user_id=current_user.id, done=False).all()
+                manual = task_repository(current_user.id).list(done=False)
             else:
                 gid = get_guest_session_id()
-                manual = ManualTask.query.filter_by(guest_session_id=gid, done=False).all()
+                manual = task_repository(guest_id=gid).list(done=False)
         else:
             manual = []
         for t in manual:
@@ -13614,29 +13615,26 @@ def missing_data():
 # ── MANUAL TASKS ──────────────────────────────────────────────
 @app.route("/tasks/manual/create", methods=["POST"])
 def manual_create_task():
-    data = request.json or {}
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict) or not isinstance(data.get('title', ''), str):
+        return flask.jsonify({'status': 'error', 'message': 'Invalid task fields'}), 400
     title = data.get("title", "").strip()
     if not title:
         return flask.jsonify({"status": "error", "message": "Title required"})
-    task = ManualTask(
-        user_id=current_user.id if current_user.is_authenticated else None,
-        guest_session_id=None if current_user.is_authenticated else get_guest_session_id(),
-        title=title,
-        due_date=data.get("due_date", ""),
-        priority=data.get("priority", "Medium"),
-        course=data.get("course", "Personal"),
-        estimated_time=int(data.get("estimated_time", 60)),
-        notes=data.get("notes", "")
-    )
-    db.session.add(task)
-    db.session.commit()
+    repository = task_repository(current_user.id if current_user.is_authenticated else None,
+        None if current_user.is_authenticated else get_guest_session_id())
+    try:
+        task = repository.create({'title': title, 'due_date': data.get('due_date', ''),
+            'priority': data.get('priority', 'Medium'), 'course': data.get('course', 'Personal'),
+            'estimated_time': data.get('estimated_time', 60), 'notes': data.get('notes', '')})
+    except (TypeError, ValueError):
+        return flask.jsonify({'status': 'error', 'message': 'Invalid task fields'}), 400
     if NOTION_AVAILABLE and data.get("sync_notion"):
         notion_token, notion_db_id = get_notion_token_and_db()
         if notion_token and notion_db_id:
             try:
                 page_id = create_notion_task(notion_token, notion_db_id, title, data.get("due_date"), data.get("priority", "Medium"))
-                task.notion_page_id = page_id
-                db.session.commit()
+                repository.update(task.id, {'notion_page_id': page_id})
             except Exception:
                 pass
     if current_user.is_authenticated:
@@ -13661,20 +13659,19 @@ def _owns_manual_task(task) -> bool:
 
 @app.route("/tasks/manual/update", methods=["POST"])
 def manual_update_task():
-    data = request.json or {}
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return flask.jsonify({'status': 'error', 'message': 'Invalid task fields'}), 400
     task_id = data.get("id")
-    task = db.session.get(ManualTask, task_id)
-    if not _owns_manual_task(task):
-        return flask.jsonify({"status": "error", "message": "Not found"}), 404
-    if "title" in data: task.title = data["title"]
-    if "due_date" in data: task.due_date = data["due_date"]
-    if "priority" in data: task.priority = data["priority"]
-    if "course" in data: task.course = data["course"]
-    if "estimated_time" in data: task.estimated_time = int(data["estimated_time"])
-    if "notes" in data: task.notes = data["notes"]
-    was_done_before = task.done
-    if "done" in data: task.done = data["done"]
-    db.session.commit()
+    repository = task_repository(current_user.id if current_user.is_authenticated else None,
+        None if current_user.is_authenticated else get_guest_session_id())
+    fields = {key: data[key] for key in ('title', 'due_date', 'priority', 'course', 'estimated_time', 'notes', 'done') if key in data}
+    try:
+        task, completed = repository.update(task_id, fields)
+    except (TypeError, ValueError):
+        return flask.jsonify({'status': 'error', 'message': 'Invalid task fields'}), 400
+    if task is None:
+        return flask.jsonify({'status': 'error', 'message': 'Not found'}), 404
     if NOTION_AVAILABLE and task.notion_page_id:
         notion_token, _ = get_notion_token_and_db()
         if notion_token:
@@ -13683,7 +13680,7 @@ def manual_update_task():
             except Exception:
                 pass
     # Streak: trigger on task completion (done flipped False → True)
-    if data.get("done") and not was_done_before and current_user.is_authenticated:
+    if completed and current_user.is_authenticated:
         try:
             _record_streak_qualifying_action(current_user.id, data.get("timezone"))
         except Exception as e:
@@ -13699,13 +13696,18 @@ def manual_update_task():
 
 @app.route("/tasks/manual/delete", methods=["POST"])
 def manual_delete_task():
-    task_id = (request.json or {}).get("id")
-    task = db.session.get(ManualTask, task_id)
-    if task and not _owns_manual_task(task):
-        return flask.jsonify({"status": "error", "message": "Not found"}), 404
-    if task:
-        db.session.delete(task)
-        db.session.commit()
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return flask.jsonify({'status': 'error', 'message': 'Invalid task fields'}), 400
+    task_id = data.get('id')
+    repository = task_repository(current_user.id if current_user.is_authenticated else None,
+        None if current_user.is_authenticated else get_guest_session_id())
+    try:
+        removed = repository.delete(task_id)
+    except (TypeError, ValueError):
+        return flask.jsonify({'status': 'error', 'message': 'Not found'}), 404
+    if removed is False:
+        return flask.jsonify({'status': 'error', 'message': 'Not found'}), 404
     if current_user.is_authenticated:
         try: invalidate_lms_cache_for_user(current_user.id)
         except Exception: pass
@@ -14780,10 +14782,10 @@ def api_my_stats():
 @app.route("/tasks/manual/list")
 def manual_list_tasks():
     if current_user.is_authenticated:
-        tasks = ManualTask.query.filter_by(user_id=current_user.id, done=False).all()
+        tasks = task_repository(current_user.id).list(done=False)
     else:
         gid = get_guest_session_id()
-        tasks = ManualTask.query.filter_by(guest_session_id=gid, done=False).all()
+        tasks = task_repository(guest_id=gid).list(done=False)
     return flask.jsonify([{
         "id": t.id, "title": t.title, "due_date": t.due_date,
         "priority": t.priority, "course": t.course,

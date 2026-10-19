@@ -272,6 +272,31 @@ def verify_schedule_plan_updates(store, user_id):
         raise AssertionError('Timeline update changed an inactive plan')
 
 
+def verify_manual_tasks(store, user_id):
+    from intelliplan.persistence.manual_tasks import owner
+    from intelliplan.persistence.mongo_manual_tasks import MongoTasks
+    repository = MongoTasks(store, owner(user_id))
+    repository.ensure_indexes()
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        created = list(executor.map(lambda index: repository.create({
+            'title': f'Synthetic task {index}', 'notes': 'x' * 20000}), range(8)))
+    if len({task.id for task in created}) != 8 or len(repository.list(done=False)) != 8:
+        raise AssertionError('Concurrent manual task creation lost or duplicated IDs')
+    target = created[0]
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        completed = list(executor.map(lambda _: repository.update(target.id, {'done': True})[1], range(8)))
+    if sum(completed) != 1 or repository.get(target.id).notes != 'x' * 20000:
+        raise AssertionError('Manual completion transitioned twice or lost restored text')
+    foreign = MongoTasks(store, owner(user_id + 1000000))
+    if foreign.get(target.id) is not None:
+        raise AssertionError('Manual task read crossed account ownership')
+    guest = MongoTasks(store, owner(guest_id=f'synthetic-task-guest-{uuid.uuid4().hex}'))
+    if guest.get(target.id) is not None or guest.update(target.id, {'done': False})[0] is not None:
+        raise AssertionError('Guest task scope crossed authenticated ownership')
+    if not repository.delete(target.id) or repository.update(target.id, {'title': 'must-not-restore'})[0] is not None:
+        raise AssertionError('Manual update restored deleted task')
+
+
 def verify_sessions(store, run_id, user_id, epoch):
     cookie_name = f'runtime_{run_id}'
 
@@ -1059,6 +1084,8 @@ def verify(store, *, progress=False):
     if len(mastery) != 1 or mastery[0]['total_attempts'] != 12 or mastery[0]['correct_attempts'] != 12:
         raise AssertionError('Concurrent learner updates lost evidence')
     mark('concurrent_mastery_updates')
+    verify_manual_tasks(store, user.id)
+    mark('atomic_manual_task_crud_and_completion')
     verify_timetable(store, user.id)
     mark('atomic_timetable_classes_settings_and_rollback')
     verify_schedule_plan_updates(store, user.id)
