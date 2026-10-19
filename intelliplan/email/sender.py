@@ -18,8 +18,8 @@ Ordering matters and is deliberate:
 from __future__ import annotations
 
 import logging
-import os
 from typing import Any, NamedTuple
+from flask import current_app, has_app_context
 
 from . import templates
 from .eligibility import (
@@ -36,6 +36,14 @@ logger = logging.getLogger(__name__)
 UNSUBSCRIBE_SALT = "email-unsubscribe"
 
 
+def _native_state():
+    store = current_app.extensions.get('mongo_store') if has_app_context() else None
+    if store is None:
+        return None
+    from intelliplan.persistence.mongo_email import MongoEmailState
+    return MongoEmailState(store)
+
+
 class SendResult(NamedTuple):
     sent: bool
     #: Stable slug: "ok", or the gate reason, or "already_sent" / "provider_failed".
@@ -47,6 +55,8 @@ class SendResult(NamedTuple):
 
 def _serializer():
     from itsdangerous import URLSafeSerializer
+    if _native_state() is not None:
+        return URLSafeSerializer(current_app.config['SECRET_KEY'], salt=UNSUBSCRIBE_SALT)
     from App import app
 
     return URLSafeSerializer(app.config["SECRET_KEY"], salt=UNSUBSCRIBE_SALT)
@@ -83,6 +93,8 @@ def parse_unsubscribe_token(token: str) -> dict | None:
 
 
 def unsubscribe_url(address: str) -> str:
+    if _native_state() is not None:
+        return f'{templates._app_url()}/email/unsubscribe/{make_unsubscribe_token(address)}'
     from App import APP_BASE_URL
 
     base = (APP_BASE_URL or "https://intelliplan.tech").rstrip("/")
@@ -125,6 +137,9 @@ def _claim(user_id: int, email_key: str) -> Any | None:
     failing address stops being retried once it ages out rather than being
     attempted forever.
     """
+    repository = _native_state()
+    if repository is not None:
+        return repository.claim_send(user_id, email_key)
     from sqlalchemy.exc import IntegrityError
     from App import EmailSend, db
 
@@ -153,6 +168,13 @@ def _claim(user_id: int, email_key: str) -> Any | None:
 
 
 def _record(row: Any, status: str, message_id: Any = None) -> None:
+    repository = _native_state()
+    if repository is not None:
+        try:
+            repository.record_send(row, status, message_id)
+        except Exception as exc:
+            logger.warning('Email outcome could not be saved: %s', type(exc).__name__)
+        return
     from App import db
 
     row.status = status
@@ -195,6 +217,14 @@ def send_lifecycle_email(
 
     ``dedupe=False`` is for admin test sends, which must be repeatable.
     """
+    native = _native_state()
+    if native is not None:
+        from intelliplan.persistence.mongo_accounts import MongoAccounts
+        user = MongoAccounts(native.store).get(getattr(user, 'id', 0))
+        if user is None:
+            return SendResult(False, 'no_user')
+        if not callable(current_app.extensions.get('email_sender')):
+            return SendResult(False, 'provider_unavailable')
     gates = {
         "marketing": is_marketing_eligible,
         "transactional": is_transactional_eligible,
@@ -251,7 +281,23 @@ def send_lifecycle_email(
             _record(row, "failed")
         return SendResult(False, "render_failed")
 
-    from App import _send_email
+    if native is not None:
+        from intelliplan.learning import policy
+        user = MongoAccounts(native.store).get(user.id)
+        policy.invalidate_cache()
+        allowed, reason = gates[gate](user)
+        if allowed and gate in {'marketing', 'reminder'} and not policy.decision(user, 'notifications')[0]:
+            allowed, reason = False, 'institution_policy'
+        # The rendered name/address must still belong to the same account.
+        if allowed and (user.email or '').strip() != address:
+            allowed, reason = False, 'address_changed'
+        if not allowed:
+            if row is not None:
+                _record(row, 'failed')
+            return SendResult(False, reason)
+        _send_email = current_app.extensions['email_sender']
+    else:
+        from App import _send_email
 
     try:
         result = _send_email(
@@ -263,6 +309,11 @@ def send_lifecycle_email(
             reply_to=reply_to_override or templates.reply_to(),
         )
     except Exception as exc:
+        if native is not None:
+            # A timeout may follow provider acceptance. Keep pending so a
+            # later campaign cannot send a duplicate after an unknown outcome.
+            logger.warning('Email provider outcome unknown: %s', type(exc).__name__)
+            return SendResult(False, 'provider_unknown')
         logger.warning("provider raised sending %s to %s: %s", email_key, address, exc)
         result = False
 

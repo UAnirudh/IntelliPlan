@@ -251,7 +251,6 @@ def verify(store):
         raise AssertionError('Empty preference update changed the SMS invariant')
     checks['atomic_account_preferences'] = True
 
-    from intelliplan.persistence.codec import update_fields
     store.database.users.update_one({'id': user.id}, update_fields({
         'lms_preferences': '{"precise":0.12345678901234567890123456789,"future_setting":' + json.dumps('x' * 20000) + '}'}))
     with ThreadPoolExecutor(max_workers=2) as executor:
@@ -587,6 +586,23 @@ def verify(store):
     if sum(row is not None for row in claims) != 1 or mail.claim_budget_notice(user.id, '2026-09') is not None:
         raise AssertionError('Concurrent or stale monthly budget notices were claimed repeatedly')
     checks['atomic_email_suppression_and_notice'] = True
+
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        sends = list(executor.map(lambda _: mail.claim_send(user.id, f'synthetic-lifecycle:{run_id}'), range(8)))
+    winners = [claim for claim in sends if claim is not None]
+    if len(winners) != 1:
+        raise AssertionError('Concurrent lifecycle sends were claimed repeatedly')
+    original_claim = winners[0]
+    if not mail.record_send(original_claim, 'failed'):
+        raise AssertionError('Lifecycle failure could not be recorded')
+    retry_claim = mail.claim_send(user.id, f'synthetic-lifecycle:{run_id}')
+    if retry_claim is None or mail.record_send(original_claim, 'sent', 'stale'):
+        raise AssertionError('Stale lifecycle completion overwrote a newer claim')
+    if not mail.record_send(retry_claim, 'sent', 'synthetic-provider-id'):
+        raise AssertionError('Lifecycle retry completion failed')
+    if mail.claim_send(user.id, f'synthetic-lifecycle:{run_id}') is not None:
+        raise AssertionError('Lifecycle send was reclaimed after acceptance')
+    checks['atomic_lifecycle_email_claims'] = True
 
     from intelliplan.persistence.mongo_learning_policy import MongoLearningPolicy
     from intelliplan.learning import policy as learning_policy

@@ -34,6 +34,9 @@ class RenderedEmail(NamedTuple):
 
 
 def _app_url() -> str:
+    from flask import current_app, has_app_context
+    if has_app_context() and 'mongo_store' in current_app.extensions:
+        return (current_app.config.get('APP_BASE_URL') or 'https://intelliplan.tech').rstrip('/')
     from App import APP_BASE_URL
 
     return (APP_BASE_URL or "https://intelliplan.tech").rstrip("/")
