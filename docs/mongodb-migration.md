@@ -707,3 +707,17 @@ creation/activation, learning/Family/notifications and other SQL domains still
 need porting. Streak/pet reward persistence and full native App/session startup are
 not established by this batch. Production remains on Supabase; no deployment or
 final data cutover has occurred.
+
+## SQL dependency compatibility after timetable/task refactor (2026-10-19)
+
+Shared records now decode plain SQL values without importing optional BSON or
+MongoDB packages. Native encoded fields still invoke the validated bounded codec.
+Timetable value conversion is in a pure shared module, so SQL reads no longer
+import the native repository just to build Meeting/Rotation values. This fixes
+a production compatibility issue because pymongo remains in the optional
+requirements-mongodb.txt during the incomplete migration.
+
+Validation: 50 scoped native-record, task, timetable, timeline, Notion and LMS tests
+passed together, including a subprocess that blocks bson/pymongo/mongomock imports
+and exercises the SQL-facing record conversions. Scoped Ruff, diff checks and
+read-only review passed. No source/production changes occurred.

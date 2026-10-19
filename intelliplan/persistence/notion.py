@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 from flask import current_app
 
-from intelliplan.persistence.codec import unpack_document
+from intelliplan.persistence.records import unpack_record
 from intelliplan.persistence.outlook import SQLOutlook
 from time_utils import utcnow
 
@@ -15,7 +15,7 @@ class NotionGrant(SimpleNamespace):
         values = {key: None for key in ('token', 'refresh_token', 'token_expires_at',
             'connected_at', 'database_id', 'auth_type', 'workspace_id', 'workspace_name',
             'workspace_icon', 'bot_id', 'duplicated_template_id')}
-        values.update(unpack_document(raw))
+        values.update(unpack_record(raw))
         values.pop('_id', None)
         values.pop('_ip_encoding', None)
         for key in ('token', 'refresh_token'):

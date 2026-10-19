@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 from flask import current_app
 
-from intelliplan.persistence.codec import unpack_document
+from intelliplan.persistence.records import unpack_record
 from intelliplan.persistence.outlook import SQLOutlook
 from time_utils import utcnow
 
@@ -24,7 +24,7 @@ class LMSGrant(SimpleNamespace):
         import secret_box
         _, secrets, fields = SCHEMAS[provider]
         values = {key: None for key in fields | {'connected_at'}}
-        values.update(unpack_document(raw))
+        values.update(unpack_record(raw))
         values.pop('_id', None)
         values.pop('_ip_encoding', None)
         for key in secrets:

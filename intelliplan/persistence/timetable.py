@@ -3,7 +3,7 @@ from flask import current_app
 from datetime import date, datetime
 from types import SimpleNamespace
 
-from intelliplan.persistence.codec import unpack_document
+from intelliplan.persistence.records import unpack_record
 from time_utils import utcnow
 
 
@@ -22,7 +22,7 @@ class TimetableError(ValueError):
 
 class TimetableRecord(SimpleNamespace):
     def __init__(self, raw=None, *, configuration=False):
-        values = {**(SETTINGS_DEFAULTS if configuration else CLASS_DEFAULTS), **unpack_document(raw or {})}
+        values = {**(SETTINGS_DEFAULTS if configuration else CLASS_DEFAULTS), **unpack_record(raw or {})}
         values.pop('_id', None)
         for field in ('created_at', 'updated_at', 'last_import_at'):
             if isinstance(values.get(field), str):
@@ -32,15 +32,15 @@ class TimetableRecord(SimpleNamespace):
         super().__init__(**values)
 
     def to_meeting(self):
-        from intelliplan.persistence.mongo_timetable import meeting
+        from intelliplan.persistence.timetable_values import meeting
         return meeting(vars(self))
 
     def rotation(self):
-        from intelliplan.persistence.mongo_timetable import settings
+        from intelliplan.persistence.timetable_values import settings
         return settings(vars(self))[0]
 
     def bell(self):
-        from intelliplan.persistence.mongo_timetable import settings
+        from intelliplan.persistence.timetable_values import settings
         return settings(vars(self))[1]
 
 

@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 from flask import current_app
 
-from intelliplan.persistence.codec import unpack_document
+from intelliplan.persistence.records import unpack_record
 
 
 DEFAULTS = dict(title='', due_date='', priority='Medium', course='Personal', estimated_time=60,
@@ -43,7 +43,7 @@ def owner(user_id=None, guest_id=None):
 
 class Task(SimpleNamespace):
     def __init__(self, raw):
-        values = {**DEFAULTS, 'guest_session_id': None, **unpack_document(raw)}
+        values = {**DEFAULTS, 'guest_session_id': None, **unpack_record(raw)}
         values.pop('_id', None)
         if isinstance(values.get('created_at'), str):
             values['created_at'] = datetime.fromisoformat(values['created_at'])
