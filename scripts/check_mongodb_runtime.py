@@ -574,6 +574,20 @@ def verify(store):
         raise AssertionError('AI spending totals lost integer precision or concurrent writes')
     checks['atomic_ai_ledger'] = True
 
+    from intelliplan.persistence.mongo_email import MongoEmailState
+    mail = MongoEmailState(store)
+    mail.ensure_indexes()
+    synthetic_address = f'synthetic-{run_id}@example.invalid'
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        results = list(executor.map(lambda _: mail.suppress(synthetic_address.upper()), range(8)))
+    if not all(results) or store.database.email_suppressions.count_documents({'email': synthetic_address}) != 1:
+        raise AssertionError('Concurrent email suppressions duplicated or failed')
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        claims = list(executor.map(lambda _: mail.claim_budget_notice(user.id, '2026-10'), range(8)))
+    if sum(row is not None for row in claims) != 1 or mail.claim_budget_notice(user.id, '2026-09') is not None:
+        raise AssertionError('Concurrent or stale monthly budget notices were claimed repeatedly')
+    checks['atomic_email_suppression_and_notice'] = True
+
     import os
     import secret_box
     from cryptography.fernet import Fernet

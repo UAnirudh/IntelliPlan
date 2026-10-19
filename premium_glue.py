@@ -243,6 +243,35 @@ def _maybe_warn_low_budget(user: Any, state: dict) -> None:
     """Email once a month when the budget drops below the warning line."""
     if not state.get("low") or getattr(user, "ai_low_budget_notified", None) == state["period"]:
         return
+    if _native_ledger() is not None:
+        sender = current_app.extensions.get('email_sender')
+        if not callable(sender):
+            return
+        from intelliplan.email.eligibility import is_transactional_eligible
+        from intelliplan.persistence.mongo_accounts import MongoAccounts
+        from intelliplan.persistence.mongo_email import MongoEmailState
+        store = current_app.extensions['mongo_store']
+        try:
+            # Claim once, then re-read consent/address/deletion before sending.
+            claimed = MongoEmailState(store).claim_budget_notice(user.id, state['period'])
+            if claimed is None:
+                return
+            row = MongoAccounts(store).get(user.id)
+            if not is_transactional_eligible(row)[0]:
+                return
+            base = (current_app.config.get('APP_BASE_URL') or '').rstrip('/')
+            body = (
+                f"You've used most of this month's AI budget on IntelliPlan "
+                f"(${state['remaining_usd']:.2f} of ${state['budget_usd']:.2f} left).\n\n"
+                "Plani will keep answering with the free models once it runs out. "
+                "You can add more, or link your own AI account, here:\n"
+                f"{base}/settings/ai\n\n— IntelliPlan"
+            )
+            if not sender(row.email, 'Your IntelliPlan AI budget is running low', body):
+                logger.warning('Low budget email sender did not confirm delivery')
+        except Exception as exc:
+            logger.warning('Low budget email failed: %s', type(exc).__name__)
+        return
     from App import db
 
     try:

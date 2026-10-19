@@ -1,7 +1,7 @@
 {
   "status": "passed",
   "environment": "isolated_local_mongodb_8.0.34",
-  "run_id": "385bc6eb07fb4d3d98c1c2e083fbb93d",
+  "run_id": "55c4870f339a45ffac699cecdc52bed2",
   "checks": {
     "driver_ping": true,
     "atomic_account_preferences": true,
@@ -24,6 +24,7 @@
     "concurrent_tutor_history": true,
     "isolated_guest_tutor_memory": true,
     "atomic_ai_ledger": true,
+    "atomic_email_suppression_and_notice": true,
     "atomic_provider_key_lifecycle": true,
     "concurrent_flashcard_reviews": true,
     "concurrent_mastery_updates": true,
