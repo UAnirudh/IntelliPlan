@@ -515,3 +515,10 @@ OneDrive callback, token getter/refresh, disconnect, connection metadata and doc
 Validation: 100 affected native/legacy Microsoft, cloud-document and calendar-owner tests passed; scoped Ruff passed. Official local MongoDB passed 34 checks, including concurrent OneDrive connections, independent restored sequence high-water checks and stale refresh rejection. Review identified the sequence bug and reusable-client revocation bypass; both were corrected with regressions, with final re-review requested. No live Microsoft OAuth or provider reads occurred.
 
 Production is not ready: Google calendar/Drive and other application domains, full native startup/sessions integration, real Atlas driver checks, final maintenance snapshot/comparison and Railway deployment validation remain pending. The private driver URI was checked on 2026-10-19 and remains empty. Supabase and production remain unchanged.
+
+
+### Atlas driver connection attempt (2026-10-19)
+
+The private driver URI is now populated and targets intelliplan_runtime_test, but still contains the literal password placeholder. The native driver ping timed out before any test writes. Read-only Atlas inspection confirmed the existing free Cluster0 is available, with one /32 access entry that does not match the current workstation IPv4 address. Attempting to add only the current workstation address through the Atlas connector was rejected as not confirmed; no network access entry was created. Manual password substitution and current-IP allowlisting are required before retry. No credentials or network addresses are recorded here. Supabase and production unchanged.
+
+Independent final review of the OneDrive counter and permanent client invalidation fixes passed, including an isolated repeated-request/header/refresh check with zero provider requests after revocation.
