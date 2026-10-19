@@ -449,11 +449,15 @@ def _provider_allowed(provider: str) -> bool:
 
 
 def _tutor_permission(user_id: int):
-    from App import User
     from intelliplan.learning import policy
 
     policy.invalidate_cache()
-    user = User.query.populate_existing().filter_by(id=user_id).first()
+    if _native_ledger() is not None:
+        from intelliplan.persistence.accounts import accounts
+        user = accounts().get(user_id)
+    else:
+        from App import User
+        user = User.query.populate_existing().filter_by(id=user_id).first()
     if user is None or not policy.decision(user, 'tutor')[0]:
         return user, frozenset()
     if not policy.permitted_providers(user):

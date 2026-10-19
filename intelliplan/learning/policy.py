@@ -4,7 +4,7 @@ Restrictions are intersections, never grants. No subscription overrides beta
 eligibility. Missing experimental flags and failed policy reads deny access.
 """
 from dataclasses import dataclass
-from flask import g, has_request_context
+from flask import current_app, g, has_app_context, has_request_context
 from datetime import datetime, timezone
 
 BETA_NOTICE_VERSION = 'learning_beta_v1'
@@ -61,6 +61,22 @@ def models():
     return learning_models
 
 
+def _native_policy():
+    store = current_app.extensions.get('mongo_store') if has_app_context() else None
+    if store is None:
+        return None
+    from intelliplan.persistence.mongo_learning_policy import MongoLearningPolicy
+    return MongoLearningPolicy(store)
+
+
+def _global_admin(user):
+    if _native_policy() is not None:
+        checker = current_app.extensions.get('admin_checker')
+        return bool(callable(checker) and checker(user))
+    from App import is_admin
+    return is_admin(user)
+
+
 def validate_policy(value):
     if not isinstance(value, dict):
         raise ValueError('Policy must be an object.')
@@ -108,6 +124,9 @@ def utc_timestamp(value):
 def organizations(user):
     if not getattr(user, 'is_authenticated', False):
         return []
+    repository = _native_policy()
+    if repository is not None:
+        return repository.organizations(user.id)
     M = models()
     rows = M['Membership'].query.populate_existing().filter_by(user_id=user.id).all()
     result = {}
@@ -159,11 +178,13 @@ def invalidate_cache():
 
 
 def administers(user, organization_id):
-    from App import is_admin
-    if is_admin(user):
+    if _global_admin(user):
         return True
     if not getattr(user, 'is_authenticated', False):
         return False
+    repository = _native_policy()
+    if repository is not None:
+        return repository.administers(user.id, organization_id)
     M = models()
     org = M['Organization'].query.get(organization_id)
     if not org:
@@ -175,15 +196,16 @@ def administers(user, organization_id):
 
 
 def is_learning_admin(user):
-    from App import is_admin
-    if is_admin(user):
+    if _global_admin(user):
         return True
+    repository = _native_policy()
+    if repository is not None:
+        return bool(getattr(user, 'is_authenticated', False) and repository.is_admin(user.id))
     return bool(getattr(user, 'is_authenticated', False) and
                 models()['Membership'].query.filter_by(user_id=user.id, role='admin').first())
 
 
 def decision(user, key):
-    from App import FeatureFlag
     feature = FEATURES.get(key)
     if feature is None:
         return False, 'unknown_feature'
@@ -196,11 +218,20 @@ def decision(user, key):
         if feature.maturity in {'admin_only_beta', 'internal_alpha'} and not is_learning_admin(user):
             return False, 'administrator_only_beta'
         if feature.flag:
-            flag = FeatureFlag.query.populate_existing().filter_by(key=feature.flag).first()
+            repository = _native_policy()
+            if repository is not None:
+                flag = repository.flag(feature.flag)
+            else:
+                from App import FeatureFlag
+                flag = FeatureFlag.query.populate_existing().filter_by(key=feature.flag).first()
             if not flag or not flag.enabled:
                 return False, 'feature_disabled'
         if feature.maturity == 'opt_in_beta':
-            row = models()['BetaEnrollment'].query.filter_by(user_id=getattr(user, 'id', None), feature=key).first()
+            repository = _native_policy()
+            if repository is not None:
+                row = repository.enrollment(getattr(user, 'id', None), key)
+            else:
+                row = models()['BetaEnrollment'].query.filter_by(user_id=getattr(user, 'id', None), feature=key).first()
             org_ids = {o.id for o in organizations(user)}
             if not row or not row.approved or row.organization_id not in org_ids:
                 return False, 'beta_approval_required'

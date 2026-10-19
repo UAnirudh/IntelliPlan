@@ -25,7 +25,7 @@ from adaptive_tutor.mongo_store import MongoTutor  # noqa: E402
 import desktop_auth  # noqa: E402
 from flashcards.mongo_store import MongoFlashcards  # noqa: E402
 from intelliplan.persistence.accounts import PasswordConflict  # noqa: E402
-from intelliplan.persistence.codec import pack_document, unpack_document  # noqa: E402
+from intelliplan.persistence.codec import pack_document, unpack_document, update_fields  # noqa: E402
 from intelliplan.persistence.mongo import MongoStore  # noqa: E402
 from intelliplan.persistence.mongo_accounts import MongoAccounts  # noqa: E402
 from intelliplan.persistence.mongo_desktop import MongoDesktopTickets  # noqa: E402
@@ -587,6 +587,35 @@ def verify(store):
     if sum(row is not None for row in claims) != 1 or mail.claim_budget_notice(user.id, '2026-09') is not None:
         raise AssertionError('Concurrent or stale monthly budget notices were claimed repeatedly')
     checks['atomic_email_suppression_and_notice'] = True
+
+    from intelliplan.persistence.mongo_learning_policy import MongoLearningPolicy
+    from intelliplan.learning import policy as learning_policy
+    school_policy = MongoLearningPolicy(store)
+    school_policy.ensure_indexes()
+    parent_id = store.next_id('learning_organizations')
+    child_id = store.next_id('learning_organizations')
+    store.database.learning_organizations.insert_many([
+        pack_document({'id': parent_id, 'parent_id': None, 'policy': json.dumps({'tutor': False, 'providers': ['claude']}) + ' ' * 10000}),
+        {'id': child_id, 'parent_id': parent_id, 'policy': json.dumps({'providers': ['groq']})},
+    ])
+    store.database.learning_memberships.insert_one({'id': store.next_id('learning_memberships'),
+        'user_id': user.id, 'organization_id': child_id, 'role': 'student'})
+    policy_app = Flask('synthetic-runtime-policy')
+    policy_app.extensions['mongo_store'] = store
+    with policy_app.test_request_context():
+        if learning_policy.decision(user, 'tutor') != (False, 'institution_policy'):
+            raise AssertionError('Native tutor policy did not apply institution restrictions')
+        if learning_policy.permitted_providers(user):
+            raise AssertionError('Native provider restrictions were not intersected')
+        store.database.learning_organizations.update_one({'id': parent_id}, update_fields({'policy': {'tutor': True}}))
+        learning_policy.invalidate_cache()
+        if learning_policy.decision(user, 'tutor') != (True, 'allowed'):
+            raise AssertionError('Native policy invalidation did not reload restrictions')
+        store.database.learning_organizations.update_one({'id': child_id}, {'$set': {'parent_id': -1}})
+        learning_policy.invalidate_cache()
+        if learning_policy.decision(user, 'tutor') != (False, 'policy_unavailable'):
+            raise AssertionError('Missing institution parent did not fail closed')
+    checks['native_institution_policy'] = True
 
     import os
     import secret_box

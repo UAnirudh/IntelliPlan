@@ -464,3 +464,10 @@ Validation: 61 native/legacy premium tests passed. Independent scoped review and
 Address suppression now uses MongoDB before any legacy import, normalizes addresses and survives account deletion/recreation. Suppression read errors deny sending. Native low-budget notices require an injected sender, atomically claim one attempt for a month and reject stale earlier-month claims, then reload current account eligibility and suppression before sending. As in the prior behavior, a claim records an attempt, not confirmed inbox delivery.
 
 Validation: 83 native/legacy eligibility and premium tests passed; six final focused tests and independent review passed after the monotonic-period adjustment. Official local MongoDB verification passed 27 checks, including concurrent suppressions and notice claims. Actual sender delivery, lifecycle send history/campaigns, full native app startup and Atlas runtime validation remain pending. No production changes.
+
+
+### Institution policy reads: local native verification (2026-10-18)
+
+Native decisions now read institution memberships and ancestor restrictions, feature flags and beta enrollment/consent without importing App/SQL. Restrictions retain intersection semantics and account removal, missing organizations/ancestors, cycles and malformed settings deny access. Global administrator checks require the injected checker. Migrated raw/compressed JSON policy text is decoded before validation; malformed authorization booleans and consent timestamps fail closed. Premium permission checks reload the account and invalidate request policy caches. Governance writes remain unported.
+
+Validation: 78 affected native/legacy policy, premium and email tests passed before review adjustments; 17 final focused policy cases and independent re-review passed, including restored compressed JSON and malformed authorization regressions. Official local MongoDB passed 28 checks, including source-format hierarchy reads and live cache invalidation. Native startup, governance writes, broader learning workflows and Atlas runtime verification remain pending. No production changes.
