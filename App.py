@@ -11701,26 +11701,19 @@ def _class_busy_by_date(user_id, start, horizon_days=14):
     Never raises: a timetable we cannot read leaves the plan exactly as it
     was before timetables existed.
     """
-    if not user_id or not feature_enabled("timetable"):
+    native = flask.current_app.extensions.get('mongo_store') is not None
+    if not user_id or (not native and not feature_enabled("timetable")):
         return {}
     try:
-        from intelliplan.domain.timetable import busy_by_date as _timetable_busy
-
-        rows = ClassMeeting.query.filter_by(user_id=user_id).all()
-        if not rows:
-            return {}
-        settings = TimetableSettings.query.filter_by(user_id=user_id).first()
-        rotation = settings.rotation() if settings else _timetable_rotation_default()
-        bell = settings.bell() if settings else {}
-        return _timetable_busy(
-            start, horizon_days, [r.to_meeting() for r in rows], rotation, bell,
-        )
+        from intelliplan.persistence.timetable import class_busy
+        return class_busy(user_id, start, horizon_days)
     except Exception as e:
-        print(f"[planner] timetable busy lookup failed: {e}")
-        try:
-            db.session.rollback()
-        except Exception:
-            pass
+        print(f"[planner] timetable busy lookup failed: {type(e).__name__}")
+        if not native:
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
         return {}
 
 

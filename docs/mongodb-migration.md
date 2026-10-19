@@ -624,3 +624,29 @@ Remaining application work includes core task/schedule persistence, unported
 learning/Family/notification and related domains, native full-App startup/session
 wiring, complete user-flow acceptance and the fresh maintenance-frozen final copy.
 Only after those gates pass can Railway receive production MongoDB variables.
+
+## Timetable storage and scheduler busy reads (2026-10-19)
+
+Class list/add/edit/delete, rotation/bell/holiday settings and school/photo/manual
+imports now use explicit SQL/native repositories. Owner locks/touches serialize
+class limits and settings changes with account erasure. Settings transforms run
+inside the transaction; class imports and import settings now commit together.
+The scheduler reads owner, flag, classes and settings in one native snapshot.
+Source codec, dates, IDs, unknown columns and handwritten values are preserved.
+
+Review found a legacy-compatible but unsafe import-at-capacity early break that
+could delete unvisited retained source classes. Shared reconciliation now examines
+the entire input and rejects over-capacity results before writes; replacing one
+dropped class at capacity succeeds. Native and SQL regressions cover both cases.
+
+Validation: 83 timetable/domain/import/timeline/native tests passed together, plus
+the subsequently added SQL capacity regression passed independently. Scoped Ruff,
+compile and diff checks passed. Real local MongoDB 8.0.34 passed all 41 runtime
+checks, including concurrent timetable class/settings writes and actual rollback
+when import settings fail after a class write. Evidence:
+`mongodb-runtime-local-timetable-20261019.json`. Timetable Atlas validation has not
+yet run; the expanded Atlas erasure timeout from the previous record remains open.
+
+The timeline active-plan query/move persistence and full native App bootstrap are
+still unported; this is not whole-app production readiness. No source database or
+Railway changes occurred.

@@ -200,6 +200,51 @@ def verify_lms_grants(store, user_id):
             raise AssertionError('LMS disconnect retained a grant')
 
 
+def verify_timetable(store, user_id):
+    from datetime import date
+    from intelliplan.persistence.mongo_timetable import MongoTimetable
+    from intelliplan.persistence.timetable import TimetableError
+
+    timetable = MongoTimetable(store)
+    timetable.ensure_indexes()
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        list(executor.map(lambda index: timetable.add(user_id, {'course': f'Synthetic {index}'}), range(8)))
+    if len(timetable.list(user_id)) != 8:
+        raise AssertionError('Concurrent timetable class creation lost rows')
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        a = executor.submit(timetable.change_settings, user_id, lambda row: {'rotation_kind': 'ab',
+            'anchor_date': date(2026, 9, 28), 'anchor_day': 1})
+        b = executor.submit(timetable.change_settings, user_id, lambda row: {'bell_json': '{"1":["08:00","09:00"]}'})
+        a.result()
+        b.result()
+    saved = timetable.get_settings(user_id)
+    if saved.rotation_kind != 'ab' or saved.bell().get('1') != ['08:00', '09:00']:
+        raise AssertionError('Concurrent timetable settings lost unrelated fields')
+    original = [row.id for row in timetable.list(user_id)]
+
+    def fail_settings(row):
+        raise DeliberateRollback()
+
+    try:
+        timetable.import_classes(user_id, [{'course': 'must-roll-back'}], 'studentvue', fail_settings)
+    except DeliberateRollback:
+        pass
+    else:
+        raise AssertionError('Timetable deliberate rollback did not propagate')
+    if [row.id for row in timetable.list(user_id)] != original:
+        raise AssertionError('Timetable import failure left partial classes')
+    incoming = [{'course': f'Synthetic {index}'} for index in range(8)]
+    try:
+        timetable.import_classes(user_id, [{'course': f'overflow-{index}'} for index in range(31)], 'studentvue')
+    except TimetableError:
+        pass
+    else:
+        raise AssertionError('Timetable import exceeded class cap')
+    if [row.id for row in timetable.list(user_id)] != original:
+        raise AssertionError('Rejected timetable import changed saved classes')
+    timetable.import_classes(user_id, incoming, 'manual')
+
+
 def verify_sessions(store, run_id, user_id, epoch):
     cookie_name = f'runtime_{run_id}'
 
@@ -987,6 +1032,8 @@ def verify(store, *, progress=False):
     if len(mastery) != 1 or mastery[0]['total_attempts'] != 12 or mastery[0]['correct_attempts'] != 12:
         raise AssertionError('Concurrent learner updates lost evidence')
     mark('concurrent_mastery_updates')
+    verify_timetable(store, user.id)
+    mark('atomic_timetable_classes_settings_and_rollback')
     verify_sessions(store, run_id, user.id, 1)
     mark('native_session_lifecycle')
     verify_erasure(store, run_id, user, tutor)

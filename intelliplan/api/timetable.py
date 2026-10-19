@@ -33,7 +33,8 @@ import json
 import logging
 from datetime import date, datetime
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, current_app, jsonify, request
+from intelliplan.persistence.timetable import TimetableError, timetable_repository, SETTINGS_FIELDS
 from flask_login import current_user
 
 from intelliplan.domain.timetable import (
@@ -79,7 +80,10 @@ def _fail(message, code=400, **extra):
 def _guard():
     """``(user_id, None)`` or ``(None, error_response)``."""
     App = _app()
-    if not App.feature_enabled(FLAG_KEY):
+    store = current_app.extensions.get('mongo_store')
+    flag = store.database.feature_flags.find_one({'key': FLAG_KEY}) if store is not None else None
+    enabled = (flag is None or flag.get('enabled') is True) if store is not None else App.feature_enabled(FLAG_KEY)
+    if not enabled:
         return None, _fail("Not found.", 404)
     if not current_user.is_authenticated:
         return None, _fail("Sign in to keep a timetable.", 401)
@@ -87,12 +91,8 @@ def _guard():
 
 
 def _settings_row(uid, create=False):
-    App = _app()
-    row = App.TimetableSettings.query.filter_by(user_id=uid).first()
-    if row is None and create:
-        row = App.TimetableSettings(user_id=uid)
-        App.db.session.add(row)
-    return row
+    from intelliplan.persistence.timetable import TimetableRecord
+    return timetable_repository().get_settings(uid) or (TimetableRecord(configuration=True) if create else None)
 
 
 def _rotation(uid):
@@ -101,12 +101,7 @@ def _rotation(uid):
 
 
 def _class_rows(uid):
-    App = _app()
-    return (
-        App.ClassMeeting.query.filter_by(user_id=uid)
-        .order_by(App.ClassMeeting.start_time.asc(), App.ClassMeeting.period.asc(), App.ClassMeeting.id.asc())
-        .all()
-    )
+    return timetable_repository().list(uid)
 
 
 def _parse_date(raw):
@@ -202,9 +197,6 @@ def _clean_class(data, *, partial=False, max_rotation=MAX_CYCLE_LENGTH):
     return out, None
 
 
-def _owned_class(uid, class_id):
-    App = _app()
-    return App.ClassMeeting.query.filter_by(id=class_id, user_id=uid).first()
 
 
 # ── Timetable CRUD ───────────────────────────────────────────────────
@@ -223,17 +215,16 @@ def timetable_add_class():
     uid, err = _guard()
     if err:
         return err
-    App = _app()
     if len(_class_rows(uid)) >= MAX_CLASSES:
         return _fail(f"A timetable holds up to {MAX_CLASSES} classes.")
     fields, problem = _clean_class(request.get_json(silent=True))
     if problem:
         return _fail(problem)
-    App.db.session.add(App.ClassMeeting(user_id=uid, source="manual", **fields))
     try:
-        App.db.session.commit()
+        timetable_repository().add(uid, {'source': 'manual', **fields}, MAX_CLASSES)
+    except TimetableError as exc:
+        return _fail(str(exc))
     except Exception as exc:
-        App.db.session.rollback()
         logger.warning("timetable add failed: %s", exc)
         return _fail("Could not save that class. Please try again.", 500)
     _after_change(uid)
@@ -270,23 +261,16 @@ def timetable_modify_class(class_id):
     uid, err = _guard()
     if err:
         return err
-    App = _app()
-    row = _owned_class(uid, class_id)
-    if row is None:
-        return _fail("Class not found.", 404)
-    if request.method == "DELETE":
-        App.db.session.delete(row)
-    else:
+    fields = None
+    if request.method != 'DELETE':
         fields, problem = _clean_class(request.get_json(silent=True), partial=True)
         if problem:
             return _fail(problem)
-        for key, value in fields.items():
-            setattr(row, key, value)
     try:
-        App.db.session.commit()
+        if not timetable_repository().modify(uid, class_id, fields):
+            return _fail("Class not found.", 404)
     except Exception as exc:
-        App.db.session.rollback()
-        logger.warning("timetable modify failed: %s", exc)
+        logger.warning("timetable modify failed: %s", type(exc).__name__)
         return _fail("Could not save that change.", 500)
     _after_change(uid)
     return jsonify(_state(uid))
@@ -297,16 +281,25 @@ def timetable_settings():
     uid, err = _guard()
     if err:
         return err
-    App = _app()
     data = request.get_json(silent=True)
     if not isinstance(data, dict):
         return _fail("Send a JSON object.")
-    row = _settings_row(uid, create=True)
+    try:
+        timetable_repository().change_settings(uid, lambda row: _clean_settings(row, data))
+    except TimetableError as exc:
+        return _fail(str(exc))
+    except Exception as exc:
+        logger.warning("timetable settings failed: %s", type(exc).__name__)
+        return _fail("Could not save your timetable settings.", 500)
+    _after_change(uid)
+    return jsonify(_state(uid, _parse_date(data.get("date"))))
 
+
+def _clean_settings(row, data):
     if "kind" in data:
         kind = str(data.get("kind") or "none")
         if kind not in ROTATION_KINDS:
-            return _fail("Rotation must be none, ab, cycle or week.")
+            raise TimetableError("Rotation must be none, ab, cycle or week.")
         if kind != (row.rotation_kind or "none"):
             # A different rotation means the old anchor names a day that no
             # longer exists.
@@ -316,50 +309,50 @@ def timetable_settings():
         try:
             length = int(data.get("length"))
         except (TypeError, ValueError):
-            return _fail("Cycle length must be a number.")
+            raise TimetableError("Cycle length must be a number.")
         if not 2 <= length <= MAX_CYCLE_LENGTH:
-            return _fail(f"Cycles run from 2 to {MAX_CYCLE_LENGTH} days.")
+            raise TimetableError(f"Cycles run from 2 to {MAX_CYCLE_LENGTH} days.")
         row.cycle_length = length
     if "school_weekdays" in data:
         days = parse_weekdays(data.get("school_weekdays"))
         if not days:
-            return _fail("Pick at least one school day.")
+            raise TimetableError("Pick at least one school day.")
         row.school_weekdays = ",".join(WEEKDAY_ABBR[d] for d in days)
     if "skip_days" in data:
         raw = data.get("skip_days")
         if not isinstance(raw, list):
-            return _fail("skip_days must be a list.")
+            raise TimetableError("skip_days must be a list.")
         skips = []
         for item in raw[:MAX_SKIP_DAYS]:
             skip = parse_skip_day(item)
             if skip is None:
-                return _fail("Each no-school day needs a date (YYYY-MM-DD), and ranges must be under 4 months.")
+                raise TimetableError("Each no-school day needs a date (YYYY-MM-DD), and ranges must be under 4 months.")
             skips.append({"start": skip.start.isoformat(), "end": skip.end.isoformat(), "label": skip.label})
         row.skip_days_json = json.dumps(sorted(skips, key=lambda s: s["start"]))
     if "bell" in data:
         raw = data.get("bell")
         if not isinstance(raw, dict):
-            return _fail("bell must map a period to [start, end].")
+            raise TimetableError("bell must map a period to [start, end].")
         bell = {}
         for period, span in list(raw.items())[:20]:
             if not isinstance(span, (list, tuple)) or len(span) < 2:
-                return _fail(f"Period {period}: give a start and an end time.")
+                raise TimetableError(f"Period {period}: give a start and an end time.")
             start, end = parse_clock(span[0]), parse_clock(span[1])
             if start is None or end is None or end <= start:
-                return _fail(f"Period {period}: the times don't make sense.")
+                raise TimetableError(f"Period {period}: the times don't make sense.")
             bell[str(period).strip()[:32]] = [fmt_clock(start), fmt_clock(end)]
         row.bell_json = json.dumps(bell)
 
     rotation = row.rotation()
     if "today_is" in data:
         if not rotation.rotates:
-            return _fail("Choose a rotation first.")
+            raise TimetableError("Choose a rotation first.")
         today = _parse_date(data.get("date")) or date.today()
         n = parse_int_list([data.get("today_is")], hi=rotation.length)
         if not n:
-            return _fail("That isn't a day in this rotation.")
+            raise TimetableError("That isn't a day in this rotation.")
         if rotation.kind != "week" and not is_school_day(today, rotation):
-            return _fail("There's no school that day — pick a school day to set the rotation from.")
+            raise TimetableError("There's no school that day — pick a school day to set the rotation from.")
         anchored = anchor_for_today(today, n[0], rotation)
         row.anchor_date, row.anchor_day = anchored.anchor_date, anchored.anchor_day
     elif "anchor_date" in data:
@@ -367,72 +360,19 @@ def timetable_settings():
         if "anchor_day" in data:
             n = parse_int_list([data.get("anchor_day")], hi=rotation.length)
             row.anchor_day = n[0] if n else 1
-    try:
-        App.db.session.commit()
-    except Exception as exc:
-        App.db.session.rollback()
-        logger.warning("timetable settings failed: %s", exc)
-        return _fail("Could not save your timetable settings.", 500)
-    _after_change(uid)
-    return jsonify(_state(uid, _parse_date(data.get("date"))))
+    return {key: getattr(row, key) for key in SETTINGS_FIELDS}
 
 
 # ── Import ───────────────────────────────────────────────────────────
 
 
-def _upsert(uid, rows, source):
-    """Insert or update classes from one source. Returns the count, or None.
-
-    A re-import replaces what that source said last time — a class dropped
-    at semester is gone from the timetable too — and never touches classes
-    the student added by hand or brought in from another source.
-    """
-    App = _app()
-    Model = App.ClassMeeting
-    existing = Model.query.filter_by(user_id=uid).all()
-
-    def key(course, period):
-        return (str(course or "").strip().lower(), str(period or "").strip().lower())
-
-    by_external = {(r.source, r.external_id): r for r in existing if r.external_id}
-    by_key = {key(r.course, r.period): r for r in existing}
-    kept_ids = set()
-    count = 0
-    for fields in rows:
-        external_id = str(fields.pop("external_id", "") or "")[:64]
-        row = (by_external.get((source, external_id)) if external_id else None) or by_key.get(
-            key(fields.get("course"), fields.get("period"))
-        )
-        if row is not None and row.source not in (source, "manual"):
-            row = None  # same name from another source: keep both, the student can tidy
-        if row is None:
-            if len(existing) + count >= MAX_CLASSES:
-                break
-            row = Model(user_id=uid, source=source, external_id=external_id, **fields)
-            App.db.session.add(row)
-            count += 1
-        else:
-            fill_only = row.source == "manual" and source != "manual"
-            for name, value in fields.items():
-                # An import fills gaps in a hand-made row; it never
-                # overwrites something the student typed.
-                if fill_only and getattr(row, name):
-                    continue
-                setattr(row, name, value)
-            if row.source == source and external_id:
-                row.external_id = external_id
-        kept_ids.add(id(row))
-    if source in ("studentvue", "schoology"):
-        for r in existing:
-            if r.source == source and id(r) not in kept_ids:
-                App.db.session.delete(r)
+def _upsert(uid, rows, source, result=None):
     try:
-        App.db.session.commit()
+        transform = (lambda row: _import_settings(row, result, source)) if result is not None else None
+        return timetable_repository().import_classes(uid, rows, source, transform)
     except Exception as exc:
-        App.db.session.rollback()
-        logger.warning("timetable upsert failed: %s", exc)
+        logger.warning("timetable upsert failed: %s", type(exc).__name__)
         return None
-    return len(kept_ids)
 
 
 def _rows_for_upsert(classes, max_rotation):
@@ -450,8 +390,7 @@ def _rows_for_upsert(classes, max_rotation):
     return out
 
 
-def _apply_import_settings(uid, result, source):
-    row = _settings_row(uid, create=True)
+def _import_settings(row, result, source):
     hint = result.get("rotation_hint")
     if hint and (row.rotation_kind or "none") == "none" and hint.get("kind") in ROTATION_KINDS:
         row.rotation_kind = hint["kind"]
@@ -464,7 +403,9 @@ def _apply_import_settings(uid, result, source):
         bell.setdefault(str(period), list(span))
     row.bell_json = json.dumps(bell)
     row.last_import_source = source
-    row.last_import_at = datetime.utcnow()
+    from time_utils import utcnow
+    row.last_import_at = utcnow()
+    return {key: getattr(row, key) for key in SETTINGS_FIELDS}
 
 
 def _linked_account(kind):
@@ -502,7 +443,6 @@ def timetable_import_route():
     uid, err = _guard()
     if err:
         return err
-    App = _app()
     body = request.get_json(silent=True) or {}
     wanted = str(body.get("source") or "auto").lower()
     if wanted not in ("auto", "studentvue", "schoology"):
@@ -527,15 +467,9 @@ def timetable_import_route():
                             "message": "Your school didn't share a class schedule. Add your classes by hand below."})
         hint = result.get("rotation_hint") or {}
         max_rotation = int(hint.get("length") or MAX_CYCLE_LENGTH)
-        saved = _upsert(uid, _rows_for_upsert(classes, max_rotation), kind)
+        saved = _upsert(uid, _rows_for_upsert(classes, max_rotation), kind, result)
         if saved is None:
             return _fail("Could not save your classes. Please try again.", 500)
-        _apply_import_settings(uid, result, kind)
-        try:
-            App.db.session.commit()
-        except Exception as exc:
-            App.db.session.rollback()
-            logger.warning("timetable import settings failed: %s", exc)
         _after_change(uid)
         untimed = sum(1 for c in classes if not c.get("start"))
         needs_days = sum(1 for c in classes if c.get("needs_days"))
