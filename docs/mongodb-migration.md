@@ -650,3 +650,29 @@ yet run; the expanded Atlas erasure timeout from the previous record remains ope
 The timeline active-plan query/move persistence and full native App bootstrap are
 still unported; this is not whole-app production readiness. No source database or
 Railway changes occurred.
+
+## Native timeline saved-plan boundary (2026-10-19)
+
+Today timeline active-plan reads and block move commits now use explicit SQL/native
+repositories. Detached snapshots bind exact source schedule/progress fields; writes
+lock/touch the owner and reject foreign, changed, inactive or deleted-account plans.
+The API returns 409 for a plan changed after validation. Partial updates preserve
+unknown source columns and codec metadata; exact JSON retains precise unknown numbers.
+
+Validation: all 37 native/legacy timeline cases passed in the final run; scoped
+Ruff, diff checks and independent read-only review passed. Real local MongoDB passed
+all 42 runtime checks, including eight concurrent updates accepting exactly one
+original proof and refusing changed progress, inactive plan or foreign owner.
+Evidence: `mongodb-runtime-local-timeline-20261019.json`.
+
+A new focused Atlas timetable run was attempted with the exact dedicated-test-DB
+guard and unique synthetic owner; it failed with `ServerSelectionTimeoutError`
+before producing a pass. No Atlas acceptance is claimed for this batch.
+The previously documented expanded Atlas erasure timeout also remains unresolved.
+`--scope timetable` is available to run just ping, timetable transactions/rollback
+and timeline conditional writes; its report explicitly sets `full_runtime_suite:false`.
+
+General plan creation/activation and other schedule consumers remain unported.
+Timeline class/calendar availability is checked before the conditional plan save;
+the save does not assert a new timetable-revision proof. Full native App startup
+and production cutover remain incomplete. No source or Railway changes occurred.

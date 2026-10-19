@@ -245,6 +245,33 @@ def verify_timetable(store, user_id):
     timetable.import_classes(user_id, incoming, 'manual')
 
 
+def verify_schedule_plan_updates(store, user_id):
+    from intelliplan.persistence.mongo_schedule_plans import MongoPlans
+    repository = MongoPlans(store)
+    repository.ensure_indexes()
+    identity = store.next_id('saved_schedules')
+    store.database.saved_schedules.insert_one(pack_document({'id': identity, 'user_id': user_id,
+        'is_active': True, 'created_at': datetime.now(timezone.utc).isoformat(),
+        'schedule_data': '{"retained":' + json.dumps('x' * 20000) + '}', 'progress_json': '{}',
+        'future_column': 'retain'}))
+    original = repository.active(user_id)
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        results = list(executor.map(lambda index: repository.replace(user_id, original,
+            json.dumps({'synthetic_edit': index})), range(8)))
+    if sum(results) != 1:
+        raise AssertionError('Concurrent timeline updates accepted stale plan proof')
+    current = repository.active(user_id)
+    store.database.saved_schedules.update_one({'id': identity}, {'$set': {'progress_json': '{"changed":true}'}})
+    if repository.replace(user_id, current, '{}') or repository.replace(user_id + 1000000, current, '{}'):
+        raise AssertionError('Timeline update ignored progress or owner proof')
+    if store.database.saved_schedules.find_one({'id': identity})['future_column'] != 'retain':
+        raise AssertionError('Timeline update lost an unknown restored field')
+    current = repository.active(user_id)
+    store.database.saved_schedules.update_one({'id': identity}, {'$set': {'is_active': False}})
+    if repository.replace(user_id, current, '{}'):
+        raise AssertionError('Timeline update changed an inactive plan')
+
+
 def verify_sessions(store, run_id, user_id, epoch):
     cookie_name = f'runtime_{run_id}'
 
@@ -1034,6 +1061,8 @@ def verify(store, *, progress=False):
     mark('concurrent_mastery_updates')
     verify_timetable(store, user.id)
     mark('atomic_timetable_classes_settings_and_rollback')
+    verify_schedule_plan_updates(store, user.id)
+    mark('atomic_timeline_plan_updates')
     verify_sessions(store, run_id, user.id, 1)
     mark('native_session_lifecycle')
     verify_erasure(store, run_id, user, tutor)
@@ -1045,10 +1074,33 @@ def verify(store, *, progress=False):
     return {'run_id': run_id, 'checks': checks, 'application_ready': False}
 
 
+def verify_timetable_runtime(store):
+    """Focused timetable acceptance; never reported as the complete runtime suite."""
+    if store.database.name != 'intelliplan_runtime_test':
+        raise ValueError('Only the dedicated intelliplan_runtime_test database is allowed')
+    if not store.ping():
+        raise RuntimeError('MongoDB ping failed')
+    run_id = uuid.uuid4().hex
+    accounts = MongoAccounts(store)
+    accounts.ensure_indexes()
+    user = accounts.create(email=f'timetable-{run_id}@example.invalid',
+        name='Synthetic timetable check', password_hash='synthetic-unusable-hash')
+    verify_timetable(store, user.id)
+    verify_schedule_plan_updates(store, user.id)
+    checks = {'driver_ping': True, 'atomic_timetable_classes_settings_and_rollback': True,
+        'atomic_timeline_plan_updates': True}
+    result = {'run_id': run_id, 'scope': 'timetable', 'checks': checks, 'application_ready': False,
+        'full_runtime_suite': False, 'synthetic_only': True}
+    store.database['_runtime_checks'].insert_one(dict(result))
+    return result
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--env-file', required=True, type=Path)
     parser.add_argument('--progress', action='store_true', help='Print credential-free check completion markers')
+    parser.add_argument('--scope', choices=('full', 'timetable'), default='full',
+        help='Select the full runtime suite or focused synthetic timetable acceptance')
     args = parser.parse_args()
     values = dotenv_values(args.env_file)
     uri = values.get('MONGODB_URI')
@@ -1060,7 +1112,7 @@ def main():
     store = None
     try:
         store = MongoStore(uri, database)
-        result = verify(store, progress=args.progress)
+        result = verify(store, progress=args.progress) if args.scope == 'full' else verify_timetable_runtime(store)
     except Exception as exc:
         # Driver exceptions can include server/connection details. Return a
         # classification only so test logs cannot disclose connection secrets.

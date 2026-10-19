@@ -35,6 +35,8 @@ from datetime import date, datetime
 
 from flask import Blueprint, current_app, jsonify, request
 from intelliplan.persistence.timetable import TimetableError, timetable_repository, SETTINGS_FIELDS
+from intelliplan.persistence.schedule_plans import plans
+from intelliplan.persistence.json_values import loads_exact, dumps_exact
 from flask_login import current_user
 
 from intelliplan.domain.timetable import (
@@ -537,20 +539,15 @@ def timetable_photo():
 
 
 def _active_plan(uid):
-    App = _app()
-    row = (
-        App.SavedSchedule.query.filter_by(user_id=uid, is_active=True)
-        .order_by(App.SavedSchedule.created_at.desc())
-        .first()
-    )
+    row = plans().active(uid)
     if row is None:
         return None, None, {}
     try:
-        data = json.loads(row.schedule_data) if row.schedule_data else None
+        data = loads_exact(row.schedule_data) if row.schedule_data else None
     except (TypeError, ValueError):
         data = None
     try:
-        progress = json.loads(row.progress_json) if row.progress_json else {}
+        progress = loads_exact(row.progress_json) if row.progress_json else {}
     except (TypeError, ValueError):
         progress = {}
     return row, data if isinstance(data, dict) else None, progress if isinstance(progress, dict) else {}
@@ -612,7 +609,6 @@ def today_timeline_move():
     uid, err = _guard()
     if err:
         return err
-    App = _app()
     body = request.get_json(silent=True)
     if not isinstance(body, dict):
         return _fail("Send a JSON object.")
@@ -646,12 +642,11 @@ def today_timeline_move():
         return jsonify({**result, "status": "error", "message": check.summary, "saved": False}), 409
 
     timeline_service.apply_move(data, day, block_id, check)
-    row.schedule_data = json.dumps(data)
     try:
-        App.db.session.commit()
+        if not plans().replace(uid, row, dumps_exact(data)):
+            return _fail("Your plan changed while moving that block. Refresh and try again.", 409)
     except Exception as exc:
-        App.db.session.rollback()
-        logger.warning("timeline move save failed: %s", exc)
+        logger.warning("timeline move save failed: %s", type(exc).__name__)
         return _fail("Couldn't save that move. Your plan is unchanged.", 500)
     _after_change(uid)
     return jsonify({**result, "saved": True, "timeline": _timeline_payload(uid, day, _client_now(day))})
