@@ -721,6 +721,29 @@ def verify(store):
         if providers.mark(replacement, ok=True) or providers.list(user.id):
             raise AssertionError('Provider status recreated an unlinked credential')
         checks['atomic_provider_key_lifecycle'] = True
+
+        from intelliplan.persistence.mongo_outlook import MongoOutlook
+        microsoft = MongoOutlook(store)
+        microsoft.ensure_indexes()
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            list(executor.map(lambda index: microsoft.connect(user.id,
+                token_data=json.dumps({'access_token': f'synthetic-{index}', 'refresh_token': 'synthetic-refresh'}),
+                account_email='synthetic-school@example.invalid', account_name='Synthetic'), range(8)))
+        if store.database.outlook_integrations.count_documents({'user_id': user.id}) != 1:
+            raise AssertionError('Concurrent Outlook connection duplicated a grant')
+        expected_grant = microsoft.get(user.id)
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            refresh_results = list(executor.map(lambda index: microsoft.refresh(user.id, expected_grant,
+                json.dumps({'access_token': f'synthetic-refreshed-{index}'})), range(8)))
+        if sum(refresh_results) != 1:
+            raise AssertionError('Concurrent Outlook refresh accepted stale grant proof')
+        if not secret_box.is_encrypted(store.database.outlook_integrations.find_one({'user_id': user.id})['token_data']):
+            raise AssertionError('Outlook credential was not encrypted')
+        fresh_grant = microsoft.get(user.id)
+        microsoft.disconnect(user.id)
+        if microsoft.refresh(user.id, fresh_grant, '{}') or microsoft.get(user.id) is not None:
+            raise AssertionError('Outlook refresh resurrected a disconnected grant')
+        checks['atomic_outlook_calendar_grants'] = True
     finally:
         if original_encryption is None:
             os.environ.pop('DATA_ENCRYPTION_KEY', None)

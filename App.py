@@ -838,6 +838,7 @@ class UserIdentity(db.Model):
 
 from intelliplan.persistence.linked_accounts import linked_accounts as linked_accounts_repository
 from intelliplan.persistence.canvas import canvas_integrations
+from intelliplan.persistence.outlook import outlook_accounts
 
 
 class LinkedAccount(db.Model):
@@ -7079,7 +7080,7 @@ def api_integrations_status():
         )
         for key, model, detail_field in rows:
             try:
-                row = model.query.filter_by(user_id=uid).first()
+                row = outlook_accounts().get(uid) if key == 'outlook_calendar' else model.query.filter_by(user_id=uid).first()
             except Exception:
                 # A table a migration has not reached yet must not take the
                 # whole list down -- the other nine are still useful.
@@ -9272,7 +9273,7 @@ def get_outlook_token(user_id=None):
         return None
     if explicit_owner and not _calendar_policy_allowed(uid):
         return None
-    row = OutlookIntegration.query.filter_by(user_id=uid).first()
+    row = outlook_accounts().get(uid)
     if not row:
         return None
     try:
@@ -9289,12 +9290,11 @@ def get_outlook_token(user_id=None):
             token["expires_at"] = time.time() + int(token.get("expires_in") or 3600)
             if explicit_owner and not _calendar_policy_allowed(uid):
                 return None
-            row.token_data = json.dumps(token)
-            db.session.commit()
+            if not outlook_accounts().refresh(uid, row, json.dumps(token)):
+                return None
         except Exception as e:
             # The type only: an HTTPError's text can include the request.
             print(f"Outlook token refresh failed: {type(e).__name__}")
-            db.session.rollback()
             return None
     return token
 
@@ -9413,21 +9413,12 @@ def outlook_oauth_callback():
         token["expires_at"] = time.time() + int(token.get("expires_in") or 3600)
         account = outlook_calendar_helper.profile(token)
         email = account.get("mail") or account.get("userPrincipalName")
-        row = OutlookIntegration.query.filter_by(user_id=current_user.id).first()
-        values = {
-            "token_data": json.dumps(token),
-            "account_email": email,
-            "account_name": account.get("displayName"),
-        }
-        if row:
-            for key, value in values.items():
-                setattr(row, key, value)
-        else:
-            db.session.add(OutlookIntegration(user_id=current_user.id, **values))
-        db.session.commit()
+        outlook_accounts().connect(current_user.id, token_data=json.dumps(token),
+            account_email=email, account_name=account.get('displayName'))
         return _microsoft_back(purpose, "connected")
     except Exception as e:
-        db.session.rollback()
+        if purpose == 'onedrive' or flask.current_app.extensions.get('mongo_store') is None:
+            db.session.rollback()
         print(f"Microsoft OAuth callback ({purpose}) failed: {type(e).__name__}")
         return _microsoft_back(purpose, "error")
 
@@ -9435,8 +9426,7 @@ def outlook_oauth_callback():
 @app.route("/oauth/outlook/disconnect", methods=["POST"])
 def outlook_disconnect():
     if current_user.is_authenticated:
-        OutlookIntegration.query.filter_by(user_id=current_user.id).delete()
-        db.session.commit()
+        outlook_accounts().disconnect(current_user.id)
     return flask.jsonify({"status": "ok"})
 
 
@@ -9451,7 +9441,7 @@ def onedrive_disconnect():
 
 @app.route("/calendar/connections")
 def calendar_connections():
-    outlook = OutlookIntegration.query.filter_by(user_id=current_user.id).first() if current_user.is_authenticated else None
+    outlook = outlook_accounts().get(current_user.id) if current_user.is_authenticated else None
     return flask.jsonify({
         "google": bool(get_google_token()) if GCAL_AVAILABLE else False,
         "outlook": bool(outlook),
@@ -11668,8 +11658,11 @@ def api_save_assignment_due_date():
 
 def _calendar_policy_allowed(user_id=None):
     """Calendar helpers run under scheduler and agent routes as well as OAuth."""
-    user = (User.query.populate_existing().filter_by(id=user_id).first()
-            if user_id is not None else current_user)
+    if user_id is not None and flask.current_app.extensions.get('mongo_store') is not None:
+        user = account_repository().get(user_id)
+    else:
+        user = (User.query.populate_existing().filter_by(id=user_id).first()
+                if user_id is not None else current_user)
     if user is None or not user.is_authenticated:
         return False
     try:
@@ -11770,7 +11763,7 @@ def _calendar_busy_by_date(horizon_days=14, start=None, *, user_id=None, require
     try:
         outlook_token = ((get_outlook_token(user_id=uid) if explicit_owner else get_outlook_token())
                          if allowed() else None)
-        if require_complete and not outlook_token and allowed() and OutlookIntegration.query.filter_by(user_id=uid).first():
+        if require_complete and not outlook_token and allowed() and outlook_accounts().get(uid):
             failed.append('outlook')
         if outlook_token and allowed():
             for day, intervals in outlook_calendar_helper.busy_minutes_by_date(
