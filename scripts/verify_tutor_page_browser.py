@@ -35,6 +35,7 @@ with App.app.test_client() as client:
     assert response.status_code == 200
     rendered = response.get_data(as_text=True)
     tools_rendered = client.get('/tools').get_data(as_text=True)
+    hub_rendered = client.get('/study-tools').get_data(as_text=True)
     with App.app.app_context():
         models = App.learning_models
         school = models['Organization'](name='Fixture school', kind='school',
@@ -84,6 +85,8 @@ with sync_playwright() as p:
                 return handler.abort()
             if parsed.path in ('/tutor', '/study-and-learn'):
                 return handler.fulfill(status=200, content_type='text/html', body=rendered)
+            if parsed.path == '/study-tools':
+                return handler.fulfill(status=200, content_type='text/html', body=hub_rendered)
             if parsed.path == '/tools':
                 return handler.fulfill(status=200, content_type='text/html',
                                        body=restricted_rendered if parsed.query == 'restricted=1' else tools_rendered)
@@ -126,9 +129,9 @@ with sync_playwright() as p:
         page.wait_for_function("document.querySelectorAll('.tutor-modality-btn').length === 5")
         assert page.locator('#tutorInput').is_visible()
         assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
-        page.locator('.plani-study-actions summary').click()
+        page.locator('.tutor-practice-drawer summary').click()
         assert page.locator('#educationPlanOpen').is_visible()
-        page.locator('.plani-study-actions summary').click()
+        page.locator('.tutor-practice-drawer summary').click()
         # Start at the beginning of an overflowing welcome, including the mascot.
         assert page.locator('#tutorPlaniWrap').bounding_box()['y'] >= page.locator('.tutor-empty').bounding_box()['y'] - 1
         page.screenshot(path=str(OUT / f'plani-welcome-{width}-{theme}.png'), full_page=True)
@@ -181,7 +184,20 @@ with sync_playwright() as p:
         assert page.get_by_role('button', name='Saved learning conversation', exact=True).is_visible()
         if width <= 768:
             page.get_by_role('button', name='Close chat history', exact=True).click()
-        page.get_by_role('link', name='Explore study tools', exact=False).click()
+        page.get_by_role('link', name='All study tools', exact=False).click()
+        page.locator('#hubToolSearch').fill('flashcards')
+        assert page.locator('#hubGrid .hub-card:visible').count() == 2
+        assert page.locator('#hubGrid .hub-card:visible').evaluate_all("cards => cards.every(card => card.textContent.toLowerCase().includes('flashcards'))")
+        hub_flashcards = page.get_by_role('link', name='Flashcards', exact=True)
+        assert hub_flashcards.is_visible() and hub_flashcards.get_attribute('href') == '/flashcards'
+        page.locator('#hubToolSearch').fill('no matching tool xyz')
+        assert page.locator('#hubEmpty').is_visible()
+        page.locator('#hubToolSearch').fill('')
+        page.get_by_role('button', name='Practice', exact=True).click()
+        assert page.locator('#hubGrid .hub-card:visible').count() > 0
+        assert page.locator('#hubGrid .hub-card:visible').evaluate_all("cards => cards.every(card => card.dataset.cat === 'practice')")
+        assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+        page.goto('https://tutor.test/tools', wait_until='networkidle')
         page.locator('#studyToolSearch').fill('flashcards')
         assert page.locator('.study-tool:visible').count() == 1
         assert page.get_by_role('link', name='Flashcards', exact=True).count() >= 1

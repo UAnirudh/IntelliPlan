@@ -17,7 +17,7 @@ function harness(fetch, confirm = async () => true) {
     IP: { confirm }, console, conversationId: 7, conversationList: [{ id: 7, title: 'Saved chat' }],
     tutorHistory: [{ role: 'user', content: 'My saved question' }], isProcessing: false,
     conversationLoadVersion: 0, requestedConversationId: null, deletingConversation: false,
-    summarizeConversation() {}, stopSpeaking() {}, clearTutorAssignment() {}, closeTutorDrawer() {},
+    summarizeConversation() {}, stopSpeaking() {}, cancelVoiceInput() {}, clearTutorAssignment() {}, closeTutorDrawer() {},
     showChat() {}, resetToEmpty() {}, scrollBottom() {},
     visibleTutorText: text => text,
     addTutorMsg: (role, text) => rendered.push([role, text]),

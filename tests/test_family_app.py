@@ -1,6 +1,6 @@
 """Family sharing is consented, account-scoped, and backed by real records."""
 
-from datetime import date, datetime
+from datetime import date
 
 import pytest
 from flask import Flask
@@ -53,6 +53,7 @@ def family_app():
         due_date = db.Column(db.String(32))
         estimated_time = db.Column(db.Integer)
         done = db.Column(db.Boolean)
+        import_source = db.Column(db.String(64))
 
     class Dismissed(db.Model):
         __tablename__ = 'dismissed_assignments'

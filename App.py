@@ -224,6 +224,18 @@ def _is_family_auth_request():
     return _is_parent_app_request() or request.values.get("next") == "/parent"
 
 
+def _is_teacher_auth_request():
+    return not _is_parent_app_request() and request.values.get("next") == "/teacher"
+
+
+def _is_adult_auth_request():
+    return _is_family_auth_request() or _is_teacher_auth_request()
+
+
+def _adult_home_url():
+    return "/teacher" if _is_teacher_auth_request() else _family_home_url()
+
+
 def _family_home_url():
     return "/" if _is_parent_app_request() else "/parent"
 
@@ -233,7 +245,10 @@ def _family_template_context():
     if not has_request_context():
         return {}
     return {"family_home_url": _family_home_url(),
-            "family_auth_next": "/parent" if not _is_parent_app_request() else ""}
+            "family_auth_next": "/parent" if not _is_parent_app_request() else "",
+            "teacher_auth": _is_teacher_auth_request(),
+            "adult_auth_next": "/teacher" if _is_teacher_auth_request() else
+                ("/parent" if not _is_parent_app_request() else "")}
 
 LEGACY_ALLOWED_ORIGINS = [
     origin.strip().rstrip("/")
@@ -346,6 +361,10 @@ def _stamp_auth_time(sender, user):
     # a first password on a Google-only account — can require this to be
     # recent instead of trusting the cookie forever.
     session["auth_time"] = time.time()
+    # Bind every real sign-in to the current password generation. Remember
+    # cookies only carry an account ID, so restoring one must not mint a
+    # fresh generation after a password reset.
+    session["session_epoch"] = int(getattr(user, "session_epoch", 0) or 0)
 
 # ── FIX: Point flask-session at the SQLAlchemy db so sessions are durable.
 app.config["SESSION_SQLALCHEMY"] = db
@@ -2919,6 +2938,10 @@ ClassMeeting, TimetableSettings = _timetable_models.register(db)
 # deployment schema lifecycle. Existing learning records are preserved.
 from intelliplan.learning.models import register as _register_learning_models
 learning_models = _register_learning_models(db)
+from intelliplan.admin_access import register_model as _register_admin_grant_model
+with app.app_context():
+    app.extensions['account_admin_grant_model'] = _register_admin_grant_model(db)
+
 
 # Every gunicorn worker runs this at once; the lock makes them take turns so
 # two never race to CREATE the same new table (a loser kills gunicorn).
@@ -5644,6 +5667,12 @@ def study_and_learn_hub():
                            assessment_protection=policy.effective(current_user)['assessment_protection'])
 
 
+@app.route("/study-tools")
+def study_tools_catalog():
+    """Every existing tool has a real, keyboard-accessible entry point."""
+    return render_template("study_hub.html", active_page="study_hub")
+
+
 @app.route("/api/study-hub/recommend", methods=["POST"])
 def study_hub_recommend():
     """Lightweight intent-router for the Study & Learn hub chat bar.
@@ -7190,16 +7219,16 @@ def api_desktop_latest():
 def login():
     if request.method == "POST":
         return redirect(url_for("login_account"), 307)
-    if _is_family_auth_request():
-        return redirect(url_for("login_account", next="/parent") if not _is_parent_app_request() else url_for("login_account"))
+    if _is_adult_auth_request():
+        return redirect(url_for("login_account", next=_adult_home_url()) if not _is_parent_app_request() else url_for("login_account"))
     if is_logged_in():
-        return redirect(_family_home_url() if _is_family_auth_request() else "/command-center")
+        return redirect(_adult_home_url() if _is_adult_auth_request() else "/command-center")
     return render_template("login.html", active_page="login")
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if current_user.is_authenticated:
-        return redirect(_family_home_url() if _is_family_auth_request() else "/command-center")
+        return redirect(_adult_home_url() if _is_adult_auth_request() else "/command-center")
     error = None
     if request.method == "POST":
         email = request.form.get("email", "").strip().lower()
@@ -7266,8 +7295,8 @@ def register():
                          "We'll send them a one-time consent link before activating your account.")
             elif parent_email_raw == email:
                 error = "Your parent or guardian's email must be different from your own."
-        if not error and _is_family_auth_request() and age is not None and age < 18:
-            error = "The Family app is for adults. Please use the student app."
+        if not error and _is_adult_auth_request() and age is not None and age < 18:
+            error = "Parent and teacher accounts are for adults. Please use the student app."
 
         if not error:
             try:
@@ -7294,7 +7323,7 @@ def register():
                     marketing_optin = False
                 user = User(
                     email=email, password_hash=pw_hash,
-                    role="parent" if _is_family_auth_request() else "student",
+                    role=("teacher" if _is_teacher_auth_request() else "parent") if _is_adult_auth_request() else "student",
                     phone=phone_norm, sms_reminders_opt_in=sms_optin,
                     birth_year=birth_year_val,
                     parent_email=parent_email_raw if under_13 else None,
@@ -7357,13 +7386,13 @@ def register():
                             carrier=(user.sms_carrier or "tmobile"),
                         )  # return value intentionally ignored here
                     except Exception: pass
-                return redirect(_family_home_url() if _is_family_auth_request() else "/onboarding")
+                return redirect(_adult_home_url() if _is_adult_auth_request() else "/onboarding")
             except Exception as _e:
                 print(f"[register] user create failed: {_e}")
                 try: db.session.rollback()
                 except Exception: pass
                 error = "Could not create that account right now — please try again."
-    if _is_family_auth_request():
+    if _is_adult_auth_request():
         return render_template("parent_auth.html", mode="register", error=error)
     return render_template("register.html", active_page="login", error=error)
 
@@ -8140,7 +8169,7 @@ def desktop_auth_exchange():
 @limiter.limit("10 per minute;60 per hour", methods=["POST"])
 def login_account():
     if current_user.is_authenticated:
-        return redirect(_family_home_url() if _is_family_auth_request() else "/command-center")
+        return redirect(_adult_home_url() if _is_adult_auth_request() else "/command-center")
     error = None
     if request.method == "POST":
         email = request.form.get("email", "").strip().lower()
@@ -8171,7 +8200,7 @@ def login_account():
             if failures >= RECAPTCHA_LOGIN_AFTER_FAILURES:
                 error = check_recaptcha("login")
                 if error:
-                    if _is_family_auth_request():
+                    if _is_adult_auth_request():
                         return render_template("parent_auth.html", mode="login", error=error,
                                                recaptcha_required=True)
                     return render_template("login_account.html", active_page="login",
@@ -8187,7 +8216,7 @@ def login_account():
                 error = (f"Too many failed sign-ins. Try again in {locked_for} "
                          f"minute{'s' if locked_for != 1 else ''}, or reset your "
                          "password if you are not sure of it.")
-                if _is_family_auth_request():
+                if _is_adult_auth_request():
                     return render_template("parent_auth.html", mode="login", error=error)
                 return render_template("login_account.html", active_page="login", error=error)
 
@@ -8198,7 +8227,7 @@ def login_account():
                     error = ("This account is waiting for parental consent. We emailed "
                              f"{user.parent_email} a consent link — once they click it, "
                              "you'll be able to sign in.")
-                    if _is_family_auth_request():
+                    if _is_adult_auth_request():
                         return render_template("parent_auth.html", mode="login", error=error)
                     return render_template("login_account.html", active_page="login", error=error)
                 clear_failed_logins(user)
@@ -8208,8 +8237,8 @@ def login_account():
                 _rotate_session_on_login()
                 login_user(user, remember=True)
                 log_security_event("login_success", user=user)
-                if _is_family_auth_request():
-                    return redirect(_family_home_url())
+                if _is_adult_auth_request():
+                    return redirect(_adult_home_url())
                 # Auto-join any group whose invite link was clicked pre-login.
                 joined_gid = _apply_pending_group_join()
                 if joined_gid:
@@ -8230,7 +8259,7 @@ def login_account():
     # Show the widget from the first failure, though it is not enforced until
     # the third. If it only appeared once enforcement began, that attempt
     # would be refused for a missing token the form never offered.
-    if _is_family_auth_request():
+    if _is_adult_auth_request():
         return render_template("parent_auth.html", mode="login", error=error,
                                recaptcha_required=bool(error))
     return render_template("login_account.html", active_page="login",
@@ -10371,6 +10400,15 @@ def _account_delete_impl():
     # `tests/test_account_deletion.py` walks the model registry and fails if
     # a table with such a foreign key is not named here.
     deletion_plan: list[tuple[str, str]] = [
+        # Remove privileges owned by this identity explicitly, including on
+        # SQLite installations without FK enforcement. A later reused user ID
+        # must never inherit an orphaned administrator grant.
+        ("account_admin_grants (recipient)", "DELETE FROM account_admin_grants WHERE user_id = :uid"),
+        # Preserve other accounts' grants and administrative events, clearing
+        # each deleted identity reference independently in this transaction.
+        ("account_admin_grants (issuer)", "UPDATE account_admin_grants SET granted_by_id = NULL WHERE granted_by_id = :uid"),
+        ("account_admin_access_audit (actor)", "UPDATE account_admin_access_audit SET actor_id = NULL WHERE actor_id = :uid"),
+        ("account_admin_access_audit (target)", "UPDATE account_admin_access_audit SET target_id = NULL WHERE target_id = :uid"),
         ("learning_beta_enrollments", "DELETE FROM learning_beta_enrollments WHERE user_id = :uid"),
         ("learning_beta_feedback", "DELETE FROM learning_beta_feedback WHERE user_id = :uid"),
         ("learning_monthly_budgets", "DELETE FROM learning_monthly_budgets WHERE user_id = :uid"),
@@ -18351,10 +18389,18 @@ ADMIN_EMAILS = {
 ADMIN_PATH = os.getenv("ADMIN_PATH", "/admin-x9k2p7")  # not linked anywhere
 
 
+def is_owner(user):
+    return bool(user and getattr(user, "is_authenticated", False)
+                and (user.email or "").lower() in ADMIN_EMAILS)
+
+
+app.extensions['admin_owner_checker'] = is_owner
+
+
 def is_admin(user):
     try:
-        return bool(user and getattr(user, "is_authenticated", False)
-                    and (user.email or "").lower() in ADMIN_EMAILS)
+        from intelliplan.admin_access import has_grant
+        return is_owner(user) or has_grant(user)
     except Exception:
         return False
 
@@ -22094,6 +22140,8 @@ from intelliplan.api.manual_schedule import bp as manual_schedule_bp
 app.register_blueprint(grade_prediction_bp)
 app.register_blueprint(lms_sync_bp)
 app.register_blueprint(roles_bp)
+from intelliplan.admin_access import bp as admin_access_bp
+app.register_blueprint(admin_access_bp)
 app.register_blueprint(group_tasks_bp)
 app.register_blueprint(group_voice_bp)
 app.register_blueprint(manual_schedule_bp)
@@ -22655,29 +22703,34 @@ def health_check():
 
 @app.before_request
 def _check_session_stamp():
-    """Sign out sessions that predate the current password.
-
-    A password change has to end access held by whoever the user was
-    changing it away from. Without this, a session captured before the reset
-    keeps working and the reset achieves nothing.
-    """
+    """Sign out sessions that predate the current password."""
     try:
         if not current_user.is_authenticated:
             return None
-        current = int(getattr(current_user, "session_epoch", 0) or 0)
-        seen = session.get("session_epoch")
-        if seen is None:
-            # Stamp existing sessions on first sight rather than logging
-            # everyone out the moment this ships.
-            session["session_epoch"] = current
-            return None
-        if int(seen) < current:
-            logout_user()
-            session.clear()
-            return redirect(url_for("login"))
+        user_id = session.get("_user_id")
+        if user_id is None:
+            return None  # Request-loader credentials have their own revocation.
+        # Earlier request work can expire/detach Flask-Login's cached User.
+        # Read the authoritative generation without accessing that ORM object
+        # or reusing an identity-map value from before the reset.
+        row = db.session.execute(db.select(User.id, User.session_epoch).where(
+            User.id == int(user_id))).one_or_none()
+        if row is not None:
+            current = int(row[1] or 0)
+            seen = session.get("session_epoch")
+            if seen is None and current == 0:
+                # Adopt pre-feature sessions only until the first reset.
+                session["session_epoch"] = current
+                return None
+            if seen is not None and int(seen) == current:
+                return None
     except Exception as exc:
         print(f"[security] session stamp check failed: {exc}")
-    return None
+    # A failed check must not preserve access. Clear first: logout_user sets
+    # the remember-cookie deletion marker, which session.clear would erase.
+    session.clear()
+    logout_user()
+    return redirect(url_for("login"))
 
 
 @app.before_request

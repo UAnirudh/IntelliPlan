@@ -2,9 +2,12 @@
 (() => {
   const $ = id => document.getElementById(id);
   const status = message => { $('admin-status').textContent = message; };
-  let organizations = [], selected;
+  let organizations = [], selected, dirty = false, saving = false;
   const settings = {tutor:'AI tutor', study:'Study sessions', review:'Review & flashcards', focus:'Focus tools',
-    scheduler:'Scheduling', canvas:'Canvas connection', studentvue:'StudentVUE connection', calendar:'Calendar connection',
+    scheduler:'Scheduling', writing:'Writing assistant', math:'Math assistant', extractor:'Task extractor',
+    text_dissector:'Text dissector', grade_modeler:'Grade modeler', meetings:'Meetings', groups:'Study groups',
+    memories:'Memories & archives', pet:'Study pet', balance:'Balance tools', command_center:'Command Center',
+    canvas:'Canvas connection', studentvue:'StudentVUE connection', calendar:'Calendar connection',
     schoology:'Schoology connection', hac:'Home Access Center connection', google_classroom:'Google Classroom connection',
     blackboard:'Blackboard connection', moodle:'Moodle connection', notion:'Notion connection', powerschool:'PowerSchool connection',
     uploads:'File uploads', notifications:'Notifications', course_generator:'Course generator · Admin Beta',
@@ -21,21 +24,36 @@
   function checkbox(container, key, label) {
     const wrapper = document.createElement('label'); wrapper.className = 'learning-consent';
     const input = document.createElement('input'); input.type = 'checkbox'; input.id = `policy-${key}`;
-    wrapper.append(input, document.createTextNode(label)); $(container).append(wrapper);
+    const copy = document.createElement('span'); copy.className = 'policy-tool-copy';
+    const title = document.createElement('span'); title.textContent = label;
+    const hint = document.createElement('small'); hint.dataset.policyHint = '';
+    copy.append(title, hint); wrapper.append(input, copy); wrapper.dataset.policySearch = label.toLowerCase();
+    $(container).append(wrapper);
   }
   const connections = new Set(['canvas', 'studentvue', 'schoology', 'hac', 'google_classroom',
     'blackboard', 'moodle', 'notion', 'powerschool', 'calendar', 'uploads', 'notifications']);
   const experiments = new Set(['course_generator', 'generated_content', 'video_generation', 'practice_preview', 'allow_beta', 'third_party_processing']);
+  const tools = new Set(['writing', 'math', 'extractor', 'text_dissector', 'grade_modeler', 'meetings',
+    'groups', 'memories', 'pet', 'balance', 'command_center']);
   for (const [key, label] of Object.entries(settings)) {
-    checkbox(connections.has(key) ? 'admin-connections' : experiments.has(key) ? 'admin-experiments' : 'admin-features', key, label);
+    checkbox(connections.has(key) ? 'admin-connections' : experiments.has(key) ? 'admin-experiments' : tools.has(key) ? 'admin-tools' : 'admin-features', key, label);
   }
   for (const provider of ['groq', 'gemini', 'claude']) checkbox('admin-providers', provider, provider);
   async function render() {
     selected = organizations.find(o => o.id === Number($('admin-organization').value));
     if (!selected) { status('No organizations are assigned. The platform owner must provision a school or district.'); return; }
     const renderedOrganization = selected;
+    dirty = false;
+    const inherited = new Set(selected.inherited_restrictions || []);
+    $('admin-save').disabled = false;
     $('admin-scope').textContent = `${selected.kind} · policy version ${selected.version}${selected.parent_id ? ' · parent district restrictions also apply' : ''}`;
-    for (const key of Object.keys(settings)) $(`policy-${key}`).checked = selected.policy[key] ?? key !== 'assessment_protection';
+    for (const key of Object.keys(settings)) {
+      const input = $(`policy-${key}`);
+      input.checked = inherited.has(key) ? false : selected.policy[key] ?? key !== 'assessment_protection';
+      input.disabled = inherited.has(key);
+      input.closest('label').querySelector('[data-policy-hint]').textContent = inherited.has(key) ? 'Restricted by parent district' : '';
+    }
+    updateSummary();
     for (const p of ['groq','gemini','claude']) $(`policy-${p}`).checked = (selected.policy.providers || ['groq','gemini','claude']).includes(p);
     $('admin-budget').value = selected.policy.max_generation_tokens || 24000;
     $('admin-monthly-budget').value = selected.policy.monthly_generation_tokens || 100000;
@@ -58,12 +76,34 @@
     for (const row of operations.feedback) { const p = document.createElement('p'); p.textContent = `${row.feature} · ${row.category}: ${row.message}`; $('admin-operations').append(p); }
     if (!operations.budgets.length && !operations.feedback.length) $('admin-operations').textContent = 'Generation reservations and participant feedback will appear here.';
   }
-  $('admin-organization').addEventListener('change', () => render().catch(e => status(e.message)));
+  function updateSummary() {
+    const inputs = Object.keys(settings).map(key => $(`policy-${key}`));
+    const off = inputs.filter(input => !input.checked && input.id !== 'policy-assessment_protection').length;
+    $('admin-tool-summary').textContent = `${off} tool or processing setting${off === 1 ? '' : 's'} restricted${dirty ? ' · Unsaved changes' : ''}.`;
+  }
+  $('admin-policy').addEventListener('input', () => { dirty = true; updateSummary(); });
+  $('admin-tool-filter').addEventListener('input', () => {
+    const query = $('admin-tool-filter').value.trim().toLowerCase();
+    const rows = [...document.querySelectorAll('[data-policy-search]')];
+    rows.forEach(row => { row.hidden = !row.dataset.policySearch.includes(query); });
+    $('admin-filter-empty').hidden = rows.some(row => !row.hidden);
+  });
+  $('admin-organization').addEventListener('change', () => {
+    if (dirty || saving) {
+      $('admin-organization').value = selected.id;
+      status(saving ? 'Wait for the current policy to finish saving.' : 'Save your changes or reload the policy before choosing another organization.');
+      return;
+    }
+    render().then(() => status('Policy loaded.')).catch(e => status(e.message));
+  });
   $('admin-policy').addEventListener('submit', async event => {
-    event.preventDefault(); if (!selected) return; event.submitter.disabled = true;
+    event.preventDefault(); if (!selected || saving) return; event.submitter.disabled = true; saving = true;
+    $('admin-policy').inert = true;
+    $('admin-organization').disabled = true;
     const targetOrganization = selected;
     try {
-      const policy = Object.fromEntries(Object.keys(settings).map(k => [k, $(`policy-${k}`).checked]));
+      const policy = {...targetOrganization.policy};
+      for (const key of Object.keys(settings)) if (!$(`policy-${key}`).disabled) policy[key] = $(`policy-${key}`).checked;
       policy.providers = ['groq','gemini','claude'].filter(p => $(`policy-${p}`).checked);
       policy.max_generation_tokens = Number($('admin-budget').value);
       policy.monthly_generation_tokens = Number($('admin-monthly-budget').value);
@@ -71,8 +111,12 @@
       policy.assessment_windows = $('admin-assessment-windows').value.trim() ? $('admin-assessment-windows').value.trim().split('\n').map(line => { const pair = line.split(' / '); return {start: pair[0]?.trim(), end: pair[1]?.trim()}; }) : [];
       const data = await api(`/api/school-admin/organizations/${targetOrganization.id}/policy`, {method:'PUT', body:JSON.stringify({policy, version:targetOrganization.version})});
       targetOrganization.policy = policy; targetOrganization.version = data.version;
-      if (selected === targetOrganization) { await render(); status('Policy saved. New requests use the current restrictions.'); }
-    } catch (e) { status(e.message); } finally { event.submitter.disabled = false; }
+      if (selected === targetOrganization) { await loadOrganizations(); status('Policy saved. New requests use the current restrictions.'); }
+    } catch (e) { status(e.message); } finally {
+      event.submitter.disabled = false; saving = false;
+      $('admin-policy').inert = false;
+      $('admin-organization').disabled = !organizations.length;
+    }
   });
   $('admin-member').addEventListener('submit', async event => {
     event.preventDefault(); if (!selected) return; event.submitter.disabled = true;
@@ -88,9 +132,18 @@
       if (selected === target) { await render(); status('Preview approval updated. The member chooses whether to enroll.'); }
     } catch(error) { status(error.message); } finally { event.submitter.disabled = false; }
   });
-  api('/api/school-admin/organizations').then(async data => {
+  async function loadOrganizations() {
+    const data = await api('/api/school-admin/organizations');
+    const selectedId = selected?.id;
     organizations = data.organizations;
+    $('admin-organization').replaceChildren();
     for (const org of organizations) { const option = document.createElement('option'); option.value = org.id; option.textContent = org.name; $('admin-organization').append(option); }
+    $('admin-organization').disabled = !organizations.length;
+    if (organizations.some(org => org.id === selectedId)) $('admin-organization').value = selectedId;
     await render();
-  }).catch(e => status(e.message));
+  }
+  $('admin-reload').addEventListener('click', () => {
+    if (!saving) loadOrganizations().then(() => status('Latest policy loaded.')).catch(e => status(e.message));
+  });
+  loadOrganizations().catch(e => status(e.message));
 })();

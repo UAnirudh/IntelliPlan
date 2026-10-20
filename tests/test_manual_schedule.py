@@ -78,6 +78,24 @@ def test_a_non_time_is_rejected_rather_than_guessed_at(text):
     assert ms._parse_hhmm(text) is None
 
 
+@pytest.mark.parametrize('block', [
+    {'assignment': 'Late work', 'start': '23:30', 'duration_minutes': 30},
+    {'assignment': 'Late work', 'start': '23:30', 'duration_minutes': 40},
+    {'assignment': 'Late work', 'start': '23:55', 'duration_minutes': 5},
+])
+def test_derived_midnight_end_cannot_be_saved_as_an_invalid_clock_time(block):
+    blocks, errors = ms.normalize_blocks([block])
+    assert not blocks and errors
+    assert errors[0]['field'] == 'end' and 'midnight' in errors[0]['message']
+
+
+def test_late_block_before_midnight_survives_preset_round_trip():
+    blocks, errors = ms.normalize_blocks([{'assignment': 'Late work', 'start': '23:30', 'duration_minutes': 25}])
+    assert not errors and blocks[0]['end'] == '23:55'
+    restored, errors = ms.normalize_blocks(blocks)
+    assert not errors and restored == blocks
+
+
 # ── what the builder refuses ──────────────────────────────────────
 
 
@@ -315,6 +333,47 @@ def test_presets_are_capped(client):
     r = client.post("/api/scheduler/manual/presets",
                     json={"name": "One more", "blocks": EVENING})
     assert r.status_code == 409
+
+
+def test_preset_usage_and_plan_activation_roll_back_together(client, monkeypatch):
+    uid = make_user()
+    login(client, uid)
+    preset = client.post('/api/scheduler/manual/presets', json={'name': 'Evening', 'blocks': EVENING}).get_json()['preset']
+    previous = client.post('/api/scheduler/manual/build', json={'save': True, 'days': [
+        {'date': '2026-08-04', 'blocks': EVENING}]}).get_json()['saved_id']
+
+    def failed_commit():
+        db.session.flush()
+        raise RuntimeError('Synthetic failure after plan insertion')
+
+    monkeypatch.setattr(db.session, 'commit', failed_commit)
+    with pytest.raises(RuntimeError, match='after plan insertion'):
+        client.post('/api/scheduler/manual/build', json={'save': True, 'preset_id': preset['id'],
+                                                       'days': [{'date': '2026-08-05'}]})
+    with App.app.app_context():
+        assert db.session.get(ManualPlanPreset, preset['id']).times_used == 0
+        assert SavedSchedule.query.filter_by(user_id=uid).count() == 1
+        assert SavedSchedule.query.filter_by(user_id=uid, is_active=True).one().id == previous
+    monkeypatch.undo()
+
+
+@pytest.mark.parametrize('path', ['/api/scheduler/manual/build', '/api/scheduler/manual/presets'])
+def test_manual_endpoints_reject_non_object_json(client, path):
+    assert client.post(path, json=['invalid']).status_code == 400
+
+
+def test_guest_session_does_not_own_a_signed_in_accounts_preset(client):
+    uid = make_user()
+    with client.session_transaction() as session:
+        session['guest_id'] = 'shared-session-id'
+    with App.app.app_context():
+        preset = ManualPlanPreset(user_id=uid, guest_session_id='shared-session-id',
+                                  name='Private', blocks_json='[]')
+        db.session.add(preset)
+        db.session.commit()
+        preset_id = preset.id
+    assert client.get('/api/scheduler/manual/presets').get_json()['presets'] == []
+    assert client.delete(f'/api/scheduler/manual/presets/{preset_id}').status_code == 404
 
 
 def test_one_student_cannot_see_or_delete_anothers_presets(client):

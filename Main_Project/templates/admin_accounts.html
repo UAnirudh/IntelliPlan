@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block page_title %}Account administration | IntelliPlan{% endblock %}
+{% block content %}
+<main class="page-wrap" style="max-width:850px;margin:auto">
+  <header class="page-header"><p class="page-kicker">Owner controls</p><h1 class="page-title">Account administration</h1>
+    <p class="page-subtitle">Grant administration to a specific existing account. Administrators can manage the site and institution settings. Only the owner can grant or revoke this access.</p></header>
+  <form id="adminAccountSearch" style="display:flex;gap:12px;flex-wrap:wrap;margin:24px 0">
+    <label for="adminAccountEmail">Account email</label><input id="adminAccountEmail" class="form-input" type="email" required autocomplete="off" style="flex:1;min-width:200px">
+    <button class="btn-primary" type="submit">Find account</button>
+  </form>
+  <p id="adminAccountStatus" role="status" aria-live="polite"></p>
+  <div id="adminAccountResults" style="display:grid;gap:18px"></div>
+</main>
+<script src="/static/js/admin_accounts.js?v={{ asset_v }}" defer></script>
+{% endblock %}

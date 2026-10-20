@@ -44,6 +44,7 @@ with sync_playwright() as p:
         slope.focus()
         slope.press('ArrowRight')
         assert slope.input_value() == '1.5'
+        page.wait_for_function("before => document.querySelector('svg line').getAttribute('x2') !== before", arg=before)
         assert line.get_attribute('x2') != before
         assert 'Each step right changes y by 1.5' in page.locator('main').inner_text()
         assert page.locator('svg title').text_content() and page.locator('svg desc').text_content()
@@ -54,7 +55,8 @@ with sync_playwright() as p:
         assert '4/4' in page.locator('main').inner_text()
         numerator.press('ArrowRight')
         assert '5/4' in page.locator('main').inner_text()
-        assert page.locator('svg').nth(1).locator('rect').count() == 8
+        page.wait_for_function("document.querySelectorAll('svg')[1].querySelectorAll('rect:not([style*=\"display: none\"])').length === 8")
+        assert page.locator('svg').nth(1).locator('rect:visible').count() == 8
         create('quiz', {'question': 'Which slope gives a horizontal line?',
                         'options': ['0', '2'], 'correct': 0}, 'Try a prediction')
         page.get_by_role('button', name='2', exact=True).click()

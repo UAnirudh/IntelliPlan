@@ -528,7 +528,8 @@ def test_hub_renders_and_keeps_legacy_surfaces(client):
         assert client.get(path).status_code == 200
     home = client.get('/study-and-learn').data
     assert b'id="tutorInput"' in home and b'id="tutorHistoryList"' in home
-    assert b'tutor-artifacts.js' in home and b'href="/tools"' in home
+    assert b'tutor-artifacts.js' in home and b'href="/study-tools"' in home
+    assert client.get('/study-tools').status_code == 200
     assert b"Learning workspace" in client.get("/learning").data
 
 
@@ -664,6 +665,84 @@ def test_beta_policy_overrides_platform_admin(client, monkeypatch):
     uid = enable(monkeypatch, client)
     org(uid, {"allow_beta": False})
     assert client.get("/api/learning/courses").status_code == 403
+
+
+@pytest.mark.parametrize('feature,path,method', [
+    ('writing', '/api/writing/analyze', 'post'),
+    ('math', '/api/math/explain', 'post'),
+    ('extractor', '/api/tasks/extract', 'post'),
+    ('text_dissector', '/api/text-dissector/analyze', 'post'),
+    ('grade_modeler', '/api/grademodel/simulate', 'post'),
+    ('grade_modeler', '/api/grade-predictions', 'post'),
+    ('grade_modeler', '/gradebook/detail', 'get'),
+    ('meetings', '/api/meetings/saved', 'post'),
+    ('meetings', '/api/groups/1/start-meeting', 'post'),
+    ('groups', '/api/groups/1/tasks', 'post'),
+    ('memories', '/archive/save', 'post'),
+    ('pet', '/api/pet/care', 'post'),
+    ('balance', '/api/balance/prefs', 'post'),
+    ('command_center', '/api/plani/agent', 'post'),
+])
+def test_individual_district_tool_denial_blocks_direct_requests(client, monkeypatch, feature, path, method):
+    uid = user(client, monkeypatch)
+    with App.app.app_context():
+        district = policy.models()['Organization'](name='District', kind='district', policy={feature: False})
+        App.db.session.add(district)
+        App.db.session.commit()
+        did = district.id
+    org(uid, {feature: True, 'tutor': True}, parent=did)
+    response = getattr(client, method)(path, json={})
+    assert response.status_code == 403
+    assert response.json['feature'] == feature
+    assert response.json['error'] == 'institution_policy'
+    with App.app.test_request_context():
+        owner = App.db.session.get(App.User, uid)
+        assert policy.decision(owner, 'tutor') == (True, 'allowed')
+        assert policy.decision(owner, 'scheduler') == (True, 'allowed')
+
+
+def test_school_admin_can_see_inherited_tool_restrictions(client, monkeypatch):
+    uid = user(client, monkeypatch)
+    with App.app.app_context():
+        district = policy.models()['Organization'](name='District', kind='district', policy={'writing': False})
+        App.db.session.add(district)
+        App.db.session.commit()
+        did = district.id
+    sid = org(uid, {'writing': True}, parent=did, role='admin')
+    response = client.get('/api/school-admin/organizations')
+    assert response.status_code == 200
+    assert [row['id'] for row in response.json['organizations']] == [sid]
+    assert response.json['organizations'][0]['inherited_restrictions'] == ['writing']
+    page = client.get('/school-admin')
+    assert page.status_code == 200
+    assert b'District tools' in page.data
+    assert b'id="admin-tools"' in page.data
+
+
+def test_tool_policy_updates_preserve_other_districts_and_reject_stale_writes(client, monkeypatch):
+    uid = user(client, monkeypatch)
+    first = org(uid, role='admin')
+    other = org(uid, {'math': False}, role='admin')
+    before = client.get('/api/school-admin/organizations').json['organizations']
+    version = next(row['version'] for row in before if row['id'] == first)
+    body = {'policy': {'writing': False, 'math': True}, 'version': version}
+    assert client.put(f'/api/school-admin/organizations/{first}/policy', json=body).status_code == 200
+    assert client.put(f'/api/school-admin/organizations/{first}/policy', json=body).status_code == 409
+    after = client.get('/api/school-admin/organizations').json['organizations']
+    assert next(row['policy'] for row in after if row['id'] == other) == {'math': False}
+
+
+def test_disabled_command_center_keeps_a_post_login_home_reachable(client, monkeypatch):
+    uid = user(client, monkeypatch)
+    with App.app.app_context():
+        App._get_or_create_identity(uid).completed = True
+        App.db.session.commit()
+    org(uid, {'command_center': False})
+    response = client.get('/command-center')
+    assert response.status_code == 302
+    assert response.headers['Location'] == '/dashboard?classic=1'
+    assert client.get('/dashboard?classic=1').status_code == 200
+    assert client.post('/api/plani/agent', json={}).status_code == 403
 
 
 @pytest.mark.parametrize(

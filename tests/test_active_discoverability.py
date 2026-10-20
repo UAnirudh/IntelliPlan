@@ -84,7 +84,11 @@ def test_the_study_hub_reaches_it_through_the_toolkit(signed_in):
     # Check the study workspace itself, excluding shared navigation which
     # already has its own dedicated discoverability test above.
     workspace = html.split('<div class="tutor-main">', 1)[1]
-    assert 'href="/tools"' in workspace
+    assert 'href="/study-tools"' in workspace
+    catalog = signed_in.get('/study-tools')
+    assert catalog.status_code == 200
+    assert '<a href="/active" class="hub-card' in catalog.get_data(as_text=True)
+    # The legacy toolkit remains usable for saved links.
     toolkit = signed_in.get('/tools').get_data(as_text=True)
     content = toolkit.split('<article class="study-tools"', 1)[1]
     assert '<a href="/active">Active study</a>' in content

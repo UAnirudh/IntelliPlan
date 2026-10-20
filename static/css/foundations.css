@@ -10,7 +10,7 @@
 .primer-primary { display:inline-flex; justify-content:space-between; align-items:center; gap:20px; padding:12px 17px; min-height:46px; border:1px solid var(--accent); border-radius:10px; background:var(--accent); color:var(--bg-card); }
 .primer-primary:hover { background:var(--accent-hover); }
 .primer-primary:disabled { opacity:.55; cursor:wait; }
-.primer-shell :is(button,input,select,a):focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+.primer-shell :is(button,input,select,a,summary):focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
 .primer-status { min-height:24px; color:var(--text-secondary); font-size:.84rem; margin-bottom:12px; }
 .primer-status:empty { display:none; }
 .primer-start { display:grid; grid-template-columns:minmax(160px,1fr) minmax(0,1.6fr); gap:clamp(22px,4vw,70px); align-items:center; border:1px solid var(--border); border-radius:20px; background:var(--bg-card); padding:clamp(25px,5vw,70px); }
@@ -25,7 +25,7 @@
 .primer-toolbar { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:18px; }
 .primer-learner-list { display:flex; gap:8px; flex-wrap:wrap; }.primer-learner { border:1px solid var(--border-strong); background:var(--bg-card); color:var(--text-secondary); border-radius:999px; padding:9px 15px; font:600 .83rem var(--font-ui,inherit); cursor:pointer; }
 .primer-learner[aria-current="true"] { color:var(--accent); background:var(--accent-soft); border-color:var(--accent); }
-.primer-grid { display:block; max-width:940px; }
+.primer-grid { display:block; max-width:960px; margin-inline:auto; }
 .primer-activity,.primer-progress { background:var(--bg-card); border:1px solid var(--border); border-radius:17px; padding:clamp(20px,2.5vw,32px); min-width:0; }
 .primer-activity { min-height:500px; }.primer-section-top { display:flex; align-items:center; justify-content:space-between; gap:12px; font-size:.73rem; color:var(--text-muted); }
 .primer-family-note { border:1px solid var(--accent); border-radius:13px; background:var(--accent-soft); padding:17px; margin-bottom:23px; }
@@ -78,3 +78,63 @@
 @media(max-width:900px){.primer-grid{grid-template-columns:1fr}.primer-activity{min-height:0}.primer-heading{align-items:start;flex-direction:column}}
 @media(max-width:600px){.primer-shell{padding-top:22px}.primer-start{grid-template-columns:1fr}.primer-start__story{min-height:120px;flex-direction:row}.primer-start__story span{width:62px;font-size:1rem}.primer-start__story span:nth-child(2),.primer-start__story span:nth-child(3){transform:none}.primer-toolbar{align-items:start;flex-direction:column}.primer-choices,.primer-story-choice__options{grid-template-columns:1fr}.primer-heading h1{font-size:2.2rem}.primer-chapter-marker{font-size:.59rem}}
 @media print { .app-side,.primer-heading,.primer-toolbar,.primer-footnote,.ip-tabbar {display:none!important}.primer-shell{padding:0}.primer-status{display:none} }
+
+/* A quiet practice canvas: effects belong to the controls, not the reading. */
+.primer-shell { max-width:1180px; }
+.primer-heading { align-items:start; padding-block:12px; margin-bottom:32px; }
+.primer-heading h1 { font-family:var(--font-ui, sans-serif); font-size:clamp(2rem,4vw,3.25rem); line-height:1.16; letter-spacing:-.045em; }
+.primer-heading-actions { padding-top:8px; }
+.primer-heading-actions a { max-width:280px; white-space:normal; line-height:1.6; }
+.primer-start { border-radius:28px; background:var(--bg-card); }
+.primer-start__steps { list-style:none; display:grid; gap:32px; margin:0; padding:0; }
+.primer-start__steps li { display:flex; align-items:start; gap:18px; }
+.primer-start__steps li > span { display:grid; place-items:center; flex:0 0 44px; height:44px; background:var(--bg); border:1px solid var(--border); border-radius:15px; color:var(--accent); box-shadow:inset 0 1px 1px rgba(255,255,255,.08),0 3px 8px rgba(0,0,0,.04); font-weight:700; }
+.primer-start__steps strong { display:block; font-size:.95rem; margin-bottom:6px; }
+.primer-start__steps li p { margin:0; font-size:.85rem; }
+.primer-start__steps + div { min-width:0; }
+.primer-secondary,.primer-primary { border-radius:15px; min-height:44px; line-height:1.5; box-shadow:inset 0 1px 1px rgba(255,255,255,.08),0 3px 8px rgba(0,0,0,.04); }
+.primer-practice-bar { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:20px 28px; max-width:960px; margin:28px auto; padding-bottom:24px; border-bottom:1px solid var(--border); }
+.primer-practice-bar .primer-eyebrow { margin-bottom:7px; }
+.primer-practice-bar > div { flex:1 1 320px; }
+.primer-practice-bar p { margin:0; color:var(--text-secondary); font-size:.85rem; line-height:1.6; }
+.primer-practice-bar label { display:flex; flex-wrap:wrap; gap:9px; align-items:center; font-size:.79rem; color:var(--text-secondary); }
+.primer-shell select { min-height:44px; border:1px solid var(--border-strong); border-radius:13px; padding:9px 34px 9px 12px; background-color:var(--bg-card); color:var(--text-primary); max-width:100%; font:inherit; }
+.primer-settings { flex-basis:100%; }
+.primer-settings summary { width:fit-content; color:var(--text-secondary); cursor:pointer; font-size:.82rem; padding:8px 0; }
+.primer-settings form { display:flex; flex-wrap:wrap; align-items:center; gap:14px; padding-top:16px; }
+.primer-settings form p { flex:1 1 260px; max-width:58ch; }
+.primer-activity { border-radius:28px; padding:clamp(22px,4vw,48px); }
+.primer-activity__intro { max-width:64ch; font-size:.93rem; line-height:1.75; }
+.primer-section-top { flex-wrap:wrap; }
+.primer-chapter-track { margin-block:25px; }
+.primer-scene { background:var(--bg-elevated); border:0; border-radius:20px; padding:24px 28px; margin-bottom:28px; }
+.primer-scene::before { display:none; }
+.primer-scene p { font-family:var(--font-ui, sans-serif); font-size:1rem; line-height:1.85; max-width:65ch; }
+.primer-activity__card h3 { font-family:var(--font-ui, sans-serif); line-height:1.7; font-weight:600; overflow-wrap:anywhere; max-width:60ch; }
+.primer-recommendation { color:var(--text-muted); font-size:.83rem; line-height:1.75; margin:0 0 24px; max-width:65ch; }
+.primer-choices { grid-template-columns:1fr; gap:12px; max-width:720px; }
+.primer-choice { align-items:start; gap:13px; padding:17px 20px; border-radius:17px; line-height:1.75; overflow-wrap:anywhere; }
+.primer-choice input { margin-top:5px; }
+.primer-evidence-note { font-size:.83rem; color:var(--text-secondary); line-height:1.75; margin:0 0 22px; max-width:65ch; }
+.primer-feedback { border-radius:17px; padding:20px 24px; line-height:1.8; }
+.primer-session-end { padding:24px 0; margin-bottom:22px; border-bottom:1px solid var(--border); }
+.primer-session-end h3 { margin-bottom:10px; }
+.primer-session-end p { color:var(--text-secondary); line-height:1.75; font-size:.9rem; }
+.primer-evidence { max-width:960px; margin:28px auto 0; padding:24px 0; border-block:1px solid var(--border); }
+.primer-evidence summary { cursor:pointer; color:var(--text-primary); font-size:.95rem; font-weight:650; padding:6px 0; }
+.primer-evidence summary span { color:var(--text-muted); font-weight:450; font-size:.82rem; padding-left:8px; }
+.primer-evidence > p { color:var(--text-secondary); font-size:.83rem; line-height:1.8; max-width:80ch; }
+.primer-skill-map { grid-template-columns:repeat(3,minmax(0,1fr)); gap:28px; margin-top:26px; }
+.primer-skill-map h3 { font-size:.9rem; margin:0 0 16px; }
+.primer-skill-row { grid-template-columns:1fr; padding:14px 0; line-height:1.6; }
+.primer-skill-row[data-locked="true"] { opacity:.75; }
+.primer-footnote { max-width:960px; margin-inline:auto; }
+.primer-retry { margin:0 0 22px; }
+.primer-evidence .primer-path-summary { color:var(--text-primary); }
+.primer-offline-practice { max-width:960px; margin:0 auto; padding:24px 0; border-bottom:1px solid var(--border); }
+.primer-offline-practice summary { cursor:pointer; font-size:.92rem; padding:6px 0; }
+.primer-offline-practice h3 { margin:24px 0 10px; font-size:1rem; line-height:1.6; }
+.primer-offline-practice p { max-width:75ch; line-height:1.8; color:var(--text-secondary); font-size:.87rem; }
+.primer-offline-practice .primer-offline-task { padding:20px 24px; background:var(--bg-elevated); border-radius:18px; color:var(--text-primary); overflow-wrap:anywhere; }
+@media(max-width:760px){.primer-skill-map{grid-template-columns:1fr}.primer-start__steps{gap:22px}.primer-start{grid-template-columns:1fr}.primer-practice-bar{gap:16px}.primer-heading-actions a{max-width:100%}.primer-evidence summary span{display:block;padding-left:0}.primer-scene{padding:20px}.primer-heading h1{font-size:2.15rem}}
+@media(prefers-reduced-motion:no-preference){.primer-shell :is(button,a,.primer-choice){transition:background-color 160ms ease,border-color 160ms ease,box-shadow 160ms ease}.primer-shell .primer-primary:active{transform:translateY(1px)}}

@@ -1,10 +1,21 @@
 """Server-side policy gates for legacy surfaces and shared AI calls."""
-from flask import g, jsonify, request, session, has_request_context
+from flask import g, jsonify, redirect, request, session, has_request_context
 import json
 from flask_login import current_user
 from intelliplan.learning import policy
 
 SURFACES = {
+    'writing': ('/writing', '/api/writing'),
+    'math': ('/math', '/api/math'),
+    'extractor': ('/extractor', '/api/extractor', '/api/tasks/extract'),
+    'text_dissector': ('/tools/text-dissector', '/api/text-dissector'),
+    'grade_modeler': ('/gradebook', '/grademodel', '/api/grademodel', '/api/grade-predictions', '/api/grades/predict'),
+    'meetings': ('/meetings', '/api/meetings'),
+    'groups': ('/groups', '/api/groups'),
+    'memories': ('/memories', '/archive'),
+    'pet': ('/pet', '/api/pet'),
+    'balance': ('/balance', '/api/balance'),
+    'command_center': ('/command-center', '/api/plani/agent'),
     'tutor': ('/tutor', '/api/tutor', '/api/chatbot', '/api/plani', '/api/onboarding/chat', '/writing', '/math', '/api/writing', '/api/math', '/api/media', '/extractor', '/api/extractor', '/api/tasks/extract', '/tools/text-dissector', '/api/text-dissector'),
     'study': ('/study', '/api/study-hub', '/api/deepstudy', '/api/active', '/active', '/foundations', '/api/primer', '/api/lessons', '/lessons', '/api/breakdown/start'),
     'review': ('/learn', '/api/flashcards', '/flashcards'),
@@ -82,6 +93,8 @@ def install(app):
             source = policy.source_capability((request.view_args or {}).get('key'))
             if source:
                 keys.append(source)
+        if request.path.startswith('/api/groups/') and request.path.rsplit('/', 1)[-1] in {'start-meeting', 'meeting'}:
+            keys.append('meetings')
         if request.path == '/oauth/outlook/callback' and session.get('microsoft_oauth_purpose') == 'onedrive':
             keys = ['uploads']
         if request.path in {'/oauth2callback', '/oauth/google/callback'}:
@@ -122,6 +135,10 @@ def install(app):
             for key in keys:
                 allowed, reason = policy.decision(user, key)
                 if not allowed:
+                    # Authentication flows land here by default. A district may
+                    # disable the assistant without taking away the planner.
+                    if key == 'command_center' and request.path == '/command-center' and request.method in {'GET', 'HEAD'}:
+                        return redirect('/dashboard?classic=1')
                     return jsonify(error=reason, feature=key, message='Your institution has restricted this capability.'), 403
             settings = policy.effective(user)
             if settings['assessment_protection']:

@@ -35,8 +35,26 @@
 
   var doc = document;
 
-  var REDUCED = !!(window.matchMedia &&
-    window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  var root = doc.documentElement;
+  var motionQuery = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)');
+  var activeTweens = new Set();
+  function isReduced() {
+    return !!((motionQuery && motionQuery.matches) ||
+      root.getAttribute('data-a11y-motion') === 'reduce' ||
+      root.getAttribute('data-ui-motion') === 'reduce');
+  }
+  function track(tween) {
+    if (!tween) return tween;
+    activeTweens.add(tween);
+    ['onComplete', 'onInterrupt'].forEach(function (event) {
+      var previous = tween.eventCallback(event);
+      tween.eventCallback(event, function () {
+        activeTweens.delete(tween);
+        if (previous) previous();
+      });
+    });
+    return tween;
+  }
 
   var VENDOR_BASE = '/static/js/vendor/gsap/';
 
@@ -56,8 +74,8 @@
   var api = {
     /* Bumped when behaviour changes — /static is served with long-lived
        caching, so this is how a stale bundle is told from a live one. */
-    version: 1,
-    reduced: REDUCED,
+    version: 2,
+    get reduced() { return isReduced(); },
     ready: null,
     gsap: null
   };
@@ -169,8 +187,9 @@
        with the scale into a single transform+opacity frame. */
     function down() {
       if (el.disabled) return;
-      g.to(el, {
-        scale: REDUCED ? 1 : PRESS_SCALE,
+      if (isReduced()) { g.set(el, { scale: 1, opacity: 0.82 }); return; }
+      track(g.to(el, {
+        scale: PRESS_SCALE,
         /* Under reduced motion the scale is gone, so the dip is the only
            thing left to say "received". Without it the control would be
            entirely silent for those users. */
@@ -178,20 +197,21 @@
         duration: PRESS_IN,
         ease: 'power2.out',
         overwrite: 'auto'
-      });
+      }));
     }
     function up() {
-      g.to(el, {
+      if (isReduced()) { g.set(el, { scale: 1, clearProps: 'opacity' }); return; }
+      track(g.to(el, {
         scale: 1,
         opacity: 1,
-        duration: REDUCED ? 0.1 : PRESS_OUT,
+        duration: PRESS_OUT,
         ease: 'power2.out',
         overwrite: 'auto',
         /* Leave no inline opacity behind — a control that a stylesheet
            dims (`:disabled`, `.is-muted`) must be free to do so after the
            press has finished. */
         onComplete: function () { g.set(el, { clearProps: 'opacity' }); }
-      });
+      }));
     }
 
     el.addEventListener('pointerdown', down);
@@ -233,7 +253,7 @@
      confirming this loudly. */
   function bloom(el, ev) {
     var g = api.gsap;
-    if (!g || REDUCED || noMotion(el)) return;
+    if (!g || isReduced() || noMotion(el)) return;
 
     var rect = el.getBoundingClientRect();
     if (!rect.width) return;
@@ -284,7 +304,7 @@
     }
 
     var reach = Math.max(rect.width, rect.height) * 2.2;
-    g.fromTo(ring,
+    track(g.fromTo(ring,
       { width: 0, height: 0, opacity: 0.5 },
       {
         width: reach, height: reach, opacity: 0,
@@ -295,7 +315,7 @@
         duration: 0.4, ease: 'power2.out',
         onComplete: drop,
         onInterrupt: drop
-      });
+      }));
     window.setTimeout(drop, 2000);
   }
 
@@ -336,7 +356,7 @@
     var prefix = raw.slice(0, match.index);
     var suffix = raw.slice(match.index + match[0].length);
 
-    if (!g || REDUCED || target === 0) { el.textContent = raw; return; }
+    if (!g || isReduced() || target === 0) { el.textContent = raw; return; }
 
     var state = { n: 0 };
     function render() {
@@ -353,7 +373,7 @@
        a 2-digit one just looks like a flicker. */
     var duration = Math.min(1.6, 0.5 + String(Math.round(target)).length * 0.16);
 
-    g.to(state, {
+    track(g.to(state, {
       n: target,
       duration: duration,
       ease: 'power2.out',
@@ -362,7 +382,7 @@
       scrollTrigger: window.ScrollTrigger ? {
         trigger: el, start: 'top 92%', once: true
       } : undefined
-    });
+    }));
   }
 
   api.countUp = countUp;
@@ -385,7 +405,7 @@
      animates from 0 to it — so no template has to be changed and the
      no-JS rendering is the correct final state. */
   function initProgress(scope) {
-    if (!window.ScrollTrigger || REDUCED) return;
+    if (!window.ScrollTrigger || isReduced()) return;
     var g = api.gsap;
     if (!g) return;
 
@@ -396,10 +416,10 @@
       el.__ipgFill = true;
       var target = el.style.width || getComputedStyle(el).width;
       if (!target || target === '0px') return;
-      g.fromTo(el, { width: 0 }, {
+      track(g.fromTo(el, { width: 0 }, {
         width: target, duration: 0.9, ease: 'power3.out',
         scrollTrigger: { trigger: el, start: 'top 95%', once: true }
-      });
+      }));
     });
   }
 
@@ -408,7 +428,7 @@
      boundary between sections without a rule or a gap. Kept to headings
      inside <main> so the nav and the footer are untouched. */
   function initHeadings(scope) {
-    if (!window.ScrollTrigger || REDUCED) return;
+    if (!window.ScrollTrigger || isReduced()) return;
     var g = api.gsap;
     if (!g) return;
 
@@ -422,10 +442,10 @@
       var r = el.getBoundingClientRect();
       if (r.top < window.innerHeight) { el.__ipgHead = true; return; }
       el.__ipgHead = true;
-      g.from(el, {
+      track(g.from(el, {
         y: 18, opacity: 0, duration: 0.55, ease: 'power2.out',
         scrollTrigger: { trigger: el, start: 'top 94%', once: true }
-      });
+      }));
     });
   }
 
@@ -435,7 +455,7 @@
      glyph legible where a spin would not. */
   function initIconHover(scope) {
     var g = api.gsap;
-    if (!g || REDUCED) return;
+    if (!g || isReduced()) return;
     var els = (scope || doc).querySelectorAll(
       '.icon-btn,.btn-icon,[data-icon-btn]');
     Array.prototype.forEach.call(els, function (el) {
@@ -443,11 +463,12 @@
       el.__ipgIcon = true;
       var glyph = el.querySelector('svg,img,.icon') || el;
       el.addEventListener('pointerenter', function (ev) {
-        if (ev.pointerType === 'touch') return;
-        g.to(glyph, { scale: 1.14, duration: 0.22, ease: 'back.out(2)' });
+        if (isReduced() || ev.pointerType === 'touch') return;
+        track(g.to(glyph, { scale: 1.14, duration: 0.22, ease: 'back.out(2)' }));
       });
       el.addEventListener('pointerleave', function () {
-        g.to(glyph, { scale: 1, duration: 0.28, ease: 'power2.out' });
+        if (isReduced()) { g.set(glyph, { scale: 1 }); return; }
+        track(g.to(glyph, { scale: 1, duration: 0.28, ease: 'power2.out' }));
       });
     });
   }
@@ -483,9 +504,11 @@
       if (pending) return;
       var relevant = false;
       for (var i = 0; i < records.length && !relevant; i++) {
+        var target = records[i].target;
+        if (target.nodeType === 1 && target.closest('[data-no-motion], .tutor-messages, .command-chat__thread')) continue;
         var added = records[i].addedNodes;
         for (var j = 0; j < added.length; j++) {
-          if (added[j].nodeType === 1) { relevant = true; break; }
+          if (added[j].nodeType === 1 && added[j].namespaceURI !== 'http://www.w3.org/2000/svg') { relevant = true; break; }
         }
       }
       if (!relevant) return;
@@ -495,6 +518,36 @@
       }, 200);
     }).observe(doc.body, { childList: true, subtree: true });
   }
+
+  function syncMotionPreference() {
+    if (!isReduced()) { api.refresh(); return; }
+    activeTweens.forEach(function (tween) {
+      try {
+        if (tween.scrollTrigger) tween.scrollTrigger.kill();
+        tween.progress(1);
+        tween.kill();
+      } catch (e) {}
+    });
+    activeTweens.clear();
+    var g = api.gsap;
+    if (g) {
+      doc.querySelectorAll(PRESS_SELECTOR).forEach(function (el) {
+        if (el.__ipgPress) g.set(el, { scale: 1, clearProps: 'opacity' });
+      });
+      doc.querySelectorAll('.icon-btn,.btn-icon,[data-icon-btn]').forEach(function (el) {
+        if (el.__ipgIcon) g.set(el.querySelector('svg,img,.icon') || el, { scale: 1 });
+      });
+    }
+    doc.querySelectorAll('.ipg-bloom').forEach(function (el) { el.remove(); });
+  }
+  doc.addEventListener('ip:appearance', syncMotionPreference);
+  if (motionQuery) {
+    if (motionQuery.addEventListener) motionQuery.addEventListener('change', syncMotionPreference);
+    else if (motionQuery.addListener) motionQuery.addListener(syncMotionPreference);
+  }
+  if (window.MutationObserver) new MutationObserver(syncMotionPreference).observe(root, {
+    attributes: true, attributeFilter: ['data-ui-motion', 'data-a11y-motion']
+  });
 
   function boot() {
     api.ready.then(function () {

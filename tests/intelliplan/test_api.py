@@ -171,6 +171,40 @@ class TestRefresh:
 
 
 class TestExplain:
+    @pytest.mark.parametrize('component', ['health', 'forecast', 'priority&task_id=manual-abc'])
+    def test_explanation_reuses_current_dashboard_without_rebuilding(self, harness, component):
+        from intelliplan.api import command_center as cc
+
+        cc._TODAY_CACHE.clear()
+        client, service, _, _ = harness
+        assert client.get('/api/today').status_code == 200
+        assert client.get('/api/today/explain?component=' + component).status_code == 200
+        assert len(service.calls) == 1
+
+    def test_explanation_never_reuses_another_owner_or_revoked_policy(self, harness):
+        from intelliplan.api import command_center as cc
+
+        cc._TODAY_CACHE.clear()
+        client, service, _, state = harness
+        assert client.get('/api/today').status_code == 200
+        state['uid'] = 2
+        assert client.get('/api/today/explain?component=health').status_code == 200
+        assert [call['uid'] for call in service.calls] == [1, 2]
+        state['policy'] = 'source revoked'
+        assert client.get('/api/today/explain?component=health').status_code == 200
+        assert len(service.calls) == 3
+
+    def test_explanation_rebuilds_expired_dashboard(self, harness):
+        from intelliplan.api import command_center as cc
+
+        cc._TODAY_CACHE.clear()
+        client, service, _, _ = harness
+        assert client.get('/api/today').status_code == 200
+        created, body, stamp = cc._TODAY_CACHE[1]
+        cc._TODAY_CACHE[1] = (created - cc._TODAY_CACHE_TTL - 1, body, stamp)
+        assert client.get('/api/today/explain?component=health').status_code == 200
+        assert len(service.calls) == 2
+
     def test_priority_explain(self, harness) -> None:
         client, _, _, _ = harness
         resp = client.get("/api/today/explain?component=priority&task_id=manual-abc")

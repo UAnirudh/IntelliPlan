@@ -163,10 +163,11 @@ def test_capacity_comes_from_real_availability():
     svc = service()
     caps = svc.capacities(TODAY, horizon_days=7, now=NOW)
     assert len(caps) == 7
-    # afternoon (12–17) + evening (17–22) = 10 hours of window, but capacity
-    # is study time, and the clock placer spends part of that window on gaps
-    # and breaks. Roughly three quarters of the raw figure is real.
-    assert 400 <= caps[1].minutes <= 500
+    # Hard capacity is the actual ten-hour calendar. Estimated break costs
+    # remain a soft target; candidate sittings must pass clock placement.
+    assert caps[1].minutes == 600
+    assert 400 <= caps[1].soft_minutes <= 500
+    assert caps[1].clock_windows
 
 
 def test_commitments_subtract_from_capacity():
@@ -309,7 +310,9 @@ def test_capacity_reserves_room_for_breaks_and_gaps():
     # placer spends minutes on gaps and long breaks out of the same window.
     svc = service()
     raw = 600  # afternoon + evening
-    assert svc.capacities(TODAY, 7, now=NOW)[1].minutes < raw * 0.85
+    cap = svc.capacities(TODAY, 7, now=NOW)[1]
+    assert cap.soft_minutes < raw * 0.85
+    assert cap.minutes == raw
 
 
 def test_no_session_is_lost_between_allocation_and_the_clock():
@@ -420,7 +423,7 @@ def test_stated_daily_target_reaches_the_capacities():
 def test_no_stated_target_leaves_the_default_utilisation_alone():
     caps = service().capacities(TODAY, 7, now=NOW)
     assert caps[1].comfort_minutes is None
-    assert caps[1].soft_limit(0.8) == int(round(caps[1].minutes * 0.8))
+    assert caps[1].soft_limit(0.8) == int(round(caps[1].soft_minutes * 0.8))
 
 
 # ── Stages ────────────────────────────────────────────────────────────

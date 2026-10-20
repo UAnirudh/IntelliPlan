@@ -124,10 +124,13 @@
 </div>
 
 <div id="tdDetail" class="td-detail-pane" role="dialog" aria-modal="true" aria-labelledby="tdDetailTitle" onclick="if(event.target===this)ipTeachCloseDetail()">
-  <div class="td-detail-box" id="tdDetailBox"></div>
+  <div class="td-detail-box" id="tdDetailBox" tabindex="-1"></div>
 </div>
 
 <script>
+// Keep the dialog above the application shell's isolated stacking layers.
+document.body.appendChild(document.getElementById('tdDetail'));
+let tdPreviousFocus = null;
 async function ipTeachLoad() {
   const skel = document.getElementById('tdSkeleton');
   const host = document.getElementById('tdStudents');
@@ -196,16 +199,18 @@ async function ipTeachLoadStats(studentId) {
     const host = document.getElementById(`tdStats-${studentId}`);
     if (!host) return;
     host.innerHTML = `
-      <div class="td-stat"><div class="td-stat-val">${s.total_assignments ?? 0}</div><div class="td-stat-label">Total</div></div>
-      <div class="td-stat"><div class="td-stat-val">${s.completed ?? 0}</div><div class="td-stat-label">Done</div></div>
+      <div class="td-stat"><div class="td-stat-val">${s.total_assignments ?? 'Private'}</div><div class="td-stat-label">Total</div></div>
+      <div class="td-stat"><div class="td-stat-val">${s.completed ?? 'Private'}</div><div class="td-stat-label">Done</div></div>
       <div class="td-stat"><div class="td-stat-val">${s.avg_percent != null ? s.avg_percent + '%' : '—'}</div><div class="td-stat-label">Avg</div></div>`;
   } catch (e) { /* card keeps its loading skeleton; non-fatal */ }
 }
 
 async function ipTeachOpenDetail(studentId, studentName) {
+  tdPreviousFocus = document.activeElement;
   const box = document.getElementById('tdDetailBox');
   box.innerHTML = `<p style="color:var(--text-muted);">Loading ${ipTeachEscape(studentName)}'s overview…</p>`;
   document.getElementById('tdDetail').classList.add('open');
+  box.focus();
   const r = await fetch(`/api/roles/student/${studentId}/overview`, { credentials: 'same-origin' });
   if (!r.ok) {
     box.innerHTML = `<p style="color:var(--text-muted);">Couldn't load this student's overview. Check your connection and try again.</p>
@@ -216,25 +221,40 @@ async function ipTeachOpenDetail(studentId, studentName) {
   const s = data.summary || {};
   const upcoming = (s.upcoming || []).map(u =>
     `<li><strong>${ipTeachEscape(u.title || 'Assignment')}</strong> · ${ipTeachEscape(u.course || '—')} · ${ipTeachEscape(u.due_date || 'no due date')}</li>`
-  ).join('') || '<li class="td-detail-empty">Nothing upcoming.</li>';
+  ).join('') || '<li class="td-detail-empty">No shared upcoming assignments.</li>';
   box.innerHTML = `
     <h2 id="tdDetailTitle" class="td-detail-title">${ipTeachEscape(studentName)}</h2>
-    <p class="td-detail-note">Read-only snapshot. The student controls what's shared via /linked-accounts.</p>
+    <p class="td-detail-note">Read-only snapshot. The student controls what's shared via /linked-accounts. ${ipTeachEscape(s.work_source || '')}</p>
     <div class="td-stats" style="margin-bottom:1rem;">
-      <div class="td-stat"><div class="td-stat-val">${s.total_assignments ?? 0}</div><div class="td-stat-label">Total</div></div>
-      <div class="td-stat"><div class="td-stat-val">${s.completed ?? 0}</div><div class="td-stat-label">Done</div></div>
-      <div class="td-stat"><div class="td-stat-val">${s.overdue ?? 0}</div><div class="td-stat-label">Overdue</div></div>
+      <div class="td-stat"><div class="td-stat-val">${s.total_assignments ?? 'Private'}</div><div class="td-stat-label">Total</div></div>
+      <div class="td-stat"><div class="td-stat-val">${s.completed ?? 'Private'}</div><div class="td-stat-label">Done</div></div>
+      <div class="td-stat"><div class="td-stat-val">${s.overdue ?? 'Private'}</div><div class="td-stat-label">Overdue</div></div>
       <div class="td-stat"><div class="td-stat-val">${s.avg_percent != null ? s.avg_percent + '%' : '—'}</div><div class="td-stat-label">Avg %</div></div>
     </div>
+    <h3 class="td-detail-heading">Tools permitted by their institution</h3>
+    <ul class="td-detail-list">${data.tools ? data.tools.map(t => `<li>${ipTeachEscape(t.name)} · ${t.allowed ? 'Available' : 'Restricted: ' + ipTeachEscape(t.reason.replaceAll('_', ' '))}</li>`).join('') : '<li>Tool access has not been shared.</li>'}</ul>
     <h3 class="td-detail-heading">Upcoming</h3>
     <ul class="td-detail-list">${upcoming}</ul>
     <div style="margin-top:1.5rem;text-align:right;"><button class="btn-secondary" onclick="ipTeachCloseDetail()">Close</button></div>`;
 }
 
-function ipTeachCloseDetail() { document.getElementById('tdDetail').classList.remove('open'); }
+function ipTeachCloseDetail() {
+  document.getElementById('tdDetail').classList.remove('open');
+  if (tdPreviousFocus?.isConnected) tdPreviousFocus.focus();
+}
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && document.getElementById('tdDetail').classList.contains('open')) ipTeachCloseDetail();
+  if (e.key === 'Tab' && document.getElementById('tdDetail').classList.contains('open')) {
+    const buttons = [...document.querySelectorAll('#tdDetail button, #tdDetail a[href], #tdDetail input')];
+    if (!buttons.length) { e.preventDefault(); return; }
+    const first = buttons[0], last = buttons[buttons.length - 1];
+    if (e.shiftKey && (document.activeElement === first || document.activeElement.id === 'tdDetailBox')) {
+      e.preventDefault(); last.focus();
+    } else if (!e.shiftKey && (document.activeElement === last || document.activeElement.id === 'tdDetailBox')) {
+      e.preventDefault(); first.focus();
+    }
+  }
 });
 
 function ipTeachShowFeedback(message, kind) {

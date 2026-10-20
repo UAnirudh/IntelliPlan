@@ -1,6 +1,6 @@
 """Owned course/study APIs and institution-scoped administration."""
 from datetime import datetime
-from flask import Blueprint, abort, jsonify, render_template, request
+from flask import Blueprint, abort, has_request_context, jsonify, render_template, request
 from flask_login import current_user
 from sqlalchemy.exc import IntegrityError
 
@@ -97,8 +97,24 @@ def organizations():
         db.session.commit()
         return jsonify(id=row.id), 201
     rows = M['Organization'].query.order_by(M['Organization'].id).limit(200).all()
+    def inherited_restrictions(organization):
+        restricted, seen = set(), {organization.id}
+        parent_id = organization.parent_id
+        while parent_id:
+            if parent_id in seen:
+                raise ValueError('Institution hierarchy contains a cycle.')
+            seen.add(parent_id)
+            parent = db.session.get(M['Organization'], parent_id)
+            if not parent:
+                raise ValueError('The parent district policy is unavailable.')
+            restricted.update(key for key, value in policy.validate_policy(parent.policy).items()
+                              if value is False and key != 'assessment_protection')
+            parent_id = parent.parent_id
+        return sorted(restricted)
+
     return jsonify(organizations=[dict(id=o.id, name=o.name, kind=o.kind, parent_id=o.parent_id,
-        policy=o.policy, version=o.version) for o in rows if policy.administers(current_user, o.id)])
+        policy=o.policy, version=o.version, inherited_restrictions=inherited_restrictions(o))
+        for o in rows if policy.administers(current_user, o.id)])
 
 
 @bp.route('/api/school-admin/organizations/<int:oid>/policy', methods=['PUT'])
@@ -528,6 +544,21 @@ def export():
 
 
 def install(app):
+    @app.context_processor
+    def workspace_policy():
+        # The same route map drives navigation and direct-request enforcement.
+        # Background email rendering has an app context but no signed-in user.
+        if not has_request_context() or not getattr(current_user, 'is_authenticated', False):
+            return {}
+        from intelliplan.learning.enforcement import SURFACES
+        blocked = [path for key, paths in SURFACES.items()
+                   if not policy.decision(current_user, key)[0] for path in paths]
+        try:
+            school_admin = policy.is_learning_admin(current_user)
+        except Exception:
+            school_admin = False
+        return dict(workspace_blocked_paths=blocked, workspace_school_admin=school_admin)
+
     from intelliplan.learning.governance_api import install as install_governance
     install_governance(bp, app)
     app.register_blueprint(bp)

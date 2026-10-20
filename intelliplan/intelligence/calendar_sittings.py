@@ -22,6 +22,13 @@ def calendar_sittings(plan, windows_by_day, dna, now=None):
                        'overdue_recovery': bool(s.deadline_at and now and s.deadline_at <= now)}
                       for i, s in enumerate(sittings)]
             return scheduler_engine.place_day_blocks(blocks, windows, dna, preserve_order=True)
+        # Most days already fit. Replaying every growing prefix makes that
+        # ordinary case quadratic, especially inside planner candidate checks.
+        # A successful ordered full replay proves every prefix fits unchanged.
+        _, spilled = place(day.sessions)
+        if not spilled:
+            result[day.day] = list(day.sessions)
+            continue
         for _task_id, group in groupby(day.sessions, key=lambda sitting: sitting.task_id):
             sittings = list(group)
             if sittings[0].task_id not in protected:

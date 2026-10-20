@@ -34,6 +34,9 @@ class Feature:
 
 
 FEATURES = {
+    **{key: Feature('stable') for key in (
+        'writing', 'math', 'extractor', 'text_dissector', 'grade_modeler',
+        'meetings', 'groups', 'memories', 'pet', 'balance', 'command_center')},
     'tutor': Feature('stable', 'Generated replies may be incorrect; practice evidence is limited.'),
     'study': Feature('stable', 'Self-reported completion is distinct from scored practice.'),
     'review': Feature('stable', 'Review history is not a validated mastery measurement.'),

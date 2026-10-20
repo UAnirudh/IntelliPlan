@@ -1,35 +1,136 @@
 (() => {
   'use strict';
   const $ = (id) => document.getElementById(id);
-  const state = { learners: [], current: null, activity: null, familyNoteId: null, busy: false };
-  const status = (message) => { $('primerStatus').textContent = message || ''; };
+  const state = { learners: [], current: null, activity: null, progress: null, familyNoteId: null, busy: false,
+    viewVersion: 0, activityRequest: 0, progressRequest: 0,
+    session: { answered: 0, independent: 0, assisted: 0, revisits: 0 }, goal: 3 };
+  const status = (message, retry = false) => {
+    $('primerStatus').textContent = message || '';
+    $('primerRetry').hidden = !retry;
+  };
+  const currentView = () => ({ version: state.viewVersion, learnerId: state.current?.id, grade: state.current?.grade });
+  const isCurrentView = (view) => view.version === state.viewVersion
+    && view.learnerId === state.current?.id && view.grade === state.current?.grade;
 
   async function api(path, options = {}) {
-    const response = await fetch(path, {
-      credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json' },
-      ...options,
-    });
-    const body = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      const error = new Error(body.error || 'Something went wrong. Please try again.');
-      error.status = response.status;
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 25000);
+    try {
+      const response = await fetch(path, {
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        ...options,
+        signal: controller.signal,
+      });
+      const body = await response.json();
+      if (!response.ok) {
+        const error = new Error(body.error || 'Something went wrong. Please try again.');
+        error.status = response.status;
+        throw error;
+      }
+      return body;
+    } catch (error) {
+      if (error.name === 'AbortError') throw new Error('The connection took too long. Try again; your saved practice is still available.');
+      if (error.name === 'SyntaxError') throw new Error('The practice response could not be read. Please try again.');
       throw error;
-    }
-    return body;
+    } finally { window.clearTimeout(timeout); }
   }
 
   async function recoverStale(error, learnerId) {
     if (![409, 410].includes(error.status) || !state.current || state.current.id !== learnerId) return false;
-    await loadActivity(learnerId);
-    status('This chapter changed or expired. The current step is ready.');
+    if (await loadActivity(learnerId)) status('This chapter changed or expired. The current step is ready.');
     return true;
   }
 
   function showStart(show) {
     $('primerStart').hidden = !show;
     $('primerWorkspace').hidden = show;
+    $('primerCancelCreate').hidden = !state.current;
     if (show) $('primerNickname').focus();
+  }
+
+  function renderSession() {
+    const session = state.session;
+    $('primerSessionSummary').textContent = session.answered
+      ? `${session.answered} of ${state.goal} questions checked · ${session.independent} correct independently`
+      : `Try ${state.goal} questions at your own pace. Your next step is saved as you go.`;
+    const paused = session.answered >= state.goal;
+    $('primerSessionEnd').hidden = !paused;
+    $('primerSessionResult').textContent = `${session.answered} questions checked: ${session.independent} correct independently, ${session.assisted} with a clue, and ${session.revisits} to revisit.`;
+  }
+
+  function renderRecommendation() {
+    const data = state.activity;
+    if (!data?.skill) return;
+    const skill = state.progress?.skills?.find((row) => row.id === data.skill.id);
+    $('primerRecommendation').textContent = data.story.repair
+      ? 'A fresh question on the same skill helps you try the feedback for yourself.'
+      : !skill || !skill.attempts
+        ? `Start with ${data.skill.title.toLowerCase()}. Try it independently before opening a clue.`
+        : `${skill.independent_correct} correct independently on ${data.skill.title.toLowerCase()}. Try this question before opening a clue.`;
+  }
+
+  function renderProgress(data) {
+    state.progress = data;
+    $('primerPracticeCount').textContent = `· ${data.total_attempts} checked answers saved across grades`;
+    $('primerProgressStatus').textContent = '';
+    $('primerProgressRetry').hidden = true;
+    const skills = data.skills || [];
+    const ready = skills.filter((skill) => skill.unlocked);
+    const due = ready.filter((skill) => skill.attempts && skill.due_at && new Date(skill.due_at) <= new Date());
+    $('primerPathSummary').textContent = `${ready.length} of ${skills.length} skills open at this practice level · ${due.length} ready for review. Later skills open after two correct answers without a clue on their prerequisite.`;
+    const focus = data.focus;
+    $('primerOfflinePractice').hidden = !focus?.try_together;
+    $('primerOfflineTitle').textContent = focus ? `${focus.domain === 'Arithmetic' ? 'Math' : focus.domain} · ${focus.skill}` : '';
+    $('primerOfflineReason').textContent = focus?.reason || '';
+    $('primerOfflineTask').textContent = focus?.try_together || '';
+    const host = $('primerSkillMap');
+    host.replaceChildren();
+    for (const domain of ['Reading', 'Writing', 'Arithmetic']) {
+      const section = document.createElement('section');
+      const title = document.createElement('h3');
+      title.textContent = domain === 'Arithmetic' ? 'Math' : domain;
+      section.appendChild(title);
+      (data.skills || []).filter((skill) => skill.domain === domain).forEach((skill) => {
+        const row = document.createElement('div');
+        row.className = 'primer-skill-row';
+        row.dataset.locked = String(!skill.unlocked);
+        const label = document.createElement('strong');
+        label.textContent = skill.title;
+        const stage = document.createElement('span');
+        stage.textContent = !skill.unlocked ? 'Earlier practice needed' : !skill.attempts ? 'Ready to try'
+          : due.some((row) => row.id === skill.id) ? 'Review ready' : skill.label;
+        const evidence = document.createElement('small');
+        evidence.textContent = `${skill.attempts} checked · ${skill.independent_correct} correct independently`;
+        row.append(label, stage, evidence);
+        if (!skill.unlocked) {
+          const next = document.createElement('small');
+          next.textContent = 'Keep practicing earlier skills independently to open this step.';
+          row.appendChild(next);
+        } else if (skill.due_at && skill.attempts && !due.some((item) => item.id === skill.id)) {
+          const review = document.createElement('small');
+          review.textContent = `Next review: ${new Date(skill.due_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`;
+          row.appendChild(review);
+        }
+        section.appendChild(row);
+      });
+      host.appendChild(section);
+    }
+    renderRecommendation();
+  }
+
+  async function loadProgress(learnerId) {
+    const view = currentView();
+    const request = ++state.progressRequest;
+    try {
+      const data = await api(`/api/primer/learners/${learnerId}/progress`);
+      if (isCurrentView(view) && request === state.progressRequest && data.grade === view.grade) renderProgress(data);
+    } catch (error) {
+      if (isCurrentView(view) && request === state.progressRequest) {
+        $('primerProgressStatus').textContent = `Your practice path could not refresh. ${error.message}`;
+        $('primerProgressRetry').hidden = false;
+      }
+    }
   }
 
   function renderLearners() {
@@ -41,7 +142,7 @@
       button.className = 'primer-learner';
       button.textContent = learner.nickname;
       button.setAttribute('aria-current', String(state.current && state.current.id === learner.id));
-      button.addEventListener('click', () => selectLearner(learner));
+      button.addEventListener('click', () => { if (state.current?.id !== learner.id || !state.activity) selectLearner(learner); });
       host.appendChild(button);
     });
   }
@@ -51,10 +152,10 @@
     $('primerWorldLabel').textContent = data.world_name;
     $('primerGradeLabel').textContent = data.learner.grade === 0 ? 'Kindergarten' : data.learner.grade === 13 ? 'College foundation' : `Grade ${data.learner.grade}`;
     const older = data.learner.grade >= 9;
-    $('primerPageTitle').textContent = older ? 'A case that evolves with you.' : 'A story that remembers.';
+    $('primerPageTitle').textContent = older ? 'Think it through. Build your skills.' : 'Small practice. Real understanding.';
     $('primerPageIntro').textContent = older
-      ? 'Investigate a changing case, test claims against evidence, write with precision, and work through quantitative decisions at your level.'
-      : 'Explore a world, make choices that carry forward, and practice reading, writing, and math at a level chosen for you.';
+      ? 'Investigate a case while you practice reading evidence, precise writing, and quantitative reasoning. Each checked answer shapes what comes next.'
+      : 'Read carefully, write clearly, and reason with numbers. A story connects the questions; your practice helps choose the next step.';
     $('primerChapterKicker').textContent = older ? 'TODAY\'S CASE' : 'TODAY\'S CHAPTER';
     $('primerActivityIntro').textContent = older
       ? 'Each case combines a source, a writing decision, and a quantitative problem before you choose what happens next.'
@@ -121,12 +222,15 @@
     $('primerSkill').textContent = `${data.skill.domain.toUpperCase()} / ${data.skill.title}`;
     $('primerPrompt').textContent = data.item.prompt;
     $('primerFeedback').hidden = true;
+    $('primerEvidenceNote').hidden = true;
+    $('primerSessionEnd').hidden = true;
     $('primerNext').hidden = true;
     $('primerClue').hidden = true;
     $('primerClue').textContent = '';
     $('primerShowClue').hidden = false;
     $('primerAnswer').hidden = false;
     $('primerCard').hidden = false;
+    renderRecommendation();
     const host = $('primerResponse');
     host.replaceChildren();
     if (data.item.response_kind === 'choice') {
@@ -168,8 +272,7 @@
         method: 'POST', body: JSON.stringify({ token: state.activity.token, choice }),
       });
       if (state.current && state.current.id === learnerId) {
-        await loadActivity(learnerId);
-        status('');
+        if (await loadActivity(learnerId)) { status(''); focusStep(); }
       }
     } catch (error) {
       try {
@@ -180,16 +283,34 @@
   }
 
   async function loadActivity(learnerId) {
-    const data = await api(`/api/primer/learners/${learnerId}/activity`);
-    if (state.current && state.current.id === learnerId) renderActivity(data);
+    const view = currentView();
+    const request = ++state.activityRequest;
+    if (view.learnerId !== learnerId) return false;
+    try {
+      const data = await api(`/api/primer/learners/${learnerId}/activity`);
+      if (!isCurrentView(view) || request !== state.activityRequest
+          || data.learner?.id !== learnerId || data.learner.grade !== view.grade) return false;
+      renderActivity(data);
+      return true;
+    } catch (error) {
+      if (!isCurrentView(view) || request !== state.activityRequest) return false;
+      throw error;
+    }
+  }
+
+  function focusStep() {
+    const target = !$('primerCard').hidden ? $('primerPrompt')
+      : !$('primerStoryChoice').hidden ? $('primerChoiceQuestion') : $('primerStoryEnd').querySelector('h3');
+    if (target) { target.tabIndex = -1; target.focus({ preventScroll: true }); target.scrollIntoView({ block: 'nearest' }); }
   }
 
   async function refreshFamilyNote() {
     if (!state.current || document.hidden) return;
     const learnerId = state.current.id;
+    const view = currentView();
     try {
       const data = await api(`/api/primer/learners/${learnerId}/nudge`);
-      if (state.current?.id !== learnerId) return;
+      if (!isCurrentView(view)) return;
       state.familyNoteId = data.nudge?.id || null;
       $('primerFamilyMessage').textContent = data.nudge?.message || '';
       $('primerFamilyNote').hidden = !state.familyNoteId;
@@ -197,15 +318,47 @@
   }
 
   async function selectLearner(learner) {
+    if (state.busy) return;
+    state.viewVersion += 1;
     state.current = learner;
+    const view = currentView();
+    state.activity = null;
+    state.progress = null;
+    state.session = { answered: 0, independent: 0, assisted: 0, revisits: 0 };
+    $('primerPlacementGrade').value = learner.grade_set ? String(learner.grade) : '';
+    $('primerSkillMap').replaceChildren();
+    $('primerPracticeCount').textContent = '';
+    $('primerPathSummary').textContent = '';
+    $('primerOfflinePractice').hidden = true;
+    $('primerProgressStatus').textContent = '';
+    $('primerProgressRetry').hidden = true;
+    renderSession();
     showStart(false);
     renderLearners();
     $('primerCard').hidden = true;
+    $('primerScene').hidden = true;
+    $('primerStoryChoice').hidden = true;
+    $('primerStoryEnd').hidden = true;
+    $('primerStoryHistory').hidden = true;
+    $('primerStoryHistoryList').replaceChildren();
+    $('primerFamilyNote').hidden = true;
+    $('primerFamilyMessage').textContent = '';
+    state.familyNoteId = null;
+    if (!learner.grade_set) {
+      $('primerActivityTitle').textContent = 'Choose your starting point.';
+      $('primerActivityIntro').textContent = 'Set the grade you want to practice before starting a question.';
+      $('primerGradeLabel').textContent = 'Choose a practice grade';
+      $('primerWorldLabel').textContent = '';
+      $('primerChapterTrack').replaceChildren();
+      $('primerPlacement').closest('details').open = true;
+      status('Choose a practice grade in Practice settings to begin at a useful level.');
+      return;
+    }
     status('Loading the next activity…');
+    void loadProgress(learner.id);
     try {
-      await loadActivity(learner.id);
-      status('');
-    } catch (error) { status(error.message); }
+      if (await loadActivity(learner.id)) status('');
+    } catch (error) { if (isCurrentView(view)) status(error.message, true); }
   }
 
   $('primerCreate').addEventListener('submit', async (event) => {
@@ -222,6 +375,7 @@
       });
       state.learners.push(data.learner);
       $('primerCreate').reset();
+      state.busy = false;
       await selectLearner(data.learner);
     } catch (error) { status(error.message); }
     finally { button.disabled = false; state.busy = false; }
@@ -244,9 +398,21 @@
       $('primerFeedback').dataset.correct = String(result.correct);
       $('primerFeedback').textContent = `${result.correct ? 'You got it. ' : 'Good try. '}${result.feedback}`;
       $('primerFeedback').hidden = false;
+      const assisted = Boolean(result.evidence?.clue_used);
+      $('primerEvidenceNote').textContent = assisted
+        ? 'Clue used · This is assisted practice. Try a fresh question without a clue to build independent evidence.'
+        : result.correct ? 'Correct independently · This checked answer is saved as practice evidence.'
+          : 'A useful next step · Read the feedback, then try a fresh question on this skill.';
+      $('primerEvidenceNote').hidden = false;
+      state.session.answered += 1;
+      if (result.correct && !assisted) state.session.independent += 1;
+      else if (result.correct) state.session.assisted += 1;
+      else state.session.revisits += 1;
+      renderSession();
+      void loadProgress(learnerId);
       $('primerAnswer').hidden = true;
       $('primerNext').hidden = false;
-      $('primerNext').firstChild.textContent = result.retry ? 'Try another clue ' : 'Continue story ';
+      $('primerNext').firstChild.textContent = result.retry ? 'Try a fresh question ' : 'Continue practice ';
       $('primerNext').focus();
     } catch (error) {
       try {
@@ -258,9 +424,17 @@
 
   $('primerNext').addEventListener('click', async () => {
     if (!state.current || state.busy) return;
+    state.busy = true;
+    $('primerNext').disabled = true;
     status('Loading the next activity…');
-    try { await loadActivity(state.current.id); status(''); }
+    try {
+      if (!(await loadActivity(state.current.id))) return;
+      if (state.session.answered >= state.goal) state.session = { answered: 0, independent: 0, assisted: 0, revisits: 0 };
+      renderSession();
+      status(''); focusStep();
+    }
     catch (error) { status(error.message); }
+    finally { state.busy = false; $('primerNext').disabled = false; }
   });
   $('primerFamilyAcknowledge').addEventListener('click', async () => {
     if (!state.current || !state.familyNoteId || state.busy) return;
@@ -309,8 +483,7 @@
     try {
       await api(`/api/primer/learners/${learnerId}/journey/restart`, { method: 'POST' });
       if (state.current && state.current.id === learnerId) {
-        await loadActivity(learnerId);
-        status('');
+        if (await loadActivity(learnerId)) status('');
       }
     } catch (error) {
       try {
@@ -319,14 +492,56 @@
     }
     finally { $('primerRestart').disabled = false; state.busy = false; }
   });
-  $('primerAdd').addEventListener('click', () => { status(''); showStart(true); });
+  $('primerAdd').addEventListener('click', () => { if (!state.busy) { status(''); showStart(true); } });
+  $('primerCancelCreate').addEventListener('click', () => showStart(false));
+  $('primerSessionGoal').addEventListener('change', () => {
+    state.goal = Number($('primerSessionGoal').value);
+    renderSession();
+  });
+  $('primerProgressRetry').addEventListener('click', () => {
+    if (state.current?.grade_set) void loadProgress(state.current.id);
+  });
+  $('primerRetry').addEventListener('click', async () => {
+    if (state.busy) return;
+    if (!state.current) { void initialize(); return; }
+    if (!state.current.grade_set) return;
+    state.busy = true;
+    status('Loading the next activity…');
+    try {
+      if (await loadActivity(state.current.id)) { status(''); focusStep(); }
+    } catch (error) { status(error.message, true); }
+    finally { state.busy = false; }
+  });
+  $('primerPlacement').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!state.current || state.busy) return;
+    const learnerId = state.current.id;
+    state.busy = true;
+    const button = $('primerPlacement').querySelector('button');
+    button.disabled = true;
+    try {
+      const data = await api(`/api/primer/learners/${learnerId}/grade`, {
+        method: 'PUT', body: JSON.stringify({ grade: Number($('primerPlacementGrade').value) }),
+      });
+      const index = state.learners.findIndex((learner) => learner.id === learnerId);
+      if (index !== -1) state.learners[index] = data.learner;
+      state.busy = false;
+      $('primerPlacement').closest('details').open = false;
+      await selectLearner(data.learner);
+    } catch (error) { status(error.message); }
+    finally { state.busy = false; button.disabled = false; }
+  });
   window.setInterval(refreshFamilyNote, 60000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshFamilyNote(); });
 
-  api('/api/primer/learners').then((data) => {
-    state.learners = data.learners;
-    if (state.learners.length) return selectLearner(state.learners[0]);
-    showStart(true);
-    status('');
-  }).catch((error) => status(error.message));
+  async function initialize() {
+    status('Loading your learners…');
+    try {
+      const data = await api('/api/primer/learners');
+      state.learners = data.learners;
+      if (state.learners.length) await selectLearner(state.learners[0]);
+      else { showStart(true); status(''); }
+    } catch (error) { status(error.message, true); }
+  }
+  void initialize();
 })();

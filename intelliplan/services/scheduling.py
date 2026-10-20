@@ -337,11 +337,10 @@ class SchedulingService:
                 windows = scheduler_engine.extend_windows(
                     windows, day, override["add"], self._ctx.preferred_time, now=now,
                 )
-            # Each window is discounted on its own. Two separate 60-minute
-            # windows are not the same as one 120-minute window: each pays
-            # its own break overhead, and summing first would overstate the
-            # day by exactly the amount that makes blocks fall off the end.
-            minutes = sum(usable_minutes(w.minutes, stamina, long_break_after) for w in windows)
+            # Break estimates guide load preferences. Actual ordered clock
+            # placement, including transitions, determines hard feasibility.
+            soft_minutes = sum(usable_minutes(w.minutes, stamina, long_break_after) for w in windows)
+            minutes = sum(w.minutes for w in windows)
             if override.get("set") is not None:
                 minutes = min(minutes, max(0, int(override["set"])))
             self._slot_mix[day] = slot_mix_for_windows(windows)
@@ -360,6 +359,9 @@ class SchedulingService:
                     # expensive. Pricing it lets a deadline still use it.
                     quality=quality,
                     comfort_minutes=self._ctx.daily_target_minutes,
+                    soft_minutes=soft_minutes,
+                    clock_windows=tuple((w.start, w.end) for w in windows),
+                    clock_stamina_minutes=stamina,
                 )
             )
         return out
@@ -408,12 +410,18 @@ class SchedulingService:
     def _deadline_capacities(self, tasks, now):
         """Do not allocate a morning deadline against the whole evening's capacity."""
         out = []
+        # Window parsing subtracts commitments and dated events. Share it
+        # only within this call: many assignments have the same due day.
+        by_day = {}
         for task in tasks:
             if task.deadline_at is None or task.deadline_at <= now:
                 out.append(replace(task, deadline_day_capacity=None, deadline_windows=None,
                                    deadline_overdue=bool(task.deadline_at and task.deadline_at <= now)))
                 continue
-            windows = self.windows_for(task.deadline_at.date(), now) or []
+            day = task.deadline_at.date()
+            if day not in by_day:
+                by_day[day] = self.windows_for(day, now) or []
+            windows = by_day[day]
             minutes = sum(max(0, int((min(window.end, task.deadline_at) - window.start).total_seconds() // 60))
                           for window in windows)
             out.append(replace(task, deadline_day_capacity=minutes,

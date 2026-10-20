@@ -7,20 +7,21 @@
   <header class="primer-heading">
     <div>
       <p class="primer-kicker">INTELLIPLAN / FOUNDATIONS</p>
-      <h1 id="primerPageTitle">A story that remembers.</h1>
-      <p id="primerPageIntro">Explore a world, make choices that carry forward, and practice reading, writing, and math at a level chosen for you.</p>
+      <h1 id="primerPageTitle">Small practice. Real understanding.</h1>
+      <p id="primerPageIntro">Read carefully, write clearly, and reason with numbers. Start with a short activity, get useful feedback, and pick up where you left off.</p>
     </div>
     <div class="primer-heading-actions"><a class="primer-secondary" href="/tutor?plan=1">Build your personal learning plan with Plani <span aria-hidden="true">↗</span></a></div>
   </header>
 
   <div id="primerStatus" class="primer-status" role="status" aria-live="polite">Loading your learners…</div>
+  <button type="button" class="primer-secondary primer-retry" id="primerRetry" hidden>Try loading again</button>
 
   <section class="primer-start" id="primerStart" hidden aria-labelledby="primerStartTitle">
-    <div class="primer-start__story" aria-hidden="true"><span>01</span><span>02</span><span>03</span></div>
+    <ol class="primer-start__steps"><li><span>01</span><div><strong>Try it yourself</strong><p>One reading, writing, or math question at a time.</p></div></li><li><span>02</span><div><strong>Understand the feedback</strong><p>Ask for a clue when you need one, then try a fresh question.</p></div></li><li><span>03</span><div><strong>Return and build on it</strong><p>Your saved practice helps choose what comes next.</p></div></li></ol>
     <div>
-      <p class="primer-eyebrow">BEGIN THE STORY</p>
+      <p class="primer-eyebrow">YOUR FIRST PRACTICE</p>
       <h2 id="primerStartTitle">Who is learning today?</h2>
-      <p>Use a nickname and choose a world to explore. The journey remembers choices and practice on this account. You can remove it at any time.</p>
+      <p>Choose your current grade to start at a useful level. A story connects the questions; your answers guide the next activity. Use a nickname for this account.</p>
       <form id="primerCreate" class="primer-create">
         <label for="primerNickname">Learner nickname</label>
         <input id="primerNickname" name="nickname" maxlength="40" autocomplete="off" required placeholder="e.g. Sky">
@@ -32,11 +33,13 @@
         </select>
         <label for="primerGrade">Current grade</label>
         <select id="primerGrade" name="grade" required>
+          <option value="" selected disabled>Choose your grade</option>
           <option value="0">Kindergarten</option>
           {% for grade in range(1, 13) %}<option value="{{ grade }}">Grade {{ grade }}</option>{% endfor %}
           <option value="13">College foundation</option>
         </select>
-        <button class="primer-primary" type="submit">Create learner <span aria-hidden="true">→</span></button>
+        <button class="primer-primary" type="submit">Start practicing <span aria-hidden="true">→</span></button>
+        <button class="primer-text-btn" id="primerCancelCreate" type="button" hidden>Back to my practice</button>
       </form>
     </div>
   </section>
@@ -45,6 +48,11 @@
     <div class="primer-toolbar">
       <div class="primer-learner-list" id="primerLearners" aria-label="Learners"></div>
       <button type="button" class="primer-secondary" id="primerAdd">Add learner</button>
+    </div>
+    <div class="primer-practice-bar">
+      <div><p class="primer-eyebrow">THIS SESSION</p><p id="primerSessionSummary">Try three questions at your own pace.</p></div>
+      <label for="primerSessionGoal">Session size<select id="primerSessionGoal"><option value="3">3 questions</option><option value="6">6 questions</option><option value="9">9 questions</option></select></label>
+      <details class="primer-settings"><summary>Practice settings</summary><form id="primerPlacement"><label for="primerPlacementGrade">Practice grade</label><select id="primerPlacementGrade" required><option value="" disabled>Choose a practice grade</option><option value="0">Kindergarten</option>{% for grade in range(1, 13) %}<option value="{{ grade }}">Grade {{ grade }}</option>{% endfor %}<option value="13">College foundation</option></select><p>Choose the grade you want to practice. Earlier skills may appear when a little extra support would help.</p><button class="primer-secondary" type="submit">Update practice grade</button></form></details>
     </div>
     <div class="primer-grid">
       <section class="primer-activity" aria-labelledby="primerActivityTitle">
@@ -66,6 +74,7 @@
           <ol id="primerStoryHistoryList"></ol>
         </details>
         <div class="primer-activity__card" id="primerCard" hidden>
+          <p class="primer-recommendation" id="primerRecommendation"></p>
           <p class="primer-beat-title" id="primerBeatTitle"></p>
           <p class="primer-skill" id="primerSkill"></p>
           <p class="primer-beat-intro" id="primerBeatIntro"></p>
@@ -77,6 +86,8 @@
             <button class="primer-primary" id="primerCheck" type="submit">Check answer <span aria-hidden="true">→</span></button>
           </form>
           <div class="primer-feedback" id="primerFeedback" role="status" aria-live="polite" hidden></div>
+          <p class="primer-evidence-note" id="primerEvidenceNote" hidden></p>
+          <div class="primer-session-end" id="primerSessionEnd" hidden><h3>A good place to pause.</h3><p id="primerSessionResult"></p><p>Your next step is saved. Return whenever you're ready, or keep practicing below.</p><a class="primer-secondary" href="/study-tools">Explore other study tools <span aria-hidden="true">↗</span></a></div>
           <button type="button" class="primer-primary" id="primerNext" hidden>Next activity <span aria-hidden="true">→</span></button>
         </div>
         <div class="primer-story-choice" id="primerStoryChoice" hidden>
@@ -94,7 +105,9 @@
       </section>
 
     </div>
-    <p class="primer-footnote">Story choices are yours and are never graded. Practice evidence helps choose the next activity.</p>
+    <details class="primer-evidence" id="primerEvidence"><summary>Your practice path <span id="primerPracticeCount"></span></summary><p id="primerPathSummary" class="primer-path-summary"></p><p>These labels describe this question bank. A correct answer with a clue is assisted practice; it does not count as independent evidence. They do not certify mastery.</p><p id="primerProgressStatus" role="status"></p><button type="button" class="primer-secondary" id="primerProgressRetry" hidden>Refresh practice path</button><div id="primerSkillMap" class="primer-skill-map"></div></details>
+    <details class="primer-offline-practice" id="primerOfflinePractice" hidden><summary>Try away from the screen</summary><h3 id="primerOfflineTitle"></h3><p id="primerOfflineReason"></p><p id="primerOfflineTask" class="primer-offline-task"></p><p class="primer-footnote">An optional conversation or activity to try on your own or together. It is not a checked answer and does not change independent practice evidence.</p></details>
+    <p class="primer-footnote">Story choices are yours and are never graded. Your place is saved after each checked answer. Raw answers are not stored.</p>
   </div>
 </div>
 <script src="/static/js/foundations.js?v={{ asset_v }}" defer></script>

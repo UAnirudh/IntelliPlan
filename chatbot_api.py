@@ -11,7 +11,7 @@ import urllib.error
 from datetime import datetime
 from time_utils import utcnow
 
-from ai_provider import (AIQuotaExhausted, AIUnavailable, ai_available,
+from ai_provider import (AIProcessingDenied, AIQuotaExhausted, AIUnavailable, ai_available,
                          chat as ai_chat, speak as ai_speak,
                          transcribe_audio as ai_transcribe, vision as ai_vision)
 import ai_firewall
@@ -1609,8 +1609,10 @@ def tutor_speak():
 
     Fish Audio is used when configured; the page explains browser fallback.
     """
-    data = request.get_json(silent=True) or {}
-    text = (data.get('text') or '').strip()
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict) or not isinstance(data.get('text'), str):
+        return jsonify({'error': 'invalid_request', 'message': 'Provide text to read aloud.'}), 400
+    text = data['text'].strip()
     if not text:
         return jsonify({'error': 'empty', 'message': 'Nothing to read out.'}), 400
     try:
@@ -1623,6 +1625,9 @@ def tutor_speak():
         return jsonify(payload), e.status
     try:
         audio, mime = ai_speak(text, voice=(data.get('voice') or None))
+    except AIProcessingDenied:
+        return jsonify({'error': 'processing_denied',
+                        'message': 'Read-aloud is disabled by institutional policy.'}), 403
     except ValueError as e:
         return jsonify({'error': 'bad_request', 'message': str(e)}), 400
     except AIQuotaExhausted as e:
@@ -1646,8 +1651,8 @@ def tutor_voices():
     Listed from the server rather than hardcoded in the page so adding a
     voice does not mean editing two files and hoping they agree.
     """
-    from ai_provider import speech_voices
-    return jsonify({'voices': speech_voices()})
+    from ai_provider import speech_capabilities, speech_voices
+    return jsonify({'voices': speech_voices(), **speech_capabilities()})
 
 
 @chatbot_bp.route('/api/media/generate', methods=['POST'])

@@ -1,10 +1,12 @@
 {% extends "base.html" %}
-{% block page_title %}Plani · Study & Learn | IntelliPlan{% endblock %}
+{% block page_title %}AI Tutor, Study Tutor | IntelliPlan{% endblock %}
 {% block meta_description %}Ask anything and learn step by step. IntelliPlan's AI tutor covers math, science, history, coding, languages, and more, free for every student.{% endblock %}
 {% block og_title %}AI Tutor, Free AI Study Tutor for Students{% endblock %}
 {% block og_description %}Ask anything and learn step by step, math, science, history, coding, and languages. Free for every student.{% endblock %}
 
 {% block head_extra %}
+<link rel="stylesheet" href="/static/vendor/learning-content/katex.min.css?v={{ asset_v }}">
+<script defer src="/static/vendor/learning-content/katex.min.js?v={{ asset_v }}"></script>
 <style>
 /* ── Override base layout: tutor owns the entire viewport ── */
 /* The base.html footer normally sits below <main>; on the tutor page we
@@ -94,6 +96,16 @@ main {
 .tutor-history-title {
   flex: 1; min-width: 0;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.tutor-history-row { display:flex; align-items:center; gap:4px; border-radius:13px; }
+.tutor-history-row .tutor-history-item { flex:1; min-width:0; width:auto; }
+.tutor-history-row .tutor-history-del { display:inline-flex; opacity:1; width:36px; height:36px; flex:0 0 36px; }
+.tutor-history-status { margin:0; padding:0 14px; color:var(--text-muted); font-size:.78rem; line-height:1.5; }
+.plani-history-close { display:none; }
+@media(max-width:768px) {
+  .tutor-side-head { padding-right:64px; }
+  .plani-history-close { display:grid; place-items:center; position:absolute; top:16px; right:12px; width:44px; height:44px; border:1px solid var(--border); border-radius:14px; background:var(--bg-card); color:var(--text-primary); font:inherit; font-size:1.4rem; cursor:pointer; }
+  .tutor-history-row .tutor-history-del { width:44px; height:44px; flex-basis:44px; }
 }
 .tutor-history-del {
   width: 22px; height: 22px; flex-shrink: 0;
@@ -511,6 +523,7 @@ main {
 
 /* ── Responsive ── */
 @media (max-width: 768px) {
+  main:has(.tutor-side.is-open) { z-index: 100000; }
   .tutor-side {
     position: fixed !important;
     top: 0; left: 0; bottom: 0;
@@ -711,7 +724,6 @@ main {
 .tutor-mistake-meta button { margin-left: 6px; padding: 2px 5px; border: 1px solid var(--border); border-radius: 5px; background: transparent; color: var(--text-secondary); cursor: pointer; }
 .tutor-panel-empty { font-size: 0.78rem; color: var(--text-muted); }
 </style>
-<link rel="stylesheet" href="{{ url_for('static', filename='css/plani_workspace.css') }}?v={{ asset_v }}">
 {% endblock %}
 
 {% block content %}
@@ -724,18 +736,11 @@ main {
   <aside class="tutor-side" id="tutorSide" aria-label="Past conversations">
     <div class="tutor-side-head">
       <button type="button" class="plani-history-close" onclick="closeTutorDrawer()" aria-label="Close chat history">×</button>
-      <a class="plani-home" href="/study-and-learn"><span class="plani-home-mark" aria-hidden="true"><svg><use href="#i-robot"/></svg></span><span>Plani<small>Your learning companion</small></span></a>
       <button class="tutor-new-chat" onclick="startNewChat()" aria-label="Start a new chat">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         New chat
       </button>
     </div>
-
-    <nav class="plani-shortcuts" aria-label="Study tools">
-      <a href="/tools"><svg aria-hidden="true"><use href="#i-dashboard"/></svg>All study tools <span aria-hidden="true">↗</span></a>
-      <a href="/learning"><svg aria-hidden="true"><use href="#i-grades"/></svg>Sessions &amp; progress <span aria-hidden="true">↗</span></a>
-      {% if can_manage_school %}<a href="/school-admin"><svg aria-hidden="true"><use href="#i-settings"/></svg>Institution settings <span aria-hidden="true">↗</span></a>{% endif %}
-    </nav>
 
     <div class="tutor-side-title">Recent chats</div>
     <div class="tutor-history" id="tutorHistoryList">
@@ -757,22 +762,24 @@ main {
       </div>
       <p id="tutorAudioStatus" class="tutor-modality-note" role="status" aria-live="polite"></p>
       <div class="tutor-side-tip">
-        <strong>Try this:</strong> Tell Plani what you've tried and where you got stuck.
+        <strong>Tip:</strong> Be specific, "explain quadratic equations" beats "help with math".
       </div>
     </div>
   </aside>
 
   <!-- ════ MAIN ════ -->
   <div class="tutor-main">
-
-    <header class="plani-workspace-head"><div><span class="plani-workspace-label">Study &amp; learn</span><p>{% if assessment_protection %}Assessment protection is on{% else %}Small questions. Real understanding.{% endif %}</p></div><a href="/tools">Explore study tools <span aria-hidden="true">↗</span></a></header>
+    <header class="tutor-workspace-header">
+      <div class="tutor-workspace-heading"><h1>Study &amp; learn</h1><p>{% if assessment_protection %}Assessment protection is on{% else %}A little clarity, one question at a time.{% endif %}</p></div>
+      <div class="tutor-workspace-actions"><a class="tutor-tools-link no-glass" href="/study-tools">All study tools <span aria-hidden="true">↗</span></a></div>
+    </header>
 
     <!-- Mobile-only action bar -->
     <div class="tutor-mobile-bar" role="toolbar" aria-label="Tutor actions">
       <button type="button" onclick="openTutorDrawer()" aria-label="Open chat history">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
       </button>
-      <div class="tutor-mobile-title">Plani</div>
+      <div class="tutor-mobile-title">AI Tutor</div>
       <button type="button" onclick="startNewChat()" aria-label="Start a new chat">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       </button>
@@ -851,9 +858,8 @@ main {
         </svg>
       </div>
 
-      <p class="plani-welcome">A space to think it through</p>
-      <h1 class="tutor-empty-title">What are you curious about?</h1>
-      <p class="tutor-empty-sub">Bring a question or show me where you're stuck. We'll work through it together, one step at a time.</p>
+      <h2 class="tutor-empty-title">What do you want to learn today?</h2>
+      <p class="tutor-empty-sub">Ask anything — math, science, history, coding, and more. Step-by-step teaching, not just answers.</p>
 
       <div class="tutor-chips" id="tutorChips">
         <button class="tutor-chip active" data-subject="General"          onclick="selectSubject(this)">General</button>
@@ -869,6 +875,16 @@ main {
 
       <div class="tutor-suggestions" id="tutorSuggestions"></div>
 
+      <div class="tutor-capabilities" aria-label="More ways to ask">
+        <button type="button" class="tutor-capability no-glass" onclick="document.getElementById('snapBtn').click()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 6h4l2-3h6l2 3h4v15H3z"/><circle cx="12" cy="13" r="4"/></svg>
+          Add a photo
+        </button>
+        <button type="button" class="tutor-capability no-glass" onclick="toggleVoice()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"/></svg>
+          Speak your question
+        </button>
+      </div>
     </div><!-- /tutor-empty -->
 
     <!-- Message thread -->
@@ -886,8 +902,8 @@ main {
 
     <!-- ════ INPUT BAR (floating, anchored to .tutor-main) ════ -->
     <div class="tutor-input-wrap">
-      <details class="plani-study-actions">
-      <summary>Practice &amp; assignment tools <span>Quick checks · study maps · learning plans</span></summary>
+      <details class="tutor-practice-drawer" data-no-motion>
+        <summary>Practice &amp; assignment tools <span>Checks, study maps and learning plans</span></summary>
       <div class="tutor-assignment-bar">
         <button type="button" id="tutorAssignmentButton" onclick="loadTutorAssignments()" aria-controls="tutorAssignmentSelect">Study a Canvas assignment</button>
         <select id="tutorAssignmentSelect" aria-label="Choose a Canvas assignment" onchange="selectTutorAssignment()" hidden>
@@ -932,9 +948,9 @@ main {
           onkeydown="handleTutorKey(event)"
           oninput="autoResizeTutor(this)"></textarea>
         <input type="file" id="snapFileInput" accept="image/*" capture="environment" style="display:none;" onchange="handleSnapFile(this)">
-        <button class="tutor-icon-btn no-glass" id="snapBtn" onclick="openSnapMenu(event)" aria-label="Attach a problem photo" aria-haspopup="true" data-tip="Photograph a problem and work through it with Plani">
+        <button class="tutor-icon-btn no-glass" id="snapBtn" onclick="openSnapMenu(event)" aria-label="Snap and Solve" aria-haspopup="true" data-tip="Snap &amp; Solve — photograph a problem and get it worked through step by step">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-          <span class="ib-tip">Learn from a photo</span>
+          <span class="ib-tip">Snap &amp; Solve</span>
         </button>
         <button class="tutor-icon-btn no-glass" id="micBtn" onclick="toggleVoice()" aria-label="Voice input" data-tip="Dictate your question instead of typing">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
@@ -949,7 +965,8 @@ main {
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
         </button>
       </div>
-      <p class="tutor-input-hint">Plani guides you with questions and hints. AI can make mistakes. Your school's rules apply.</p>
+      <div class="tutor-audio-feedback" role="status" aria-live="polite"><span id="tutorAudioFeedback"></span><button type="button" id="tutorAudioPlay" class="no-glass" hidden>Play audio</button></div>
+      <p class="tutor-input-hint">AI can make mistakes — double-check important facts before using them in assignments.</p>
     </div>
 
   </div><!-- /tutor-main -->
@@ -1525,7 +1542,7 @@ async function loadConversation(id) {
   if (isProcessing) return;
   const version = ++conversationLoadVersion;
   requestedConversationId = id;
-  stopSpeaking();
+  cancelVoiceInput();
   if (id !== conversationId) summarizeConversation(conversationId, tutorHistory);
   document.getElementById('tutorHistoryStatus').textContent = 'Opening chat…';
   try {
@@ -1580,7 +1597,7 @@ async function deleteConversation(id) {
     }
     conversationList = conversationList.filter(c => c.id !== id);
     if (conversationId === id) {
-      stopSpeaking();
+      cancelVoiceInput();
       conversationId = null;
       clearTutorAssignment();
       tutorHistory = [];
@@ -1600,7 +1617,7 @@ async function startNewChat() {
   if (isProcessing) return;
   ++conversationLoadVersion;
   requestedConversationId = null;
-  stopSpeaking();
+  cancelVoiceInput();
   document.getElementById('tutorHistoryStatus').textContent = '';
   // Close out the conversation being left so its recap and possible
   // friction points are available next time.
@@ -1811,96 +1828,122 @@ async function recordAndTranscribe() {
     mediaRecorder.stop();
     return;
   }
+  if (microphoneStarting || transcriptionPending) return;
   if (!navigator.mediaDevices || !window.MediaRecorder) {
     IP.alert('This browser cannot record audio. Type your question instead.');
     return;
   }
   let stream;
+  const view = voiceViewVersion;
+  microphoneStarting = true;
+  btn.disabled = true;
   try {
     stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    if (!voicePageActive || view !== voiceViewVersion) { stream.getTracks().forEach(track => track.stop()); return; }
+    mediaRecorder = new MediaRecorder(stream);
   } catch (err) {
-    IP.alert('Microphone access was blocked. Allow it in your browser settings to talk to Plani.');
+    stream?.getTracks().forEach(track => track.stop());
+    IP.alert(stream ? 'This browser could not start recording. Type your question instead.'
+      : 'Microphone access was blocked. Allow it in your browser settings to talk to Plani.');
     return;
-  }
-  recordedChunks = [];
-  mediaRecorder = new MediaRecorder(stream);
-  mediaRecorder.ondataavailable = e => { if (e.data && e.data.size) recordedChunks.push(e.data); };
-  mediaRecorder.onstart = () => {
+  } finally { microphoneStarting = false; btn.disabled = false; }
+  const recorder = mediaRecorder;
+  const chunks = [];
+  let failed = false;
+  recorder.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+  recorder.onerror = () => { failed = true; };
+  recorder.onstart = () => {
     isRecording = true;
     btn.classList.add('recording');
     btn.title = 'Stop recording';
+    btn.setAttribute('aria-label', 'Stop recording your question');
+    btn.setAttribute('aria-pressed', 'true');
     input.placeholder = 'Listening… press the mic again when you are done.';
+    setAudioStatus('Recording your question. When you stop, it is sent to your school’s allowed speech provider. Limit: two minutes.');
+    recordingTimer = setTimeout(() => { if (recorder.state === 'recording') recorder.stop(); }, 120000);
   };
-  mediaRecorder.onstop = async () => {
+  recorder.onstop = async () => {
+    clearTimeout(recordingTimer);
     isRecording = false;
+    if (mediaRecorder === recorder) mediaRecorder = null;
     btn.classList.remove('recording');
     btn.title = 'Voice input';
+    btn.setAttribute('aria-label', 'Record a question');
+    btn.setAttribute('aria-pressed', 'false');
     input.placeholder = 'Ask anything…';
     stream.getTracks().forEach(t => t.stop());
-    const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
-    if (!blob.size) return;
+    if (recorder._discard || !voicePageActive || view !== voiceViewVersion) return;
+    if (failed) { setAudioStatus('Recording failed. Try again or type your question.'); return; }
+    const type = recorder.mimeType || chunks[0]?.type || 'audio/webm';
+    const blob = new Blob(chunks, { type });
+    if (!blob.size) { setAudioStatus('No audio was captured. Try again or type your question.'); return; }
+    const extension = /mp4|m4a/i.test(type) ? 'm4a' : /ogg/i.test(type) ? 'ogg' : /wav/i.test(type) ? 'wav' : 'webm';
     const body = new FormData();
-    body.append('file', blob, 'speech.webm');
+    body.append('file', blob, 'speech.' + extension);
+    transcriptionPending = true;
+    btn.disabled = true;
     input.disabled = true;
+    document.getElementById('tutorSendBtn').disabled = true;
+    setAudioStatus('Transcribing your question…');
+    const controller = new AbortController();
+    transcriptionRequest = controller;
+    const timeout = setTimeout(() => controller.abort(), 30000);
     try {
-      const res = await fetch('/api/tutor/voice', { method: 'POST', body });
+      const res = await fetch('/api/tutor/voice', { method: 'POST', body, signal: controller.signal });
       const data = await res.json().catch(() => ({}));
+      if (!voicePageActive || view !== voiceViewVersion) return;
       if (!res.ok) {
-        IP.alert(data.message || 'That recording could not be transcribed.');
+        setAudioStatus(data.message || 'That recording could not be transcribed.');
         return;
       }
+      if (typeof data.text !== 'string') throw new Error('No transcript');
       input.value = (input.value ? input.value.trim() + ' ' : '') + data.text;
       autoResizeTutor(input);
+      setAudioStatus('Your question is ready. Review it, then send when you are ready.');
     } catch (err) {
-      IP.alert('That recording could not be sent. Check your connection.');
+      if (voicePageActive && view === voiceViewVersion) setAudioStatus('That recording could not be transcribed. Check your connection or type your question.');
     } finally {
+      clearTimeout(timeout);
+      if (transcriptionRequest === controller) transcriptionRequest = null;
+      transcriptionPending = false;
+      btn.disabled = false;
       input.disabled = false;
+      document.getElementById('tutorSendBtn').disabled = isProcessing;
       input.focus();
     }
   };
-  mediaRecorder.start();
+  try { recorder.start(); }
+  catch (_) {
+    stream.getTracks().forEach(track => track.stop());
+    mediaRecorder = null;
+    setAudioStatus('Recording could not start. Try again or type your question.');
+  }
 }
 
-
-let recognition = null;
 let isRecording = false;
-
 let mediaRecorder = null;
-let recordedChunks = [];
+let microphoneStarting = false;
+let transcriptionPending = false;
+let recordingTimer = null;
+let voicePageActive = true;
+let voiceViewVersion = 0;
+let transcriptionRequest = null;
+
+function cancelVoiceInput() {
+  voiceViewVersion += 1;
+  if (transcriptionRequest) transcriptionRequest.abort();
+  if (mediaRecorder) {
+    mediaRecorder._discard = true;
+    mediaRecorder.stream.getTracks().forEach(track => track.stop());
+    if (mediaRecorder.state === 'recording') mediaRecorder.stop();
+  }
+  stopSpeaking();
+}
 
 function toggleVoice() {
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  // SpeechRecognition exists in Chrome and Edge and nowhere else, so this
-  // used to tell every Safari and Firefox student to change browser. When it
-  // is missing, record the clip and let Whisper transcribe it server-side.
-  if (!SR) { return recordAndTranscribe(); }
-  if (isRecording) { recognition && recognition.stop(); return; }
-  recognition = new SR();
-  recognition.lang = 'en-US';
-  recognition.interimResults = true;
-  const btn = document.getElementById('micBtn');
-  const input = document.getElementById('tutorInput');
-  let finalText = input.value;
-  recognition.onstart = () => { isRecording = true; btn.classList.add('recording'); btn.title = 'Stop recording'; };
-  recognition.onresult = e => {
-    let interim = '';
-    for (let i = e.resultIndex; i < e.results.length; i++) {
-      if (e.results[i].isFinal) finalText += e.results[i][0].transcript + ' ';
-      else interim = e.results[i][0].transcript;
-    }
-    input.value = finalText + interim;
-    autoResizeTutor(input);
-  };
-  recognition.onend = () => {
-    isRecording = false;
-    btn.classList.remove('recording');
-    btn.title = 'Voice input';
-    input.value = finalText.trim();
-    autoResizeTutor(input);
-    input.focus();
-  };
-  recognition.onerror = e => { isRecording = false; btn.classList.remove('recording'); };
-  recognition.start();
+  // Every browser follows the same authenticated, institution-governed
+  // transcription path instead of sending speech to a browser-vendor service.
+  return recordAndTranscribe();
 }
 
 // ── TTS ────────────────────────────────────────────────────────
@@ -1923,6 +1966,12 @@ function toggleTts() {
   // If we're turning it off mid-speech, stop immediately.
   if (!ttsEnabled) stopSpeaking();
   _renderTtsState();
+  if (ttsEnabled) {
+    const bubbles = document.querySelectorAll('.tutor-msg-group.bot .tutor-bubble');
+    const last = bubbles[bubbles.length - 1];
+    if (last) speakReply(last._speechSource || last.innerText);
+    else setAudioStatus('Voice replies are on. Your next reply will be read aloud.');
+  }
 }
 document.addEventListener('DOMContentLoaded', _renderTtsState);
 _renderTtsState();
@@ -1957,6 +2006,9 @@ let _ttsAudio = null;
 let _ttsGeneration = 0;
 let _ttsRequest = null;
 let _ttsObjectUrl = null;
+let ttsMaxChars = 200;
+let ttsTimeoutMs = 15000;
+let _ttsCapabilitiesPromise = null;
 try { ttsVoiceId = localStorage.getItem('ip_tutor_voice') || null; } catch (e) {}
 
 function stopSpeaking() {
@@ -1965,20 +2017,35 @@ function stopSpeaking() {
   if (_ttsAudio) { try { _ttsAudio.pause(); } catch (e) {} _ttsAudio = null; }
   if (_ttsObjectUrl) { URL.revokeObjectURL(_ttsObjectUrl); _ttsObjectUrl = null; }
   if (window.speechSynthesis) window.speechSynthesis.cancel();
+  const play = document.getElementById('tutorAudioPlay');
+  if (play) { play.hidden = true; play.onclick = null; }
   setAudioStatus('');
 }
 
 function setAudioStatus(message) {
   const status = document.getElementById('tutorAudioStatus');
   if (status) status.textContent = message;
+  const feedback = document.getElementById('tutorAudioFeedback');
+  if (feedback) feedback.textContent = message;
 }
 
-async function loadVoiceOptions() {
+function loadVoiceOptions() {
+  if (!_ttsCapabilitiesPromise) _ttsCapabilitiesPromise = fetchVoiceOptions();
+  return _ttsCapabilitiesPromise;
+}
+
+async function fetchVoiceOptions() {
   const sel = document.getElementById('ttsVoiceSelect');
-  if (!sel) return;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
   try {
-    const res = await fetch('/api/tutor/voices');
+    const res = await fetch('/api/tutor/voices', {signal: controller.signal});
+    if (!res.ok) throw new Error('Voice settings unavailable');
     const data = await res.json();
+    const limit = data.max_text_chars || data.speech_max_chars;
+    if (Number.isInteger(limit) && limit >= 80 && limit <= 12000) ttsMaxChars = limit;
+    if (Number.isInteger(data.speech_timeout_ms) && data.speech_timeout_ms >= 1000 && data.speech_timeout_ms <= 90000) ttsTimeoutMs = data.speech_timeout_ms;
+    if (!sel) return;
     const voices = data.voices || [];
     if (!voices.length) { sel.closest('.tutor-voice-row')?.remove(); return; }
     sel.innerHTML = voices.map(v =>
@@ -1989,44 +2056,78 @@ async function loadVoiceOptions() {
     ttsVoiceId = chosen.id;
     sel.value = chosen.id;
   } catch (err) {
-    sel.closest('.tutor-voice-row')?.remove();
-  }
+    sel?.closest('.tutor-voice-row')?.remove();
+  } finally { clearTimeout(timeout); }
 }
 
 function setTtsVoice(id) {
+  stopSpeaking();
   ttsVoiceId = id;
   try { localStorage.setItem('ip_tutor_voice', id); } catch (e) {}
 }
 
 function _browserSpeak(clean) {
   if (!window.speechSynthesis) return;
-  const utt = new SpeechSynthesisUtterance(clean);
-  utt.rate = 0.98;
-  utt.pitch = 1.02;
-  if (_ttsVoice) utt.voice = _ttsVoice;
+  const generation = _ttsGeneration;
+  const parts = splitSpeech(clean, 500);
+  function read(index) {
+    if (generation !== _ttsGeneration || !ttsEnabled) return;
+    const utt = new SpeechSynthesisUtterance(parts[index]);
+    utt.rate = 0.98; utt.pitch = 1.02;
+    if (_ttsVoice) utt.voice = _ttsVoice;
+    utt.onend = () => {
+      if (generation !== _ttsGeneration || !ttsEnabled) return;
+      if (index + 1 < parts.length) read(index + 1);
+      else setAudioStatus('Finished reading.');
+    };
+    utt.onerror = () => { if (generation === _ttsGeneration) setAudioStatus('Your browser could not play audio. Check your sound settings or try another browser.'); };
+    window.speechSynthesis.speak(utt);
+  }
   window.speechSynthesis.cancel();
-  window.speechSynthesis.speak(utt);
+  if (parts.length) read(0);
+}
+
+function splitSpeech(text, limit) {
+  const parts = [];
+  while (text.length > limit) {
+    const windowText = text.slice(0, limit);
+    const sentence = Math.max(windowText.lastIndexOf('. '), windowText.lastIndexOf('? '), windowText.lastIndexOf('! '));
+    let end = sentence >= limit * .4 ? sentence + 2 : windowText.lastIndexOf(' ') + 1;
+    if (end < limit * .4) end = limit;
+    // Avoid splitting a Unicode surrogate pair at the provider boundary.
+    if (/[\uD800-\uDBFF]/.test(text[end - 1])) end -= 1;
+    parts.push(text.slice(0, end)); text = text.slice(end);
+  }
+  if (text) parts.push(text);
+  return parts;
 }
 
 async function speakReply(text) {
   if (!ttsEnabled) return;
-  const clean = text
-    .replace(/```[\s\S]*?```/g, ' ')
-    .replace(/[#*`_~\[\]]/g, '')
+  const source = window.IPRichText ? window.IPRichText.speech(text) : text.replace(/```[\s\S]*?```/g, ' ').replace(/[#*`_~\[\]]/g, '');
+  const clean = source
     .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 1200);
+    .trim();
   if (!clean) return;
   stopSpeaking();
   const generation = _ttsGeneration;
-  const controller = new AbortController();
-  _ttsRequest = controller;
   setAudioStatus('Preparing audio…');
-  try {
+  await loadVoiceOptions();
+  if (generation !== _ttsGeneration || !ttsEnabled) return;
+  const parts = splitSpeech(clean, ttsMaxChars);
+  const voice = ttsVoiceId;
+  async function readPart(index) {
+    if (generation !== _ttsGeneration || !ttsEnabled) return;
+    const controller = new AbortController();
+    _ttsRequest = controller;
+    let timedOut = false;
+    const timeout = setTimeout(() => { timedOut = true; controller.abort(); }, ttsTimeoutMs);
+    setAudioStatus(index ? `Preparing part ${index + 1} of ${parts.length}…` : 'Preparing audio…');
+    try {
     const res = await fetch('/api/tutor/speak', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: clean, voice: ttsVoiceId || undefined }),
+      body: JSON.stringify({ text: parts[index].trim(), voice: voice || undefined }),
       signal: controller.signal,
     });
     if (generation !== _ttsGeneration || !ttsEnabled) return;
@@ -2043,23 +2144,51 @@ async function speakReply(text) {
     _ttsObjectUrl = url;
     const audio = new Audio(url);
     _ttsAudio = audio;
-    audio.onended = audio.onerror = () => {
+    function releaseAudio() {
       URL.revokeObjectURL(url);
       if (_ttsObjectUrl === url) _ttsObjectUrl = null;
       if (_ttsAudio === audio) _ttsAudio = null;
+    }
+    audio.onended = () => {
+      releaseAudio();
+      if (generation !== _ttsGeneration || !ttsEnabled) return;
+      if (index + 1 < parts.length) void readPart(index + 1);
+      else setAudioStatus('Finished reading.');
     };
-    await audio.play();
+    audio.onerror = () => {
+      releaseAudio();
+      if (generation !== _ttsGeneration || !ttsEnabled) return;
+      setAudioStatus(window.speechSynthesis ? 'Server audio could not play. Using your browser voice.' : 'Audio could not play. You can read the reply here.');
+      _browserSpeak(parts.slice(index).join(''));
+    };
+    try { await audio.play(); }
+    catch (playError) {
+      if (playError.name !== 'NotAllowedError') throw playError;
+      const play = document.getElementById('tutorAudioPlay');
+      if (!play) throw playError;
+      setAudioStatus('Your browser needs a tap to start audio.');
+      play.hidden = false;
+      play.onclick = async () => {
+        if (generation !== _ttsGeneration || !ttsEnabled) { play.hidden = true; return; }
+        try { await audio.play(); play.hidden = true; setAudioStatus('Reading aloud.'); }
+        catch (_) { setAudioStatus('Audio could not start. Check your browser sound settings.'); }
+      };
+      return;
+    }
     if (generation === _ttsGeneration) setAudioStatus('Reading aloud.');
     return;
   } catch (err) {
-    if (generation !== _ttsGeneration || !ttsEnabled || controller.signal.aborted) return;
+    if (generation !== _ttsGeneration || !ttsEnabled || (controller.signal.aborted && !timedOut)) return;
     if (_ttsObjectUrl) { URL.revokeObjectURL(_ttsObjectUrl); _ttsObjectUrl = null; }
     _ttsAudio = null;
     setAudioStatus(window.speechSynthesis ? 'Server audio unavailable. Using your browser voice.' : 'Audio unavailable. You can read the reply here.');
-    _browserSpeak(clean);
+    _browserSpeak(parts.slice(index).join(''));
   } finally {
+    clearTimeout(timeout);
     if (_ttsRequest === controller) _ttsRequest = null;
+    }
   }
+  return readPart(0);
 }
 
 /* ════ ADAPTIVE STUDENT MODEL ════════════════════════════════════ */
@@ -2172,8 +2301,11 @@ function summarizeConversation(convoId, messages) {
 }
 
 window.addEventListener('pagehide', () => {
+  voicePageActive = false;
+  cancelVoiceInput();
   summarizeConversation(conversationId, tutorHistory);
 });
+window.addEventListener('pageshow', () => { voicePageActive = true; });
 
 function openLearningPanel() {
   const panel = document.getElementById('learningPanel');
@@ -2384,6 +2516,7 @@ function parseArtifactAttrs(raw) {
 }
 
 function parseArtifacts(content) {
+  content = window.IPRichText ? window.IPRichText.normalize(content) : String(content);
   const segments = [];
   let lastIndex = 0;
   let match;
@@ -2502,7 +2635,7 @@ async function sendTutorMessage() {
     // and showed the generic snag line for every one of those cases.
     const data = await res.json().catch(function () { return {}; });
     if (!res.ok && !(data && data.reply)) throw new Error(data.error || `HTTP ${res.status}`);
-    reply   = (data.reply || '').trim() || 'Sorry, I hit a snag. Try again.';
+    reply = (window.IPRichText ? window.IPRichText.normalize(data.reply || '') : String(data.reply || '')).trim() || 'Sorry, I hit a snag. Try again.';
     refusal = data.refusal || null;
     premiumMeta = data.premium || null;
     clarifying = !!data.clarify;
@@ -2542,7 +2675,8 @@ async function sendTutorMessage() {
   scrollBottom();
 }
 
-/* Premium metadata and a question-led next-step hint after clarification. */
+/* Premium: which model answered and what it cost, a "just answer" button
+   after a clarifying question, and a note when the month's budget ran out. */
 function renderPremiumMeta(meta, clarifying) {
   const container = document.getElementById('tutorMessages');
   const last = container && container.lastElementChild;
@@ -2687,6 +2821,7 @@ function addTutorMsg(role, text, refusal) {
 
   const bubble = document.createElement('div');
   bubble.className = 'tutor-bubble';
+  if (role === 'bot') bubble._speechSource = stripArtifacts(window.IPRichText ? window.IPRichText.normalize(text) : text);
   try {
     if (role === 'bot' && !refusal) {
       // Interleave prose and interactive artifacts in the order Plani sent them.
@@ -2717,6 +2852,31 @@ function addTutorMsg(role, text, refusal) {
 
   wrap.appendChild(sender);
   wrap.appendChild(bubble);
+  if (role === 'bot' && !refusal) {
+    const actions = document.createElement('div'); actions.className = 'tutor-response-actions';
+    const read = document.createElement('button');
+    read.type = 'button'; read.className = 'tutor-read-reply no-glass';
+    read.textContent = 'Read aloud';
+    read.setAttribute('aria-label', 'Read this reply aloud');
+    read.addEventListener('click', () => {
+      ttsEnabled = true; _renderTtsState();
+      speakReply(stripArtifacts(window.IPRichText ? window.IPRichText.normalize(text) : text));
+    });
+    actions.appendChild(read);
+    const copy = document.createElement('button');
+    copy.type = 'button'; copy.className = 'tutor-read-reply no-glass';
+    copy.textContent = 'Copy reply'; copy.setAttribute('aria-label', 'Copy this reply');
+    copy.setAttribute('aria-live', 'polite');
+    copy.addEventListener('click', async () => {
+      try {
+        const source = stripArtifacts(window.IPRichText ? window.IPRichText.normalize(text) : text);
+        await navigator.clipboard.writeText(window.IPRichText ? window.IPRichText.plainText(source) : source);
+        copy.textContent = 'Copied';
+      } catch (_) { copy.textContent = 'Select the reply to copy'; }
+      setTimeout(() => { copy.textContent = 'Copy reply'; }, 2500);
+    });
+    actions.appendChild(copy); wrap.appendChild(actions);
+  }
   group.appendChild(av);
   group.appendChild(wrap);
   container.appendChild(group);
@@ -2736,6 +2896,7 @@ function escHtml(t) {
 }
 
 function renderMd(raw) {
+  if (window.IPRichText) return window.IPRichText.render(raw);
   const segments = raw.split(/(```[\s\S]*?```)/g);
   return segments.map(seg => {
     if (seg.startsWith('```')) {
