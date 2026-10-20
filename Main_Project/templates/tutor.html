@@ -97,6 +97,16 @@ main {
   flex: 1; min-width: 0;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+.tutor-history-row { display:flex; align-items:center; gap:4px; border-radius:13px; }
+.tutor-history-row .tutor-history-item { flex:1; min-width:0; width:auto; }
+.tutor-history-row .tutor-history-del { display:inline-flex; opacity:1; width:36px; height:36px; flex:0 0 36px; }
+.tutor-history-status { margin:0; padding:0 14px; color:var(--text-muted); font-size:.78rem; line-height:1.5; }
+.plani-history-close { display:none; }
+@media(max-width:768px) {
+  .tutor-side-head { padding-right:64px; }
+  .plani-history-close { display:grid; place-items:center; position:absolute; top:16px; right:12px; width:44px; height:44px; border:1px solid var(--border); border-radius:14px; background:var(--bg-card); color:var(--text-primary); font:inherit; font-size:1.4rem; cursor:pointer; }
+  .tutor-history-row .tutor-history-del { width:44px; height:44px; flex-basis:44px; }
+}
 .tutor-history-del {
   width: 22px; height: 22px; flex-shrink: 0;
   background: none; border: none; border-radius: 6px;
@@ -513,6 +523,7 @@ main {
 
 /* ── Responsive ── */
 @media (max-width: 768px) {
+  main:has(.tutor-side.is-open) { z-index: 100000; }
   .tutor-side {
     position: fixed !important;
     top: 0; left: 0; bottom: 0;
@@ -724,6 +735,7 @@ main {
   <!-- ════ HISTORY SIDEBAR ════ -->
   <aside class="tutor-side" id="tutorSide" aria-label="Past conversations">
     <div class="tutor-side-head">
+      <button type="button" class="plani-history-close" onclick="closeTutorDrawer()" aria-label="Close chat history">×</button>
       <button class="tutor-new-chat" onclick="startNewChat()" aria-label="Start a new chat">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         New chat
@@ -734,6 +746,7 @@ main {
     <div class="tutor-history" id="tutorHistoryList">
       <div class="tutor-history-empty">Your past chats will show up here once you start asking questions.</div>
     </div>
+    <p id="tutorHistoryStatus" class="tutor-history-status" role="status" aria-live="polite"></p>
 
     <div class="tutor-side-foot">
       <button class="tutor-profile-btn" onclick="openLearningPanel()" aria-label="Open your learning profile">
@@ -1145,6 +1158,10 @@ let isProcessing     = false;
 let chatStarted      = false;
 let conversationId   = null;
 let conversationList = [];
+let conversationLoadVersion = 0;
+let requestedConversationId = null;
+let deletingConversation = false;
+let tutorDrawerPreviousFocus = null;
 let selectedAssignment = null;
 
 async function loadTutorAssignments() {
@@ -1484,13 +1501,15 @@ function selectSubject(el) {
 }
 
 async function loadConversations() {
+  const version = conversationLoadVersion;
   try {
     const res = await fetch('/api/tutor/conversations');
     if (!res.ok) return;
     const data = await res.json();
+    if (version !== conversationLoadVersion) return;
     conversationList = data.conversations || [];
     renderHistory();
-    if (conversationList.length) {
+    if (conversationList.length && !document.getElementById('tutorInput').value.trim() && !tutorHistory.length) {
       await loadConversation(conversationList[0].id);
     }
   } catch (err) {
@@ -1506,9 +1525,13 @@ function renderHistory() {
   }
   list.innerHTML = conversationList.map(c => {
     const isActive = c.id === conversationId ? 'active' : '';
-    return `<div class="tutor-history-item ${isActive}" data-id="${c.id}" onclick="loadConversation(${c.id})" role="button" tabindex="0">
+    const id = Number(c.id);
+    if (!Number.isSafeInteger(id) || id < 1) return '';
+    return `<div class="tutor-history-row ${isActive}">
+      <button type="button" class="tutor-history-item ${isActive}" data-id="${id}" onclick="loadConversation(${id})" aria-pressed="${Boolean(isActive)}">
       <span class="tutor-history-title">${escHtml(c.title || 'New chat')}</span>
-      <button class="tutor-history-del" onclick="event.stopPropagation();deleteConversation(${c.id})" aria-label="Delete chat" title="Delete">
+      </button>
+      <button type="button" class="tutor-history-del" onclick="deleteConversation(${id})" aria-label="Delete chat: ${escHtml(c.title || 'New chat')}" title="Delete chat">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
       </button>
     </div>`;
@@ -1516,13 +1539,18 @@ function renderHistory() {
 }
 
 async function loadConversation(id) {
-  if (id !== conversationId) summarizeConversation(conversationId, tutorHistory);
   if (isProcessing) return;
+  const version = ++conversationLoadVersion;
+  requestedConversationId = id;
   cancelVoiceInput();
+  if (id !== conversationId) summarizeConversation(conversationId, tutorHistory);
+  document.getElementById('tutorHistoryStatus').textContent = 'Opening chat…';
   try {
     const res = await fetch(`/api/tutor/conversations/${id}`);
-    if (!res.ok) return;
+    if (!res.ok || res.redirected) throw new Error('load failed');
     const data = await res.json();
+    if (version !== conversationLoadVersion) return;
+    requestedConversationId = null;
     if (id !== conversationId) clearTutorAssignment();
     conversationId = data.id;
     tutorHistory = (data.messages || [])
@@ -1538,18 +1566,35 @@ async function loadConversation(id) {
       resetToEmpty();
     }
     renderHistory();
+    document.getElementById('tutorHistoryStatus').textContent = '';
     closeTutorDrawer();
     scrollBottom();
   } catch (err) {
-    console.warn('Load conversation failed:', err);
+    if (version === conversationLoadVersion) {
+      requestedConversationId = null;
+      document.getElementById('tutorHistoryStatus').textContent = 'Could not open that chat. Try again.';
+    }
   }
 }
 
 async function deleteConversation(id) {
+  if (isProcessing || deletingConversation) {
+    document.getElementById('tutorHistoryStatus').textContent = 'Wait for the current request to finish before deleting a chat.';
+    return;
+  }
   if (!await IP.confirm('The whole conversation is removed. This cannot be undone.',
                         { title: 'Delete this chat?', confirmLabel: 'Delete', danger: true })) return;
+  if (isProcessing || deletingConversation) return;
+  deletingConversation = true;
+  document.getElementById('tutorHistoryStatus').textContent = 'Deleting chat…';
   try {
-    await fetch(`/api/tutor/conversations/${id}`, { method: 'DELETE' });
+    const res = await fetch(`/api/tutor/conversations/${id}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (!res.ok || data.ok !== true) throw new Error('delete failed');
+    if (requestedConversationId === id) {
+      ++conversationLoadVersion;
+      requestedConversationId = null;
+    }
     conversationList = conversationList.filter(c => c.id !== id);
     if (conversationId === id) {
       cancelVoiceInput();
@@ -1560,14 +1605,20 @@ async function deleteConversation(id) {
       resetToEmpty();
     }
     renderHistory();
+    document.getElementById('tutorHistoryStatus').textContent = 'Chat deleted.';
   } catch (err) {
-    console.warn('Delete failed:', err);
+    document.getElementById('tutorHistoryStatus').textContent = 'Could not delete that chat. Your conversation is still here. Try again.';
+  } finally {
+    deletingConversation = false;
   }
 }
 
 async function startNewChat() {
   if (isProcessing) return;
+  ++conversationLoadVersion;
+  requestedConversationId = null;
   cancelVoiceInput();
+  document.getElementById('tutorHistoryStatus').textContent = '';
   // Close out the conversation being left so its recap and possible
   // friction points are available next time.
   summarizeConversation(conversationId, tutorHistory);
@@ -1584,17 +1635,45 @@ async function startNewChat() {
 function openTutorDrawer() {
   const side = document.getElementById('tutorSide');
   const back = document.getElementById('tutorSideBackdrop');
-  if (side) side.classList.add('is-open');
+  tutorDrawerPreviousFocus = document.activeElement;
+  if (side) {
+    side.classList.add('is-open');
+    side.setAttribute('role', 'dialog');
+    side.setAttribute('aria-modal', 'true');
+    side.querySelector('.plani-history-close').focus();
+  }
   if (back) back.classList.add('is-open');
 }
 function closeTutorDrawer() {
   const side = document.getElementById('tutorSide');
   const back = document.getElementById('tutorSideBackdrop');
-  if (side) side.classList.remove('is-open');
+  if (side) {
+    const restoreFocus = side.contains(document.activeElement);
+    side.classList.remove('is-open');
+    side.removeAttribute('role');
+    side.removeAttribute('aria-modal');
+    if (restoreFocus && tutorDrawerPreviousFocus && tutorDrawerPreviousFocus.isConnected) tutorDrawerPreviousFocus.focus();
+  }
   if (back) back.classList.remove('is-open');
 }
 window.openTutorDrawer  = openTutorDrawer;
 window.closeTutorDrawer = closeTutorDrawer;
+document.addEventListener('keydown', event => {
+  const side = document.getElementById('tutorSide');
+  if (!side || !side.classList.contains('is-open')) return;
+  if (event.key === 'Escape') { event.preventDefault(); closeTutorDrawer(); return; }
+  if (event.key !== 'Tab') return;
+  const controls = [...side.querySelectorAll('a[href], button, select, input, [tabindex="0"]')]
+    .filter(el => !el.disabled && el.getClientRects().length);
+  const first = controls[0], last = controls[controls.length - 1];
+  if (!first) return;
+  if (event.shiftKey && (document.activeElement === first || !side.contains(document.activeElement))) {
+    event.preventDefault(); last.focus();
+  } else if (!event.shiftKey && (document.activeElement === last || !side.contains(document.activeElement))) {
+    event.preventDefault(); first.focus();
+  }
+});
+window.addEventListener('resize', () => { if (window.innerWidth > 768) closeTutorDrawer(); });
 
 function resetToEmpty() {
   chatStarted = false;
@@ -2480,6 +2559,12 @@ async function sendTutorMessage() {
   const text  = input.value.trim();
   const hasImage = !!pendingImageB64;
   if ((!text && !hasImage) || isProcessing) return;
+  if (deletingConversation) {
+    document.getElementById('tutorHistoryStatus').textContent = 'Wait for the chat deletion to finish before sending.';
+    return;
+  }
+  ++conversationLoadVersion;
+  requestedConversationId = null;
 
   isProcessing = true;
   input.value  = '';
