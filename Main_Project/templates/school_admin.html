@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% block page_title %}Institution Settings | IntelliPlan{% endblock %}
 {% block content %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/learning_hub.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/learning_hub.css') }}?v={{ asset_v }}">
 <article class="learning-hub learning-admin" aria-labelledby="admin-title" data-no-motion><header class="learning-intro"><div class="learning-context"><span class="learning-eyebrow">Institution settings</span><a href="/learning">Back to Learning Hub <span aria-hidden="true">↗</span></a></div>
 <h1 id="admin-title">Set the boundaries for learning.</h1><p>District restrictions remain in force when a school allows a feature. A subscription cannot override these rules.</p></header>
 <p id="admin-status" role="status" aria-live="polite"></p>

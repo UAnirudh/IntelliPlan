@@ -38,3 +38,6 @@ export_hubspot_contacts.py
 *.db
 *.sqlite
 *.sqlite3
+
+# Disposable browser evidence and verification-only dependencies.
+output/playwright/

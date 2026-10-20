@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block page_title %}AI Tutor, Study Tutor | IntelliPlan{% endblock %}
+{% block page_title %}Plani · Study & Learn | IntelliPlan{% endblock %}
 {% block meta_description %}Ask anything and learn step by step. IntelliPlan's AI tutor covers math, science, history, coding, languages, and more, free for every student.{% endblock %}
 {% block og_title %}AI Tutor, Free AI Study Tutor for Students{% endblock %}
 {% block og_description %}Ask anything and learn step by step, math, science, history, coding, and languages. Free for every student.{% endblock %}
@@ -711,6 +711,7 @@ main {
 .tutor-mistake-meta button { margin-left: 6px; padding: 2px 5px; border: 1px solid var(--border); border-radius: 5px; background: transparent; color: var(--text-secondary); cursor: pointer; }
 .tutor-panel-empty { font-size: 0.78rem; color: var(--text-muted); }
 </style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/plani_workspace.css') }}?v={{ asset_v }}">
 {% endblock %}
 
 {% block content %}
@@ -722,16 +723,25 @@ main {
   <!-- ════ HISTORY SIDEBAR ════ -->
   <aside class="tutor-side" id="tutorSide" aria-label="Past conversations">
     <div class="tutor-side-head">
+      <button type="button" class="plani-history-close" onclick="closeTutorDrawer()" aria-label="Close chat history">×</button>
+      <a class="plani-home" href="/study-and-learn"><span class="plani-home-mark" aria-hidden="true"><svg><use href="#i-robot"/></svg></span><span>Plani<small>Your learning companion</small></span></a>
       <button class="tutor-new-chat" onclick="startNewChat()" aria-label="Start a new chat">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         New chat
       </button>
     </div>
 
+    <nav class="plani-shortcuts" aria-label="Study tools">
+      <a href="/tools"><svg aria-hidden="true"><use href="#i-dashboard"/></svg>All study tools <span aria-hidden="true">↗</span></a>
+      <a href="/learning"><svg aria-hidden="true"><use href="#i-grades"/></svg>Sessions &amp; progress <span aria-hidden="true">↗</span></a>
+      {% if can_manage_school %}<a href="/school-admin"><svg aria-hidden="true"><use href="#i-settings"/></svg>Institution settings <span aria-hidden="true">↗</span></a>{% endif %}
+    </nav>
+
     <div class="tutor-side-title">Recent chats</div>
     <div class="tutor-history" id="tutorHistoryList">
       <div class="tutor-history-empty">Your past chats will show up here once you start asking questions.</div>
     </div>
+    <p id="tutorHistoryStatus" class="tutor-history-status" role="status" aria-live="polite"></p>
 
     <div class="tutor-side-foot">
       <button class="tutor-profile-btn" onclick="openLearningPanel()" aria-label="Open your learning profile">
@@ -747,7 +757,7 @@ main {
       </div>
       <p id="tutorAudioStatus" class="tutor-modality-note" role="status" aria-live="polite"></p>
       <div class="tutor-side-tip">
-        <strong>Tip:</strong> Be specific, "explain quadratic equations" beats "help with math".
+        <strong>Try this:</strong> Tell Plani what you've tried and where you got stuck.
       </div>
     </div>
   </aside>
@@ -755,12 +765,14 @@ main {
   <!-- ════ MAIN ════ -->
   <div class="tutor-main">
 
+    <header class="plani-workspace-head"><div><span class="plani-workspace-label">Study &amp; learn</span><p>{% if assessment_protection %}Assessment protection is on{% else %}Small questions. Real understanding.{% endif %}</p></div><a href="/tools">Explore study tools <span aria-hidden="true">↗</span></a></header>
+
     <!-- Mobile-only action bar -->
     <div class="tutor-mobile-bar" role="toolbar" aria-label="Tutor actions">
       <button type="button" onclick="openTutorDrawer()" aria-label="Open chat history">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
       </button>
-      <div class="tutor-mobile-title">AI Tutor</div>
+      <div class="tutor-mobile-title">Plani</div>
       <button type="button" onclick="startNewChat()" aria-label="Start a new chat">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       </button>
@@ -839,8 +851,9 @@ main {
         </svg>
       </div>
 
-      <h1 class="tutor-empty-title">What do you want to learn today?</h1>
-      <p class="tutor-empty-sub">Ask anything — math, science, history, coding, and more. Step-by-step teaching, not just answers.</p>
+      <p class="plani-welcome">A space to think it through</p>
+      <h1 class="tutor-empty-title">What are you curious about?</h1>
+      <p class="tutor-empty-sub">Bring a question or show me where you're stuck. We'll work through it together, one step at a time.</p>
 
       <div class="tutor-chips" id="tutorChips">
         <button class="tutor-chip active" data-subject="General"          onclick="selectSubject(this)">General</button>
@@ -856,17 +869,6 @@ main {
 
       <div class="tutor-suggestions" id="tutorSuggestions"></div>
 
-      <!-- Capability hints -->
-      <div style="margin-top:1.5rem;display:flex;gap:14px;flex-wrap:wrap;justify-content:center;max-width:520px;width:100%;">
-        <div style="flex:1;min-width:140px;display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--accent-soft);border-radius:12px;font-size:0.78rem;color:var(--text-primary);">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style="stroke:var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-          <div><div style="font-weight:700;">Snap &amp; Solve</div><div style="font-size:0.72rem;color:var(--text-muted);">Use your camera or upload a photo of any problem.</div></div>
-        </div>
-        <div style="flex:1;min-width:140px;display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--accent-soft);border-radius:12px;font-size:0.78rem;color:var(--text-primary);">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style="stroke:var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-          <div><div style="font-weight:700;">Voice Tutor</div><div style="font-size:0.72rem;color:var(--text-muted);">Tap the mic to speak your question.</div></div>
-        </div>
-      </div>
     </div><!-- /tutor-empty -->
 
     <!-- Message thread -->
@@ -884,6 +886,8 @@ main {
 
     <!-- ════ INPUT BAR (floating, anchored to .tutor-main) ════ -->
     <div class="tutor-input-wrap">
+      <details class="plani-study-actions">
+      <summary>Practice &amp; assignment tools <span>Quick checks · study maps · learning plans</span></summary>
       <div class="tutor-assignment-bar">
         <button type="button" id="tutorAssignmentButton" onclick="loadTutorAssignments()" aria-controls="tutorAssignmentSelect">Study a Canvas assignment</button>
         <select id="tutorAssignmentSelect" aria-label="Choose a Canvas assignment" onchange="selectTutorAssignment()" hidden>
@@ -900,6 +904,7 @@ main {
         <button type="button" id="educationPlanOpen">My learning plan</button>
         <span id="tutorCheckStatus" role="status" aria-live="polite"></span>
       </div>
+      </details>
       <div id="tutorImgPreview" class="tutor-img-preview" style="display:none;">
         {# Transparent 1x1 placeholder rather than src="" or no src at all:
            an empty src makes some browsers re-request the current document,
@@ -927,9 +932,9 @@ main {
           onkeydown="handleTutorKey(event)"
           oninput="autoResizeTutor(this)"></textarea>
         <input type="file" id="snapFileInput" accept="image/*" capture="environment" style="display:none;" onchange="handleSnapFile(this)">
-        <button class="tutor-icon-btn no-glass" id="snapBtn" onclick="openSnapMenu(event)" aria-label="Snap and Solve" aria-haspopup="true" data-tip="Snap &amp; Solve — photograph a problem and get it worked through step by step">
+        <button class="tutor-icon-btn no-glass" id="snapBtn" onclick="openSnapMenu(event)" aria-label="Attach a problem photo" aria-haspopup="true" data-tip="Photograph a problem and work through it with Plani">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-          <span class="ib-tip">Snap &amp; Solve</span>
+          <span class="ib-tip">Learn from a photo</span>
         </button>
         <button class="tutor-icon-btn no-glass" id="micBtn" onclick="toggleVoice()" aria-label="Voice input" data-tip="Dictate your question instead of typing">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
@@ -944,7 +949,7 @@ main {
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
         </button>
       </div>
-      <p class="tutor-input-hint">AI can make mistakes — double-check important facts before using them in assignments.</p>
+      <p class="tutor-input-hint">Plani guides you with questions and hints. AI can make mistakes. Your school's rules apply.</p>
     </div>
 
   </div><!-- /tutor-main -->
@@ -1136,6 +1141,10 @@ let isProcessing     = false;
 let chatStarted      = false;
 let conversationId   = null;
 let conversationList = [];
+let conversationLoadVersion = 0;
+let requestedConversationId = null;
+let deletingConversation = false;
+let tutorDrawerPreviousFocus = null;
 let selectedAssignment = null;
 
 async function loadTutorAssignments() {
@@ -1475,13 +1484,15 @@ function selectSubject(el) {
 }
 
 async function loadConversations() {
+  const version = conversationLoadVersion;
   try {
     const res = await fetch('/api/tutor/conversations');
     if (!res.ok) return;
     const data = await res.json();
+    if (version !== conversationLoadVersion) return;
     conversationList = data.conversations || [];
     renderHistory();
-    if (conversationList.length) {
+    if (conversationList.length && !document.getElementById('tutorInput').value.trim() && !tutorHistory.length) {
       await loadConversation(conversationList[0].id);
     }
   } catch (err) {
@@ -1497,9 +1508,13 @@ function renderHistory() {
   }
   list.innerHTML = conversationList.map(c => {
     const isActive = c.id === conversationId ? 'active' : '';
-    return `<div class="tutor-history-item ${isActive}" data-id="${c.id}" onclick="loadConversation(${c.id})" role="button" tabindex="0">
+    const id = Number(c.id);
+    if (!Number.isSafeInteger(id) || id < 1) return '';
+    return `<div class="tutor-history-row ${isActive}">
+      <button type="button" class="tutor-history-item ${isActive}" data-id="${id}" onclick="loadConversation(${id})" aria-pressed="${Boolean(isActive)}">
       <span class="tutor-history-title">${escHtml(c.title || 'New chat')}</span>
-      <button class="tutor-history-del" onclick="event.stopPropagation();deleteConversation(${c.id})" aria-label="Delete chat" title="Delete">
+      </button>
+      <button type="button" class="tutor-history-del" onclick="deleteConversation(${id})" aria-label="Delete chat: ${escHtml(c.title || 'New chat')}" title="Delete chat">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
       </button>
     </div>`;
@@ -1507,12 +1522,18 @@ function renderHistory() {
 }
 
 async function loadConversation(id) {
-  if (id !== conversationId) summarizeConversation(conversationId, tutorHistory);
   if (isProcessing) return;
+  const version = ++conversationLoadVersion;
+  requestedConversationId = id;
+  stopSpeaking();
+  if (id !== conversationId) summarizeConversation(conversationId, tutorHistory);
+  document.getElementById('tutorHistoryStatus').textContent = 'Opening chat…';
   try {
     const res = await fetch(`/api/tutor/conversations/${id}`);
-    if (!res.ok) return;
+    if (!res.ok || res.redirected) throw new Error('load failed');
     const data = await res.json();
+    if (version !== conversationLoadVersion) return;
+    requestedConversationId = null;
     if (id !== conversationId) clearTutorAssignment();
     conversationId = data.id;
     tutorHistory = (data.messages || [])
@@ -1528,20 +1549,38 @@ async function loadConversation(id) {
       resetToEmpty();
     }
     renderHistory();
+    document.getElementById('tutorHistoryStatus').textContent = '';
     closeTutorDrawer();
     scrollBottom();
   } catch (err) {
-    console.warn('Load conversation failed:', err);
+    if (version === conversationLoadVersion) {
+      requestedConversationId = null;
+      document.getElementById('tutorHistoryStatus').textContent = 'Could not open that chat. Try again.';
+    }
   }
 }
 
 async function deleteConversation(id) {
+  if (isProcessing || deletingConversation) {
+    document.getElementById('tutorHistoryStatus').textContent = 'Wait for the current request to finish before deleting a chat.';
+    return;
+  }
   if (!await IP.confirm('The whole conversation is removed. This cannot be undone.',
                         { title: 'Delete this chat?', confirmLabel: 'Delete', danger: true })) return;
+  if (isProcessing || deletingConversation) return;
+  deletingConversation = true;
+  document.getElementById('tutorHistoryStatus').textContent = 'Deleting chat…';
   try {
-    await fetch(`/api/tutor/conversations/${id}`, { method: 'DELETE' });
+    const res = await fetch(`/api/tutor/conversations/${id}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (!res.ok || data.ok !== true) throw new Error('delete failed');
+    if (requestedConversationId === id) {
+      ++conversationLoadVersion;
+      requestedConversationId = null;
+    }
     conversationList = conversationList.filter(c => c.id !== id);
     if (conversationId === id) {
+      stopSpeaking();
       conversationId = null;
       clearTutorAssignment();
       tutorHistory = [];
@@ -1549,13 +1588,20 @@ async function deleteConversation(id) {
       resetToEmpty();
     }
     renderHistory();
+    document.getElementById('tutorHistoryStatus').textContent = 'Chat deleted.';
   } catch (err) {
-    console.warn('Delete failed:', err);
+    document.getElementById('tutorHistoryStatus').textContent = 'Could not delete that chat. Your conversation is still here. Try again.';
+  } finally {
+    deletingConversation = false;
   }
 }
 
 async function startNewChat() {
   if (isProcessing) return;
+  ++conversationLoadVersion;
+  requestedConversationId = null;
+  stopSpeaking();
+  document.getElementById('tutorHistoryStatus').textContent = '';
   // Close out the conversation being left so its recap and possible
   // friction points are available next time.
   summarizeConversation(conversationId, tutorHistory);
@@ -1572,17 +1618,45 @@ async function startNewChat() {
 function openTutorDrawer() {
   const side = document.getElementById('tutorSide');
   const back = document.getElementById('tutorSideBackdrop');
-  if (side) side.classList.add('is-open');
+  tutorDrawerPreviousFocus = document.activeElement;
+  if (side) {
+    side.classList.add('is-open');
+    side.setAttribute('role', 'dialog');
+    side.setAttribute('aria-modal', 'true');
+    side.querySelector('.plani-history-close').focus();
+  }
   if (back) back.classList.add('is-open');
 }
 function closeTutorDrawer() {
   const side = document.getElementById('tutorSide');
   const back = document.getElementById('tutorSideBackdrop');
-  if (side) side.classList.remove('is-open');
+  if (side) {
+    const restoreFocus = side.contains(document.activeElement);
+    side.classList.remove('is-open');
+    side.removeAttribute('role');
+    side.removeAttribute('aria-modal');
+    if (restoreFocus && tutorDrawerPreviousFocus && tutorDrawerPreviousFocus.isConnected) tutorDrawerPreviousFocus.focus();
+  }
   if (back) back.classList.remove('is-open');
 }
 window.openTutorDrawer  = openTutorDrawer;
 window.closeTutorDrawer = closeTutorDrawer;
+document.addEventListener('keydown', event => {
+  const side = document.getElementById('tutorSide');
+  if (!side || !side.classList.contains('is-open')) return;
+  if (event.key === 'Escape') { event.preventDefault(); closeTutorDrawer(); return; }
+  if (event.key !== 'Tab') return;
+  const controls = [...side.querySelectorAll('a[href], button, select, input, [tabindex="0"]')]
+    .filter(el => !el.disabled && el.getClientRects().length);
+  const first = controls[0], last = controls[controls.length - 1];
+  if (!first) return;
+  if (event.shiftKey && (document.activeElement === first || !side.contains(document.activeElement))) {
+    event.preventDefault(); last.focus();
+  } else if (!event.shiftKey && (document.activeElement === last || !side.contains(document.activeElement))) {
+    event.preventDefault(); first.focus();
+  }
+});
+window.addEventListener('resize', () => { if (window.innerWidth > 768) closeTutorDrawer(); });
 
 function resetToEmpty() {
   chatStarted = false;
@@ -2352,6 +2426,12 @@ async function sendTutorMessage() {
   const text  = input.value.trim();
   const hasImage = !!pendingImageB64;
   if ((!text && !hasImage) || isProcessing) return;
+  if (deletingConversation) {
+    document.getElementById('tutorHistoryStatus').textContent = 'Wait for the chat deletion to finish before sending.';
+    return;
+  }
+  ++conversationLoadVersion;
+  requestedConversationId = null;
 
   isProcessing = true;
   input.value  = '';
@@ -2462,8 +2542,7 @@ async function sendTutorMessage() {
   scrollBottom();
 }
 
-/* Premium: which model answered and what it cost, a "just answer" button
-   after a clarifying question, and a note when the month's budget ran out. */
+/* Premium metadata and a question-led next-step hint after clarification. */
 function renderPremiumMeta(meta, clarifying) {
   const container = document.getElementById('tutorMessages');
   const last = container && container.lastElementChild;

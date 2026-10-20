@@ -54,7 +54,7 @@ jobs:
         with:
           node-version: '22'
       - name: Camera selection and cancellation regressions
-        run: node --test tests/browser/study_camera.test.cjs tests/browser/study_camera_network.test.cjs tests/browser/tutor_audio.test.cjs tests/browser/command_chat.test.cjs
+        run: node --test tests/browser/study_camera.test.cjs tests/browser/study_camera_network.test.cjs tests/browser/tutor_audio.test.cjs tests/browser/tutor_history.test.cjs tests/browser/command_chat.test.cjs
 
       # ── Playwright deps
       - run: pip install playwright pytest-playwright

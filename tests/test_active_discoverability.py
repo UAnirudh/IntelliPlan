@@ -79,9 +79,15 @@ def test_the_scheduler_links_to_it(signed_in):
     assert 'href="/active"' in html
 
 
-def test_the_study_hub_links_to_it(signed_in):
+def test_the_study_hub_reaches_it_through_the_toolkit(signed_in):
     html = signed_in.get("/study-and-learn").get_data(as_text=True)
-    assert 'href="/active" class="hub-card' in html
+    # Check the study workspace itself, excluding shared navigation which
+    # already has its own dedicated discoverability test above.
+    workspace = html.split('<div class="tutor-main">', 1)[1]
+    assert 'href="/tools"' in workspace
+    toolkit = signed_in.get('/tools').get_data(as_text=True)
+    content = toolkit.split('<article class="study-tools"', 1)[1]
+    assert '<a href="/active">Active study</a>' in content
 
 
 def test_the_command_palette_can_find_it(signed_in):

@@ -1,0 +1,111 @@
+/* Plani keeps the existing tutor's history, artifacts, speech and policy APIs. */
+body:has(.tutor-shell) main { height: 100dvh; }
+.tutor-shell { padding: 14px 14px 14px 0; gap: 14px; background: var(--bg); }
+.tutor-shell svg { flex-shrink: 0; }
+.tutor-side { width: 242px; border: 0; background: transparent; backdrop-filter: none; padding: 6px 0; }
+.tutor-side-head { padding: 8px 14px 16px; border-bottom: 0; gap: 20px; }
+.plani-history-close { display: none; }
+.plani-home { display: flex; align-items: center; gap: 10px; padding: 4px 0; color: var(--text-primary); text-decoration: none; font: 650 1.2rem var(--font-ui, system-ui); letter-spacing: -.025em; }
+.plani-home small { display: block; font-size: .75rem; font-weight: 400; letter-spacing: 0; color: var(--text-secondary); margin-top: 2px; }
+.plani-home-mark { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 15px; background: var(--accent-soft); color: var(--accent); }
+.plani-home svg { width: 25px; height: 25px; fill: currentColor; }
+.tutor-new-chat { min-height: 46px; border-radius: 15px; background: var(--ink); color: var(--on-ink); }
+.plani-shortcuts { padding: 0 10px 18px; border-bottom: 1px solid var(--border); margin: 0 12px 12px; }
+.plani-shortcuts a { display: flex; gap: 10px; align-items: center; min-height: 44px; border-radius: 12px; padding: 9px 6px; color: var(--text-secondary); text-decoration: none; font-size: .8rem; }
+.plani-shortcuts a:hover { background: var(--bg-elevated); color: var(--text-primary); }
+.plani-shortcuts svg { width: 18px; height: 18px; fill: currentColor; }
+.plani-shortcuts a span { margin-left: auto; }
+.tutor-side-title { padding-inline: 24px; }
+.tutor-history { padding-inline: 12px; }
+.tutor-history-item { min-height: 44px; border-radius: 13px; }
+.tutor-history-row { display: flex; align-items: center; gap: 4px; border-radius: 13px; }
+.tutor-history-row .tutor-history-item { flex: 1; min-width: 0; width: auto; }
+.tutor-history-row .tutor-history-del { display: inline-flex; opacity: 1; width: 36px; height: 36px; flex: 0 0 36px; }
+.tutor-history-status { font-size: .78rem; line-height: 1.5; color: var(--text-secondary); margin: 0 22px 12px; }
+.tutor-history-status:empty { display: none; }
+.tutor-modality-btn.active { color: var(--on-ink); background: var(--ink); border-color: var(--ink); }
+.tutor-side-foot { padding: 14px; margin: 0 10px; border-radius: 18px; background: var(--bg-card); border: 1px solid var(--border); }
+.tutor-side-tip { margin-top: 12px; }
+.tutor-main { border: 1px solid var(--border); border-radius: 30px; background: var(--bg-card); box-shadow: 0 6px 24px rgb(0 0 0 / .025); }
+.plani-workspace-head { display: flex; align-items: center; justify-content: space-between; padding: 22px 28px; gap: 20px; flex-shrink: 0; }
+.plani-workspace-label { font-size: .85rem; font-weight: 650; letter-spacing: -.01em; color: var(--text-primary); }
+.plani-workspace-head p { margin: 4px 0 0; font-size: .75rem; color: var(--text-secondary); }
+.plani-workspace-head a { display: inline-flex; align-items: center; gap: 14px; min-height: 44px; padding: 10px 16px; border: 1px solid var(--border); border-radius: 14px; color: var(--text-primary); text-decoration: none; font-size: .8rem; background: var(--bg-secondary); }
+.tutor-empty { padding: 12px 28px 22px; justify-content: safe center; min-height: 0; }
+#tutorPlaniWrap { margin-bottom: 14px; }
+#tutorPlaniSvg { width: 78px; height: 90px; }
+.plani-welcome { color: var(--text-secondary); margin: 0 0 12px; font-size: .8rem; font-weight: 500; }
+.tutor-empty-title { font: 600 clamp(1.65rem, 3vw, 2.65rem)/1.14 var(--font-display, system-ui); letter-spacing: -.045em; text-wrap: balance; margin-bottom: 14px; }
+.tutor-empty-sub { max-width: 48ch; font-size: .9rem; line-height: 1.7; margin-bottom: 22px; }
+.tutor-chips { max-width: 620px; gap: 6px; margin-bottom: 22px; }
+.tutor-chip { border-radius: 12px; min-height: 36px; padding: 7px 12px; font-size: .76rem; background: transparent; }
+.tutor-suggestions { max-width: 640px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+.tutor-sug-label { grid-column: 1 / -1; font-size: .78rem; margin-bottom: 3px; }
+.tutor-sug-card { border-radius: 18px; padding: 14px 16px; min-height: 62px; font-size: .82rem; line-height: 1.5; background: var(--bg-secondary); border-color: var(--border); box-shadow: none; backdrop-filter: none; }
+.tutor-sug-card:hover { transform: translateY(-2px); }
+/* In normal flow, the composer cannot overlap a long reply or the welcome. */
+.tutor-input-wrap { position: relative; inset: auto; width: 100%; flex: 0 0 auto; padding: 12px clamp(14px, 3vw, 32px) 16px; background: var(--bg-card); }
+.tutor-input-wrap::before { display: none; }
+.plani-study-actions { max-width: 820px; margin: 0 auto 10px; }
+.plani-study-actions summary { min-height: 44px; padding: 12px 4px; font-size: .78rem; color: var(--text-primary); cursor: pointer; }
+.plani-study-actions summary span { color: var(--text-secondary); margin-left: 12px; font-size: .73rem; }
+.plani-study-actions[open] { padding: 0 12px 4px; border: 1px solid var(--border); border-radius: 18px; background: var(--bg-secondary); }
+.tutor-assignment-bar { max-width: 820px; margin: 0 auto 12px; gap: 6px; }
+.tutor-assignment-bar button, .tutor-assignment-bar select { min-height: 36px; border-radius: 12px; font-size: .73rem; }
+.tutor-input-inner { border-radius: 23px; padding: 6px; background: var(--bg-secondary); border: 1px solid var(--border-strong); box-shadow: 0 4px 16px rgb(0 0 0 / .035); align-items: flex-end; }
+.tutor-subject-pill { border-right: 0; border-radius: 14px; height: 44px; padding-inline: 9px; }
+#tutorInput { min-width: 0; min-height: 44px; padding: 10px 8px; font-size: .95rem; }
+#tutorSendBtn { border-radius: 16px; width: 44px; height: 44px; color: var(--on-ink); background: var(--ink); margin-left: auto; }
+.tutor-icon-btn { width: 38px; min-height: 44px; border-radius: 12px; }
+.tutor-input-hint { line-height: 1.55; margin: 10px auto 0; max-width: 65ch; font-size: .7rem; text-wrap: pretty; }
+.tutor-messages { padding-bottom: 16px; scroll-padding-bottom: 16px; }
+.tutor-msg-group.user .tutor-bubble { border-radius: 22px 22px 6px 22px; background: var(--ink); color: var(--on-ink); box-shadow: none; }
+.tutor-msg-group.bot .tutor-bubble { border-radius: 6px 22px 22px; background: var(--bg-secondary); box-shadow: none; }
+.tutor-artifact, .tutor-practice-card, .tutor-practice-path { border-radius: 20px; }
+.tutor-shell :focus-visible { outline: 3px solid var(--focus-ring, var(--accent)); outline-offset: 3px; }
+@media (max-width: 1100px) and (min-width: 769px) {
+  .tutor-side { width: 208px; }
+  .plani-workspace-head { padding: 18px; }
+}
+@media (max-width: 768px) {
+  body:has(.tutor-shell) main { height: calc(100dvh - 62px) !important; }
+  .tutor-shell { padding: 0; gap: 0; }
+  .tutor-main { border: 0; border-radius: 0; }
+  .tutor-side { top: calc(62px + env(safe-area-inset-top, 0px)); width: min(300px, 88vw); padding: 12px 6px; background: var(--bg); }
+  .plani-history-close { display: grid; place-items: center; position: absolute; top: 16px; right: 12px; width: 44px; height: 44px; border: 1px solid var(--border); border-radius: 14px; background: var(--bg-card); color: var(--text-primary); font: inherit; font-size: 1.4rem; cursor: pointer; }
+  .tutor-side-head .plani-home { padding-right: 32px; }
+  .tutor-side-foot { margin-bottom: 24px; }
+  .tutor-history-row .tutor-history-del { width: 44px; height: 44px; flex-basis: 44px; }
+  .plani-workspace-head { padding: 10px 16px 0; }
+  .plani-workspace-head p { display: none; }
+  .plani-workspace-head a { min-height: 44px; font-size: .75rem; padding: 8px 12px; }
+  .tutor-mobile-bar { background: transparent; padding: 4px 12px; border-bottom: 0; }
+  .tutor-mobile-bar button { width: 44px; height: 44px; border-radius: 14px; }
+  .tutor-icon-btn { width: 44px; }
+  .tutor-profile-btn, .tutor-voice-row select { min-height: 44px; }
+  .tutor-mobile-title { font-size: .95rem; }
+  .tutor-empty { padding: 12px 18px 24px; justify-content: flex-start; }
+  #tutorPlaniSvg { width: 60px; height: 69px; }
+  .plani-welcome { font-size: .75rem; margin-bottom: 9px; }
+  .tutor-empty-title { font-size: 1.85rem; }
+  .tutor-empty-sub { font-size: .85rem; margin-bottom: 16px; }
+  .tutor-chips { flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; width: 100%; padding: 4px; min-height: 56px; margin-bottom: 14px; }
+  .tutor-chips .tutor-chip { flex: 0 0 auto; white-space: nowrap; }
+  .tutor-chip { min-height: 44px; padding: 9px 12px; }
+  .tutor-suggestions { grid-template-columns: minmax(0, 1fr); }
+  .tutor-sug-card { min-height: 50px; }
+  body.has-tabbar .tutor-input-wrap { padding: 10px 12px 12px; bottom: auto; }
+  .tutor-input-inner { flex-wrap: wrap; border-radius: 22px; gap: 2px; }
+  #tutorInput { order: -1; flex: 1 0 100%; max-height: 120px; padding: 10px; font-size: 16px; }
+  .tutor-subject-pill { margin-right: auto; }
+  .tutor-assignment-bar { max-height: 160px; overflow-y: auto; overscroll-behavior: contain; }
+  .plani-study-actions summary span { display: none; }
+  .tutor-input-inner #tutorSendBtn { margin-left: auto; }
+  .tutor-assignment-bar button, .tutor-assignment-bar select { min-height: 44px; }
+  .tutor-modality-btn { min-height: 44px; }
+  .tutor-input-hint { font-size: .65rem; margin-top: 7px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tutor-shell *, .tutor-shell *::before, .tutor-shell *::after { animation: none !important; transition: none !important; }
+  .tutor-sug-card:hover { transform: none; }
+}

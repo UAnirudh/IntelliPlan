@@ -203,6 +203,11 @@ try:
             executable_path=os.environ.get("PLAYWRIGHT_CHROMIUM_EXECUTABLE"),
         )
         context = browser.new_context(viewport={"width": 1440, "height": 1000})
+        # This is a local application check. Fonts and other third-party assets
+        # must not make readiness depend on an external network connection.
+        context.route('**/*', lambda route: route.continue_()
+                      if route.request.url.startswith('http://127.0.0.1:5098/') else route.abort())
+        context.set_default_navigation_timeout(60000)
         context.add_cookies([signed_cookie(aid)])
         page = context.new_page()
         page.on("pageerror", lambda error: errors.append(str(error)))
