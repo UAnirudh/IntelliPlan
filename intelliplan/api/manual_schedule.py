@@ -26,7 +26,7 @@ Endpoints:
 from __future__ import annotations
 
 import json
-from datetime import date as date_cls, datetime, timedelta
+from datetime import datetime, timedelta
 
 from flask import Blueprint, current_app, jsonify, request
 from flask_login import current_user
@@ -68,7 +68,7 @@ def _owner_filter(query, Model):
     """
     if current_user.is_authenticated:
         return query.filter(Model.user_id == current_user.id)
-    return query.filter(Model.guest_session_id == _guest_id())
+    return query.filter(Model.user_id.is_(None), Model.guest_session_id == _guest_id())
 
 
 def _guest_id():
@@ -182,7 +182,7 @@ def normalize_blocks(raw_blocks, day_date=None):
         # typing 11 PM to 1 AM. Rolling it over midnight would silently
         # give someone a study block at 1 in the morning, so it is
         # rejected and named instead.
-        if end <= start:
+        if end <= start or end >= 24 * 60:
             errors.append({"index": i, "field": "end",
                            "message": "Ends before it starts. A block cannot cross midnight — "
                                       "split it across two days."})
@@ -268,6 +268,8 @@ def save_preset():
     Preset, _ = _models()
     db = _db()
     body = request.get_json(silent=True) or {}
+    if not isinstance(body, dict):
+        return _fail('A preset object is required.')
 
     name = str(body.get("name") or "").strip()[:120]
     if not name:
@@ -325,6 +327,8 @@ def build_manual():
     Preset, SavedSchedule = _models()
     db = _db()
     body = request.get_json(silent=True) or {}
+    if not isinstance(body, dict):
+        return _fail('A plan object is required.')
 
     days_in = body.get("days")
     if not isinstance(days_in, list) or not days_in:
@@ -399,28 +403,35 @@ def build_manual():
         "summary": _summary(schedule),
     }
 
-    from App import _recompute_day_totals
-    _recompute_day_totals(schedule_data, hours_per_day=2)
+    from intelliplan.intelligence.schedule_totals import recompute_day_totals
+    recompute_day_totals(schedule_data, hours_per_day=2)
 
     saved_id = None
-    if body.get("save"):
-        name = str(body.get("name") or "").strip()[:200] or (
-            f"Manual plan {schedule[0]['date']}")
-        owner = _owner_kwargs()
-        # Only one active plan at a time — the dashboard reads "the active
-        # one", so leaving two would make which plan you see arbitrary.
-        _owner_filter(SavedSchedule.query, SavedSchedule).update(
-            {"is_active": False}, synchronize_session=False)
-        row = SavedSchedule(name=name, schedule_data=json.dumps(schedule_data),
-                            is_active=True, **owner)
-        db.session.add(row)
-        db.session.commit()
-        saved_id = row.id
+    try:
+        if body.get("save"):
+            name = str(body.get("name") or "").strip()[:200] or (
+                f"Manual plan {schedule[0]['date']}")
+            owner = _owner_kwargs()
+            # Keep activation and saved-routine usage in the same transaction.
+            _owner_filter(SavedSchedule.query, SavedSchedule).update(
+                {"is_active": False}, synchronize_session=False)
+            row = SavedSchedule(name=name, schedule_data=json.dumps(schedule_data),
+                                is_active=True, **owner)
+            db.session.add(row)
+        if preset_row is not None:
+            preset_row.times_used = (preset_row.times_used or 0) + 1
+            preset_row.last_used_at = utcnow()
+        if body.get("save") or preset_row is not None:
+            db.session.commit()
+        if body.get("save"):
+            saved_id = row.id
+    except Exception:
+        db.session.rollback()
+        raise
 
-    if preset_row is not None:
-        preset_row.times_used = (preset_row.times_used or 0) + 1
-        preset_row.last_used_at = utcnow()
-        db.session.commit()
+    if saved_id is not None:
+        from App import invalidate_schedule_cache
+        invalidate_schedule_cache(user_id=owner['user_id'], guest_id=owner['guest_session_id'])
 
     return jsonify({
         "status": "ok",

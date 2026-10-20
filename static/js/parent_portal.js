@@ -52,10 +52,10 @@
   function setPrompt(summary) {
     const title = byId('familyPromptTitle');
     const body = byId('familyPrompt');
-    if (summary.work_status === 'ok' && summary.overdue > 0) {
+    if (['ok', 'partial'].includes(summary.work_status) && summary.overdue > 0) {
       title.textContent = 'What is making this one hard?';
       body.textContent = 'An item is past due. Ask what got in the way, then help choose one manageable next step.';
-    } else if (summary.work_status === 'ok' && summary.upcoming?.length) {
+    } else if (['ok', 'partial'].includes(summary.work_status) && summary.upcoming?.length) {
       title.textContent = 'What is the first step?';
       body.textContent = `“${summary.upcoming[0].title}” is coming up. Ask what would make starting it easier.`;
     } else if (summary.study_status === 'ok' && summary.study_days_7d > 0) {
@@ -72,7 +72,7 @@
   function renderUpcoming(items, workStatus) {
     const host = byId('familyUpcomingList');
     host.replaceChildren();
-    if (workStatus !== 'ok' || !items?.length) {
+    if (!['ok', 'partial'].includes(workStatus) || !items?.length) {
       const row = document.createElement('li');
       row.textContent = workStatus === 'not_shared'
         ? 'The student chose not to share assignments.'
@@ -161,8 +161,8 @@
       const summary = data.summary || {};
       if (summary.status !== 'ok') throw new Error('Their work summary is temporarily unavailable.');
       byId('familySelectedName').textContent = data.student.name;
-      byId('familyAsOf').textContent = `Updated ${new Date(summary.as_of).toLocaleString()}`;
-      const metric = (value, sourceStatus) => sourceStatus === 'ok' ? value
+      byId('familyAsOf').textContent = `Updated ${new Date(summary.as_of).toLocaleString()}${summary.work_source ? ' · ' + summary.work_source : ''}`;
+      const metric = (value, sourceStatus) => ['ok', 'partial'].includes(sourceStatus) ? value
         : sourceStatus === 'not_shared' ? 'Private' : '—';
       byId('familyStudyDays').textContent = metric(summary.study_days_7d, summary.study_status);
       byId('familySessions').textContent = metric(summary.study_sessions_7d, summary.study_status);
@@ -176,6 +176,17 @@
       setPrompt(summary);
       renderFoundations(summary.foundations, summary.scopes?.includes('foundations'));
       renderUpcoming(summary.upcoming, summary.work_status);
+      const toolsHost = byId('familyToolsList');
+      toolsHost.replaceChildren();
+      if (!data.tools) {
+        const item = document.createElement('li'); item.textContent = 'Tool access is private until the student chooses to share it.'; toolsHost.append(item);
+      } else {
+        for (const tool of data.tools) {
+          const item = document.createElement('li');
+          item.textContent = `${tool.name}: ${tool.allowed ? 'Available' : 'Restricted'}${!tool.allowed ? ' · ' + tool.reason.replaceAll('_', ' ') : ''}`;
+          toolsHost.append(item);
+        }
+      }
       await loadNote(link.student_id);
       status('Student-approved summary.');
     } catch (error) { status(error.message); }

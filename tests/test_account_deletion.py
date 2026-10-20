@@ -179,6 +179,94 @@ def test_a_study_group_survives_its_owner_leaving(ctx):
     assert "DELETE FROM study_groups" not in source
 
 
+def test_admin_grant_erasure_explicitly_handles_both_roles_and_audit_references(ctx):
+    source = _deletion_plan_source()
+    grants = ' '.join(_statements_for('account_admin_grants', source))
+    audit = ' '.join(_statements_for('account_admin_access_audit', source))
+    assert 'DELETE FROM account_admin_grants WHERE user_id = :uid' in grants
+    assert 'SET granted_by_id = NULL WHERE granted_by_id = :uid' in grants
+    assert 'SET actor_id = NULL WHERE actor_id = :uid' in audit
+    assert 'SET target_id = NULL WHERE target_id = :uid' in audit
+    assert source.index('DELETE FROM account_admin_grants') < source.index('DELETE FROM users WHERE id')
+
+
+def _admin_erasure_records():
+    users = [app_module.User(email=f'admin-erase-{uuid.uuid4().hex}@example.test',
+             birth_year=1980, password_hash='x') for _ in range(4)]
+    app_module.db.session.add_all(users)
+    app_module.db.session.flush()
+    issuer, victim, survivor, unrelated = users
+    Grant = app_module.app.extensions['account_admin_grant_model']
+    Audit = app_module.app.extensions['account_admin_audit_model']
+    app_module.db.session.add_all([
+        Grant(user_id=victim.id, granted_by_id=issuer.id),
+        Grant(user_id=survivor.id, granted_by_id=victim.id),
+        Grant(user_id=unrelated.id, granted_by_id=issuer.id),
+    ])
+    audits = [Audit(actor_id=victim.id, target_id=survivor.id, action='grant'),
+              Audit(actor_id=issuer.id, target_id=victim.id, action='grant'),
+              Audit(actor_id=victim.id, target_id=victim.id, action='revoke'),
+              Audit(actor_id=issuer.id, target_id=unrelated.id, action='grant')]
+    app_module.db.session.add_all(audits)
+    app_module.db.session.commit()
+    return tuple(user.id for user in users), [row.id for row in audits]
+
+
+def _delete_as(user_id):
+    from flask_login import login_user
+    user = app_module.db.session.get(app_module.User, user_id)
+    with app_module.app.test_request_context():
+        login_user(user)
+        response = app_module._account_delete_impl()
+    return response[0] if isinstance(response, tuple) else response
+
+
+def test_admin_erasure_preserves_unrelated_authority_and_cannot_leak_to_reused_id(ctx):
+    (issuer, victim, survivor, unrelated), audit_ids = _admin_erasure_records()
+    response = _delete_as(victim)
+    assert response.get_json()['status'] == 'ok'
+    app_module.db.session.expire_all()
+    Grant = app_module.app.extensions['account_admin_grant_model']
+    Audit = app_module.app.extensions['account_admin_audit_model']
+    assert app_module.db.session.get(Grant, victim) is None
+    assert app_module.db.session.get(Grant, survivor).granted_by_id is None
+    assert app_module.db.session.get(Grant, unrelated).granted_by_id == issuer
+    assert [(app_module.db.session.get(Audit, identity).actor_id,
+             app_module.db.session.get(Audit, identity).target_id) for identity in audit_ids] == [
+        (None, survivor), (issuer, None), (None, None), (issuer, unrelated)]
+    replacement = app_module.User(id=victim, email=f'reused-{uuid.uuid4().hex}@example.test',
+                                  birth_year=1980, password_hash='x')
+    app_module.db.session.add(replacement)
+    app_module.db.session.commit()
+    assert app_module.is_admin(replacement) is False
+    assert app_module.is_admin(app_module.db.session.get(app_module.User, survivor)) is True
+    assert app_module.is_admin(app_module.db.session.get(app_module.User, unrelated)) is True
+
+
+def test_admin_erasure_rolls_back_grants_and_audit_with_failed_account_delete(ctx):
+    from sqlalchemy import event
+    (issuer, victim, survivor, unrelated), audit_ids = _admin_erasure_records()
+    def fail_user_delete(conn, cursor, statement, parameters, context, executemany):
+        if statement.strip().startswith('DELETE FROM users WHERE id'):
+            raise RuntimeError('Synthetic final-delete failure')
+    event.listen(app_module.db.engine, 'before_cursor_execute', fail_user_delete)
+    try:
+        response = _delete_as(victim)
+    finally:
+        event.remove(app_module.db.engine, 'before_cursor_execute', fail_user_delete)
+    assert response.get_json()['status'] == 'error'
+    app_module.db.session.expire_all()
+    Grant = app_module.app.extensions['account_admin_grant_model']
+    Audit = app_module.app.extensions['account_admin_audit_model']
+    assert app_module.db.session.get(app_module.User, victim) is not None
+    assert app_module.db.session.get(Grant, victim).granted_by_id == issuer
+    assert app_module.db.session.get(Grant, survivor).granted_by_id == victim
+    assert app_module.db.session.get(Grant, unrelated).granted_by_id == issuer
+    assert [(app_module.db.session.get(Audit, identity).actor_id,
+             app_module.db.session.get(Audit, identity).target_id) for identity in audit_ids] == [
+        (victim, survivor), (issuer, victim), (victim, victim), (issuer, unrelated)]
+
+
 def test_deleting_an_account_removes_the_user_and_their_rows(ctx):
     """End to end against the real database."""
     user = app_module.User(

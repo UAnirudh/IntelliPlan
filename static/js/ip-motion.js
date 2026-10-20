@@ -29,8 +29,14 @@
   var doc  = document;
   var root = doc.documentElement;
 
-  var REDUCED = !!(window.matchMedia &&
-    window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  var motionQuery = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)');
+  var activeAnimations = new Set();
+  var scrollCleanups = new Set();
+  function isReduced() {
+    return !!((motionQuery && motionQuery.matches) ||
+      root.getAttribute('data-a11y-motion') === 'reduce' ||
+      root.getAttribute('data-ui-motion') === 'reduce');
+  }
 
   /* Physics constants, named so the numbers aren't magic at call sites.
      GENTLE is the house default — it settles without visible bounce.
@@ -48,9 +54,9 @@
     /* Bumped whenever the behaviour of this file changes. Flask serves
        /static with long-lived caching, so this is the only way to tell a
        stale bundle from a live one when something does not work. */
-    version: 5,
+    version: 6,
     engine: 'gsap',
-    reduced: REDUCED,
+    get reduced() { return isReduced(); },
     ready: null,
     springs: { gentle: SPRING_GENTLE, bouncy: SPRING_BOUNCY, snappy: SPRING_SNAPPY }
   };
@@ -132,36 +138,62 @@
           to[prop] = v;
         }
       });
+      var finalState = Object.assign({}, to);
+      if (isReduced()) {
+        g.set(target, finalState);
+        if (opts && opts.onComplete) opts.onComplete();
+        return noopAnimation();
+      }
       Object.keys(vars).forEach(function (kk) { to[kk] = vars[kk]; });
       var tween = from ? g.fromTo(target, from, to) : g.to(target, to);
       /* Motion One returns something with `.finished` and `.stop()`; keep
          both so no call site has to know which engine it got. */
+      var complete;
       tween.finished = new Promise(function (res) {
         var prev = to.onComplete;
-        tween.eventCallback('onComplete', function () {
+        var finished = false;
+        complete = function () {
+          if (finished) return;
+          finished = true;
+          activeAnimations.delete(settle);
           if (prev) { try { prev(); } catch (e) {} }
           res();
-        });
+        };
+        tween.eventCallback('onComplete', complete);
       });
-      tween.stop = function () { tween.kill(); };
+      function settle() { tween.kill(); g.set(target, finalState); complete(); }
+      activeAnimations.add(settle);
+      tween.stop = function () { tween.kill(); activeAnimations.delete(settle); };
       return tween;
     };
 
     M.inView = function (target, onEnter, opts) {
+      if (isReduced()) { onEnter({ target: target }); return function () {}; }
       if (!ST) return function () {};
+      var entered = false;
+      function enter() {
+        if (entered) return;
+        entered = true;
+        scrollCleanups.delete(settle);
+        try { onEnter({ target: target }); } catch (e) {}
+      }
       var t = ST.create({
         trigger: target,
         start: (opts && opts.start) || 'top 92%',
         once: true,
-        onEnter: function () { try { onEnter({ target: target }); } catch (e) {} }
+        onEnter: enter
       });
-      return function () { t.kill(); };
+      function stop() { t.kill(); scrollCleanups.delete(settle); }
+      function settle() { stop(); enter(); }
+      if (!entered) scrollCleanups.add(settle);
+      return stop;
     };
 
     /* Motion One's scroll(cb, {target, offset}) reports 0→1 progress
        across the target's pass through the viewport. ScrollTrigger says
        the same thing with start/end and scrub. */
     M.scroll = function (cb, opts) {
+      if (isReduced()) return function () {};
       if (!ST) return function () {};
       opts = opts || {};
       var t = ST.create({
@@ -169,9 +201,11 @@
         start: 'top bottom',
         end: 'bottom top',
         scrub: true,
-        onUpdate: function (self) { try { cb(self.progress); } catch (e) {} }
+        onUpdate: function (self) { if (!isReduced()) { try { cb(self.progress); } catch (e) {} } }
       });
-      return function () { t.kill(); };
+      function stop() { t.kill(); scrollCleanups.delete(stop); }
+      scrollCleanups.add(stop);
+      return stop;
     };
 
     M.stagger = function (step) {
@@ -273,7 +307,7 @@
     var els = (scope || doc).querySelectorAll('[data-ipm-reveal]:not(.ipm-in)');
     if (!els.length) return;
 
-    if (REDUCED || !('IntersectionObserver' in window)) {
+    if (isReduced() || !('IntersectionObserver' in window)) {
       Array.prototype.forEach.call(els, function (e) { e.classList.add('ipm-in', 'ipm-settled'); });
       return;
     }
@@ -319,9 +353,11 @@
     var frame = 0;
 
     function onMove(ev) {
+      if (isReduced()) { onLeave(); return; }
       if (frame) return;                       // one update per frame, max
       frame = requestAnimationFrame(function () {
         frame = 0;
+        if (isReduced()) return;
         var r = el.getBoundingClientRect();
         var dx = (ev.clientX - (r.left + r.width  / 2)) * strength;
         var dy = (ev.clientY - (r.top  + r.height / 2)) * strength;
@@ -339,7 +375,7 @@
     el.addEventListener('pointerenter', function (ev) {
       /* Touch has no hover, and a magnetic offset there just makes the
          tap target drift under the finger. */
-      if (ev.pointerType === 'touch') return;
+      if (isReduced() || ev.pointerType === 'touch') return;
       el.classList.add('ipm-tracking');
     });
     el.addEventListener('pointermove', onMove);
@@ -356,9 +392,11 @@
     var frame = 0;
 
     function onMove(ev) {
+      if (isReduced()) { reset(); return; }
       if (frame) return;
       frame = requestAnimationFrame(function () {
         frame = 0;
+        if (isReduced()) return;
         var r = el.getBoundingClientRect();
         if (!r.width || !r.height) return;
         var px = (ev.clientX - r.left) / r.width  - 0.5;   // −0.5 … 0.5
@@ -377,7 +415,7 @@
     }
 
     el.addEventListener('pointerenter', function (ev) {
-      if (ev.pointerType === 'touch') return;
+      if (isReduced() || ev.pointerType === 'touch') return;
       el.classList.add('ipm-tracking');
     });
     el.addEventListener('pointermove', onMove);
@@ -409,7 +447,7 @@
      Motion versions and avoids clobbering a transform another rule set
      already put on the element. */
   function initParallax(M, scope) {
-    if (!M || !M.scroll || REDUCED) return;
+    if (!M || !M.scroll || isReduced()) return;
     var els = (scope || doc).querySelectorAll('[data-parallax]:not([data-ipm-bound])');
     Array.prototype.forEach.call(els, function (el) {
       el.setAttribute('data-ipm-bound', '');
@@ -442,7 +480,7 @@
 
     Array.prototype.forEach.call(els, function (el, i) {
       el.setAttribute('data-ipm-played', '');
-      if (!M || REDUCED) return;
+      if (!M || isReduced()) return;
 
       var kind  = el.getAttribute('data-ipm-enter') || 'up';
       var from  = { opacity: [0, 1] };
@@ -571,7 +609,7 @@
       el.setAttribute(isDenseRow(classOf(el)) ? 'data-lift-sm' : 'data-lift', '');
     });
 
-    if (REDUCED) return;
+    if (isReduced()) return;
 
     /* Staggered reveal for grid/list children, within budget. */
     var revealed = 0;
@@ -631,7 +669,7 @@
 
   /* Scroll progress rail — pattern: "Anime js scrollbar" (skiper1). */
   function initScrollRail() {
-    if (REDUCED || doc.getElementById('ipmScrollRail')) return;
+    if (isReduced() || doc.getElementById('ipmScrollRail')) return;
     /* Pointless on a page that does not scroll, and a full-width bar at 0%
        just reads as a stray line. */
     if (doc.documentElement.scrollHeight <= window.innerHeight + 40) return;
@@ -644,13 +682,14 @@
     var frame = 0;
     function update() {
       frame = 0;
+      if (isReduced()) { rail.classList.remove('is-on'); return; }
       var d = doc.documentElement;
       var max = d.scrollHeight - window.innerHeight;
       var p = max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0;
       rail.style.setProperty('--ipm-scroll', p.toFixed(4));
       rail.classList.toggle('is-on', p > 0.005);
     }
-    function onScroll() { if (!frame) frame = requestAnimationFrame(update); }
+    function onScroll() { if (!isReduced() && !frame) frame = requestAnimationFrame(update); }
     window.addEventListener('scroll', onScroll, { passive: true });
     window.addEventListener('resize', onScroll, { passive: true });
     update();
@@ -664,7 +703,7 @@
      animate. Closing therefore runs first and the attribute is removed at
      the end, which means the click has to be intercepted. */
   function initAccordions(scope) {
-    if (REDUCED) return;
+    if (isReduced()) return;
     var els = (scope || doc).querySelectorAll('details:not([data-ipm-acc])');
     Array.prototype.forEach.call(els, function (d) {
       var summary = d.querySelector('summary');
@@ -687,6 +726,7 @@
       d.classList.add('ipm-acc');
 
       summary.addEventListener('click', function (e) {
+        if (isReduced()) return;
         e.preventDefault();
         if (d.open) {
           /* Closing: collapse first, drop [open] once the grid has settled.
@@ -705,7 +745,9 @@
             body.removeEventListener('transitionend', onEnd);
             d.open = false;
             d.classList.remove('is-closing');
+            d.__ipmFinishClose = null;
           };
+          d.__ipmFinishClose = finish;
           var onEnd = function (ev) {
             if (ev.target !== body || ev.propertyName !== 'grid-template-rows') return;
             finish();
@@ -738,7 +780,7 @@
           var h = t.offsetHeight;
           if (h === last) return;
           last = h;
-          if (REDUCED) return;
+          if (isReduced()) return;
           t.classList.remove('ipm-grew');
           void t.offsetWidth;              // restart the animation
           t.classList.add('ipm-grew');
@@ -780,6 +822,7 @@
     var lastActive = null;
 
     function place() {
+      if (isReduced()) { rail.classList.remove('is-on'); return; }
       ensureRail();
       var active = results.querySelector('.cmd-item.active');
       if (active === lastActive) return;
@@ -817,7 +860,7 @@
     try { initReveal(scope); } catch (e) {}
     try { initFloat(scope); } catch (e) {}
     try {
-      if (!REDUCED) {
+      if (!isReduced()) {
         var mags = (scope || doc).querySelectorAll('[data-magnetic]');
         Array.prototype.forEach.call(mags, bindMagnetic);
         var tilts = (scope || doc).querySelectorAll('[data-tilt]');
@@ -854,9 +897,12 @@
       var main = doc.querySelector('main');
       var relevant = false;
       for (var i = 0; i < records.length && !relevant; i++) {
+        var target = records[i].target;
+        if (target.nodeType === 1 && target.closest('[data-no-motion], .tutor-messages, .command-chat__thread')) continue;
         var added = records[i].addedNodes;
         for (var j = 0; j < added.length; j++) {
           if (added[j].nodeType !== 1) continue;
+          if (added[j].namespaceURI === 'http://www.w3.org/2000/svg') continue;
           /* Ignore our own furniture — the tooltip re-appends itself to
              body on every hover, which would otherwise schedule a scan
              every time the cursor crosses a control. */
@@ -876,10 +922,50 @@
     mo.observe(doc.body, { childList: true, subtree: true });
   }
 
+  function syncMotionPreference() {
+    if (!isReduced()) {
+      root.classList.add('ipm-on');
+      api.refresh();
+      return;
+    }
+    activeAnimations.forEach(function (settle) { try { settle(); } catch (e) {} });
+    scrollCleanups.forEach(function (stop) { try { stop(); } catch (e) {} });
+    if (revealObserver) revealObserver.disconnect();
+    root.classList.remove('ipm-on');
+    doc.querySelectorAll('[data-ipm-reveal]').forEach(function (el) {
+      el.classList.add('ipm-in', 'ipm-settled');
+      el.style.setProperty('--ipm-delay', '0s');
+    });
+    doc.querySelectorAll('[data-ipm-enter]').forEach(function (el) {
+      el.setAttribute('data-ipm-played', '');
+    });
+    doc.querySelectorAll('[data-magnetic],[data-tilt],[data-parallax]').forEach(function (el) {
+      el.classList.remove('ipm-tracking');
+      ['--ipm-mx','--ipm-my','--ipm-rx','--ipm-ry','--ipm-tz','--ipm-py'].forEach(function (prop) {
+        el.style.removeProperty(prop);
+      });
+      el.removeAttribute('data-ipm-bound');
+    });
+    doc.querySelectorAll('details').forEach(function (el) {
+      if (el.__ipmFinishClose) el.__ipmFinishClose();
+    });
+    doc.querySelectorAll('#ipmScrollRail,.ipm-cmd-rail,.ipm-grew').forEach(function (el) {
+      el.classList.remove('is-on', 'ipm-grew');
+    });
+  }
+  doc.addEventListener('ip:appearance', syncMotionPreference);
+  if (motionQuery) {
+    if (motionQuery.addEventListener) motionQuery.addEventListener('change', syncMotionPreference);
+    else if (motionQuery.addListener) motionQuery.addListener(syncMotionPreference);
+  }
+  if (window.MutationObserver) new MutationObserver(syncMotionPreference).observe(root, {
+    attributes: true, attributeFilter: ['data-ui-motion', 'data-a11y-motion']
+  });
+
   function boot() {
     /* Only now do we let the CSS hide anything — if this line never runs,
        every [data-ipm-reveal] element stays at its natural opacity. */
-    root.classList.add('ipm-on');
+    if (!isReduced()) root.classList.add('ipm-on');
     api.ready.then(function (M) {
       scan(M, doc);
       try { watch(M); } catch (e) {}

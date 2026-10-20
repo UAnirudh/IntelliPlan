@@ -1,18 +1,18 @@
 {% extends "base.html" %}
-{% block page_title %}Study & Learn — IntelliPlan{% endblock %}
+{% block page_title %}All study tools | IntelliPlan{% endblock %}
 {% block meta_description %}One place for every IntelliPlan study tool — AI Tutor, flashcards, deep study, focus timer, AP library, writing help, math explainer, and more.{% endblock %}
 
 {% block head_extra %}
 <style>
   .hub-hero {
-    background: var(--grad-brand);
-    border-radius: var(--r-2xl);
-    padding: 2rem 2rem 2.25rem;
-    color: #fff;
-    box-shadow:
-      inset 0 1px 0 rgba(255,255,255,0.18),
-      0 8px 30px rgba(36,83,214,0.25);
-    margin-bottom: 1.5rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 28px;
+    padding: clamp(24px,4vw,48px);
+    color: var(--text-primary);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 5px 20px rgba(0,0,0,.025);
+    margin: 0 auto 2rem;
+    max-width: 1120px;
     position: relative;
     overflow: hidden;
     animation: fadeUp 0.5s var(--ease-out) both;
@@ -33,18 +33,16 @@
   }
   .hub-hero-title em { font-style: italic; color: rgba(255,255,255,0.85); }
   .hub-hero-sub {
-    color: rgba(255,255,255,0.85);
+    color: var(--text-secondary);
     font-size: 0.95rem;
     margin-bottom: 1.25rem;
     line-height: 1.5;
   }
   /* AI chat bar at the top of the hub */
   .hub-chat-wrap {
-    background: rgba(255,255,255,0.16);
-    border: 1px solid rgba(255,255,255,0.25);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border-radius: var(--r-lg);
+    background: var(--bg);
+    border: 1px solid var(--border-strong);
+    border-radius: 19px;
     padding: 8px 10px;
     display: flex;
     align-items: center;
@@ -57,16 +55,16 @@
     background: transparent;
     border: 0;
     outline: 0;
-    color: #fff;
+    color: var(--text-primary);
     font-family: var(--font-body);
     font-size: 0.95rem;
     padding: 8px 8px;
     min-width: 0;
   }
-  .hub-chat-input::placeholder { color: rgba(255,255,255,0.7); }
+  .hub-chat-input::placeholder { color: var(--text-muted); }
   .hub-chat-submit {
-    background: #fff;
-    color: var(--accent);
+    background: var(--accent);
+    color: var(--bg-card);
     border: 0;
     border-radius: var(--r-sm);
     padding: 8px 14px;
@@ -86,7 +84,7 @@
   .hub-chat-icon {
     width: 22px; height: 22px;
     flex-shrink: 0;
-    color: rgba(255,255,255,0.85);
+    color: var(--text-muted);
     display: inline-flex; align-items: center; justify-content: center;
   }
   .hub-chat-suggest {
@@ -95,23 +93,23 @@
     position: relative; z-index: 1;
   }
   .hub-chat-chip {
-    background: rgba(255,255,255,0.16);
-    border: 1px solid rgba(255,255,255,0.25);
-    color: #fff;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
     font-family: var(--font-ui);
     font-size: 0.74rem;
     font-weight: 600;
-    padding: 5px 11px;
+    padding: 9px 14px;
     border-radius: var(--r-full);
     cursor: pointer;
     transition: background 0.14s;
   }
-  .hub-chat-chip:hover { background: rgba(255,255,255,0.28); }
+  .hub-chat-chip:hover { background: var(--accent-soft); color: var(--text-primary); }
   .hub-chat-result {
     margin-top: 10px;
-    background: rgba(255,255,255,0.16);
-    border: 1px solid rgba(255,255,255,0.28);
-    color: #fff;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
     border-radius: var(--r-md);
     padding: 12px 14px;
     display: none;
@@ -120,10 +118,10 @@
   }
   .hub-chat-result.visible { display: block; }
   .hub-chat-result-title { font-weight: 700; margin-bottom: 4px; font-size: 0.95rem; }
-  .hub-chat-result-reason { font-size: 0.82rem; color: rgba(255,255,255,0.85); margin-bottom: 8px; line-height: 1.5; }
+  .hub-chat-result-reason { font-size: 0.86rem; color: var(--text-secondary); margin-bottom: 12px; line-height: 1.7; }
   .hub-chat-result-go {
     display: inline-flex; align-items: center; gap: 5px;
-    background: #fff; color: var(--accent);
+    background: var(--accent); color: var(--bg-card);
     padding: 6px 14px; border-radius: var(--r-sm);
     text-decoration: none;
     font-family: var(--font-ui); font-size: 0.8rem; font-weight: 700;
@@ -138,11 +136,11 @@
     animation: fadeUp 0.5s 0.1s var(--ease-out) both;
   }
   .hub-filter-btn {
-    padding: 6px 14px; border-radius: var(--r-full);
+    padding: 10px 16px; border-radius: var(--r-full);
     border: 1px solid var(--border);
-    background:var(--glass-bg); -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6); color: var(--text-secondary);
+    background:var(--bg-card); color: var(--text-secondary);
     font-family: var(--font-ui); font-size: 0.78rem; font-weight: 600;
-    cursor: pointer; transition: all 0.16s;
+    cursor: pointer; transition: background-color 0.16s, color 0.16s;
   }
   .hub-filter-btn:hover { border-color: var(--border-accent); color: var(--accent); }
   .hub-filter-btn.active { background: var(--accent); color: #fff; border-color: transparent; }
@@ -150,25 +148,25 @@
   /* Card grid */
   .hub-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-    gap: 14px;
-    margin-bottom: 2rem;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+    margin: 0 auto 2rem;
+    max-width: 1120px;
   }
   .hub-card {
-    background:var(--glass-bg); -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6);
+    background:var(--bg-card);
     border: 1px solid var(--border);
-    border-radius: var(--r-lg);
-    padding: 1.1rem 1.15rem 1rem;
+    border-radius: 23px;
+    padding: 26px;
     text-decoration: none;
     color: inherit;
     display: flex;
     flex-direction: column;
     transition: transform 0.18s var(--ease-out), box-shadow 0.18s, border-color 0.18s;
-    animation: fadeUp 0.4s var(--ease-out) both;
     position: relative;
     overflow: hidden;
   }
-  .hub-card:hover { border-color: var(--border-accent);
+  .hub-card[href]:hover { border-color: var(--border-accent); box-shadow:0 8px 22px rgba(0,0,0,.045);
   }
   .hub-card-header {
     display: flex; align-items: flex-start; gap: 10px;
@@ -193,11 +191,11 @@
     margin-top: 2px;
   }
   .hub-card-desc {
-    font-size: 0.82rem;
+    font-size: 0.88rem;
     color: var(--text-secondary);
-    line-height: 1.5;
+    line-height: 1.75;
     flex: 1;
-    margin-bottom: 12px;
+    margin: 12px 0 24px;
   }
   .hub-card-footer {
     display: flex; align-items: center; justify-content: space-between;
@@ -226,9 +224,22 @@
   }
   .hub-card:hover .hub-card-go { gap: 8px; }
   .hub-card.featured {
-    background: linear-gradient(135deg, var(--accent-soft) 0%, rgba(255,255,255,0) 100%);
-    border-color: var(--border-accent);
+    background: var(--bg-card);
   }
+
+  .hub-catalog-controls { max-width:1120px; margin:0 auto 26px; }
+  .hub-catalog-search { display:flex; align-items:center; flex-wrap:wrap; justify-content:space-between; gap:16px; margin-bottom:24px; }
+  .hub-catalog-search label { flex:1 1 280px; max-width:480px; font-size:.85rem; color:var(--text-secondary); }
+  .hub-catalog-search input { display:block; width:100%; margin-top:9px; min-height:48px; padding:12px 16px; color:var(--text-primary); background:var(--bg-card); border:1px solid var(--border-strong); border-radius:16px; font:inherit; }
+  #hubToolCount { font-size:.82rem; color:var(--text-secondary); }
+  #hubEmpty { max-width:1120px; margin:32px auto; color:var(--text-secondary); line-height:1.7; }
+  .hub-hero-title { font:650 clamp(2rem,4vw,3rem)/1.2 var(--font-ui,sans-serif); letter-spacing:-.04em; margin:0 0 14px; }
+  .hub-hero-sub { max-width:64ch; line-height:1.8; margin-bottom:24px; }
+  .hub-hero::before { display:none; }
+  .hub-card :is(svg,span,p,div) { pointer-events:none; }
+  :is(.hub-card,.hub-filter-btn,.hub-chat-chip,.hub-chat-submit,.hub-chat-result-go,.hub-chat-input,#hubToolSearch):focus-visible { outline:2px solid var(--accent); outline-offset:4px; }
+  .hub-card[aria-disabled="true"] .hub-card-go { color:var(--text-muted); }
+  @media(prefers-reduced-motion:reduce){.hub-hero,.hub-filter-bar,.hub-chat-result{animation:none!important}.hub-card{transition:none}}
 
   @media (max-width: 600px) {
     .hub-hero { padding: 1.5rem 1.25rem 1.75rem; }
@@ -240,14 +251,15 @@
 
 {% block content %}
 <section class="hub-hero">
-  <h1 class="hub-hero-title">Study &amp; <em>Learn</em></h1>
-  <p class="hub-hero-sub">All your AI-powered study tools in one place. Not sure where to start? Just ask.</p>
+  <h1 class="hub-hero-title">A tool for your next step.</h1>
+  <p class="hub-hero-sub">Understand an idea, practice a skill, or organize your week. Open any available card to get started, or describe what you need.</p>
 
   <div class="hub-chat-wrap">
     <span class="hub-chat-icon" aria-hidden="true">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-sparkle"/></svg>
     </span>
     <input id="hubChatInput" class="hub-chat-input" type="text"
+      aria-label="Describe the study tool you need" maxlength="500"
       placeholder="What do you want to do? e.g. 'help me with calculus'"
       autocomplete="off" />
     <button id="hubChatSubmit" class="hub-chat-submit" type="button">
@@ -275,13 +287,16 @@
   </div>
 </section>
 
-<div class="hub-filter-bar" id="hubFilterBar" role="tablist">
-  <button class="hub-filter-btn active" data-filter="all" type="button">All</button>
-  <button class="hub-filter-btn" data-filter="ai"      type="button">AI Help</button>
-  <button class="hub-filter-btn" data-filter="practice" type="button">Practice</button>
-  <button class="hub-filter-btn" data-filter="planning" type="button">Planning</button>
-  <button class="hub-filter-btn" data-filter="social"   type="button">Social</button>
+<div class="hub-catalog-controls"><div class="hub-catalog-search"><label for="hubToolSearch">Find a study tool<input id="hubToolSearch" type="search" placeholder="Search by tool or goal…" autocomplete="off"></label><span id="hubToolCount" role="status" aria-live="polite"></span></div>
+<div class="hub-filter-bar" id="hubFilterBar" role="group" aria-label="Filter study tools">
+  <button class="hub-filter-btn active" data-filter="all" aria-pressed="true" type="button">All tools</button>
+  <button class="hub-filter-btn" data-filter="ai" aria-pressed="false" type="button">Understand</button>
+  <button class="hub-filter-btn" data-filter="practice" aria-pressed="false" type="button">Practice</button>
+  <button class="hub-filter-btn" data-filter="planning" aria-pressed="false" type="button">Plan</button>
+  <button class="hub-filter-btn" data-filter="social" aria-pressed="false" type="button">Connect</button>
 </div>
+</div>
+<p id="hubEmpty" hidden>No tools match this search. Try a broader topic or choose a different filter.</p>
 
 <div class="hub-grid" id="hubGrid">
   {# ── AI HELP ── #}
@@ -290,7 +305,7 @@
       <span class="hub-card-icon"><svg><use href="#i-tutor"/></svg></span>
       <span class="hub-card-title">AI Tutor</span>
     </div>
-    <p class="hub-card-desc">Ask anything — homework help, concept explanations, study strategies. Available 24/7.</p>
+    <p class="hub-card-desc">Work through a question with hints, explanations, and independent checks.</p>
     <div class="hub-card-footer"><span class="hub-card-tag">AI Help</span><span class="hub-card-go">Open<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span></div>
   </a>
 
@@ -331,6 +346,9 @@
   </a>
 
   {# ── PRACTICE ── #}
+  <a href="/foundations" class="hub-card" data-cat="practice"><div class="hub-card-header"><span class="hub-card-icon"><svg><use href="#i-book"/></svg></span><span class="hub-card-title">Foundations</span></div><p class="hub-card-desc">A short path through reading, writing, and math, with checked answers and useful next steps.</p><div class="hub-card-footer"><span class="hub-card-tag">Practice</span><span class="hub-card-go">Open <span aria-hidden="true">↗</span></span></div></a>
+  <a href="/flashcards" class="hub-card" data-cat="practice"><div class="hub-card-header"><span class="hub-card-icon"><svg><use href="#i-book"/></svg></span><span class="hub-card-title">Flashcards</span></div><p class="hub-card-desc">Recall an answer before turning a card. Return to your own decks and due reviews.</p><div class="hub-card-footer"><span class="hub-card-tag">Practice</span><span class="hub-card-go">Open <span aria-hidden="true">↗</span></span></div></a>
+  <a href="/study-files" class="hub-card" data-cat="practice"><div class="hub-card-header"><span class="hub-card-icon"><svg><use href="#i-book"/></svg></span><span class="hub-card-title">Study materials</span></div><p class="hub-card-desc">Return to your uploaded notes and files, then use them to guide your next study session.</p><div class="hub-card-footer"><span class="hub-card-tag">Practice</span><span class="hub-card-go">Open <span aria-hidden="true">↗</span></span></div></a>
   <a href="/active" class="hub-card featured" data-cat="practice">
     <div class="hub-card-header">
       <span class="hub-card-icon"><svg><use href="#i-video"/></svg></span>
@@ -474,16 +492,38 @@
   // ── Filter bar ──
   const filterBar = document.getElementById('hubFilterBar');
   const cards     = Array.from(document.querySelectorAll('#hubGrid .hub-card'));
+  const search = document.getElementById('hubToolSearch');
+  let category = 'all';
+  cards.forEach((card, index) => {
+    const label = card.querySelector('.hub-card-title');
+    label.id = 'study-tool-' + index;
+    card.setAttribute('aria-labelledby', label.id);
+  });
+  function filterTools() {
+    const query = search.value.trim().toLocaleLowerCase();
+    let visible = 0;
+    cards.forEach(card => {
+      const matches = (category === 'all' || card.dataset.cat === category) && card.textContent.toLocaleLowerCase().includes(query);
+      card.hidden = !matches;
+      if (matches) visible += 1;
+      if (card.hasAttribute('data-policy-disabled')) card.querySelector('.hub-card-go').textContent = 'Restricted by school';
+    });
+    document.getElementById('hubToolCount').textContent = `${visible} ${visible === 1 ? 'tool' : 'tools'}`;
+    document.getElementById('hubEmpty').hidden = visible !== 0;
+  }
   filterBar?.querySelectorAll('.hub-filter-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      filterBar.querySelectorAll('.hub-filter-btn').forEach(b => b.classList.remove('active'));
+      filterBar.querySelectorAll('.hub-filter-btn').forEach(b => { b.classList.remove('active'); b.setAttribute('aria-pressed', 'false'); });
       btn.classList.add('active');
-      const cat = btn.dataset.filter;
-      cards.forEach(c => {
-        c.style.display = (cat === 'all' || c.dataset.cat === cat) ? '' : 'none';
-      });
+      btn.setAttribute('aria-pressed', 'true');
+      category = btn.dataset.filter;
+      filterTools();
     });
   });
+  search.addEventListener('input', filterTools);
+  new MutationObserver(filterTools).observe(document.getElementById('hubGrid'), { subtree: true, attributes: true, attributeFilter: ['data-policy-disabled'] });
+  document.addEventListener('DOMContentLoaded', filterTools);
+  filterTools();
 
   // ── AI chat bar ──
   const input  = document.getElementById('hubChatInput');
@@ -494,8 +534,9 @@
   const go     = document.getElementById('hubResultGo');
 
   async function ask(query) {
-    if (!query || !query.trim()) return;
+    if (!query || !query.trim() || submit.disabled) return;
     submit.disabled = true;
+    go.hidden = true;
     const originalLabel = submit.innerHTML;
     submit.innerHTML = '<svg width="14" height="14" class="spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><use href="#i-spinner"/></svg>';
     try {
@@ -505,15 +546,17 @@
         body: JSON.stringify({ query })
       });
       const data = await res.json();
-      if (data.status === 'ok') {
+      const destination = cards.find(card => card.getAttribute('href') === data.route && !card.hasAttribute('data-policy-disabled'));
+      if (res.ok && data.status === 'ok' && destination) {
         title.textContent  = data.title;
         reason.textContent = data.reason;
         go.href = data.route;
+        go.hidden = false;
         result.classList.add('visible');
       } else {
-        title.textContent  = 'Something went wrong';
-        reason.textContent = data.message || 'Please try again.';
-        go.href = '#';
+        title.textContent  = data.status === 'ok' ? 'Choose an available tool' : 'We could not find a tool';
+        reason.textContent = data.status === 'ok' ? 'This recommendation is unavailable under your school settings. Browse the available cards below.' : data.message || 'Please try again.';
+        go.removeAttribute('href');
         result.classList.add('visible');
       }
     } catch (e) {

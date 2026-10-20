@@ -33,7 +33,7 @@
       var src = links[i];
       // The customizer hides items with inline display or the hidden
       // attribute; a hidden sidebar item stays hidden here too.
-      if (src.hidden || src.style.display === 'none') continue;
+      if (src.hidden || src.style.display === 'none' || src.classList.contains('nav-hidden')) continue;
 
       var row = document.createElement('a');
       row.className = 'ip-menu-row';

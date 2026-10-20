@@ -136,7 +136,9 @@ def _mark_done_blocks(data: dict[str, Any], progress_json: Any) -> None:
         return
     for day in data.get("schedule", []) or []:
         for block in day.get("blocks", []) or []:
-            entry = progress.get(str(block.get("id")))
+            entry = progress.get(str(block.get('block_id'))) if block.get('block_id') is not None else None
+            if entry is None:
+                entry = progress.get(str(block.get("id")))
             if entry is True or (isinstance(entry, dict) and entry.get("done")):
                 block["done"] = True
 

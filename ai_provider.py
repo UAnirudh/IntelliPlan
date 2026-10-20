@@ -43,7 +43,9 @@ GROQ_VISION = os.getenv("GROQ_VISION_MODEL", "qwen/qwen3.8-27b")
 GROQ_WHISPER = os.getenv("GROQ_WHISPER_MODEL", "whisper-large-v3-turbo")
 #: Text to speech, so Plani can answer out loud in a voice session.
 GROQ_TTS = os.getenv("GROQ_TTS_MODEL", "canopylabs/orpheus-v1-english")
-GROQ_TTS_VOICE = os.getenv("GROQ_TTS_VOICE", "tara")
+GROQ_TTS_VOICE = os.getenv("GROQ_TTS_VOICE", "hannah")
+_GROQ_ENGLISH_VOICES = frozenset({'autumn', 'diana', 'hannah', 'austin', 'daniel', 'troy'})
+_GROQ_ARABIC_VOICES = frozenset({'abdullah', 'fahad', 'sultan', 'lulwa', 'noura', 'aisha'})
 
 _TIER_GEMINI = {"standard": GEMINI_STANDARD, "fast": GEMINI_FAST, "vision": GEMINI_VISION}
 _TIER_GROQ = {"standard": GROQ_STANDARD, "fast": GROQ_FAST, "vision": GROQ_VISION}
@@ -245,6 +247,10 @@ class AIAllowanceExceeded(AIQuotaExhausted):
 
 class AIUnavailable(RuntimeError):
     """No AI backend is configured at all, or every one failed for other reasons."""
+
+
+class AIProcessingDenied(AIUnavailable):
+    """Institutional processing denial; callers must not fall back around it."""
 
 
 class AITruncatedError(RuntimeError):
@@ -881,7 +887,25 @@ def fish_audio_key() -> str | None:
 
 def speech_voices() -> list[dict]:
     """Voice options for the picker, with the current default marked."""
+    if not fish_audio_key() and groq_audio_key():
+        supported = _GROQ_ARABIC_VOICES if 'arabic' in GROQ_TTS else _GROQ_ENGLISH_VOICES
+        return [{"id": name, "name": name.title(), "default": name == GROQ_TTS_VOICE,
+                 "description": "Groq reading voice"} for name in sorted(supported)]
+    if not fish_audio_key():
+        return []
     return [{**v, "default": v["id"] == resolve_voice(None)} for v in FISH_VOICES]
+
+
+def speech_capabilities() -> dict:
+    """Public limits describe the selected backend without exposing credentials."""
+    fish = bool(fish_audio_key())
+    groq = not fish and bool(groq_audio_key())
+    return {"provider": "fish_audio" if fish else "groq" if groq else "browser",
+            "configured": fish or groq,
+            "speech_max_chars": min(MAX_SPEECH_CHARS, 2000) if groq and
+                GROQ_TTS.startswith('canopylabs/orpheus') else MAX_SPEECH_CHARS,
+            "provider_max_chars": 200 if groq and GROQ_TTS.startswith('canopylabs/orpheus') else MAX_SPEECH_CHARS,
+            "speech_timeout_ms": 45000 if groq else 75000}
 
 
 def resolve_voice(voice: str | None) -> str:
@@ -914,10 +938,11 @@ def speak(text: str, *, voice: str | None = None,
     tutor that refuses to answer because a voice failed is worse than one that
     answers in writing.
     """
-    from intelliplan.learning.enforcement import permitted_processing
-    if not permitted_processing('fish_audio'):
-        raise AIUnavailable('Speech synthesis is disabled by institutional policy.')
     key = fish_audio_key()
+    if not isinstance(text, str) or (voice is not None and not isinstance(voice, str)):
+        raise ValueError('Speech text and voice must be strings.')
+    if fmt not in {'mp3', 'wav', 'opus'}:
+        raise ValueError('Unsupported speech format.')
     clean = (text or "").strip()
     if not clean:
         raise ValueError("Nothing to speak.")
@@ -927,6 +952,10 @@ def speak(text: str, *, voice: str | None = None,
         # Groq's TTS stays as a fallback for a deployment that has that key
         # and not this one; neither being set is a configuration problem.
         return _groq_speak(clean, voice, fmt)
+
+    from intelliplan.learning.enforcement import permitted_processing
+    if not permitted_processing('fish_audio'):
+        raise AIProcessingDenied('Speech synthesis is disabled by institutional policy.')
 
     import requests as _http
 
@@ -951,22 +980,95 @@ def speak(text: str, *, voice: str | None = None,
 
 
 def _groq_speak(clean: str, voice: str | None, fmt: str) -> tuple[bytes, str]:
+    from intelliplan.learning.enforcement import permitted_processing
+    if not permitted_processing('groq'):
+        raise AIProcessingDenied('Speech synthesis is disabled by institutional policy.')
     key = groq_audio_key()
     if not key:
         raise AIUnavailable(
             "No speech backend configured. Set FISH_AUDIO_KEY (or GROQ_AUDIO_KEY).")
+    orpheus = GROQ_TTS.startswith('canopylabs/orpheus')
+    if orpheus and len(clean) > min(MAX_SPEECH_CHARS, 2000):
+        raise ValueError('Read up to 2000 characters per audio action.')
+    supported = _GROQ_ARABIC_VOICES if 'arabic' in GROQ_TTS else _GROQ_ENGLISH_VOICES
+    wanted = (voice or '').strip().lower()
+    # The picker stores Fish reference IDs/names. They are not Groq voice
+    # personas; use the deployment's Groq voice when falling back.
+    selected = wanted if wanted in supported else GROQ_TTS_VOICE
     client = _groq_client(key)
-    resp = client.audio.speech.create(
-        model=GROQ_TTS,
-        voice=voice or GROQ_TTS_VOICE,
-        input=clean,
-        response_format="wav",
-    )
-    data = getattr(resp, "read", None)
-    audio = data() if callable(data) else getattr(resp, "content", None)
-    if not audio:
-        raise RuntimeError("Speech synthesis returned no audio.")
-    return audio, "audio/wav"
+    if hasattr(client, 'with_options'):
+        # Four waves of three calls at most fit the page's 45-second action
+        # budget. Disable SDK retries here; the page offers browser recovery.
+        client = client.with_options(timeout=10, max_retries=0)
+    def synthesize(part):
+        resp = client.audio.speech.create(model=GROQ_TTS, voice=selected,
+            input=part, response_format='wav')
+        data = getattr(resp, 'read', None)
+        audio = data() if callable(data) else getattr(resp, 'content', None)
+        if not audio:
+            raise RuntimeError('Speech synthesis returned no audio.')
+        return audio
+    if not orpheus or len(clean) <= 200:
+        return synthesize(clean), 'audio/wav'
+    from concurrent.futures import ThreadPoolExecutor
+    chunks = _speech_chunks(clean)
+    # Provider splitting belongs inside one authorized action so an ordinary
+    # explanation does not spend a dozen of the student's hourly requests.
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        clips = list(executor.map(synthesize, chunks))
+    return _join_speech_waves(clips), 'audio/wav'
+
+
+def _speech_chunks(text: str) -> list[str]:
+    # Prefer a word boundary near 200. Enforce at least 175 characters per
+    # non-final clip so unusual long words cannot inflate a 2000-character
+    # action beyond 12 calls (four waves at the bounded concurrency).
+    chunks = []
+    while len(text) > 200:
+        boundary = max(text.rfind(' ', 175, 201), text.rfind('\n', 175, 201))
+        boundary = boundary if boundary >= 175 else 200
+        chunks.append(text[:boundary].strip())
+        text = text[boundary:].lstrip()
+    if text.strip():
+        chunks.append(text.strip())
+    return chunks
+
+
+def _join_speech_waves(clips: list[bytes]) -> bytes:
+    """Join PCM frames, never concatenate complete RIFF/WAV containers."""
+    import io
+    import wave
+    frames, expected, size = [], None, 0
+    try:
+        for clip in clips:
+            if len(clip) > 8 * 1024 * 1024:
+                raise ValueError('Oversized audio clip')
+            with wave.open(io.BytesIO(clip), 'rb') as source:
+                params = (source.getnchannels(), source.getsampwidth(), source.getframerate())
+                if source.getcomptype() != 'NONE' or not 1 <= params[0] <= 2 or not 1 <= params[1] <= 4 or not 1 <= params[2] <= 48000:
+                    raise ValueError('Unsupported audio parameters')
+                if expected is not None and params != expected:
+                    raise ValueError('Audio parameters changed')
+                expected = params
+                data = source.readframes(source.getnframes())
+                if len(data) != source.getnframes() * params[0] * params[1]:
+                    raise ValueError('Incomplete audio frames')
+                size += len(data)
+                if size > 32 * 1024 * 1024:
+                    raise ValueError('Oversized combined audio')
+                frames.append(data)
+        if expected is None:
+            raise ValueError('No audio frames')
+        destination = io.BytesIO()
+        with wave.open(destination, 'wb') as output:
+            output.setnchannels(expected[0])
+            output.setsampwidth(expected[1])
+            output.setframerate(expected[2])
+            for data in frames:
+                output.writeframesraw(data)
+        return destination.getvalue()
+    except (ValueError, wave.Error, EOFError) as error:
+        raise RuntimeError('Speech synthesis returned incompatible audio.') from error
 
 
 def _mime_for_audio(filename: str) -> str:

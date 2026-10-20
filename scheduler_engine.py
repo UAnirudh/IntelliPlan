@@ -745,7 +745,7 @@ def summarize_progress(progress_json: Any) -> dict[str, int]:
 
 def _fmt12(dt: datetime) -> str:
     """12-hour time with no leading zero, identically on Windows and POSIX."""
-    return dt.strftime("%I:%M %p").lstrip("0") or "12:00 AM"
+    return f"{dt.hour % 12 or 12}:{dt.minute:02d} {'AM' if dt.hour < 12 else 'PM'}"
 
 
 def _difficulty_rank(block: Mapping[str, Any]) -> int:

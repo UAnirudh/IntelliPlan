@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block page_title %}Teacher account | IntelliPlan{% endblock %}
+{% block content %}
+<main style="max-width:650px;margin:40px auto;line-height:1.7">
+  <p class="page-kicker">Teacher workspace</p><h1 class="page-title">Support your students.</h1>
+  <p>Enable teacher mode for this adult account, then request access from each student. Students choose what to share and can revoke access at any time. Private tutor conversations and answers are never shared.</p>
+  <button class="btn-primary" id="enableTeacher" type="button">Enable teacher mode</button>
+  <p id="teacherSetupStatus" role="status" aria-live="polite"></p>
+</main>
+<script>
+document.getElementById('enableTeacher').addEventListener('click', async function () {
+  this.disabled = true;
+  try {
+    const response = await fetch('/api/roles/role', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({role:'teacher'}) });
+    if (!response.ok) throw new Error('Teacher mode requires an adult account with a birth year recorded in Settings.');
+    location.assign('/teacher');
+  } catch (error) { document.getElementById('teacherSetupStatus').textContent = error.message; this.disabled = false; }
+});
+</script>
+{% endblock %}

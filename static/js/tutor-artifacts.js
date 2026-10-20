@@ -36,6 +36,8 @@
     var controls = element('div', undefined, wrap);
     var output = element('p', undefined, wrap);
     output.setAttribute('aria-live', 'polite');
+    output.setAttribute('aria-atomic', 'true');
+    var frame = 0;
     function slider(name, initial, min, max, step) {
       var holder = element('label', name + ' ', controls);
       holder.style.display = 'flex'; holder.style.gap = '8px'; holder.style.alignItems = 'center';
@@ -43,34 +45,50 @@
       input.type = 'range'; input.min = min; input.max = max; input.step = step;
       input.value = initial; input.setAttribute('aria-label', name);
       var reading = element('output', input.value, holder);
-      input.addEventListener('input', function () { reading.textContent = input.value; draw(); });
+      input.addEventListener('input', function () {
+        reading.textContent = input.value;
+        describe();
+        if (!frame) frame = requestAnimationFrame(function () { frame = 0; draw(); });
+      });
       return input;
     }
     var first = slider(fraction ? 'Numerator' : 'Slope', number(config[fraction ? 'numerator' : 'slope'], 1,
       fraction ? 0 : -5, fraction ? 12 : 5), fraction ? 0 : -5, fraction ? 12 : 5, fraction ? 1 : 0.5);
     var second = slider(fraction ? 'Denominator' : 'Intercept', number(config[fraction ? 'denominator' : 'intercept'],
       fraction ? 4 : 0, fraction ? 1 : -5, fraction ? 12 : 5), fraction ? 1 : -5, fraction ? 12 : 5, fraction ? 1 : 0.5);
+    var cells = [], line = null;
+    if (!fraction) {
+      shape('path', { d: 'M20 120H380 M200 12V228', stroke: 'var(--text-muted)', fill: 'none' }, group);
+      [['x', 380, 138], ['y', 208, 16], ['0', 208, 138], ['10', 360, 112], ['6', 208, 28]].forEach(function (tick) {
+        shape('text', { x: tick[1], y: tick[2], fill: 'currentColor', 'font-size': 12 }, group).textContent = tick[0];
+      });
+      line = shape('line', {stroke: 'var(--accent)', 'stroke-width': 3}, group);
+    } else {
+      // A bounded pool is sufficient for both proper and improper fractions
+      // across the controls' 0..12 range. Slider frames only change attributes.
+      for (var cell = 0; cell < 24; cell++) cells.push(shape('rect', {'stroke-width': 1}, group));
+    }
+    function describe() {
+      var a = Number(first.value), b = Number(second.value);
+      output.textContent = fraction
+        ? a + ' of ' + b + ' equal parts per whole are shaded: ' + a + '/' + b + '.'
+        : 'y = ' + a + 'x + (' + b + '). At x = 0, y = ' + b + '. Each step right changes y by ' + a + '.';
+    }
     function draw() {
-      group.replaceChildren();
       var a = Number(first.value), b = Number(second.value);
       if (fraction) {
         a = Math.round(a); b = Math.round(b);
         // Allow improper fractions by drawing as many unit rows as needed.
         var rows = Math.max(1, Math.ceil(a / b));
         var height = Math.min(48, 190 / rows);
-        for (var row = 0; row < rows; row++) {
-          for (var col = 0; col < b; col++) {
-            shape('rect', { x: 20 + col * 360 / b, y: 15 + row * height,
-              width: 360 / b, height: height - 3, fill: row * b + col < a ? '#729ce0' : '#25221e',
-              stroke: '#b5b0a8', 'stroke-width': 1 }, group);
-          }
-        }
-        output.textContent = a + ' of ' + b + ' equal parts per whole are shaded: ' + a + '/' + b + '.';
-      } else {
-        shape('path', { d: 'M20 120H380 M200 12V228', stroke: '#b5b0a8', fill: 'none' }, group);
-        [['x', 380, 138], ['y', 208, 16], ['0', 208, 138], ['10', 360, 112], ['6', 208, 28]].forEach(function (tick) {
-          shape('text', { x: tick[1], y: tick[2], fill: 'currentColor', 'font-size': 12 }, group).textContent = tick[0];
+        cells.forEach(function (rect, index) {
+          rect.style.display = index < rows * b ? '' : 'none';
+          if (index >= rows * b) return;
+          var attrs = {x: 20 + (index % b) * 360 / b, y: 15 + Math.floor(index / b) * height,
+            width: 360 / b, height: height - 3, fill: index < a ? 'var(--accent)' : 'var(--bg-elevated)', stroke: 'var(--border-strong)'};
+          Object.keys(attrs).forEach(function (key) { rect.setAttribute(key, attrs[key]); });
         });
+      } else {
         // Clip mathematically to the visible coordinate square, rather than
         // confusing a steep line with a clamped diagonal.
         var x1 = -10, x2 = 10;
@@ -78,14 +96,13 @@
           var edges = [(-6 - b) / a, (6 - b) / a].sort(function (x, y) { return x - y; });
           x1 = Math.max(x1, edges[0]); x2 = Math.min(x2, edges[1]);
         }
-        if (x1 <= x2) shape('line', { x1: 200 + x1 * 18, y1: 120 - (a * x1 + b) * 18,
+        var attrs = { x1: 200 + x1 * 18, y1: 120 - (a * x1 + b) * 18,
           x2: 200 + x2 * 18, y2: 120 - (a * x2 + b) * 18,
-          stroke: '#729ce0', 'stroke-width': 3 }, group);
-        output.textContent = 'y = ' + a + 'x + (' + b + '). At x = 0, y = ' + b +
-          '. Each step right changes y by ' + a + '.';
+          visibility: x1 <= x2 ? 'visible' : 'hidden'};
+        Object.keys(attrs).forEach(function (key) { line.setAttribute(key, attrs[key]); });
       }
     }
-    draw();
+    describe(); draw();
     element('p', 'Try a change, then tell Plani what you noticed.', wrap);
   }
   function quiz(config, wrap) {
@@ -110,13 +127,15 @@
   }
   function create(segment) {
     var wrap = element('section'); wrap.className = 'tutor-artifact';
+    wrap.setAttribute('data-no-motion', '');
     var head = element('div', label(segment.title, 'Explore'), wrap);
     head.className = 'tutor-artifact-head';
     var body = element('div', undefined, wrap);
     body.style.padding = '16px';
     try {
       if (segment.content.length > 20000) throw new Error('Too large');
-      var config = JSON.parse(segment.content);
+      var data = segment.content.replace(/^```(?:json)?\s*\n([\s\S]*?)\n```\s*$/i, '$1');
+      var config = JSON.parse(data);
       if (!config || typeof config !== 'object' || Array.isArray(config)) throw new Error('Invalid data');
       if (segment.type === 'svg-exercise') visual(config, body);
       else if (segment.type === 'quiz') quiz(config, body);

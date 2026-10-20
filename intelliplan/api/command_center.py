@@ -28,12 +28,7 @@ from typing import Any, Callable
 
 from flask import Blueprint, abort, jsonify, redirect, render_template, request
 
-from intelliplan.api.serialize import (
-    forecast_to_dict,
-    health_to_dict,
-    planned_task_to_dict,
-    today_to_dict,
-)
+from intelliplan.api.serialize import today_to_dict
 
 logger = logging.getLogger(__name__)
 
@@ -209,41 +204,50 @@ def create_command_center_blueprint(deps: CommandCenterDeps) -> Blueprint:
             stamp = deps.policy_stamp(uid)
         except Exception:
             return jsonify(error='policy_unavailable'), 503
-        try:
-            payload = deps.get_service().build(uid)
-        except Exception:
-            logger.exception("TodayService.build (explain) failed for user %s", uid)
-            return jsonify({"error": "build_failed"}), 502
+        cached = _TODAY_CACHE.get(uid)
+        fresh = (cached and cached[2] == stamp
+                 and time.monotonic() - cached[0] < _TODAY_CACHE_TTL)
+        if fresh:
+            result = cached[1]
+        else:
+            try:
+                result = today_to_dict(deps.get_service().build(uid))
+            except Exception:
+                logger.exception("TodayService.build (explain) failed for user %s", uid)
+                return jsonify({"error": "build_failed"}), 502
 
         try:
             if deps.policy_stamp(uid) != stamp:
+                _TODAY_CACHE.pop(uid, None)
                 return jsonify(error='policy_changed'), 409
         except Exception:
+            _TODAY_CACHE.pop(uid, None)
             return jsonify(error='policy_unavailable'), 503
+        if not fresh:
+            _cache_put(uid, result, stamp)
 
         if component == "priority":
             task_id = (request.args.get("task_id") or "").strip()
             if not task_id:
                 abort(400, description="task_id is required when component=priority.")
-            match = next((t for t in payload.plan if t.assignment.id == task_id), None)
-            if match is None:
+            body = next((t for t in result['plan'] if t['id'] == task_id), None)
+            if body is None:
                 abort(404, description="Unknown task_id.")
-            body = planned_task_to_dict(match)
             return jsonify({
                 "component": "priority",
                 "score": body["priority"]["score"],
                 "rationale": body["priority"]["rationale"],
-                "narrative": match.why_now,
+                "narrative": body['why_now'],
             })
         if component == "health":
-            body = health_to_dict(payload.health)
+            body = result['health']
             return jsonify({
                 "component": "health",
                 "score": body["score"],
                 "rationale": body["components"],
                 "narrative": body["summary"],
             })
-        body = forecast_to_dict(payload.forecast)
+        body = result['forecast']
         return jsonify({
             "component": "forecast",
             "score": None,

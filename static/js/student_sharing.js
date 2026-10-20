@@ -17,14 +17,14 @@
     const detail = document.createElement('small');
     detail.textContent = `${link.relationship === 'parent' ? 'Family' : 'Teacher'} · ${link.linker_email}`;
     identity.append(title, detail);
-    if (link.relationship === 'parent') {
+    if (['parent', 'teacher'].includes(link.relationship)) {
       const choices = document.createElement('fieldset');
       choices.className = 'sharing-scopes';
       const legend = document.createElement('legend');
       legend.textContent = 'Choose what they can see';
       choices.append(legend);
       for (const [scope, label] of [
-        ['work', 'Assignments'], ['study', 'Recorded study'], ['foundations', 'Foundations practice'],
+        ['work', 'Assignments'], ['study', 'Recorded study'], ['foundations', 'Foundations practice'], ['tools', 'Permitted and restricted tools'],
       ]) {
         const wrapper = document.createElement('label');
         const input = document.createElement('input');
@@ -47,9 +47,9 @@
       accept.type = 'button';
       accept.textContent = 'Allow selected summary';
       accept.addEventListener('click', () => update(link.link_id, 'accept',
-        link.relationship === 'parent' ? selectedScopes() : null));
+        selectedScopes()));
       actions.append(accept);
-    } else if (link.relationship === 'parent') {
+    } else if (['parent', 'teacher'].includes(link.relationship)) {
       const save = document.createElement('button');
       save.className = 'btn-primary';
       save.type = 'button';

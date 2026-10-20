@@ -26,6 +26,7 @@
   // Minimal, safe formatting: **bold**, `code`, line breaks, and in-app
   // links like /scheduler. Everything is escaped first.
   function format(text) {
+    if (window.IPRichText) return window.IPRichText.render(text);
     return esc(text)
       .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
       .replace(/`([^`]+)`/g, '<code>$1</code>')

@@ -22,6 +22,7 @@ from flask import Blueprint, current_app, jsonify, redirect, render_template, re
 from flask_login import current_user, login_required
 
 from intelliplan.repositories.assignments import AssignmentRepository
+from intelliplan.email.eligibility import age_from_birth_year
 
 bp = Blueprint("roles_bp", __name__)
 ENCOURAGEMENT = {
@@ -29,13 +30,14 @@ ENCOURAGEMENT = {
     "plan": "Want to look at the next deadline together and make a small plan?",
     "rest": "It is okay to pause. I am here when you want to talk through the next step.",
 }
-SHARE_SCOPES = frozenset({"work", "study", "foundations"})
+SHARE_SCOPES = frozenset({"work", "study", "foundations", "tools"})
+
 
 
 def _link_scopes(link) -> set[str]:
     """Legacy approvals keep their previous access; malformed new values fail closed."""
-    if link.relationship != "parent" or link.share_scopes_json is None:
-        return set(SHARE_SCOPES)
+    if link.share_scopes_json is None:
+        return {"work", "study", "foundations"}
     try:
         scopes = json.loads(link.share_scopes_json)
     except (TypeError, ValueError):
@@ -47,7 +49,7 @@ def _link_scopes(link) -> set[str]:
 
 def _requested_scopes(payload):
     if not isinstance(payload, dict) or "scopes" not in payload:
-        return set(SHARE_SCOPES)
+        return {"work", "study", "foundations"}
     scopes = payload["scopes"]
     if (not isinstance(scopes, list) or not scopes or
             any(type(scope) is not str or scope not in SHARE_SCOPES for scope in scopes)):
@@ -65,6 +67,11 @@ def _link_model():
 
 def _user_model():
     return current_app.intelliplan_user_model  # type: ignore[attr-defined]
+
+
+def _adult_account(user):
+    age = age_from_birth_year(getattr(user, 'birth_year', None), utcnow())
+    return age is not None and age >= 18
 
 
 def _accepted_parent_link(student_id: int):
@@ -88,10 +95,11 @@ def _public_note(note):
 
 
 @bp.route("/teacher")
-@login_required
 def teacher_dashboard():
+    if not current_user.is_authenticated:
+        return redirect(url_for("login_account", next="/teacher"))
     if current_user.role != "teacher":
-        return jsonify({"error": "forbidden", "detail": "Teacher account required."}), 403
+        return render_template("teacher_setup.html", active_page="teacher", noindex_page=True)
     return render_template("teacher_dashboard.html", active_page="teacher")
 
 
@@ -124,11 +132,17 @@ def api_role():
     new_role = role_value.strip().lower() if isinstance(role_value, str) else ""
     if new_role not in ("student", "teacher", "parent"):
         return jsonify({"error": "invalid_role"}), 400
-    if new_role == "parent" and current_user.birth_year and datetime.utcnow().year - current_user.birth_year < 18:
+    if new_role in ("parent", "teacher") and not _adult_account(current_user):
         return jsonify({"error": "adult_account_required"}), 403
-    current_user.role = new_role
+    user = _db().session.get(_user_model(), current_user.id)
+    if user is None:
+        return jsonify({"error": "account_not_found"}), 404
+    if new_role in ("parent", "teacher") and not _adult_account(user):
+        return jsonify({"error": "adult_account_required"}), 403
+    user.role = new_role
     _db().session.commit()
-    return jsonify({"role": current_user.role})
+    return jsonify({"role": user.role})
+
 
 
 @bp.route("/api/roles/invite", methods=["POST"])
@@ -138,6 +152,8 @@ def api_invite():
     StudentLink — the student approves from /linked-accounts."""
     if current_user.role not in ("teacher", "parent"):
         return jsonify({"error": "forbidden"}), 403
+    if not _adult_account(current_user):
+        return jsonify({"error": "adult_account_required"}), 403
     body = request.get_json(silent=True)
     email_value = body.get("student_email") if isinstance(body, dict) else None
     email = email_value.strip().lower() if isinstance(email_value, str) else ""
@@ -150,6 +166,8 @@ def api_invite():
         return jsonify({"error": "student_not_found"}), 404
     if student.id == current_user.id:
         return jsonify({"error": "cannot_link_to_self"}), 400
+    if student.role != "student":
+        return jsonify({"error": "student_account_required"}), 400
     existing = StudentLink.query.filter_by(
         linker_user_id=current_user.id, student_user_id=student.id,
         relationship=current_user.role,
@@ -178,9 +196,11 @@ def api_list_links():
         return jsonify({"links": []})
     links = StudentLink.query.filter_by(linker_user_id=current_user.id,
                                         relationship=current_user.role).all()
+    students = {user.id: user for user in User.query.filter(
+        User.id.in_({link.student_user_id for link in links})).all()} if links else {}
     out = []
     for link in links:
-        student = User.query.get(link.student_user_id)
+        student = students.get(link.student_user_id)
         if not student:
             continue
         out.append({
@@ -204,9 +224,11 @@ def api_pending_for_student():
     pending = StudentLink.query.filter_by(
         student_user_id=current_user.id, accepted_at=None
     ).all()
+    linkers = {user.id: user for user in User.query.filter(
+        User.id.in_({link.linker_user_id for link in pending})).all()} if pending else {}
     out = []
     for link in pending:
-        linker = User.query.get(link.linker_user_id)
+        linker = linkers.get(link.linker_user_id)
         if not linker:
             continue
         out.append({
@@ -224,9 +246,11 @@ def api_my_links():
     Link = _link_model()
     User = _user_model()
     links = Link.query.filter_by(student_user_id=current_user.id).all()
+    linkers = {user.id: user for user in User.query.filter(
+        User.id.in_({link.linker_user_id for link in links})).all()} if links else {}
     result = []
     for link in links:
-        linker = User.query.get(link.linker_user_id)
+        linker = linkers.get(link.linker_user_id)
         if linker:
             result.append({"link_id": link.id, "linker_name": linker.name or linker.email,
                            "linker_email": linker.email, "relationship": link.relationship,
@@ -245,7 +269,7 @@ def api_accept_link(link_id: int):
         return jsonify({"error": "not_found"}), 404
     if link.accepted_at is not None:
         return jsonify({"error": "already_accepted"}), 409
-    if link.relationship == "parent":
+    if link.relationship in ("parent", "teacher"):
         scopes = _requested_scopes(request.get_json(silent=True))
         if scopes is None:
             return jsonify({"error": "invalid_scopes"}), 400
@@ -260,7 +284,7 @@ def api_accept_link(link_id: int):
 def api_update_link_scopes(link_id: int):
     link = _link_model().query.get(link_id)
     if (link is None or link.student_user_id != current_user.id or
-            link.relationship != "parent" or link.accepted_at is None):
+            link.relationship not in ("parent", "teacher") or link.accepted_at is None):
         return jsonify({"error": "not_found"}), 404
     payload = request.get_json(silent=True)
     if not isinstance(payload, dict) or "scopes" not in payload:
@@ -315,7 +339,32 @@ def api_student_overview(student_id: int):
         },
         "summary": _summarize_for_view(student.id, _link_scopes(link)),
     }
+    if "tools" in _link_scopes(link):
+        from intelliplan.learning.policy import FEATURES, decision
+        overview["tools"] = [dict(key=key, name=key.replace('_', ' ').title(),
+                                  allowed=(result := decision(student, key))[0], reason=result[1])
+                             for key in FEATURES]
     return jsonify(overview)
+
+
+def _shared_manual_tasks(student_user_id: int, rows: list) -> list:
+    """Imported records retain the student's current source restrictions."""
+    manual_sources = {'', 'quickadd', 'course'}
+    if all(str(getattr(row, 'import_source', '') or '').strip().lower() in manual_sources for row in rows):
+        return rows
+    from intelliplan.learning import policy
+    policy.invalidate_cache()
+    student = _user_model().query.populate_existing().filter_by(id=student_user_id).first()
+    if student is None:
+        return []
+    allowed = {source for source in policy.SOURCE_CAPABILITIES if policy.decision(student, source)[0]}
+    result = []
+    for row in rows:
+        source = str(getattr(row, 'import_source', '') or '').strip().lower()
+        capability = policy.source_capability(source.removeprefix('scraper:'))
+        if source in manual_sources or (capability in allowed if capability else allowed == policy.SOURCE_CAPABILITIES):
+            result.append(row)
+    return result
 
 
 def _summarize_for_view(student_user_id: int, scopes: set[str] | None = None) -> dict:
@@ -338,10 +387,11 @@ def _summarize_for_view(student_user_id: int, scopes: set[str] | None = None) ->
             ManualTask = current_app.intelliplan_manual_task_model
             DismissedAssignment = current_app.intelliplan_dismissed_assignment_model
             repository = AssignmentRepository(
-                ManualTask, db.session, current_app.intelliplan_assignment_fetcher)
+                ManualTask, db.session, current_app.intelliplan_assignment_fetcher,
+                manual_filter=_shared_manual_tasks)
             rows = repository.for_user(student_user_id, today)
-            manual_done = db.session.query(ManualTask).filter_by(
-                user_id=student_user_id, done=True).count()
+            manual_done = len(_shared_manual_tasks(student_user_id, db.session.query(ManualTask).filter_by(
+                user_id=student_user_id, done=True).all()))
             dismissed_rows = db.session.query(DismissedAssignment).filter_by(
                 user_id=student_user_id).all()
             normalize_title = current_app.intelliplan_norm_title

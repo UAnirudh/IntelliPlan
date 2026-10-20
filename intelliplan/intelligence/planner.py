@@ -192,6 +192,10 @@ class DayCapacity:
     #: for. Above it, work is priced, not forbidden — a deadline still wins.
     #: ``None`` falls back to ``config.target_utilisation`` of ``minutes``.
     comfort_minutes: int | None = None
+    #: Break estimates are preferences; supplied windows decide feasibility.
+    soft_minutes: int | None = None
+    clock_windows: tuple[tuple[datetime, datetime], ...] | None = None
+    clock_stamina_minutes: int = 45
 
     @property
     def usable(self) -> int:
@@ -199,7 +203,8 @@ class DayCapacity:
 
     def soft_limit(self, target_utilisation: float) -> int:
         """The fill level above which the convex load penalty starts biting."""
-        default = int(round(self.usable * target_utilisation))
+        basis = self.usable if self.soft_minutes is None else min(self.usable, max(0, self.soft_minutes))
+        default = int(round(basis * target_utilisation))
         if self.comfort_minutes is not None:
             default = min(default, max(0, int(self.comfort_minutes)))
         return max(1, default)
@@ -455,6 +460,8 @@ class _DayState:
     #: The comfortable fill level. Work above this is allowed but priced.
     soft_capacity: int
     quality: float
+    clock_windows: tuple[tuple[datetime, datetime], ...] | None = None
+    clock_stamina_minutes: int = 45
     minutes: int = 0
     load: float = 0.0
     courses: dict[str, int] = field(default_factory=dict)
@@ -575,12 +582,39 @@ def _work_order_key(task, part_index=0):
 def _ready_work_order(sessions, key):
     """Order ready work without putting a dependent before its prerequisite."""
     pending = sorted(sessions, key=key)
+    if not any(s.depends_on for s in pending):
+        return pending
+    # A dependency becomes ready only after *all* its parent's sittings.
+    # Keep sorted positions in the heap to retain stable ordering on ties.
+    counts = {}
+    for session in pending:
+        counts[session.task_id] = counts.get(session.task_id, 0) + 1
+    waiting, blocked = {}, {}
+    ready = []
+    for index, session in enumerate(pending):
+        dependencies = set(session.depends_on).intersection(counts)
+        blocked[index] = len(dependencies)
+        for parent in dependencies:
+            waiting.setdefault(parent, []).append(index)
+        if not dependencies:
+            heapq.heappush(ready, index)
+    remaining = set(range(len(pending)))
     ordered = []
-    while pending:
-        remaining = {s.task_id for s in pending}
-        next_session = next((s for s in pending if not remaining.intersection(s.depends_on)), pending[0])
-        pending.remove(next_session)
-        ordered.append(next_session)
+    while remaining:
+        # Preserve the previous deterministic cycle fallback. Cyclic tasks
+        # are rejected by allocation; this ordering must still terminate.
+        index = heapq.heappop(ready) if ready else min(remaining)
+        if index not in remaining:
+            continue
+        remaining.remove(index)
+        session = pending[index]
+        ordered.append(session)
+        counts[session.task_id] -= 1
+        if not counts[session.task_id]:
+            for dependent in waiting.get(session.task_id, ()):
+                blocked[dependent] -= 1
+                if not blocked[dependent] and dependent in remaining:
+                    heapq.heappush(ready, dependent)
     return ordered
 
 
@@ -592,12 +626,16 @@ def _dependency_order(sessions):
     Original assignment deadlines remain unchanged for display and repair.
     """
     ordered = _ready_work_order(sessions, lambda s: _work_order_key(s, s.part_index))
+    task_minutes = {}
+    for session in ordered:
+        task_minutes[session.task_id] = task_minutes.get(session.task_id, 0) + session.minutes
     urgency = {session.task_id: _work_order_key(session)[:4] for session in ordered}
     for session in reversed(ordered):
         for parent in session.depends_on:
             if parent in urgency:
                 urgency[parent] = min(urgency[parent], urgency[session.task_id])
-    return _ready_work_order(ordered, lambda s: (urgency[s.task_id], _work_order_key(s, s.part_index)))
+    return _ready_work_order(ordered, lambda s: (urgency[s.task_id], -task_minutes[s.task_id],
+                                                _work_order_key(s, s.part_index)))
 
 
 def _deadline_fits(item, day, state, ctx):
@@ -605,16 +643,20 @@ def _deadline_fits(item, day, state, ctx):
     rows[id(item)] = item
     timed = next((row.task for row in rows.values() if row.task.deadline_at is not None
                   and row.task.deadline_at.date() == day and row.task.deadline_windows is not None), None)
-    if timed is None:
+    windows_input = state.clock_windows if state.clock_windows is not None else (
+        timed.deadline_windows if timed is not None else None)
+    stamina = state.clock_stamina_minutes if state.clock_windows is not None else (
+        timed.deadline_stamina_minutes if timed is not None else 45)
+    if windows_input is None:
         return True
-    key = (day, tuple(sorted(rows)), timed.deadline_windows, timed.deadline_stamina_minutes)
+    key = (day, tuple(sorted(rows)), windows_input, stamina)
     if ctx is not None and key in ctx.deadline_cache:
         return ctx.deadline_cache[key]
     import scheduler_engine
     from intelliplan.intelligence.calendar_sittings import calendar_sittings
     ordered = sorted(rows.values(), key=lambda row: _work_order_key(row.task, row.part_index))
-    dna = scheduler_engine.StudyDNA(stamina_minutes=timed.deadline_stamina_minutes)
-    windows = [scheduler_engine.Window(start, end) for start, end in timed.deadline_windows]
+    dna = scheduler_engine.StudyDNA(stamina_minutes=stamina)
+    windows = [scheduler_engine.Window(start, end) for start, end in windows_input]
     sessions = tuple(Session(
         task_id=row.task.id, title=row.task.title, course=row.task.course, kind=row.task.kind,
         day=day, minutes=row.minutes, part_index=row.part_index, part_total=row.part_total,
@@ -645,6 +687,9 @@ def _placement_cost(
     horizon: int,
     weights: PlannerWeights,
     ctx: _Context | None = None,
+    *,
+    cost_ceiling: float = math.inf,
+    check_clock: bool = True,
 ) -> float:
     """Price of putting ``item`` on ``day`` given what is already there.
 
@@ -662,9 +707,6 @@ def _placement_cost(
             and item.task.deadline_day_capacity is not None
             and state.task_minutes.get(item.task.id, 0) + item.minutes > item.task.deadline_day_capacity):
         return math.inf
-    if not _deadline_fits(item, day, state, ctx):
-        return math.inf
-
     projected = state.load + item.load
     utilisation = projected / max(1.0, float(state.soft_capacity or state.capacity))
     # Convex in utilisation: the tenth minute of a light day is nearly free,
@@ -715,6 +757,10 @@ def _placement_cost(
         cost += _follow_through_cost(item, day, state, ctx, weights)
         cost += _stability_cost(item, day, state, ctx, weights)
 
+    # Clock placement is expensive and cannot improve this preference cost.
+    # A candidate that cannot beat an already feasible choice needs no replay.
+    if cost >= cost_ceiling or (check_clock and not _deadline_fits(item, day, state, ctx)):
+        return math.inf
     return cost
 
 
@@ -755,6 +801,8 @@ def build_plan(
             capacity=cap_by_day[d].usable,
             soft_capacity=cap_by_day[d].soft_limit(config.target_utilisation),
             quality=cap_by_day[d].quality,
+            clock_windows=cap_by_day[d].clock_windows,
+            clock_stamina_minutes=cap_by_day[d].clock_stamina_minutes,
         )
         for d in days
     }
@@ -1156,12 +1204,16 @@ def _place_best(
             else "No day left before the deadline."
         )
         return False
-    best_day, best_cost = None, math.inf
-    for d in candidates:
-        cost = _placement_cost(item, d, state[d], len(days), config.weights, ctx)
-        if cost < best_cost:
-            best_day, best_cost = d, cost
-    if best_day is None or best_cost == math.inf:
+    # Price days cheaply first, then replay the clock in preference order.
+    # The first feasible day is exactly the minimum the exhaustive scan
+    # would choose, including the original chronological tie ordering.
+    priced = sorted((
+        (_placement_cost(item, d, state[d], len(days), config.weights, ctx,
+                         check_clock=False), d) for d in candidates
+    ))
+    best_day = next((d for cost, d in priced if cost != math.inf
+                     and _deadline_fits(item, d, state[d], ctx)), None)
+    if best_day is None:
         item.defer_reason = "Every day before the deadline is already full."
         return False
     item.day = best_day
@@ -1240,19 +1292,25 @@ def _optimise(
             current = state[item.day]
             current.remove(item)
             base_cost = _placement_cost(item, item.day, current, horizon, config.weights, ctx)
-            best_day, best_cost = item.day, base_cost
+            best_day = item.day
             # Recomputed per item, because every accepted move changes the
             # bounds of the item's relatives. A cheaper day that puts the
             # draft before the research is not cheaper.
             lo, hi = _dep_bounds(item, by_task)
+            priced = []
             for d in days:
                 if d == item.day or not (item.earliest <= d <= item.hard_latest):
                     continue
                 if (lo is not None and d < lo) or (hi is not None and d > hi):
                     continue
-                cost = _placement_cost(item, d, state[d], horizon, config.weights, ctx)
-                if cost < best_cost - 1e-9:
-                    best_day, best_cost = d, cost
+                cost = _placement_cost(item, d, state[d], horizon, config.weights, ctx,
+                                       cost_ceiling=base_cost - 1e-9, check_clock=False)
+                if cost != math.inf:
+                    priced.append((cost, d))
+            for cost, d in sorted(priced):
+                if _deadline_fits(item, d, state[d], ctx):
+                    best_day = d
+                    break
             if best_day != item.day:
                 item.day = best_day
                 improved = True
@@ -1394,7 +1452,7 @@ def _coalesce(items: list[_Item]) -> list[_Item]:
     merged: list[_Item] = []
     seen: dict[tuple[str, date], _Item] = {}
     for item in items:
-        if item.day is None:
+        if item.day is None or item.task.pinned or item.task.sittings:
             merged.append(item)
             continue
         key = (item.task.id, item.day)
