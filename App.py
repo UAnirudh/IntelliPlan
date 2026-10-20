@@ -361,6 +361,10 @@ def _stamp_auth_time(sender, user):
     # a first password on a Google-only account — can require this to be
     # recent instead of trusting the cookie forever.
     session["auth_time"] = time.time()
+    # Bind every real sign-in to the current password generation. Remember
+    # cookies only carry an account ID, so restoring one must not mint a
+    # fresh generation after a password reset.
+    session["session_epoch"] = int(getattr(user, "session_epoch", 0) or 0)
 
 # ── FIX: Point flask-session at the SQLAlchemy db so sessions are durable.
 app.config["SESSION_SQLALCHEMY"] = db
@@ -22699,29 +22703,34 @@ def health_check():
 
 @app.before_request
 def _check_session_stamp():
-    """Sign out sessions that predate the current password.
-
-    A password change has to end access held by whoever the user was
-    changing it away from. Without this, a session captured before the reset
-    keeps working and the reset achieves nothing.
-    """
+    """Sign out sessions that predate the current password."""
     try:
         if not current_user.is_authenticated:
             return None
-        current = int(getattr(current_user, "session_epoch", 0) or 0)
-        seen = session.get("session_epoch")
-        if seen is None:
-            # Stamp existing sessions on first sight rather than logging
-            # everyone out the moment this ships.
-            session["session_epoch"] = current
-            return None
-        if int(seen) < current:
-            logout_user()
-            session.clear()
-            return redirect(url_for("login"))
+        user_id = session.get("_user_id")
+        if user_id is None:
+            return None  # Request-loader credentials have their own revocation.
+        # Earlier request work can expire/detach Flask-Login's cached User.
+        # Read the authoritative generation without accessing that ORM object
+        # or reusing an identity-map value from before the reset.
+        row = db.session.execute(db.select(User.id, User.session_epoch).where(
+            User.id == int(user_id))).one_or_none()
+        if row is not None:
+            current = int(row[1] or 0)
+            seen = session.get("session_epoch")
+            if seen is None and current == 0:
+                # Adopt pre-feature sessions only until the first reset.
+                session["session_epoch"] = current
+                return None
+            if seen is not None and int(seen) == current:
+                return None
     except Exception as exc:
         print(f"[security] session stamp check failed: {exc}")
-    return None
+    # A failed check must not preserve access. Clear first: logout_user sets
+    # the remember-cookie deletion marker, which session.clear would erase.
+    session.clear()
+    logout_user()
+    return redirect(url_for("login"))
 
 
 @app.before_request

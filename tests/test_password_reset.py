@@ -229,6 +229,60 @@ def test_a_session_from_before_the_reset_is_signed_out(client, account):
     assert "/login" in landed.headers["Location"]
 
 
+def test_revocation_checks_the_database_when_cached_user_is_detached(client, account, monkeypatch):
+    with App.app.app_context():
+        user = db.session.get(User, account)
+        user.session_epoch = 1
+        db.session.commit()
+        # Reproduce the expired, detached object seen in the full CI run.
+        user.email
+        db.session.expire(user, ["session_epoch"])
+        db.session.expunge(user)
+    monkeypatch.setattr(App, "current_user", user)
+    with App.app.test_request_context("/command-center"):
+        App.session.update(_user_id=str(account), session_epoch=0)
+        response = App._check_session_stamp()
+        assert response.status_code == 302
+        assert "/login" in response.location
+        assert "_user_id" not in App.session
+
+
+def test_current_session_survives_an_expired_detached_cached_user(client, account, monkeypatch):
+    with App.app.app_context():
+        user = db.session.get(User, account)
+        user.email
+        db.session.expire(user, ["session_epoch"])
+        db.session.expunge(user)
+    monkeypatch.setattr(App, "current_user", user)
+    with App.app.test_request_context("/command-center"):
+        App.session.update(_user_id=str(account), session_epoch=0)
+        assert App._check_session_stamp() is None
+        assert App.session["_user_id"] == str(account)
+
+
+def test_reset_clears_old_remember_cookie_and_rejects_unstamped_sessions(client, account):
+    attacker = App.app.test_client()
+    # A remember cookie can otherwise restore an ID after session.clear().
+    from flask_login.utils import encode_cookie
+    with App.app.app_context():
+        attacker.set_cookie("remember_token", encode_cookie(str(account)))
+    submit(client, issue(account))
+    landed = attacker.get("/command-center", follow_redirects=False)
+    assert landed.status_code == 302
+    assert "/login" in landed.location
+    assert any("remember_token=;" in value for value in landed.headers.getlist("Set-Cookie"))
+    with attacker.session_transaction() as state:
+        assert "_user_id" not in state
+    assert "/login" in attacker.get("/command-center", follow_redirects=False).location
+
+
+def test_reset_sign_in_keeps_the_new_password_generation(client, account):
+    assert submit(client, issue(account)).status_code == 302
+    with client.session_transaction() as state:
+        assert state["session_epoch"] == 1
+    assert "/login" not in client.get("/command-center", follow_redirects=False).headers.get("Location", "")
+
+
 def test_a_reset_clears_a_lockout(client, account):
     """They have just proved control of the inbox, so the lockout has done
     its job."""

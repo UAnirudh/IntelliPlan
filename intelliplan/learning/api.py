@@ -1,6 +1,6 @@
 """Owned course/study APIs and institution-scoped administration."""
 from datetime import datetime
-from flask import Blueprint, abort, jsonify, render_template, request
+from flask import Blueprint, abort, has_request_context, jsonify, render_template, request
 from flask_login import current_user
 from sqlalchemy.exc import IntegrityError
 
@@ -547,9 +547,10 @@ def install(app):
     @app.context_processor
     def workspace_policy():
         # The same route map drives navigation and direct-request enforcement.
+        # Background email rendering has an app context but no signed-in user.
+        if not has_request_context() or not getattr(current_user, 'is_authenticated', False):
+            return {}
         from intelliplan.learning.enforcement import SURFACES
-        if not current_user.is_authenticated:
-            return dict(workspace_blocked_paths=[], workspace_school_admin=False)
         blocked = [path for key, paths in SURFACES.items()
                    if not policy.decision(current_user, key)[0] for path in paths]
         try:
