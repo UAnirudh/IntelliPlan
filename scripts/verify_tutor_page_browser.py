@@ -186,7 +186,8 @@ with sync_playwright() as p:
             page.get_by_role('button', name='Close chat history', exact=True).click()
         page.get_by_role('link', name='All study tools', exact=False).click()
         page.locator('#hubToolSearch').fill('flashcards')
-        assert page.locator('#hubGrid .hub-card:visible').count() == 1
+        assert page.locator('#hubGrid .hub-card:visible').count() == 2
+        assert page.locator('#hubGrid .hub-card:visible').evaluate_all("cards => cards.every(card => card.textContent.toLowerCase().includes('flashcards'))")
         hub_flashcards = page.get_by_role('link', name='Flashcards', exact=True)
         assert hub_flashcards.is_visible() and hub_flashcards.get_attribute('href') == '/flashcards'
         page.locator('#hubToolSearch').fill('no matching tool xyz')
