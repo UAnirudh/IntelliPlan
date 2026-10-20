@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% block page_title %}Learning Hub | IntelliPlan{% endblock %}
 {% block content %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/learning_hub.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/learning_hub.css') }}?v={{ asset_v }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='vendor/learning-content/katex.min.css') }}">
 <article class="learning-hub" aria-labelledby="hub-title" data-no-motion>
   <header class="learning-intro"><div class="learning-context"><h1 id="hub-title">Learning workspace</h1><a href="/school-admin" id="school-admin-link" hidden>Institution settings <span aria-hidden="true">↗</span></a></div>
