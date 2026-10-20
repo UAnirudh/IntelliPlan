@@ -35,7 +35,7 @@ has a close button, Escape support, focus containment and focus restoration.
 
 - 428 focused Python tutor, policy, legacy-tool, assignment and scoring tests pass.
 - 47 mobile navigation, shell, layout and UI contract tests pass.
-- 51 Node browser-logic checks pass, including nine new history checks.
+- 53 Node browser-logic checks pass, including eleven new history checks.
 - Controlled SVG/fraction/quiz browser checks pass at 1280px and 390px, with no
   outbound requests or JavaScript errors.
 - The existing disposable HTTP/storage browser suite passes 18 workflows,
@@ -44,8 +44,9 @@ has a close button, Escape support, focus containment and focus restoration.
 - The expanded Plani verifier exercises rendered templates, interactive sliders,
   voice-policy denial, keyboard history, failed deletion, tool search, school
   restrictions, JavaScript-disabled discovery and non-overlapping composition.
-  It supports scoped axe 4.14.0 audits and writes screenshots and reports to
-  `output/playwright/plani/`. Final results accompany the delivery checkpoint.
+  All five viewport/theme combinations pass, with 15 scoped axe 4.14.0 audits
+  and no JavaScript errors. Screenshots and reports are written to
+  `output/playwright/plani/`.
 - Changed Python Ruff, JavaScript parsing and whitespace checks pass.
 
 AI replies in browser checks are explicit fixtures. A separate bounded live
@@ -67,5 +68,16 @@ provider quality, microphone hardware, camera hardware or spoken playback.
    to demonstrate restricted tools and server denial.
 4. Open Sessions & progress to distinguish reported work from scored practice.
 
-This report describes local implementation and scoped verification. Production
-release and exact served-revision verification must be recorded separately.
+## Reviewable delivery
+
+The implementation is pushed to `codex/plani-school-presentation` in
+[PR 113](https://github.com/UAnirudh/IntelliPlan/pull/113), based on released main
+`81252bf`. Hosted checks are separate from the local evidence above. Production
+release and exact served-revision verification remain separate delivery gates.
+
+Preview screenshots use synthetic fixture content:
+
+- [Desktop Plani](evidence/plani-restored-desktop.png)
+- [Phone Plani](evidence/plani-restored-phone.png)
+- [Tool directory](evidence/plani-restored-tools.png)
+- [School restrictions](evidence/plani-restored-school-policy.png)

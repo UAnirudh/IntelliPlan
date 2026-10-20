@@ -5,6 +5,7 @@ const vm = require('node:vm');
 const path = require('node:path');
 const source = fs.readFileSync(path.join(__dirname, '../../Main_Project/templates/tutor.html'), 'utf8');
 const history = source.slice(source.indexOf('async function loadConversations()'), source.indexOf('function openTutorDrawer()'));
+const escaping = source.slice(source.indexOf('function escHtml(t)'), source.indexOf('function renderMd(raw)'));
 function deferred() { let resolve; const promise = new Promise(r => { resolve = r; }); return { promise, resolve }; }
 const reply = data => ({ ok: true, json: async () => data });
 
@@ -18,10 +19,10 @@ function harness(fetch, confirm = async () => true) {
     conversationLoadVersion: 0, requestedConversationId: null, deletingConversation: false,
     summarizeConversation() {}, stopSpeaking() {}, clearTutorAssignment() {}, closeTutorDrawer() {},
     showChat() {}, resetToEmpty() {}, scrollBottom() {},
-    visibleTutorText: text => text, escHtml: text => text,
+    visibleTutorText: text => text,
     addTutorMsg: (role, text) => rendered.push([role, text]),
   });
-  vm.runInContext(history, context);
+  vm.runInContext(escaping + history, context);
   return { api: context, elements, rendered };
 }
 
@@ -112,4 +113,22 @@ test('redirected history loads leave the visible conversation intact', async () 
   await api.loadConversation(9);
   assert.equal(api.conversationId, 7);
   assert.match(elements.tutorHistoryStatus.textContent, /Could not open/);
+});
+
+test('saved chat titles cannot inject markup or break the delete button label', () => {
+  const { api, elements } = harness(() => assert.fail('Unexpected request'));
+  api.conversationList = [{ id: 7, title: '<img src=x>" autofocus onfocus="alert(1)' }];
+  api.renderHistory();
+  const html = elements.tutorHistoryList.innerHTML;
+  assert.ok(!html.includes('<img'));
+  assert.ok(!html.includes('onfocus="alert(1)'));
+  assert.ok(html.includes('&lt;img src=x&gt;&quot;'));
+});
+
+test('invalid conversation identifiers cannot enter inline click handlers', () => {
+  const { api, elements } = harness(() => assert.fail('Unexpected request'));
+  api.conversationList = [{ id: '7);alert(1)', title: 'Untrusted record' }];
+  api.renderHistory();
+  assert.ok(!elements.tutorHistoryList.innerHTML.includes('alert'));
+  assert.ok(!elements.tutorHistoryList.innerHTML.includes('Untrusted record'));
 });
