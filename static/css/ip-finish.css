@@ -24,6 +24,14 @@
 /* ── 2. Numbers in the UI face, tabular ───────────────────────────── */
 body.has-side {
   --ipd-font-mono: var(--font-ui, var(--font-body, system-ui, sans-serif));
+  --r-sm: 12px;
+  --r-md: 18px;
+  --r-lg: 24px;
+  --r-xl: 28px;
+  --r-2xl: 32px;
+  --ipd-radius-lg: 24px;
+  --ipd-radius-md: 18px;
+  --ipd-radius-sm: 12px;
 }
 body.has-side :is(.time-slot, .iv-time, .day-hours, .iv-day-meta, .block-duration,
   .iv-duration, .overview-stat, .ipd-stat-value, .stat-value, .date-badge) {

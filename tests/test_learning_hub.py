@@ -524,9 +524,67 @@ def test_request_profile_edit_persistence_and_worker_context(client, monkeypatch
 
 
 def test_hub_renders_and_keeps_legacy_surfaces(client):
-    for path in ["/learning", "/study-and-learn", "/tutor", "/learn", "/study"]:
+    for path in ["/learning", "/study-and-learn", "/tutor", "/learn", "/study", "/tools"]:
         assert client.get(path).status_code == 200
-    assert b"Learning workspace" in client.get("/study-and-learn").data
+    home = client.get('/study-and-learn').data
+    assert b'id="tutorInput"' in home and b'id="tutorHistoryList"' in home
+    assert b'tutor-artifacts.js' in home and b'href="/tools"' in home
+    assert b"Learning workspace" in client.get("/learning").data
+
+
+def test_tool_library_restores_real_destinations(client):
+    from intelliplan.learning.tool_catalog import GROUPS
+    adapter = App.app.url_map.bind('localhost')
+    page = client.get('/tools').get_data(as_text=True)
+    for _, _, _, entries in GROUPS:
+        for name, href, _, _, _ in entries:
+            adapter.match(href, method='GET')
+            assert f'href="{href}"' in page, name
+    assert 'Course builder' not in page
+
+
+def test_study_home_respects_tutor_restriction_and_keeps_other_tools(client, monkeypatch):
+    uid = user(client, monkeypatch)
+    org(uid, {'tutor': False, 'focus': False, 'review': False})
+    monkeypatch.setattr('ai_provider.chat', lambda *a, **k: pytest.fail('Restricted provider call'))
+    response = client.get('/study-and-learn')
+    assert response.status_code == 200
+    page = response.get_data(as_text=True)
+    assert 'Your school has turned off Plani chat' in page
+    assert 'id="tutorInput"' not in page
+    # Inspect the article, excluding the shared navigation's destinations.
+    tools = page.split('<article class="study-tools"', 1)[1].split('</article>\n<script', 1)[0]
+    assert '<span>Plani tutor</span>' in tools
+    assert '<span>Writing coach</span>' in tools
+    assert '<span>Focus tools</span>' in tools
+    assert '<span>Flashcards</span>' in tools
+    assert '<a href="/study">Deep study</a>' in tools
+    assert 'Disabled by your school' in tools
+    assert client.get('/tutor').status_code == 403
+    assert client.post('/api/tutor', json={'messages': [{'role': 'user', 'content': 'Help me'}]}).status_code == 403
+
+
+def test_restored_home_keeps_assessment_protection(client, monkeypatch):
+    uid = user(client, monkeypatch)
+    org(uid, {'assessment_protection': True})
+    monkeypatch.setattr('ai_provider.chat', lambda *a, **k: pytest.fail('Assessment provider call'))
+    page = client.get('/study-and-learn').data
+    assert b'id="tutorInput"' in page and b'Assessment protection is on' in page
+    response = client.post('/api/tutor', json={'messages': [{'role': 'user', 'content': 'Explain derivatives'}]})
+    assert response.status_code == 200
+    assert response.json['assessment_protection'] is True
+    assert response.json['provider_used'] is False
+
+
+def test_institution_settings_are_discoverable_only_to_administrators(client, monkeypatch):
+    user(client, monkeypatch)
+    for path in ['/study-and-learn', '/tutor', '/tools']:
+        assert b'href="/school-admin"' not in client.get(path).data
+    assert client.get('/school-admin').status_code == 403
+    user(client, monkeypatch, admin=True)
+    for path in ['/study-and-learn', '/tutor', '/tools']:
+        assert b'href="/school-admin"' in client.get(path).data
+    assert client.get('/school-admin').status_code == 200
 
 
 @pytest.mark.parametrize(

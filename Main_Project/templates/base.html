@@ -476,7 +476,7 @@ body {
 
 {# Active uses the same desktop sidebar as the rest of the workspace. Keeping
    the navigation anchored prevents a disruptive top-bar swap on entry. #}
-{% set _app_pages = ['dashboard','scheduler','active','study','learn','streak','tutor','priority','classes','grades','grademodel','gradebook','dismissed','tests','profiles','settings','lessons','groups','writing','math','extractor','focus','library','meetings','themes','study_hub','olympiad','memories','pet','command_center','primer','balance','features','accessibility','text_dissector','my_stats'] %}
+{% set _app_pages = ['dashboard','scheduler','active','study','learn','streak','tutor','priority','classes','grades','grademodel','gradebook','dismissed','tests','profiles','settings','lessons','groups','writing','math','extractor','focus','library','meetings','themes','study_hub','study_tools','olympiad','memories','pet','command_center','primer','balance','features','accessibility','text_dissector','my_stats'] %}
 {# Reading progress belongs on long-form pages only. On an app screen the
    scroll length is the size of a list, not the length of an argument, so a
    progress bar there measures nothing the reader cares about. #}
@@ -639,7 +639,7 @@ body {
   </button>
 
   {# ── Simplified nav: Dashboard, Scheduler, Grade Modeler, Study & Learn hub ── #}
-  {%- set _study_sub = ['tutor','priority','classes','grades','dismissed','tests','study','learn','focus','library','streak','lessons','writing','math','extractor','meetings','groups','study_hub'] -%}
+  {%- set _study_sub = ['tutor','priority','classes','grades','dismissed','tests','study','learn','focus','library','streak','lessons','writing','math','extractor','meetings','groups','study_hub','study_tools'] -%}
   <div class="side-nav-list" id="sideNavList">
 
     <a href="/command-center" data-nav-item="command_center" class="side-link {% if active_page == 'command_center' %}active{% endif %}">
@@ -663,8 +663,11 @@ body {
     <a href="/gradebook" data-nav-item="gradebook" class="side-link {% if active_page in ['gradebook','grademodel'] %}active{% endif %}">
       <span class="side-icon"><svg><use href="#i-modeler"/></svg></span>Grade Modeler
     </a>
-    <a href="/study-and-learn" data-nav-item="study_hub" class="side-link {% if active_page in _study_sub %}active{% endif %}">
+    <a href="/study-and-learn" data-nav-item="study_hub" class="side-link {% if active_page in ['study_hub','tutor'] %}active{% endif %}">
       <span class="side-icon"><svg><use href="#i-study"/></svg></span>Study &amp; Learn
+    </a>
+    <a href="/tools" data-nav-item="study_tools" class="side-link {% if active_page == 'study_tools' %}active{% endif %}">
+      <span class="side-icon"><svg><use href="#i-dashboard"/></svg></span>All study tools
     </a>
     <a href="/flashcards" data-nav-item="flashcards" class="side-link {% if active_page == 'flashcards' %}active{% endif %}">
       <span class="side-icon"><svg><use href="#i-clipboard"/></svg></span>Flashcards
@@ -753,6 +756,7 @@ body {
         <a href="/memories"        class="nav-tab {% if active_page == 'memories' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-save"/></svg></span><span class="nav-label">Memories</span></a>
         <a href="/gradebook"       class="nav-tab {% if active_page in ['gradebook','grademodel'] %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-modeler"/></svg></span><span class="nav-label">Grade Modeler</span></a>
         <a href="/study-and-learn" class="nav-tab {% if active_page in _study_sub %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-study"/></svg></span><span class="nav-label">Study &amp; Learn</span></a>
+        <a href="/tools" class="nav-tab nav-more-item {% if active_page == 'study_tools' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-dashboard"/></svg></span><span class="nav-label">All study tools</span></a>
       </div>
       {# ── EVERYTHING ELSE, drawer only ───────────────────────────
            On a phone the sidebar is hidden, so this <nav> IS the whole
@@ -1331,6 +1335,7 @@ if (mobileMenuBtn) {
   const NAV_ITEMS = [
     { section:'Primary', label:'Dashboard',      href:'/dashboard',  icon:'i-dashboard', keys:'home overview' },
     { section:'Primary', label:'AI Tutor',       href:'/tutor',      icon:'i-tutor',     keys:'ask question help' },
+    { section:'Study',   label:'All study tools', href:'/tools',    icon:'i-dashboard', keys:'toolkit writing math quizzes flashcards practice focus' },
     { section:'Plan',    label:'Scheduler',      href:'/scheduler',  icon:'i-scheduler', keys:'plan calendar timetable' },
     { section:'Plan',    label:'Priority Queue', href:'/priority',   icon:'i-priority',  keys:'urgent next' },
     { section:'Plan',    label:'Classes',        href:'/classes',    icon:'i-classes',   keys:'courses' },

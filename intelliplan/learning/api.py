@@ -48,6 +48,14 @@ def hub():
     return render_template('learning_hub.html', active_page='study_hub')
 
 
+@bp.route('/tools')
+def tools_page():
+    from intelliplan.learning.tool_catalog import groups_for
+    return render_template('study_tools.html', active_page='study_tools',
+                           tool_groups=groups_for(current_user),
+                           can_manage_school=policy.is_learning_admin(current_user))
+
+
 @bp.route('/school-admin')
 def admin_page():
     if not policy.is_learning_admin(current_user):

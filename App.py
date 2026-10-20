@@ -5333,8 +5333,11 @@ def _seo_headers(response):
 
 @app.route("/tutor")
 def tutor():
+    from intelliplan.learning import policy
     logged_in = bool(session.get('logged_in') or (current_user.is_authenticated if hasattr(current_user, 'is_authenticated') else False))
-    return render_template("tutor.html", active_page="tutor", logged_in=logged_in)
+    return render_template("tutor.html", active_page="tutor", logged_in=logged_in,
+                           can_manage_school=policy.is_learning_admin(current_user),
+                           assessment_protection=policy.effective(current_user)['assessment_protection'])
 
 
 @app.route('/foundations')
@@ -5628,10 +5631,17 @@ def learn():
 
 @app.route("/study-and-learn")
 def study_and_learn_hub():
-    """Landing page that replaces the cluttered Study & Learn sidebar group.
-    Reuses the tutor and learning contracts in one activity workspace while
-    preserving links to existing reviewed practice and scheduled work."""
-    return render_template("learning_hub.html", active_page="study_hub")
+    """The full Plani chat is the study entry point; other tools stay discoverable."""
+    from intelliplan.learning import policy
+    if not policy.decision(current_user, 'tutor')[0]:
+        from intelliplan.learning.tool_catalog import groups_for
+        return render_template('study_tools.html', active_page='study_hub',
+                               tool_groups=groups_for(current_user), tutor_restricted=True,
+                               can_manage_school=policy.is_learning_admin(current_user))
+    logged_in = bool(session.get('logged_in') or current_user.is_authenticated)
+    return render_template('tutor.html', active_page='study_hub', logged_in=logged_in,
+                           can_manage_school=policy.is_learning_admin(current_user),
+                           assessment_protection=policy.effective(current_user)['assessment_protection'])
 
 
 @app.route("/api/study-hub/recommend", methods=["POST"])

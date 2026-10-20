@@ -16,7 +16,7 @@ os.environ.update(DATABASE_URL='sqlite:///:memory:', SECRET_KEY='tutor-ui-fixtur
 import App  # noqa: E402 -- isolate storage before application import.
 
 App.limiter.enabled = False
-OUT = Path(os.getenv('TUTOR_BROWSER_OUTPUT', str(ROOT / '.codex/verification/tutor-page')))
+OUT = Path(os.getenv('TUTOR_BROWSER_OUTPUT', str(ROOT / 'output/playwright/plani')))
 OUT.mkdir(parents=True, exist_ok=True)
 with App.app.app_context():
     App.db.create_all()
@@ -31,21 +31,50 @@ with App.app.test_client() as client:
     with client.session_transaction() as session:
         session['_user_id'] = str(uid)
         session['_fresh'] = True
-    response = client.get('/tutor')
+    response = client.get('/study-and-learn')
     assert response.status_code == 200
     rendered = response.get_data(as_text=True)
+    tools_rendered = client.get('/tools').get_data(as_text=True)
+    with App.app.app_context():
+        models = App.learning_models
+        school = models['Organization'](name='Fixture school', kind='school',
+                                        policy={'tutor': False, 'review': False, 'focus': False})
+        App.db.session.add(school)
+        App.db.session.flush()
+        App.db.session.add(models['Membership'](user_id=uid, organization_id=school.id, role='student'))
+        App.db.session.commit()
+    restricted_rendered = client.get('/study-and-learn').get_data(as_text=True)
 
 reply = '''What do you predict will happen when the slope increases?
 :::artifact{type="svg-exercise" title="Explore a line"}
 {"kind":"linear","slope":1,"intercept":0,"question":"Try changing the slope, then explain what changed."}
 :::
 '''
+audit_results = []
+
+
+def audit(page, selector, name):
+    axe_path = os.getenv('AXE_CORE_PATH')
+    if not axe_path:
+        return
+    if not page.evaluate('Boolean(window.axe)'):
+        page.add_script_tag(path=axe_path)
+    violations = page.evaluate("""async selector => (await axe.run(selector, {
+        runOnly: {type:'tag', values:['wcag2a','wcag2aa','wcag21aa','wcag22aa']}
+    })).violations""", selector)
+    audit_results.append(dict(surface=name, violations=violations))
+    (OUT / 'accessibility.json').write_text(json.dumps(audit_results, indent=2), encoding='utf-8')
+    assert not violations, violations
+
+
 with sync_playwright() as p:
     browser = p.chromium.launch(channel=os.getenv('STUDY_CAMERA_BROWSER_CHANNEL') or None)
-    for width in (1280, 390):
-        context = browser.new_context(viewport={'width': width, 'height': 900})
+    for width, theme in ((1440, 'light'), (1280, 'dark'), (768, 'light'), (390, 'light'), (390, 'dark')):
+        context = browser.new_context(viewport={'width': width, 'height': 900}, reduced_motion='reduce')
+        context.add_init_script("localStorage.setItem('ip_tour_done','1');localStorage.setItem('theme', '" + theme + "');")
         page = context.new_page()
         errors, sent, speech = [], [], []
+        history_available = False
         page.on('pageerror', lambda error: errors.append(str(error)))
 
         def route(handler):
@@ -53,8 +82,11 @@ with sync_playwright() as p:
             parsed = urlsplit(req.url)
             if parsed.hostname != 'tutor.test':
                 return handler.abort()
-            if parsed.path == '/tutor':
+            if parsed.path in ('/tutor', '/study-and-learn'):
                 return handler.fulfill(status=200, content_type='text/html', body=rendered)
+            if parsed.path == '/tools':
+                return handler.fulfill(status=200, content_type='text/html',
+                                       body=restricted_rendered if parsed.query == 'restricted=1' else tools_rendered)
             if parsed.path.startswith('/static/'):
                 path = (ROOT / parsed.path.lstrip('/')).resolve()
                 if path.is_relative_to(ROOT / 'static') and path.is_file():
@@ -64,7 +96,12 @@ with sync_playwright() as p:
             if parsed.path.startswith('/api/'):
                 body, status = {}, 200
                 if parsed.path == '/api/tutor/conversations':
-                    body = {'conversations': []}
+                    body = {'conversations': [{'id': 101, 'title': 'Saved learning conversation'}] if history_available else []}
+                elif parsed.path == '/api/tutor/conversations/101':
+                    if req.method == 'DELETE':
+                        body, status = {'error': 'institution_policy'}, 403
+                    else:
+                        body = {'id': 101, 'messages': [{'role': 'assistant', 'content': 'What have you tried in your saved practice?'}]}
                 elif parsed.path == '/api/tutor/adaptive/profile':
                     body = {'profile': {}, 'modality': {'mode': 'auto'}}
                 elif parsed.path == '/api/tutor/adaptive/modality':
@@ -81,16 +118,30 @@ with sync_playwright() as p:
             return handler.abort()
 
         page.route('**/*', route)
-        page.goto('https://tutor.test/tutor', wait_until='networkidle')
+        page.goto('https://tutor.test/study-and-learn', wait_until='networkidle')
+        page.evaluate("document.documentElement.dataset.theme = '" + theme + "'")
         essential = page.get_by_role('button', name='Essential only', exact=True)
         if essential.is_visible():
             essential.click()
         page.wait_for_function("document.querySelectorAll('.tutor-modality-btn').length === 5")
-        if width == 390:
+        assert page.locator('#tutorInput').is_visible()
+        assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+        page.locator('.plani-study-actions summary').click()
+        assert page.locator('#educationPlanOpen').is_visible()
+        page.locator('.plani-study-actions summary').click()
+        # Start at the beginning of an overflowing welcome, including the mascot.
+        assert page.locator('#tutorPlaniWrap').bounding_box()['y'] >= page.locator('.tutor-empty').bounding_box()['y'] - 1
+        page.screenshot(path=str(OUT / f'plani-welcome-{width}-{theme}.png'), full_page=True)
+        audit(page, '.tutor-shell', f'welcome-{width}-{theme}')
+        if width <= 768:
+            page.get_by_role('button', name='Open chat history', exact=True).click()
+            page.get_by_role('button', name='Close chat history', exact=True).press('Escape')
+            assert not page.locator('#tutorSide').evaluate("el => el.classList.contains('is-open')")
+            assert page.get_by_role('button', name='Open chat history', exact=True).evaluate('el => document.activeElement === el')
             page.get_by_role('button', name='Open chat history', exact=True).click()
         page.get_by_role('button', name='Auditory', exact=True).click()
         page.wait_for_function('ttsEnabled === true')
-        if width == 390:
+        if width <= 768:
             page.evaluate('closeTutorDrawer()')
         page.locator('#tutorInput').fill('Help me understand slope.')
         page.locator('#tutorSendBtn').click()
@@ -109,8 +160,65 @@ with sync_playwright() as p:
         assert not page.get_by_role('button', name='Just answer', exact=True).count()
         assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
         assert not errors, errors
-        page.screenshot(path=str(OUT / f'tutor-page-{width}.png'), full_page=True)
+        # The reply and the composer must occupy separate regions of the page.
+        boxes = page.locator('.tutor-messages').bounding_box(), page.locator('.tutor-input-wrap').bounding_box()
+        assert boxes[0]['y'] + boxes[0]['height'] <= boxes[1]['y'] + 1, boxes
+        page.screenshot(path=str(OUT / f'plani-chat-{width}-{theme}.png'), full_page=True)
+        audit(page, '.tutor-shell', f'chat-{width}-{theme}')
+        history_available = True
+        page.evaluate('loadConversations()')
+        if width <= 768:
+            page.get_by_role('button', name='Open chat history', exact=True).click()
+        saved_chat = page.get_by_role('button', name='Saved learning conversation', exact=True)
+        saved_chat.focus()
+        saved_chat.press('Enter')
+        page.wait_for_function("document.querySelector('#tutorMessages').textContent.includes('saved practice')")
+        if width <= 768:
+            page.get_by_role('button', name='Open chat history', exact=True).click()
+        page.evaluate('IP.confirm = async () => true')
+        page.get_by_role('button', name='Delete chat: Saved learning conversation', exact=True).click()
+        page.wait_for_function("document.querySelector('#tutorHistoryStatus').textContent.includes('Could not delete')")
+        assert page.get_by_role('button', name='Saved learning conversation', exact=True).is_visible()
+        if width <= 768:
+            page.get_by_role('button', name='Close chat history', exact=True).click()
+        page.get_by_role('link', name='Explore study tools', exact=False).click()
+        page.locator('#studyToolSearch').fill('flashcards')
+        assert page.locator('.study-tool:visible').count() == 1
+        assert page.get_by_role('link', name='Flashcards', exact=True).count() >= 1
+        page.locator('#studyToolSearch').fill('no matching tool xyz')
+        assert page.locator('#studyToolsEmpty').is_visible()
+        page.locator('#studyToolSearch').fill('')
+        page.get_by_role('button', name='Practice', exact=True).click()
+        assert page.locator('.study-tool:visible').count() == 5
+        page.get_by_role('button', name='All tools', exact=True).click()
+        assert page.locator('.study-tool:visible').count() == 24
+        essential = page.get_by_role('button', name='Essential only', exact=True)
+        if essential.is_visible():
+            essential.click()
+        assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+        assert not errors, errors
+        page.screenshot(path=str(OUT / f'study-tools-{width}-{theme}.png'), full_page=True)
+        audit(page, '.study-tools', f'tools-{width}-{theme}')
+        page.goto('https://tutor.test/tools?restricted=1', wait_until='networkidle')
+        assert page.locator('.study-tool.is-restricted').count() == 8
+        assert page.locator('.study-tool.is-restricted a').count() == 0
+        assert page.locator('#tutorInput').count() == 0
+        assert page.locator('.study-tools-notice').first.is_visible()
+        assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+        page.screenshot(path=str(OUT / f'school-permissions-{width}-{theme}.png'), full_page=True)
         print(json.dumps({'width': width, 'passed': True, 'rendered_signed_in_template': True,
-                          'scripted_provider': True, 'audio_policy_denial': True, 'page_errors': errors}))
+                          'theme': theme, 'scripted_provider': True, 'audio_policy_denial': True,
+                          'tool_search_and_filters': True, 'composer_does_not_overlap': True,
+                          'school_restrictions': True, 'axe_audits': bool(os.getenv('AXE_CORE_PATH')),
+                          'keyboard_history_and_failed_delete': True, 'page_errors': errors}))
         context.close()
+    context = browser.new_context(viewport={'width': 390, 'height': 844}, java_script_enabled=False)
+    page = context.new_page()
+    page.route('**/*', route)
+    page.goto('https://tutor.test/tools', wait_until='networkidle')
+    assert page.locator('.study-tool').count() == 24
+    assert page.locator('.study-tools-controls').is_hidden()
+    assert page.get_by_role('link', name='Writing coach', exact=True).is_visible()
+    print(json.dumps({'javascript_disabled': True, 'all_tools_reachable': True, 'passed': True}))
+    context.close()
     browser.close()
