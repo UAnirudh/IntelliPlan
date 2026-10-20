@@ -267,13 +267,17 @@ def test_reset_clears_old_remember_cookie_and_rejects_unstamped_sessions(client,
     with App.app.app_context():
         attacker.set_cookie("remember_token", encode_cookie(str(account)))
     submit(client, issue(account))
-    landed = attacker.get("/command-center", follow_redirects=False)
+    # The fixture preserves the victim client's app context. A separate
+    # browser request must get its own Flask-Login cache, as in production.
+    with App.app.app_context():
+        landed = attacker.get("/command-center", follow_redirects=False)
     assert landed.status_code == 302
     assert "/login" in landed.location
     assert any("remember_token=;" in value for value in landed.headers.getlist("Set-Cookie"))
     with attacker.session_transaction() as state:
         assert "_user_id" not in state
-    assert "/login" in attacker.get("/command-center", follow_redirects=False).location
+    with App.app.app_context():
+        assert "/login" in attacker.get("/command-center", follow_redirects=False).location
 
 
 def test_reset_sign_in_keeps_the_new_password_generation(client, account):
