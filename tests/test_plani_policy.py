@@ -1,5 +1,6 @@
 """Plani's internal operations must honor the same boundaries as web routes."""
 import json
+from datetime import datetime
 from types import SimpleNamespace
 from unittest.mock import Mock
 from uuid import uuid4
@@ -10,6 +11,18 @@ from flask_login import login_user
 import App
 import plani_agent as plani
 from intelliplan.learning import policy
+
+
+@pytest.fixture(autouse=True)
+def planning_morning(monkeypatch):
+    """Keep fixed-date tasks ahead of the planner's shared request clock.
+
+    The shortest one-sided window ends at 17:00 on the task's due day.
+    Letting UTC wall time pass that window turns a valid-configuration test
+    into an expired-window test. Clock-specific tests can override this seam.
+    """
+    monkeypatch.setattr('intelliplan.scheduler_clock.utcnow',
+                        lambda: datetime(2026, 10, 20, 8))
 
 
 @pytest.fixture
@@ -285,7 +298,8 @@ def test_chat_planner_accepts_one_sided_windows(account, monkeypatch, window, ho
     restrict(account, {'calendar': False})
     fixture_generation(monkeypatch)
     result = tool(account, 'generate_schedule', {**window, 'hours_per_day': hours})
-    assert result['status'] == 'ok'
+    assert result.get('status') == 'ok', result
+    assert result['schedule']['planned_at_local'] == '2026-10-20T08:00:00'
     assert any(day['blocks'] for day in result['schedule']['schedule'])
 
 
