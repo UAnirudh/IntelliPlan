@@ -115,14 +115,14 @@ def test_with_no_keys_nothing_is_rendered_or_required(client, no_keys):
 
 # ── Where the widget appears ─────────────────────────────────
 
-@pytest.mark.parametrize('path,base_url', [
+@pytest.mark.parametrize('path,signup_origin', [
     ('/register', 'http://localhost'),
     ('/register?next=/parent', 'http://localhost'),
     ('/register?next=/teacher', 'http://localhost'),
     ('/register', 'https://parent.intelliplan.tech'),
 ])
-def test_registration_never_carries_it(client, keys, path, base_url):
-    page = client.get(path, base_url=base_url)
+def test_registration_never_carries_it(client, keys, path, signup_origin):
+    page = client.get(path, base_url=signup_origin)
     assert page.status_code == 200
     assert b"g-recaptcha" not in page.data
     assert b"recaptcha/api.js" not in page.data
