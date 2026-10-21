@@ -1,8 +1,8 @@
-{% extends 'base.html' %}
+{% extends 'adult_base.html' if current_user.is_authenticated and current_user.role in ['teacher','parent'] else 'base.html' %}
 {% block page_title %}Institution Settings | IntelliPlan{% endblock %}
 {% block content %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/learning_hub.css') }}">
-<article class="learning-hub learning-admin" aria-labelledby="admin-title" data-no-motion><header class="learning-intro"><div class="learning-context"><span class="learning-eyebrow">Institution settings</span><a href="/learning">Back to Learning Hub <span aria-hidden="true">↗</span></a></div>
+<article class="learning-hub learning-admin" aria-labelledby="admin-title" data-no-motion><header class="learning-intro"><div class="learning-context"><span class="learning-eyebrow">Institution settings</span><a href="{{ adult_home|default('/learning') }}">Back to workspace <span aria-hidden="true">↗</span></a></div>
 <h1 id="admin-title">Choose the tools for your district.</h1><p>Turn individual tools on or off for each district or school. District restrictions apply to every linked school, including direct API requests.</p></header>
 <p id="admin-status" role="status" aria-live="polite"></p>
 <div class="learning-organization"><div><label for="admin-organization">District or school</label><select id="admin-organization" aria-describedby="admin-scope" disabled></select></div><p id="admin-scope"></p></div>

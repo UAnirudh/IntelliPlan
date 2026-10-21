@@ -1,44 +1,16 @@
-<!doctype html>
-<html lang="en" data-theme="light">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="robots" content="noindex,nofollow">
-  <title>Family | IntelliPlan</title>
-  <meta name="description" content="A calm, consent-based view of your student's work and study practice.">
-  <link rel="icon" href="/static/icons/icon-192.png">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet">
+{% extends 'adult_base.html' %}
+{% block page_title %}Your students | IntelliPlan Family{% endblock %}
+{% block head_extra %}
   <link rel="stylesheet" href="/static/css/parent_portal.css?v={{ asset_v }}">
-</head>
-<body data-parent-mode="{{ 'true' if parent_mode else 'false' }}">
-  <div class="family-app">
-    <aside class="family-rail" aria-label="Family navigation">
-      <a class="family-brand" href="{{ family_home_url }}" aria-label="IntelliPlan Family home"><img src="/static/icons/icon-192.png" alt=""><span>IntelliPlan <em>Family</em></span></a>
-      <p class="family-rail-kicker">YOUR SPACE</p>
-      <nav>
-        <a href="#overview" aria-current="page">Overview</a>
-        <a href="#learning">Learning signals</a>
-        <a href="#support">Support</a>
-        <a href="#access">Access</a>
-      </nav>
-      <div class="family-rail-foot">
-        <p>Share a plan, celebrate effort, and keep the student in control.</p>
-        <a href="https://intelliplan.tech/">Student app ↗</a>
-        <a href="/logout">Sign out</a>
-      </div>
-    </aside>
-
-    <main class="family-main" id="overview">
-      <div class="family-topline"><span>FAMILY HOME</span><span class="family-topline-date" id="familyToday"></span></div>
+{% endblock %}
+{% block content %}
+    <div class="family-main" id="overview">
+      <div class="family-topline"><span>Family workspace</span><span class="family-topline-date" id="familyToday"></span></div>
       <header class="family-hero">
         <div>
-          <p class="family-eyebrow">A MORE USEFUL CONVERSATION STARTS HERE</p>
-          <h1>Help them find<br><i>their next step.</i></h1>
-          <p>See what IntelliPlan has actually recorded, what is coming up, and where a little support could help. Your student approves access and can remove it at any time.</p>
+          <h1>Your student's next step.</h1>
+          <p>See their shared work and learning progress, then find a useful way to help. Your student approves access and can remove it at any time.</p>
         </div>
-        <div class="family-hero-mark" aria-hidden="true"><span>01</span><span>02</span><span>03</span><b>Grow together</b></div>
       </header>
 
       <p id="familyStatus" class="family-status" role="status" aria-live="polite">Loading your Family space…</p>
@@ -93,10 +65,10 @@
             <ul id="familyUpcomingList"></ul>
           </section>
 
-          <section class="family-card" aria-labelledby="familyToolsTitle">
+          <section class="family-card family-tools" aria-labelledby="familyToolsTitle">
             <p class="family-eyebrow">INSTITUTION TOOL ACCESS</p><h2 id="familyToolsTitle">Tools they can use</h2>
             <p>These reflect the student's current school and district policies. This read-only view cannot override institution restrictions.</p>
-            <ul id="familyToolsList"></ul>
+            <details><summary>View permitted and restricted tools</summary><ul id="familyToolsList"></ul></details>
           </section>
 
           <section class="family-card family-support" id="support" aria-labelledby="familySupportTitle">
@@ -106,8 +78,6 @@
           <div class="family-privacy"><strong>They stay in charge.</strong> The student can revoke the link in Settings → Linked accounts. Tutor chats, personal notes and raw answers are not shared here.</div>
         </div>
       </div>
-    </main>
-  </div>
+    </div>
   <script src="/static/js/parent_portal.js?v={{ asset_v }}" defer></script>
-</body>
-</html>
+{% endblock %}

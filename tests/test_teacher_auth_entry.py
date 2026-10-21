@@ -19,7 +19,7 @@ def test_teacher_signup_signin_and_student_consent_flow(client, monkeypatch):
     response = client.post('/register', data={'email': email, 'password': 'teacher-test-pass',
         'confirm_password': 'teacher-test-pass', 'birth_year': 1980, 'next': '/teacher'})
     assert response.status_code == 302 and response.location == '/teacher'
-    assert b'Teacher dashboard' in client.get('/teacher').data
+    assert b'Your students' in client.get('/teacher').data
     with App.app.app_context():
         teacher = App.User.query.filter_by(email=email).first()
         assert teacher.role == 'teacher'

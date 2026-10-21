@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>{% block page_title %}Your students | IntelliPlan{% endblock %}</title>
+  <link rel="icon" href="/static/icons/icon-192.png">
+  <script>try { document.documentElement.dataset.theme = localStorage.getItem('theme') === 'dark' ? 'dark' : 'light'; } catch (_) {}</script>
+  {% block head_extra %}{% endblock %}
+  <link rel="stylesheet" href="/static/css/adult_workspace.css?v={{ asset_v }}">
+</head>
+{% set adult_teacher = current_user.role == 'teacher' %}
+{% set adult_home = '/teacher' if adult_teacher else family_home_url|default('/parent') %}
+<body class="adult-workspace" data-parent-mode="{{ 'true' if parent_mode else 'false' }}">
+  <a href="#adult-content" class="adult-skip">Skip to content</a>
+  <div class="adult-layout">
+    <aside class="adult-rail" aria-label="{{ 'Teacher' if adult_teacher else 'Family' }} navigation">
+      <a class="adult-brand" href="{{ adult_home }}" aria-label="IntelliPlan {{ 'Teacher' if adult_teacher else 'Family' }} home"><img src="/static/icons/icon-192.png" alt=""><span>IntelliPlan<small>{{ 'Teacher' if adult_teacher else 'Family' }}</small></span></a>
+      <nav aria-label="Workspace">
+        <a href="{{ adult_home }}" {% if active_page|default('parent') in ['teacher','parent'] %}aria-current="page"{% endif %}>Your students <span aria-hidden="true">↗</span></a>
+        <a href="{{ adult_home }}#{{ 'invite' if adult_teacher else 'access' }}">Invite a student <span aria-hidden="true">+</span></a>
+        <a href="/adult/account" {% if active_page == 'adult_account' %}aria-current="page"{% endif %}>Your account</a>
+        {% if workspace_school_admin %}<a href="/school-admin">Institution settings</a>{% endif %}
+        {% if workspace_owner_admin %}<a href="/admin/accounts">Account access</a>{% endif %}
+      </nav>
+      <div class="adult-rail-foot"><p>Students choose what to share. Their private conversations stay private.</p><button type="button" id="adultTheme">Switch theme</button><a href="/legal#privacy">Privacy</a><form action="/logout" method="post"><button type="submit">Sign out</button></form></div>
+    </aside>
+    <main id="adult-content" class="adult-content">{% block content %}{% endblock %}</main>
+  </div>
+  <script>document.getElementById('adultTheme').addEventListener('click', function () { var theme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'; document.documentElement.dataset.theme = theme; try { localStorage.setItem('theme', theme); } catch (_) {} });</script>
+</body>
+</html>

@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "adult_base.html" if current_user.is_authenticated and current_user.role in ['teacher','parent'] else "base.html" %}
 {% block page_title %}Privacy & Terms | IntelliPlan{% endblock %}
 {% block meta_description %}IntelliPlan privacy policy, terms of service, and student privacy safeguards. How we handle student data, AI tutoring, and account security.{% endblock %}
 

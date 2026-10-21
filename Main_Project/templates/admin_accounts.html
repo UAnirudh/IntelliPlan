@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "adult_base.html" if current_user.is_authenticated and current_user.role in ['teacher','parent'] else "base.html" %}
 {% block page_title %}Account administration | IntelliPlan{% endblock %}
 {% block content %}
 <main class="page-wrap" style="max-width:850px;margin:auto">

@@ -96,8 +96,45 @@ with sync_playwright() as playwright:
         assert not page.evaluate('document.documentElement.scrollWidth > innerWidth'), (slug, 'overflow')
         width = page.viewport_size['width']
         page.screenshot(path=str(OUT / f'{slug}-{width}.png'), full_page=True)
-        report.append({'page':slug,'width':width,'errors':[],'overflow':False})
+        report.append({'page':slug,'width':width,'errors':[],'overflow':False,
+                       'font':page.locator('body').evaluate('element => getComputedStyle(element).fontFamily')})
 
+    def adult_navigation():
+        assert page.locator('.adult-rail').is_visible()
+        assert page.locator('.app-sidebar, #ipTabbar, #planiBot').count() == 0
+        paths = page.locator('.adult-rail a').evaluate_all('(links) => links.map(link => link.getAttribute("href"))')
+        assert not {'/dashboard','/command-center','/scheduler','/classes','/study-tools','/tutor'}.intersection(paths)
+
+    for width in (1440, 768, 390):
+        page.set_viewport_size({'width':width,'height':1000})
+        for role in ('teacher','parent'):
+            open_page(role, '/' + role)
+            adult_navigation()
+            capture(role + '-empty-workspace')
+            open_page(role, '/adult/account')
+            adult_navigation()
+            assert page.locator('h1').inner_text() == 'Your account'
+            capture(role + '-account')
+            page.locator('#adultDeleteOpen').click()
+            assert page.locator('#adultDeleteDialog').is_visible()
+            page.locator('#adultDeleteCancel').click()
+            assert page.locator('#adultDeleteDialog').is_hidden()
+            page.locator('#adultTheme').click()
+            assert page.locator('html').get_attribute('data-theme') == 'dark'
+            capture(role + '-account-dark')
+            page.locator('#adultTheme').click()
+
+    # A failed deletion must keep the account page open and allow a retry.
+    page.route('**/account/delete', lambda handler: handler.fulfill(
+        status=500, content_type='application/json', body='{"status":"error"}'))
+    open_page('parent', '/adult/account')
+    page.locator('#adultDeleteOpen').click()
+    page.locator('#adultDeleteConfirm').click()
+    page.locator('#adultDeleteStatus').get_by_text('Account deletion did not complete. Please try again.', exact=True).wait_for()
+    assert page.locator('#adultDeleteConfirm').is_enabled()
+    page.locator('#adultDeleteCancel').click()
+    page.unroute('**/account/delete')
+    report.append({'flow':'account deletion is explicit, cancelable and retryable on failure','passed':True})
     for width in (1440, 390):
         page.set_viewport_size({'width':width,'height':1000})
         for role in ('teacher','parent'):
@@ -147,6 +184,7 @@ with sync_playwright() as playwright:
     for width in (1440,390):
         page.set_viewport_size({'width':width,'height':1000})
         open_page('teacher','/teacher')
+        adult_navigation()
         page.get_by_role('button',name="View Student's overview",exact=True).click()
         page.get_by_role('heading',name='Tools permitted by their institution',exact=True).wait_for()
         assert page.locator('#tdDetailBox').get_by_text('Prepare the climate project',exact=True).is_visible()
@@ -183,9 +221,16 @@ with sync_playwright() as playwright:
     for width in (1440,390):
         page.set_viewport_size({'width':width,'height':1000})
         open_page('parent','/parent')
+        adult_navigation()
+        page.locator('#familySelectedName').get_by_text('Student',exact=True).wait_for()
+        capture('parent-student-snapshot')
+        page.get_by_text('View permitted and restricted tools',exact=True).click()
         page.locator('#familyToolsList').get_by_text('Writing: Restricted · institution policy',exact=True).wait_for()
         assert 'Prepare the climate project' in page.locator('#familyUpcomingList').inner_text()
         capture('parent-shared-overview')
+        page.locator('#adultTheme').click()
+        capture('parent-shared-overview-dark')
+        page.locator('#adultTheme').click()
     report.append({'flow':'parent requests access and receives only student-approved summary and tools','passed':True})
     browser.close()
 
