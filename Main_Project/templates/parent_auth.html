@@ -32,7 +32,6 @@
             <label for="regConfirm">Confirm password</label><input id="regConfirm" type="password" name="confirm_password" autocomplete="new-password" minlength="8" required>
             <label for="regBirthYear">Your birth year</label><input id="regBirthYear" type="number" name="birth_year" min="1900" required>
             <small>Parent and teacher accounts are for adults. Your student uses their own IntelliPlan account.</small>
-            {% set recaptcha_action = 'register' %}{% include '_recaptcha.html' with context %}
             <button class="family-primary" type="submit">Create {{ adult_label }} account →</button>
           </form>
           <p class="family-auth-switch">Already have an account? <a href="{{ url_for('login_account', next=adult_auth_next) if adult_auth_next else url_for('login_account') }}">Sign in</a></p>

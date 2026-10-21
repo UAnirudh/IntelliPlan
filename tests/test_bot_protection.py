@@ -1,8 +1,7 @@
-"""reCAPTCHA on the forms strangers can reach.
+"""reCAPTCHA on sign-in and password reset; registration stays unchallenged.
 
-Three endpoints are reachable without signing in and each is abusable
-differently: registration mints accounts, password reset sends mail to an
-address the requester names, and sign-in is where credential stuffing lands.
+Password reset sends mail to an address the requester names, and sign-in
+is where credential stuffing lands. Signup does not use reCAPTCHA.
 
 Two decisions carry most of the weight and are pinned here. Sign-in only
 demands a challenge after repeated failures, so honest students are not taxed
@@ -116,8 +115,17 @@ def test_with_no_keys_nothing_is_rendered_or_required(client, no_keys):
 
 # ── Where the widget appears ─────────────────────────────────
 
-def test_registration_carries_it(client, keys):
-    assert b"g-recaptcha" in client.get("/register").data
+@pytest.mark.parametrize('path,signup_origin', [
+    ('/register', 'http://localhost'),
+    ('/register?next=/parent', 'http://localhost'),
+    ('/register?next=/teacher', 'http://localhost'),
+    ('/register', 'https://parent.intelliplan.tech'),
+])
+def test_registration_never_carries_it(client, keys, path, signup_origin):
+    page = client.get(path, base_url=signup_origin)
+    assert page.status_code == 200
+    assert b"g-recaptcha" not in page.data
+    assert b"recaptcha/api.js" not in page.data
 
 
 def test_password_reset_carries_it(client, keys):
@@ -163,21 +171,31 @@ def test_a_successful_sign_in_resets_the_requirement(client, keys, passes, accou
         assert db.session.get(User, account).failed_login_count == 0
 
 
-# ── Registration and reset: always ───────────────────────────
+# ── Registration: unchallenged; reset: always challenged ──────
 
-def test_a_failed_challenge_blocks_registration(client, keys, fails):
+@pytest.mark.parametrize('destination,role', [
+    ('', 'student'), ('/parent', 'parent'), ('/teacher', 'teacher'),
+])
+def test_registration_does_not_verify_a_challenge(client, keys, monkeypatch, destination, role):
+    def unexpected_challenge(action):
+        pytest.fail(f'Signup must not call reCAPTCHA: {action}')
+    monkeypatch.setattr(App, 'check_recaptcha', unexpected_challenge)
+    monkeypatch.setattr(App, 'send_welcome_email_on_signup', lambda uid: None)
+    monkeypatch.setattr(App, '_grant_referral_bonus', lambda user: None)
     before = _user_count()
-    client.post("/register", data={
+    response = client.post("/register", data={
         "email": "cap+bot@example.com", "password": "abcdefgh",
         "confirm_password": "abcdefgh", "birth_year": "2005",
+        "next": destination,
     }, headers=HEADERS)
-    assert _user_count() == before
+    assert response.status_code == 302
+    assert _user_count() == before + 1
+    with App.app.app_context():
+        assert User.query.filter_by(email='cap+bot@example.com').one().role == role
 
 
-def test_form_errors_are_reported_before_the_challenge(client, keys, fails):
-    """Checking the captcha first meant a mistyped password was hidden
-    behind the robot check: fix that, resubmit, and only then learn the
-    passwords did not match."""
+def test_registration_still_reports_password_mismatch(client, keys, fails):
+    """Adult signup forms still require matching password fields."""
     body = client.post("/register", data={
         "email": "cap+mismatch@example.com", "password": "abcdefgh",
         "confirm_password": "different", "birth_year": "2005",
@@ -186,7 +204,7 @@ def test_form_errors_are_reported_before_the_challenge(client, keys, fails):
     assert b"not a robot" not in body
 
 
-def test_a_short_password_is_reported_before_the_challenge(client, keys, fails):
+def test_registration_still_rejects_short_passwords(client, keys, fails):
     body = client.post("/register", data={
         "email": "cap+short@example.com", "password": "abc",
         "confirm_password": "abc", "birth_year": "2005",
