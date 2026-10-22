@@ -102,6 +102,13 @@ def test_family_hostname_account_and_configured_hostname(accounts, monkeypatch):
     teacher = signed_in(accounts['teacher'], host)
     assert teacher.get('/', base_url=host).location == '/teacher'
     assert teacher.get('/teacher', base_url=host).status_code == 200
+    # The Family hostname must preserve existing administrator checks,
+    # rather than redirect these adult-navigation links to a student page.
+    assert client.get('/admin/accounts', base_url=host).status_code == 403
+    assert client.get('/api/admin/accounts', base_url=host).status_code == 403
+    monkeypatch.setattr(App, 'ADMIN_EMAILS', App.ADMIN_EMAILS | {accounts['parent']['email']})
+    page = client.get('/admin/accounts', base_url=host)
+    assert page.status_code == 200 and b'adult-workspace' in page.data
 
 
 def test_students_keep_their_own_workspace(accounts):

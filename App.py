@@ -22834,10 +22834,11 @@ def _family_host_entry():
             return redirect(url_for("login_account"))
         return render_template("parent_portal.html", noindex_page=True,
                                parent_mode=current_user.role == "parent", family_home_url="/")
-    allowed = ("/static/", "/api/roles/")
+    allowed = ("/static/", "/api/roles/", "/api/school-admin/")
     if request.path.startswith(allowed) or request.path in {
         "/login", "/login/account", "/register", "/logout",
         "/forgot-password", "/reset-password", "/favicon.ico", "/adult/account", "/legal", "/teacher", "/account/delete",
+        "/school-admin", "/admin/accounts", "/api/admin/accounts",
     }:
         return None
     return flask.abort(404)
