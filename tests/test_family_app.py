@@ -1,6 +1,7 @@
 """Family sharing is consented, account-scoped, and backed by real records."""
 
-from datetime import date
+from datetime import date, timedelta
+import json
 
 import pytest
 from flask import Flask
@@ -127,7 +128,8 @@ def test_college_parent_sharing_requires_explicit_student_acceptance(family_app)
     assert student.post(f'/api/roles/links/{link_id}/accept').status_code == 200
     summary = parent.get(path).get_json()['summary']
     assert summary['status'] == 'ok'
-    assert summary['open'] == 1 and summary['completed'] == 2
+    assert summary['open'] == 1 and summary['completed'] == 1
+    assert summary['total_assignments'] == 2  # A dismissed lab is not completed work.
     assert summary['study_days_7d'] == summary['study_sessions_7d'] == 1
     assert summary['foundations'][0]['grade'] == 13
     assert summary['foundations'][0]['answers_7d'] == 1
@@ -155,6 +157,50 @@ def test_encouragement_is_bounded_and_vanishes_after_revoke(family_app):
     assert parent.get(endpoint).status_code == 403
 
 
+@pytest.mark.parametrize('relationship', ['parent', 'teacher'])
+def test_shared_week_counts_only_recent_records_and_respects_consent(family_app, relationship):
+    with family_app.app_context():
+        family_app.intelliplan_db.session.get(family_app.intelliplan_user_model, 1).role = relationship
+        points = family_app.intelliplan_study_points_model.query.filter_by(user_id=2).one()
+        today = date.today()
+        points.session_history = json.dumps([
+            {'date': today.isoformat(), 'answer': 'private answer'},
+            {'date': today.isoformat()},
+            {'date': (today - timedelta(days=6)).isoformat()},
+            {'date': (today - timedelta(days=7)).isoformat()},
+            {'date': (today + timedelta(days=1)).isoformat()},
+            {'date': 'bad-date'}, None,
+        ])
+        family_app.intelliplan_db.session.commit()
+    adult, student = signed_in(family_app, 1), signed_in(family_app, 2)
+    link = adult.post('/api/roles/invite', json={'student_email': 'college@example.edu'}).get_json()['link_id']
+    assert student.post(f'/api/roles/links/{link}/accept', json={'scopes': ['study', 'work']}).status_code == 200
+    summary = adult.get('/api/roles/student/2/overview').get_json()['summary']
+    week = summary['study_week']
+    assert [day['date'] for day in week] == [(today - timedelta(days=n)).isoformat() for n in range(6, -1, -1)]
+    assert [day['sessions'] for day in week] == [1, 0, 0, 0, 0, 0, 2]
+    assert summary['study_sessions_7d'] == 3 and summary['study_days_7d'] == 2
+    assert 'private answer' not in json.dumps(summary)
+    assert student.patch(f'/api/roles/links/{link}/scopes', json={'scopes': ['work']}).status_code == 200
+    private = adult.get('/api/roles/student/2/overview').get_json()['summary']
+    assert private['study_week'] is None and private['study_status'] == 'not_shared'
+    assert student.delete(f'/api/roles/links/{link}').status_code == 200
+    assert adult.get('/api/roles/student/2/overview').status_code == 403
+
+
+@pytest.mark.parametrize('history', ['{invalid', '{}', 'null', '"bad"'])
+def test_invalid_study_record_is_unavailable_without_hiding_work(family_app, history):
+    with family_app.app_context():
+        family_app.intelliplan_study_points_model.query.filter_by(user_id=2).one().session_history = history
+        family_app.intelliplan_db.session.commit()
+    parent, student = signed_in(family_app, 1), signed_in(family_app, 2)
+    link = parent.post('/api/roles/invite', json={'student_email': 'college@example.edu'}).get_json()['link_id']
+    assert student.post(f'/api/roles/links/{link}/accept').status_code == 200
+    summary = parent.get('/api/roles/student/2/overview').get_json()['summary']
+    assert summary['study_status'] == 'unavailable' and summary['study_week'] is None
+    assert summary['open'] == summary['completed'] == 1
+
+
 def test_student_can_limit_and_change_parent_sharing(family_app):
     parent, student, other = (signed_in(family_app, uid) for uid in (1, 2, 3))
     link_id = parent.post('/api/roles/invite', json={
@@ -180,6 +226,7 @@ def test_student_can_limit_and_change_parent_sharing(family_app):
     assert summary['foundations'][0]['answers_7d'] == 1
     assert summary['study_days_7d'] is None
     assert summary['study_status'] == 'not_shared'
+    assert summary['study_week'] is None
     assert student.get('/api/roles/my-links').get_json()['links'][0]['scopes'] == ['foundations', 'work']
 
 

@@ -9,3 +9,41 @@ html[data-theme=dark]{color-scheme:dark;--bg:#141820;--bg-card:#1d232e;--bg-elev
 @media(max-width:640px){.adult-layout{display:block}.adult-rail{position:relative;height:auto;padding:20px;gap:20px;border-right:0;border-bottom:1px solid var(--border);backdrop-filter:none}.adult-rail nav{display:flex;flex-wrap:wrap;gap:6px}.adult-rail nav a{padding:8px 12px;min-height:42px;font-size:13px}.adult-rail-foot{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.adult-rail-foot p{display:none}.adult-rail-foot button,.adult-rail-foot>a{width:auto;font-size:12px;padding:6px 10px;min-height:40px}.adult-content{padding:28px 18px 48px}.adult-workspace .td-invite{flex-wrap:wrap}.adult-workspace .td-invite input{flex-basis:100%;min-height:44px}.adult-workspace .td-invite button{width:100%}.adult-workspace .td-detail-box{padding:22px;max-height:calc(100dvh - 24px)}.adult-workspace .td-detail-pane{padding:12px}.adult-workspace .family-invite>div{flex-direction:column}.adult-workspace .family-connection,.adult-workspace .family-support,.adult-workspace .family-upcoming{padding:22px}.adult-workspace .family-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.adult-workspace .family-upcoming li{align-items:flex-start;flex-wrap:wrap}.adult-account{padding:22px}.adult-account dl>div{grid-template-columns:1fr;gap:4px}}
 .adult-workspace .family-tools{padding:26px;margin-top:17px}.family-tools summary{padding:12px 0;cursor:pointer;font-weight:600;color:var(--accent);min-height:44px}.family-tools summary:focus-visible{outline:3px solid var(--focus-ring);outline-offset:3px}.family-tools ul{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));list-style:none;padding:0;gap:10px}.family-tools li{padding:12px 16px;border:1px solid var(--border);border-radius:12px;background:var(--bg-elevated);font-size:13px;overflow-wrap:anywhere}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{animation:none!important;transition:none!important}}
+
+/* Shared evidence, with different controls for families and teachers. */
+.adult-workspace .adult-progress-panel{padding:26px;margin-block:20px}
+.adult-section-heading{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:22px}
+.adult-section-heading h2{margin:0}
+.adult-progress-panel h3{font-size:15px;line-height:1.5;margin:0 0 10px;font-weight:600}
+.adult-progress-panel p{margin:8px 0;line-height:1.65}
+.adult-progress-work{padding-bottom:24px;border-bottom:1px solid var(--border);margin-bottom:24px}
+.adult-progress-panel .adult-progress-note{font-size:12px;color:var(--text-muted);margin-top:12px;max-width:70ch}
+.adult-progress-panel progress{appearance:none;display:block;width:100%;height:8px;border:0;border-radius:999px;overflow:hidden;background:var(--bg-elevated);accent-color:var(--accent)}
+.adult-progress-panel progress::-webkit-progress-bar{background:var(--bg-elevated);border-radius:999px}
+.adult-progress-panel progress::-webkit-progress-value{background:var(--accent);border-radius:999px}
+.adult-progress-panel progress::-moz-progress-bar{background:var(--accent);border-radius:999px}
+.adult-study-week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:14px;margin:20px 0 12px;padding:0;list-style:none}
+.adult-study-week li{display:grid;gap:10px;min-width:0;text-align:center;font-size:12px;color:var(--text-secondary)}
+.adult-study-week span{font-variant-numeric:tabular-nums;color:var(--text-primary);font-weight:600}
+.td-roster-controls{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:16px;align-items:end}
+.td-roster-controls>div{display:grid;gap:7px}
+.td-roster-controls label{font-size:13px;font-weight:600;color:var(--text-secondary)}
+.td-roster-controls input,.td-roster-controls select{width:100%;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;color:var(--text-primary);padding:11px 14px;min-height:48px}
+.td-roster-controls>p{grid-column:1/-1}
+.adult-workspace .td-stat-val{overflow-wrap:anywhere;font-size:15px}
+.adult-workspace .td-stat-label{font-size:11px;text-transform:none;letter-spacing:0;line-height:1.5}
+.adult-workspace .td-student-email{overflow-wrap:anywhere}
+.td-tools{margin:24px 0}
+.td-tools summary{cursor:pointer;min-height:44px;padding:10px 0;color:var(--accent)}
+.td-tools summary h3{display:inline;font-size:14px}
+.td-tools summary:focus-visible{outline:3px solid var(--focus-ring);outline-offset:4px}
+.adult-workspace .td-detail-box{width:min(720px,100%)}
+.adult-workspace .td-detail-box .adult-progress-panel{padding:0;margin:20px 0 28px}
+.adult-workspace .td-detail-box>.btn-primary,.adult-workspace .td-detail-box>.btn-secondary{margin:16px 8px 0 0}
+@media(max-width:600px){
+ .td-roster-controls{grid-template-columns:minmax(0,1fr)}
+ .adult-workspace .adult-progress-panel{padding:22px}
+ .adult-study-week{gap:7px;font-size:11px}
+ .adult-section-heading{align-items:flex-start}
+ .adult-workspace .td-detail-box .adult-progress-panel{padding:0}
+}

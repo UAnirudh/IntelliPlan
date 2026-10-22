@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import secrets
 import json
+from collections import Counter
 from datetime import date, datetime, timedelta
 from time_utils import utcnow
 
@@ -451,7 +452,7 @@ def _summarize_for_view(student_user_id: int, scopes: set[str] | None = None) ->
         "study_status": "not_shared", "total_assignments": None,
         "open": None, "completed": None, "overdue": None,
         "avg_percent": None, "study_sessions_7d": None,
-        "study_days_7d": None, "upcoming": None,
+        "study_days_7d": None, "study_week": None, "upcoming": None,
         "foundations": None,
         "study_source": "Sessions recorded by the student app; this does not verify time spent studying away from IntelliPlan.",
     }
@@ -472,12 +473,12 @@ def _summarize_for_view(student_user_id: int, scopes: set[str] | None = None) ->
             dismissed_titles = {normalize_title(row.title) for row in dismissed_rows}
             rows = tuple(row for row in rows if row.source == "manual" or
                          normalize_title(row.title) not in dismissed_titles)
-            dismissed = len(dismissed_rows)
             upcoming = [r for r in rows if r.due_date is None or r.due_date >= today]
             summary.update({
                 "work_status": "ok",
-                "total_assignments": len(rows) + manual_done + dismissed,
-                "open": len(rows), "completed": manual_done + dismissed,
+                # Dismissing an imported task is not proof of completion.
+                "total_assignments": len(rows) + manual_done,
+                "open": len(rows), "completed": manual_done,
                 "overdue": sum(1 for r in rows if r.due_date and r.due_date < today),
                 "upcoming": [{
                     "title": r.title, "course": r.course,
@@ -493,7 +494,7 @@ def _summarize_for_view(student_user_id: int, scopes: set[str] | None = None) ->
             points = StudyPoints.query.filter_by(user_id=student_user_id).first()
             history = json.loads(points.session_history or "[]") if points else []
             if not isinstance(history, list):
-                history = []
+                raise ValueError("Study history must be a list of session records")
             recent_dates = []
             for session in history:
                 if not isinstance(session, dict):
@@ -504,10 +505,14 @@ def _summarize_for_view(student_user_id: int, scopes: set[str] | None = None) ->
                     continue
                 if today - timedelta(days=6) <= day <= today:
                     recent_dates.append(day)
+            counts = Counter(recent_dates)
             summary.update({
                 "study_status": "ok",
                 "study_sessions_7d": len(recent_dates),
-                "study_days_7d": len(set(recent_dates)),
+                "study_days_7d": len(counts),
+                "study_week": [{"date": (today - timedelta(days=offset)).isoformat(),
+                                "sessions": counts[today - timedelta(days=offset)]}
+                               for offset in range(6, -1, -1)],
             })
         except Exception as exc:
             current_app.logger.exception("family study summary unavailable: %s", exc)

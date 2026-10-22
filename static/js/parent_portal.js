@@ -1,7 +1,8 @@
 (() => {
   'use strict';
   const byId = (id) => document.getElementById(id);
-  const state = { links: [], selected: null, latestNote: null };
+  const state = { links: [], selected: null, latestNote: null, generation: 0, controller: null };
+  const current = (studentId, generation) => state.selected === studentId && state.generation === generation;
   const status = (message) => { byId('familyStatus').textContent = message || ''; };
   byId('familyToday').textContent = new Date().toLocaleDateString(undefined,
     { weekday: 'long', month: 'long', day: 'numeric' });
@@ -10,7 +11,13 @@
     const response = await fetch(path, { credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' }, ...options });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.error || 'Could not load Family. Please try again.');
+    if (!response.ok) {
+      const error = new Error(response.status === 403
+        ? 'Sharing is no longer available. Ask your student to review their sharing settings.'
+        : 'Could not load Family. Please try again.');
+      error.status = response.status;
+      throw error;
+    }
     return data;
   }
 
@@ -21,11 +28,13 @@
     const host = byId('familyStudents');
     host.replaceChildren();
     if (!state.links.length) {
+      resetSelection();
       const empty = document.createElement('p');
       empty.className = 'family-no-students';
       empty.textContent = 'No linked students yet. Send a request above to get started.';
       host.append(empty);
       byId('familyDetail').hidden = true;
+      status('Invite a student to see their approved progress here.');
       return;
     }
     state.links.forEach((link) => {
@@ -46,7 +55,18 @@
     const available = state.links.find((link) => link.accepted && link.student_id === state.selected)
       || state.links.find((link) => link.accepted);
     if (available) await selectStudent(available);
-    else byId('familyDetail').hidden = true;
+    else { resetSelection(); status('Waiting for your student to approve sharing.'); }
+  }
+
+  function resetSelection() {
+    state.controller?.abort();
+    state.generation++;
+    state.selected = null;
+    state.latestNote = null;
+    byId('familyDetail').hidden = true;
+    byId('familyRetry').hidden = true;
+    byId('familyNudge').querySelector('button[type="submit"]').disabled = true;
+    byId('familyWithdraw').hidden = true;
   }
 
   function setPrompt(summary) {
@@ -134,14 +154,16 @@
     });
   }
 
-  async function loadNote(studentId) {
+  async function loadNote(studentId, generation) {
     const { latest, can_send: canSend, next_note_at: nextAt } = await api(`/api/roles/student/${studentId}/encouragement`);
+    if (!current(studentId, generation)) return;
     state.latestNote = latest;
     const form = byId('familyNudge');
     const withdraw = byId('familyWithdraw');
     const active = latest && !latest.acknowledged_at && !latest.withdrawn_at;
     form.querySelector('button[type="submit"]').disabled = !canSend;
     withdraw.hidden = !active;
+    withdraw.disabled = false;
     byId('familyNoteState').textContent = !latest ? 'No note waiting.'
       : latest.withdrawn_at ? 'The last note was withdrawn.'
       : latest.acknowledged_at ? 'The student marked your last note as seen.'
@@ -151,23 +173,31 @@
   }
 
   async function selectStudent(link) {
+    state.controller?.abort();
+    state.controller = new AbortController();
+    const generation = ++state.generation;
     state.selected = link.student_id;
-    byId('familyDetail').hidden = false;
+    state.latestNote = null;
+    byId('familyDetail').hidden = true;
+    byId('familyRetry').hidden = true;
+    byId('familyNudge').querySelector('button[type="submit"]').disabled = true;
+    byId('familyWithdraw').hidden = true;
+    byId('familyNoteState').textContent = 'Loading note status…';
     [...byId('familyStudents').querySelectorAll('button')].forEach((button) =>
       button.setAttribute('aria-pressed', String(Number(button.dataset.studentId) === link.student_id)));
     status('Loading the student snapshot…');
     try {
-      const data = await api(`/api/roles/student/${link.student_id}/overview`);
+      const data = await api(`/api/roles/student/${link.student_id}/overview`, { signal: state.controller.signal });
+      if (!current(link.student_id, generation)) return;
       const summary = data.summary || {};
       if (summary.status !== 'ok') throw new Error('Their work summary is temporarily unavailable.');
       byId('familySelectedName').textContent = data.student.name;
       byId('familyAsOf').textContent = `Updated ${new Date(summary.as_of).toLocaleString()}${summary.work_source ? ' · ' + summary.work_source : ''}`;
-      const metric = (value, sourceStatus) => ['ok', 'partial'].includes(sourceStatus) ? value
-        : sourceStatus === 'not_shared' ? 'Private' : '—';
-      byId('familyStudyDays').textContent = metric(summary.study_days_7d, summary.study_status);
-      byId('familySessions').textContent = metric(summary.study_sessions_7d, summary.study_status);
-      byId('familyOpen').textContent = metric(summary.open, summary.work_status);
-      byId('familyOverdue').textContent = metric(summary.overdue, summary.work_status);
+      byId('familyStudyDays').textContent = window.AdultProgress.value(summary, 'study_days_7d', 'study');
+      byId('familySessions').textContent = window.AdultProgress.value(summary, 'study_sessions_7d', 'study');
+      byId('familyOpen').textContent = window.AdultProgress.value(summary, 'open', 'work');
+      byId('familyOverdue').textContent = window.AdultProgress.value(summary, 'overdue', 'work');
+      window.AdultProgress.render(byId('familyProgress'), summary);
       byId('familyTrust').textContent = summary.study_status === 'not_shared'
         ? 'Recorded study is private at the student’s choice. Ask them directly how learning is going.'
         : summary.study_status === 'unavailable'
@@ -183,14 +213,30 @@
       } else {
         for (const tool of data.tools) {
           const item = document.createElement('li');
-          item.textContent = `${tool.name}: ${tool.allowed ? 'Available' : 'Restricted'}${!tool.allowed ? ' · ' + tool.reason.replaceAll('_', ' ') : ''}`;
+          item.textContent = `${tool.name}: ${tool.allowed ? 'Available' : 'Restricted'}${!tool.allowed ? ' · ' + String(tool.reason || '').replaceAll('_', ' ') : ''}`;
           toolsHost.append(item);
         }
       }
-      await loadNote(link.student_id);
+      byId('familyDetail').hidden = false;
       status('Student-approved summary.');
-    } catch (error) { status(error.message); }
+      try { await loadNote(link.student_id, generation); }
+      catch (_) {
+        if (current(link.student_id, generation)) byId('familyNoteState').textContent = 'Notes are temporarily unavailable. Refresh progress to try again.';
+      }
+    } catch (error) {
+      if (!current(link.student_id, generation) || error.name === 'AbortError') return;
+      status(error.message);
+      byId('familyRetry').hidden = false;
+    }
   }
+
+  const refresh = () => {
+    const link = state.links.find(item => item.student_id === state.selected && item.accepted);
+    if (link) selectStudent(link);
+    else loadLinks().catch(error => { status(error.message); byId('familyRetry').hidden = false; });
+  };
+  byId('familyRefresh').addEventListener('click', refresh);
+  byId('familyRetry').addEventListener('click', refresh);
 
   byId('familyEnable').addEventListener('click', async () => {
     byId('familyEnable').disabled = true;
@@ -199,7 +245,6 @@
       byId('familyOnboard').hidden = true;
       byId('familyWorkspace').hidden = false;
       await loadLinks();
-      status('Family mode is ready.');
     } catch (error) { status(error.message); byId('familyEnable').disabled = false; }
   });
   byId('familyInvite').addEventListener('submit', async (event) => {
@@ -218,30 +263,41 @@
   byId('familyNudge').addEventListener('submit', async (event) => {
     event.preventDefault();
     if (!state.selected) return;
+    const studentId = state.selected, generation = state.generation;
     const button = event.currentTarget.querySelector('button[type="submit"]');
     button.disabled = true;
     try {
-      await api(`/api/roles/student/${state.selected}/encouragement`,
+      await api(`/api/roles/student/${studentId}/encouragement`,
         { method: 'POST', body: JSON.stringify({ template_id: byId('familyNudgeType').value }) });
-      await loadNote(state.selected);
-      status('Your note is waiting in their Command Center.');
-    } catch (error) { status(error.message); button.disabled = false; }
+      await loadNote(studentId, generation);
+      if (current(studentId, generation)) status('Your note is waiting in their Command Center.');
+    } catch (error) {
+      if (current(studentId, generation)) {
+        status(error.message);
+        if (error.status === 403) {
+          byId('familyDetail').hidden = true;
+          byId('familyRetry').hidden = false;
+          state.latestNote = null;
+        } else button.disabled = false;
+      }
+    }
   });
   byId('familyWithdraw').addEventListener('click', async () => {
     if (!state.selected || !state.latestNote) return;
+    const studentId = state.selected, generation = state.generation, noteId = state.latestNote.id;
     byId('familyWithdraw').disabled = true;
     try {
-      await api(`/api/roles/student/${state.selected}/encouragement/${state.latestNote.id}`,
+      await api(`/api/roles/student/${studentId}/encouragement/${noteId}`,
         { method: 'DELETE' });
-      await loadNote(state.selected);
-      status('Note withdrawn.');
-    } catch (error) { status(error.message); }
-    finally { byId('familyWithdraw').disabled = false; }
+      await loadNote(studentId, generation);
+      if (current(studentId, generation)) status('Note withdrawn.');
+    } catch (error) { if (current(studentId, generation)) status(error.message); }
+    finally { if (current(studentId, generation)) byId('familyWithdraw').disabled = false; }
   });
 
   if (document.body.dataset.parentMode === 'true') {
     byId('familyWorkspace').hidden = false;
-    loadLinks().then(() => status('')).catch((error) => status(error.message));
+    loadLinks().catch(error => { status(error.message); byId('familyRetry').hidden = false; });
   } else {
     byId('familyOnboard').hidden = false;
     status('Enable Family mode to invite a student.');

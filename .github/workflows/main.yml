@@ -60,6 +60,9 @@ jobs:
       - run: pip install playwright pytest-playwright
       - run: playwright install chromium
 
+      - name: Parent and teacher progress workflows
+        run: python scripts/verify_adult_access_browser.py
+
       - name: Tutor SVG, quiz and untrusted-content workflows
         env:
           TUTOR_BROWSER_OUTPUT: ${{ runner.temp }}/tutor-browser-proof

@@ -99,13 +99,22 @@
 
 <div class="td-shell">
   <div class="td-toolbar" id="invite">
-    <form class="td-invite" id="tdInviteForm" onsubmit="return ipTeachInvite(event)">
+    <form class="td-invite" id="tdInviteForm">
       <label for="tdInviteEmail" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);">Student's email</label>
       <input type="email" id="tdInviteEmail" placeholder="Invite a student by email…" required autocomplete="email" />
       <button type="submit" class="btn-primary">Send invite</button>
     </form>
     <p id="tdFeedback" class="td-feedback" role="status" aria-live="polite"></p>
   </div>
+
+  <section class="td-roster-controls" aria-label="Student roster">
+    <div><label for="tdSearch">Find a student</label><input type="search" id="tdSearch" placeholder="Name or email" autocomplete="off"></div>
+    <div><label for="tdFilter">Show</label><select id="tdFilter"><option value="all">All students</option><option value="attention">Shared past-due work</option><option value="pending">Awaiting approval</option></select></div>
+    <p id="tdRosterCount" class="td-consent-note"></p>
+  </section>
+  <p id="tdRosterStatus" class="td-consent-note" role="status" aria-live="polite"></p>
+  <p id="tdNoResults" class="td-consent-note" hidden>No students match this search or filter.</p>
+  <button id="tdRosterRetry" type="button" class="btn-secondary" hidden>Retry student list</button>
 
   <div id="tdSkeleton" class="td-skel">
     <div class="td-skel-card"></div>
@@ -124,173 +133,10 @@
   </div>
 </div>
 
-<div id="tdDetail" class="td-detail-pane" role="dialog" aria-modal="true" aria-labelledby="tdDetailTitle" onclick="if(event.target===this)ipTeachCloseDetail()">
+<div id="tdDetail" class="td-detail-pane" role="dialog" aria-modal="true" aria-labelledby="tdDetailTitle">
   <div class="td-detail-box" id="tdDetailBox" tabindex="-1"></div>
 </div>
 
-<script>
-// Keep the dialog above the application shell's isolated stacking layers.
-document.body.appendChild(document.getElementById('tdDetail'));
-let tdPreviousFocus = null;
-async function ipTeachLoad() {
-  const skel = document.getElementById('tdSkeleton');
-  const host = document.getElementById('tdStudents');
-  const empty = document.getElementById('tdEmpty');
-  try {
-    const r = await fetch('/api/roles/links', { credentials: 'same-origin' });
-    skel.style.display = 'none';
-    if (!r.ok) {
-      ipTeachShowFeedback('Couldn\'t load your students. Check your connection and try again.', 'error');
-      return;
-    }
-    const data = await r.json();
-    host.innerHTML = '';
-    if (!data.links || !data.links.length) {
-      empty.style.display = 'block';
-      return;
-    }
-    empty.style.display = 'none';
-
-    data.links.forEach((link, i) => {
-      const card = document.createElement('div');
-      card.className = 'td-student-card ipd-anim' + (i < 4 ? ' ipd-d' + (i + 1) : '') + (link.accepted ? '' : ' pending');
-      let inner = `
-        <div>
-          <div class="td-student-name">${ipTeachEscape(link.student_name)}</div>
-          <div class="td-student-email">${ipTeachEscape(link.student_email)}</div>
-        </div>`;
-      if (!link.accepted) {
-        inner += `<div><span class="td-pill">Awaiting consent</span></div><p class="td-consent-note">They need to accept your invite from Settings → Linked accounts.</p>`;
-      } else {
-        inner += `<div id="tdStats-${link.student_id}" class="td-stats">
-          <div class="td-stat"><div class="td-stat-val is-loading">···</div><div class="td-stat-label">Total</div></div>
-          <div class="td-stat"><div class="td-stat-val is-loading">···</div><div class="td-stat-label">Done</div></div>
-          <div class="td-stat"><div class="td-stat-val is-loading">···</div><div class="td-stat-label">Avg %</div></div>
-        </div>`;
-      }
-      card.innerHTML = inner;
-      if (link.accepted) {
-        card.tabIndex = 0;
-        card.setAttribute('role', 'button');
-        card.setAttribute('aria-label', 'View ' + link.student_name + '\'s overview');
-        card.onclick = () => ipTeachOpenDetail(link.student_id, link.student_name);
-        card.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); ipTeachOpenDetail(link.student_id, link.student_name); } };
-        ipTeachLoadStats(link.student_id);
-      }
-      host.appendChild(card);
-    });
-  } catch (e) {
-    skel.style.display = 'none';
-    ipTeachShowFeedback('Couldn\'t load your students. Check your connection and try again.', 'error');
-  }
-}
-
-function ipTeachEscape(str) {
-  const div = document.createElement('div');
-  div.textContent = str ?? '';
-  return div.innerHTML;
-}
-
-async function ipTeachLoadStats(studentId) {
-  try {
-    const r = await fetch(`/api/roles/student/${studentId}/overview`, { credentials: 'same-origin' });
-    if (!r.ok) return;
-    const data = await r.json();
-    const s = data.summary || {};
-    const host = document.getElementById(`tdStats-${studentId}`);
-    if (!host) return;
-    host.innerHTML = `
-      <div class="td-stat"><div class="td-stat-val">${s.total_assignments ?? 'Private'}</div><div class="td-stat-label">Total</div></div>
-      <div class="td-stat"><div class="td-stat-val">${s.completed ?? 'Private'}</div><div class="td-stat-label">Done</div></div>
-      <div class="td-stat"><div class="td-stat-val">${s.avg_percent != null ? s.avg_percent + '%' : '—'}</div><div class="td-stat-label">Avg</div></div>`;
-  } catch (e) { /* card keeps its loading skeleton; non-fatal */ }
-}
-
-async function ipTeachOpenDetail(studentId, studentName) {
-  tdPreviousFocus = document.activeElement;
-  const box = document.getElementById('tdDetailBox');
-  box.innerHTML = `<p style="color:var(--text-muted);">Loading ${ipTeachEscape(studentName)}'s overview…</p>`;
-  document.getElementById('tdDetail').classList.add('open');
-  box.focus();
-  const r = await fetch(`/api/roles/student/${studentId}/overview`, { credentials: 'same-origin' });
-  if (!r.ok) {
-    box.innerHTML = `<p style="color:var(--text-muted);">Couldn't load this student's overview. Check your connection and try again.</p>
-      <div style="margin-top:1.5rem;text-align:right;"><button class="btn-secondary" onclick="ipTeachCloseDetail()">Close</button></div>`;
-    return;
-  }
-  const data = await r.json();
-  const s = data.summary || {};
-  const upcoming = (s.upcoming || []).map(u =>
-    `<li><strong>${ipTeachEscape(u.title || 'Assignment')}</strong> · ${ipTeachEscape(u.course || '—')} · ${ipTeachEscape(u.due_date || 'no due date')}</li>`
-  ).join('') || '<li class="td-detail-empty">No shared upcoming assignments.</li>';
-  box.innerHTML = `
-    <h2 id="tdDetailTitle" class="td-detail-title">${ipTeachEscape(studentName)}</h2>
-    <p class="td-detail-note">Read-only snapshot. The student controls what's shared via /linked-accounts. ${ipTeachEscape(s.work_source || '')}</p>
-    <div class="td-stats" style="margin-bottom:1rem;">
-      <div class="td-stat"><div class="td-stat-val">${s.total_assignments ?? 'Private'}</div><div class="td-stat-label">Total</div></div>
-      <div class="td-stat"><div class="td-stat-val">${s.completed ?? 'Private'}</div><div class="td-stat-label">Done</div></div>
-      <div class="td-stat"><div class="td-stat-val">${s.overdue ?? 'Private'}</div><div class="td-stat-label">Overdue</div></div>
-      <div class="td-stat"><div class="td-stat-val">${s.avg_percent != null ? s.avg_percent + '%' : '—'}</div><div class="td-stat-label">Avg %</div></div>
-    </div>
-    <h3 class="td-detail-heading">Tools permitted by their institution</h3>
-    <ul class="td-detail-list">${data.tools ? data.tools.map(t => `<li>${ipTeachEscape(t.name)} · ${t.allowed ? 'Available' : 'Restricted: ' + ipTeachEscape(t.reason.replaceAll('_', ' '))}</li>`).join('') : '<li>Tool access has not been shared.</li>'}</ul>
-    <h3 class="td-detail-heading">Upcoming</h3>
-    <ul class="td-detail-list">${upcoming}</ul>
-    <div style="margin-top:1.5rem;text-align:right;"><button class="btn-secondary" onclick="ipTeachCloseDetail()">Close</button></div>`;
-}
-
-function ipTeachCloseDetail() {
-  document.getElementById('tdDetail').classList.remove('open');
-  if (tdPreviousFocus?.isConnected) tdPreviousFocus.focus();
-}
-
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && document.getElementById('tdDetail').classList.contains('open')) ipTeachCloseDetail();
-  if (e.key === 'Tab' && document.getElementById('tdDetail').classList.contains('open')) {
-    const buttons = [...document.querySelectorAll('#tdDetail button, #tdDetail a[href], #tdDetail input')];
-    if (!buttons.length) { e.preventDefault(); return; }
-    const first = buttons[0], last = buttons[buttons.length - 1];
-    if (e.shiftKey && (document.activeElement === first || document.activeElement.id === 'tdDetailBox')) {
-      e.preventDefault(); last.focus();
-    } else if (!e.shiftKey && (document.activeElement === last || document.activeElement.id === 'tdDetailBox')) {
-      e.preventDefault(); first.focus();
-    }
-  }
-});
-
-function ipTeachShowFeedback(message, kind) {
-  const el = document.getElementById('tdFeedback');
-  el.textContent = message;
-  el.className = 'td-feedback visible ' + kind;
-}
-
-async function ipTeachInvite(e) {
-  e.preventDefault();
-  const input = document.getElementById('tdInviteEmail');
-  const email = input.value.trim();
-  if (!email) return false;
-  const r = await fetch('/api/roles/invite', {
-    method: 'POST',
-    credentials: 'same-origin',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ student_email: email }),
-  });
-  const data = await r.json();
-  if (!r.ok) {
-    ipTeachShowFeedback(
-      data.error === 'student_not_found'
-        ? "We couldn't find a student with that email. Double-check it and try again."
-        : 'Could not send the invite: ' + (data.error || r.status),
-      'error'
-    );
-    return false;
-  }
-  ipTeachShowFeedback('Invite sent.', 'success');
-  input.value = '';
-  ipTeachLoad();
-  return false;
-}
-
-ipTeachLoad();
-</script>
+<script src="/static/js/adult_progress.js?v={{ asset_v }}" defer></script>
+<script src="/static/js/teacher_workspace.js?v={{ asset_v }}" defer></script>
 {% endblock %}
