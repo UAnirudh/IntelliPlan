@@ -8,12 +8,13 @@
       <div class="family-topline"><span>Family workspace</span><span class="family-topline-date" id="familyToday"></span></div>
       <header class="family-hero">
         <div>
-          <h1>Your student's next step.</h1>
+          <h1>Your child's progress.</h1>
           <p>See their shared work and learning progress, then find a useful way to help. Your student approves access and can remove it at any time.</p>
         </div>
       </header>
 
       <p id="familyStatus" class="family-status" role="status" aria-live="polite">Loading your Family space…</p>
+      <button id="familyRetry" type="button" class="btn-secondary" hidden>Retry progress</button>
 
       <section class="family-onboard family-card" id="familyOnboard" hidden aria-labelledby="familyOnboardTitle">
         <p class="family-eyebrow">SET UP FAMILY MODE</p>
@@ -55,6 +56,11 @@
             </article>
           </section>
 
+          <section class="family-card adult-progress-panel" aria-labelledby="familyProgressTitle">
+            <div class="adult-section-heading"><h2 id="familyProgressTitle">Progress at a glance</h2><button type="button" class="btn-secondary" id="familyRefresh">Refresh progress</button></div>
+            <div id="familyProgress"></div>
+          </section>
+
           <section class="family-card family-foundations" aria-labelledby="familyFoundationsTitle">
             <div class="family-section-heading"><div><p class="family-eyebrow">FOUNDATIONS EVIDENCE</p><h2 id="familyFoundationsTitle">What they practiced</h2></div><span>Answers stay private</span></div>
             <div id="familyFoundationsList" class="family-foundations-list"></div>
@@ -79,5 +85,6 @@
         </div>
       </div>
     </div>
+  <script src="/static/js/adult_progress.js?v={{ asset_v }}" defer></script>
   <script src="/static/js/parent_portal.js?v={{ asset_v }}" defer></script>
 {% endblock %}

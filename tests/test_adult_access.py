@@ -186,9 +186,9 @@ def test_shared_work_filters_imported_open_and_completed_tasks_by_student_policy
     summary = parent.get('/api/roles/student/2/overview').get_json()['summary']
     assert summary['work_status'] == 'ok'
     assert summary['open'] == 2
-    assert summary['completed'] == 3  # One personal, one allowed import, one dismissed LMS task.
+    assert summary['completed'] == 2  # One personal and one allowed import; dismissal is not completion.
     assert {row['title'] for row in summary['upcoming']} == {'Research paper', 'moodle-False'}
     assert checked and set(checked) == {2}
     monkeypatch.setattr(policy, 'decision', lambda user, source: (True, 'allowed'))
     restored = parent.get('/api/roles/student/2/overview').get_json()['summary']
-    assert restored['open'] == 5 and restored['completed'] == 6
+    assert restored['open'] == 5 and restored['completed'] == 5

@@ -29,7 +29,8 @@ with App.app.app_context():
     App.db.create_all()
     users = {}
     for name, role, year in [('Owner', 'student', 1980), ('Teacher', 'teacher', 1980),
-                              ('Parent', 'parent', 1980), ('Student', 'student', 2010)]:
+                              ('Parent', 'parent', 1980), ('Student', 'student', 2010),
+                              ('Sibling', 'student', 2011)]:
         user = App.User(email=name.lower() + '@example.test', name=name, role=role,
             birth_year=year, parent_consent_granted=True,
             password_hash=App.bcrypt.generate_password_hash('fixture-password-2026').decode())
@@ -42,6 +43,14 @@ with App.app.app_context():
     App.ADMIN_EMAILS = App.ADMIN_EMAILS | {'owner@example.test'}
     App.db.session.add(App.ManualTask(user_id=users['student'], title='Prepare the climate project',
         course='Science', due_date=(date.today() + timedelta(days=2)).isoformat(), estimated_time=30, done=False))
+    App.db.session.add(App.ManualTask(user_id=users['student'], title='Read the climate notes',
+        course='Science', due_date=date.today().isoformat(), estimated_time=15, done=True))
+    App.db.session.add(App.ManualTask(user_id=users['sibling'], title='Practice the violin',
+        course='Music', due_date=date.today().isoformat(), estimated_time=20, done=False))
+    App.db.session.add(App.StudyPoints(user_id=users['student'], session_history=json.dumps([
+        {'date': date.today().isoformat()}, {'date': date.today().isoformat()},
+        {'date': (date.today() - timedelta(days=6)).isoformat()},
+    ])))
     models = policy.models()
     district = models['Organization'](name='Acceptance district', kind='district', policy={'writing': False})
     App.db.session.add(district); App.db.session.flush()
@@ -185,9 +194,20 @@ with sync_playwright() as playwright:
         page.set_viewport_size({'width':width,'height':1000})
         open_page('teacher','/teacher')
         adult_navigation()
+        page.locator('#tdRosterStatus').get_by_text('1 of 1 students shown', exact=True).wait_for()
+        assert 'Private' in page.locator('#tdStudents').inner_text()
+        page.locator('#tdSearch').fill('unmatched student')
+        assert page.locator('#tdNoResults').is_visible()
+        page.locator('#tdSearch').fill('student@example.test')
+        page.locator('#tdFilter').select_option('pending')
+        assert page.locator('#tdNoResults').is_visible()
+        page.locator('#tdFilter').select_option('all')
         page.get_by_role('button',name="View Student's overview",exact=True).click()
         page.get_by_role('heading',name='Tools permitted by their institution',exact=True).wait_for()
-        assert page.locator('#tdDetailBox').get_by_text('Prepare the climate project',exact=True).is_visible()
+        assert page.locator('#tdDetailBox').get_by_text('Prepare the climate project',exact=False).is_visible()
+        assert page.locator('#tdDetailBox').get_by_text('1 of 2 shared tasks marked complete',exact=True).is_visible()
+        assert page.locator('#tdDetailBox').get_by_text('The student has not shared recorded practice.',exact=True).is_visible()
+        page.locator('#tdDetailBox summary').click()
         assert 'Writing · Restricted: institution policy' in page.locator('#tdDetailBox').inner_text()
         assert page.evaluate("""() => {
           const box = document.querySelector('#tdDetailBox').getBoundingClientRect();
@@ -200,6 +220,48 @@ with sync_playwright() as playwright:
         page.keyboard.press('Escape')
         assert page.locator('#tdDetail').is_hidden()
         assert page.get_by_role('button',name="View Student's overview",exact=True).evaluate('(element) => element === document.activeElement')
+    # Failed progress can be retried without reopening the workspace.
+    overview_pattern = '**/api/roles/student/' + str(users['student']) + '/overview'
+    page.route(overview_pattern, lambda handler: handler.fulfill(status=503, content_type='application/json', body='{}'))
+    page.get_by_role('button',name="View Student's overview",exact=True).click()
+    page.get_by_role('button',name='Retry progress',exact=True).wait_for()
+    page.unroute(overview_pattern)
+    page.get_by_role('button',name='Retry progress',exact=True).click()
+    page.get_by_role('heading',name='Recorded progress',exact=True).wait_for()
+    page.keyboard.press('Escape')
+    report.append({'flow':'teacher roster filters respect consent and student progress recovers after an unavailable response','passed':True})
+
+    page.route('**/api/roles/links', lambda handler: handler.fulfill(status=503, content_type='application/json', body='{}'))
+    open_page('teacher','/teacher')
+    page.get_by_role('button',name='Retry student list',exact=True).wait_for()
+    page.unroute('**/api/roles/links')
+    page.get_by_role('button',name='Retry student list',exact=True).click()
+    page.locator('#tdRosterStatus').get_by_text('1 of 1 students shown',exact=True).wait_for()
+
+    pending_overviews = []
+    page.route(overview_pattern, lambda handler: pending_overviews.append(handler))
+    open_page('teacher','/teacher')
+    page.get_by_role('button',name="View Student's overview",exact=True).click()
+    page.keyboard.press('Tab')
+    assert page.get_by_role('button',name='Close',exact=True).evaluate('(element) => element === document.activeElement')
+    assert len(pending_overviews) == 2
+    actual = clients['teacher'].get(f"/api/roles/student/{users['student']}/overview").get_json()
+    pending_overviews[1].fulfill(status=200, content_type='application/json', body=json.dumps(actual))
+    page.get_by_role('heading',name='Recorded progress',exact=True).wait_for()
+    page.keyboard.press('Shift+Tab')
+    assert page.evaluate("document.activeElement.closest('#tdDetail') !== null")
+    actual['summary']['open'] = 999
+    pending_overviews[0].fulfill(status=200, content_type='application/json', body=json.dumps(actual))
+    page.keyboard.press('Escape')
+    assert '999' not in page.locator('#tdStudents').inner_text()
+    # Closing before the next detail response must clear its loading state.
+    page.get_by_role('button',name="View Student's overview",exact=True).click()
+    page.keyboard.press('Escape')
+    assert 'loading' not in page.locator('#tdRosterStatus').inner_text().lower()
+    assert 'Loading' not in page.locator('#tdStudents').inner_text()
+    pending_overviews[-1].abort()
+    page.unroute(overview_pattern)
+    report.append({'flow':'teacher roster retries, newer detail wins over delayed roster data, and focus stays inside dialog during rendering','passed':True})
     open_page('student','/linked-accounts')
     page.locator('#sharingActive .sharing-row').filter(has_text='Teacher').get_by_role('button',name='Revoke access',exact=True).click()
     page.get_by_text('No one can view your summary.',exact=True).wait_for()
@@ -223,6 +285,10 @@ with sync_playwright() as playwright:
         open_page('parent','/parent')
         adult_navigation()
         page.locator('#familySelectedName').get_by_text('Student',exact=True).wait_for()
+        assert page.locator('#familyProgress .adult-study-week li').count() == 7
+        assert page.locator('#familyProgress').get_by_text('1 of 2 shared tasks marked complete',exact=True).is_visible()
+        assert page.locator('#familyStudyDays').inner_text() == '2'
+        assert page.locator('#familySessions').inner_text() == '3'
         capture('parent-student-snapshot')
         page.get_by_text('View permitted and restricted tools',exact=True).click()
         page.locator('#familyToolsList').get_by_text('Writing: Restricted · institution policy',exact=True).wait_for()
@@ -232,6 +298,45 @@ with sync_playwright() as playwright:
         capture('parent-shared-overview-dark')
         page.locator('#adultTheme').click()
     report.append({'flow':'parent requests access and receives only student-approved summary and tools','passed':True})
+
+    # A failed refresh hides the previous snapshot, with an explicit recovery action.
+    page.route(overview_pattern, lambda handler: handler.fulfill(status=403, content_type='application/json', body='{}'))
+    page.locator('#familyRefresh').click()
+    page.locator('#familyRetry').wait_for()
+    assert page.locator('#familyDetail').is_hidden()
+    assert 'Sharing is no longer available' in page.locator('#familyStatus').inner_text()
+    page.unroute(overview_pattern)
+    page.locator('#familyRetry').click()
+    page.locator('#familyDetail').wait_for()
+    assert page.locator('#familySelectedName').inner_text() == 'Student'
+
+    invited = clients['parent'].post('/api/roles/invite', json={'student_email':'sibling@example.test'})
+    link_id = invited.get_json()['link_id']
+    assert clients['sibling'].post(f'/api/roles/links/{link_id}/accept').status_code == 200
+    open_page('parent','/parent')
+    page.locator('#familyDetail').wait_for()
+    # Keep the first child's response pending while selecting the second child.
+    held = []
+    page.route(overview_pattern, lambda handler: held.append(handler))
+    page.get_by_role('button',name='Student View their snapshot',exact=True).click()
+    page.wait_for_function("document.querySelector('#familyDetail').hidden")
+    page.get_by_role('button',name='Sibling View their snapshot',exact=True).click()
+    page.locator('#familySelectedName').get_by_text('Sibling',exact=True).wait_for()
+    for handler in held:
+        try:
+            handler.fulfill(status=200, content_type='application/json', body=json.dumps(
+                clients['parent'].get(f"/api/roles/student/{users['student']}/overview").get_json()))
+        except Exception as error:
+            # Chromium may discard the response after AbortController cancels it.
+            assert 'handled' in str(error).lower() or 'closed' in str(error).lower(), str(error)
+    page.unroute(overview_pattern)
+    page.wait_for_timeout(100)
+    assert page.locator('#familySelectedName').inner_text() == 'Sibling'
+    assert 'Practice the violin' in page.locator('#familyUpcomingList').inner_text()
+    assert 'Prepare the climate project' not in page.locator('#familyDetail').inner_text()
+    capture('parent-second-child-progress')
+    report.append({'flow':'parent progress refresh clears stale content on failure and switching children cannot display another child\'s snapshot','passed':True})
+    assert not errors, errors
     browser.close()
 
 (OUT / 'report.json').write_text(json.dumps(report,indent=2),encoding='utf-8')
