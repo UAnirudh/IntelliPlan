@@ -118,7 +118,7 @@ def test_password_reset_invalidates_adult_session_before_routing(accounts, role)
         user = App.db.session.get(App.User, accounts[role]['id'])
         user.session_epoch = 1
         App.db.session.commit()
-    response = client.get('/' + role)
+    response = client.get('/dashboard')
     assert response.status_code == 302
     assert '/login' in response.location
     with client.session_transaction() as session:
