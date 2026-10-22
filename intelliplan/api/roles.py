@@ -20,6 +20,8 @@ from time_utils import utcnow
 
 from flask import Blueprint, current_app, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
+from sqlalchemy import inspect, select
+from sqlalchemy.orm.exc import DetachedInstanceError
 
 from intelliplan.repositories.assignments import AssignmentRepository
 from intelliplan.email.eligibility import age_from_birth_year
@@ -74,6 +76,69 @@ def _adult_account(user):
     return age is not None and age >= 18
 
 
+def adult_home(user):
+    """The account's role, rather than a login link, determines its workspace."""
+    if hasattr(user, '_get_current_object'):
+        user = user._get_current_object()
+    try:
+        role = getattr(user, 'role', None)
+    except DetachedInstanceError:
+        # A password reset can expire Flask-Login's cached ORM instance.
+        # Resolve only the role from the current session, without trusting
+        # an identity-map value that predates the reset.
+        identity = inspect(user).identity
+        model = _user_model()
+        role = _db().session.execute(select(model.role).where(
+            model.id == identity[0])).scalar_one_or_none() if identity else None
+    if role == 'teacher':
+        return '/teacher'
+    if role == 'parent':
+        host = current_app.config.get('PARENT_APP_HOST', 'parent.intelliplan.tech')
+        return '/' if request.host.split(':')[0].lower() == host else '/parent'
+    return None
+
+
+def adult_workspace_entry():
+    from intelliplan.learning.enforcement import SURFACES, actor, matches
+    credential_request = (request.path.startswith(('/api/v1/', '/extension/')) or
+                          (request.endpoint or '').startswith('focus_shield.'))
+    user = actor() if credential_request else current_user
+    if user is None or not user.is_authenticated:
+        return None
+    home = adult_home(user)
+    if home is None:
+        return None
+    path = request.path.rstrip('/') or '/'
+    account = '/settings' == path
+    entries = {'/', '/login', '/login/account', '/register', '/teacher', '/parent'}
+    if request.method in {'GET', 'HEAD'} and (account or path in entries):
+        target = '/adult/account' if account else home
+        if path != target:
+            return redirect(target)
+        return None
+    # Reuse the tool route catalog so alternate paths and direct requests
+    # follow the same boundary as navigation. Shared auth remains available.
+    prefixes = {p for paths in SURFACES.values() for p in paths
+                if not p.startswith(('/login/', '/oauth'))}
+    prefixes.update({'/dashboard', '/priority', '/classes', '/grades', '/dismissed',
+                     '/tests', '/profiles', '/streak', '/my-stats', '/my-courses',
+                     '/courses', '/learning', '/study-tools', '/tools', '/study-and-learn',
+                     '/onboarding', '/connect', '/linked-accounts', '/tasks', '/notes',
+                     '/api/tasks', '/api/manual-tasks', '/api/timetable', '/api/command-center',
+                     '/api/grades', '/api/streak', '/api/courses', '/extension/tasks',
+                     '/extension/grades', '/library', '/study-files', '/live', '/missing',
+                     '/api/classes', '/api/cloud-documents', '/api/v1/assignments',
+                     '/api/v1/courses', '/api/v1/grades', '/api/v1/tests', '/api/v1/streak',
+                     '/settings', '/identity', '/api/onboarding', '/api/live',
+                     '/api/sessions', '/api/activity', '/api/v1/tasks', '/api/v1/identity',
+                     '/extension/task', '/extension/dismiss'})
+    if not any(matches(path, prefix) for prefix in prefixes):
+        return None
+    if path.startswith(('/api/', '/extension/')) or request.method not in {'GET', 'HEAD'}:
+        return jsonify(error='student_workspace_only', workspace=home), 403
+    return redirect(home)
+
+
 def _accepted_parent_link(student_id: int):
     if current_user.role != "parent":
         return None
@@ -100,7 +165,16 @@ def teacher_dashboard():
         return redirect(url_for("login_account", next="/teacher"))
     if current_user.role != "teacher":
         return render_template("teacher_setup.html", active_page="teacher", noindex_page=True)
-    return render_template("teacher_dashboard.html", active_page="teacher")
+    return render_template("teacher_dashboard.html", active_page="teacher", noindex_page=True)
+
+
+@bp.route('/adult/account')
+@login_required
+def adult_account_page():
+    if adult_home(current_user) is None:
+        return jsonify(error='adult_account_required'), 403
+    return render_template('adult_account.html', active_page='adult_account',
+                           family_home_url=adult_home(current_user), noindex_page=True)
 
 
 @bp.route("/parent")

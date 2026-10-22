@@ -213,10 +213,11 @@ except Exception as _compress_err:  # pragma: no cover - optional dependency
 APP_BASE_URL = os.getenv("APP_BASE_URL", "https://intelliplan.tech").rstrip("/")
 APP_DOMAIN = APP_BASE_URL.replace("https://", "").replace("http://", "").split("/", 1)[0]
 PARENT_APP_HOST = os.getenv("PARENT_APP_HOST", "parent.intelliplan.tech").strip().lower()
+app.config['PARENT_APP_HOST'] = PARENT_APP_HOST
 
 
 def _is_parent_app_request():
-    return request.host.split(":", 1)[0].lower() == PARENT_APP_HOST
+    return request.host.split(":", 1)[0].lower() == app.config['PARENT_APP_HOST']
 
 
 def _is_family_auth_request():
@@ -8223,6 +8224,9 @@ def login_account():
                 _rotate_session_on_login()
                 login_user(user, remember=True)
                 log_security_event("login_success", user=user)
+                from intelliplan.api.roles import adult_home
+                if adult_home(user):
+                    return redirect(adult_home(user))
                 if _is_adult_auth_request():
                     return redirect(_adult_home_url())
                 # Auto-join any group whose invite link was clicked pre-login.
@@ -22803,6 +22807,13 @@ def _ensure_migration_ran():
 
 
 @app.before_request
+def _route_adult_workspace():
+    # Validate session generations, parental consent and request origin first.
+    from intelliplan.api.roles import adult_workspace_entry
+    return adult_workspace_entry()
+
+
+@app.before_request
 def _family_host_entry():
     """Give the Family hostname its own UI and keep student routes off it."""
     if not _is_parent_app_request():
@@ -22822,11 +22833,12 @@ def _family_host_entry():
         if not current_user.is_authenticated:
             return redirect(url_for("login_account"))
         return render_template("parent_portal.html", noindex_page=True,
-                               parent_mode=current_user.role == "parent")
-    allowed = ("/static/", "/api/roles/")
+                               parent_mode=current_user.role == "parent", family_home_url="/")
+    allowed = ("/static/", "/api/roles/", "/api/school-admin/")
     if request.path.startswith(allowed) or request.path in {
         "/login", "/login/account", "/register", "/logout",
-        "/forgot-password", "/reset-password", "/favicon.ico",
+        "/forgot-password", "/reset-password", "/favicon.ico", "/adult/account", "/legal", "/teacher", "/account/delete",
+        "/school-admin", "/admin/accounts", "/api/admin/accounts",
     }:
         return None
     return flask.abort(404)

@@ -1,4 +1,5 @@
-{% extends "base.html" %}
+{% extends "adult_base.html" %}
+{% block page_title %}Your students | IntelliPlan Teacher{% endblock %}
 
 {% block content %}
 <style>
@@ -91,13 +92,13 @@
 </style>
 
 <div class="page-header">
-  <div class="page-kicker">Classroom</div>
-  <h1 class="page-title">Teacher dashboard</h1>
-  <p class="page-subtitle">Read-only view of your linked students' workload, progress, and upcoming deadlines.</p>
+  <div class="page-kicker">Teacher workspace</div>
+  <h1 class="page-title">Your students</h1>
+  <p class="page-subtitle">See their shared work, upcoming deadlines, and permitted tools. Each student chooses what you can view.</p>
 </div>
 
 <div class="td-shell">
-  <div class="td-toolbar">
+  <div class="td-toolbar" id="invite">
     <form class="td-invite" id="tdInviteForm" onsubmit="return ipTeachInvite(event)">
       <label for="tdInviteEmail" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);">Student's email</label>
       <input type="email" id="tdInviteEmail" placeholder="Invite a student by email…" required autocomplete="email" />

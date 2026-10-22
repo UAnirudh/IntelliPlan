@@ -1,0 +1,16 @@
+{% extends 'adult_base.html' %}
+{% block page_title %}Your account | IntelliPlan{% endblock %}
+{% block content %}
+<header class="adult-heading"><p>{{ 'Teacher' if current_user.role == 'teacher' else 'Family' }} workspace</p><h1>Your account</h1><p>Your sign-in details and access to student-approved information.</p></header>
+<section class="adult-account" aria-label="Account details">
+  <dl><div><dt>Name</dt><dd>{{ current_user.name or 'Not provided' }}</dd></div><div><dt>Email</dt><dd>{{ current_user.email }}</dd></div><div><dt>Account type</dt><dd>{{ current_user.role|capitalize }}</dd></div></dl>
+  <a class="btn-primary" href="/forgot-password">Reset your password</a>
+</section>
+<section class="adult-account"><h2>Student access</h2><p>Open a linked student to see the information they have approved. Invitations remain private until the student accepts, and they can revoke sharing at any time.</p><a href="{{ adult_home }}">View your students</a></section>
+<section class="adult-account"><h2>Delete your account</h2><p>Remove your account and its data. Your students keep their own accounts and work.</p><button type="button" class="btn-secondary" id="adultDeleteOpen">Delete account</button></section>
+<dialog class="adult-account-dialog" id="adultDeleteDialog" aria-labelledby="adultDeleteTitle" aria-describedby="adultDeleteDescription">
+  <h2 id="adultDeleteTitle">Delete your account?</h2><p id="adultDeleteDescription">Your account and its data will be permanently removed. This cannot be undone. Your students' accounts will remain.</p>
+  <p id="adultDeleteStatus" role="status" aria-live="polite"></p><div class="adult-dialog-actions"><button type="button" class="btn-secondary" id="adultDeleteCancel" autofocus>Keep my account</button><button type="button" class="btn-primary" id="adultDeleteConfirm">Permanently delete account</button></div>
+</dialog>
+<script src="/static/js/adult_account.js?v={{ asset_v }}" defer></script>
+{% endblock %}
