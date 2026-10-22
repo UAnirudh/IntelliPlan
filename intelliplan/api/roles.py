@@ -20,6 +20,8 @@ from time_utils import utcnow
 
 from flask import Blueprint, current_app, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
+from sqlalchemy import inspect, select
+from sqlalchemy.orm.exc import DetachedInstanceError
 
 from intelliplan.repositories.assignments import AssignmentRepository
 from intelliplan.email.eligibility import age_from_birth_year
@@ -76,7 +78,18 @@ def _adult_account(user):
 
 def adult_home(user):
     """The account's role, rather than a login link, determines its workspace."""
-    role = getattr(user, 'role', None)
+    if hasattr(user, '_get_current_object'):
+        user = user._get_current_object()
+    try:
+        role = getattr(user, 'role', None)
+    except DetachedInstanceError:
+        # A password reset can expire Flask-Login's cached ORM instance.
+        # Resolve only the role from the current session, without trusting
+        # an identity-map value that predates the reset.
+        identity = inspect(user).identity
+        model = _user_model()
+        role = _db().session.execute(select(model.role).where(
+            model.id == identity[0])).scalar_one_or_none() if identity else None
     if role == 'teacher':
         return '/teacher'
     if role == 'parent':
@@ -85,7 +98,6 @@ def adult_home(user):
     return None
 
 
-@bp.before_app_request
 def adult_workspace_entry():
     from intelliplan.learning.enforcement import SURFACES, actor, matches
     credential_request = (request.path.startswith(('/api/v1/', '/extension/')) or

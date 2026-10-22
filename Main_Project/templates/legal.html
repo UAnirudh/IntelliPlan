@@ -357,7 +357,7 @@
   </div>
 
   <p style="text-align:center;font-size:0.85rem;color:var(--text-muted);">
-    <a href="/" style="color:var(--accent);">&larr; Back to home</a>
+    <a href="{{ adult_home|default('/') }}" style="color:var(--accent);">&larr; Back to home</a>
   </p>
 </div>
 {% endblock %}

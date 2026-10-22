@@ -112,6 +112,20 @@ def test_students_keep_their_own_workspace(accounts):
 
 
 @pytest.mark.parametrize('role', ['parent', 'teacher'])
+def test_password_reset_invalidates_adult_session_before_routing(accounts, role):
+    client = signed_in(accounts[role])
+    with App.app.app_context():
+        user = App.db.session.get(App.User, accounts[role]['id'])
+        user.session_epoch = 1
+        App.db.session.commit()
+    response = client.get('/' + role)
+    assert response.status_code == 302
+    assert '/login' in response.location
+    with client.session_transaction() as session:
+        assert '_user_id' not in session
+
+
+@pytest.mark.parametrize('role', ['parent', 'teacher'])
 def test_adult_token_cannot_read_student_api(accounts, role):
     from auth_api import make_token
     with App.app.app_context():

@@ -22807,6 +22807,13 @@ def _ensure_migration_ran():
 
 
 @app.before_request
+def _route_adult_workspace():
+    # Validate session generations, parental consent and request origin first.
+    from intelliplan.api.roles import adult_workspace_entry
+    return adult_workspace_entry()
+
+
+@app.before_request
 def _family_host_entry():
     """Give the Family hostname its own UI and keep student routes off it."""
     if not _is_parent_app_request():
