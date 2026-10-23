@@ -180,7 +180,9 @@ def identifier(value: str) -> str:
 
 def fingerprint_query(schema: str, table: str) -> str:
     qualified = identifier(schema) + '.' + identifier(table)
-    return ("SELECT json_build_object('rows',count(*),'digest',coalesce(encode(sha256(convert_to("
+    # Only PostgreSQL identifiers enter this query; identifier() doubles every
+    # embedded quote and quotes both names. No data value becomes SQL syntax.
+    return ("SELECT json_build_object('rows',count(*),'digest',coalesce(encode(sha256(convert_to("  # nosec B608
             "string_agg(h,'' ORDER BY h),'UTF8')),'hex'),'')) FROM (SELECT "
             "encode(sha256(convert_to(t::text,'UTF8')),'hex') AS h FROM " + qualified + ' t) rows')
 
@@ -269,17 +271,21 @@ def restore_check(archive: Path) -> dict:
                 if attempt == 59:
                     raise
                 time.sleep(1)
-        run(['docker', 'cp', str(archive), container + ':/tmp/verify.dump'])
-        run(['docker', 'exec', container, 'chown', 'postgres:postgres', '/tmp/verify.dump'])
+        # This path is inside the fresh, network-disabled verification container,
+        # not a shared host temporary directory or any production volume.
+        restore_file = '/var/lib/postgresql/verify.dump'
+        run(['docker', 'cp', str(archive), container + ':' + restore_file])
+        run(['docker', 'exec', container, 'chown', 'postgres:postgres', restore_file])
         run(['docker', 'exec', '--user', 'postgres', container, 'psql', '-X', '-v', 'ON_ERROR_STOP=1',
              '-d', 'intelliplan_restore', '-c', 'CREATE ROLE intelliplan NOLOGIN'])
         run(['docker', 'exec', '--user', 'postgres', container, 'pg_restore', '--exit-on-error', '--single-transaction',
-             '--no-owner', '--no-privileges', '--dbname=intelliplan_restore', '/tmp/verify.dump'], timeout=3600)
+             '--no-owner', '--no-privileges', '--dbname=intelliplan_restore', restore_file], timeout=3600)
         def query(statement):
             raw = run(['docker', 'exec', '--user', 'postgres', container, 'psql', '-X', '-q', '-A', '-t',
                        '-v', 'ON_ERROR_STOP=1', '-d', 'intelliplan_restore', '-c', SETTINGS + statement])
             return json.loads(raw.decode().strip())
-        names = query("SELECT coalesce(json_agg(t),'[]') FROM (" + TABLES + ') t')
+        # TABLES is a source-code constant; no archive or user text enters it.
+        names = query("SELECT coalesce(json_agg(t),'[]') FROM (" + TABLES + ') t')  # nosec B608
         if {(row['schemaname'], row['tablename']) for row in names} != {(row['schema'], row['table']) for row in expected}:
             raise ValueError('Restored table inventory differs from the backup snapshot.')
         for row in expected:
