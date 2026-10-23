@@ -4,7 +4,7 @@ Self-hosted npm distributions, acquired2026-10-10. No runtime CDN or external co
 
 - markdown-it15.0.2: `dist/browser/markdown-it.umd.min.js`, MIT, [upstream](https://github.com/markdown-it/markdown-it).
 - DOMPurify3.4.16: `dist/purify.min.js`, Apache2.0 OR MPL2.0, [upstream](https://github.com/cure53/DOMPurify).
-- KaTeX0.19.0: `dist/katex.min.js`, `dist/katex.min.css`, and `dist/fonts`, MIT, [upstream](https://github.com/KaTeX/KaTeX).
+- KaTeX0.19.0: `dist/katex.min.js`, `dist/katex.min.css`, `dist/fonts`, and `dist/contrib/mhchem.min.js`, MIT, [upstream](https://github.com/KaTeX/KaTeX). The chemistry extension uses the same pinned archive and integrity as the core bundle; no runtime CDN is needed. `mhchem-NOTICE` retains the port's MIT and original MathJax/mhchem copyright notices, with the original Apache2.0 text in `mhchem-Apache-LICENSE`.
 - highlight.js11.12.0: `@highlightjs/cdn-assets/highlight.min.js`, BSD3-Clause, [upstream](https://github.com/highlightjs/highlight.js).
 
 The assets are unmodified except for the markdown-it UMD filename. App-specific behavior is in `static/js/learning_content.js`: HTML and generated links/images disabled, sanitized DOM insertion, untrusted/size-bounded math and escaped fenced code. Regenerate the manifest after a deliberate dependency upgrade; do not edit minified distributions manually.

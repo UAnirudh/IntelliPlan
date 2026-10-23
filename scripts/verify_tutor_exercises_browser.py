@@ -48,13 +48,25 @@ with sync_playwright() as p:
         assert line.get_attribute('x2') != before
         assert 'Each step right changes y by 1.5' in page.locator('main').inner_text()
         assert page.locator('svg title').text_content() and page.locator('svg desc').text_content()
+        # Rapid input events coalesce to a frame, retaining the same SVG nodes.
+        # Screen-reader descriptions update once with the final value as well.
+        performance = page.evaluate('''async () => {
+          const line=document.querySelector('svg line'), slider=document.querySelector('input[aria-label="Slope"]');
+          let mutations=0;const observer=new MutationObserver(records=>mutations+=records.length);
+          observer.observe(line,{attributes:true});
+          for(let i=0;i<100;i++){slider.value=i%2 ? '2' : '0';slider.dispatchEvent(new Event('input',{bubbles:true}));}
+          await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+          observer.disconnect();return {sameNode:line===document.querySelector('svg line'),mutations};
+        }''')
+        assert performance['sameNode'] and performance['mutations'] <= 10, performance
+        assert 'Each step right changes y by 2' in page.locator('main').inner_text()
         create('svg-exercise', {'kind': 'fraction', 'numerator': 3, 'denominator': 4}, 'Explore fractions')
         numerator = page.get_by_role('slider', name='Numerator', exact=True)
         numerator.focus()
         numerator.press('ArrowRight')
-        assert '4/4' in page.locator('main').inner_text()
+        page.get_by_text('4 of 4 equal parts per whole are shaded: 4/4.', exact=True).wait_for()
         numerator.press('ArrowRight')
-        assert '5/4' in page.locator('main').inner_text()
+        page.get_by_text('5 of 4 equal parts per whole are shaded: 5/4.', exact=True).wait_for()
         page.wait_for_function("document.querySelectorAll('svg')[1].querySelectorAll('rect:not([style*=\"display: none\"])').length === 8")
         assert page.locator('svg').nth(1).locator('rect:visible').count() == 8
         create('quiz', {'question': 'Which slope gives a horizontal line?',
@@ -62,6 +74,8 @@ with sync_playwright() as p:
         page.get_by_role('button', name='2', exact=True).click()
         assert 'Try again' in page.locator('p[role="status"]').first.inner_text()
         page.get_by_role('button', name='0', exact=True).click()
+        assert page.get_by_role('button', name='0', exact=True).get_attribute('aria-pressed') == 'true'
+        assert page.get_by_role('button', name='2', exact=True).get_attribute('aria-pressed') == 'false'
         assert 'AI-generated check' in page.locator('p[role="status"]').first.inner_text()
         assert 'not a scored mastery check' in page.locator('main').inner_text()
         create('quiz', {'question': 'Long label wrapping', 'options': ['X' * 300, 'Other'], 'correct': 0})
@@ -88,6 +102,6 @@ with sync_playwright() as p:
         assert not errors, errors
         print(json.dumps({'width': width, 'passed': True, 'keyboard_svg': True,
                           'fraction_and_quiz': True, 'outbound_requests': len(outbound),
-                          'page_errors': errors}))
+                          'stable_svg_under_100_inputs': performance, 'page_errors': errors}))
         page.close()
     browser.close()

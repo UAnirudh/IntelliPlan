@@ -7890,8 +7890,16 @@ def api_onboarding_chat():
     msgs = body.get("messages") or []
     if not isinstance(msgs, list):
         msgs = []
-    # Take only the last 20 turns to control prompt size.
-    msgs = msgs[-20:]
+    if any(not isinstance(m, dict) or m.get('role') not in {'user', 'assistant'}
+           or not isinstance(m.get('content'), str) or len(m['content']) > 20000 for m in msgs):
+        return jsonify(error='invalid_messages', extracted={}), 400
+    from chatbot_api import _moderation_response
+    from plani_safety import context_window
+    msgs = context_window(msgs)
+    if msgs:
+        safety_response = _moderation_response(msgs)
+        if safety_response is not None:
+            return safety_response
     identity = _get_or_create_identity(current_user.id)
     so_far = identity.to_dict() if current_user.ai_personalization_opt_in else {}
     system = (
@@ -7932,7 +7940,7 @@ def api_onboarding_chat():
         role = m.get("role")
         content = (m.get("content") or "").strip()
         if role in ("user", "assistant") and content:
-            chat_messages.append({"role": role, "content": content[:2000]})
+            chat_messages.append({"role": role, "content": content})
     # Bootstrap with an opener if the conversation is empty.
     if len(chat_messages) == 1:
         chat_messages.append({"role": "user", "content": "Start onboarding."})
@@ -7983,6 +7991,9 @@ def api_onboarding_chat():
             max_tokens=1500,
             response_format={"type": "json_object"},
         )
+        safety_response = _moderation_response(msgs, output=result)
+        if safety_response is not None:
+            return safety_response
         parsed = _tolerant_json(result)
         if parsed is None:
             raise ValueError("AI returned unparseable JSON after repair")

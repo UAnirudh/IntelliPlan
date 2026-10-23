@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import expect, sync_playwright
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -152,7 +152,8 @@ with sync_playwright() as p:
         slider.wait_for(state='visible')
         slider.focus()
         slider.press('ArrowRight')
-        assert 'Each step right changes y by 1.5' in page.locator('#tutorMessages').inner_text()
+        # Diagram descriptions update in the next animation frame.
+        expect(page.locator('#tutorMessages')).to_contain_text('Each step right changes y by 1.5')
         page.wait_for_function("document.querySelector('#tutorAudioStatus').textContent.includes('school settings')")
         assert len(speech) == 1
         assert ':::artifact' not in speech[0]['text']

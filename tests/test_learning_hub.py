@@ -1314,6 +1314,8 @@ def test_grade_prediction_keeps_numbers_without_unapproved_ai_insights(client, m
 
 @pytest.mark.parametrize('consent', [False, True])
 def test_onboarding_only_attaches_saved_profile_with_personalization_consent(client, monkeypatch, consent):
+    # Isolate profile sharing from the separately tested remote safety gate.
+    monkeypatch.setattr('chatbot_api._moderation_response', lambda *a, **k: None)
     uid = user(client, monkeypatch)
     with App.app.app_context():
         App.db.session.get(App.User, uid).ai_personalization_opt_in = consent

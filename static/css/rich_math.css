@@ -1,0 +1,7 @@
+/* Vetted math can be wider than prose; scroll it without widening the page. */
+.ip-math{display:inline-block;max-width:100%;vertical-align:middle;overflow-x:auto;overflow-y:hidden;padding-block:3px}
+.ip-math-display{display:block;padding-block:10px}
+.ip-math .katex{white-space:nowrap;overflow-wrap:normal;word-break:normal}
+.learning-content .katex-display{max-width:100%;overflow-x:auto;overflow-y:hidden}
+.learning-math-inline{display:inline-block;max-width:100%;overflow-x:auto;overflow-y:hidden;vertical-align:middle;padding-block:3px}
+.ip-math:focus-visible,.learning-content .katex-display:focus-visible,.learning-math-inline:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px}

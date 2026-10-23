@@ -6,7 +6,9 @@
 
 {% block head_extra %}
 <link rel="stylesheet" href="/static/vendor/learning-content/katex.min.css?v={{ asset_v }}">
+<link rel="stylesheet" href="/static/css/rich_math.css?v={{ asset_v }}">
 <script defer src="/static/vendor/learning-content/katex.min.js?v={{ asset_v }}"></script>
+<script defer src="/static/vendor/learning-content/mhchem.min.js?v={{ asset_v }}"></script>
 <style>
 /* ── Override base layout: tutor owns the entire viewport ── */
 /* The base.html footer normally sits below <main>; on the tutor page we

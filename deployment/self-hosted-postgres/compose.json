@@ -1,0 +1,54 @@
+{
+  "name": "intelliplan-pc",
+  "services": {
+    "db": {
+      "image": "postgres:17.11-bookworm",
+      "restart": "unless-stopped",
+      "stop_grace_period": "60s",
+      "environment": {
+        "POSTGRES_DB": "intelliplan",
+        "POSTGRES_USER": "postgres",
+        "POSTGRES_PASSWORD_FILE": "/run/secrets/postgres_password",
+        "POSTGRES_INITDB_ARGS": "--auth-host=scram-sha-256 --auth-local=peer"
+      },
+      "secrets": ["postgres_password", "app_password"],
+      "ports": ["127.0.0.1:5432:5432"],
+      "volumes": [
+        "postgres_data:/var/lib/postgresql/data",
+        "./initdb:/docker-entrypoint-initdb.d:ro"
+      ],
+      "networks": ["database"],
+      "mem_limit": "2g",
+      "shm_size": "256mb",
+      "command": ["postgres", "-c", "shared_buffers=256MB", "-c", "effective_cache_size=1GB", "-c", "work_mem=8MB", "-c", "max_connections=80", "-c", "password_encryption=scram-sha-256"],
+      "healthcheck": {
+        "test": ["CMD-SHELL", "PGPASSWORD=\"$$(cat /run/secrets/app_password)\" psql -h 127.0.0.1 -U intelliplan -d intelliplan -X -q -A -t -c 'SELECT 1' >/dev/null"],
+        "interval": "10s", "timeout": "5s", "retries": 12, "start_period": "20s"
+      },
+      "logging": {"driver": "json-file", "options": {"max-size": "10m", "max-file": "3"}}
+    },
+    "web": {
+      "profiles": ["local-app"],
+      "build": {"context": "../..", "dockerfile": "Dockerfile"},
+      "restart": "unless-stopped",
+      "stop_grace_period": "60s",
+      "depends_on": {"db": {"condition": "service_healthy"}},
+      "env_file": ["${INTELLIPLAN_PG_STATE:?Run the setup script first}/app.env"],
+      "environment": {"PORT": "8080", "WEB_CONCURRENCY": "2", "NOTIFICATIONS_INPROCESS_CRON": "0", "FOLLOWTHROUGH_INPROCESS_CRON": "0"},
+      "command": ["python", "deployment/self-hosted-postgres/start_app.py"],
+      "secrets": ["app_password", "session_key"],
+      "ports": ["127.0.0.1:8080:8080"],
+      "volumes": ["app_instance:/app/instance", "app_uploads:/app/uploads"],
+      "networks": ["database", "outbound"],
+      "mem_limit": "2g",
+      "logging": {"driver": "json-file", "options": {"max-size": "10m", "max-file": "3"}}
+    }
+  },
+  "secrets": {
+    "postgres_password": {"file": "${INTELLIPLAN_PG_STATE:?Run the setup script first}/secrets/postgres_password"},
+    "app_password": {"file": "${INTELLIPLAN_PG_STATE:?Run the setup script first}/secrets/app_password"},
+    "session_key": {"file": "${INTELLIPLAN_PG_STATE:?Run the setup script first}/secrets/session_key"}
+  },
+  "volumes": {"postgres_data": {}, "app_instance": {}, "app_uploads": {}},
+  "networks": {"database": {"internal": true}, "outbound": {}}
+}

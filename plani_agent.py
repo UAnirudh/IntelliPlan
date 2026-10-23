@@ -1550,6 +1550,11 @@ def plani_agent():
             payload["retry_after"] = e.retry_after
         return jsonify(payload), e.status
 
+    from chatbot_api import _moderation_response
+    safety_response = _moderation_response(messages)
+    if safety_response is not None:
+        return safety_response
+
     import assistant_name
 
     processing_state = _processing_state(user_id)
@@ -1567,7 +1572,8 @@ def plani_agent():
     if last_user and processing_state[0] and _capabilities_allowed(_tool_user(user_id), 'uploads', 'study'):
         from intelliplan.retrieval import retrieve_context
         system += retrieve_context(user_id, str(last_user)[:1000])
-    recent = messages[-12:]
+    from plani_safety import context_window
+    recent = context_window(messages)
     llm_messages = [{"role": "system", "content": system}] + recent
     actions: list[str] = []
     tool_log: list[dict] = []
@@ -1586,7 +1592,8 @@ def plani_agent():
                 decision = ai_firewall.guard(_tool_user(user_id),
                     prompts=[m.get('content', '') for m in messages if m.get('role') == 'user'],
                     want_output_tokens=1400, feature='agent')
-            reply = ai_chat(llm_messages, tier="standard",
+            generation_window = context_window(llm_messages)
+            reply = ai_chat([llm_messages[0]] + generation_window, tier="standard",
                 temperature=0.3,
                 max_tokens=min(1400, decision.max_output_tokens),
                 plan=decision.plan).strip()
@@ -1621,6 +1628,9 @@ def plani_agent():
             return jsonify(status='error', error='account_access_changed',
                            reply='Account access changed. Start a new request.',
                            actions=actions, tool_log=tool_log), 403
+        safety_response = _moderation_response(generation_window, output=reply)
+        if safety_response is not None:
+            return safety_response
         tool_calls = _parse_tool_calls(reply)
         if not tool_calls:
             clean = re.sub(r"```tool_call.*?```", "", reply, flags=re.DOTALL).strip()
@@ -1676,7 +1686,8 @@ def plani_agent():
         decision = ai_firewall.guard(_tool_user(user_id),
             prompts=[m.get('content', '') for m in messages if m.get('role') == 'user'],
             want_output_tokens=600, feature='agent')
-        final = ai_chat(llm_messages, tier="standard",
+        generation_window = context_window(llm_messages)
+        final = ai_chat([llm_messages[0]] + generation_window, tier="standard",
             temperature=0.3, max_tokens=min(600, decision.max_output_tokens),
             plan=decision.plan).strip()
         ai_firewall.record_tokens(decision,
@@ -1694,6 +1705,9 @@ def plani_agent():
         return jsonify(status='error', error='ai_unavailable',
                        reply='The final reply could not be generated. Check the action results below.',
                        actions=actions, tool_log=tool_log, refresh=refresh_ui), 502
+    safety_response = _moderation_response(generation_window, output=final)
+    if safety_response is not None:
+        return safety_response
     return jsonify({"status": "ok", "reply": final or "Done.",
         "actions": actions, "navigate": navigate_url, "links": links,
         "refresh": refresh_ui, "schedule": schedule_preview, "tool_log": tool_log})

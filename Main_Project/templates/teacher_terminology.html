@@ -1,0 +1,20 @@
+{% extends 'adult_base.html' if current_user.role in ['teacher','parent'] else 'base.html' %}
+{% block page_title %}Classroom terminology | IntelliPlan Teacher{% endblock %}
+{% block content %}
+<header class="adult-heading"><p>Teacher workspace</p><h1>Classroom terminology</h1><p>Choose clinical vocabulary for age-appropriate health and biology lessons in your assigned classrooms.</p></header>
+<p><a class="btn-secondary" href="/teacher">Back to your students</a></p>
+<section class="adult-account" aria-labelledby="termsTitle">
+  <h2 id="termsTitle">Educational use only</h2>
+  <p>Selected terms are for factual teaching. They do not permit explicit or harmful content. Plani still checks intent, conversation context, and replies; institution restrictions always apply.</p>
+  <p id="termsStatus" role="status" aria-live="polite">Loading your assigned classrooms…</p>
+  <button id="termsRetry" class="btn-secondary" type="button" hidden>Reload classrooms</button>
+  <form id="termsForm" hidden>
+    <label for="termsClass">Assigned classroom</label>
+    <select id="termsClass" class="form-input" style="display:block;width:100%;margin:8px 0 24px"></select>
+    <fieldset id="termsFields" style="border:1px solid var(--border);border-radius:14px;padding:18px;margin:0 0 20px"><legend>Clinical vocabulary</legend><div id="termsChoices" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px 18px"></div><details id="termsRestricted" hidden><summary id="termsRestrictedSummary" style="cursor:pointer;min-height:44px;padding:14px 0"></summary><div id="termsRestrictedChoices" style="display:grid;gap:8px"></div></details></fieldset>
+    <button type="submit" class="btn-primary" id="termsSave">Save classroom terms</button>
+    <p>Changes apply to students assigned to this classroom.</p>
+  </form>
+</section>
+<script src="/static/js/teacher_terminology.js?v={{ asset_v }}" defer></script>
+{% endblock %}

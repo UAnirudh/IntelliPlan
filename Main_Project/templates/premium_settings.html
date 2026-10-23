@@ -97,7 +97,7 @@
 
   <section class="pai-section" aria-labelledby="paiAcctH">
     <h2 id="paiAcctH">Linked AI accounts</h2>
-    <p>Link an API key from your own AI account and Plani answers on it instead of your budget. The provider bills you directly. Consumer subscriptions such as Claude Pro or ChatGPT Plus can't be linked; you need an API key from the provider's developer console.</p>
+    <p>Link a developer API key and Plani can answer using your provider account. The provider bills that usage separately from IntelliPlan and any consumer subscription.</p>
     {% if not byok_enabled %}
       <p class="pai-note">Linking AI accounts is coming soon.</p>
     {% elif not can_link %}
@@ -126,6 +126,12 @@
     <p class="pai-msg" id="paiAcctMsg" role="status"></p>
     <p class="pai-note">Keys are checked with the provider, stored encrypted, and never shown again. Plani tries your linked accounts first, in the order above.</p>
     {% endif %}
+  </section>
+
+  <section class="pai-section" aria-labelledby="paiChatgptH">
+    <h2 id="paiChatgptH">Your ChatGPT plan</h2>
+    <p>Not connected to this hosted app. OpenAI now supports eligible ChatGPT plan usage in participating apps; IntelliPlan needs OpenAI's hosted-app approval before offering that connection. Linking an OpenAI API key above uses separate API billing.</p>
+    <p class="pai-note"><a href="https://developers.openai.com/siwc/token-sharing-open-source" target="_blank" rel="noopener">Read OpenAI's availability guide</a> · <a href="https://openai.com/form/sign-in-with-chatgpt-interest/" target="_blank" rel="noopener">OpenAI integration request</a></p>
   </section>
 
   {% if billing_enabled and not premium %}

@@ -77,17 +77,23 @@ def organizations():
     if not current_user.is_authenticated:
         abort(401)
     if request.method == 'POST':
-        if not is_admin(current_user):
-            abort(403)
         data = body()
         kind = data.get('kind')
-        if kind not in {'school', 'district'}:
-            raise ValueError('Organization kind must be school or district.')
+        if kind not in {'school', 'district', 'class'}:
+            raise ValueError('Organization kind must be school, district, or class.')
+        if kind != 'class' and not is_admin(current_user):
+            abort(403)
         parent_id = data.get('parent_id')
         if parent_id:
+            if type(parent_id) is not int:
+                raise ValueError('Choose an existing parent institution.')
             parent = db.session.get(M['Organization'], parent_id)
-            if kind != 'school' or not parent or parent.kind != 'district':
-                raise ValueError('Only a school may have a district parent.')
+            if not parent or (kind == 'school' and parent.kind != 'district') or (kind == 'class' and parent.kind != 'school') or kind == 'district':
+                raise ValueError('A school requires a district parent; a class requires a school parent.')
+        elif kind == 'class':
+            raise ValueError('A class requires a school parent.')
+        if kind == 'class' and not policy.administers(current_user, parent_id):
+            abort(403)
         row = M['Organization'](name=courses.text(data.get('name'), 160), kind=kind,
                                 parent_id=parent_id, policy=policy.validate_policy(data.get('policy', {})))
         db.session.add(row)
@@ -561,6 +567,8 @@ def install(app):
 
     from intelliplan.learning.governance_api import install as install_governance
     install_governance(bp, app)
+    from intelliplan.learning.safety_terms import install as install_safety_terms
+    install_safety_terms(app)
     app.register_blueprint(bp)
     from App import limiter
     endpoint = 'learning_hub.course_list'

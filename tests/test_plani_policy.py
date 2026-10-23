@@ -23,6 +23,9 @@ def planning_morning(monkeypatch):
     """
     monkeypatch.setattr('intelliplan.scheduler_clock.utcnow',
                         lambda: datetime(2026, 10, 20, 8))
+    # These tests isolate tool authorization/planning from remote classification.
+    # Safety gate and side-effect ordering have their own test_plani_safety suite.
+    monkeypatch.setattr('chatbot_api._moderation_response', lambda *a, **k: None)
 
 
 @pytest.fixture

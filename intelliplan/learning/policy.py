@@ -68,9 +68,12 @@ def validate_policy(value):
     if not isinstance(value, dict):
         raise ValueError('Policy must be an object.')
     booleans = set(FEATURES) | {'allow_beta', 'third_party_processing', 'assessment_protection'}
-    unknown = set(value) - booleans - {'providers', 'max_generation_tokens', 'monthly_generation_tokens', 'retention_days', 'assessment_windows'}
+    unknown = set(value) - booleans - {'providers', 'max_generation_tokens', 'monthly_generation_tokens', 'retention_days', 'assessment_windows', 'educational_terms'}
     if unknown:
         raise ValueError('Unknown policy setting: ' + ', '.join(sorted(unknown)))
+    if 'educational_terms' in value:
+        from intelliplan.learning.safety_terms import validate_terms
+        validate_terms(value['educational_terms'])
     for key in booleans & value.keys():
         if type(value[key]) is not bool:
             raise ValueError(key + ' must be true or false.')
@@ -134,7 +137,10 @@ def effective(user):
     for org in rows:
         data = validate_policy(org.policy)
         for key, value in data.items():
-            if key == 'providers':
+            if key == 'educational_terms':
+                # Scoped vocabulary is resolved separately, never as a feature grant.
+                continue
+            elif key == 'providers':
                 policy[key] &= set(value)
             elif key in {'max_generation_tokens', 'monthly_generation_tokens'}:
                 policy[key] = min(policy[key], value)
@@ -171,7 +177,16 @@ def administers(user, organization_id):
     org = M['Organization'].query.get(organization_id)
     if not org:
         return False
-    scope = [org.id] + ([org.parent_id] if org.parent_id else [])
+    scope = []
+    while org:
+        if org.id in scope or len(scope) > 32:
+            return False
+        scope.append(org.id)
+        if not org.parent_id:
+            break
+        org = M['Organization'].query.populate_existing().get(org.parent_id)
+        if org is None:
+            return False
     return M['Membership'].query.filter(M['Membership'].user_id == user.id,
                                        M['Membership'].organization_id.in_(scope),
                                        M['Membership'].role == 'admin').first() is not None

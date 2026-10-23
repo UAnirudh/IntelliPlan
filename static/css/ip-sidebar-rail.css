@@ -14,6 +14,12 @@
 
 :root { --side-rail-w: 64px; --side-peek-w: 244px; }
 
+/* Links and form actions share the same row, including during rail peek. */
+.app-side .side-foot > form { margin: 0; width: 100%; }
+body.has-side .app-side .side-foot .side-link { width: 100%; min-height: 44px; line-height: 1.4; }
+.app-side .side-foot button.side-link { background: transparent; text-align: left; }
+.app-side .side-foot .side-icon { flex-shrink: 0; }
+
 /* ── Collapse / expand button (always present on desktop) ─────────── */
 .side-collapse-btn {
   position: absolute; top: 20px; right: 10px;
