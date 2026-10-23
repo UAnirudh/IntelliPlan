@@ -26,6 +26,23 @@
     ];
     md.inline.ruler.before('escape', 'learning_math', (state, silent) => {
       if ((state.env.mathCount || 0) >= MAX_EXPRESSIONS) return false;
+      if (/^\\(?:ce|pu)\{/.test(state.src.slice(state.pos))) {
+        let depth = 0;
+        for (let position = state.src.indexOf('{', state.pos); position < Math.min(state.src.length, state.pos + MAX_MATH); position++) {
+          if (state.src[position] === '{') depth++;
+          else if (state.src[position] === '}' && --depth === 0) {
+            if (!silent) {
+              const token = state.push('learning_math', '', 0);
+              token.content = state.src.slice(state.pos, position + 1);
+              token.meta = {display: false};
+              state.env.mathCount = (state.env.mathCount || 0) + 1;
+            }
+            state.pos = position + 1;
+            return true;
+          }
+        }
+        return false;
+      }
       const delimiter = delimiters.find(d => state.src.startsWith(d.open, state.pos));
       if (!delimiter) return false;
       const begin = state.pos + delimiter.open.length;
@@ -96,9 +113,16 @@
         ALLOW_DATA_ATTR: false,
       });
       container.replaceChildren(content);
+      for (const math of container.querySelectorAll('.katex')) {
+        if (math.closest('.katex-display')) continue;
+        const region = document.createElement('span');
+        region.className = 'learning-math-inline';
+        math.before(region);
+        region.append(math);
+      }
       // These regions can overflow after a viewport change. Keep their scroll
       // controls reachable by keyboard even when rendered before attachment.
-      for (const region of container.querySelectorAll('pre, .katex-display')) {
+      for (const region of container.querySelectorAll('pre, .katex-display, .learning-math-inline')) {
         region.tabIndex = 0;
         region.setAttribute('role', 'region');
         region.setAttribute('aria-label', region.tagName === 'PRE' ? 'Code example' : 'Mathematical expression');

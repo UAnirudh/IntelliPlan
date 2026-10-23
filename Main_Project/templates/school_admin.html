@@ -5,7 +5,7 @@
 <article class="learning-hub learning-admin" aria-labelledby="admin-title" data-no-motion><header class="learning-intro"><div class="learning-context"><span class="learning-eyebrow">Institution settings</span><a href="{{ adult_home|default('/learning') }}">Back to workspace <span aria-hidden="true">↗</span></a></div>
 <h1 id="admin-title">Choose the tools for your district.</h1><p>Turn individual tools on or off for each district or school. District restrictions apply to every linked school, including direct API requests.</p></header>
 <p id="admin-status" role="status" aria-live="polite"></p>
-<div class="learning-organization"><div><label for="admin-organization">District or school</label><select id="admin-organization" aria-describedby="admin-scope" disabled></select></div><p id="admin-scope"></p></div>
+<div class="learning-organization"><div><label for="admin-organization">District, school, or classroom</label><select id="admin-organization" aria-describedby="admin-scope" disabled></select></div><p id="admin-scope"></p></div>
 <div class="learning-admin-layout">
 <section class="learning-panel learning-policy-panel" aria-labelledby="policy-title"><span class="learning-eyebrow">Tool access</span><h2 id="policy-title">A workspace that fits your school.</h2>
 <p id="admin-tool-summary" class="policy-summary" role="status"></p>
@@ -25,6 +25,9 @@
 <label>Scheduled assessment windows · one timezone-qualified start/end pair per line<textarea id="admin-assessment-windows" rows="3" placeholder="2026-10-12T09:00:00-07:00 / 2026-10-12T10:00:00-07:00"></textarea></label>
  </fieldset><div class="policy-save-row"><button type="submit" class="learning-primary" id="admin-save" disabled>Save policy</button><button type="button" id="admin-reload">Reload policy</button><p>Changes apply to members of this district or school after saving.</p></div></form></section>
 <div class="learning-admin-secondary">
+<section class="learning-panel"><h2>Classrooms</h2><p id="admin-classroom-scope">Select a school above to create a classroom. Its school and district restrictions will apply.</p>
+<form id="admin-classroom"><label for="admin-classroom-name">Classroom name<input id="admin-classroom-name" maxlength="160" required placeholder="Health · Grade 9"></label><button type="submit" id="admin-classroom-create" disabled>Create classroom</button></form>
+<p>After creating a classroom, use Members below to assign its teacher and students. This grants classroom access only; it does not grant institution administration.</p><a href="/teacher/terminology">Manage clinical lesson vocabulary</a></section>
 <section class="learning-panel"><h2>Members</h2><p>Use the ID of an existing account. Administrative authority is delegated by the platform owner.</p>
 <form id="admin-member"><label>Account ID<input id="admin-user-id" type="number" min="1" required></label><label>Role<select id="admin-role"><option value="student">Student</option><option value="teacher">Teacher</option></select></label><button type="submit">Add or update member</button></form><div id="admin-members"></div></section>
 <section class="learning-panel"><h2>Policy audit</h2><p>Administrative changes only. This dashboard does not expose students' private tutor conversations.</p><div id="admin-audit"></div></section>

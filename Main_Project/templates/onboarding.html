@@ -282,11 +282,18 @@
 .onb-msg-meta {
   font-size: 0.74rem; color: var(--text-muted); margin: 4px 4px 0;
 }
+.onb-intro-actions { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+.onb-intro-actions .btn-primary { min-height: 46px; padding: 12px 22px; }
+.onb-intro-actions .onb-skip { padding: 12px 0; background: transparent; border: 0; box-shadow: none; }
+.onb-optional { border-block: 1px solid var(--border); padding: 5px 0; }
+.onb-optional summary { cursor: pointer; padding: 12px 0; min-height: 44px; font-weight: 600; color: var(--text-secondary); }
+.onb-optional summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
+.onb-optional .onb-pillgrid { margin: 6px 0 14px; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="onb-wrap">
+<div class="onb-wrap" data-no-motion>
   <div class="onb-progress" id="onbProgress">
     <span class="onb-pip on"></span>
     <span class="onb-pip"></span>
@@ -297,21 +304,11 @@
     <!-- ── STEP: INTRO (choose mode) ── -->
     <section id="onbIntro" class="onb-section">
       <div class="onb-eyebrow">Welcome to IntelliPlan</div>
-      <h1 class="onb-title">How do you want to set up?</h1>
-      <p class="onb-sub">Pick the path that fits your mood. Both unlock the same features — Customized just tunes IntelliPlan to you faster.</p>
-      <div class="onb-mode-grid">
-        <button type="button" class="onb-mode" onclick="onbPickMode('quick')">
-          <span class="onb-mode-badge"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px"><use href="#i-lightning"/></svg> 30 seconds</span>
-          <h3>Quick start</h3>
-          <p>Skip the questions. I'll customize later from Settings if I want to.</p>
-          <span class="onb-mode-meta">Pick your grade, connect your school, done.</span>
-        </button>
-        <button type="button" class="onb-mode" onclick="onbPickMode('custom')">
-          <span class="onb-mode-badge"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px"><use href="#i-sparkle"/></svg> Recommended</span>
-          <h3>Customized with AI</h3>
-          <p>Have a quick back-and-forth with IntelliPlan so the scheduler and tutor are tuned to your courses, goals, and free time.</p>
-          <span class="onb-mode-meta">~2 minutes. Includes an option to import grades from your school.</span>
-        </button>
+      <h1 class="onb-title">Let's make your first plan.</h1>
+      <p class="onb-sub">Start with the basics, then connect your school when you're ready. You can change everything later in Settings.</p>
+      <div class="onb-intro-actions">
+        <button type="button" class="btn-primary" onclick="onbPickMode('quick')">Quick start</button>
+        <button type="button" class="onb-skip no-glass" onclick="onbPickMode('custom')">Set up with AI instead</button>
       </div>
     </section>
 
@@ -330,8 +327,8 @@
             {% endfor %}
           </select>
         </div>
-        <div>
-          <span class="onb-label">Subjects (optional)</span>
+        <details class="onb-optional" data-no-motion>
+          <summary>Choose subjects (optional)</summary>
           <div id="qFocus" class="onb-pillgrid">
             {% for f in focus_choices %}
               <label class="onb-pill {% if f in identity.focus_areas %}on{% endif %}">
@@ -340,12 +337,7 @@
               </label>
             {% endfor %}
           </div>
-        </div>
-        <div style="padding:12px 14px;border-radius:12px;background:var(--accent-soft);border:1px solid var(--border-accent);font-size:0.84rem;color:var(--text-primary);line-height:1.5;">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><use href="#i-lightbulb"/></svg> <strong>Heads up:</strong> AI features will be generic until you add more in
-          <a href="/settings" style="color:var(--accent);font-weight:600;">Settings</a>
-          (goals, availability, grade history opt-in).
-        </div>
+        </details>
       </div>
       <div class="onb-actions">
         <button class="onb-skip" onclick="onbShow('intro')">← Back</button>

@@ -3,6 +3,18 @@
   'use strict';
   var parser, mathSources = [], mathCount = 0;
   function json(value) { try { return JSON.stringify(value, null, 2); } catch (_) { return 'Response could not be displayed.'; } }
+  function parseEnvelope(source) {
+    // Some providers return a JSON envelope with single TeX backslashes. JSON
+    // treats \frac/\text as control escapes and rejects \ce/\[ entirely. Repair
+    // only recognizable TeX commands, preserving proper JSON escapes and code.
+    if (/[\$]|\\(?:ce|pu)\{|\\[([]/.test(source)) {
+      var command = /^\\(?:ce|pu|frac|dfrac|tfrac|sqrt|text|mathrm|mathbf|displaystyle|begin|end|alpha|beta|gamma|delta|theta|lambda|mu|pi|sigma|omega|Delta|rightarrow|leftarrow|leftrightarrow|rightleftharpoons|to|times|cdot|sum|int|lim|infty|left|right)\b|^\\[()[\]]/;
+      source = source.replace(/\\\\|\\(?:ce|pu|frac|dfrac|tfrac|sqrt|text|mathrm|mathbf|displaystyle|begin|end|alpha|beta|gamma|delta|theta|lambda|mu|pi|sigma|omega|Delta|rightarrow|leftarrow|leftrightarrow|rightleftharpoons|to|times|cdot|sum|int|lim|infty|left|right)\b|\\[()[\]]|\\./g, function (match) {
+        return command.test(match) ? '\\' + match : match;
+      });
+    }
+    return JSON.parse(source);
+  }
   function normalize(value) {
     for (var depth = 0; depth < 8; depth++) {
       if (typeof value === 'string') {
@@ -10,14 +22,14 @@
         var fenced = /^```(?:json)?\s*\n([\s\S]*?)\n```\s*$/i.exec(trimmed);
         if (fenced) {
           try {
-            var envelope = JSON.parse(fenced[1]);
+            var envelope = parseEnvelope(fenced[1]);
             if (envelope && typeof envelope === 'object' && ['reply','response','content','text','answer','explanation','message','choices','output'].some(function (key) { return key in envelope; })) value = envelope;
             else return trimmed;
           } catch (_) { return trimmed; }
           continue;
         }
         if (!/^[{\["]/.test(trimmed)) return trimmed;
-        try { value = JSON.parse(trimmed); } catch (_) { return trimmed; }
+        try { value = parseEnvelope(trimmed); } catch (_) { return trimmed; }
       } else if (Array.isArray(value)) {
         var blocks = value.filter(function (block) { return block && ['text','output_text'].includes(block.type) && (typeof block.text === 'string' || typeof block.text?.value === 'string'); });
         if (!blocks.length) return '```json\n' + json(value) + '\n```';
@@ -46,10 +58,40 @@
     if (!window.marked || !window.DOMPurify) return '<p>' + escape(text).replace(/\n/g, '<br>') + '</p>';
     if (!parser) {
       parser = new window.marked.Marked({gfm: true, breaks: false});
-      parser.use({extensions: [{name: 'ipMath', level: 'inline',
-        start: function (source) { return source.search(/\$|\\[([]/); },
+      function placeholder(token) {
+        var index = mathSources.push(token) - 1;
+        return '<span data-ip-math="' + index + '"></span>';
+      }
+      parser.use({extensions: [{name: 'ipDisplayMath', level: 'block',
+        start: function (source) { return source.search(/(?:^|\n)[ \t]*(?:\$\$|\\\[)/); },
         tokenizer: function (source) {
           if (!window.katex || mathCount >= 32) return;
+          var opener = /^(?: {0,3})(\$\$|\\\[)/.exec(source);
+          if (!opener) return;
+          var closer = opener[1] === '$$' ? '$$' : '\\]';
+          var end = source.indexOf(closer, opener[0].length);
+          if (end === -1 || end - opener[0].length > 2000) return;
+          var expression = source.slice(opener[0].length, end).trim();
+          if (!expression) return;
+          mathCount++;
+          return {type: 'ipDisplayMath', raw: source.slice(0, end + closer.length), expression: expression, display: true};
+        }, renderer: placeholder,
+      }, {name: 'ipMath', level: 'inline',
+        start: function (source) { return source.search(/\$|\\[([]|\\(?:ce|pu)\{/); },
+        tokenizer: function (source) {
+          if (!window.katex || mathCount >= 32) return;
+          if (/^\\(?:ce|pu)\{/.test(source)) {
+            var depth = 0;
+            for (var position = source.indexOf('{'); position < Math.min(source.length, 2000); position++) {
+              if (source[position] === '{') depth++;
+              else if (source[position] === '}' && --depth === 0) {
+                mathCount++;
+                var raw = source.slice(0, position + 1);
+                return {type: 'ipMath', raw: raw, expression: raw, display: false};
+              }
+            }
+            return;
+          }
           var opener = ['$$','\\[','\\(','$'].find(function (delimiter) { return source.startsWith(delimiter); });
           if (!opener) return;
           var closer = {'$$':'$$','\\[':'\\]','\\(':'\\)','$':'$'}[opener];
@@ -62,10 +104,7 @@
           return {type: 'ipMath', raw: source.slice(0, end + closer.length), expression: expression,
             display: opener === '$$' || opener === '\\['};
         },
-        renderer: function (token) {
-          var index = mathSources.push(token) - 1;
-          return '<span data-ip-math="' + index + '"></span>';
-        },
+        renderer: placeholder,
       }]});
     }
     mathSources = []; mathCount = 0;
@@ -91,7 +130,7 @@
           trust: false, strict: 'error', throwOnError: true, maxSize: 10, maxExpand: 1000, macros: {}});
       } catch (_) { node.textContent = token.raw; }
     });
-    holder.querySelectorAll('pre,table,.ip-math-display').forEach(function (region) {
+    holder.querySelectorAll('pre,table,.ip-math').forEach(function (region) {
       region.tabIndex = 0; region.setAttribute('role', 'region');
       region.setAttribute('aria-label', region.tagName === 'PRE' ? 'Code example' : region.tagName === 'TABLE' ? 'Response table' : 'Mathematical expression');
     });

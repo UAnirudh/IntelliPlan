@@ -47,8 +47,7 @@
       var reading = element('output', input.value, holder);
       input.addEventListener('input', function () {
         reading.textContent = input.value;
-        describe();
-        if (!frame) frame = requestAnimationFrame(function () { frame = 0; draw(); });
+        if (!frame) frame = requestAnimationFrame(function () { frame = 0; describe(); draw(); });
       });
       return input;
     }
@@ -114,10 +113,14 @@
     element('p', label(config.question, 'Choose an option and explain your thinking.'), wrap);
     var feedback = element('p', 'Choose an option to check your reasoning.', wrap);
     feedback.setAttribute('role', 'status');
+    var buttons = [];
     config.options.forEach(function (option, index) {
       var button = element('button', option.slice(0, 300), wrap);
       button.type = 'button'; button.className = 'quiz-option';
+      button.setAttribute('aria-pressed', 'false');
+      buttons.push(button);
       button.addEventListener('click', function () {
+        buttons.forEach(function (option) { option.setAttribute('aria-pressed', String(option === button)); });
         feedback.textContent = index === config.correct
           ? 'That matches this AI-generated check. Tell Plani why you chose it.'
           : 'Try again. What might rule out this option?';
@@ -127,6 +130,7 @@
   }
   function create(segment) {
     var wrap = element('section'); wrap.className = 'tutor-artifact';
+    wrap.setAttribute('aria-label', label(segment.title, 'Interactive practice'));
     wrap.setAttribute('data-no-motion', '');
     var head = element('div', label(segment.title, 'Explore'), wrap);
     head.className = 'tutor-artifact-head';

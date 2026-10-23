@@ -2,11 +2,13 @@
 
 What "linking an account" means
 -------------------------------
-None of these providers lets a third-party app spend a consumer subscription
-(Claude Pro, ChatGPT Plus, Gemini Advanced) on a user's behalf; there is no
-OAuth grant for that. What a student can link is an *API key* from the
-provider's developer console, billed to them by the provider. That is what
-this module handles.
+This module links developer API keys, billed separately by each provider.
+OpenAI also offers Sign in with ChatGPT and optional eligible ChatGPT plan
+usage. Its open-source/local-host flow and approved hosted integrations are
+separate from API-key linking; hosted IntelliPlan needs its own approved
+registration before offering that connection. This module does not accept
+ChatGPT OAuth tokens or session credentials as API keys. See
+https://developers.openai.com/siwc/token-sharing-open-source .
 
 A key is checked with a call that costs nothing (listing models) before it
 is saved, stored encrypted, shown back only as its last four characters,
@@ -36,7 +38,7 @@ GROQ = "groq"
 PROVIDERS: dict[str, dict[str, str]] = {
     ANTHROPIC: {"name": "Claude (Anthropic)", "console": "https://console.anthropic.com/settings/keys",
                 "prefix": "sk-ant-"},
-    OPENAI: {"name": "ChatGPT (OpenAI)", "console": "https://platform.openai.com/api-keys",
+    OPENAI: {"name": "OpenAI API", "console": "https://platform.openai.com/api-keys",
              "prefix": "sk-"},
     GEMINI: {"name": "Gemini (Google AI Studio)", "console": "https://aistudio.google.com/apikey",
              "prefix": ""},

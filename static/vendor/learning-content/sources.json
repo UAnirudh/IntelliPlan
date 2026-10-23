@@ -31,6 +31,10 @@
   ],
   "files": [
     {
+      "path": "README.md",
+      "sha256": "45e266ddf656992e803baf30c339e0c563975efcac37cf436c27cbc34c4c1ccc"
+    },
+    {
       "path": "dompurify-LICENSE",
       "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
     },
@@ -303,12 +307,20 @@
       "sha256": "635972b985228e8af9f0143647c68616b7a3bb09f6946e7e4a52e43dcf5e7be5"
     },
     {
-      "path": "purify.min.js",
-      "sha256": "2c90a9b46d6463f26038a29b686e82bc91de01fdac9d5229e7cfe3b360134ea2"
+      "path": "mhchem-Apache-LICENSE",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30"
     },
     {
-      "path": "README.md",
-      "sha256": "111c6694674e4b650727122a74bd4b2582d6ab55f6f256fb3ffab40a24cedea5"
+      "path": "mhchem-NOTICE",
+      "sha256": "777e0c648c454ec557a3dbd574f055723053bfbb20450d69d712e2ac1d94df49"
+    },
+    {
+      "path": "mhchem.min.js",
+      "sha256": "aaf20145c0b8ecd450ccf6eb0cebece2f77d8e6a02c30d291f28c1167b57b2df"
+    },
+    {
+      "path": "purify.min.js",
+      "sha256": "2c90a9b46d6463f26038a29b686e82bc91de01fdac9d5229e7cfe3b360134ea2"
     }
   ]
 }

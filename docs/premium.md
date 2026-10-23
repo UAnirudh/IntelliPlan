@@ -95,6 +95,28 @@ The Stripe webhook must send `checkout.session.completed` and `invoice.paid`. Ch
 
 ## What "link your AI account" can and can't mean
 
-Anthropic, OpenAI and Google don't let a third-party app spend a consumer subscription
-(Claude Pro, ChatGPT Plus, Gemini Advanced). A student can link an **API key** from the
-provider's developer console, billed to them by the provider. The settings page says so.
+The implemented linked-account route accepts **developer API keys**, billed separately
+by the provider. It does not spend a ChatGPT subscription.
+
+As checked on October 22, 2026, OpenAI supports optional eligible ChatGPT plan usage
+through Sign in with ChatGPT. The public open-source flow covers open-source and
+locally hosted apps. A paid or remotely hosted app such as hosted IntelliPlan needs
+OpenAI's approval; it cannot reuse another application's OAuth client registration.
+The AI settings page distinguishes these connections and does not offer a connection
+that has not been configured and approved.
+
+- [Plan usage availability](https://developers.openai.com/siwc/token-sharing-open-source)
+- [Hosted website integration](https://developers.openai.com/siwc/website)
+- [Request hosted integration access](https://openai.com/form/sign-in-with-chatgpt-interest/)
+
+After approval, add a separate subscription adapter rather than treating OAuth tokens
+as BYOK keys. The adapter needs an owned client registration and exact callback,
+single-use state/nonce/PKCE bound to the signed-in IntelliPlan account, verified ID
+tokens, encrypted per-user credentials, explicit granted inference scopes, revocation,
+refresh, and a user-visible disconnect. Route requests through the same student,
+institution, budget and safety checks as other Plani providers. Verify the real
+authorization callback and a completed eligible Responses API request before enabling
+the product connection. The website identity flow alone is not proof of plan usage.
+
+An MCP server can expose authorized IntelliPlan tools to an AI host; creating one does
+not itself grant access to a user's ChatGPT plan or replace the required provider grant.

@@ -61,7 +61,11 @@ jobs:
       - run: playwright install chromium
 
       - name: Parent and teacher progress workflows
-        run: python scripts/verify_adult_access_browser.py
+        run: |
+          python scripts/verify_adult_access_browser.py
+          python scripts/verify_teacher_terms_browser.py
+          python scripts/verify_signup_workspace_browser.py
+          python scripts/verify_ai_connection_browser.py
 
       - name: Tutor SVG, quiz and untrusted-content workflows
         env:
@@ -69,6 +73,7 @@ jobs:
         run: |
           python scripts/verify_tutor_exercises_browser.py
           python scripts/verify_tutor_page_browser.py
+          python scripts/verify_chemical_rendering_browser.py
       - name: Calendar outage warning and stale-response workflows
         env:
           CALENDAR_BROWSER_OUTPUT: ${{ runner.temp }}/tutor-browser-proof/calendar-health

@@ -46,12 +46,18 @@
     dirty = false;
     const inherited = new Set(selected.inherited_restrictions || []);
     $('admin-save').disabled = false;
-    $('admin-scope').textContent = `${selected.kind} · policy version ${selected.version}${selected.parent_id ? ' · parent district restrictions also apply' : ''}`;
+    $('admin-scope').textContent = `${selected.kind} · policy version ${selected.version}${selected.parent_id ? ' · parent institution restrictions also apply' : ''}`;
+    $('admin-classroom-create').disabled = selected.kind !== 'school';
+    $('admin-classroom-scope').textContent = selected.kind === 'school'
+      ? 'Create a classroom in ' + selected.name + '. School and district restrictions will apply.'
+      : selected.kind === 'class'
+        ? 'This classroom is selected. Assign its teacher and students in Members below.'
+        : 'Select a school above to create a classroom. Its school and district restrictions will apply.';
     for (const key of Object.keys(settings)) {
       const input = $(`policy-${key}`);
       input.checked = inherited.has(key) ? false : selected.policy[key] ?? key !== 'assessment_protection';
       input.disabled = inherited.has(key);
-      input.closest('label').querySelector('[data-policy-hint]').textContent = inherited.has(key) ? 'Restricted by parent district' : '';
+      input.closest('label').querySelector('[data-policy-hint]').textContent = inherited.has(key) ? 'Restricted by parent institution' : '';
     }
     updateSummary();
     for (const p of ['groq','gemini','claude']) $(`policy-${p}`).checked = (selected.policy.providers || ['groq','gemini','claude']).includes(p);
@@ -119,10 +125,40 @@
     }
   });
   $('admin-member').addEventListener('submit', async event => {
-    event.preventDefault(); if (!selected) return; event.submitter.disabled = true;
-    try { await api(`/api/school-admin/organizations/${selected.id}/members`, {method:'POST', body:JSON.stringify({user_id:Number($('admin-user-id').value), role:$('admin-role').value})});
-      await render(); status('Membership saved.');
-    } catch(e) { status(e.message); } finally { event.submitter.disabled = false; }
+    event.preventDefault(); if (!selected || saving) return; event.submitter.disabled = true;
+    const target = selected; saving = true; $('admin-organization').disabled = true;
+    try { await api(`/api/school-admin/organizations/${target.id}/members`, {method:'POST', body:JSON.stringify({user_id:Number($('admin-user-id').value), role:$('admin-role').value})});
+      if (selected === target) { await render(); status('Membership saved.'); }
+    } catch(e) { status(e.message); } finally {
+      saving = false; event.submitter.disabled = false;
+      $('admin-organization').disabled = !organizations.length;
+    }
+  });
+  $('admin-classroom').addEventListener('submit', async event => {
+    event.preventDefault();
+    if (!selected || selected.kind !== 'school' || saving) return;
+    if (dirty) { status('Save your policy changes or reload before creating a classroom.'); return; }
+    const school = selected;
+    saving = true;
+    $('admin-classroom-create').disabled = true;
+    $('admin-organization').disabled = true;
+    $('admin-member').inert = true;
+    $('admin-policy').inert = true;
+    try {
+      const data = await api('/api/school-admin/organizations', {method:'POST', body:JSON.stringify({
+        kind:'class', parent_id:school.id, name:$('admin-classroom-name').value.trim(), policy:{}
+      })});
+      $('admin-classroom-name').value = '';
+      await loadOrganizations(data.id);
+      status('Classroom created. Assign its teacher and students in Members.');
+    } catch(error) { status(error.message); }
+    finally {
+      saving = false;
+      $('admin-organization').disabled = !organizations.length;
+      $('admin-classroom-create').disabled = selected?.kind !== 'school';
+      $('admin-member').inert = false;
+      $('admin-policy').inert = false;
+    }
   });
   $('admin-beta').addEventListener('submit', async event => {
     event.preventDefault(); if (!selected) return;
@@ -132,9 +168,9 @@
       if (selected === target) { await render(); status('Preview approval updated. The member chooses whether to enroll.'); }
     } catch(error) { status(error.message); } finally { event.submitter.disabled = false; }
   });
-  async function loadOrganizations() {
+  async function loadOrganizations(preferredId) {
     const data = await api('/api/school-admin/organizations');
-    const selectedId = selected?.id;
+    const selectedId = preferredId ?? selected?.id;
     organizations = data.organizations;
     $('admin-organization').replaceChildren();
     for (const org of organizations) { const option = document.createElement('option'); option.value = org.id; option.textContent = org.name; $('admin-organization').append(option); }

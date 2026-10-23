@@ -135,6 +135,7 @@ def test_selected_assignment_reaches_tutor_without_entering_saved_messages(clien
 
 @pytest.mark.parametrize('mode', ['single', 'multi'])
 def test_photo_tutor_receives_selected_assignment_context(client, monkeypatch, mode):
+    monkeypatch.setattr(chatbot_api, '_moderation_response', lambda *a, **k: None)
     _sign_in(client, consent=True)
     context = {'title': 'Diagram', 'description': 'Label the cycle.',
                'materials': [{'name': 'reading.txt', 'text': 'Evaporation comes first.'}],
