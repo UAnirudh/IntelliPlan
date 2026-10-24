@@ -54,7 +54,7 @@ jobs:
         with:
           node-version: '22'
       - name: Camera selection and cancellation regressions
-        run: node --test tests/browser/study_camera.test.cjs tests/browser/study_camera_network.test.cjs tests/browser/tutor_audio.test.cjs tests/browser/tutor_history.test.cjs tests/browser/command_chat.test.cjs
+        run: node --test tests/browser/*.test.cjs
 
       # ── Playwright deps
       - run: pip install playwright pytest-playwright
@@ -78,6 +78,14 @@ jobs:
         env:
           CALENDAR_BROWSER_OUTPUT: ${{ runner.temp }}/tutor-browser-proof/calendar-health
         run: python scripts/verify_calendar_outage_browser.py
+      - name: Scheduler calendar planning and export workflows
+        env:
+          SCHEDULER_CALENDAR_BROWSER_OUTPUT: ${{ runner.temp }}/tutor-browser-proof/scheduler-calendar
+        run: python scripts/verify_scheduler_calendar_browser.py
+      - name: Photo notes to interactive practice and saved review
+        env:
+          PHOTO_STUDY_BROWSER_OUTPUT: ${{ runner.temp }}/tutor-browser-proof/photo-practice
+        run: python tests/browser/photo_study_acceptance.py
       - name: Offline account isolation and durable queue workflows
         run: python scripts/verify_offline_owner_browser.py
       - uses: actions/upload-artifact@v4

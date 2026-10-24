@@ -967,22 +967,29 @@ def _execute_tool(name: str, args: dict, user_id: int) -> dict[str, Any]:
             try:
                 from App import get_google_token
                 from google_calendar_helper import add_schedule_to_calendar
+                from intelliplan.scheduler_clock import timezone_for
                 google_token = get_google_token() if _capabilities_allowed(_tool_user(user_id), 'calendar') else None
                 if google_token and _capabilities_allowed(_tool_user(user_id), 'calendar'):
-                    ids, _new_token, skipped = add_schedule_to_calendar(google_token, schedule)
+                    zone, offset = timezone_for(user_id)
+                    ids, _new_token, skipped = add_schedule_to_calendar(
+                        google_token, schedule, skip_overlaps=True,
+                        tz_name=zone, utc_offset_minutes=offset)
                     exports["google"] = {"created": len(ids), "skipped": skipped}
             except Exception as exc:
                 logger.warning("Google calendar export from Plani failed: %s", exc)
             try:
-                from App import _user_tz_name, get_outlook_token, outlook_calendar_helper
+                from App import get_outlook_token, outlook_calendar_helper
+                from intelliplan.scheduler_clock import timezone_for
                 outlook_token = get_outlook_token() if _capabilities_allowed(_tool_user(user_id), 'calendar') else None
                 if outlook_token and _capabilities_allowed(_tool_user(user_id), 'calendar'):
                     # The student's own zone, so blocks land at the hour the
                     # plan says rather than at that hour in California. The
                     # export also skips blocks already there, so asking twice
                     # does not double the calendar.
+                    zone, offset = timezone_for(user_id)
                     result = outlook_calendar_helper.export_schedule(
-                        outlook_token, schedule, tz_name=_user_tz_name(user_id))
+                        outlook_token, schedule, tz_name=zone, utc_offset_minutes=offset,
+                        skip_overlaps=True)
                     exports["outlook"] = {"created": len(result["created"]),
                                           "skipped": result["skipped"]}
             except Exception as exc:

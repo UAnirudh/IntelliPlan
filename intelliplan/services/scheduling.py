@@ -391,7 +391,10 @@ class SchedulingService:
         work, not to have opinions about what writing an essay involves.
         """
         tasks: list[PlannerTask] = []
+        from intelliplan.services.assignment_status import requires_student_action
         for row in rows:
+            if not requires_student_action(row):
+                continue
             try:
                 task = task_from_mapping(row, timezone_name=self._ctx.timezone_name,
                                          utc_offset_minutes=self._ctx.timezone_offset_minutes)

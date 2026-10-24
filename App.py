@@ -97,6 +97,7 @@ import pet_engine
 import analytics as app_analytics
 import scheduler_engine
 from intelliplan.services.calendar_availability import CalendarUnavailable
+from intelliplan.services.assignment_status import annotate_assignment, requires_student_action, submission_facts
 import scheduler_depth
 import scheduler_clarify
 from flashcards import store as fc_store
@@ -10187,30 +10188,62 @@ def calendar_events():
             events = sorted(events + outlook_events, key=lambda e: str(e.get("start") or ""))
         return flask.jsonify({"connected": True, "events": events})
     except Exception as e:
-        print(f"Calendar events error: {e}")
-        session.pop("google_token", None)
-        if current_user.is_authenticated:
-            GoogleIntegration.query.filter_by(user_id=current_user.id).delete()
-            db.session.commit()
+        _log_calendar_busy_failure('google', e)
+        # An outage is not a disconnect or permission to delete OAuth state.
+        failure = CalendarUnavailable(('google',))
         if outlook_events is not None:
             return flask.jsonify({"connected": True, "events": outlook_events,
-                                  "error": safe_error_message(e)})
-        return flask.jsonify({"connected": False, "error": safe_error_message(e), "events": []})
+                                  "error_code": 'calendar_unavailable',
+                                  "partial": True, "message": str(failure)})
+        return flask.jsonify(connected=True, events=[], **failure.response()), 503
 
 @app.route("/calendar/free-slot")
 def calendar_free_slot():
-    if not GCAL_AVAILABLE:
-        return flask.jsonify({"slot": "7:00 PM", "connected": False})
-    token = get_google_token()
-    date_str = request.args.get("date", datetime.now().strftime("%Y-%m-%d"))
-    if not token:
-        return flask.jsonify({"slot": "7:00 PM", "connected": False})
+    """One complete range read across both calendars, in the student's zone."""
+    if not current_user.is_authenticated:
+        return flask.jsonify(slot='', connected=False, available=False)
+    if not _calendar_policy_allowed():
+        return flask.jsonify(error_code='policy_denied', connected=False, available=False), 403
+    from intelliplan.scheduler_clock import now_for
+    from intelliplan.services.calendar_slots import free_time_summary
+    now = now_for(current_user.id)
     try:
-        slot = find_free_slots(token, date_str)
-        free_hours = compute_free_hours(token, date_str)
-        return flask.jsonify({"slot": slot, "connected": True, "free_hours": free_hours})
-    except Exception as e:
-        return flask.jsonify({"slot": "7:00 PM", "connected": False, "error": safe_error_message(e)})
+        target = datetime.strptime(request.args.get('date', now.date().isoformat()), '%Y-%m-%d').date()
+        days = int(request.args.get('days', '1'))
+        if not 1 <= days <= 7 or abs((target - now.date()).days) > 60:
+            raise ValueError
+    except (TypeError, ValueError):
+        return flask.jsonify(error_code='invalid_date_range', connected=False, available=False), 400
+    uid = current_user.id
+    connected = bool(GoogleIntegration.query.with_entities(GoogleIntegration.id).filter_by(user_id=uid).first()
+                     or OutlookIntegration.query.with_entities(OutlookIntegration.id).filter_by(user_id=uid).first())
+    if not connected:
+        return flask.jsonify(slot='', connected=False, available=False)
+    try:
+        busy = _calendar_busy_by_date(days, start=target, require_complete=True)
+        if not _calendar_policy_allowed():
+            return flask.jsonify(error_code='policy_denied', connected=False, available=False), 403
+        for day, intervals in _class_busy_by_date(uid, target, days).items():
+            busy.setdefault(day, []).extend(intervals)
+        suggestions = []
+        for index in range(days):
+            day = target + timedelta(days=index)
+            intervals = busy.get(day.isoformat(), []) + busy.get(day, [])
+            lower = (now.hour * 60 + now.minute + bool(now.second or now.microsecond)
+                     if day == now.date() else 7 * 60)
+            if day < now.date():
+                lower = 1440
+            suggestions.append({'date': day.isoformat(), **free_time_summary(intervals, not_before=lower)})
+        if not _calendar_policy_allowed():
+            return flask.jsonify(error_code='policy_denied', connected=False, available=False), 403
+        return flask.jsonify(connected=True, calendar_verified=True,
+                             suggestions=suggestions, **suggestions[0])
+    except CalendarUnavailable as exc:
+        return flask.jsonify(**exc.response(), connected=True, available=False, slot=''), 503
+    except Exception as exc:
+        _log_calendar_busy_failure('clock', exc)
+        failure = CalendarUnavailable(('clock',))
+        return flask.jsonify(**failure.response(), connected=True, available=False, slot=''), 503
 
 @app.route("/calendar/export", methods=["POST"])
 def calendar_export():
@@ -10227,23 +10260,27 @@ def calendar_export():
         if not GCAL_AVAILABLE and not (OUTLOOK_AVAILABLE and outlook_calendar_helper.configured()):
             return flask.jsonify({"status": "error", "message": "Calendar export is not configured"})
         return flask.jsonify({"status": "error", "message": "No calendar connected"})
-    data = request.get_json(silent=True) or {}
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return flask.jsonify(status='error', message='Send a JSON object containing a schedule.'), 400
     schedule_data = data.get("schedule_data")
     if not schedule_data:
         return flask.jsonify({"status": "error", "message": "No schedule data supplied"}), 400
-    skip_overlaps = data.get("skip_overlaps", False)
+    if not isinstance(schedule_data, dict) or not isinstance(schedule_data.get('schedule'), list):
+        return flask.jsonify(status='error', message='Send a valid schedule.'), 400
+    skip_overlaps = data.get("skip_overlaps", True)
+    if type(skip_overlaps) is not bool:
+        return flask.jsonify(status='error', message='Overlap checking must be true or false.'), 400
     providers = {}
 
     if google_token:
         token = google_token
         try:
-            existing_events = []
-            if skip_overlaps:
-                try:
-                    existing_events = get_upcoming_events(token)
-                except Exception:
-                    existing_events = []
-            ids, new_token, skipped = add_schedule_to_calendar(token, schedule_data, existing_events if skip_overlaps else [])
+            from intelliplan.scheduler_clock import timezone_for
+            zone, offset = timezone_for(current_user.id if current_user.is_authenticated else None)
+            ids, new_token, skipped = add_schedule_to_calendar(
+                token, schedule_data, skip_overlaps=skip_overlaps,
+                tz_name=zone, utc_offset_minutes=offset)
             if new_token:
                 session["google_token"] = {**token, "token": new_token}
                 session.modified = True
@@ -10261,9 +10298,11 @@ def calendar_export():
 
     if outlook_token:
         try:
+            from intelliplan.scheduler_clock import timezone_for
+            zone, offset = timezone_for(current_user.id)
             result = outlook_calendar_helper.export_schedule(
                 outlook_token, schedule_data, skip_overlaps=bool(skip_overlaps),
-                tz_name=_user_tz_name(current_user.id))
+                tz_name=zone, utc_offset_minutes=offset)
             providers["outlook"] = {"created": len(result["created"]), "skipped": result["skipped"]}
         except Exception as e:
             print(f"Outlook export error: {type(e).__name__}")
@@ -10665,6 +10704,7 @@ def _account_delete_impl():
 @app.route("/live")
 @limiter.limit("30 per minute")
 def get_live_schedule():
+    include_waiting = request.args.get('include_waiting') == '1'
     acct = get_active_account()
     if not acct:
         return flask.jsonify([])
@@ -10680,7 +10720,8 @@ def get_live_schedule():
                 print("StudentVue returned non-list data")
                 return flask.jsonify([])
             filtered = [a for a in result if isinstance(a, dict) and a.get("title") not in excluded]
-            return flask.jsonify(filtered)
+            return flask.jsonify(_assignment_display_rows(
+                [{**a, 'source': 'studentvue'} for a in filtered], include_waiting=include_waiting))
         except Exception as e:
             print(f"StudentVue Live Error: {str(e)}")
             return flask.jsonify([]), 500
@@ -10688,14 +10729,18 @@ def get_live_schedule():
         try:
             from schoology_helper import get_schoology_assignments
             result = get_schoology_assignments(acct["schoology_key"], acct["schoology_secret"])
-            return flask.jsonify([a for a in result if a.get("title", "") not in excluded])
+            return flask.jsonify(_assignment_display_rows(
+                [{**a, 'source': 'schoology'} for a in result if a.get('title', '') not in excluded],
+                include_waiting=include_waiting))
         except Exception as e:
             print(f"Schoology Error: {e}")
             return flask.jsonify([])
     if login_type == "hac":
         try:
             result = hac_helper.get_assignments(*_hac_args(acct))
-            return flask.jsonify([a for a in result if isinstance(a, dict) and a.get("title") not in excluded])
+            return flask.jsonify(_assignment_display_rows(
+                [{**a, 'source': 'hac'} for a in result if isinstance(a, dict) and a.get('title') not in excluded],
+                include_waiting=include_waiting))
         except Exception as e:
             print(f"HAC Live Error: {type(e).__name__}: {e}")
             return flask.jsonify([]), 500
@@ -10721,13 +10766,11 @@ def get_live_schedule():
         for a in assignments:
             if not isinstance(a, dict): continue
             if a.get("due_at") is None: continue
-            if _canvas_submission_done_or_pending_grade(a): continue
             if a.get("points_possible") is None:
                 a["points_possible"] = 60
             due_str = a["due_at"]
             due_date = datetime.fromisoformat(due_str.replace("Z", "+00:00"))
             days = (due_date - today).days
-            if days < -14: continue
             priority = compute_priority(days, a["points_possible"], a.get("name", ""))
             rounded_minutes, description = _lms_row_sizing(a, a["points_possible"])
             difficulty = infer_task_difficulty(a["points_possible"], priority, due_str[:10])
@@ -10735,6 +10778,8 @@ def get_live_schedule():
             if title in excluded: continue
             schedule.append({
                 "id": str(a["id"]),
+                "source": "canvas",
+                "submission": a.get('submission'),
                 "course_id": str(a["course_id"]),
                 "title": title,
                 "course": course_map.get(a["course_id"], "Unknown Course"),
@@ -10746,7 +10791,8 @@ def get_live_schedule():
                 "description": description,
                 "color": PRIORITY_COLORS.get(priority, "#60a5fa"),
             })
-        return flask.jsonify(sorted(schedule, key=lambda x: x["due_date"]))
+        return flask.jsonify(_assignment_display_rows(
+            sorted(schedule, key=lambda x: x['due_date']), include_waiting=include_waiting))
     except Exception as e:
         print(f"Canvas live error: {e}")
         return flask.jsonify([])
@@ -12020,26 +12066,120 @@ def _lms_row_sizing(raw, points_possible, kind=""):
 
 
 def _canvas_submission_done_or_pending_grade(canvas_assignment):
-    """True once the student's own part is finished, whether or not a
-    grade has posted yet.
+    """Use this student's submission evidence, including requests to redo work."""
+    return not requires_student_action(canvas_assignment)
 
-    StudentVue's ``get_assignments`` already drops an assignment the
-    moment it's turned in — "Not Graded" means submitted and awaiting a
-    grade, not something still to do — so it never shows up as overdue
-    just because the teacher hasn't graded it yet. Canvas's assignments
-    endpoint carries no such signal unless the request asks for
-    ``include[]=submission``; without it, every past-due Canvas
-    assignment reads as overdue forever, submitted or not. This mirrors
-    the StudentVue behavior once that submission data is present.
+
+_SUBMISSION_NOTE_PREFIX = '__ip_submission_v1__:'
+
+
+def _assignment_submission_key(row):
+    # A separate owner-scoped metadata namespace cannot overwrite assignment notes.
+    identity = [str(row.get(k) or '').strip() for k in ('source', 'course', 'id', 'title', 'due_date')]
+    return _SUBMISSION_NOTE_PREFIX + hashlib.sha256(json.dumps(identity).encode()).hexdigest()
+
+
+def _submission_evidence_key(row):
+    evidence = row.get('submission') if isinstance(row.get('submission'), dict) else row
+    fields = ('workflow_state', 'submitted_at', 'redo_request', 'reopened', 'requires_resubmission', 'missing')
+    return hashlib.sha256(json.dumps({k: evidence.get(k) for k in fields}, sort_keys=True).encode()).hexdigest()
+
+
+def _assignment_display_rows(rows, *, include_waiting=False, user_id=None):
+    """Keep waiting work inspectable while withholding it from new-work queues.
+
+    Student reports live in the existing owner-bound metadata table. They never
+    alter the LMS or masquerade as provider-confirmed submissions, and expire
+    when the provider's individual submission evidence changes.
     """
-    if not isinstance(canvas_assignment, dict):
-        return False
-    submission = canvas_assignment.get("submission")
-    if not isinstance(submission, dict):
-        return False
-    if submission.get("workflow_state") == "graded":
-        return True
-    return bool(submission.get("submitted_at"))
+    rows = [annotate_assignment(row) for row in rows if isinstance(row, dict)]
+    if not rows:
+        return []
+    if user_id is None and has_request_context() and current_user.is_authenticated:
+        user_id = current_user.id
+    query = CustomDescription.query.filter(CustomDescription.assignment_title.in_([
+        _assignment_submission_key(row) for row in rows]))
+    if user_id is not None:
+        query = query.filter_by(user_id=user_id)
+    elif has_request_context():
+        query = query.filter_by(user_id=None, guest_session_id=get_guest_session_id())
+    else:
+        return [row for row in rows if row['requires_action'] or (include_waiting and row['awaiting_grade'])]
+    overrides = {}
+    for note in query.order_by(CustomDescription.id.asc()).all():
+        try:
+            value = json.loads(note.description)
+            if isinstance(value, dict):
+                overrides[note.assignment_title] = value
+        except (ValueError, TypeError):
+            continue
+    for row in rows:
+        override = overrides.get(_assignment_submission_key(row), {})
+        if (row['requires_action'] and not row['submission_reopened']
+                and override.get('submitted') is True
+                and override.get('evidence_key') == _submission_evidence_key(row)):
+            row.update(submission_status='student_reported', requires_action=False,
+                       awaiting_grade=True, submission_verified=False,
+                       student_submission_override=True,
+                       status_label='You marked submitted · waiting for grade')
+        row['submission_key'] = _assignment_submission_key(row)
+    return [row for row in rows if row['requires_action'] or (include_waiting and row['awaiting_grade'])]
+
+
+@app.route('/api/assignment/submission', methods=['POST'])
+@limiter.limit('60 per minute')
+def api_assignment_submission():
+    if current_user.is_authenticated and current_user.role in {'teacher', 'parent'}:
+        return jsonify(status='error', message='Only students can change their assignment status.'), 403
+    body = request.get_json(silent=True)
+    if (not isinstance(body, dict) or not isinstance(body.get('action'), str)
+            or body['action'] not in {'submitted', 'reopen'}):
+        return jsonify(status='error', message='Choose submitted or reopen.'), 400
+    raw = body.get('assignment')
+    if not isinstance(raw, dict) or not isinstance(raw.get('title'), str) or not raw['title'].strip():
+        return jsonify(status='error', message='Choose an assignment.'), 400
+    row = {}
+    for field in ('source', 'course', 'id', 'title', 'due_date'):
+        value = raw.get(field, '')
+        if not isinstance(value, (str, int)) or isinstance(value, bool) or len(str(value)) > 512:
+            return jsonify(status='error', message='Invalid assignment details.'), 400
+        row[field] = str(value)
+    # Only small, known submission facts are persisted, never arbitrary HTML or a provider token.
+    evidence = raw.get('submission') if isinstance(raw.get('submission'), dict) else raw
+    row['submission'] = {key: evidence.get(key) for key in (
+        'workflow_state', 'submitted_at', 'redo_request', 'reopened', 'requires_resubmission', 'missing')
+        if isinstance(evidence.get(key), (str, bool, type(None)))}
+    key = _assignment_submission_key(row)
+    if body['action'] == 'submitted' and submission_facts(row)['submission_reopened']:
+        return jsonify(status='error', message='Your teacher has requested more work. Finish that work before marking submitted.'), 409
+    payload = json.dumps({
+        'submitted': body['action'] == 'submitted',
+        'evidence_key': _submission_evidence_key(row),
+        'reported_at': utcnow().isoformat(),
+    })
+    owner = {'user_id': current_user.id} if current_user.is_authenticated else {
+        'user_id': None, 'guest_session_id': get_guest_session_id()}
+    if current_user.is_authenticated:
+        # Lock the persistent owner before looking for a metadata row: an
+        # absent row cannot itself be locked against concurrent first writes.
+        db.session.execute(db.select(User.__table__.c.id).where(
+            User.__table__.c.id == current_user.id).with_for_update()).scalar_one()
+    elif db.engine.dialect.name == 'postgresql':
+        lock_key = int.from_bytes(hashlib.sha256(
+            ('submission:' + owner['guest_session_id']).encode()).digest()[:8], 'big', signed=True)
+        db.session.execute(text('SELECT pg_advisory_xact_lock(:key)'), {'key': lock_key})
+    saved = CustomDescription.query.filter_by(assignment_title=key, **owner).all()
+    if saved:
+        # Repair the meaning of any historical duplicate rows without
+        # deleting them. Undo must clear every old affirmative report.
+        for note in saved:
+            note.description = payload
+    else:
+        db.session.add(CustomDescription(assignment_title=key, description=payload, **owner))
+    db.session.commit()
+    if current_user.is_authenticated:
+        invalidate_lms_cache_for_user(current_user.id)
+    return jsonify(status='ok', submission_status='student_reported' if body['action'] == 'submitted' else 'needs_action')
 
 
 def _sized_estimate(assignment, kind, saved_description=None):
@@ -12179,6 +12319,8 @@ def _planner_task_rows(normalized_assignments, custom_tasks, descriptions=None):
 
     rows = []
     for a in normalized_assignments:
+        if not requires_student_action(a):
+            continue
         title = a.get("title") or "Task"
         kind = kind_of(title, a.get("kind") or a.get("type"))
         est_minutes, subtasks, size_signals = _sized_estimate(
@@ -12603,8 +12745,12 @@ def _schedule_without_ai(assignments, preferred_time, hours_per_day,
 def generate_schedule():
     if request.method != "POST":
         return flask.jsonify({"status": "error", "message": "POST required"}), 405
-    data = request.json or {}
-    assignments = data.get("assignments", [])
+    from intelliplan.services.schedule_input import validate_schedule_request
+    try:
+        data = validate_schedule_request(request.get_json(silent=True))
+    except ValueError as exc:
+        return flask.jsonify(status='error', message=str(exc)), 400
+    assignments = _assignment_display_rows(data.get("assignments", []))
     hours_per_day = data.get("hours_per_day", 2)
     preferred_time = data.get("preferred_time", "evening")
     custom_tasks = data.get("custom_tasks", [])
@@ -13394,7 +13540,7 @@ def invalidate_lms_cache_for_user(user_id: int) -> None:
     _LMS_CACHE.pop(user_id, None)
 
 
-def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True) -> list[dict]:
+def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True, include_waiting: bool = False) -> list[dict]:
     """Return canonical LMS-source task dicts for the given user.
 
     Pulls live data from Canvas / StudentVue / Schoology / Classroom /
@@ -13437,7 +13583,7 @@ def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True) ->
     if use_cache and all(permissions.values()):
         cached = _lms_cache_get(user_id)
         if cached is not None:
-            return cached
+            return _assignment_display_rows(cached, include_waiting=include_waiting, user_id=user_id)
 
     tasks: list[dict] = []
     today = date_type.today()
@@ -13530,16 +13676,12 @@ def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True) ->
                         for a in data:
                             if not isinstance(a, dict) or not a.get("due_at"):
                                 continue
-                            if _canvas_submission_done_or_pending_grade(a):
-                                continue
                             due_str = a["due_at"][:10]
                             try:
                                 due = datetime.strptime(due_str, "%Y-%m-%d").date()
                             except Exception:
                                 continue
                             days = (due - today).days
-                            if days < -14:
-                                continue
                             title = a.get("name") or ""
                             if not title or title in dismissed:
                                 continue
@@ -13549,6 +13691,7 @@ def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True) ->
                             )
                             tasks.append({
                                 "id": str(a["id"]),
+                                "submission": a.get('submission'),
                                 "title": title,
                                 "course": course_map.get(a.get("course_id"), course_map.get(course_id, "Unknown")),
                                 "due_date": due_str,
@@ -13645,15 +13788,16 @@ def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True) ->
     # see. This is also the path its background pull uses.
     try:
         import grade_pulse_glue
-        grade_pulse_glue.observe_assignments(user_id, deduped)
+        grade_pulse_glue.observe_assignments(user_id, _assignment_display_rows(deduped, user_id=user_id))
     except Exception as e:
         print(f"[grade-pulse] assignment observe failed: {e}")
-    return deduped
+    return _assignment_display_rows(deduped, include_waiting=include_waiting, user_id=user_id)
 
 
 @app.route("/tasks/unified")
 def unified_tasks():
     from datetime import date as date_type
+    include_waiting = request.args.get('include_waiting') == '1'
 
     def dedupe_tasks(task_list):
         seen = set()
@@ -13733,16 +13877,12 @@ def unified_tasks():
                     for a in data:
                         if not isinstance(a, dict) or not a.get("due_at"):
                             continue
-                        if _canvas_submission_done_or_pending_grade(a):
-                            continue
                         due_str = a["due_at"][:10]
                         try:
                             due = datetime.strptime(due_str, "%Y-%m-%d").date()
                         except Exception:
                             continue
                         days = (due - today).days
-                        if days < -14:
-                            continue
                         title = a["name"]
                         priority = compute_priority(days, a.get("points_possible") or 0, title)
                         if title in dismissed:
@@ -13752,6 +13892,7 @@ def unified_tasks():
                         )
                         tasks.append({
                             "id": str(a["id"]),
+                            "submission": a.get('submission'),
                             "course_id": str(a["course_id"]),
                             "title": title,
                             "course": course_map.get(a["course_id"], "Unknown"),
@@ -13869,17 +14010,23 @@ def unified_tasks():
         tasks = [task for task in tasks if (
             learning_policy.source_capability(task.get('source')) is None or
             permitted[learning_policy.source_capability(task.get('source'))])]
+    tasks = _assignment_display_rows(tasks, include_waiting=include_waiting)
     # Grade Pulse: a teacher's new assignment is noticed on the read that
     # already happens, slotted into the plan, and announced. Manual tasks
     # are skipped inside (the student typed those; telling them is noise).
     if current_user.is_authenticated:
         try:
             import grade_pulse_glue
-            grade_pulse_glue.observe_assignments(current_user.id, tasks)
+            grade_pulse_glue.observe_assignments(current_user.id, [t for t in tasks if t['requires_action']])
         except Exception as e:
             print(f"[grade-pulse] assignment observe failed: {e}")
     result = {"today": [], "upcoming": [], "overdue": []}
+    if include_waiting:
+        result['waiting'] = []
     for t in tasks:
+        if t['awaiting_grade']:
+            result['waiting'].append(t)
+            continue
         due = t.get("due_date", "")
         if not due:
             result["upcoming"].append(t)
@@ -17150,8 +17297,6 @@ def extension_tasks():
                             except Exception:
                                 continue
                             days = (due - today).days
-                            if days < -14:
-                                continue
                             title = a["name"]
                             priority = compute_priority(days, a.get("points_possible") or 0, title)
                             if title in dismissed:
@@ -17160,6 +17305,8 @@ def extension_tasks():
                                 a, a.get("points_possible")
                             )
                             tasks.append({
+                                "id": str(a['id']),
+                                "submission": a.get('submission'),
                                 "title": title,
                                 "course": course_map.get(a["course_id"], "Unknown"),
                                 "due_date": due_str,
@@ -17176,6 +17323,7 @@ def extension_tasks():
         for t in manual:
             if t.title not in dismissed:
                 tasks.append({"id": t.id, "title": t.title, "due_date": t.due_date or "", "priority": t.priority, "course": t.course, "estimated_time": t.estimated_time, "source": "manual", "color": PRIORITY_COLORS.get(t.priority, "#f59e0b")})
+        tasks = _assignment_display_rows(tasks, user_id=user.id)
         result = {"today": [], "upcoming": [], "overdue": []}
         for t in tasks:
             due = t.get("due_date", "")
@@ -22309,6 +22457,7 @@ _PLAN_MUTATING_PATHS = (
     "/tasks/manual/create",
     "/tasks/manual/update",
     "/tasks/manual/delete",
+    "/api/assignment/submission",
     "/dismiss",
     "/restore",
     "/test/mark",
@@ -22687,18 +22836,30 @@ def health_check():
     """Diagnostic endpoint. Returns DB-schema state so we can see in
     production whether the migration ran. Public, no secrets exposed."""
     revision = os.environ.get('RAILWAY_GIT_COMMIT_SHA', '')
+    from intelliplan.services.health_schema import schema_columns
+    try:
+        # Liveness is deliberately uncached, independently of schema metadata.
+        db.session.execute(db.text('SELECT 1'))
+        columns = schema_columns(db.engine, connection=db.session.connection())
+        healthy = True
+    except Exception:
+        db.session.rollback()
+        columns = {'users': [], 'notion_integrations': []}
+        healthy = False
     out = {
-        "status": "ok",
+        "status": "ok" if healthy else "error",
         "revision": revision if re.fullmatch(r'[0-9a-f]{40}', revision) else None,
         "migration_done": bool(_MIGRATION_DONE),
-        "users_columns": sorted(_existing_columns("users")),
-        "notion_columns": sorted(_existing_columns("notion_integrations")),
+        "users_columns": columns['users'],
+        "notion_columns": columns['notion_integrations'],
     }
     expected = {"id", "email", "password_hash", "referral_code", "referred_by_id",
                 "stripe_paid_until", "stripe_event_created"}
     out["users_schema_ok"] = expected.issubset(set(out["users_columns"]))
     response = flask.jsonify(out)
     response.headers['Cache-Control'] = 'no-store'
+    if not healthy:
+        response.status_code = 503
     return response
 
 
@@ -23134,20 +23295,65 @@ def api_session_messages(context_type, context_id):
     if denial is not None:
         return denial
     if request.method == "GET":
-        rows = _session_msg_owner_filter(context_type, context_id).all()
+        # Read only a bounded window. Polling the full transcript every eight
+        # seconds repeatedly transferred the same large bodies from Postgres.
+        after_raw, before_raw = request.args.get('after_id'), request.args.get('before_id')
+        limit_raw = request.args.get('limit', '100')
+        def cursor_value(raw, *, allow_zero=False):
+            if raw is None:
+                return None
+            if not re.fullmatch(r'[0-9]{1,18}', raw):
+                raise ValueError('Invalid message cursor')
+            value = int(raw)
+            if value < (0 if allow_zero else 1):
+                raise ValueError('Invalid message cursor')
+            return value
+        try:
+            after_id = cursor_value(after_raw, allow_zero=True)
+            before_id = cursor_value(before_raw)
+            page_size = cursor_value(limit_raw)
+            if (after_id is not None and before_id is not None) or page_size > 100:
+                raise ValueError('Invalid message page')
+        except ValueError:
+            return jsonify(status='error', message='Invalid message cursor or page size'), 400
+        query = _session_msg_owner_filter(context_type, context_id).limit(None).order_by(None)
+        if after_id is not None:
+            query = query.filter(SessionMessage.id > after_id).order_by(SessionMessage.id.asc())
+        else:
+            if before_id is not None:
+                query = query.filter(SessionMessage.id < before_id)
+            query = query.order_by(SessionMessage.id.desc())
+        rows = query.limit(page_size + 1).all()
+        more = len(rows) > page_size
+        rows = rows[:page_size]
+        if after_id is None:
+            rows.reverse()
         return jsonify({"status": "ok", "messages": [{
             "id": m.id,
             "author_name": m.author_name,
             "body": m.body,
             "saved_to_library": bool(m.saved_to_library),
             "created_at": m.created_at.isoformat() if m.created_at else None,
-        } for m in rows]})
+        } for m in rows], 'next_after_id': rows[-1].id if rows else (after_id or 0),
+            'has_more': more if after_id is not None else False,
+            'has_more_before': more if after_id is None else False})
     body = request.get_json(silent=True) or {}
     text = (body.get("body") or body.get("message") or "").strip()
     if not text:
         return jsonify({"status": "error", "message": "Empty message"}), 400
     if len(text) > 8000:
         text = text[:8000]
+    # PostgreSQL sequence IDs are allocated before commit. Serialize room
+    # writers before allocating an ID, so an incremental reader cannot see a
+    # larger committed ID while a smaller message is still uncommitted.
+    room_model = StudyGroup if context_type == 'group' else LiveSession
+    room_id = db.session.execute(db.select(room_model.id).where(
+        room_model.id == context_id).with_for_update()).scalar_one_or_none()
+    if room_id is None:
+        return jsonify(status='error', message='not found'), 404
+    denial = _session_chat_denial(context_type, context_id)
+    if denial is not None:
+        return denial
     author = (current_user.name or current_user.email or "Student") if current_user.is_authenticated else "Guest"
     msg = SessionMessage(
         context_type=context_type,

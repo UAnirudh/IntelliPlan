@@ -205,3 +205,8 @@ def preview_intervals(card_id: int):
     if result is None:
         return jsonify({"error": "not_found"}), 404
     return jsonify({"intervals": result})
+
+
+# Photo practice extends this already-registered blueprint. Keeping it separate
+# avoids importing the application or AI clients during ordinary deck imports.
+from . import photo_api  # noqa: E402,F401

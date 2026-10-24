@@ -11,15 +11,57 @@ redirect URI rather than a second registration.
 
 from __future__ import annotations
 
+import json
 import os
+import re
 from datetime import date, datetime, timedelta, timezone
 from urllib.parse import unquote, urlencode, urlsplit
+from uuid import NAMESPACE_URL, uuid5
 
 import requests
 
 GRAPH = "https://graph.microsoft.com/v1.0"
 SCOPES = ("openid", "profile", "offline_access", "User.Read", "Calendars.ReadWrite")
 DEFAULT_TIMEZONE = "Pacific Standard Time"
+
+# Common Windows names emitted by Graph, mapped to CLDR's primary IANA zone.
+# https://github.com/unicode-org/cldr/blob/main/common/supplemental/windowsZones.xml
+# Unknown names are rejected rather than treating a local time as UTC.
+_WINDOWS_TIMEZONES = {
+    'UTC': 'UTC',
+    'Alaskan Standard Time': 'America/Anchorage',
+    'Hawaiian Standard Time': 'Pacific/Honolulu',
+    'Pacific Standard Time': 'America/Los_Angeles',
+    'Pacific Standard Time (Mexico)': 'America/Tijuana',
+    'Mountain Standard Time': 'America/Denver',
+    'US Mountain Standard Time': 'America/Phoenix',
+    'Central Standard Time': 'America/Chicago',
+    'Eastern Standard Time': 'America/New_York',
+    'US Eastern Standard Time': 'America/Indianapolis',
+    'Atlantic Standard Time': 'America/Halifax',
+    'Newfoundland Standard Time': 'America/St_Johns',
+    'GMT Standard Time': 'Europe/London',
+    'Greenwich Standard Time': 'Atlantic/Reykjavik',
+    'W. Europe Standard Time': 'Europe/Berlin',
+    'Romance Standard Time': 'Europe/Paris',
+    'Central Europe Standard Time': 'Europe/Budapest',
+    'FLE Standard Time': 'Europe/Kyiv',
+    'GTB Standard Time': 'Europe/Bucharest',
+    'Turkey Standard Time': 'Europe/Istanbul',
+    'Israel Standard Time': 'Asia/Jerusalem',
+    'Arabian Standard Time': 'Asia/Dubai',
+    'India Standard Time': 'Asia/Kolkata',
+    'Singapore Standard Time': 'Asia/Singapore',
+    'China Standard Time': 'Asia/Shanghai',
+    'Tokyo Standard Time': 'Asia/Tokyo',
+    'Korea Standard Time': 'Asia/Seoul',
+    'AUS Eastern Standard Time': 'Australia/Sydney',
+    'E. Australia Standard Time': 'Australia/Brisbane',
+    'AUS Central Standard Time': 'Australia/Darwin',
+    'Cen. Australia Standard Time': 'Australia/Adelaide',
+    'W. Australia Standard Time': 'Australia/Perth',
+    'New Zealand Standard Time': 'Pacific/Auckland',
+}
 
 
 def _authority() -> str:
@@ -143,7 +185,7 @@ def profile(token: dict) -> dict:
 
 
 def _calendar_view(token: dict, start_utc: datetime, end_utc: datetime,
-                   select: str = "subject,start,end,isAllDay,showAs,isCancelled",
+                   select: str = "subject,start,end,isAllDay,showAs,isCancelled,originalStartTimeZone,originalEndTimeZone",
                    max_pages: int = 5, require_complete: bool = False) -> list[dict]:
     """Every event instance in a UTC window, following Graph's paging.
 
@@ -225,19 +267,32 @@ def busy_minutes_by_date(token: dict, start_date: date, days: int = 14,
     return out
 
 
+def _graph_zone(name):
+    from time_utils import zone_for
+    name = name or 'UTC'
+    if not isinstance(name, str):
+        raise ValueError('Outlook calendar returned an invalid time zone.')
+    zone = zone_for(_WINDOWS_TIMEZONES.get(name, name))
+    if zone is None:
+        raise ValueError('Outlook calendar returned an unknown time zone.')
+    return zone
+
+
 def _graph_datetime(value: dict) -> datetime:
-    raw = (value.get("dateTime") or "").replace("Z", "+00:00")
+    if not isinstance(value, dict) or not isinstance(value.get('dateTime'), str):
+        raise ValueError('Outlook calendar returned an invalid date/time.')
+    raw = value['dateTime'].replace("Z", "+00:00")
     # Graph sends seven fractional digits ("…:00.0000000"); fromisoformat on
     # older Pythons accepts at most six.
-    if "." in raw:
-        head, _, tail = raw.partition(".")
-        digits = "".join(ch for ch in tail if ch.isdigit())
-        zone = tail[len(digits):]
-        raw = f"{head}.{digits[:6]}{zone}" if digits else f"{head}{zone}"
+    # Only trim fractional seconds; an explicit +/-HH:MM offset must survive.
+    raw = re.sub(r'(\.\d{6})\d+', r'\1', raw)
     parsed = datetime.fromisoformat(raw)
     if parsed.tzinfo:
         return parsed.astimezone(timezone.utc).replace(tzinfo=None)
-    return parsed
+    # All-day events can retain the mailbox's zone even when UTC is requested.
+    # A naive dateTime is meaningful only together with Graph's timeZone field.
+    zone = _graph_zone(value.get('timeZone'))
+    return parsed.replace(tzinfo=zone).astimezone(timezone.utc).replace(tzinfo=None)
 
 
 def get_upcoming_events(token: dict, days: int = 7) -> list[dict]:
@@ -249,12 +304,17 @@ def get_upcoming_events(token: dict, days: int = 7) -> list[dict]:
         if event.get("isCancelled"):
             continue
         try:
-            start = _graph_datetime(event["start"]).isoformat() + "Z"
-            end = _graph_datetime(event["end"]).isoformat() + "Z"
+            start_utc, end_utc = _graph_datetime(event['start']), _graph_datetime(event['end'])
+            if event.get('isAllDay'):
+                # All-day dates belong to the event's calendar, not UTC's date.
+                start_zone = _graph_zone(event.get('originalStartTimeZone') or event['start'].get('timeZone'))
+                end_zone = _graph_zone(event.get('originalEndTimeZone') or event['end'].get('timeZone'))
+                start = start_utc.replace(tzinfo=timezone.utc).astimezone(start_zone).date().isoformat()
+                end = end_utc.replace(tzinfo=timezone.utc).astimezone(end_zone).date().isoformat()
+            else:
+                start, end = start_utc.isoformat() + 'Z', end_utc.isoformat() + 'Z'
         except (KeyError, TypeError, ValueError):
             continue
-        if event.get("isAllDay"):
-            start, end = start[:10], end[:10]
         out.append({"id": event.get("id", ""), "title": event.get("subject") or "Untitled",
                     "start": start, "end": end, "description": "",
                     "source": "outlook_calendar"})
@@ -327,48 +387,59 @@ def export_schedule(token: dict, schedule_data: dict, *, utc_offset_minutes: int
         return {"created": [], "skipped": 0}
 
     converter = _utc_converter(tz_name, utc_offset_minutes)
+    if converter is None:
+        # Legacy callers still supply a Windows name. Use it for both the
+        # preflight and the write so deduplication compares actual UTC instants.
+        fallback_zone = _graph_zone(timezone_name)
+        def converter(local):
+            return local.replace(tzinfo=fallback_zone).astimezone(timezone.utc).replace(tzinfo=None)
 
     def to_utc(local: datetime) -> datetime:
-        return converter(local) if converter else local
+        return converter(local)
 
     existing = []
-    try:
-        window_start = to_utc(min(b[0] for b in blocks)) - timedelta(days=1)
-        window_end = to_utc(max(b[1] for b in blocks)) + timedelta(days=1)
-        for event in _calendar_view(token, window_start, window_end):
-            try:
-                existing.append((_graph_datetime(event["start"]), _graph_datetime(event["end"]),
-                                 str(event.get("subject") or ""), _is_busy(event)))
-            except (KeyError, TypeError, ValueError):
-                continue
-    except Exception as exc:
-        # Not being able to read the calendar is no reason to refuse to write
-        # to it; it only means duplicates cannot be ruled out this time.
-        print(f"[outlook] could not read existing events before export: {type(exc).__name__}")
+    window_start = to_utc(min(b[0] for b in blocks)) - timedelta(days=1)
+    window_end = to_utc(max(b[1] for b in blocks)) + timedelta(days=1)
+    # Deduplication needs a complete read even when meeting overlaps are allowed.
+    # Unknown calendar time is never permission for a blind, duplicate write.
+    for event in _calendar_view(token, window_start, window_end, require_complete=True):
+        try:
+            event_start, event_end = _graph_datetime(event['start']), _graph_datetime(event['end'])
+            if event_end <= event_start:
+                raise ValueError('Invalid calendar interval')
+            existing.append((event_start, event_end, str(event.get("subject") or ""), _is_busy(event)))
+        except (KeyError, TypeError, ValueError):
+            raise ValueError('Outlook calendar availability is incomplete.') from None
 
     created: list[str] = []
     skipped = 0
     for start, end, block in blocks:
         subject = _subject(block)
         u_start, u_end = to_utc(start), to_utc(end)
-        # Existing events come back in UTC (see _headers). Without a known
-        # zone the block times are local, so the comparison is approximate
-        # -- still enough to catch a byte-identical repeat push.
+        # Compare actual UTC instants even for the legacy Windows-zone API.
         duplicate = any(s == u_start and subj == subject for s, _e, subj, _b in existing)
         overlap = skip_overlaps and any(busy and s < u_end and u_start < e
                                         for s, e, _subj, busy in existing)
         if duplicate or overlap:
             skipped += 1
             continue
-        if converter:
-            when = {"start": {"dateTime": u_start.isoformat(), "timeZone": "UTC"},
-                    "end": {"dateTime": u_end.isoformat(), "timeZone": "UTC"}}
-        else:
-            when = {"start": {"dateTime": start.isoformat(), "timeZone": timezone_name},
-                    "end": {"dateTime": end.isoformat(), "timeZone": timezone_name}}
+        when = {"start": {"dateTime": u_start.isoformat(), "timeZone": "UTC"},
+                "end": {"dateTime": u_end.isoformat(), "timeZone": "UTC"}}
         notes = str(block.get("notes") or "").strip()
+        identity = {
+            'start': u_start.isoformat(), 'end': u_end.isoformat(), 'subject': subject,
+            'course': str(block.get('course') or 'General'), 'notes': notes,
+            'block': str(block.get('task_key') or block.get('assignment_ref')
+                         or block.get('assignment_id') or block.get('id') or ''),
+        }
+        # Graph deduplicates a repeated POST even when its first response was
+        # lost and the newly created event is not visible in calendarView yet.
+        # Token refreshes cannot change this per-event identifier.
+        transaction_id = str(uuid5(NAMESPACE_URL, 'https://intelliplan.tech/outlook/' +
+                                   json.dumps(identity, sort_keys=True, separators=(',', ':'), ensure_ascii=False)))
         event = graph_post(token, "/me/events", {
             "subject": subject,
+            "transactionId": transaction_id,
             "body": {"contentType": "text",
                      "content": f"Course: {block.get('course') or 'General'}\n"
                                 + (f"{notes}\n" if notes else "") + "Created by IntelliPlan"},

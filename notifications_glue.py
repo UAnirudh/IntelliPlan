@@ -18,9 +18,13 @@ from __future__ import annotations
 
 import logging
 import hmac
+import json
 import os
 import time
+from collections import OrderedDict
+from contextvars import ContextVar
 from datetime import date, datetime, timedelta
+from threading import RLock
 from typing import Any
 
 from flask import Blueprint, jsonify, request
@@ -40,6 +44,101 @@ from intelliplan.notifications import sources
 logger = logging.getLogger(__name__)
 
 notifications_bp = Blueprint("notifications", __name__)
+
+# Only raw plan JSON is cached. Every use first checks current owner, active
+# row identity and fresh database-side digests of both payload columns. No
+# permission, delivery preference, recipient address or credential is cached.
+_PLAN_CACHE_MAX_ENTRIES = 128
+_PLAN_CACHE_MAX_BYTES = 8 * 1024 * 1024
+_PLAN_CACHE_ENTRY_BYTES = 1024 * 1024
+_PLAN_PAYLOAD_CACHE = OrderedDict()
+_PLAN_CACHE_BYTES = 0
+_PLAN_CACHE_LOCK = RLock()
+_SWEEP_FACTS = ContextVar('notification_sweep_facts', default=None)
+
+
+def _clear_plan_payload_cache():
+    global _PLAN_CACHE_BYTES
+    with _PLAN_CACHE_LOCK:
+        _PLAN_PAYLOAD_CACHE.clear()
+        _PLAN_CACHE_BYTES = 0
+
+
+def _cache_payload(owner, fingerprint=None, payload=None):
+    """Read/touch a matching entry, replace one, or remove a stale owner."""
+    global _PLAN_CACHE_BYTES
+    with _PLAN_CACHE_LOCK:
+        old = _PLAN_PAYLOAD_CACHE.pop(owner, None)
+        if old:
+            _PLAN_CACHE_BYTES -= sum(map(len, old[1]))
+        if payload is None and old and fingerprint == old[0]:
+            payload = old[1]
+        if payload is None:
+            return None
+        size = sum(map(len, payload))
+        if size > _PLAN_CACHE_ENTRY_BYTES or size > _PLAN_CACHE_MAX_BYTES:
+            return payload
+        _PLAN_PAYLOAD_CACHE[owner] = (fingerprint, payload)
+        _PLAN_CACHE_BYTES += size
+        while len(_PLAN_PAYLOAD_CACHE) > _PLAN_CACHE_MAX_ENTRIES or _PLAN_CACHE_BYTES > _PLAN_CACHE_MAX_BYTES:
+            _, evicted = _PLAN_PAYLOAD_CACHE.popitem(last=False)
+            _PLAN_CACHE_BYTES -= sum(map(len, evicted[1]))
+        return payload
+
+
+def _fingerprints_supported():
+    from App import db
+    return db.engine.dialect.name == 'postgresql'
+
+
+def _plan_payloads_for(user_ids):
+    """Latest active plans in bounded queries; unchanged bodies stay off wire.
+
+    MD5 is a content-change marker, not an authentication mechanism. Separate
+    hashes avoid ambiguous concatenation. Body reads carry their own hashes so
+    a concurrent edit cannot associate a newer body with an earlier digest.
+    """
+    from sqlalchemy import func
+    from App import SavedSchedule, User, db
+    owners = set(user_ids)
+    if not owners:
+        return {}
+    engine = db.engine
+    ranked = db.session.query(SavedSchedule.id.label('plan_id'), func.row_number().over(
+        partition_by=SavedSchedule.user_id,
+        order_by=(SavedSchedule.created_at.desc(), SavedSchedule.id.desc()),
+    ).label('position')).join(User, User.id == SavedSchedule.user_id).filter(
+        SavedSchedule.user_id.in_(owners), SavedSchedule.is_active.is_(True)).subquery()
+    latest = SavedSchedule.query.join(ranked, SavedSchedule.id == ranked.c.plan_id).filter(ranked.c.position == 1)
+    out = dict.fromkeys(owners)
+    if not _fingerprints_supported():
+        # SQLite/local instances stay correct without requiring a custom SQL
+        # hashing function. They do not retain a cache without a fresh digest.
+        for uid in owners:
+            _cache_payload((engine, uid))
+        for uid, _rid, raw, progress in latest.with_entities(
+                SavedSchedule.user_id, SavedSchedule.id, SavedSchedule.schedule_data, SavedSchedule.progress_json).all():
+            out[uid] = ((raw or '').encode('utf-8'), (progress or '{}').encode('utf-8'))
+        return out
+    hashes = (func.md5(SavedSchedule.schedule_data), func.md5(func.coalesce(SavedSchedule.progress_json, '{}')))
+    heads = latest.with_entities(SavedSchedule.user_id, SavedSchedule.id, *hashes).all()
+    missing, present = [], set()
+    for uid, rid, data_hash, progress_hash in heads:
+        present.add(uid)
+        key = (rid, data_hash, progress_hash)
+        out[uid] = _cache_payload((engine, uid), key)
+        if out[uid] is None:
+            missing.append(rid)
+    for uid in owners - present:
+        _cache_payload((engine, uid))
+    if missing:
+        rows = latest.filter(SavedSchedule.id.in_(missing)).with_entities(
+            SavedSchedule.user_id, SavedSchedule.id, SavedSchedule.schedule_data,
+            SavedSchedule.progress_json, *hashes).all()
+        for uid, rid, raw, progress, data_hash, progress_hash in rows:
+            payload = ((raw or '').encode('utf-8'), (progress or '{}').encode('utf-8'))
+            out[uid] = _cache_payload((engine, uid), (rid, data_hash, progress_hash), payload)
+    return out
 
 
 # ── Providers ─────────────────────────────────────────────────────────
@@ -193,6 +292,10 @@ def _timezone_for(user_id: int) -> str:
 def _preferences_for(user: Any):
     from App import PushSubscription
 
+    facts = _SWEEP_FACTS.get()
+    if facts is not None and user.id in facts['preferences']:
+        return facts['preferences'][user.id]
+
     subscribed = False
     try:
         subscribed = (
@@ -207,39 +310,32 @@ def _preferences_for(user: Any):
 
 def _plan_for(user_id: int) -> dict | None:
     """The student's active plan, in the shape the sources module expects."""
-    import json
-
-    from App import SavedSchedule, db
+    from App import db
 
     try:
-        row = (
-            SavedSchedule.query.filter(
-                SavedSchedule.user_id == user_id,
-                SavedSchedule.is_active.is_(True),
-            )
-            .order_by(SavedSchedule.created_at.desc())
-            .first()
-        )
-        if row is None:
+        facts = _SWEEP_FACTS.get()
+        payload = (facts['plans'].get(user_id) if facts is not None
+                   else _plan_payloads_for([user_id]).get(user_id))
+        if payload is None:
             return None
-        data = json.loads(row.schedule_data) if isinstance(row.schedule_data, str) else row.schedule_data
+        # Decode afresh; callers and progress application never mutate cache.
+        data = json.loads(payload[0])
         if not isinstance(data, dict):
             return None
-        progress = row.progress_json
-        if isinstance(progress, str):
-            try:
-                progress = json.loads(progress)
-            except (TypeError, ValueError):
-                progress = None
+        try:
+            progress = json.loads(payload[1])
+        except (TypeError, ValueError):
+            progress = None
         if isinstance(progress, dict):
             for day in data.get("schedule", []) or []:
                 for block in day.get("blocks", []) or []:
-                    entry = progress.get(str(block.get("id")))
+                    entry = progress.get(str(block.get('block_id') or block.get('id')))
                     if entry is True or (isinstance(entry, dict) and entry.get("done")):
                         block["done"] = True
         return data
     except Exception as exc:
-        logger.warning("plan load failed for user %s: %s", user_id, exc)
+        _cache_payload((db.engine, user_id))
+        logger.warning("plan load failed for user %s (%s)", user_id, type(exc).__name__)
         try:
             db.session.rollback()
         except Exception:
@@ -250,6 +346,10 @@ def _plan_for(user_id: int) -> dict | None:
 def _started_block_ids(user_id: int) -> list[str]:
     """Blocks the student has actually opened a session against today."""
     from App import ActiveSession
+
+    facts = _SWEEP_FACTS.get()
+    if facts is not None:
+        return list(facts['started'].get(user_id, ()))
 
     try:
         since = utcnow() - timedelta(days=1)
@@ -299,7 +399,9 @@ def sweep_all(limit: int = 500, now: datetime | None = None) -> dict[str, int]:
     "do they want notifications?" is a full table scan that grows with
     signups, and the answer is no for most of them.
     """
-    from App import User, db
+    from sqlalchemy import func
+    from sqlalchemy.orm import load_only
+    from App import User, UserStreak, PushSubscription, ActiveSession, db
 
     now = now or utcnow()
     queued = 0
@@ -313,6 +415,11 @@ def sweep_all(limit: int = 500, now: datetime | None = None) -> dict[str, int]:
                     User.email_reminders_opt_in.is_(True),
                 )
             )
+            .options(load_only(User.id, User.role, User.email, User.phone,
+                User.push_reminders_opt_in, User.sms_reminders_opt_in, User.email_reminders_opt_in,
+                User.notification_kinds, User.quiet_hours_start, User.quiet_hours_end,
+                User.quiet_hours_enabled, User.utc_offset_minutes, User.reminder_lead_minutes,
+                User.streak_emails_opt_in))
             .limit(max(1, limit))
             .all()
         )
@@ -320,13 +427,40 @@ def sweep_all(limit: int = 500, now: datetime | None = None) -> dict[str, int]:
         logger.warning("notification sweep query failed: %s", exc)
         return {"users": 0, "queued": 0}
 
-    for user in users:
-        swept += 1
-        try:
-            queued += sweep_user(user, now=now)
-        except Exception as exc:
-            # One student's broken plan must never stop the sweep.
-            logger.warning("sweep failed for user %s: %s", user.id, exc)
+    try:
+        ids = [user.id for user in users]
+        subscribed = {uid for uid, in db.session.query(PushSubscription.user_id).filter(
+            PushSubscription.user_id.in_(ids)).distinct().all()} if ids else set()
+        zones = dict(db.session.query(UserStreak.user_id, UserStreak.timezone).filter(
+            UserStreak.user_id.in_(ids)).all()) if ids else {}
+        preferences = {user.id: preferences_from_user(user, push_subscribed=user.id in subscribed,
+            tz_name=zones.get(user.id, '')) for user in users}
+        eligible = [uid for uid, prefs in preferences.items() if prefs.channels]
+        plans = _plan_payloads_for(eligible)
+        started = {}
+        if eligible:
+            recent = db.session.query(ActiveSession.user_id.label('uid'), ActiveSession.block_id.label('block'),
+                func.row_number().over(partition_by=ActiveSession.user_id,
+                    order_by=ActiveSession.id.asc()).label('position')).filter(
+                ActiveSession.user_id.in_(eligible), ActiveSession.started_at >= now - timedelta(days=1)).subquery()
+            for uid, block in db.session.query(recent.c.uid, recent.c.block).filter(recent.c.position <= 200).all():
+                if block:
+                    started.setdefault(uid, []).append(str(block))
+    except Exception as exc:
+        db.session.rollback()
+        logger.warning('notification sweep snapshot failed (%s)', type(exc).__name__)
+        return {'users': 0, 'queued': 0}
+    token = _SWEEP_FACTS.set({'preferences': preferences, 'plans': plans, 'started': started})
+    try:
+        for user in users:
+            swept += 1
+            try:
+                queued += sweep_user(user, now=now)
+            except Exception as exc:
+                # One student's broken plan must never stop the sweep.
+                logger.warning("sweep failed for user %s: %s", user.id, exc)
+    finally:
+        _SWEEP_FACTS.reset(token)
     return {"users": swept, "queued": queued}
 
 

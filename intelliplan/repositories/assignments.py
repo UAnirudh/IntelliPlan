@@ -25,6 +25,7 @@ from intelliplan.domain.assignment import (
     AssignmentKind,
     AssignmentStatus,
 )
+from intelliplan.services.assignment_status import requires_student_action
 
 
 _BIG_TITLE_RE = re.compile(
@@ -149,7 +150,8 @@ class AssignmentRepository:
         if self._cfg.lms_fetcher is not None:
             try:
                 raw = self._cfg.lms_fetcher(user_id) or []
-                lms = tuple(self._dict_to_assignment(r) for r in raw if isinstance(r, dict))
+                lms = tuple(self._dict_to_assignment(r) for r in raw
+                            if isinstance(r, dict) and requires_student_action(r))
             except Exception:
                 lms = ()
 
