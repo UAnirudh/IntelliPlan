@@ -173,6 +173,7 @@ with sync_playwright() as playwright:
         assert page.locator('.ps-question .katex').count() > 0
         assert page.locator('.ps-choice a, .ps-choice [tabindex]').count() == 0
         assert page.locator('.ps-choice .katex').count() > 0
+        assert page.locator('.ps-choice .katex .mord').first.evaluate('(node) => getComputedStyle(node).marginRight') == '0px'
         page.locator('.ps-choice').nth(1).click()
         assert 'That’s right' in page.locator('.ps-feedback').inner_text()
         capture(f'photo-quiz-feedback-{width}')
