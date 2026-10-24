@@ -10,6 +10,7 @@ import requests as http_requests
 import secrets
 import hashlib
 import base64
+import json
 
 LOGIN_SCOPES = [
     "openid",
@@ -315,64 +316,159 @@ def get_upcoming_events(token_dict):
         })
     return result
 
-def add_schedule_to_calendar(token_dict, schedule_data, existing_events=None):
-    service, creds = get_calendar_service(token_dict)
-    created_ids = []
-    skipped = 0
-    existing_events = existing_events or []
+def _export_boundary(value, calendar_zone=None):
+    """A Google timed or all-day event boundary, as naive UTC."""
+    from time_utils import zone_for
+    if isinstance(value, str):  # Legacy get_upcoming_events shape.
+        value = {'dateTime': value} if 'T' in value else {'date': value}
+    if not isinstance(value, dict):
+        raise ValueError('Google calendar availability is incomplete.')
+    text = value.get('dateTime') or value.get('date')
+    if not isinstance(text, str):
+        raise ValueError('Google calendar availability is incomplete.')
+    parsed = datetime.fromisoformat(text.replace('Z', '+00:00'))
+    if parsed.tzinfo is not None:
+        return parsed.astimezone(timezone.utc).replace(tzinfo=None)
+    zone = zone_for(value.get('timeZone') or calendar_zone)
+    if zone is None:
+        raise ValueError('Google calendar availability has an unknown time zone.')
+    return parsed.replace(tzinfo=zone).astimezone(timezone.utc).replace(tzinfo=None)
 
-    # Build existing event time ranges
-    busy_ranges = []
-    for e in existing_events:
-        start_str = e.get("start", "")
-        if "T" in start_str:
-            try:
-                start_dt = datetime.fromisoformat(start_str.replace("Z", ""))
-                busy_ranges.append(start_dt)
-            except Exception:
-                pass
 
-    for day in schedule_data.get("schedule", []):
-        date_str = day["date"]
-        for block in day.get("blocks", []):
-            if block.get("is_break"):
+def _export_existing(event, calendar_zone):
+    if not isinstance(event, dict):
+        raise ValueError('Google calendar availability is incomplete.')
+    if event.get('status') == 'cancelled':
+        return None
+    try:
+        start, end = _export_boundary(event.get('start'), calendar_zone), _export_boundary(event.get('end'), calendar_zone)
+        if end <= start:
+            raise ValueError('Invalid interval')
+    except (TypeError, ValueError):
+        raise ValueError('Google calendar availability is incomplete.') from None
+    busy = event.get('transparency') != 'transparent' and event.get('eventType') != 'workingLocation'
+    return (start, end, str(event.get('summary') or event.get('title') or ''), busy, event.get('id'))
+
+
+def _export_calendar_view(service, start, end):
+    """Bounded, complete occurrences for this schedule, not a seven-day preview."""
+    events, page_token, calendar_zone = [], None, None
+    for page in range(5):
+        params = dict(calendarId='primary', timeMin=start.isoformat() + 'Z', timeMax=end.isoformat() + 'Z',
+                      maxResults=250, singleEvents=True, orderBy='startTime',
+                      fields='items(id,status,summary,start,end,transparency,eventType),nextPageToken,timeZone')
+        if page_token:
+            params['pageToken'] = page_token
+        result = service.events().list(**params).execute()
+        if (not isinstance(result, dict) or result.get('error')
+                or not isinstance(result.get('items'), list)):
+            raise ValueError('Google calendar availability is incomplete.')
+        calendar_zone = result.get('timeZone') or calendar_zone
+        for item in result['items']:
+            existing = _export_existing(item, calendar_zone)
+            if existing is not None:
+                events.append(existing)
+        if len(events) > 1250:
+            raise ValueError('Google calendar availability exceeds the safe import limit.')
+        page_token = result.get('nextPageToken')
+        if not page_token:
+            return events, calendar_zone
+        if not isinstance(page_token, str) or page == 4:
+            raise ValueError('Google calendar availability exceeds the safe import limit.')
+    raise ValueError('Google calendar availability is incomplete.')
+
+
+def add_schedule_to_calendar(token_dict, schedule_data, existing_events=None, *,
+                             skip_overlaps=None, tz_name=None, utc_offset_minutes=None):
+    """Export after a complete preflight; return (created ids, token, skipped).
+
+    The three original positional arguments remain supported. Explicit caller
+    zones/offsets win; the old API's Pacific default is used only when neither
+    exists. Network/invalid-provider failures propagate so partial writes are
+    never reported as a fully successful export. Deterministic IDs make retries
+    safe even when Google's successful insert response was lost.
+    """
+    from time_utils import to_utc, zone_for
+    from googleapiclient.errors import HttpError
+    zone = tz_name
+    if not zone_for(zone):
+        zone = 'America/Los_Angeles' if utc_offset_minutes is None else ''
+    offset = int(utc_offset_minutes or 0)
+    blocks = []
+    for day in schedule_data.get('schedule', []):
+        for block in day.get('blocks', []):
+            if block.get('is_break'):
                 continue
-            time_slot = block.get("time_slot", "")
-            if " - " not in time_slot:
-                continue
-            start_str = time_slot.split(" - ")[0].strip()
-            try:
-                start_dt = datetime.strptime(f"{date_str} {start_str}", "%Y-%m-%d %I:%M %p")
-            except Exception:
+            clock = str(block.get('time_slot') or '').split(' - ')[0].strip()
+            start = None
+            for fmt in ('%Y-%m-%d %I:%M %p', '%Y-%m-%d %H:%M'):
                 try:
-                    start_dt = datetime.strptime(f"{date_str} {start_str}", "%Y-%m-%d %H:%M")
-                except Exception:
-                    continue
-
-            end_dt = start_dt + timedelta(minutes=block.get("duration_minutes", 30))
-
-            # Check overlap
-            if busy_ranges:
-                overlap = any(
-                    abs((start_dt - b).total_seconds()) < 1800
-                    for b in busy_ranges
-                )
-                if overlap:
-                    skipped += 1
-                    continue
-
+                    start = datetime.strptime(f"{day.get('date')} {clock}", fmt)
+                    break
+                except ValueError:
+                    pass
+            if start is None:
+                raise ValueError('Study block has an invalid date or time.')
+            minutes = int(block.get('duration_minutes') or 30)
+            if not 0 < minutes <= 1440:
+                raise ValueError('Study block has an invalid duration.')
+            end = start + timedelta(minutes=minutes)
+            blocks.append((to_utc(start, zone, offset), to_utc(end, zone, offset), block))
+    if not blocks:
+        return [], token_dict.get('token', ''), 0
+    if skip_overlaps is None:
+        skip_overlaps = bool(existing_events)
+    service, creds = get_calendar_service(token_dict)
+    try:
+        start = min(item[0] for item in blocks) - timedelta(days=1)
+        end = max(item[1] for item in blocks) + timedelta(days=1)
+        existing, calendar_zone = _export_calendar_view(service, start, end)
+        for event in existing_events or []:
+            item = _export_existing(event, calendar_zone or zone or 'UTC')
+            if item is not None:
+                existing.append(item)
+        created_ids, skipped = [], 0
+        for start, end, block in blocks:
             event = {
-                "summary": f"📚 {block.get('assignment', 'Study')}",
-                "description": f"Course: {block.get('course', '')}\n{block.get('notes', '')}\n\nCreated by IntelliPlan",
-                "start": {"dateTime": start_dt.isoformat(), "timeZone": "America/Los_Angeles"},
-                "end": {"dateTime": end_dt.isoformat(), "timeZone": "America/Los_Angeles"},
-                "colorId": "1"
+                'summary': f"📚 {block.get('assignment', 'Study')}",
+                'description': f"Course: {block.get('course', '')}\n{block.get('notes', '')}\n\nCreated by IntelliPlan",
+                'start': {'dateTime': start.isoformat() + 'Z', 'timeZone': 'UTC'},
+                'end': {'dateTime': end.isoformat() + 'Z', 'timeZone': 'UTC'}, 'colorId': '1',
             }
+            identity = dict(event, block=str(block.get('task_key') or block.get('assignment_ref')
+                                             or block.get('assignment_id') or block.get('id') or ''))
+            event_id = hashlib.sha256(('intelliplan-google-v1:' + json.dumps(
+                identity, sort_keys=True, separators=(',', ':'), ensure_ascii=False)).encode()).hexdigest()
+            duplicate = any(eid == event_id or (s == start and e == end and title == event['summary'])
+                            for s, e, title, _busy, eid in existing)
+            overlap = skip_overlaps and any(busy and s < end and start < e
+                                            for s, e, _title, busy, _id in existing)
+            if duplicate or overlap:
+                skipped += 1
+                continue
+            event['id'] = event_id  # Hex is a valid subset of Google's base32hex IDs.
+            event['extendedProperties'] = {'private': {'intelliplan_export': event_id}}
             try:
-                created = service.events().insert(calendarId="primary", body=event).execute()
-                created_ids.append(created.get("id"))
-            except Exception as e:
-                print(f"Failed to create event: {e}")
-
-    new_token = creds.token or token_dict.get("token", "")
-    return created_ids, new_token, skipped
+                created = service.events().insert(calendarId='primary', body=event).execute()
+                if not isinstance(created, dict) or created.get('id') != event_id:
+                    raise ValueError('Google calendar did not confirm the event identity.')
+                created_ids.append(event_id)
+            except HttpError as exc:
+                if getattr(exc.resp, 'status', None) != 409:
+                    raise
+                actual = service.events().get(calendarId='primary', eventId=event_id).execute()
+                marker = actual.get('extendedProperties') if isinstance(actual, dict) else None
+                private = marker.get('private') if isinstance(marker, dict) else None
+                if (not isinstance(private, dict) or private.get('intelliplan_export') != event_id
+                        or actual.get('id') != event_id or actual.get('status') == 'cancelled'
+                        or actual.get('summary') != event['summary'] or actual.get('description') != event['description']
+                        or _export_boundary(actual.get('start'), calendar_zone) != start
+                        or _export_boundary(actual.get('end'), calendar_zone) != end):
+                    raise ValueError('Google calendar event identity could not be verified.') from None
+                skipped += 1
+            existing.append((start, end, event['summary'], True, event_id))
+        return created_ids, creds.token or token_dict.get('token', ''), skipped
+    finally:
+        close = getattr(service, 'close', None)
+        if callable(close):
+            close()

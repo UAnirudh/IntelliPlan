@@ -319,6 +319,18 @@
     display: flex; gap: 6px;
   }
   .custom-tasks-list { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .assignment-queue { margin-top: 20px; padding: 16px; border: 1px solid var(--border); border-radius: 18px; background: var(--bg-secondary, transparent); }
+  .assignment-queue summary { cursor: pointer; font-weight: 600; line-height: 1.6; }
+  .assignment-queue-controls { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0 10px; }
+  .assignment-queue-controls button { min-height: 40px; height: auto; padding: 8px 12px; border-radius: 12px; line-height: 1.35; }
+  .assignment-queue-controls button[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+  .assignment-queue-list { display: grid; gap: 10px; max-height: 340px; overflow-y: auto; }
+  .assignment-queue-row { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 12px; border-radius: 12px; background: var(--bg-primary, transparent); border: 1px solid var(--border); }
+  .assignment-queue-row > div { min-width: 0; overflow-wrap: anywhere; }
+  .assignment-queue-row strong { display: block; font-size: .9rem; line-height: 1.5; }
+  .assignment-queue-row p, .assignment-queue-hint { font-size: .8rem; line-height: 1.6; color: var(--text-muted); margin: 4px 0; }
+  .assignment-queue-row button { flex-shrink: 0; white-space: normal; max-width: 140px; }
+  @media (max-width: 560px) { .assignment-queue-row { align-items: stretch; flex-direction: column; gap: 8px; } .assignment-queue-row button { align-self: flex-start; max-width: none; } }
   .custom-task-item {
     display: inline-flex; align-items: center; gap: 6px;
     padding: 5px 12px; border-radius: 999px;
@@ -1111,6 +1123,16 @@
         <div id="customTasksList" class="custom-tasks-list"></div>
       </div>
     </div>
+    <details class="assignment-queue" id="assignmentQueue">
+      <summary>Assignments <span id="assignmentQueueCount" class="assignment-queue-hint">Loading…</span></summary>
+      <div class="assignment-queue-controls" role="group" aria-label="Filter assignments">
+        <button class="btn-secondary btn-control" id="assignmentActionableFilter" type="button" aria-pressed="true">Needs attention</button>
+        <button class="btn-secondary btn-control" id="assignmentWaitingFilter" type="button" aria-pressed="false">Waiting for grade</button>
+      </div>
+      <p class="assignment-queue-hint">Submitted work stays visible here and is left out of new study plans. A blank grade alone does not confirm submission. Your own marks change IntelliPlan only.</p>
+      <div class="assignment-queue-list" id="assignmentQueueList"></div>
+      <p class="assignment-queue-hint" id="assignmentQueueStatus" role="status" aria-live="polite"></p>
+    </details>
     <div style="display:flex; gap:10px; align-items:center; margin-top:1.5rem; flex-wrap:wrap;">
       <button class="btn-primary" id="generateBtn" type="button" onclick="generateSchedule()" style="padding:14px 32px; border:none; cursor:pointer; display:inline-flex; align-items:center; gap:8px;"><svg width="16" height="16"><use href="#i-robot"/></svg> Generate my study plan</button>
       <div id="savePanel" style="display:none; gap:8px; align-items:center; flex-wrap:wrap;">
@@ -1509,6 +1531,8 @@ window.IPManual = (function () {
 ═════════════════════════════════════════════════════════ */
 let customTasks = [];
 let allAssignments = [];
+let _assignmentQueueRows = [];
+let _assignmentQueueFilter = 'actionable';
 let _lastScheduleData = null;
 let _gcalConnected = false;
 let _activeBlockId = null;
@@ -1604,10 +1628,87 @@ function stateFor(blockId) {
 }
 
 /* ────────── DATA FETCH ────────── */
-fetch('/live').then(r => r.json()).then(data => {
-  allAssignments = data;
-  if (window.FT) FT.assignmentsLoaded();
-}).catch(() => { if (window.FT) FT.assignmentsLoaded(); });
+let _assignmentLoadGeneration = 0;
+let _assignmentMutationGeneration = 0;
+function renderAssignmentQueue() {
+  const waiting = _assignmentQueueRows.filter(row => row.awaiting_grade === true);
+  document.getElementById('assignmentQueueCount').textContent = `· ${allAssignments.length} to do · ${waiting.length} waiting`;
+  document.getElementById('assignmentActionableFilter').setAttribute('aria-pressed', String(_assignmentQueueFilter === 'actionable'));
+  document.getElementById('assignmentWaitingFilter').setAttribute('aria-pressed', String(_assignmentQueueFilter === 'waiting'));
+  const list = document.getElementById('assignmentQueueList');
+  list.replaceChildren();
+  const rows = _assignmentQueueFilter === 'waiting' ? waiting : allAssignments;
+  if (!rows.length) {
+    const empty = document.createElement('p');
+    empty.className = 'assignment-queue-hint';
+    empty.textContent = _assignmentQueueFilter === 'waiting' ? 'No assignments waiting for a grade.' : 'No connected assignments need work right now. You can add a task above.';
+    list.appendChild(empty);
+  }
+  rows.forEach(row => {
+    const card = document.createElement('div');
+    card.className = 'assignment-queue-row';
+    const info = document.createElement('div');
+    const title = document.createElement('strong');
+    title.textContent = row.title || 'Assignment';
+    const details = document.createElement('p');
+    details.textContent = [row.course, row.due_date && `Due ${row.due_date}`, row.status_label].filter(Boolean).join(' · ');
+    info.append(title, details);
+    card.appendChild(info);
+    if (row.requires_action !== false || row.submission_status === 'student_reported') {
+      const button = document.createElement('button');
+      button.className = 'btn-secondary btn-control';
+      button.type = 'button';
+      const undo = row.submission_status === 'student_reported';
+      button.textContent = undo ? 'Undo submitted' : 'I’ve submitted this';
+      button.setAttribute('aria-label', `${button.textContent}: ${row.title || 'assignment'}`);
+      button.addEventListener('click', async () => {
+        const mutation = ++_assignmentMutationGeneration;
+        button.disabled = true;
+        const status = document.getElementById('assignmentQueueStatus');
+        status.textContent = 'Saving your assignment status…';
+        try {
+          const response = await fetch('/api/assignment/submission', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({assignment: row, action: undo ? 'reopen' : 'submitted'})
+          });
+          const result = await response.json();
+          if (!response.ok || result.status !== 'ok') throw new Error(result.message || 'Could not save assignment status.');
+          if (mutation === _assignmentMutationGeneration) _assignmentQueueFilter = undo ? 'actionable' : 'waiting';
+          await loadSchedulerAssignments();
+          if (mutation === _assignmentMutationGeneration) status.textContent = undo ? 'Moved back to work that needs attention. Generate a new plan to schedule it.' : 'Marked submitted by you. It will wait here for a grade and stay out of new study plans.';
+        } catch (error) {
+          if (mutation === _assignmentMutationGeneration) status.textContent = error.message || 'Could not save assignment status. Please retry.';
+          button.disabled = false;
+        }
+      });
+      card.appendChild(button);
+    }
+    list.appendChild(card);
+  });
+}
+async function loadSchedulerAssignments() {
+  const generation = ++_assignmentLoadGeneration;
+  try {
+    const response = await fetch('/live?include_waiting=1', {cache: 'no-store'});
+    if (!response.ok) throw new Error('Assignments could not be loaded. Try refreshing.');
+    const data = await response.json();
+    if (!Array.isArray(data)) throw new Error('Assignments could not be loaded. Try refreshing.');
+    if (generation !== _assignmentLoadGeneration) return false;
+    _assignmentQueueRows = data;
+    allAssignments = data.filter(row => row.requires_action !== false);
+    renderAssignmentQueue();
+    return true;
+  } catch (error) {
+    if (generation !== _assignmentLoadGeneration) return false;
+    throw error;
+  }
+}
+document.getElementById('assignmentActionableFilter').addEventListener('click', () => { _assignmentQueueFilter = 'actionable'; renderAssignmentQueue(); });
+document.getElementById('assignmentWaitingFilter').addEventListener('click', () => { _assignmentQueueFilter = 'waiting'; renderAssignmentQueue(); });
+loadSchedulerAssignments().catch(error => {
+  document.getElementById('assignmentQueueCount').textContent = '· unavailable';
+  document.getElementById('assignmentQueueStatus').textContent = error.message;
+}).finally(() => { if (window.FT) FT.assignmentsLoaded(); });
 fetch('/calendar/events').then(r => r.json()).then(res => { _gcalConnected = res.connected; }).catch(() => {});
 
 /* ────────── TAB BAR ────────── */
@@ -1846,32 +1947,22 @@ async function autoDetectTime() {
   hint.textContent = '';
   try {
     const today = new Date();
-    const dates = Array.from({length: 3}, (_, i) => {
-      const d = new Date(today); d.setDate(today.getDate() + i);
-      return d.toISOString().split('T')[0];
-    });
-    async function fetchSlot(date) {
-      for (let attempt = 0; attempt < 2; attempt++) {
-        try {
-          const r = await fetch(`/calendar/free-slot?date=${date}`);
-          const data = await r.json();
-          if (data && data.connected) return data;
-          if (attempt === 0) await new Promise(res => setTimeout(res, 350));
-        } catch(e) { if (attempt === 0) await new Promise(res => setTimeout(res, 350)); }
-      }
-      try {
-        const status = await fetch('/calendar/events').then(r => r.json());
-        return { connected: !!status.connected, slot: '', free_hours: 0 };
-      } catch(e) { return { connected: false }; }
-    }
-    const results = await Promise.all(dates.map(fetchSlot));
+    const localDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const query = new URLSearchParams({date: localDate, days: '3', tz: Intl.DateTimeFormat().resolvedOptions().timeZone});
+    const response = await fetch(`/calendar/free-slot?${query}`);
+    const data = await response.json();
+    if (!response.ok) throw new Error('Calendar availability is temporarily unavailable. Your settings were not changed.');
     btn.innerHTML = '<svg width="13" height="13"><use href="#i-sparkle"/></svg> Auto';
     btn.disabled = false;
-    if (!results[0]?.connected) {
-      hint.innerHTML = '<span style="color:var(--text-muted);"><a href="/oauth/google" style="color:var(--accent);font-weight:600;">Connect Google Calendar</a> to use Auto →</span>';
+    if (!data.connected) {
+      hint.innerHTML = '<span style="color:var(--text-muted);">Connect <a href="/oauth/google" style="color:var(--accent);font-weight:600;">Google Calendar</a> or <a href="/oauth/outlook" style="color:var(--accent);font-weight:600;">Outlook</a> to use Auto.</span>';
       return;
     }
-    const todaySlot = results[0];
+    const todaySlot = data.suggestions?.[0] || data;
+    if (!todaySlot.available) {
+      hint.textContent = 'Your calendars have no 30-minute opening today. Choose another day or set your availability.';
+      return;
+    }
     const slot = todaySlot.slot || '';
     let totalFreeHours = todaySlot.free_hours || 0;
     let preference = 'evening', prefLabel = 'Evening';
@@ -1899,7 +1990,7 @@ async function autoDetectTime() {
   } catch(e) {
     btn.innerHTML = '<svg width="13" height="13"><use href="#i-sparkle"/></svg> Auto';
     btn.disabled = false;
-    hint.textContent = 'Could not detect free time. Set manually.';
+    hint.textContent = 'Calendar availability is temporarily unavailable. Your settings were not changed.';
   }
 }
 
@@ -2005,7 +2096,7 @@ function updateCalExportButton() {
     _gcalConnected = calRes.connected;
     const gcal = calRes.connected
       ? `<button type="button" id="calExportBtn" onclick="exportToCalendar()" class="exp-btn exp-gcal">
-           <svg><use href="#i-scheduler"/></svg> Export to Google Calendar
+           <svg><use href="#i-scheduler"/></svg> Export to calendar
          </button>`
       : `<a href="/oauth/google" class="exp-btn">
            <svg><use href="#i-link"/></svg> Connect Google Calendar
@@ -2125,32 +2216,29 @@ async function exportToCalendar() {
   btn.innerHTML = '<svg width="14" height="14" class="spin"><use href="#i-spinner"/></svg> Exporting...';
   btn.disabled = true;
   async function callExport() {
-    let lastErr = null;
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        const r = await fetch('/calendar/export', {
-          method: 'POST', headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({ schedule_data: _lastScheduleData })
-        });
-        const data = await r.json();
-        if (data.status === 'ok') return data;
-        lastErr = data;
-      } catch(e) { lastErr = { status: 'error', message: e.message }; }
-      await new Promise(res => setTimeout(res, 400 * Math.pow(2, attempt)));
-    }
-    return lastErr || { status: 'error', message: 'Sync failed' };
+    try {
+      const r = await fetch('/calendar/export', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({schedule_data: _lastScheduleData, skip_overlaps: true,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone})
+      });
+      return await r.json();
+    } catch(e) { return {status: 'error', message: 'Calendar export could not be confirmed. Check your calendar before retrying.'}; }
   }
   const res = await callExport();
   btn.disabled = false;
   if (res.status === 'ok') {
     btn.innerHTML = `<svg width="14" height="14"><use href="#i-check-circle"/></svg> Added ${res.created} events`;
+    const failed = Object.entries(res.providers || {}).filter(([, result]) => result.error)
+      .map(([provider]) => provider === 'outlook' ? 'Outlook' : 'Google Calendar');
+    if (failed.length) IP.alert(`Some calendars could not be updated: ${failed.join(', ')}. The other calendar exports succeeded. Check the failed connection in Settings before retrying.`);
     btn.style.background = 'var(--low)';
     setTimeout(() => {
-      btn.innerHTML = '<svg width="15" height="15"><use href="#i-scheduler"/></svg> Export to Google Calendar';
-      btn.style.background = '#ea4335';
+      btn.innerHTML = '<svg width="15" height="15"><use href="#i-scheduler"/></svg> Export to calendar';
+      btn.style.background = '';
     }, 3000);
   } else {
-    btn.innerHTML = '<svg width="15" height="15"><use href="#i-scheduler"/></svg> Export to Google Calendar';
+    btn.innerHTML = '<svg width="15" height="15"><use href="#i-scheduler"/></svg> Export to calendar';
     IP.alert('Export failed: ' + (res.message || 'Unknown error'));
   }
 }
@@ -3156,7 +3244,7 @@ document.addEventListener('keydown', e => {
 fetch('/calendar/events').then(r => r.json()).then(res => {
   _gcalConnected = res.connected;
   if (res.connected) {
-    document.getElementById('autoTimeHint').textContent = 'Google Calendar connected, export button appears after generating';
+    document.getElementById('autoTimeHint').textContent = 'Calendar connected, export button appears after generating';
   }
 }).catch(() => {});
 

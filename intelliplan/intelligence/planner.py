@@ -896,7 +896,13 @@ def _build_items(
             earliest = task.not_before
 
         buffer_days = buffer_days_for(task, estimate, config)
-        if task.due_date is None:
+        if task.due_date is not None and (task.due_date < today or task.deadline_overdue):
+            # An already missed deadline is an honest recovery plan, not an
+            # impossible constraint that discards every remaining minute.
+            # Keep the original deadline on the output and prefer today;
+            # future deadlines still retain their hard upper bound below.
+            latest, hard_latest = today, horizon_end
+        elif task.due_date is None:
             latest = hard_latest = horizon_end
         else:
             hard_latest = min(task.due_date, horizon_end)

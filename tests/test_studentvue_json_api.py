@@ -152,6 +152,18 @@ def test_json_gradebook_feeds_the_existing_parsers(monkeypatch):
     assert missing == []  # 8/10 is not missing
 
 
+def test_not_graded_alone_does_not_claim_student_has_submitted(monkeypatch):
+    from copy import deepcopy
+    from datetime import datetime, timedelta
+    gradebook = deepcopy(GRADEBOOK)
+    assignment = gradebook['courses'][0]['marks'][0]['assignments'][0]
+    assignment['displayScore'] = 'Not Graded'
+    assignment['dueDate'] = (datetime.now() - timedelta(days=30)).strftime('%m/%d/%Y')
+    _router(monkeypatch, login_body={'access_token': 'tok'},
+            gradebook_body={'error': None, 'data': {'traditionalGradebook': gradebook}})
+    assert [a['title'] for a in sv.get_assignments('northshore', 's', 'p')] == ['Cell Respiration Lab Report']
+
+
 def test_gradebook_feature_off_at_school_is_empty_not_an_error(monkeypatch):
     _router(monkeypatch, login_body={"access_token": "tok"},
             gradebook_body={"error": {"code": "2100", "message": "Grade Book data not available"}, "data": None})

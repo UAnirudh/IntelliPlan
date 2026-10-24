@@ -13,6 +13,7 @@ GROUPS = (
     )),
     ('practice', 'Practice & remember', 'Retrieve an idea, try an example, and check your understanding.', (
         ('Flashcards', '/flashcards', 'Return to your saved decks and review what is due.', 'clipboard', ('review',)),
+        ('Photo practice', '/flashcards/photo', 'Turn a photo of your notes into grounded quizzes and flashcards.', 'study', ('review', 'study', 'uploads', 'tutor')),
         ('Quizzes & recall', '/learn', 'Practice from your study material and revisit weak areas.', 'study', ('review',)),
         ('Foundations', '/foundations', 'Work through reviewed concept checks at your own pace.', 'book', ('study',)),
         ('Competition practice', '/olympiad', 'Explore subject challenges and competition preparation.', 'fire', ('study',)),

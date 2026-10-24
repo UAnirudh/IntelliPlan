@@ -484,9 +484,9 @@ def get_assignments(district_url, username, password):
             if score and display_score not in ("Not Graded", "Not Due", ""):
                 continue
 
-            # Skip explicitly "Not Graded" — submitted but awaiting grade
-            if display_score == "Not Graded":
-                continue
+            # "Not Graded" describes the teacher's gradebook, not whether
+            # this particular student submitted. Keep unknown work visible;
+            # the student can explicitly mark it submitted in IntelliPlan.
 
             try:
                 due_date = datetime.strptime(due_date_str, "%m/%d/%Y")
@@ -496,9 +496,8 @@ def get_assignments(district_url, username, password):
 
             days = (due_date - today).days
 
-            # Skip assignments older than 14 days
-            if days < -14:
-                continue
+            # This is the current gradebook's ungraded work. Age alone cannot
+            # tell us it was completed; retain it for the student's filters.
 
             try:
                 points_possible = float(points_str.split("/")[-1].strip().split()[0])

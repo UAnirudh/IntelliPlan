@@ -1,6 +1,12 @@
 {% extends "base.html" %}
 {% block title %}Flashcards | IntelliPlan{% endblock %}
 {% block meta_description %}Import your Anki decks and Quizlet sets, then study them with FSRS scheduling that plans each review for the day you are about to forget.{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" href="/static/vendor/learning-content/katex.min.css?v={{ asset_v }}">
+<link rel="stylesheet" href="/static/css/rich_math.css?v={{ asset_v }}">
+<script defer src="/static/vendor/learning-content/katex.min.js?v={{ asset_v }}"></script>
+<script defer src="/static/vendor/learning-content/mhchem.min.js?v={{ asset_v }}"></script>
+{% endblock %}
 
 {% block content %}
 <style>
@@ -79,6 +85,7 @@
   <div class="fc-head">
     <div class="fc-stats" id="fcStats"></div>
     <div class="fc-actions">
+      <a class="fc-btn" href="/flashcards/photo">From a photo</a>
       <button class="fc-btn fc-btn-primary" onclick="fcStudyAll()" id="fcStudyAllBtn">
         <svg viewBox="0 0 256 256" fill="currentColor"><use href="#i-lightning"/></svg>
         Study everything due
@@ -221,7 +228,7 @@ async function fcLoadDecks() {
     <div class="fc-deck">
       <div>
         <div class="fc-deck-name">${fcEsc(d.name)}</div>
-        <div class="fc-source">${fcEsc(d.source)}</div>
+        <div class="fc-source">${fcEsc((d.source || '').startsWith('photo:') ? 'Photo practice' : d.source)}</div>
       </div>
       <div class="fc-deck-meta">
         <span class="fc-pill fc-pill-due">${d.due} due</span>
@@ -328,8 +335,11 @@ function fcShowCard() {
   const card = fcQueue[fcIndex];
   if (!card) return fcEndSession();
   fcRevealed = false;
-  document.getElementById('fcFront').textContent = card.front;
-  document.getElementById('fcBack').textContent = card.back;
+  for (const [id, text] of [['fcFront', card.front], ['fcBack', card.back]]) {
+    const target = document.getElementById(id);
+    if (window.IPRichText) target.innerHTML = window.IPRichText.render(text);
+    else target.textContent = text;
+  }
   document.getElementById('fcBack').classList.add('fc-hidden');
   document.getElementById('fcGrades').classList.add('fc-hidden');
   document.getElementById('fcRevealRow').classList.remove('fc-hidden');

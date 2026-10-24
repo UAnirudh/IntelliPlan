@@ -37,8 +37,8 @@ GEMINI_VISION = os.getenv("GEMINI_VISION_MODEL", "gemini-2.5-flash")
 # these defaults, but make the supported replacements the out-of-box path.
 GROQ_STANDARD = os.getenv("GROQ_STANDARD_MODEL", "openai/gpt-oss-120b")
 GROQ_FAST = os.getenv("GROQ_FAST_MODEL", "openai/gpt-oss-20b")
-# Qwen 3.6 27B is the recommended multimodal replacement for deprecated
-# Llama vision models on Groq.
+# Qwen 3.8 27B is the current Groq multimodal replacement; photo practice
+# validates this vision-capable model before sending an image.
 GROQ_VISION = os.getenv("GROQ_VISION_MODEL", "qwen/qwen3.8-27b")
 GROQ_WHISPER = os.getenv("GROQ_WHISPER_MODEL", "whisper-large-v3-turbo")
 #: Text to speech, so Plani can answer out loud in a voice session.
@@ -756,6 +756,7 @@ def vision(
     tier: Tier = "vision",
     temperature: float = 0.5,
     max_tokens: int = 1200,
+    provider: Literal['groq', 'gemini'] | None = None,
 ) -> str:
     """Multimodal image analysis, walking the same kind of chain chat() does.
 
@@ -765,6 +766,10 @@ def vision(
     vision was "temporarily unavailable". Gemini counts quota per model, so
     the vision model steps down to the lite model before leaving Google.
     """
+    if provider not in {None, 'groq', 'gemini'}:
+        raise AIUnavailable('Choose a supported vision provider.')
+    if provider == 'groq' and _TIER_GROQ[tier] not in {'qwen/qwen3.8-27b'}:
+        raise AIUnavailable('The configured Groq model has not been validated for photo input.')
     _apply_account_hooks(None)
     errors: list[str] = []
     quota_hits = 0
@@ -772,7 +777,7 @@ def vision(
     retry_after: int | None = None
 
     from intelliplan.learning.enforcement import permitted_processing
-    for gem_model in ([_TIER_GEMINI[tier], GEMINI_FAST] if gemini_available() and permitted_processing('gemini') else []):
+    for gem_model in ([_TIER_GEMINI[tier], GEMINI_FAST] if provider != 'groq' and gemini_available() and permitted_processing('gemini') else []):
         attempted += 1
         try:
             from google.genai import types
@@ -801,15 +806,15 @@ def vision(
                 return text
             raise RuntimeError("Gemini vision returned empty text.")
         except Exception as exc:
-            errors.append(f"Gemini/{gem_model}: {exc}")
+            errors.append(f"Gemini/{gem_model}: {type(exc).__name__}")
             if _is_quota_error(exc):
                 quota_hits += 1
                 retry_after = retry_after or _retry_after_seconds(exc)
                 logger.info("Gemini %s out of quota for vision, trying the next model", gem_model)
             else:
-                logger.warning("Gemini %s vision failed (%s), trying the next model", gem_model, exc)
+                logger.warning("Gemini %s vision failed (%s), trying the next model", gem_model, type(exc).__name__)
 
-    if groq_vision_key() and permitted_processing('groq'):
+    if provider != 'gemini' and groq_vision_key() and permitted_processing('groq'):
         attempted += 1
         try:
             client = _groq_client(groq_vision_key())
@@ -831,13 +836,15 @@ def vision(
                 temperature=temperature,
                 max_tokens=max_tokens,
             )
+            if getattr(resp.choices[0], 'finish_reason', 'stop') != 'stop':
+                raise AIUnavailable('Photo reading did not finish. Crop to a smaller section.')
             return resp.choices[0].message.content.strip()
         except Exception as exc:
-            errors.append(f"Groq/{_TIER_GROQ[tier]}: {exc}")
+            errors.append(f"Groq/{_TIER_GROQ[tier]}: {type(exc).__name__}")
             if _is_quota_error(exc):
                 quota_hits += 1
                 retry_after = retry_after or _retry_after_seconds(exc)
-            logger.error("Groq vision failed: %s", exc)
+            logger.warning("Groq vision failed (%s)", type(exc).__name__)
 
     if quota_hits and quota_hits == attempted:
         raise AIQuotaExhausted(

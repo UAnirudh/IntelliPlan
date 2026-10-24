@@ -97,6 +97,19 @@ def _seed(db: SQLAlchemy, models: dict) -> None:
 
 
 class TestAssignmentRepository:
+    def test_submitted_raw_feed_does_not_become_new_command_center_work(self, app, db, models):
+        with app.app_context():
+            _seed(db, models)
+            raw = [
+                {'id': 'wait', 'title': 'Waiting essay', 'source': 'canvas', 'submission': {'workflow_state': 'submitted'}},
+                {'id': 'unknown', 'title': 'Ungraded practice', 'grade': None},
+                {'id': 'redo', 'title': 'Teacher requested redo', 'submission': {'workflow_state': 'graded', 'redo_request': True}},
+            ]
+            repo = AssignmentRepository(models['ManualTask'], db.session, lms_fetcher=lambda uid: raw)
+            titles = {row.title for row in repo.for_user(1, date(2026, 6, 12))}
+            assert 'Waiting essay' not in titles
+            assert {'Ungraded practice', 'Teacher requested redo'} <= titles
+
     def test_manual_filter_runs_after_live_fetch_policy_change(self, app, db, models):
         state = {'allowed': True}
 

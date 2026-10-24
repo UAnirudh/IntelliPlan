@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block page_title %}Photo practice | IntelliPlan{% endblock %}
+{% block head_extra %}
+<link rel="stylesheet" href="/static/vendor/learning-content/katex.min.css?v={{ asset_v }}">
+<link rel="stylesheet" href="/static/css/rich_math.css?v={{ asset_v }}">
+<script defer src="/static/vendor/learning-content/katex.min.js?v={{ asset_v }}"></script>
+<script defer src="/static/vendor/learning-content/mhchem.min.js?v={{ asset_v }}"></script>
+<script defer src="{{ url_for('static', filename='js/photo-study.js') }}?v={{ asset_v }}"></script>
+<style>
+.photo-study{--ps-surface:var(--surface,rgba(128,128,150,.06));--ps-line:var(--border,rgba(128,128,150,.2));max-width:1060px;margin:0 auto;padding:28px 16px 80px;color:var(--text);line-height:1.6}
+.photo-study *{box-sizing:border-box;min-width:0}.photo-study [hidden]{display:none!important}
+.ps-back{color:var(--muted);text-decoration:none;font-size:.9rem}.ps-header{margin:26px 0 30px;max-width:720px}.ps-header h1{font-size:clamp(1.8rem,4vw,2.65rem);letter-spacing:-.045em;line-height:1.15;margin:12px 0}.ps-header p{color:var(--muted);margin:12px 0}
+.ps-steps{display:flex;gap:24px;flex-wrap:wrap;margin:0 0 24px;padding:0;list-style:none;font-size:.85rem;color:var(--muted)}.ps-steps span{display:inline-grid;place-items:center;width:25px;height:25px;border:1px solid var(--ps-line);border-radius:50%;margin-right:7px}
+.ps-workspace{display:grid;grid-template-columns:minmax(250px,.8fr) minmax(0,1.3fr);gap:24px;align-items:start}
+.ps-panel{border:1px solid var(--ps-line);border-radius:24px;background:var(--ps-surface);padding:24px;box-shadow:0 8px 32px rgba(0,0,0,.035)}.ps-panel h2{font-size:1.05rem;margin:0 0 8px;letter-spacing:-.02em}.ps-hint{color:var(--muted);font-size:.88rem;margin:6px 0 18px}.ps-upload{border:1px dashed var(--ps-line);border-radius:18px;padding:26px 16px;display:flex;align-items:center;flex-direction:column;gap:12px;text-align:center;background:rgba(128,128,150,.025)}
+.ps-icon{font-size:2rem}.ps-buttons{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.photo-study .ps-btn{border:1px solid var(--ps-line);border-radius:12px;min-height:44px;padding:10px 16px;cursor:pointer;background:var(--ps-surface);color:inherit;font:inherit;font-size:.9rem;line-height:1.4;transition:background .16s,transform .16s;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:8px}.photo-study .ps-btn:hover:not(:disabled){background:rgba(128,128,150,.14)}.photo-study .ps-btn:active:not(:disabled){transform:translateY(1px)}.photo-study .ps-primary{background:var(--text,#e9e9ee);color:var(--bg,#151519);font-weight:650}.photo-study .ps-primary:hover:not(:disabled){opacity:.9;background:var(--text,#e9e9ee)}.ps-btn:disabled{opacity:.5;cursor:wait}.photo-study :focus-visible{outline:2px solid var(--accent,#858cf6);outline-offset:3px}
+.ps-preview{margin:18px 0;position:relative}.ps-preview img{display:block;max-height:260px;width:100%;object-fit:contain;border-radius:12px;background:rgba(128,128,150,.05)}.ps-preview figcaption{font-size:.8rem;color:var(--muted);overflow-wrap:anywhere;margin-top:8px}.ps-privacy{font-size:.8rem;color:var(--muted);margin:16px 0 0}.ps-label{font-size:.88rem;font-weight:600;display:block;margin-bottom:8px}
+.photo-study textarea,.photo-study select{background:var(--bg,transparent);color:inherit;border:1px solid var(--ps-line);border-radius:12px;font:inherit;padding:12px;max-width:100%}.photo-study textarea{display:block;width:100%;min-height:270px;resize:vertical;line-height:1.65}.ps-source-footer{display:flex;justify-content:space-between;gap:12px;font-size:.8rem;color:var(--muted);margin:8px 0 18px}.ps-options{display:flex;align-items:end;gap:14px;flex-wrap:wrap;margin:20px 0}.ps-options label{font-size:.82rem;color:var(--muted);display:grid;gap:6px}.photo-study select{min-height:44px;padding:9px 32px 9px 12px;font-size:.9rem;color:var(--text)}.ps-generate{width:100%}.ps-warnings{font-size:.85rem;border-left:3px solid #cbad66;padding:10px 14px;background:rgba(203,173,102,.08);border-radius:0 10px 10px 0;margin:16px 0;overflow-wrap:anywhere}.ps-status{padding:14px 18px;border:1px solid var(--ps-line);border-radius:14px;margin:20px 0;overflow-wrap:anywhere}.ps-status[data-error=true]{border-color:#b67575;color:var(--text)}
+.ps-results{margin-top:28px}.ps-result-header{display:flex;align-items:start;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:24px}.ps-result-header h2{font-size:1.4rem;margin:0}.ps-result-header p{margin:8px 0;color:var(--muted);font-size:.88rem}.ps-progress{display:flex;justify-content:space-between;gap:16px;color:var(--muted);font-size:.85rem;margin-bottom:18px}.ps-question{font-size:1.2rem;font-weight:600;line-height:1.6;overflow-wrap:anywhere}.ps-question p{margin-top:0}.ps-choices{display:grid;gap:12px;margin:24px 0}.ps-choice{text-align:left!important;justify-content:start!important;padding:15px 18px!important;min-height:54px!important;width:100%;overflow-wrap:anywhere}.ps-choice span{font-size:.85rem;color:var(--muted);flex:0 0 auto;margin-right:8px}.ps-choice[data-correct=true]{border-color:#71ad8c!important;background:rgba(113,173,140,.12)!important;opacity:1!important}.ps-choice[data-wrong=true]{border-color:#c78181!important;background:rgba(199,129,129,.10)!important;opacity:1!important}.ps-feedback{padding:18px;background:rgba(128,128,150,.05);border-radius:16px;overflow-wrap:anywhere}.ps-evidence{color:var(--muted);font-size:.86rem;margin-top:16px;overflow-wrap:anywhere}.ps-evidence summary{cursor:pointer}.ps-evidence blockquote{margin:12px 0 0;padding-left:16px;border-left:2px solid var(--ps-line)}.ps-nav{display:flex;justify-content:space-between;gap:12px;margin-top:24px}.ps-card-list{display:grid;gap:16px}.ps-card{border:1px solid var(--ps-line);padding:22px;border-radius:18px;overflow-wrap:anywhere}.ps-card h3{font-size:1rem;margin:0 0 18px}.ps-card-answer{margin-top:16px;border-top:1px solid var(--ps-line);padding-top:16px}.ps-card-answer p:last-child{margin-bottom:0}.ps-complete{text-align:center;padding:30px 12px}.ps-complete h3{font-size:1.6rem;margin:0 0 12px}.ps-saving{margin-top:24px;border-top:1px solid var(--ps-line);padding-top:22px}.ps-results .ip-math-display{max-width:100%;overflow-x:auto}.ps-rich p{margin-top:0}.ps-rich p:last-child{margin-bottom:0}.ps-saving a{color:var(--text)}
+@media(max-width:760px){.ps-workspace{grid-template-columns:1fr}.photo-study{padding:18px 8px 100px}.ps-panel{padding:20px;border-radius:20px}.ps-header{margin-top:20px}.ps-steps{gap:12px;font-size:.78rem}.ps-steps span{width:22px;height:22px;margin-right:4px}.ps-result-header .ps-buttons{width:100%}.photo-study textarea{min-height:230px}}
+@media(prefers-reduced-motion:reduce){.photo-study .ps-btn{transition:none}}
+</style>
+{% endblock %}
+{% block content %}
+<div class="photo-study" id="photoStudy">
+  <a href="/flashcards" class="ps-back">← Your flashcards</a>
+  <header class="ps-header"><div class="page-kicker">Photo practice</div>
+    <h1>Your notes. A new way to remember.</h1>
+    <p>Turn a page into questions you can actually practice. Check the reading first, then test yourself or build a flashcard deck.</p>
+  </header>
+  <ol class="ps-steps" aria-label="Photo practice steps"><li><span>1</span>Bring a photo</li><li><span>2</span>Check the source</li><li><span>3</span>Practice & remember</li></ol>
+  <div id="psStatus" class="ps-status" role="status" aria-live="polite" hidden></div>
+  <div class="ps-workspace" id="psWorkspace">
+    <section class="ps-panel" aria-labelledby="psPhotoTitle">
+      <h2 id="psPhotoTitle">Start with a page</h2><p class="ps-hint">Notes, textbook pages and clear diagrams work best. Crop out names and personal information.</p>
+      <div class="ps-upload"><span class="ps-icon" aria-hidden="true">▧</span><strong>One clear photo, one topic</strong>
+        <div class="ps-buttons"><button type="button" class="ps-btn" id="psChoose">Choose photo</button><button type="button" class="ps-btn" id="psCamera">Take photo</button></div>
+        <span class="ps-hint" style="margin:0">JPEG, PNG or WebP · up to 6 MB</span>
+        <input id="psFile" type="file" accept="image/jpeg,image/png,image/webp" hidden aria-label="Choose a photo of your notes">
+        <input id="psCameraFile" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" hidden aria-label="Take a photo of your notes">
+      </div>
+      <figure id="psPreview" class="ps-preview" hidden><img id="psImage" alt="Your selected study material"><figcaption id="psFileName"></figcaption></figure>
+      <button type="button" class="ps-btn ps-primary" id="psRead" disabled style="width:100%;margin-top:18px">Read photo</button>
+      <p class="ps-privacy">Photos are sent to Groq for reading and are not saved by this feature. Your school's AI rules apply. Only the practice you choose to save goes into your flashcard library.</p>
+    </section>
+    <section class="ps-panel" aria-labelledby="psSourceTitle">
+      <h2 id="psSourceTitle">Make sure it reads right</h2><p class="ps-hint">Correct symbols and any unclear words before creating practice. You can also paste your own notes.</p>
+      <div id="psWarnings" class="ps-warnings" hidden></div>
+      <label class="ps-label" for="psSource">Reviewed source text</label>
+      <textarea id="psSource" maxlength="12000" placeholder="Your photo's text will appear here. Or paste a paragraph from your notes…" spellcheck="false"></textarea>
+      <div class="ps-source-footer"><span>Skip any [unclear] sections.</span><span id="psCharacters">0 / 12,000</span></div>
+      <div class="ps-options"><label for="psMode">Practice style<select id="psMode"><option value="quiz">Interactive quiz</option><option value="flashcards">Flashcards</option></select></label>
+        <label for="psCount">Maximum items<select id="psCount"><option value="4">4 items</option><option value="6" selected>6 items</option><option value="8">8 items</option><option value="10">10 items</option></select></label></div>
+      <button type="button" class="ps-btn ps-primary ps-generate" id="psGenerate" disabled>Create practice</button>
+      <p class="ps-privacy">Practice uses your reviewed text. AI can misread or make mistakes; check answers against your notes. Short sources may produce fewer items.</p>
+    </section>
+  </div>
+  <section id="psResults" class="ps-panel ps-results" aria-labelledby="psResultTitle" hidden>
+    <div class="ps-result-header"><div><h2 id="psResultTitle" tabindex="-1"></h2><p id="psResultHint"></p></div><div class="ps-buttons"><button type="button" class="ps-btn" id="psRestart">Start again</button><button type="button" class="ps-btn" id="psEdit">Edit source</button></div></div>
+    <div id="psPractice"></div>
+    <div class="ps-saving"><div class="ps-buttons"><button type="button" class="ps-btn ps-primary" id="psSave">Save flashcards</button><a href="/flashcards" id="psSaved" hidden>Open your saved deck →</a></div><p class="ps-privacy" id="psSaveHint">Saving adds these questions to your private spaced-repetition library. Your photo is never stored.</p></div>
+  </section>
+</div>
+{% endblock %}

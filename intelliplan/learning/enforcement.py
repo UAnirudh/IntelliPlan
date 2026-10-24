@@ -32,6 +32,11 @@ SURFACES = {
     'notifications': ('/push', '/notifications', '/api/notifications', '/api/v1/push', '/api/reminders'),
 }
 
+# Reading photos and creating practice are AI assistance, even when the result
+# is saved as an ordinary review deck. Alternate URLs inherit the same gates.
+for _capability in ('review', 'study', 'uploads', 'tutor'):
+    SURFACES[_capability] += ('/flashcards/photo', '/api/flashcards/photo')
+
 
 def matches(path, prefix):
     return path == prefix or path.startswith(prefix + '/')
