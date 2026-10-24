@@ -45,6 +45,8 @@ notion-client>=2.2.1
 pywebpush>=1.14.0
 
 # Utilities
+# Decode untrusted study photos with the current security fixes.
+Pillow==13.0.0
 # IANA zones on Windows and slim runtimes without a system zone database.
 tzdata>=2025.2
 requests>=2.31.0
