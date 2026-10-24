@@ -200,15 +200,18 @@ with sync_playwright() as p:
         assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
         page.goto('https://tutor.test/tools', wait_until='networkidle')
         page.locator('#studyToolSearch').fill('flashcards')
-        assert page.locator('.study-tool:visible').count() == 1
+        assert page.locator('.study-tool:visible').count() == 2
+        assert page.locator('.study-tool:visible').evaluate_all("cards => cards.every(card => card.textContent.toLowerCase().includes('flashcards'))")
         assert page.get_by_role('link', name='Flashcards', exact=True).count() >= 1
+        photo_tool = page.get_by_role('link', name='Photo practice', exact=True)
+        assert photo_tool.is_visible() and photo_tool.get_attribute('href') == '/flashcards/photo'
         page.locator('#studyToolSearch').fill('no matching tool xyz')
         assert page.locator('#studyToolsEmpty').is_visible()
         page.locator('#studyToolSearch').fill('')
         page.get_by_role('button', name='Practice', exact=True).click()
-        assert page.locator('.study-tool:visible').count() == 5
+        assert page.locator('.study-tool:visible').count() == 6
         page.get_by_role('button', name='All tools', exact=True).click()
-        assert page.locator('.study-tool:visible').count() == 24
+        assert page.locator('.study-tool:visible').count() == 25
         essential = page.get_by_role('button', name='Essential only', exact=True)
         if essential.is_visible():
             essential.click()
@@ -217,7 +220,9 @@ with sync_playwright() as p:
         page.screenshot(path=str(OUT / f'study-tools-{width}-{theme}.png'), full_page=True)
         audit(page, '.study-tools', f'tools-{width}-{theme}')
         page.goto('https://tutor.test/tools?restricted=1', wait_until='networkidle')
-        assert page.locator('.study-tool.is-restricted').count() == 8
+        assert page.locator('.study-tool.is-restricted').count() == 9
+        assert page.get_by_role('link', name='Photo practice', exact=True).count() == 0
+        assert page.locator('.study-tool.is-restricted').filter(has_text='Photo practice').count() == 1
         assert page.locator('.study-tool.is-restricted a').count() == 0
         assert page.locator('#tutorInput').count() == 0
         assert page.locator('.study-tools-notice').first.is_visible()
@@ -233,7 +238,8 @@ with sync_playwright() as p:
     page = context.new_page()
     page.route('**/*', route)
     page.goto('https://tutor.test/tools', wait_until='networkidle')
-    assert page.locator('.study-tool').count() == 24
+    assert page.locator('.study-tool').count() == 25
+    assert page.get_by_role('link', name='Photo practice', exact=True).get_attribute('href') == '/flashcards/photo'
     assert page.locator('.study-tools-controls').is_hidden()
     assert page.get_by_role('link', name='Writing coach', exact=True).is_visible()
     print(json.dumps({'javascript_disabled': True, 'all_tools_reachable': True, 'passed': True}))
