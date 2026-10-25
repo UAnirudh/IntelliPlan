@@ -19,8 +19,12 @@ takes a URL has something to call rather than a precedent to copy wrongly.
 from __future__ import annotations
 
 import ipaddress
+import ssl
 import socket
 import urllib.parse
+
+import requests
+import urllib3
 
 #: A school's LMS is on the web, on a web port. Allowing arbitrary ports
 #: turns a URL field into a port scanner even against public hosts.
@@ -99,3 +103,68 @@ def require_public_url(url: str) -> str:
     if not resolves_to_public_host(url):
         raise BlockedURL(url)
     return url
+
+
+def pinned_https_request(url: str, method: str, *, headers=None, data=None, timeout=15):
+    """Make one HTTPS request to the exact public IPs validated in this call.
+
+    A separate DNS check followed by ``requests`` is vulnerable to rebinding:
+    the HTTP client resolves the name a second time. This connects to the
+    validated address while retaining the original Host header, TLS SNI and
+    certificate hostname verification. Redirects are never followed.
+    """
+    try:
+        parsed = urllib.parse.urlsplit(url)
+        port = parsed.port
+    except ValueError:
+        raise BlockedURL(url) from None
+    if (parsed.scheme.lower() != "https" or not parsed.hostname
+            or parsed.username is not None or parsed.password is not None
+            or port not in (None, 443)):
+        raise BlockedURL(url)
+    host = parsed.hostname
+    port = port or 443
+    try:
+        infos = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+    except OSError as exc:
+        raise requests.ConnectionError("The integration host could not be resolved.") from exc
+    addresses = list(dict.fromkeys(info[4][0] for info in infos))
+    if not addresses or not all(_address_is_public(address) for address in addresses):
+        raise BlockedURL(url)
+
+    target = urllib.parse.urlunsplit(("", "", parsed.path or "/", parsed.query, ""))
+    request_headers = dict(headers or {})
+    request_headers["Host"] = parsed.netloc
+    last_error = None
+    for address in addresses:
+        pool = urllib3.HTTPSConnectionPool(
+            host=address,
+            port=port,
+            server_hostname=host,
+            assert_hostname=host,
+            cert_reqs=ssl.CERT_REQUIRED,
+            timeout=urllib3.Timeout(connect=timeout, read=timeout),
+        )
+        try:
+            raw = pool.request(
+                method,
+                target,
+                body=data,
+                headers=request_headers,
+                redirect=False,
+                retries=False,
+            )
+            response = requests.Response()
+            response.status_code = raw.status
+            response._content = raw.data
+            response.headers = requests.structures.CaseInsensitiveDict(raw.headers)
+            response.url = url
+            response.reason = raw.reason
+            response.encoding = requests.utils.get_encoding_from_headers(response.headers)
+            response.request = requests.Request(method, url, headers=request_headers, data=data).prepare()
+            return response
+        except (urllib3.exceptions.HTTPError, OSError) as exc:
+            last_error = exc
+        finally:
+            pool.close()
+    raise requests.ConnectionError("The integration host could not be reached securely.") from last_error

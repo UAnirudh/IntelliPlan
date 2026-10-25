@@ -371,6 +371,14 @@ def _stamp_auth_time(sender, user):
 # ── FIX: Point flask-session at the SQLAlchemy db so sessions are durable.
 app.config["SESSION_SQLALCHEMY"] = db
 Session(app)
+# Flask-Session keeps the cookie server-side, but its default SQLAlchemy
+# serializer leaves session values readable in database dumps. Encrypt new
+# rows with the app's existing session secret; old rows remain readable and
+# are encrypted when next written (all server-side sessions expire in 7 days).
+from encrypted_sessions import EncryptedSessionSerializer
+app.session_interface.serializer = EncryptedSessionSerializer(
+    app.session_interface.serializer, app.secret_key
+)
 
 @app.teardown_appcontext
 def shutdown_session(exception=None):
@@ -3378,6 +3386,24 @@ def get_active_account():
             "feed_url": session.get("feed_url"),
         }
     if login_type == "studentvue":
+        district_url = session.get("sv_district_url", "")
+        try:
+            district = urllib.parse.urlsplit(district_url)
+            district_port = district.port
+            district_is_secure = (
+                district.scheme.lower() == "https"
+                and bool(district.hostname)
+                and district.username is None
+                and district.password is None
+                and district_port in (None, 443)
+            )
+        except (TypeError, ValueError):
+            district_is_secure = False
+        if not district_is_secure:
+            for key in ("sv_username", "sv_password", "sv_district_url", "login_type"):
+                session.pop(key, None)
+            session["studentvue_reconnect_required"] = True
+            return None
         return {
             "login_type": "studentvue",
             "sv_username": session.get("sv_username"),
@@ -8447,55 +8473,61 @@ def login_canvas():
             canvas_url = "https://" + canvas_url
         if not token or not canvas_url:
             error = "Please fill in both fields."
-        elif not _resolves_to_public_host(canvas_url):
-            # The address is typed by whoever is at the keyboard and fetched
-            # by the server, so an internal one would make this an SSRF
-            # probe -- and the difference between "unreachable" and "invalid
-            # token" below would report whether the host answered. Same
-            # message as a genuinely unreachable host: the student's next
-            # move is the same either way.
-            error = (
-                f"Could not reach {canvas_url}. Check the address is your "
-                "school's Canvas (it usually looks like "
-                "https://yourschool.instructure.com) and try again."
-            )
         else:
-            # A typo'd school URL, a Canvas that is down, or a network blip
-            # used to raise straight out of the view and render a 500 page.
-            # The student's next move is the same in all three cases -- check
-            # the address and try again -- so say that instead of crashing.
             try:
-                test = requests.get(
-                    f"{canvas_url}/api/v1/courses",
-                    headers={"Authorization": f"Bearer {token}"},
-                    timeout=20,
+                parsed_canvas_url = urllib.parse.urlsplit(canvas_url)
+                canvas_port = parsed_canvas_url.port
+                safe_canvas_url = (
+                    parsed_canvas_url.scheme.lower() == "https"
+                    and bool(parsed_canvas_url.hostname)
+                    and parsed_canvas_url.username is None
+                    and parsed_canvas_url.password is None
+                    and canvas_port in (None, 443)
+                    and not parsed_canvas_url.query
+                    and not parsed_canvas_url.fragment
                 )
-            except requests.RequestException:
-                test = None
+            except ValueError:
+                safe_canvas_url = False
+            if not safe_canvas_url or not _resolves_to_public_host(canvas_url):
+                # The address is typed by whoever is at the keyboard and fetched
+                # by the server, so an internal one would make this an SSRF
+                # probe. Never send a bearer token over HTTP or follow a redirect
+                # to a different host.
                 error = (
-                    f"Could not reach {canvas_url}. Check the address is your "
-                    "school's Canvas (it usually looks like "
-                    "https://yourschool.instructure.com) and try again."
+                    "Could not reach that Canvas address. Check that it is your "
+                    "school's HTTPS Canvas address and try again."
                 )
-            if test is not None and test.status_code == 200:
-                creds = {"canvas_token": token, "canvas_url": canvas_url}
-                if current_user.is_authenticated:
-                    LinkedAccount.query.filter_by(user_id=current_user.id).update({"is_active": False})
-                    acct = LinkedAccount(user_id=current_user.id, name=profile_name, login_type="canvas", is_active=True)
-                    acct.set_credentials(creds)
-                    db.session.add(acct)
-                    db.session.commit()
-                else:
-                    session.permanent = True
-                    session["canvas_token"] = token
-                    session["canvas_url"] = canvas_url
-                    session["login_type"] = "canvas"
-                return redirect("/command-center")
-            elif test is not None:
-                # `elif`, not `else`: when the request never completed, error
-                # already holds the "could not reach" message above, and
-                # "Invalid token" would be both wrong and a worse hint.
-                error = "Invalid token or Canvas URL."
+            else:
+                # A typo'd school URL, a Canvas that is down, or a network blip
+                # should produce a useful login error, not a 500 response.
+                try:
+                    test = net_guard.pinned_https_request(
+                        f"{canvas_url}/api/v1/courses", "GET",
+                        headers={"Authorization": f"Bearer {token}"},
+                        timeout=20,
+                    )
+                except requests.RequestException:
+                    test = None
+                    error = (
+                        "Could not reach that Canvas address. Check that it is your "
+                        "school's HTTPS Canvas address and try again."
+                    )
+                if test is not None and test.status_code == 200:
+                    creds = {"canvas_token": token, "canvas_url": canvas_url}
+                    if current_user.is_authenticated:
+                        LinkedAccount.query.filter_by(user_id=current_user.id).update({"is_active": False})
+                        acct = LinkedAccount(user_id=current_user.id, name=profile_name, login_type="canvas", is_active=True)
+                        acct.set_credentials(creds)
+                        db.session.add(acct)
+                        db.session.commit()
+                    else:
+                        session.permanent = True
+                        session["canvas_token"] = token
+                        session["canvas_url"] = canvas_url
+                        session["login_type"] = "canvas"
+                    return redirect("/command-center")
+                elif test is not None:
+                    error = "Invalid token or Canvas URL."
     return render_template(
         "login_canvas.html",
         active_page="login",
@@ -8834,6 +8866,11 @@ def oauth_canvas_disconnect():
 @app.route("/login/studentvue", methods=["GET", "POST"])
 def login_studentvue():
     error = None
+    if request.method == "GET" and session.pop("studentvue_reconnect_required", False):
+        error = (
+            "Your previous StudentVUE connection used an insecure address and was removed. "
+            "Reconnect using your school's HTTPS StudentVUE address."
+        )
     if request.method == "POST":
         username = request.form.get("username", "").strip()
         # Password whitespace is significant. Trimming it here changed a

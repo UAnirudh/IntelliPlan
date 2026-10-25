@@ -39,7 +39,7 @@ The initializer generates three independent random secrets under `%LOCALAPPDATA%
 
 The tracked configuration is `deployment/self-hosted-postgres/compose.json` (JSON is valid Compose configuration). The image is pinned to the supported [official `postgres:17.11-bookworm` tag](https://hub.docker.com/_/postgres), rather than an RC or a floating major upgrade. Its named volume is mounted at `/var/lib/postgresql/data`, the required persistence path for PostgreSQL17. The bootstrap `postgres` administrator and the application's non-superuser `intelliplan` role have separate credentials. The application does not get the administrator password. Host authentication uses SCRAM.
 
-PostgreSQL binds to **127.0.0.1:5432 only**, and the database's Docker network is internal. Another device or a Railway service cannot connect to your PC's loopback address. Never replace that binding with `0.0.0.0`, expose public5432, or forward that port on the router.
+PostgreSQL binds to **127.0.0.1:5432 only**. The database container joins the internal network and, for Docker Desktop's WSL2 backend, the existing `outbound` network as well: Docker Desktop otherwise omits host-port forwarding for a container attached only to an internal network. This means the database container can make outbound connections, but the host port remains loopback-only; another device or a Railway service cannot connect to it. Never replace that binding with `0.0.0.0`, expose public 5432, or forward that port on the router.
 
 For an administrative local SQL session, Docker Desktop's container **Exec** view can run `psql -U postgres -d intelliplan` as the Linux `postgres` user. The connection shape for a separate local app is `postgresql+psycopg2://intelliplan:<password-from-protected-file>@127.0.0.1:5432/intelliplan`; avoid putting the completed URL in shell history, screenshots or chat.
 
@@ -80,7 +80,7 @@ Verification uses at most 6 GB RAM, including a 4 GB temporary data filesystem. 
 
 Keep both dump and metadata, plus a protected copy of the secret/configuration directory, on **another physical device or encrypted off-machine storage**. The database dump does not back up uploaded files, filesystem sessions, global PostgreSQL roles or application configuration. Back up the app's `app_uploads` volume and required configuration separately. Test those restores too. Never put real backups or secrets in Git.
 
-Schedule a daily backup under this Windows account only after a manual backup and restore check succeed. Use Task Scheduler to call the script's `backup` command with an absolute Python/script path, and configure a visible failure notification. Keep several generations; no automatic retention/deletion is enabled. A named Docker volume and a backup on the same SSD are not protection against loss of the PC.
+Schedule a daily backup under this Windows account only after a manual backup and restore check succeed. The supplied `scripts/self_hosted_postgres_backup_task.ps1` wrapper records the latest outcome at `C:\IntelliPlan-PostgreSQL\backup-last-result.txt` and exits nonzero on failure, which Task Scheduler records in Last Run Result and History. Keep several generations; no automatic retention/deletion is enabled. A named Docker volume and a backup on the same SSD are not protection against loss of the PC.
 
 ## 5. Production cutover is a separate operation
 

@@ -17,7 +17,7 @@
         "postgres_data:/var/lib/postgresql/data",
         "./initdb:/docker-entrypoint-initdb.d:ro"
       ],
-      "networks": ["database"],
+      "networks": ["database", "outbound"],
       "mem_limit": "2g",
       "shm_size": "256mb",
       "command": ["postgres", "-c", "shared_buffers=256MB", "-c", "effective_cache_size=1GB", "-c", "work_mem=8MB", "-c", "max_connections=80", "-c", "password_encryption=scram-sha-256"],

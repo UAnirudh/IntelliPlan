@@ -27,11 +27,12 @@ def test_studentvue_request_preserves_password_whitespace(monkeypatch):
         def raise_for_status(self):
             return None
 
-    def post(*args, **kwargs):
+    def post(url, method, **kwargs):
+        assert method == "POST"
         captured.update(kwargs)
         return Response()
 
-    monkeypatch.setattr(studentvue_helper.requests, "post", post)
+    monkeypatch.setattr(studentvue_helper.net_guard, "pinned_https_request", post)
 
     studentvue_helper.make_request(
         "https://district-psv.edupoint.com", "student", " password ", "StudentInfo"
