@@ -28,7 +28,7 @@ import {
 } from "../../lib/api";
 import { useTheme } from "../../theme/ThemeProvider";
 import { radius, space } from "../../theme/tokens";
-import { Card, Chip, EmptyState, Label, Loading, Notice, Screen, T } from "../../components/ui";
+import { Card, Chip, EmptyState, ErrorState, Label, Loading, Notice, Screen, T } from "../../components/ui";
 import { useConfirm } from "../../components/Confirm";
 import { Header, IconButton } from "../../components/Header";
 import {
@@ -69,8 +69,12 @@ export default function PlaniScreen() {
   const [keyboardUp, setKeyboardUp] = useState(false);
   useEffect(() => {
     if (!tabOverlap) return;
-    const show = Keyboard.addListener("keyboardWillShow", () => setKeyboardUp(true));
-    const hide = Keyboard.addListener("keyboardWillHide", () => setKeyboardUp(false));
+    // Android only emits the `Did` events. Listening to `Will` there leaves
+    // the composer lifted above the floating bar after the keyboard closes.
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const show = Keyboard.addListener(showEvent, () => setKeyboardUp(true));
+    const hide = Keyboard.addListener(hideEvent, () => setKeyboardUp(false));
     return () => {
       show.remove();
       hide.remove();
@@ -85,14 +89,16 @@ export default function PlaniScreen() {
   const [history, setHistory] = useState<Conversation[] | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [loadingHistory, setLoadingHistory] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<{ message: string; id: number } | null>(null);
 
   const send = useCallback(
-    async (text: string) => {
+    async (text: string, replaceFrom?: number) => {
       const body = text.trim();
       if (!body || busy) return;
 
       setDraft("");
+      setLoadError(null);
       setBusy(true);
       Haptics.selectionAsync().catch(() => {});
 
@@ -100,11 +106,16 @@ export default function PlaniScreen() {
       // Snapshot before the optimistic append: the request needs the
       // history *including* this message, and reading state back after
       // setState would give the stale array.
+      const base = replaceFrom === undefined ? messages : messages.slice(0, replaceFrom);
       const history: ChatMessage[] = [
-        ...messages.filter((m) => !m.failed).map(({ role, content }) => ({ role, content })),
+        ...base.filter((m) => !m.failed).map(({ role, content }) => ({ role, content })),
         { role: "user", content: body },
       ];
-      setMessages((prev) => [...prev, outgoing, { role: "assistant", content: "", pending: true }]);
+      setMessages((prev) => [
+        ...prev.slice(0, replaceFrom ?? prev.length),
+        outgoing,
+        { role: "assistant", content: "", pending: true },
+      ]);
       requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
 
       try {
@@ -233,10 +244,12 @@ export default function PlaniScreen() {
   const openHistory = useCallback(async () => {
     setHistoryOpen(true);
     setLoadingHistory(true);
+    setHistoryError(null);
     try {
       setHistory(await getConversations());
-    } catch {
-      setHistory([]);
+    } catch (e: any) {
+      setHistory(null);
+      setHistoryError(e?.message || "Past chats couldn't load. Check your connection and try again.");
     } finally {
       setLoadingHistory(false);
     }
@@ -244,13 +257,17 @@ export default function PlaniScreen() {
 
   const loadConversation = useCallback(async (id: number) => {
     setHistoryOpen(false);
+    setLoadError(null);
     setBusy(true);
     try {
       const convo = await getConversation(id);
       setMessages(convo.messages);
       setConversationId(convo.id);
     } catch (e: any) {
-      setLoadError(e?.message || "That chat wouldn't open. Try again in a moment.");
+      setLoadError({
+        id,
+        message: e?.message || "That chat wouldn't open. Check your connection and try again.",
+      });
     } finally {
       setBusy(false);
     }
@@ -270,12 +287,20 @@ export default function PlaniScreen() {
       // Removed from the list first: the request is a formality and waiting
       // on it makes a delete feel broken on a slow connection.
       setHistory((prev) => (prev || []).filter((x) => x.id !== c.id));
+      let deleted = false;
       try {
         await deleteConversation(c.id);
+        deleted = true;
       } catch {
-        setHistory(await getConversations().catch(() => []));
+        const refreshed = await getConversations().catch(() => null);
+        if (refreshed) {
+          setHistory(refreshed);
+        } else {
+          setHistory(null);
+          setHistoryError("Past chats couldn't refresh. Check your connection and try again.");
+        }
       }
-      if (conversationId === c.id) {
+      if (deleted && conversationId === c.id) {
         setMessages([]);
         setConversationId(null);
       }
@@ -322,8 +347,16 @@ export default function PlaniScreen() {
           onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
           ListHeaderComponent={
             loadError ? (
-              <View style={{ marginBottom: space.sm }}>
-                <Notice text={loadError} icon="alert-circle-outline" />
+              <View style={{ marginBottom: space.sm, gap: space.sm }} accessibilityLiveRegion="polite">
+                <Notice text={loadError.message} icon="alert-circle-outline" />
+                <Pressable
+                  onPress={() => loadConversation(loadError.id)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Retry opening this chat"
+                  style={{ alignSelf: "flex-start", minHeight: 44, justifyContent: "center" }}
+                >
+                  <T variant="sm" weight="700" tone="accent">Try opening again</T>
+                </Pressable>
               </View>
             ) : null
           }
@@ -367,7 +400,16 @@ export default function PlaniScreen() {
               </View>
             </View>
           }
-          renderItem={({ item }) => <MessageBubble msg={item} />}
+          renderItem={({ item, index }) => (
+            <MessageBubble
+              msg={item}
+              onRetry={
+                item.failed && index > 0 && messages[index - 1]?.role === "user"
+                  ? () => send(messages[index - 1].content, index - 1)
+                  : undefined
+              }
+            />
+          )}
         />
 
         {/* On glass the bar itself disappears and its three controls float
@@ -429,6 +471,12 @@ export default function PlaniScreen() {
               placeholder="Ask about anything you're studying…"
               placeholderTextColor={colors.textMuted}
               multiline
+              editable={!busy}
+              accessibilityLabel="Message Plani"
+              accessibilityHint="Type a question, then use Send to get help with your studies"
+              returnKeyType="send"
+              submitBehavior="submit"
+              onSubmitEditing={() => send(draft)}
               style={{
                 maxHeight: 120,
                 minHeight: 44,
@@ -446,6 +494,8 @@ export default function PlaniScreen() {
             disabled={busy || !draft.trim()}
             accessibilityRole="button"
             accessibilityLabel="Send"
+            accessibilityHint={busy ? "Plani is preparing a reply" : "Sends your message to Plani"}
+            accessibilityState={{ disabled: busy || !draft.trim(), busy }}
           >
             <GlassSurface
               interactive
@@ -524,33 +574,42 @@ export default function PlaniScreen() {
             <View style={{ paddingVertical: space.xxl }}>
               <Loading />
             </View>
+          ) : historyError ? (
+            <ErrorState message={historyError} onRetry={openHistory} />
           ) : history?.length ? (
             <ScrollView contentContainerStyle={{ paddingHorizontal: space.lg, gap: space.sm }}>
               {history.map((c) => (
-                <Pressable key={c.id} onPress={() => loadConversation(c.id)} accessibilityRole="button">
-                  <Card
-                    style={{
-                      padding: space.md,
-                      flexDirection: "row",
-                      alignItems: "center",
-                      gap: space.md,
-                      borderColor: c.id === conversationId ? colors.borderAccent : colors.border,
-                    }}
+                <Card
+                  key={c.id}
+                  style={{
+                    padding: space.md,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: space.md,
+                    borderColor: c.id === conversationId ? colors.borderAccent : colors.border,
+                  }}
+                >
+                  <Pressable
+                    onPress={() => loadConversation(c.id)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Open ${c.title || "Untitled chat"}`}
+                    style={{ flex: 1, flexDirection: "row", alignItems: "center", gap: space.md }}
                   >
                     <Ionicons name="chatbubble-outline" size={17} color={colors.textMuted} />
                     <T variant="sm" style={{ flex: 1 }} numberOfLines={1}>
                       {c.title || "Untitled chat"}
                     </T>
-                    <Pressable
-                      onPress={() => removeConversation(c)}
-                      hitSlop={10}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Delete ${c.title}`}
-                    >
-                      <Ionicons name="trash-outline" size={17} color={colors.textMuted} />
-                    </Pressable>
-                  </Card>
-                </Pressable>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => removeConversation(c)}
+                    hitSlop={10}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Delete ${c.title || "Untitled chat"}`}
+                    accessibilityHint="Deletes this conversation without opening it"
+                  >
+                    <Ionicons name="trash-outline" size={17} color={colors.textMuted} />
+                  </Pressable>
+                </Card>
               ))}
             </ScrollView>
           ) : (
@@ -566,7 +625,7 @@ export default function PlaniScreen() {
   );
 }
 
-function MessageBubble({ msg }: { msg: Bubble }) {
+function MessageBubble({ msg, onRetry }: { msg: Bubble; onRetry?: () => void }) {
   const { colors } = useTheme();
   const mine = msg.role === "user";
 
@@ -586,6 +645,7 @@ function MessageBubble({ msg }: { msg: Bubble }) {
         paddingHorizontal: space.md,
         paddingVertical: space.md - 2,
       }}
+      accessibilityLiveRegion={msg.pending || msg.failed ? "polite" : "none"}
     >
       {msg.imageUri ? (
         <Image
@@ -619,7 +679,20 @@ function MessageBubble({ msg }: { msg: Bubble }) {
             {msg.content}
           </T>
           {msg.failed ? (
-            <Chip label="Not sent" icon="alert-circle-outline" fg={colors.dangerText} bg={colors.dangerSoft} style={{ marginTop: 6 }} />
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: space.md, marginTop: 6 }}>
+              <Chip label="Not sent" icon="alert-circle-outline" fg={colors.dangerText} bg={colors.dangerSoft} />
+              {onRetry ? (
+                <Pressable
+                  onPress={onRetry}
+                  accessibilityRole="button"
+                  accessibilityLabel="Retry message"
+                  accessibilityHint="Sends your question to Plani again"
+                  style={{ minHeight: 44, justifyContent: "center", paddingHorizontal: space.xs }}
+                >
+                  <T variant="sm" weight="700" tone="danger">Retry</T>
+                </Pressable>
+              ) : null}
+            </View>
           ) : null}
         </>
       )}
