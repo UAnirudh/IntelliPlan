@@ -73,7 +73,8 @@ def _router(monkeypatch, soap_text=SOAP_DISABLED, login_body=None, gradebook_bod
             json_status=200):
     calls = []
 
-    def post(url, headers=None, data=None, timeout=None):
+    def post(url, method, headers=None, data=None, timeout=None):
+        assert method == "POST"
         calls.append({"url": url, "headers": headers or {}, "data": data})
         if url.endswith("/Service/PXPCommunication.asmx"):
             return FakeResponse(text=soap_text)
@@ -85,7 +86,7 @@ def _router(monkeypatch, soap_text=SOAP_DISABLED, login_body=None, gradebook_bod
             return FakeResponse(body=gradebook_body)
         raise AssertionError(url)
 
-    monkeypatch.setattr(sv.requests, "post", post)
+    monkeypatch.setattr(sv.net_guard, "pinned_https_request", post)
     return calls
 
 
@@ -172,9 +173,9 @@ def test_gradebook_feature_off_at_school_is_empty_not_an_error(monkeypatch):
 
 
 def test_unreachable_district_still_raises_the_soap_error(monkeypatch):
-    def post(url, **kwargs):
+    def post(url, method, **kwargs):
         raise requests.ConnectionError("offline")
-    monkeypatch.setattr(sv.requests, "post", post)
+    monkeypatch.setattr(sv.net_guard, "pinned_https_request", post)
     with pytest.raises(requests.ConnectionError):
         sv.get_assignments("https://district-psv.edupoint.com", "s", "p")
 

@@ -138,7 +138,7 @@ def _unreachable(*args, **kwargs):
 
 
 def test_an_unreachable_canvas_is_an_explanation_not_a_crash(client, monkeypatch):
-    monkeypatch.setattr(App.requests, "get", _unreachable)
+    monkeypatch.setattr(App.net_guard, "pinned_https_request", _unreachable)
     r = client.post("/login/canvas", data={
         "canvas_token": "1234~tok", "canvas_url": SCHOOL})
     assert r.status_code == 200
@@ -148,7 +148,7 @@ def test_an_unreachable_canvas_is_an_explanation_not_a_crash(client, monkeypatch
 def test_an_unreachable_canvas_is_not_blamed_on_the_token(client, monkeypatch):
     """"Invalid token" sends the student off to regenerate a token that was
     never the problem."""
-    monkeypatch.setattr(App.requests, "get", _unreachable)
+    monkeypatch.setattr(App.net_guard, "pinned_https_request", _unreachable)
     body = client.post("/login/canvas", data={
         "canvas_token": "1234~tok", "canvas_url": SCHOOL}).get_data(as_text=True)
     assert "Invalid token or Canvas URL" not in body
@@ -157,7 +157,7 @@ def test_an_unreachable_canvas_is_not_blamed_on_the_token(client, monkeypatch):
 def test_a_timeout_is_handled_the_same_way(client, monkeypatch):
     def timeout(*a, **k):
         raise requests.Timeout("slow")
-    monkeypatch.setattr(App.requests, "get", timeout)
+    monkeypatch.setattr(App.net_guard, "pinned_https_request", timeout)
     r = client.post("/login/canvas", data={
         "canvas_token": "1234~tok", "canvas_url": SCHOOL})
     assert r.status_code == 200
@@ -169,11 +169,29 @@ def test_a_genuinely_bad_token_still_says_so(client, monkeypatch):
     and must not be reported as a connectivity one."""
     class Resp:
         status_code = 401
-    monkeypatch.setattr(App.requests, "get", lambda *a, **k: Resp())
+    monkeypatch.setattr(App.net_guard, "pinned_https_request", lambda *a, **k: Resp())
     body = client.post("/login/canvas", data={
         "canvas_token": "bad", "canvas_url": SCHOOL}).get_data(as_text=True)
     assert "Invalid token or Canvas URL" in body
     assert "Could not reach" not in body
+
+
+def test_canvas_token_check_does_not_follow_redirects(client, monkeypatch):
+    captured = {}
+
+    class Resp:
+        status_code = 401
+
+    def fake_get(url, method, **kwargs):
+        captured["method"] = method
+        captured.update(kwargs)
+        return Resp()
+
+    monkeypatch.setattr(App.net_guard, "pinned_https_request", fake_get)
+    client.post("/login/canvas", data={
+        "canvas_token": "synthetic-token", "canvas_url": SCHOOL})
+    assert captured["method"] == "GET"
+    assert captured["timeout"] == 20
 
 
 def test_a_missing_field_is_caught_before_any_request(client, monkeypatch):
