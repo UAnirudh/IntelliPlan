@@ -33,9 +33,8 @@ with Play Console access, a physical device, or a design tool.
   (1024×500), regenerable with `python3 scripts/gen-feature-graphic.py`. It
   is a clean brand placeholder, not a designed asset; replace it when there
   is one.
-- **done** — `npx tsc --noEmit` passes; `npx expo-doctor` passes 16/18, with
-  the two failures being network reachability from the sandbox rather than
-  project problems.
+- **done** — `npm run typecheck` passes; `npx expo-doctor` passes all 21
+  checks after aligning the Expo SDK 57 package patch versions.
 - **done** — Release config: `eas.json` production profile builds an
   `.aab`, `appVersionSource: "remote"` with `autoIncrement` so version codes
   cannot collide, and the submit profile targets the internal track as a
@@ -59,6 +58,13 @@ with Play Console access, a physical device, or a design tool.
 - [ ] `npx eas build --platform android --profile production`.
 - [ ] Install the release build on a physical device and check it against
       production, not just the emulator against localhost.
+
+Current local state: `mobile/extra.eas.projectId` is not linked and EAS CLI
+is not authenticated in this checkout. The production build has not been
+created. `npm audit` currently reports five high findings in Expo CLI/build
+dependencies (`node-forge` and `zod`); inspect the current advisory and
+remediation before release. Do not use `npm audit fix --force`, which proposes
+an incompatible Expo downgrade.
 
 ## Store listing — you
 
