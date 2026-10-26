@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { RefreshControl, SectionList, View } from "react-native";
+import { Modal, Pressable, RefreshControl, ScrollView, SectionList, StyleSheet, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
@@ -13,6 +13,7 @@ import { daysAway } from "../../lib/format";
 import { Button, EmptyState, ErrorState, Label, Loading, Notice, Screen, SegmentedRow, T } from "../../components/ui";
 import { Header, IconButton } from "../../components/Header";
 import { TaskRow } from "../../components/TaskRow";
+import { Ionicons } from "@expo/vector-icons";
 
 type Filter = "all" | "overdue" | "today" | "week" | "done";
 
@@ -40,6 +41,7 @@ export default function TasksScreen() {
   const q = useQuery<Task[]>("tasks", getTasks);
   const [filter, setFilter] = useState<Filter>("all");
   const [course, setCourse] = useState<string>("__all");
+  const [coursePickerOpen, setCoursePickerOpen] = useState(false);
   const [busyTitle, setBusyTitle] = useState<string | null>(null);
   /** Titles ticked off in this session, so the row updates before a refetch. */
   const [locallyDone, setLocallyDone] = useState<Set<string>>(new Set());
@@ -109,6 +111,7 @@ export default function TasksScreen() {
         .map((n) => ({ label: n, value: n })),
     );
   }, [tasks]);
+  const selectedCourseLabel = courses.find((option) => option.value === course)?.label ?? course;
 
   /**
    * Tick something off, or put it back.
@@ -232,9 +235,127 @@ export default function TasksScreen() {
       <View style={{ paddingLeft: space.lg, paddingVertical: space.md, gap: space.sm }}>
         <SegmentedRow options={FILTERS} value={filter} onChange={setFilter} />
         {courses.length > 2 ? (
-          <SegmentedRow options={courses} value={course} onChange={setCourse} />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Filter by course, currently ${selectedCourseLabel}`}
+            accessibilityState={{ expanded: coursePickerOpen }}
+            onPress={() => setCoursePickerOpen(true)}
+            style={({ pressed }) => ({
+              minHeight: 48,
+              marginRight: space.lg,
+              paddingHorizontal: space.md,
+              borderRadius: 14,
+              borderWidth: 1,
+              borderColor: colors.border,
+              backgroundColor: colors.bgCard,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: space.sm,
+              opacity: pressed ? 0.75 : 1,
+            })}
+          >
+            <Ionicons name="book-outline" size={18} color={colors.accent} />
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <T variant="micro" tone="muted" weight="600">COURSE</T>
+              <T numberOfLines={1} variant="sm" weight="600">{selectedCourseLabel}</T>
+            </View>
+            <Ionicons name="chevron-down" size={18} color={colors.textMuted} />
+          </Pressable>
         ) : null}
       </View>
+
+      <Modal
+        visible={coursePickerOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setCoursePickerOpen(false)}
+        statusBarTranslucent
+      >
+        <View style={{ flex: 1, justifyContent: "flex-end", backgroundColor: colors.scrim }}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Close course filter"
+            onPress={() => setCoursePickerOpen(false)}
+            style={StyleSheet.absoluteFill}
+          />
+          <View
+            accessibilityViewIsModal
+            style={{
+              maxHeight: "82%",
+              paddingTop: space.sm,
+              paddingBottom: Math.max(insets.bottom, space.lg),
+              paddingHorizontal: space.lg,
+              borderTopLeftRadius: 26,
+              borderTopRightRadius: 26,
+              backgroundColor: colors.bg,
+              borderColor: colors.border,
+              borderWidth: 1,
+            }}
+          >
+            <View style={{ alignItems: "center", paddingBottom: space.md }}>
+              <View style={{ width: 38, height: 4, borderRadius: 2, backgroundColor: colors.borderStrong }} />
+            </View>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingBottom: space.md }}>
+              <View>
+                <T variant="lg" weight="700">Choose a course</T>
+                <T variant="sm" tone="muted">Show due items from one course</T>
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Close course filter"
+                onPress={() => setCoursePickerOpen(false)}
+                hitSlop={8}
+                style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.bgElevated, alignItems: "center", justifyContent: "center" }}
+              >
+                <Ionicons name="close" size={22} color={colors.textPrimary} />
+              </Pressable>
+            </View>
+            <ScrollView
+              accessibilityLabel="Available courses"
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={{ paddingBottom: space.sm }}
+            >
+              {courses.map((option) => {
+                const selected = option.value === course;
+                return (
+                  <Pressable
+                    key={option.value}
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: selected, selected }}
+                    accessibilityLabel={option.label}
+                    onPress={() => {
+                      setCourse(option.value);
+                      setCoursePickerOpen(false);
+                    }}
+                    style={({ pressed }) => ({
+                      minHeight: 56,
+                      paddingHorizontal: space.md,
+                      marginBottom: space.xs,
+                      borderRadius: 14,
+                      borderWidth: 1,
+                      borderColor: selected ? colors.borderAccent : colors.border,
+                      backgroundColor: selected ? colors.accentSoft : colors.bgCard,
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      opacity: pressed ? 0.75 : 1,
+                    })}
+                  >
+                    <T numberOfLines={2} variant="base" weight={selected ? "700" : "500"} style={{ flex: 1, paddingRight: space.md }}>
+                      {option.label}
+                    </T>
+                    <Ionicons
+                      name={selected ? "checkmark-circle" : "ellipse-outline"}
+                      size={22}
+                      color={selected ? colors.accent : colors.textMuted}
+                    />
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       <SectionList
         sections={sections}

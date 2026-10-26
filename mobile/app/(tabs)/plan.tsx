@@ -113,6 +113,7 @@ export default function PlanScreen() {
   const [catching, setCatching] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
   const [recovery, setRecovery] = useState<Recovery | null>(null);
+  const [setupOpen, setSetupOpen] = useState(false);
 
   const days = useMemo(() => normalise(q.data), [q.data]);
 
@@ -254,14 +255,14 @@ export default function PlanScreen() {
     <Screen>
       <Header
         title="Plan"
-        subtitle={totalBlocks ? `${totalBlocks} study block${totalBlocks === 1 ? "" : "s"}` : "No plan yet"}
+        subtitle={totalBlocks ? `${totalBlocks} study block${totalBlocks === 1 ? "" : "s"}` : "Make space for what matters"}
       />
 
       <ScrollView
         contentContainerStyle={{
           padding: space.lg,
           paddingBottom: insets.bottom + 100,
-          gap: space.md,
+          gap: space.lg,
         }}
         refreshControl={
           <RefreshControl refreshing={q.refreshing} onRefresh={q.refresh} tintColor={colors.accent} />
@@ -272,28 +273,28 @@ export default function PlanScreen() {
         ) : null}
 
         {stats.total ? (
-          <Card style={{ gap: space.md }}>
-            <View style={{ flexDirection: "row", alignItems: "flex-end", gap: space.sm }}>
+          <Card style={{ gap: space.md, padding: space.lg }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
               <View style={{ flex: 1 }}>
-                <Label>Progress</Label>
-                <T variant="sm" tone="secondary" style={{ marginTop: 4 }}>
-                  {stats.done} of {stats.total} block{stats.total === 1 ? "" : "s"} done
-                  {/* `minutes(0)` is empty by design — it exists to make a
-                      zero chip disappear — so nothing done needs saying
-                      explicitly here, or the line reads "· of 5h 15m". */}
-                  {stats.totalMin
-                    ? ` · ${minutes(stats.doneMin) || "0m"} of ${minutes(stats.totalMin)}`
-                    : ""}
+                <Label>Week at a glance</Label>
+                <T variant="base" weight="600" style={{ marginTop: 5 }}>
+                  {stats.done} of {stats.total} blocks complete
                 </T>
+                {stats.totalMin ? (
+                  <T variant="xs" tone="muted" style={{ marginTop: 3 }}>
+                    {minutes(stats.doneMin) || "0m"} of {minutes(stats.totalMin)} planned
+                  </T>
+                ) : null}
               </View>
               <T variant="lg" weight="700">{Math.round(stats.pct * 100)}%</T>
             </View>
 
             <View
               accessibilityRole="progressbar"
+              accessibilityLabel="Study blocks completed"
               accessibilityValue={{ min: 0, max: stats.total, now: stats.done }}
               style={{
-                height: 8,
+                height: 7,
                 borderRadius: radius.pill,
                 backgroundColor: colors.bgElevated,
                 overflow: "hidden",
@@ -307,208 +308,239 @@ export default function PlanScreen() {
                 }}
               />
             </View>
-
             {progressNote ? <Notice text={progressNote} icon="cloud-offline-outline" /> : null}
+          </Card>
+        ) : (
+          <EmptyState
+            icon="calendar-outline"
+            title="Build a plan that fits your week"
+            body="Choose when and how long you want to study. IntelliPlan will organize your due work into manageable blocks."
+          />
+        )}
 
-            {/* Falling behind is the normal case, not the exception. The
-                naive fix — shove today's misses onto tomorrow — builds a
-                day nobody can do; this re-solves the whole remaining week
-                and credits what was actually done. */}
-            <Button
-              title="Catch me up"
-              kind="secondary"
-              icon="refresh"
-              busy={catching}
-              onPress={catchUp}
-            />
-            <T variant="xs" tone="muted" style={{ textAlign: "center" }}>
-              Re-plans what's left around the sessions you've missed.
-            </T>
+        {days.length ? (
+          <View style={{ gap: space.md }}>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+              <T variant="lg" weight="700">Your week</T>
+              <T variant="xs" tone="muted">Tap a block to focus</T>
+            </View>
 
+            {days.map((d, i) => {
+              const blocks = d.blocks || [];
+              const workCount = blocks.filter((block) => !block.is_break).length;
+              return (
+                <View key={`${d.day ?? d.date ?? i}`} style={{ gap: space.sm }}>
+                  <View style={{ flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", paddingTop: space.xs }}>
+                    <T variant="base" weight="700">
+                      {d.day || shortDate(d.date) || `Day ${i + 1}`}
+                    </T>
+                    <T variant="xs" tone="muted">{workCount} block{workCount === 1 ? "" : "s"}</T>
+                  </View>
+
+                  {blocks.map((b, j) => {
+                    const label = blockTitle(b);
+                    const mins = blockMinutes(b);
+                    const ticked = !!(b.block_id && progress[b.block_id]?.done);
+                    const time = blockTime(b);
+                    const isLast = j === blocks.length - 1;
+                    return (
+                      <View key={b.block_id || j} style={{ flexDirection: "row", gap: space.sm }}>
+                        <View style={{ width: 20, alignItems: "center" }}>
+                          <View
+                            style={{
+                              width: 10,
+                              height: 10,
+                              marginTop: 19,
+                              borderRadius: radius.pill,
+                              backgroundColor: ticked ? colors.ok : b.is_break ? colors.textMuted : colors.accent,
+                            }}
+                          />
+                          {!isLast ? (
+                            <View style={{ flex: 1, minHeight: 42, width: 2, backgroundColor: colors.border }} />
+                          ) : null}
+                        </View>
+
+                        <Card
+                          style={{
+                            flex: 1,
+                            minWidth: 0,
+                            padding: space.md,
+                            flexDirection: "row",
+                            gap: space.sm,
+                            alignItems: "center",
+                            opacity: ticked ? 0.68 : 1,
+                            borderColor: b.unplaced ? colors.warn : colors.border,
+                          }}
+                        >
+                          {/* Breaks and blocks without stable IDs cannot be
+                              completed through the server progress endpoint. */}
+                          {b.is_break || b.unplaced ? null : (
+                            <Pressable
+                              hitSlop={8}
+                              onPress={() => toggleBlock(b)}
+                              accessibilityRole="checkbox"
+                              accessibilityState={{ checked: ticked }}
+                              accessibilityLabel={`Mark ${label} ${ticked ? "not done" : "done"}`}
+                              style={{ minWidth: 32, minHeight: 40, alignItems: "center", justifyContent: "center" }}
+                            >
+                              <Ionicons
+                                name={ticked ? "checkmark-circle" : "ellipse-outline"}
+                                size={24}
+                                color={ticked ? colors.ok : colors.textSecondary}
+                              />
+                            </Pressable>
+                          )}
+
+                          <Pressable
+                            style={{ flex: 1, minWidth: 0, gap: 5 }}
+                            disabled={!!b.is_break}
+                            accessibilityRole={b.is_break ? undefined : "button"}
+                            accessibilityLabel={b.is_break ? label : `Start focus for ${label}`}
+                            onPress={() =>
+                              router.push({
+                                pathname: "/focus",
+                                params: {
+                                  title: label,
+                                  course: String(b.course || ""),
+                                  blockId: String(b.block_id || ""),
+                                  minutes: String(Math.min(60, Math.max(15, Math.round(mins || 25)))),
+                                },
+                              })
+                            }
+                          >
+                            <T
+                              variant="base"
+                              weight="600"
+                              numberOfLines={2}
+                              style={ticked ? { textDecorationLine: "line-through" } : undefined}
+                            >
+                              {label}
+                            </T>
+                            <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
+                              {time ? <Chip label={time} icon="time-outline" /> : null}
+                              {b.course && (b.assignment || b.title) ? <Chip label={String(b.course)} /> : null}
+                              {mins ? <Chip label={minutes(mins)} icon="hourglass-outline" /> : null}
+                              {b.kind ? <Chip label={String(b.kind)} /> : null}
+                              {b.unplaced ? <Chip label="No room" icon="alert-circle-outline" fg={colors.warn} bg={colors.warnSoft} /> : null}
+                            </View>
+                          </Pressable>
+
+                          {b.is_break ? null : <Ionicons name="play-circle-outline" size={22} color={colors.accent} />}
+                        </Card>
+                      </View>
+                    );
+                  })}
+                </View>
+              );
+            })}
+          </View>
+        ) : null}
+
+        {stats.total ? (
+          <Card style={{ gap: space.sm }}>
+            <View>
+              <T variant="base" weight="700">Need to catch up?</T>
+              <T variant="xs" tone="muted" style={{ marginTop: 3 }}>
+                Re-plan what is left around the sessions you missed.
+              </T>
+            </View>
+            <Button title="Catch me up" kind="secondary" icon="refresh" busy={catching} onPress={catchUp} />
             {recovery ? (
               recovery.changed ? (
                 <View style={{ gap: 6 }}>
                   <Notice
                     tone="accent"
                     icon="sparkles-outline"
-                    text={`Plan rebuilt${
-                      recovery.missed_minutes
-                        ? ` around ${minutes(recovery.missed_minutes)} of missed work`
-                        : ""
-                    }.`}
+                    text={`Plan rebuilt${recovery.missed_minutes ? ` around ${minutes(recovery.missed_minutes)} of missed work` : ""}.`}
                   />
-                  {(recovery.changes || []).slice(0, 5).map((c, i) => (
-                    <T key={i} variant="xs" tone="muted">
-                      • {c.detail || c.title || c.kind}
+                  {(recovery.changes || []).slice(0, 5).map((change, index) => (
+                    <T key={index} variant="xs" tone="muted">
+                      {change.detail || change.title || change.kind}
                     </T>
                   ))}
                   {recovery.overloaded ? (
-                    <Notice
-                      icon="alert-circle-outline"
-                      text="Even re-planned, there's more work than time. Push a due date or add hours."
-                    />
+                    <Notice icon="alert-circle-outline" text="Even re-planned, there's more work than time. Push a due date or add hours." />
                   ) : null}
                 </View>
               ) : (
-                <Notice
-                  icon="checkmark-circle-outline"
-                  text={recovery.message || "Your plan is still on track — nothing needed moving."}
-                />
+                <Notice icon="checkmark-circle-outline" text={recovery.message || "Your plan is still on track — nothing needed moving."} />
               )
             ) : null}
           </Card>
         ) : null}
 
-        {/* Generating is a button, never automatic on open: rebuilding on
-            every launch would silently discard the progress ticked off
-            against the existing plan, and spend an AI call nobody asked
-            for. */}
-        <Card style={{ gap: space.md }}>
-          <View>
-            <Label>{totalBlocks ? "Rebuild your plan" : "Build a study plan"}</Label>
-            <T variant="sm" tone="secondary" style={{ marginTop: 4 }}>
-              IntelliPlan spreads what's due across the days you have, weighted by
-              deadline and how long each piece takes.
-            </T>
-          </View>
-
-          <View style={{ gap: space.sm }}>
-            <Label>Hours per day</Label>
-            <SegmentedRow options={HOURS} value={hours} onChange={setHours} />
-          </View>
-
-          <View style={{ gap: space.sm }}>
-            <Label>When you focus best</Label>
-            <SegmentedRow options={TIMES} value={when} onChange={setWhen} />
-          </View>
-
-          {genError ? <Notice text={genError} icon="alert-circle-outline" /> : null}
-
-          <Button
-            title={totalBlocks ? "Rebuild plan" : "Build my plan"}
-            icon="sparkles"
-            busy={busy}
-            onPress={build}
-          />
-          {/* The generator answers "fit my work into my free time". Some
-              students need the other question — "here is when I actually
-              study, work around it" — and no hours-per-day dial expresses
-              swimming on Tuesdays. */}
-          <Button
-            title="Set my own hours instead"
-            kind="secondary"
-            icon="create-outline"
-            onPress={() => router.push("/plan-custom")}
-          />
-          {totalBlocks ? (
-            <T variant="xs" tone="muted" style={{ textAlign: "center" }}>
-              Rebuilding replaces the plan below.
-            </T>
-          ) : null}
-        </Card>
-
-        {days.length ? (
-          days.map((d, i) => (
-            <View key={`${d.day ?? d.date ?? i}`} style={{ gap: space.sm }}>
-              <Label style={{ marginTop: space.sm }}>
-                {d.day || shortDate(d.date) || `Day ${i + 1}`}
-              </Label>
-              {(d.blocks || []).map((b, j) => {
-                const label = blockTitle(b);
-                const mins = blockMinutes(b);
-                const ticked = !!(b.block_id && progress[b.block_id]?.done);
-                return (
-                <Card
-                  key={b.block_id || j}
-                  style={{
-                    padding: space.md,
-                    flexDirection: "row",
-                    gap: space.md,
-                    alignItems: "center",
-                    opacity: ticked ? 0.6 : 1,
-                    borderColor: b.unplaced ? colors.warn : undefined,
-                  }}
-                >
-                  <View
-                    style={{
-                      width: 4,
-                      alignSelf: "stretch",
-                      borderRadius: radius.pill,
-                      backgroundColor: b.is_break ? colors.textSecondary : colors.accent,
-                    }}
-                  />
-
-                  {/* A break is something to take, not to tick off, and an
-                      unplaced block has no time to be done at — offering a
-                      checkbox on either would record progress that means
-                      nothing. */}
-                  {b.is_break || b.unplaced ? null : (
-                    <Pressable
-                      hitSlop={8}
-                      onPress={() => toggleBlock(b)}
-                      accessibilityRole="checkbox"
-                      accessibilityState={{ checked: ticked }}
-                      accessibilityLabel={`Mark ${label} ${ticked ? "not done" : "done"}`}
-                    >
-                      <Ionicons
-                        name={ticked ? "checkmark-circle" : "ellipse-outline"}
-                        size={24}
-                        color={ticked ? colors.ok : colors.textSecondary}
-                      />
-                    </Pressable>
-                  )}
-
-                  <Pressable
-                    style={{ flex: 1, gap: 5 }}
-                    disabled={!!b.is_break}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Focus on ${label}`}
-                    onPress={() =>
-                      router.push({
-                        pathname: "/focus",
-                        params: {
-                          title: label,
-                          course: String(b.course || ""),
-                          blockId: String(b.block_id || ""),
-                          minutes: String(Math.min(60, Math.max(15, Math.round(mins || 25)))),
-                        },
-                      })
-                    }
-                  >
-                    <T
-                      variant="base"
-                      weight="600"
-                      numberOfLines={2}
-                      style={ticked ? { textDecorationLine: "line-through" } : undefined}
-                    >
-                      {label}
-                    </T>
-                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-                      {blockTime(b) ? <Chip label={blockTime(b)} icon="time-outline" /> : null}
-                      {b.course && (b.assignment || b.title) ? <Chip label={String(b.course)} /> : null}
-                      {mins ? <Chip label={minutes(mins)} icon="hourglass-outline" /> : null}
-                      {b.kind ? <Chip label={String(b.kind)} /> : null}
-                      {b.unplaced ? (
-                        <Chip label="No room" icon="alert-circle-outline" fg={colors.warn} bg={colors.warnSoft} />
-                      ) : null}
-                    </View>
-                  </Pressable>
-
-                  {b.is_break ? null : (
-                    <Ionicons name="play-circle-outline" size={22} color={colors.accent} />
-                  )}
-                </Card>
-                );
-              })}
+        {/* Building or rebuilding is always a deliberate action. Existing
+            work and its checked-off progress stay visible until requested. */}
+        {totalBlocks ? (
+          <Pressable
+            onPress={() => setSetupOpen((open) => !open)}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: setupOpen }}
+            accessibilityLabel={setupOpen ? "Hide plan settings" : "Adjust plan settings"}
+            style={({ pressed }) => ({
+              minHeight: 56,
+              paddingHorizontal: space.lg,
+              borderWidth: 1,
+              borderColor: colors.border,
+              borderRadius: radius.lg,
+              backgroundColor: colors.bgCard,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: space.md,
+              opacity: pressed ? 0.75 : 1,
+            })}
+          >
+            <Ionicons name="options-outline" size={20} color={colors.accent} />
+            <View style={{ flex: 1 }}>
+              <T variant="base" weight="600">Adjust your plan</T>
+              <T variant="xs" tone="muted">Change your hours or rebuild the week</T>
             </View>
-          ))
-        ) : (
-          <EmptyState
-            icon="calendar-outline"
-            title="No plan saved"
-            body="Pick your hours above and IntelliPlan will lay out the week."
-          />
-        )}
+            <Ionicons name={setupOpen ? "chevron-up" : "chevron-down"} size={19} color={colors.textMuted} />
+          </Pressable>
+        ) : null}
+
+        {setupOpen || !totalBlocks ? (
+          <Card style={{ gap: space.md }}>
+            {!totalBlocks ? (
+              <View>
+                <Label>Build a study plan</Label>
+                <T variant="sm" tone="secondary" style={{ marginTop: 4 }}>
+                  Set a daily goal and preferred study time. IntelliPlan will fit your due work into the week.
+                </T>
+              </View>
+            ) : null}
+
+            <View style={{ gap: space.sm }}>
+              <Label>Hours per day</Label>
+              <SegmentedRow options={HOURS} value={hours} onChange={setHours} />
+            </View>
+
+            <View style={{ gap: space.sm }}>
+              <Label>When you focus best</Label>
+              <SegmentedRow options={TIMES} value={when} onChange={setWhen} />
+            </View>
+
+            {genError ? <Notice text={genError} icon="alert-circle-outline" /> : null}
+
+            <Button
+              title={totalBlocks ? "Rebuild plan" : "Build my plan"}
+              icon="sparkles"
+              busy={busy}
+              onPress={build}
+            />
+            <Button
+              title="Set my own hours instead"
+              kind="secondary"
+              icon="create-outline"
+              onPress={() => router.push("/plan-custom")}
+            />
+            {totalBlocks ? (
+              <T variant="xs" tone="muted" style={{ textAlign: "center" }}>
+                Rebuilding replaces the plan above.
+              </T>
+            ) : null}
+          </Card>
+        ) : null}
       </ScrollView>
     </Screen>
   );

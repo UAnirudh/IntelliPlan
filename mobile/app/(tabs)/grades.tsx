@@ -70,6 +70,10 @@ export default function GradesScreen() {
     if (!nums.length) return null;
     return nums.reduce((a, b) => a + b, 0) / nums.length;
   }, [rows]);
+  const gradedCourseCount = useMemo(
+    () => rows.filter((r) => toPercent(r.percentage ?? r.percent ?? r.grade) !== null).length,
+    [rows],
+  );
 
   if (grades.loading) {
     return (
@@ -93,7 +97,7 @@ export default function GradesScreen() {
     <Screen>
       <Header
         title="Grades"
-        subtitle={average !== null ? `${average.toFixed(1)}% average across ${rows.length} courses` : null}
+        subtitle={rows.length ? `${rows.length} course${rows.length === 1 ? "" : "s"}` : "Your courses"}
       />
 
       <View style={{ paddingLeft: space.lg, paddingVertical: space.md }}>
@@ -101,7 +105,7 @@ export default function GradesScreen() {
           options={[
             { label: "Current", value: "current" as const },
             { label: "Forecast", value: "forecast" as const },
-            { label: "What you know", value: "learning" as const },
+            { label: "Learning", value: "learning" as const },
           ]}
           value={tab}
           onChange={setTab}
@@ -140,54 +144,86 @@ export default function GradesScreen() {
 
         {tab === "current" ? (
           rows.length ? (
-            rows.map((r, i) => {
-              const p = toPercent(r.percentage ?? r.percent ?? r.grade);
-              const colour = band(colors, p);
-              return (
-                <Card key={`${courseName(r)}-${i}`} style={{ padding: space.md, gap: space.sm }}>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
-                    <View style={{ flex: 1, gap: 4 }}>
-                      <T variant="base" weight="600" numberOfLines={2}>
-                        {courseName(r)}
-                      </T>
-                      <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
-                        {r.teacher ? <Chip label={String(r.teacher)} icon="person-outline" /> : null}
-                        {r.period ? <Chip label={`Period ${r.period}`} /> : null}
-                        {r.source ? <Chip label={String(r.source)} /> : null}
+            <>
+              <Card style={{ padding: space.lg, gap: space.md, backgroundColor: colors.accentSoft, borderColor: colors.borderAccent }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
+                  <View style={{ flex: 1, gap: 3 }}>
+                    <Label style={{ color: colors.accent }}>Overall average</Label>
+                    <T variant="xxl" weight="700" style={{ color: average === null ? colors.textMuted : band(colors, average) }}>
+                      {average === null ? "—" : `${average.toFixed(1)}%`}
+                    </T>
+                  </View>
+                  <View style={{ alignItems: "center", justifyContent: "center", width: 54, height: 54, borderRadius: radius.lg, backgroundColor: colors.bgCard }}>
+                    <Ionicons name="school-outline" size={25} color={colors.accent} />
+                  </View>
+                </View>
+                {average !== null ? (
+                  <View
+                    accessibilityRole="progressbar"
+                    accessibilityLabel="Average across courses"
+                    accessibilityValue={{ min: 0, max: 100, now: Math.max(0, Math.min(100, average)) }}
+                    style={{ height: 7, backgroundColor: colors.bgElevated, borderRadius: radius.pill, overflow: "hidden" }}
+                  >
+                    <View style={{ width: `${Math.max(0, Math.min(100, average))}%`, height: "100%", backgroundColor: band(colors, average), borderRadius: radius.pill }} />
+                  </View>
+                ) : null}
+                <T variant="xs" tone="secondary">
+                  {gradedCourseCount} of {rows.length} course{rows.length === 1 ? "" : "s"} reporting a grade
+                </T>
+              </Card>
+
+              {rows.map((r, i) => {
+                const p = toPercent(r.percentage ?? r.percent ?? r.grade);
+                const colour = band(colors, p);
+                return (
+                  <Card key={`${courseName(r)}-${i}`} style={{ padding: space.md, gap: space.sm }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
+                      <View style={{ flex: 1, gap: 5 }}>
+                        <T variant="base" weight="600" numberOfLines={2}>
+                          {courseName(r)}
+                        </T>
+                        <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
+                          {r.teacher ? <Chip label={String(r.teacher)} icon="person-outline" /> : null}
+                          {r.period ? <Chip label={`Period ${r.period}`} /> : null}
+                          {r.source ? <Chip label={String(r.source)} /> : null}
+                        </View>
+                      </View>
+                      <View style={{ alignItems: "flex-end", minWidth: 58 }}>
+                        <T variant="lg" weight="700" style={{ color: colour }}>
+                          {p === null ? "—" : `${p.toFixed(1)}%`}
+                        </T>
+                        <T variant="xs" tone="muted" weight="600">
+                          {String(r.letter || letterFor(p))}
+                        </T>
                       </View>
                     </View>
-                    <View style={{ alignItems: "flex-end" }}>
-                      <T variant="lg" weight="700" style={{ color: colour }}>
-                        {p === null ? "—" : `${p.toFixed(1)}%`}
-                      </T>
-                      <T variant="xs" tone="muted" weight="600">
-                        {String(r.letter || letterFor(p))}
-                      </T>
-                    </View>
-                  </View>
 
-                  {p !== null ? (
-                    <View
-                      style={{
-                        height: 6,
-                        backgroundColor: colors.bgElevated,
-                        borderRadius: radius.pill,
-                        overflow: "hidden",
-                      }}
-                    >
+                    {p !== null ? (
                       <View
+                        accessibilityRole="progressbar"
+                        accessibilityLabel={`${courseName(r)} grade`}
+                        accessibilityValue={{ min: 0, max: 100, now: Math.max(0, Math.min(100, p)) }}
                         style={{
-                          width: `${Math.max(0, Math.min(100, p))}%`,
-                          height: "100%",
-                          backgroundColor: colour,
+                          height: 6,
+                          backgroundColor: colors.bgElevated,
                           borderRadius: radius.pill,
+                          overflow: "hidden",
                         }}
-                      />
-                    </View>
-                  ) : null}
-                </Card>
-              );
-            })
+                      >
+                        <View
+                          style={{
+                            width: `${Math.max(0, Math.min(100, p))}%`,
+                            height: "100%",
+                            backgroundColor: colour,
+                            borderRadius: radius.pill,
+                          }}
+                        />
+                      </View>
+                    ) : null}
+                  </Card>
+                );
+              })}
+            </>
           ) : (
             <EmptyState
               icon="stats-chart-outline"

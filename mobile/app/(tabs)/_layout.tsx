@@ -123,13 +123,12 @@ export default function TabsLayout() {
           ),
         }}
       />
-      {/* The rest of the website sidebar — thirteen places will not fit in
-          a tab bar, so they live one tap away in the same order. */}
+      {/* Keep the full More route reachable from the header without taking
+          space from the five destinations students use most. */}
       <Tabs.Screen
         name="more"
         options={{
-          title: "Menu",
-          tabBarIcon: ({ color, size }) => <Ionicons name="menu-outline" size={size} color={color} />,
+          href: null,
         }}
       />
     </Tabs>

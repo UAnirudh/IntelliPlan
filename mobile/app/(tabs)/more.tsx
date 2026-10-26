@@ -76,7 +76,7 @@ export default function MoreScreen() {
 
   return (
     <Screen>
-      <Header title="Menu" subtitle="Everything on the website" showSettings={false} />
+      <Header title="More" subtitle="Everything on the website" showSettings={false} />
       <ScrollView
         contentContainerStyle={{
           padding: space.lg,
