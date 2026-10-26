@@ -1,11 +1,24 @@
 # Plani safety checks
 
-Plani uses Groq's dedicated `openai/gpt-oss-safeguard-20b` with a school policy,
-instead of routing the classifier through the ordinary tutor model chain.
+Plani first uses Groq's dedicated `openai/gpt-oss-safeguard-20b` with a school
+policy. If Groq rejects that request because of request size (413), rate limits
+(429), a transient server failure, connection failure or timeout, it tries
+`openai/gpt-oss-120b`, then `openai/gpt-oss-20b` on Groq if capacity is still
+unavailable. Each classifier is attempted at most once. These fallbacks
+use the identical policy, full context, target, verified terminology and strict
+verdict validation. They do not use the tutor generation chain or another data
+processor. A completed unsafe verdict is never retried; malformed or truncated
+verdicts and authentication/policy failures still withhold the response.
+
+The production safeguard quota was 2,000 tokens/minute when this recovery was
+added, versus 8,000 for each GPT OSS fallback. A long study prompt could therefore fail
+with 413 even when the safeguard model's context window had room. Retrying the
+same oversized request could not fix it. Exact quotas depend on the Groq account;
+if all classifiers are unavailable, the response is still withheld.
+
 Set `GROQ_SAFETY_API_KEY`, or use the existing `GROQ_API_KEY`. The institution
-must permit Groq processing. Missing credentials, timeouts, rate limits,
-malformed decisions and incomplete model output withhold the response with a
-retryable `safety_unavailable` error; they never mean permission to proceed.
+must permit Groq processing. Missing credentials or failure to obtain a valid
+verdict returns a retryable `safety_unavailable` error, never permission to proceed.
 
 Input checks cover the tutor, agent, legacy chatbot, photo-question text and
 optional AI onboarding. Output checks cover the replies and structured content,

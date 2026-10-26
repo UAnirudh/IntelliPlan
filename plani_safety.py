@@ -11,6 +11,11 @@ import requests
 
 logger = logging.getLogger(__name__)
 MODEL = 'openai/gpt-oss-safeguard-20b'
+# Separate classifier, same provider/policy. Never use the tutor generation chain.
+FALLBACK_MODEL = 'openai/gpt-oss-120b'
+CAPACITY_MODEL = 'openai/gpt-oss-20b'
+CLASSIFIERS = (MODEL, FALLBACK_MODEL, CAPACITY_MODEL)
+_RECOVERABLE_STATUS = frozenset({413, 429, 500, 502, 503, 504})
 CATEGORIES = frozenset({'safe', 'sexual', 'drugs', 'alcohol', 'violence',
                         'self_harm', 'profanity', 'jailbreak'})
 _WEAPON = re.compile(r'\b(?:molotov(?:\s+cocktail)?|petrol\s+bomb|pipe\s*bomb|incendiary\s+(?:device|bottle)|homemade\s+(?:bomb|explosive))\b')
@@ -127,33 +132,45 @@ def classify(messages, *, output=None, allowed_terms=(), http=None):
     payload = {'mode': 'output' if output is not None else 'input',
                'conversation': context, 'target': target,
                'teacher_terms': list(allowed_terms)[:32]}
-    try:
-        response = (http or requests).post(
-            'https://api.groq.com/openai/v1/chat/completions',
-            headers={'Authorization': f'Bearer {key}'}, timeout=(4, 18),
-            json={'model': MODEL, 'messages': [
+    for model in CLASSIFIERS:
+        try:
+            request_body = {'model': model, 'messages': [
                 {'role': 'system', 'content': POLICY},
                 {'role': 'user', 'content': json.dumps(payload, ensure_ascii=False)}],
                 'temperature': 0, 'max_completion_tokens': 2048,
-                'reasoning_effort': 'medium', 'stream': False})
-        response.raise_for_status()
-        envelope = response.json()
-        if not isinstance(envelope, dict) or not isinstance(envelope.get('choices'), list) or not envelope['choices']:
-            raise ValueError('Invalid moderation envelope')
-        choice = envelope['choices'][0]
-        if not isinstance(choice, dict) or not isinstance(choice.get('message'), dict):
-            raise ValueError('Invalid moderation choice')
-        if choice.get('finish_reason') != 'stop':
-            raise ValueError('Incomplete moderation response')
-        raw = choice['message']['content']
-        verdict = json.loads(raw)
-        if (not isinstance(verdict, dict) or type(verdict.get('safe')) is not bool
-                or verdict.get('category') not in CATEGORIES
-                or verdict['safe'] != (verdict['category'] == 'safe')):
-            raise ValueError('Invalid safety decision')
-        return None if verdict['safe'] else verdict['category']
-    except (requests.RequestException, ValueError, TypeError, KeyError, IndexError) as exc:
-        # No user text, credentials, provider response or chain of thought in logs.
-        status = exc.response.status_code if isinstance(exc, requests.HTTPError) and exc.response is not None else None
-        logger.warning('Plani safety check unavailable (%s, status=%s)', type(exc).__name__, status)
-        raise SafetyUnavailable('Safety check is temporarily unavailable') from exc
+                'stream': False}
+            request_body['reasoning_effort'] = 'medium'
+            if model != MODEL:
+                request_body['response_format'] = {'type': 'json_object'}
+            response = (http or requests).post(
+                'https://api.groq.com/openai/v1/chat/completions',
+                headers={'Authorization': f'Bearer {key}'}, timeout=(4, 18),
+                json=request_body)
+            response.raise_for_status()
+            envelope = response.json()
+            if not isinstance(envelope, dict) or not isinstance(envelope.get('choices'), list) or not envelope['choices']:
+                raise ValueError('Invalid moderation envelope')
+            choice = envelope['choices'][0]
+            if not isinstance(choice, dict) or not isinstance(choice.get('message'), dict):
+                raise ValueError('Invalid moderation choice')
+            if choice.get('finish_reason') != 'stop':
+                raise ValueError('Incomplete moderation response')
+            raw = choice['message']['content']
+            verdict = json.loads(raw)
+            if (not isinstance(verdict, dict) or type(verdict.get('safe')) is not bool
+                    or verdict.get('category') not in CATEGORIES
+                    or verdict['safe'] != (verdict['category'] == 'safe')):
+                raise ValueError('Invalid safety decision')
+            return None if verdict['safe'] else verdict['category']
+        except (requests.RequestException, ValueError, TypeError, KeyError, IndexError) as exc:
+            # Log operational metadata only, never text, credentials or reasoning.
+            status = exc.response.status_code if isinstance(exc, requests.HTTPError) and exc.response is not None else None
+            recoverable = (status in _RECOVERABLE_STATUS
+                           or isinstance(exc, (requests.Timeout, requests.ConnectionError)))
+            if model != CLASSIFIERS[-1] and recoverable:
+                logger.warning('Plani safety classifier fallback (model=%s, error=%s, status=%s)',
+                               model, type(exc).__name__, status)
+                continue
+            logger.warning('Plani safety check unavailable (model=%s, error=%s, status=%s)',
+                           model, type(exc).__name__, status)
+            raise SafetyUnavailable('Safety check is temporarily unavailable') from exc
