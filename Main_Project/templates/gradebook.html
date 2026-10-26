@@ -14,9 +14,17 @@
 </div>
 
 <style>
+  #addAsgnBtn {
+    display:inline-flex; align-items:center; justify-content:center; gap:8px;
+    min-height:52px; padding:14px 22px; border:0; border-radius:12px;
+    background:var(--accent); color:#fff; font-size:1rem; font-weight:700;
+    white-space:normal; text-align:center;
+  }
+  #addAsgnBtn > .ipg-bloom { position:absolute; }
   #addAsgnForm label { display:block; margin-bottom:6px; }
   #addAsgnForm input, #addAsgnForm select { width:100%; }
   @media (max-width:640px) {
+    #addAsgnBtn { width:100%; }
     #assignmentBreakdown .assignment-card { flex-wrap:wrap; }
     #assignmentBreakdown .card-main { flex-basis:calc(100% - 60px); }
     #assignmentBreakdown .grade-score-controls { min-width:0 !important; width:100%; }
@@ -172,8 +180,11 @@
 
     <!-- Assignment Breakdown -->
     <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:1rem;">
-      <div style="font-family:var(--font-display);font-size:1.1rem;color:var(--text-primary);">Assignment Breakdown</div>
-      <button type="button" class="btn-secondary" id="addAsgnBtn" aria-expanded="false" aria-controls="addAsgnForm" onclick="toggleAddAssignment()">+ Add hypothetical assignment</button>
+      <div>
+        <div style="font-family:var(--font-display);font-size:1.1rem;color:var(--text-primary);">Assignment Breakdown</div>
+        <p id="addAsgnHelp" style="font-size:0.85rem;color:var(--text-muted);margin:6px 0 0;">Try a future test, quiz, or homework assignment to see how it could affect your grade.</p>
+      </div>
+      <button type="button" class="btn-primary" id="addAsgnBtn" aria-describedby="addAsgnHelp" aria-expanded="false" aria-controls="addAsgnForm" onclick="toggleAddAssignment()"><span aria-hidden="true" style="font-size:1.4rem;line-height:1;">+</span> Add hypothetical assignment</button>
     </div>
 
     <form id="addAsgnForm" hidden novalidate onsubmit="submitAddAssignment(event)" style="padding:1rem;margin-bottom:1rem;border:1px solid var(--border);border-radius:14px;background:var(--bg-elevated);">

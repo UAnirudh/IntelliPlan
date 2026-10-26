@@ -116,6 +116,12 @@ with sync_playwright() as p:
             return cards().filter(has=page.get_by_role('button', name='Remove hypothetical assignment'))
 
         select('Weighted Biology')
+        add_button = page.get_by_role('button', name='Add hypothetical assignment', exact=True)
+        expect(add_button).to_be_visible()
+        assert add_button.bounding_box()['height'] >= 48
+        expect(add_button).to_have_attribute('aria-describedby', 'addAsgnHelp')
+        if width == 390:
+            assert add_button.bounding_box()['width'] >= 300
         expect(page.locator('#modeledPct')).to_have_text('84%')
         open_form('', '100')
         submit()
@@ -145,6 +151,7 @@ with sync_playwright() as p:
         expect(page.locator('#modeledPct')).to_have_text('92%')
         expect(hypothetical()).to_contain_text('hypothetical')
         page.locator('#addAsgnBtn').click()
+        assert page.locator('#addAsgnBtn').bounding_box()['height'] <= 80
         page.screenshot(path=str(OUT / f'form-{width}.png'), full_page=True)
         form_fits = page.locator('#addAsgnForm').evaluate('(el) => el.scrollWidth <= el.clientWidth + 1')
         assert form_fits, 'Hypothetical assignment form overflows'
