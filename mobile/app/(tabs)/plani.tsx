@@ -42,10 +42,10 @@ import {
 type Bubble = ChatMessage & { pending?: boolean; failed?: boolean; imageUri?: string };
 
 const STARTERS = [
-  "Explain this like I'm five",
-  "Quiz me on what's due",
-  "How should I study for my next test?",
-  "Break my hardest assignment into steps",
+  { title: "Explain a topic", prompt: "Explain this like I'm five", icon: "bulb-outline" as const },
+  { title: "Quiz me", prompt: "Quiz me on what's due", icon: "help-circle-outline" as const },
+  { title: "Make a study plan", prompt: "How should I study for my next test?", icon: "calendar-outline" as const },
+  { title: "Break it down", prompt: "Break my hardest assignment into steps", icon: "list-outline" as const },
 ];
 
 /**
@@ -361,42 +361,102 @@ export default function PlaniScreen() {
             ) : null
           }
           ListEmptyComponent={
-            <View style={{ flex: 1, justifyContent: "center", gap: space.lg }}>
-              <View style={{ alignItems: "center", gap: space.sm }}>
+            <View style={{ flex: 1, justifyContent: "center", gap: space.xl, paddingVertical: space.lg }}>
+              <View style={{ alignItems: "center", gap: space.sm, paddingHorizontal: space.sm }}>
                 <GlassSurface
                   tint={colors.accentSoft}
                   style={{
-                    width: 60,
-                    height: 60,
-                    borderRadius: radius.pill,
+                    width: 72,
+                    height: 72,
+                    borderRadius: radius.xl,
                     backgroundColor: colors.accentSoft,
                     alignItems: "center",
                     justifyContent: "center",
+                    marginBottom: space.xs,
                   }}
                 >
-                  <Ionicons name="sparkles" size={26} color={colors.accent} />
+                  <Ionicons name="sparkles" size={30} color={colors.accent} />
                 </GlassSurface>
-                <T variant="md" weight="700">
+                <T variant="lg" weight="700" style={{ textAlign: "center" }}>
                   Ask Plani anything
                 </T>
-                <T tone="muted" variant="sm" style={{ textAlign: "center", maxWidth: 300 }}>
-                  Plani knows your courses and what's due. Tap the camera to
-                  photograph a worksheet and it works through every problem.
+                <T tone="muted" variant="sm" style={{ textAlign: "center", maxWidth: 320, lineHeight: 21 }}>
+                  Get help with your courses, plan what to study, or work through a problem step by step.
                 </T>
               </View>
 
               <View style={{ gap: space.sm }}>
-                <Label>Try one of these</Label>
-                {STARTERS.map((s) => (
-                  <Pressable key={s} onPress={() => send(s)} accessibilityRole="button">
-                    <Card style={{ padding: space.md, flexDirection: "row", alignItems: "center", gap: space.sm }}>
-                      <Ionicons name="arrow-forward-circle-outline" size={18} color={colors.accent} />
-                      <T variant="sm" style={{ flex: 1 }}>
-                        {s}
-                      </T>
-                    </Card>
-                  </Pressable>
-                ))}
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 2 }}>
+                  <Label>QUICK START</Label>
+                  <T variant="xs" tone="muted">Tap to ask</T>
+                </View>
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>
+                  {STARTERS.map((starter) => (
+                    <Pressable
+                      key={starter.title}
+                      onPress={() => send(starter.prompt)}
+                      disabled={busy}
+                      accessibilityRole="button"
+                      accessibilityLabel={starter.title}
+                      accessibilityHint={`Sends: ${starter.prompt}`}
+                      style={({ pressed }) => ({
+                        width: "47%",
+                        minHeight: 68,
+                        opacity: busy ? 0.55 : pressed ? 0.76 : 1,
+                      })}
+                    >
+                      <Card style={{
+                        flex: 1,
+                        minHeight: 68,
+                        paddingHorizontal: space.md,
+                        paddingVertical: space.sm,
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: space.sm,
+                        borderColor: colors.borderAccent,
+                        backgroundColor: colors.bgSecondary,
+                      }}>
+                        <View style={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: radius.md,
+                          alignItems: "center",
+                          justifyContent: "center",
+                          backgroundColor: colors.accentSoft,
+                        }}>
+                          <Ionicons name={starter.icon} size={17} color={colors.accent} />
+                        </View>
+                        <T variant="xs" weight="700" style={{ flex: 1, lineHeight: 17 }}>
+                          {starter.title}
+                        </T>
+                      </Card>
+                    </Pressable>
+                  ))}
+                </View>
+                <Pressable
+                  onPress={askForPhoto}
+                  disabled={busy}
+                  accessibilityRole="button"
+                  accessibilityLabel="Take or choose a photo of a study problem"
+                  accessibilityHint="Opens the camera or your photo library"
+                  style={({ pressed }) => ({
+                    minHeight: 48,
+                    marginTop: space.xs,
+                    paddingHorizontal: space.md,
+                    borderRadius: radius.lg,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: space.sm,
+                    backgroundColor: colors.accentSoft,
+                    opacity: busy ? 0.55 : pressed ? 0.75 : 1,
+                  })}
+                >
+                  <Ionicons name="camera-outline" size={19} color={colors.accent} />
+                  <T variant="sm" weight="700" tone="accent" style={{ flex: 1 }}>
+                    Get help with a photo
+                  </T>
+                  <Ionicons name="arrow-forward" size={16} color={colors.accent} />
+                </Pressable>
               </View>
             </View>
           }
@@ -633,69 +693,81 @@ function MessageBubble({ msg, onRetry }: { msg: Bubble; onRetry?: () => void }) 
     <View
       style={{
         alignSelf: mine ? "flex-end" : "flex-start",
-        maxWidth: "88%",
-        backgroundColor: mine ? colors.accent : colors.bgCard,
-        borderWidth: mine ? 0 : 1,
-        borderColor: msg.failed ? colors.danger : colors.border,
-        borderRadius: radius.xl,
-        // The corner nearest the sender is squared off, which is what makes
-        // a stack of bubbles read as a conversation rather than a list.
-        borderBottomRightRadius: mine ? radius.sm : radius.xl,
-        borderBottomLeftRadius: mine ? radius.xl : radius.sm,
-        paddingHorizontal: space.md,
-        paddingVertical: space.md - 2,
+        maxWidth: "90%",
+        gap: space.xs,
       }}
       accessibilityLiveRegion={msg.pending || msg.failed ? "polite" : "none"}
     >
-      {msg.imageUri ? (
-        <Image
-          source={{ uri: msg.imageUri }}
-          style={{
-            width: 200,
-            height: 150,
-            borderRadius: radius.md,
-            marginBottom: space.sm,
-            backgroundColor: colors.bgElevated,
-          }}
-          resizeMode="cover"
-          accessibilityLabel="The problem you sent"
-        />
-      ) : null}
-      {msg.pending ? (
-        <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
-          <ActivityIndicator size="small" color={colors.accent} />
-          <T variant="sm" tone="muted">
-            Plani is thinking…
-          </T>
+      {!mine ? (
+        <View style={{ flexDirection: "row", alignItems: "center", gap: space.xs, paddingLeft: space.xs }}>
+          <Ionicons name="sparkles" size={13} color={colors.accent} />
+          <T variant="xs" weight="700" tone="accent">Plani</T>
         </View>
-      ) : (
-        <>
-          <T
-            variant="base"
-            tone={mine ? "onAccent" : msg.failed ? "danger" : "primary"}
-            style={{ lineHeight: 22 }}
-            selectable
-          >
-            {msg.content}
-          </T>
-          {msg.failed ? (
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: space.md, marginTop: 6 }}>
-              <Chip label="Not sent" icon="alert-circle-outline" fg={colors.dangerText} bg={colors.dangerSoft} />
-              {onRetry ? (
-                <Pressable
-                  onPress={onRetry}
-                  accessibilityRole="button"
-                  accessibilityLabel="Retry message"
-                  accessibilityHint="Sends your question to Plani again"
-                  style={{ minHeight: 44, justifyContent: "center", paddingHorizontal: space.xs }}
-                >
-                  <T variant="sm" weight="700" tone="danger">Retry</T>
-                </Pressable>
-              ) : null}
-            </View>
-          ) : null}
-        </>
-      )}
+      ) : null}
+      <View
+        style={{
+          backgroundColor: mine ? colors.accent : colors.bgCard,
+          borderWidth: mine ? 0 : 1,
+          borderColor: msg.failed ? colors.danger : colors.border,
+          borderRadius: radius.xl,
+          // The corner nearest the sender is squared off, which makes a stack
+          // of bubbles read as a conversation rather than a list.
+          borderBottomRightRadius: mine ? radius.sm : radius.xl,
+          borderBottomLeftRadius: mine ? radius.xl : radius.sm,
+          paddingHorizontal: space.md,
+          paddingVertical: space.md - 2,
+        }}
+      >
+        {msg.imageUri ? (
+          <Image
+            source={{ uri: msg.imageUri }}
+            style={{
+              width: 200,
+              height: 150,
+              borderRadius: radius.md,
+              marginBottom: space.sm,
+              backgroundColor: colors.bgElevated,
+            }}
+            resizeMode="cover"
+            accessibilityLabel="The problem you sent"
+          />
+        ) : null}
+        {msg.pending ? (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
+            <ActivityIndicator size="small" color={colors.accent} />
+            <T variant="sm" tone="muted">
+              Plani is thinking…
+            </T>
+          </View>
+        ) : (
+          <>
+            <T
+              variant="base"
+              tone={mine ? "onAccent" : msg.failed ? "danger" : "primary"}
+              style={{ lineHeight: 22 }}
+              selectable
+            >
+              {msg.content}
+            </T>
+            {msg.failed ? (
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: space.md, marginTop: 6 }}>
+                <Chip label="Not sent" icon="alert-circle-outline" fg={colors.dangerText} bg={colors.dangerSoft} />
+                {onRetry ? (
+                  <Pressable
+                    onPress={onRetry}
+                    accessibilityRole="button"
+                    accessibilityLabel="Retry message"
+                    accessibilityHint="Sends your question to Plani again"
+                    style={{ minHeight: 44, justifyContent: "center", paddingHorizontal: space.xs }}
+                  >
+                    <T variant="sm" weight="700" tone="danger">Retry</T>
+                  </Pressable>
+                ) : null}
+              </View>
+            ) : null}
+          </>
+        )}
+      </View>
     </View>
   );
 }

@@ -1,6 +1,6 @@
 import React from "react";
-import { Pressable, StyleSheet, View } from "react-native";
-import { useRouter } from "expo-router";
+import { Platform, Pressable, StyleSheet, View } from "react-native";
+import { useRouter, useSegments } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../theme/ThemeProvider";
@@ -20,7 +20,7 @@ export function Header({
   title,
   subtitle,
   right,
-  showSettings = true,
+  showSettings = false,
 }: {
   title: string;
   subtitle?: string | null;
@@ -32,6 +32,8 @@ export function Header({
   const edge = useGlassEdge();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const segments = useSegments();
+  const isMoreScreen = segments.includes("more");
 
   return (
     <GlassSurface
@@ -62,6 +64,15 @@ export function Header({
           at their edges like an iOS toolbar cluster. */}
       <GlassGroup spacing={space.sm} style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
         {right}
+
+        {Platform.OS !== "web" && !isMoreScreen ? (
+          <IconButton
+            icon="ellipsis-horizontal"
+            size={24}
+            label="More navigation options"
+            onPress={() => router.push("/more")}
+          />
+        ) : null}
 
         {showSettings ? (
           <IconButton
