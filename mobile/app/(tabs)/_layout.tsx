@@ -128,7 +128,8 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="more"
         options={{
-          href: null,
+          title: "Menu",
+          href: Platform.OS === "web" ? undefined : null,
         }}
       />
     </Tabs>

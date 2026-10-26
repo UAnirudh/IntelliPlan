@@ -1,5 +1,5 @@
 import React from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Platform, Pressable, StyleSheet, View } from "react-native";
 import { useRouter, useSegments } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -65,7 +65,7 @@ export function Header({
       <GlassGroup spacing={space.sm} style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
         {right}
 
-        {!isMoreScreen ? (
+        {Platform.OS !== "web" && !isMoreScreen ? (
           <IconButton
             icon="ellipsis-horizontal"
             size={24}
