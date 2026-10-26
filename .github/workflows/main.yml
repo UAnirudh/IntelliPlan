@@ -60,6 +60,9 @@ jobs:
       - run: pip install playwright pytest-playwright
       - run: playwright install chromium
 
+      - name: Hypothetical assignments in Grade Modeler
+        run: python scripts/verify_hypothetical_assignments_browser.py
+
       - name: Parent and teacher progress workflows
         run: |
           python scripts/verify_adult_access_browser.py

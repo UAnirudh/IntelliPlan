@@ -14,6 +14,13 @@
 </div>
 
 <style>
+  #addAsgnForm label { display:block; margin-bottom:6px; }
+  #addAsgnForm input, #addAsgnForm select { width:100%; }
+  @media (max-width:640px) {
+    #assignmentBreakdown .assignment-card { flex-wrap:wrap; }
+    #assignmentBreakdown .card-main { flex-basis:calc(100% - 60px); }
+    #assignmentBreakdown .grade-score-controls { min-width:0 !important; width:100%; }
+  }
   /* ── AI Grade Predictions panel ── */
   .gp-panel {
     position: relative;
@@ -105,7 +112,7 @@
   <div id="courseOverview" style="display:none;">
 
     <!-- Grade Summary Row -->
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.25rem; margin-bottom:1.5rem;">
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr)); gap:1.25rem; margin-bottom:1.5rem;">
 
       <!-- Current vs Modeled Grade -->
       <div style="background:var(--glass-bg); -webkit-backdrop-filter:blur(18px) saturate(1.6); backdrop-filter:blur(18px) saturate(1.6); border:1px solid var(--glass-border); box-shadow:var(--glass-shadow); border-radius:16px; padding:1.5rem; ">
@@ -132,7 +139,7 @@
       <!-- Target Input -->
       <div style="background:var(--glass-bg); -webkit-backdrop-filter:blur(18px) saturate(1.6); backdrop-filter:blur(18px) saturate(1.6); border:1px solid var(--glass-border); box-shadow:var(--glass-shadow); border-radius:16px; padding:1.5rem; ">
         <div style="font-size:0.75rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:1rem;">Target Grade</div>
-        <div style="display:flex; gap:8px; align-items:center; margin-bottom:1rem;">
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:1rem;">
           <input type="number" id="targetInput" class="form-input" min="0" max="100" step="0.1" placeholder="e.g. 97" style="max-width:110px;"  aria-label="Target grade percentage"/>
           <button class="btn-primary" onclick="runModel()" style="padding:10px 20px; border:none; cursor:pointer; font-size:0.88rem;">Model It</button>
           <button onclick="forecastRealistic()" title="Predict remaining scores using your historical category averages" style="display:inline-flex; align-items:center; gap:6px; padding:10px 16px; background:var(--accent-soft); border:1px solid var(--border-accent); border-radius:10px; cursor:pointer; font-size:0.82rem; color:var(--accent); font-family:var(--font-ui); font-weight:600;">
@@ -164,10 +171,25 @@
     </div>
 
     <!-- Assignment Breakdown -->
-    <div style="font-family:var(--font-display); font-size:1.1rem; color:var(--text-primary); margin-bottom:1rem;">
-      Assignment Breakdown
-      <span style="font-family:var(--font-ui); font-size:0.78rem; font-weight:500; color:var(--text-muted); margin-left:8px;">Click any graded assignment to adjust its score or points worth</span>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:1rem;">
+      <div style="font-family:var(--font-display);font-size:1.1rem;color:var(--text-primary);">Assignment Breakdown</div>
+      <button type="button" class="btn-secondary" id="addAsgnBtn" aria-expanded="false" aria-controls="addAsgnForm" onclick="toggleAddAssignment()">+ Add hypothetical assignment</button>
     </div>
+
+    <form id="addAsgnForm" hidden novalidate onsubmit="submitAddAssignment(event)" style="padding:1rem;margin-bottom:1rem;border:1px solid var(--border);border-radius:14px;background:var(--bg-elevated);">
+      <p id="hypotheticalHelp" style="font-size:0.82rem;color:var(--text-muted);margin-bottom:1rem;">Try an upcoming assignment without changing your school grades. Leave the score blank for pending work. Hypothetical assignments stay while you switch courses; Reset or reloading removes them.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr));gap:12px;">
+        <div><label for="newAsgnTitle">Title</label><input class="form-input" id="newAsgnTitle" maxlength="200" required placeholder="e.g. Unit 3 Test"></div>
+        <div><label for="newAsgnPoss">Points possible</label><input class="form-input" id="newAsgnPoss" type="number" min="0" step="any" required inputmode="decimal" placeholder="100"></div>
+        <div><label for="newAsgnEarned">Score (optional)</label><input class="form-input" id="newAsgnEarned" type="number" min="0" step="any" inputmode="decimal" placeholder="Leave blank if pending"></div>
+        <div><label for="newAsgnCategory">Category</label><select class="form-input" id="newAsgnCategory" required></select></div>
+      </div>
+      <p id="newAsgnMsg" role="alert" style="color:var(--high);font-size:0.85rem;margin-top:8px;"></p>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;">
+        <button type="button" class="btn-secondary" onclick="toggleAddAssignment()">Cancel</button>
+        <button type="submit" class="btn-primary">Add assignment</button>
+      </div>
+    </form>
 
     <!-- Category filter tabs -->
     <div class="filter-bar" id="categoryTabs" style="margin-bottom:1rem;"></div>
@@ -186,6 +208,23 @@ let modifiedScores = {};   // { assignmentId: { earned, possible } }
 let modifiedWeights = {};   // { category: weight }
 let trendChart = null;
 let activeCategoryFilter = 'all';
+const hypotheticalAssignments = new Map(); // Course object -> session-only rows.
+let selectedSourceCourse = null;
+let hypotheticalSequence = 0;
+let forecastGeneration = 0;
+
+// Canvas points-based courses can have zero-weight categories. Total their
+// points together instead of silently ignoring every hypothetical score.
+function modelCategories() {
+  return selectedCourse.weighting === 'points' || !selectedCourse.categories.length
+    ? [{ type: 'All assignments', weight: 100 }]
+    : selectedCourse.categories;
+}
+
+function modelCategoryKey(a) {
+  return normKey(selectedCourse.weighting === 'points' || !selectedCourse.categories.length
+    ? 'All assignments' : a.category);
+}
 
 function safeNum(v) {
   const n = parseFloat(v);
@@ -341,7 +380,19 @@ function courseHeadline(course) {
 }
 
 function selectCourse(course) {
-  selectedCourse = course;
+  forecastGeneration++;
+  selectedSourceCourse = course;
+  const categories = (course.categories || []).slice();
+  (course.groups || []).forEach(group => {
+    if (!categories.some(cat => normKey(cat.type) === normKey(group.name))) {
+      categories.push({ type: group.name, weight: group.weight, points: 0, points_possible: 0, mark: '' });
+    }
+  });
+  selectedCourse = { ...course, categories,
+    assignments: [...(course.assignments || []), ...(hypotheticalAssignments.get(course) || [])] };
+  course = selectedCourse;
+  document.getElementById('addAsgnForm').hidden = true;
+  document.getElementById('addAsgnBtn').setAttribute('aria-expanded', 'false');
   modifiedScores = {};
   modifiedWeights = {};
   activeCategoryFilter = 'all';
@@ -352,7 +403,7 @@ function selectCourse(course) {
   document.getElementById('modelResult').style.display = 'none';
   document.getElementById('targetInput').value = '';
 
-  const head = courseHeadline(course);
+  const head = courseHeadline(selectedSourceCourse);
   // Keep the derived values on the course so everything downstream —
   // modelling, the target calculator, the trend chart — works from the
   // same number the header shows.
@@ -376,6 +427,67 @@ function selectCourse(course) {
   renderBreakdown(course.assignments);
   renderTrendChart(course.assignments);
   recalculateModeled();
+}
+
+function toggleAddAssignment() {
+  if (!selectedCourse) return;
+  const form = document.getElementById('addAsgnForm');
+  form.hidden = !form.hidden;
+  document.getElementById('addAsgnBtn').setAttribute('aria-expanded', String(!form.hidden));
+  if (form.hidden) { document.getElementById('addAsgnBtn').focus(); return; }
+  form.reset();
+  document.getElementById('newAsgnMsg').textContent = '';
+  const select = document.getElementById('newAsgnCategory');
+  select.replaceChildren();
+  const categories = selectedCourse.categories.length ? selectedCourse.categories : modelCategories();
+  categories.forEach(cat => select.add(new Option(cat.type, cat.type)));
+  if (activeCategoryFilter !== 'all') select.value = activeCategoryFilter;
+  if (!select.value) select.selectedIndex = 0;
+  document.getElementById('newAsgnTitle').focus();
+}
+
+function submitAddAssignment(event) {
+  event.preventDefault();
+  if (!selectedCourse) return;
+  const title = document.getElementById('newAsgnTitle').value.trim();
+  const possible = Number(document.getElementById('newAsgnPoss').value);
+  const scoreInput = document.getElementById('newAsgnEarned');
+  const earned = scoreInput.value.trim() === '' ? null : Number(scoreInput.value);
+  const category = document.getElementById('newAsgnCategory').value;
+  const error = !title ? 'Give the assignment a title.'
+    : !Number.isFinite(possible) || possible <= 0 ? 'Points possible must be greater than 0.'
+    : scoreInput.validity.badInput || (earned !== null && (!Number.isFinite(earned) || earned < 0 || earned > possible))
+      ? 'Score must be between 0 and the points possible, or blank for pending work.'
+    : !category ? 'Choose a category.' : '';
+  document.getElementById('newAsgnMsg').textContent = error;
+  if (error) return;
+  const assignment = { id: 'hypothetical-' + (++hypotheticalSequence), title, category,
+    points_possible: possible, points_earned: earned, graded: earned !== null,
+    display_score: earned === null ? 'Pending' : String(earned), hypothetical: true };
+  const rows = hypotheticalAssignments.get(selectedSourceCourse) || [];
+  hypotheticalAssignments.set(selectedSourceCourse, [...rows, assignment]);
+  selectedCourse.assignments.push(assignment);
+  if (activeCategoryFilter !== 'all' && activeCategoryFilter !== category) activeCategoryFilter = 'all';
+  toggleAddAssignment();
+  refreshHypotheticalAssignments();
+}
+
+function removeHypotheticalAssignment(id) {
+  const rows = hypotheticalAssignments.get(selectedSourceCourse) || [];
+  if (!rows.some(a => a.id === id)) return;
+  hypotheticalAssignments.set(selectedSourceCourse, rows.filter(a => a.id !== id));
+  selectedCourse.assignments = selectedCourse.assignments.filter(a => a.id !== id);
+  delete modifiedScores[id];
+  refreshHypotheticalAssignments();
+}
+
+function refreshHypotheticalAssignments() {
+  forecastGeneration++;
+  if (!selectedCourse.assignments.some(a => a.category === activeCategoryFilter)) activeCategoryFilter = 'all';
+  renderCategoryTabs(selectedCourse);
+  rebuildBreakdownIfNeeded();
+  recalculateModeled();
+  document.getElementById('modelResult').style.display = 'none';
 }
 
 function renderCategoryWeights(categories) {
@@ -488,19 +600,19 @@ function renderBreakdown(assignments) {
     card.innerHTML = `
       <div class="rank-bubble" style="font-size:0.7rem;">${graded || isModified ? '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>' : '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/></svg>'}</div>
       <div class="card-main">
-        <div class="card-title">${a.title} ${isModified ? '<span style="font-size:0.7rem;color:var(--accent);font-weight:500;">· modified</span>' : ''}</div>
+        <div class="card-title">${esc(a.title)} ${a.hypothetical ? '<span style="font-size:0.7rem;color:var(--accent);">· hypothetical</span>' : ''} ${isModified ? '<span style="font-size:0.7rem;color:var(--accent);font-weight:500;">· modified</span>' : ''}</div>
         <div class="card-meta">
           ${a.due_date ? `<span class="meta-item"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg> ${a.due_date}</span>` : ''}
-          <span class="meta-item" style="background:var(--accent-soft);color:var(--accent);padding:2px 8px;border-radius:10px;font-size:0.72rem;">${a.category || '-'}</span>
+          <span class="meta-item" style="background:var(--accent-soft);color:var(--accent);padding:2px 8px;border-radius:10px;font-size:0.72rem;">${esc(a.category || '-')}</span>
         </div>
         ${scoreBar}
       </div>
-      <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px; flex-shrink:0; min-width:250px;">
+      <div class="grade-score-controls" style="display:flex; flex-direction:column; align-items:flex-end; gap:6px; flex-shrink:0; min-width:250px;">
         <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
           <input type="number" min="0" max="${maxPossibleForInput}" step="0.5"
             value="${earned !== null ? earned : ''}"
             placeholder="Earned"
-            aria-label="Points earned on ${a.title}"
+            aria-label="Points earned on ${esc(a.title)}"
             style="width:72px; padding:4px 8px; border-radius:8px; border:1px solid var(--border);
               background:var(--bg); color:var(--text-primary); font-family:var(--font-ui);
               font-size:0.85rem; text-align:center;"
@@ -511,7 +623,7 @@ function renderBreakdown(assignments) {
           <input type="number" min="0" max="9999" step="0.5"
             value="${possible !== null ? possible : ''}"
             placeholder="Possible"
-            aria-label="Points possible on ${a.title}"
+            aria-label="Points possible on ${esc(a.title)}"
             style="width:82px; padding:4px 8px; border-radius:8px; border:1px solid var(--border);
               background:var(--bg); color:var(--text-primary); font-family:var(--font-ui);
               font-size:0.85rem; text-align:center;"
@@ -523,13 +635,13 @@ function renderBreakdown(assignments) {
         ${possible !== null ? `
         <input type="range" min="0" max="${maxPossibleForInput}" step="0.5"
           value="${earned !== null ? earned : 0}"
-          aria-label="Points earned on ${a.title}"
+          aria-label="Points earned on ${esc(a.title)}"
           style="width:100%; accent-color:var(--accent);"
           oninput="updateScore('${key}', this.value);"
           data-range-for="${key}" />` : `
         <input type="range" min="0" max="200" step="0.5"
           value="${earned !== null ? earned : 0}"
-          aria-label="Points earned on ${a.title}"
+          aria-label="Points earned on ${esc(a.title)}"
           style="width:100%; accent-color:var(--accent);"
           oninput="updateScore('${key}', this.value);"
           data-range-for="${key}" />`}
@@ -560,6 +672,15 @@ function renderBreakdown(assignments) {
       });
     }
 
+    if (a.hypothetical) {
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'btn-secondary';
+      remove.textContent = 'Remove';
+      remove.setAttribute('aria-label', 'Remove hypothetical assignment ' + a.title);
+      remove.addEventListener('click', () => removeHypotheticalAssignment(key));
+      card.appendChild(remove);
+    }
     wrap.appendChild(card);
   });
 }
@@ -618,7 +739,7 @@ function syncAssignmentCard(id) {
   }
 
   if (title) {
-    const cleanText = a.title;
+    const cleanText = esc(a.title) + (a.hypothetical ? ' <span style="font-size:0.7rem;color:var(--accent);">· hypothetical</span>' : '');
     title.innerHTML = isModified
       ? `${cleanText} <span style="font-size:0.7rem;color:var(--accent);font-weight:500;">· modified</span>`
       : cleanText;
@@ -655,6 +776,7 @@ function getAssignmentById(id) {
 
 function updateScore(id, value) {
   if (!selectedCourse) return;
+  forecastGeneration++;
 
   const a = getAssignmentById(id);
   if (!a) return;
@@ -690,6 +812,7 @@ function updateScore(id, value) {
 
 function updatePossible(id, value) {
   if (!selectedCourse) return;
+  forecastGeneration++;
 
   const a = getAssignmentById(id);
   if (!a) return;
@@ -722,20 +845,21 @@ function updatePossible(id, value) {
    so the user can see the dials physically move. */
 function forecastRealistic() {
   if (!selectedCourse) return;
+  const generation = ++forecastGeneration;
   const assignments = selectedCourse.assignments || [];
 
   // Compute current per-category percentage from GRADED, real data only.
   const catPct = {};
-  (selectedCourse.categories || []).forEach(c => {
+  modelCategories().forEach(c => {
     catPct[normKey(c.type)] = null;
   });
   const catTotals = {};
-  (selectedCourse.categories || []).forEach(c => {
+  modelCategories().forEach(c => {
     catTotals[normKey(c.type)] = { earned: 0, possible: 0 };
   });
   assignments.forEach(a => {
-    if (!isGraded(a)) return;
-    const k = normKey(a.category);
+    if (a.hypothetical || !isGraded(a)) return;
+    const k = modelCategoryKey(a);
     const b = getBaseAssignmentValues(a);
     if (b.earned !== null && b.possible !== null && b.possible > 0 && catTotals[k]) {
       catTotals[k].earned   += b.earned;
@@ -760,7 +884,7 @@ function forecastRealistic() {
     if (isGraded(a)) return;
     const base = getBaseAssignmentValues(a);
     if (base.possible === null || base.possible <= 0) return;
-    let pct = catPct[normKey(a.category)];
+    let pct = catPct[modelCategoryKey(a)];
     if (pct === null || pct === undefined) pct = overall;
     // Clamp the prediction to [0, 1]. Above-100% averages can happen with
     // extra-credit graded items; we don't carry that forward into pending
@@ -785,7 +909,7 @@ function forecastRealistic() {
             </svg>
           </div>
           <div class="empty-title">All caught up</div>
-          <p>Every assignment in this course is already graded, there's nothing pending to forecast. Switch courses or wait for the next assignment to drop.</p>
+          <p>Every assignment in this course is already graded. Add a hypothetical assignment to forecast upcoming work.</p>
         </div>`;
     }
     return;
@@ -796,6 +920,7 @@ function forecastRealistic() {
   const duration = 600;
   const t0 = performance.now();
   function step(now) {
+    if (generation !== forecastGeneration) return;
     const t = Math.min(1, (now - t0) / duration);
     const eased = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;  // easeInOutQuad
     targets.forEach(tgt => {
@@ -834,7 +959,7 @@ function forecastRealistic() {
 function recalculateModeled() {
   if (!selectedCourse) return;
 
-  const categories = selectedCourse.categories || [];
+  const categories = modelCategories();
   const assignments = selectedCourse.assignments || [];
 
   const catTotals = {};
@@ -843,7 +968,7 @@ function recalculateModeled() {
   });
 
   assignments.forEach(a => {
-    const catKey = normKey(a.category);
+    const catKey = modelCategoryKey(a);
     if (!catTotals[catKey]) return;
 
     const score = getAssignmentScore(a);
@@ -874,10 +999,10 @@ function recalculateModeled() {
     ? Math.round((weightedSum / totalWeightUsed) * 10000) / 100
     : selectedCourse.percentage;
 
-  animateGradeChange(document.getElementById('modeledPct'), `${modeled}%`);
+  animateGradeChange(document.getElementById('modeledPct'), modeled == null ? '—' : `${modeled}%`);
   const modeledLetter = document.getElementById('modeledLetter');
-  const modeledGradeLetter = pctToLetter(modeled);
-  modeledLetter.textContent = modeledGradeLetter;
+  const modeledGradeLetter = modeled == null ? '' : pctToLetter(modeled);
+  modeledLetter.textContent = modeledGradeLetter || '—';
   modeledLetter.className = 'priority-badge ' + letterToClass(modeledGradeLetter);
 
   return modeled;
@@ -893,7 +1018,7 @@ function runModel() {
   }
 
   const assignments = selectedCourse.assignments || [];
-  const categories = selectedCourse.categories || [];
+  const categories = modelCategories();
 
   const catData = {};
   categories.forEach(cat => {
@@ -908,7 +1033,7 @@ function runModel() {
   });
 
   assignments.forEach(a => {
-    const catKey = normKey(a.category);
+    const catKey = modelCategoryKey(a);
     if (!catData[catKey]) return;
 
     const score = getAssignmentScore(a);
@@ -1063,20 +1188,23 @@ function renderTrendChart(assignments) {
 
 function resetAll() {
   if (!selectedCourse) return;
+  forecastGeneration++;
 
+  hypotheticalAssignments.delete(selectedSourceCourse);
+  selectedCourse.assignments = [...(selectedSourceCourse.assignments || [])];
+  activeCategoryFilter = 'all';
+  document.getElementById('addAsgnForm').hidden = true;
+  document.getElementById('addAsgnBtn').setAttribute('aria-expanded', 'false');
   modifiedScores = {};
   modifiedWeights = {};
 
   document.getElementById('targetInput').value = '';
   document.getElementById('modelResult').style.display = 'none';
 
-  document.getElementById('currentPct').textContent = `${selectedCourse.percentage}%`;
-  document.getElementById('currentLetter').textContent = selectedCourse.letter || '—';
-  document.getElementById('currentLetter').className = 'priority-badge ' + letterToClass(selectedCourse.letter);
-
-  document.getElementById('modeledPct').textContent = `${selectedCourse.percentage}%`;
-  document.getElementById('modeledLetter').textContent = selectedCourse.letter || '—';
-  document.getElementById('modeledLetter').className = 'priority-badge ' + letterToClass(selectedCourse.letter);
+  const head = courseHeadline(selectedSourceCourse);
+  document.getElementById('currentPct').textContent = head.pctText;
+  document.getElementById('currentLetter').textContent = head.letterText;
+  document.getElementById('currentLetter').className = 'priority-badge ' + letterToClass(head.letter);
 
   renderCategoryWeights(selectedCourse.categories);
   renderCategoryTabs(selectedCourse);
