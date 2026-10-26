@@ -228,3 +228,82 @@ def test_onboarding_cannot_bypass_input_safety(monkeypatch, agent_account):
         login_user(App.db.session.get(App.User, agent_account))
         assert App.api_onboarding_chat().get_json()['refusal']['category'] == 'violence'
     provider.assert_not_called()
+
+def _http_failure(status):
+    response = requests.Response()
+    response.status_code = status
+    return SimpleNamespace(raise_for_status=Mock(side_effect=requests.HTTPError(response=response)))
+
+
+@pytest.mark.parametrize('status', [413, 429, 500, 502, 503, 504])
+def test_capacity_failure_uses_same_policy_and_complete_context_on_fallback(judge, status):
+    judge.post.side_effect = [_http_failure(status), judge.response]
+    messages = turns('An earlier topic.', 'A long study request. ' * 450)
+    assert safety.classify(messages, http=judge, allowed_terms={'puberty'}) is None
+    first, second = [call.kwargs for call in judge.post.call_args_list]
+    assert first['json']['model'] == safety.MODEL
+    assert second['json']['model'] == safety.FALLBACK_MODEL
+    assert first['json']['messages'] == second['json']['messages']
+    payload = json.loads(second['json']['messages'][1]['content'])
+    assert payload['conversation'] == messages
+    assert payload['target'] == messages[-1]['content']
+    assert payload['teacher_terms'] == ['puberty']
+    assert first['headers'] == second['headers']
+
+
+def test_fallback_blocks_unsafe_output_instead_of_permitting_it(judge):
+    judge.response.json.return_value['choices'][0]['message']['content'] = '{"safe":false,"category":"violence"}'
+    judge.post.side_effect = [_http_failure(413), judge.response]
+    assert safety.classify(turns('Explain a classroom process.'), output='A dangerous generated reply', http=judge) == 'violence'
+    payload = json.loads(judge.post.call_args.kwargs['json']['messages'][1]['content'])
+    assert payload['target'] == 'A dangerous generated reply'
+    assert payload['mode'] == 'output'
+
+
+@pytest.mark.parametrize('status', [400, 401, 403])
+def test_non_transient_failure_does_not_retry(judge, status):
+    judge.post.side_effect = [_http_failure(status), judge.response]
+    with pytest.raises(safety.SafetyUnavailable):
+        safety.classify(turns('Explain algebra.'), http=judge)
+    assert judge.post.call_count == 1
+
+
+def test_all_classifiers_unavailable_withholds_response(judge):
+    judge.post.side_effect = [_http_failure(413), _http_failure(429), _http_failure(429)]
+    with pytest.raises(safety.SafetyUnavailable):
+        safety.classify(turns('Explain algebra.'), http=judge)
+    assert judge.post.call_count == 3
+
+
+@pytest.mark.parametrize('failure', ['malformed', 'truncated'])
+def test_invalid_fallback_verdict_withholds_response(judge, failure):
+    if failure == 'malformed':
+        judge.response.json.return_value['choices'][0]['message']['content'] = '{"safe":true,"category":"violence"}'
+    else:
+        judge.response.json.return_value['choices'][0]['finish_reason'] = 'length'
+    judge.post.side_effect = [_http_failure(429), judge.response]
+    with pytest.raises(safety.SafetyUnavailable):
+        safety.classify(turns('Explain algebra.'), http=judge)
+    assert judge.post.call_count == 2
+
+
+def test_valid_refusal_never_falls_back_to_another_model(judge):
+    judge.response.json.return_value['choices'][0]['message']['content'] = '{"safe":false,"category":"drugs"}'
+    assert safety.classify(turns('A context-dependent request.'), http=judge) == 'drugs'
+    judge.post.assert_called_once()
+
+
+def test_second_capacity_failure_uses_final_classifier_with_full_policy(judge):
+    judge.post.side_effect = [_http_failure(413), _http_failure(429), judge.response]
+    assert safety.classify(turns('A long study question.'), http=judge) is None
+    calls = [call.kwargs['json'] for call in judge.post.call_args_list]
+    assert [call['model'] for call in calls] == list(safety.CLASSIFIERS)
+    assert calls[0]['messages'] == calls[1]['messages'] == calls[2]['messages']
+    assert calls[2]['response_format'] == {'type': 'json_object'}
+    assert calls[2]['reasoning_effort'] == 'medium'
+
+
+def test_final_classifier_unsafe_verdict_is_enforced(judge):
+    judge.response.json.return_value['choices'][0]['message']['content'] = '{"safe":false,"category":"self_harm"}'
+    judge.post.side_effect = [_http_failure(413), _http_failure(429), judge.response]
+    assert safety.classify(turns('A context-dependent question.'), http=judge) == 'self_harm'
