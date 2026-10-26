@@ -317,6 +317,7 @@
       <div class="onb-eyebrow">Quick start</div>
       <h1 class="onb-title">The basics, then your school.</h1>
       <p class="onb-sub">Pick your grade (optional) and the subjects you're working on. Everything else lives in <a href="/settings" style="color:var(--accent);font-weight:600;">Settings</a> when you're ready for more customization.</p>
+      <p id="onbQuickNotice" class="onb-msg-meta" role="status" hidden>AI chat is busy right now. You can finish setup here. Previously saved profile details are filled in below; your chat is kept, but your latest answer may need to be entered again.</p>
       <div class="onb-quick-grid">
         <div>
           <label class="onb-label" for="qGrade">Grade level (optional)</label>
@@ -776,6 +777,19 @@ function onbRenderChat() {
   wrap.scrollTop = wrap.scrollHeight;
 }
 
+async function onbUseQuickSetup() {
+  // Reload the server-rendered fields so earlier extracted answers survive
+  // the switch. Never treat an unavailable safety verdict as permission.
+  ONB.mode = 'quick';
+  try {
+    await fetch('/api/onboarding/state', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ messages: ONB.messages, step: 'quick', mode: 'quick' })
+    });
+  } catch (_e) { /* The URL still opens Quick if session saving is offline. */ }
+  window.location.assign('/onboarding?quick=unavailable');
+}
+
 async function onbBootstrapChat() {
   // First-turn message from IntelliPlan.
   if (ONB.messages.length) { onbRenderChat(); return; }
@@ -787,6 +801,11 @@ async function onbBootstrapChat() {
       body: JSON.stringify({ messages: [] }),
     });
     const d = await r.json();
+    if (r.status === 503) {
+      await onbUseQuickSetup();
+      return;
+    }
+    if (!r.ok) throw new Error('Chat request failed');
     if (d.reply) {
       ONB.messages.push({ role: 'assistant', content: d.reply });
       onbRenderChat();
@@ -813,6 +832,11 @@ async function onbSendChat() {
       body: JSON.stringify({ messages: ONB.messages }),
     });
     const d = await r.json();
+    if (r.status === 503) {
+      await onbUseQuickSetup();
+      return;
+    }
+    if (!r.ok) throw new Error('Chat request failed');
     if (d.reply) {
       ONB.messages.push({ role: 'assistant', content: d.reply });
       onbRenderChat();
@@ -1084,6 +1108,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     const d = await r.json();
     if (d.messages && Array.isArray(d.messages)) ONB.messages = d.messages;
     if (d.mode) ONB.mode = d.mode;
+    if (new URLSearchParams(window.location.search).get('quick') === 'unavailable') {
+      ONB.mode = 'quick';
+      document.getElementById('onbQuickNotice').hidden = false;
+      // Consume the recovery hint so later refreshes resume the current step.
+      window.history.replaceState(null, '', '/onboarding');
+      onbShow('quick');
+      return;
+    }
     if (d.step && d.step !== 'intro') onbShow(d.step);
     // Resuming past the connect step: the plan request was made on the
     // page load that got refreshed away, so make it again.
