@@ -3,11 +3,19 @@
   const $ = id => document.getElementById(id);
   const status = message => { $('hub-status').textContent = message; };
   async function api(path, options = {}) {
-    const response = await fetch(path, {credentials: 'same-origin', ...options,
-      headers: {'Content-Type': 'application/json', ...options.headers}});
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.message || data.error || `Request failed (${response.status}).`);
-    return data;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 60000);
+    try {
+      const response = await fetch(path, {credentials: 'same-origin', ...options, signal: controller.signal,
+        headers: {'Content-Type': 'application/json', ...options.headers}});
+      const data = await response.json().catch(() => { throw new Error('The server returned an unreadable response. Try again.'); });
+      if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('The server returned an unreadable response. Try again.');
+      if (!response.ok) throw new Error(data.message || data.error || `Request failed (${response.status}).`);
+      return data;
+    } catch (error) {
+      if (error.name === 'AbortError') throw new Error('This request took too long. Your draft is still here. Check progress before retrying a saved action.');
+      throw error;
+    } finally { clearTimeout(timeout); }
   }
   const post = (path, data) => api(path, {method: 'POST', body: JSON.stringify(data)});
   function node(tag, text, parent) {
@@ -21,6 +29,7 @@
     b.addEventListener('click', () => run(b, action)); return b;
   }
   async function run(control, action) {
+    if (!control || control.disabled) return;
     control.disabled = true;
     control.setAttribute('aria-busy', 'true');
     try { await action(); } catch (error) { status(error.message); }
@@ -59,7 +68,10 @@
     const entry = node('article', undefined, $('hub-conversation'));
     entry.className = 'learning-message'; entry.dataset.role = role;
     node('h3', role === 'user' ? 'Your question' : 'IntelliPlan tutor', entry);
-    node('p', content, entry);
+    if (role === 'assistant' && window.IPRichText) {
+      const prose = node('div', undefined, entry); prose.className = 'ip-rich-content';
+      prose.innerHTML = window.IPRichText.render(content);
+    } else node('p', content, entry);
     return entry;
   }
   $('hub-tutor-form').addEventListener('submit', event => {

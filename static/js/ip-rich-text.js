@@ -31,20 +31,30 @@
         if (!/^[{\["]/.test(trimmed)) return trimmed;
         try { value = parseEnvelope(trimmed); } catch (_) { return trimmed; }
       } else if (Array.isArray(value)) {
-        var blocks = value.filter(function (block) { return block && ['text','output_text'].includes(block.type) && (typeof block.text === 'string' || typeof block.text?.value === 'string'); });
-        if (!blocks.length) return '```json\n' + json(value) + '\n```';
+        var blocks = value.filter(function (block) { return block && (!block.type || ['text','output_text'].includes(block.type)) && (typeof block.text === 'string' || typeof block.text?.value === 'string'); });
+        if (!blocks.length || blocks.length !== value.length) return '```json\n' + json(value) + '\n```';
         value = blocks.map(function (block) { return typeof block.text === 'string' ? block.text : block.text.value; }).join('\n\n');
       } else if (value && typeof value === 'object' && !Array.isArray(value)) {
-        if (Array.isArray(value.choices) && value.choices[0]?.message) { value = value.choices[0].message; continue; }
+        if (Array.isArray(value.choices) && value.choices.length === 1 && value.choices[0]?.message) { value = value.choices[0].message; continue; }
+        if (Array.isArray(value.candidates) && value.candidates.length === 1 && value.candidates[0]?.content?.parts) { value = value.candidates[0].content.parts; continue; }
         var key = ['reply', 'response', 'content', 'text', 'answer', 'explanation', 'message'].find(function (k) {
           return typeof value[k] === 'string' || Array.isArray(value[k]) || (value[k] && typeof value[k] === 'object'
             && ['content','text','message','reply','response'].some(function (field) { return field in value[k]; }));
         });
-        if (!key && Array.isArray(value.output)) {
-          value = value.output.flatMap(function (block) { return Array.isArray(block?.content) ? block.content : []; });
+        if (!key && Array.isArray(value.output) && value.output.length && value.output.every(function (block) {
+          return Array.isArray(block?.content) && (!block.type || block.type === 'message');
+        })) {
+          value = value.output.flatMap(function (block) { return block.content; });
           continue;
         }
         if (!key) return '```json\n' + json(value) + '\n```';
+        // Only recognized transport metadata may accompany a prose field.
+        // Domain objects such as {answer, explanation, steps} stay intact.
+        var metadata = ['role','type','id','object','model','created','usage','status',
+          'conversation_id','assessment_protection','finish_reason'];
+        if (Object.keys(value).some(function (field) { return field !== key && !metadata.includes(field); })) {
+          return '```json\n' + json(value) + '\n```';
+        }
         value = value[key];
       } else return '```json\n' + json(value) + '\n```';
     }
@@ -62,7 +72,10 @@
         var index = mathSources.push(token) - 1;
         return '<span data-ip-math="' + index + '"></span>';
       }
-      parser.use({extensions: [{name: 'ipDisplayMath', level: 'block',
+      parser.use({renderer: {code: function (token) {
+        var language = (token.lang || '').split(/\s/)[0].replace(/[^a-zA-Z0-9_+#.-]/g, '').slice(0, 32);
+        return '<pre data-ip-language="' + escape(language || 'text') + '"><code>' + escape(token.text) + '</code></pre>';
+      }}, extensions: [{name: 'ipDisplayMath', level: 'block',
         start: function (source) { return source.search(/(?:^|\n)[ \t]*(?:\$\$|\\\[)/); },
         tokenizer: function (source) {
           if (!window.katex || mathCount >= 32) return;
@@ -112,7 +125,7 @@
     var safe = window.DOMPurify.sanitize(html, {
       ALLOWED_TAGS: ['span','p','br','strong','em','del','s','h1','h2','h3','h4','h5','h6',
         'ul','ol','li','blockquote','pre','code','hr','a','table','thead','tbody','tr','th','td','sup','sub'],
-      ALLOWED_ATTR: ['href','title','start','colspan','rowspan','data-ip-math'],
+      ALLOWED_ATTR: ['href','title','start','colspan','rowspan','data-ip-math','data-ip-language'],
       ALLOW_DATA_ATTR: false,
       ALLOW_ARIA_ATTR: false,
       FORBID_TAGS: ['script','style','iframe','svg','math','img','video','audio','form','input'],
@@ -130,15 +143,36 @@
           trust: false, strict: 'error', throwOnError: true, maxSize: 10, maxExpand: 1000, macros: {}});
       } catch (_) { node.textContent = token.raw; }
     });
-    holder.querySelectorAll('pre,table,.ip-math').forEach(function (region) {
+    holder.querySelectorAll('table').forEach(function (table) {
+      var scroll = document.createElement('div'); scroll.className = 'ip-table-scroll';
+      scroll.tabIndex = 0; scroll.setAttribute('role', 'region'); scroll.setAttribute('aria-label', 'Response table');
+      table.before(scroll); scroll.append(table);
+    });
+    holder.querySelectorAll('pre,.ip-math').forEach(function (region) {
       region.tabIndex = 0; region.setAttribute('role', 'region');
-      region.setAttribute('aria-label', region.tagName === 'PRE' ? 'Code example' : region.tagName === 'TABLE' ? 'Response table' : 'Mathematical expression');
+      region.setAttribute('aria-label', region.tagName === 'PRE' ? 'Code example' : 'Mathematical expression');
+    });
+    holder.querySelectorAll('a[href]').forEach(function (link) {
+      link.setAttribute('rel', 'noopener noreferrer');
+    });
+    holder.querySelectorAll('pre').forEach(function (pre) {
+      var language = (pre.getAttribute('data-ip-language') || 'text').replace(/[^a-zA-Z0-9_+#.-]/g, '').slice(0, 32);
+      pre.removeAttribute('data-ip-language');
+      var block = document.createElement('div'); block.className = 'ip-code-block';
+      var toolbar = document.createElement('div'); toolbar.className = 'ip-code-toolbar';
+      var label = document.createElement('span'); label.textContent = language;
+      var copy = document.createElement('button'); copy.type = 'button'; copy.textContent = 'Copy code';
+      copy.setAttribute('data-ip-copy-code', ''); copy.setAttribute('aria-label', 'Copy ' + language + ' code');
+      var feedback = document.createElement('span'); feedback.setAttribute('role', 'status');
+      feedback.className = 'sr-only';
+      toolbar.append(label, copy, feedback); pre.before(block); block.append(toolbar, pre);
     });
     return holder.innerHTML;
   }
   function plainText(value, forSpeech) {
     var holder = document.createElement('div');
     holder.innerHTML = render(value);
+    holder.querySelectorAll('.ip-code-toolbar').forEach(function (node) { node.remove(); });
     if (forSpeech) holder.querySelectorAll('pre, table').forEach(function (node) { node.remove(); });
     holder.querySelectorAll('[data-ip-math]').forEach(function (node) { node.textContent = node.getAttribute('data-ip-math'); });
     holder.querySelectorAll('th,td').forEach(function (node) { node.after(document.createTextNode('\t')); });
@@ -146,5 +180,24 @@
     return (holder.textContent || '').replace(/\n{3,}/g, '\n\n').trim();
   }
   function speech(value) { return plainText(value, true).replace(/\s+/g, ' ').trim(); }
+  document.addEventListener('click', async function (event) {
+    var button = event.target.closest?.('[data-ip-copy-code]');
+    if (!button || button.disabled) return;
+    var code = button.closest('.ip-code-block')?.querySelector('pre code');
+    if (!code) return;
+    button.disabled = true;
+    var feedback = button.parentElement.querySelector('[role="status"]');
+    try {
+      await navigator.clipboard.writeText(code.textContent);
+      button.textContent = 'Copied'; feedback.textContent = 'Code copied to clipboard.';
+    } catch (_) {
+      button.textContent = 'Select code'; feedback.textContent = 'Clipboard unavailable. Code selected; use your copy shortcut.';
+      var selection = window.getSelection(), range = document.createRange();
+      range.selectNodeContents(code); selection.removeAllRanges(); selection.addRange(range);
+    } finally {
+      button.disabled = false;
+      setTimeout(function () { if (button.isConnected) button.textContent = 'Copy code'; }, 2000);
+    }
+  });
   window.IPRichText = {normalize: normalize, render: render, speech: speech, plainText: plainText};
 })();
