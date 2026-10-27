@@ -1,15 +1,19 @@
 # Automations setup — reminders and lifecycle email
 
-Everything scheduled in IntelliPlan runs off HTTP endpoints guarded by a
-shared secret. There is no background scheduler in the app: something
-external has to call them on a timetable. Until that exists, nothing sends
-— silently, because there is no error to see when nobody asks.
+Notification reminders run inside the web process every 60 seconds by
+default (`NOTIFICATIONS_INPROCESS_CRON=1`). A database lease makes sure only
+one web worker performs each sweep. An external scheduler can also call the
+HTTP endpoints below as a backup, or take over if the in-process ticker is
+disabled. The web service and database must remain available for reminders
+to be evaluated and delivered.
 
 ## 1. Environment
 
 | Variable | Required for | Notes |
 |---|---|---|
-| `CRON_SECRET` | every endpoint below | Any long random string. **Unset means every cron endpoint returns 503 and nothing sends.** |
+| `CRON_SECRET` | external calls to the endpoints below | Any long random string. Required when an external scheduler calls a cron endpoint. |
+| `NOTIFICATIONS_INPROCESS_CRON` | notification ticker | Defaults to `1`. Set to `0` only when an external scheduler is driving `/cron/notifications`. |
+| `NOTIFICATIONS_TICK_SECONDS` | notification ticker | Defaults to `60`; controls reminder sweep cadence. |
 | `RESEND_API_KEY` | all email | Without it (and without SMTP) `_send_email` logs the message and reports failure. |
 | `RESEND_FROM` | all email | e.g. `IntelliPlan <noreply@intelliplan.tech>`. The domain must be verified in Resend. |
 | `MARKETING_POSTAL_ADDRESS` | **feedback + newsletter only** | CAN-SPAM. The marketing gate *refuses to send* without it. Welcome and onboarding are transactional and unaffected. |
@@ -51,7 +55,7 @@ the secret. Both work everywhere now.)
 
 | Endpoint | Cadence | What it does |
 |---|---|---|
-| `/cron/notifications` | every 5–15 min | Sweeps for due events and delivers queued reminders (push, SMS, email). |
+| `/cron/notifications` | optional backup, every 5–15 min | Sweeps for due events and delivers queued reminders (push, SMS, email). The in-process ticker handles this by default. |
 | `/cron/send-reminders` | every 15–30 min | The direct assignment-reminder path. |
 | `/cron/lifecycle-emails` | daily | Welcome backstop, onboarding day 2/4/7, the one-week feedback ask, and weekly draft nudges. |
 | `/cron/weekly-newsletter` | Mondays, 08:00–09:00 Pacific | Sends the weekly study note only to accounts with current weekly consent, valid age, and no suppression. |

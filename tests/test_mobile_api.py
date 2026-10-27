@@ -50,6 +50,72 @@ def auth(client):
     return {"headers": {"Authorization": f"Bearer {token}"}, "user_id": uid}
 
 
+def test_mobile_push_registration_enables_server_reminders_and_saves_timezone(client, auth):
+    token = "ExponentPushToken[mobile-reminders-test]"
+    response = client.post(
+        "/api/v1/push/register",
+        headers=auth["headers"],
+        json={
+            "token": token,
+            "timezone": "America/Los_Angeles",
+            "utc_offset_minutes": -420,
+        },
+    )
+
+    assert response.status_code == 200
+    with app_module.app.app_context():
+        user = app_module.User.query.get(auth["user_id"])
+        assert user.push_reminders_opt_in is True
+        assert user.utc_offset_minutes == -420
+        streak = app_module.UserStreak.query.filter_by(user_id=user.id).one()
+        assert streak.timezone == "America/Los_Angeles"
+
+
+def test_mobile_push_unregister_keeps_opt_in_until_last_device_is_removed(client, auth):
+    tokens = [
+        "ExponentPushToken[mobile-reminders-one]",
+        "ExponentPushToken[mobile-reminders-two]",
+    ]
+    for token in tokens:
+        response = client.post(
+            "/api/v1/push/register", headers=auth["headers"], json={"token": token}
+        )
+        assert response.status_code == 200
+
+    first = client.post(
+        "/api/v1/push/unregister", headers=auth["headers"], json={"token": tokens[0]}
+    )
+    assert first.status_code == 200
+    with app_module.app.app_context():
+        user = app_module.User.query.get(auth["user_id"])
+        assert user.push_reminders_opt_in is True
+        assert app_module.PushSubscription.query.filter_by(
+            user_id=user.id, endpoint=tokens[1]
+        ).first() is not None
+
+    last = client.post(
+        "/api/v1/push/unregister", headers=auth["headers"], json={"token": tokens[1]}
+    )
+    assert last.status_code == 200
+    with app_module.app.app_context():
+        user = app_module.User.query.get(auth["user_id"])
+        assert user.push_reminders_opt_in is False
+
+
+def test_mobile_push_registration_rejects_an_invalid_timezone(client, auth):
+    response = client.post(
+        "/api/v1/push/register",
+        headers=auth["headers"],
+        json={"token": "ExponentPushToken[invalid-zone-test]", "timezone": "Mars/Olympus"},
+    )
+
+    assert response.status_code == 400
+    with app_module.app.app_context():
+        user = app_module.User.query.get(auth["user_id"])
+        assert user.push_reminders_opt_in is False
+        assert app_module.PushSubscription.query.filter_by(user_id=user.id).first() is None
+
+
 # ── Every screen's endpoint answers ─────────────────────────────────
 
 

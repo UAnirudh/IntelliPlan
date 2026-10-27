@@ -762,6 +762,7 @@
       <button class="btn-primary" onclick="savePhone()" id="phoneSaveBtn" style="padding:9px 18px;border:none;cursor:pointer;">Save</button>
       <button class="btn-secondary" onclick="testPhone()" id="phoneTestBtn" style="padding:9px 16px;cursor:pointer;font-size:0.84rem;">Test SMS</button>
       <button class="btn-secondary" onclick="enablePushNotifications()" id="pushEnableBtn" style="padding:9px 16px;cursor:pointer;font-size:0.84rem;">Enable browser push</button>
+      <button class="btn-secondary" onclick="testBrowserPush()" id="pushTestBtn" style="padding:9px 16px;cursor:pointer;font-size:0.84rem;">Test browser push</button>
       <button class="btn-secondary" onclick="previewReminders()" id="previewBtn" style="padding:9px 16px;cursor:pointer;font-size:0.84rem;">Send me a sample reminder now</button>
       <span id="phoneStatus" style="font-size:0.82rem;color:var(--text-muted);"></span>
     </div>
@@ -2119,16 +2120,25 @@ async function enablePushNotifications() {
       userVisibleOnly: true,
       applicationServerKey: _urlBase64ToUint8Array(keyResp.key),
     });
-    await fetch('/push/subscribe', {
+    const registered = await fetch('/push/subscribe', {
       method: 'POST', headers: {'Content-Type':'application/json'},
       body: JSON.stringify({ subscription: sub }),
     });
-    // Auto-tick the opt-in box and persist.
-    document.getElementById('pushOptIn').checked = true;
-    await fetch('/api/profile/phone', {
+    if (!registered.ok) {
+      const detail = await registered.json().catch(() => ({}));
+      throw new Error(detail.message || 'The server could not save this browser subscription.');
+    }
+    const preference = await fetch('/api/profile/phone', {
       method: 'POST', headers: {'Content-Type':'application/json'},
       body: JSON.stringify({ push_reminders_opt_in: true }),
     });
+    if (!preference.ok) {
+      throw new Error('The browser is subscribed, but IntelliPlan could not save your reminder preference. Try again.');
+    }
+    // Show enabled only after both the device subscription and account
+    // preference have been saved. A green success state must mean both
+    // sides are ready to deliver closed-tab reminders.
+    document.getElementById('pushOptIn').checked = true;
     _phoneStatus('Browser push enabled', true);
   } catch(e) {
     console.error(e);
@@ -2149,6 +2159,24 @@ function previewReminders() {
       _phoneStatus(d.message || 'Done', d.status === 'ok');
     })
     .catch(() => { btn.disabled = false; btn.textContent = original; _phoneStatus('Network error', false); });
+}
+
+async function testBrowserPush() {
+  const btn = document.getElementById('pushTestBtn');
+  const original = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Sending…';
+  try {
+    const response = await fetch('/push/test', { method: 'POST', credentials: 'same-origin' });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data.status !== 'ok') {
+      throw new Error(data.message || 'The test notification could not be sent.');
+    }
+    _phoneStatus(`Test notification sent to ${data.sent} device${data.sent === 1 ? '' : 's'}.`, true);
+  } catch (error) {
+    _phoneStatus(error.message || 'Could not send the test notification.', false);
+  } finally {
+    btn.disabled = false; btn.textContent = original;
+  }
 }
 
 refreshPhone();

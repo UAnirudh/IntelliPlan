@@ -117,7 +117,12 @@ export async function syncReminders(tasks: Task[]): Promise<number> {
         content: {
           title: task.course ? `${task.course} — due soon` : "Due soon",
           body: task.title,
-          data: { tag: TAG, title: task.title },
+          data: {
+            tag: TAG,
+            title: task.title,
+            url: "/task",
+            task,
+          },
         },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.DATE,
