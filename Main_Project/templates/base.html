@@ -898,6 +898,7 @@ body {
 <!-- ══════════════════════════════════════
      MAIN CONTENT
 ══════════════════════════════════════ -->
+{% include "partials/email_verification_notice.html" %}
 <main id="main-content" style="flex:1;">
   {% block content %}{% endblock %}
   <script type="application/json" id="ipWorkspacePolicy">{{ (workspace_blocked_paths or []) | tojson }}</script>
@@ -1015,7 +1016,7 @@ body {
         <div class="plani-hdr-name">{{ assistant_name }}</div>
         <div class="plani-hdr-status">
           <div class="plani-status-dot"></div>
-          Powered by Google Gemini
+          IntelliPlan AI
         </div>
       </div>
       <button id="planiCloseBtn" onclick="closePlani()" aria-label="Close chat"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>

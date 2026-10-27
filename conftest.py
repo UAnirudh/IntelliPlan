@@ -46,7 +46,7 @@ def finish_welcome_delivery_before_request_continues(monkeypatch):
 
     def start(thread, *args, **kwargs):
         result = original_start(thread, *args, **kwargs)
-        if thread.name.startswith("ip-welcome-"):
+        if thread.name.startswith(("ip-welcome-", "ip-verify-email-")):
             thread.join()
         return result
 

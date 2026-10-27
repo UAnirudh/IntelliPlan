@@ -1,0 +1,31 @@
+{% if current_user is defined and current_user.is_authenticated and current_user.password_hash and not current_user.email_verified %}
+<aside id="emailVerificationNotice" role="status" aria-live="polite" style="margin:12px auto;max-width:1160px;padding:12px 16px;border:1px solid var(--border);border-radius:12px;background:var(--bg-card);color:var(--text-primary);display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap">
+  <span>Verify your school email to receive your partner school’s IntelliPlan plan.</span>
+  <form id="emailVerificationResend" style="margin:0"><button class="btn btn-secondary" type="submit">Resend confirmation link</button></form>
+  <span id="emailVerificationStatus" aria-live="polite"></span>
+</aside>
+<script>
+(() => {
+  const form = document.getElementById('emailVerificationResend');
+  if (!form) return;
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const button = form.querySelector('button');
+    const status = document.getElementById('emailVerificationStatus');
+    button.disabled = true;
+    status.textContent = 'Sending…';
+    try {
+      const response = await fetch('/api/auth/email-verification/resend', {
+        method: 'POST', credentials: 'same-origin',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({email: {{ current_user.email|tojson }}})
+      });
+      const result = await response.json();
+      status.textContent = result.message || 'If this account needs verification, a link has been sent.';
+    } catch (_) {
+      status.textContent = 'Could not send the link right now. Please try again later.';
+    } finally { button.disabled = false; }
+  });
+})();
+</script>
+{% endif %}

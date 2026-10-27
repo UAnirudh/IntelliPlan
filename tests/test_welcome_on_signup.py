@@ -100,9 +100,13 @@ def test_signing_up_sends_the_welcome_email(client, resend):
     email = _fresh_email()
     _register(client, email)
 
-    mine = [p for p in resend if p["to"] == [email]]
+    mine = [p for p in resend if p["to"] == [email]
+            and "Welcome to IntelliPlan" in p.get("subject", "")]
     assert len(mine) == 1, f"expected exactly one welcome, got {len(mine)}"
     assert "Welcome to IntelliPlan" in mine[0]["subject"]
+    verification = [p for p in resend if p["to"] == [email]
+                    and "Confirm your IntelliPlan email" in p.get("subject", "")]
+    assert len(verification) == 1, "eligible password signups should receive one email confirmation"
 
 
 def test_the_welcome_carries_both_a_text_and_an_html_part(client, resend):
@@ -136,7 +140,8 @@ def test_the_send_is_recorded_so_the_daily_sweep_will_not_repeat_it(client, rese
 
         campaigns.sweep_welcome()
 
-    assert len([p for p in resend if p["to"] == [email]]) == 1, "the sweep sent a duplicate"
+    assert len([p for p in resend if p["to"] == [email]
+                and "Welcome to IntelliPlan" in p.get("subject", "")]) == 1, "the sweep sent a duplicate"
 
 
 def test_an_under_13_signup_is_not_emailed_before_a_parent_consents(client, resend):
