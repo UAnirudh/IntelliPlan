@@ -285,16 +285,17 @@ export default function FocusScreen() {
           paddingBottom: space.md,
         }}
       >
-        <T variant="lg" weight="700" style={{ flex: 1 }}>
-          Focus
-        </T>
+        <View style={{ flex: 1, gap: 2 }}>
+          <T variant="lg" weight="700">Focus session</T>
+          <T variant="xs" tone="muted">A little progress adds up</T>
+        </View>
         <Pressable
           onPress={() => (session ? askHowItWent() : router.back())}
-          hitSlop={10}
           accessibilityRole="button"
           accessibilityLabel={session ? "End session" : "Close"}
+          style={{ width: 44, height: 44, borderRadius: radius.pill, backgroundColor: colors.bgCard, alignItems: "center", justifyContent: "center" }}
         >
-          <Ionicons name="close" size={26} color={colors.textSecondary} />
+          <Ionicons name="close" size={23} color={colors.textSecondary} />
         </Pressable>
       </View>
 
@@ -312,7 +313,7 @@ export default function FocusScreen() {
           </View>
         ) : (
           <>
-            <Card style={{ gap: 6 }}>
+            <Card style={{ gap: 6, padding: space.lg, backgroundColor: session ? colors.bgCard : colors.accentSoft, borderColor: session ? colors.border : colors.borderAccent }}>
               <Label>{session ? "Working on" : "About to start"}</Label>
               <T variant="md" weight="700">
                 {session?.title || params.title || "Study session"}
@@ -381,7 +382,7 @@ export default function FocusScreen() {
                   />
                 </View>
 
-                <Pressable onPress={abandon} hitSlop={8} accessibilityRole="button" style={{ alignSelf: "center", padding: space.sm }}>
+                <Pressable onPress={abandon} accessibilityRole="button" accessibilityLabel="Give up on this focus session" style={{ minHeight: 48, alignSelf: "center", justifyContent: "center", paddingHorizontal: space.lg }}>
                   <T variant="sm" tone="muted">
                     Give up on this one
                   </T>

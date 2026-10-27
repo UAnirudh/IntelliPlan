@@ -107,6 +107,10 @@ export default function LoginScreen() {
             >
               <Ionicons name="school" size={27} color={colors.onAccent} />
             </View>
+            <View accessibilityLabel="IntelliPlan" style={{ flexDirection: "row", alignItems: "baseline", gap: 0 }}>
+              <T variant="xl" weight="700">Intelli</T>
+              <T variant="xl" weight="700" tone="accent">Plan</T>
+            </View>
             <T variant="xxl" weight="700">
               {signup ? "Start planning" : "Welcome back"}
             </T>
@@ -161,7 +165,16 @@ export default function LoginScreen() {
                 hitSlop={10}
                 accessibilityRole="button"
                 accessibilityLabel={show ? "Hide password" : "Show password"}
-                style={{ position: "absolute", right: 12, bottom: 12 }}
+                accessibilityState={{ selected: show }}
+                style={{
+                  position: "absolute",
+                  right: 2,
+                  bottom: 2,
+                  width: 44,
+                  height: 44,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
               >
                 <Ionicons
                   name={show ? "eye-off-outline" : "eye-outline"}
@@ -235,6 +248,7 @@ function LegalLinks({ lead }: { lead?: string }) {
           onPress={() => openPublicPage("/terms").catch(() => {})}
           hitSlop={8}
           accessibilityRole="link"
+          style={{ minHeight: 44, justifyContent: "center", paddingHorizontal: space.xs }}
         >
           <T variant="xs" tone="accent" weight="600">
             Terms of Service
@@ -244,6 +258,7 @@ function LegalLinks({ lead }: { lead?: string }) {
           onPress={() => openPublicPage("/privacy").catch(() => {})}
           hitSlop={8}
           accessibilityRole="link"
+          style={{ minHeight: 44, justifyContent: "center", paddingHorizontal: space.xs }}
         >
           <T variant="xs" tone="accent" weight="600">
             Privacy Policy

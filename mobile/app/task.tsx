@@ -137,21 +137,35 @@ export default function TaskScreen() {
           borderBottomColor: colors.border,
         }}
       >
-        <T variant="lg" weight="700" style={{ flex: 1 }}>
-          Task
-        </T>
-        <Pressable onPress={() => router.back()} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close">
-          <Ionicons name="close" size={26} color={colors.textSecondary} />
+        <View style={{ flex: 1, gap: 2 }}>
+          <T variant="lg" weight="700">Task details</T>
+          <T variant="xs" tone="muted">Review your next step</T>
+        </View>
+        <Pressable
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Close task details"
+          style={{ width: 44, height: 44, borderRadius: radius.pill, backgroundColor: colors.bgCard, alignItems: "center", justifyContent: "center" }}
+        >
+          <Ionicons name="close" size={23} color={colors.textSecondary} />
         </Pressable>
       </View>
 
       <ScrollView
         contentContainerStyle={{ padding: space.lg, gap: space.md, paddingBottom: insets.bottom + 40 }}
       >
-        <Card style={{ gap: space.sm }}>
-          <T variant="xl" weight="700" style={done ? { textDecorationLine: "line-through" } : undefined}>
+        <Card style={{ gap: space.md, padding: space.lg, backgroundColor: done ? colors.bgCard : colors.accentSoft, borderColor: done ? colors.border : colors.borderAccent }}>
+          <View style={{ flexDirection: "row", alignItems: "flex-start", gap: space.md }}>
+            <View style={{ width: 46, height: 46, borderRadius: radius.md, backgroundColor: done ? colors.bgElevated : colors.bgCard, alignItems: "center", justifyContent: "center" }}>
+              <Ionicons name={done ? "checkmark-done" : "book-outline"} size={23} color={done ? colors.ok : colors.accent} />
+            </View>
+            <View style={{ flex: 1, minWidth: 0, gap: space.xs }}>
+              {done ? <Label style={{ color: colors.ok }}>COMPLETED</Label> : task.priority ? <Label style={{ color: pri.fg }}>{String(task.priority).toUpperCase()} PRIORITY</Label> : null}
+              <T variant="xl" weight="700" style={[{ lineHeight: 30 }, done ? { textDecorationLine: "line-through" } : undefined]}>
             {task.title}
-          </T>
+              </T>
+            </View>
+          </View>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
             {task.course ? <Chip label={String(task.course)} icon="book-outline" /> : null}
             <Chip label={dueLabel(task.due_date)} icon="time-outline" />

@@ -220,13 +220,18 @@ export default function PlanCustomScreen() {
             {days.size === 1 ? "" : "s"}
           </T>
         </View>
-        <Pressable onPress={() => router.back()} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close">
+        <Pressable
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+          style={{ width: 44, height: 44, borderRadius: radius.pill, alignItems: "center", justifyContent: "center", backgroundColor: colors.bgSecondary }}
+        >
           <Ionicons name="close" size={26} color={colors.textSecondary} />
         </Pressable>
       </View>
 
       <ScrollView
-        contentContainerStyle={{ padding: space.lg, gap: space.md, paddingBottom: insets.bottom + 40 }}
+        contentContainerStyle={{ padding: space.lg, gap: space.md, paddingBottom: space.md }}
         keyboardShouldPersistTaps="handled"
       >
         {/* ── Saved routines ── */}
@@ -239,18 +244,25 @@ export default function PlanCustomScreen() {
               Tap one to load it, then pick which days it applies to.
             </T>
             {presets.data.map((p) => (
-              <Pressable key={p.id} onPress={() => applyPreset(p)} accessibilityRole="button">
-                <View
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: space.sm,
-                    paddingVertical: space.sm,
-                    borderTopWidth: 1,
-                    borderTopColor: colors.border,
-                  }}
+              <View key={p.id} style={{ flexDirection: "row", alignItems: "center", gap: space.sm, borderTopWidth: 1, borderTopColor: colors.border }}>
+                <Pressable
+                  onPress={() => applyPreset(p)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Use ${p.name} routine`}
+                  style={({ pressed }) => ({ flex: 1, minHeight: 56, flexDirection: "row", alignItems: "center", gap: space.sm, opacity: pressed ? 0.72 : 1 })}
                 >
-                  <Ionicons name="repeat-outline" size={17} color={colors.textMuted} />
+                  <View
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: radius.md,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      backgroundColor: colors.accentSoft,
+                    }}
+                  >
+                    <Ionicons name="repeat-outline" size={18} color={colors.accent} />
+                  </View>
                   <View style={{ flex: 1 }}>
                     <T variant="sm" weight="600">
                       {p.name}
@@ -259,16 +271,17 @@ export default function PlanCustomScreen() {
                       {(p.blocks || []).length} block{(p.blocks || []).length === 1 ? "" : "s"}
                     </T>
                   </View>
-                  <Pressable
-                    onPress={() => removePreset(p)}
-                    hitSlop={10}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Delete ${p.name}`}
-                  >
-                    <Ionicons name="trash-outline" size={17} color={colors.textMuted} />
-                  </Pressable>
-                </View>
-              </Pressable>
+                  <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+                </Pressable>
+                <Pressable
+                  onPress={() => removePreset(p)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Delete ${p.name}`}
+                  style={({ pressed }) => ({ width: 44, height: 44, borderRadius: radius.pill, alignItems: "center", justifyContent: "center", opacity: pressed ? 0.65 : 1 })}
+                >
+                  <Ionicons name="trash-outline" size={17} color={colors.textMuted} />
+                </Pressable>
+              </View>
             ))}
           </Card>
         ) : null}
@@ -326,7 +339,12 @@ export default function PlanCustomScreen() {
         {/* ── Which days ── */}
         <Card style={{ gap: space.md }}>
           <Label>Which days</Label>
-          <View style={{ flexDirection: "row", gap: 6 }}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: space.sm, paddingRight: space.md }}
+            accessibilityLabel="Choose days for this routine"
+          >
             {week.map((d) => {
               const on = days.has(d.iso);
               return (
@@ -343,15 +361,17 @@ export default function PlanCustomScreen() {
                   accessibilityRole="button"
                   accessibilityState={{ selected: on }}
                   accessibilityLabel={`${d.short} ${d.day}`}
-                  style={{
-                    flex: 1,
+                  style={({ pressed }) => ({
+                    width: 56,
+                    minHeight: 56,
                     alignItems: "center",
-                    paddingVertical: space.sm,
                     borderRadius: radius.md,
                     backgroundColor: on ? colors.accent : colors.bgSecondary,
                     borderWidth: 1,
                     borderColor: on ? colors.accent : colors.border,
-                  }}
+                    justifyContent: "center",
+                    opacity: pressed ? 0.76 : 1,
+                  })}
                 >
                   <T variant="micro" tone={on ? "onAccent" : "muted"} weight="700">
                     {d.short.toUpperCase()}
@@ -362,7 +382,10 @@ export default function PlanCustomScreen() {
                 </Pressable>
               );
             })}
-          </View>
+          </ScrollView>
+          <T variant="xs" tone="muted">
+            {days.size ? `${days.size} day${days.size === 1 ? "" : "s"} selected` : "Choose at least one day to build your plan."}
+          </T>
         </Card>
 
         {/* ── Save + build ── */}
@@ -396,14 +419,25 @@ export default function PlanCustomScreen() {
             icon="information-circle-outline"
           />
         ) : null}
-
+      </ScrollView>
+      <View
+        style={{
+          paddingHorizontal: space.lg,
+          paddingTop: space.sm,
+          paddingBottom: Math.max(insets.bottom, space.sm),
+          borderTopWidth: 1,
+          borderTopColor: colors.border,
+          backgroundColor: colors.bg,
+        }}
+      >
         <Button
           title={`Build ${days.size} day${days.size === 1 ? "" : "s"}`}
           icon="calendar"
           busy={busy === "build"}
+          disabled={!days.size}
           onPress={build}
         />
-      </ScrollView>
+      </View>
     </Screen>
   );
 }
@@ -455,8 +489,9 @@ function TimeRow({
               accessibilityRole="button"
               accessibilityState={{ selected: on }}
               style={{
+                minHeight: 44,
                 paddingHorizontal: 12,
-                paddingVertical: 7,
+                paddingVertical: 8,
                 borderRadius: radius.pill,
                 backgroundColor: on ? colors.accent : colors.bgSecondary,
                 borderWidth: 1,

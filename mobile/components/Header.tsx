@@ -44,45 +44,47 @@ export function Header({
         backgroundColor: colors.bg,
         borderBottomWidth: glass ? StyleSheet.hairlineWidth : 1,
         borderBottomColor: glass ? edge : colors.border,
-        flexDirection: "row",
-        alignItems: "center",
-        gap: space.md,
+        gap: space.xs,
       }}
     >
-      <View style={{ flex: 1 }}>
-        <T variant="lg" weight="700" numberOfLines={1}>
+      <View style={{ minHeight: 42, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+        <View accessibilityLabel="IntelliPlan" accessibilityRole="header" style={{ flexDirection: "row", alignItems: "baseline" }}>
+          <T variant="md" weight="800">Intelli</T>
+          <T variant="md" weight="800" tone="accent">Plan</T>
+        </View>
+        {/* Keep the page actions together at the top edge like a native
+            toolbar; this also leaves the page title room on narrow phones. */}
+        <GlassGroup spacing={space.sm} style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
+          {right}
+          {Platform.OS !== "web" && !isMoreScreen ? (
+            <IconButton
+              icon="ellipsis-horizontal"
+              size={24}
+              label="More navigation options"
+              onPress={() => router.push("/more")}
+            />
+          ) : null}
+          {showSettings ? (
+            <IconButton
+              icon="person-circle-outline"
+              size={26}
+              label="Settings"
+              onPress={() => router.push("/settings")}
+            />
+          ) : null}
+        </GlassGroup>
+      </View>
+
+      <View style={{ gap: 1 }}>
+        <T variant="xl" weight="700" numberOfLines={1}>
           {title}
         </T>
         {subtitle ? (
-          <T variant="sm" tone="muted" numberOfLines={1}>
+          <T variant="sm" tone="secondary" numberOfLines={1}>
             {subtitle}
           </T>
         ) : null}
       </View>
-
-      {/* One container for every action, so adjacent glass buttons merge
-          at their edges like an iOS toolbar cluster. */}
-      <GlassGroup spacing={space.sm} style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
-        {right}
-
-        {Platform.OS !== "web" && !isMoreScreen ? (
-          <IconButton
-            icon="ellipsis-horizontal"
-            size={24}
-            label="More navigation options"
-            onPress={() => router.push("/more")}
-          />
-        ) : null}
-
-        {showSettings ? (
-          <IconButton
-            icon="person-circle-outline"
-            size={26}
-            label="Settings"
-            onPress={() => router.push("/settings")}
-          />
-        ) : null}
-      </GlassGroup>
     </GlassSurface>
   );
 }
@@ -107,18 +109,25 @@ export function IconButton({
   return (
     <Pressable
       onPress={onPress}
-      hitSlop={glass ? 6 : 10}
+      hitSlop={glass ? 2 : 4}
       accessibilityRole="button"
       accessibilityLabel={label}
-      style={({ pressed }) => ({ opacity: pressed && !glass ? 0.6 : 1 })}
+      style={({ pressed }) => ({
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        alignItems: "center",
+        justifyContent: "center",
+        opacity: pressed && !glass ? 0.6 : 1,
+      })}
     >
       {glass ? (
         <GlassSurface
           interactive
           style={{
-            width: 38,
-            height: 38,
-            borderRadius: 19,
+            width: 44,
+            height: 44,
+            borderRadius: 22,
             borderWidth: StyleSheet.hairlineWidth,
             borderColor: edge,
             alignItems: "center",
