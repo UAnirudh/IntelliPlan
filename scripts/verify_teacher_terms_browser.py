@@ -100,10 +100,10 @@ with sync_playwright() as playwright:
         page.locator('#admin-status').get_by_text('Classroom created.', exact=False).wait_for()
         assert page.locator('#admin-organization option:checked').inner_text() == actor + ' health class'
         for member, role in [('Rivera', 'teacher'), ('Student', 'student')]:
-            page.locator('#admin-user-id').fill(str(users[member]))
+            page.locator('#admin-member-email').fill(member.lower() + '@example.test')
             page.locator('#admin-role').select_option(role)
-            page.get_by_role('button', name='Add or update member', exact=True).click()
-            page.locator('#admin-status').get_by_text('Membership saved.', exact=True).wait_for()
+            page.get_by_role('button', name='Add or update access', exact=True).click()
+            page.locator('#admin-status').get_by_text('Workspace access updated.', exact=True).wait_for()
         report.append({'flow': actor + ' creates classroom and assigns teacher/student through institution UI', 'passed': True})
     active_client = clients['Rivera']
     denied = active_client.post('/api/school-admin/organizations', json={
