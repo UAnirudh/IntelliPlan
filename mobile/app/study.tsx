@@ -189,11 +189,21 @@ export default function StudyScreen() {
         </T>
       </View>
       {set ? (
-        <Pressable onPress={startOver} hitSlop={10} accessibilityRole="button" accessibilityLabel="Start over">
+        <Pressable
+          onPress={startOver}
+          accessibilityRole="button"
+          accessibilityLabel="Start a new study set"
+          style={{ width: 44, height: 44, borderRadius: radius.pill, alignItems: "center", justifyContent: "center", backgroundColor: colors.bgSecondary }}
+        >
           <Ionicons name="refresh" size={22} color={colors.textSecondary} />
         </Pressable>
       ) : null}
-      <Pressable onPress={() => router.back()} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close">
+      <Pressable
+        onPress={() => router.back()}
+        accessibilityRole="button"
+        accessibilityLabel="Close study tools"
+        style={{ width: 44, height: 44, borderRadius: radius.pill, alignItems: "center", justifyContent: "center", backgroundColor: colors.bgSecondary }}
+      >
         <Ionicons name="close" size={26} color={colors.textSecondary} />
       </Pressable>
     </View>
@@ -221,7 +231,7 @@ export default function StudyScreen() {
           {!set ? (
             <>
               <Card style={{ gap: space.md }}>
-                <Label>Where it's coming from</Label>
+                <Label>Choose your material</Label>
                 <SegmentedRow options={SOURCES} value={source} onChange={setSource} />
 
                 {source === "paste" ? (
@@ -235,7 +245,7 @@ export default function StudyScreen() {
                       placeholderTextColor={colors.textMuted}
                       accessibilityLabel="Study material"
                       style={{
-                        minHeight: 180,
+                        minHeight: 200,
                         borderWidth: 1,
                         borderColor: colors.border,
                         borderRadius: radius.md,
@@ -243,6 +253,7 @@ export default function StudyScreen() {
                         color: colors.textPrimary,
                         backgroundColor: colors.bgCard,
                         textAlignVertical: "top",
+                        lineHeight: 22,
                       }}
                     />
                     <T variant="xs" tone="muted">
@@ -297,11 +308,14 @@ export default function StudyScreen() {
 
               <Card style={{ gap: space.md }}>
                 <View style={{ gap: space.sm }}>
-                  <Label>How many questions</Label>
+                  <Label>How many questions?</Label>
                   <SegmentedRow options={COUNTS} value={count} onChange={setCount} />
+                  <T variant="xs" tone="muted">
+                    We’ll make one set you can use for both review and practice.
+                  </T>
                 </View>
                 <Button
-                  title="Make flashcards & a quiz"
+                  title={`Make ${count} questions & flashcards`}
                   icon="sparkles"
                   disabled={text.trim().length < 40}
                   onPress={generate}

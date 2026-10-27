@@ -88,20 +88,34 @@ export default function OnboardingScreen() {
           gap: space.sm,
         }}
       >
-        {/* Progress as three bars rather than "Step 2 of 3": it shows how
-            much is left without the student having to read anything. */}
-        {[0, 1, 2].map((i) => (
+        <View style={{ flex: 1, gap: space.xs }}>
+          <T variant="xs" tone="muted">Step {step + 1} of 3</T>
           <View
-            key={i}
-            style={{
-              flex: 1,
-              height: 4,
-              borderRadius: radius.pill,
-              backgroundColor: i <= step ? colors.accent : colors.bgElevated,
-            }}
-          />
-        ))}
-        <Pressable onPress={skip} hitSlop={10} accessibilityRole="button">
+            accessibilityRole="progressbar"
+            accessibilityLabel="Setup progress"
+            accessibilityValue={{ min: 1, max: 3, now: step + 1 }}
+            style={{ flexDirection: "row", gap: space.xs }}
+          >
+            {[0, 1, 2].map((i) => (
+              <View
+                key={i}
+                style={{
+                  flex: 1,
+                  height: 4,
+                  borderRadius: radius.pill,
+                  backgroundColor: i <= step ? colors.accent : colors.bgElevated,
+                }}
+              />
+            ))}
+          </View>
+        </View>
+        <Pressable
+          onPress={skip}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Skip setup"
+          style={{ minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" }}
+        >
           <T variant="sm" tone="muted">
             Skip
           </T>

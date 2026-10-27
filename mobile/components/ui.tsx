@@ -173,6 +173,7 @@ export function Button({
   );
 
   const body: ViewStyle = {
+    minHeight: 48,
     backgroundColor: s.bg,
     borderColor: onGlass ? edge : s.border,
     borderWidth: kind === "ghost" ? 0 : onGlass ? StyleSheet.hairlineWidth : 1,
@@ -308,6 +309,8 @@ export function SegmentedRow<V extends string | number>({
               }}
               accessibilityRole="button"
               accessibilityState={{ selected: on }}
+              accessibilityLabel={o.label}
+              style={{ minHeight: 44, justifyContent: "center" }}
             >
               <GlassSurface
                 interactive
@@ -315,6 +318,8 @@ export function SegmentedRow<V extends string | number>({
                 tint={on ? colors.accent : undefined}
                 style={{
                   paddingHorizontal: 14,
+                  minHeight: 44,
+                  justifyContent: "center",
                   paddingVertical: 8,
                   borderRadius: radius.pill,
                   backgroundColor: on ? colors.accent : colors.bgCard,

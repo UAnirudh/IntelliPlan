@@ -20,6 +20,7 @@ import {
   Button,
   Card,
   Chip,
+  EmptyState,
   ErrorState,
   Label,
   Loading,
@@ -77,6 +78,11 @@ export default function StreakScreen() {
       .filter(([, it]) => (it.kind || "cosmetic") === group)
       .sort((a, b) => priceOf(a[0], a[1]) - priceOf(b[0], b[1]));
   }, [shop.items, group, priceOf]);
+  const otherAvailableGroup = GROUPS.find(
+    (candidate) =>
+      candidate.key !== group &&
+      Object.values(shop.items || {}).some((item) => (item.kind || "cosmetic") === candidate.key),
+  );
 
   const buy = useCallback(
     async (id: string, item: ShopItem) => {
@@ -156,7 +162,12 @@ export default function StreakScreen() {
         <T variant="lg" weight="700">Streak &amp; shop</T>
         <T variant="sm" tone="muted">{balance.toLocaleString()} Sparks</T>
       </View>
-      <Pressable onPress={() => router.back()} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close">
+      <Pressable
+        onPress={() => router.back()}
+        accessibilityRole="button"
+        accessibilityLabel="Close streak and shop"
+        style={{ width: 44, height: 44, borderRadius: radius.pill, alignItems: "center", justifyContent: "center", backgroundColor: colors.bgSecondary }}
+      >
         <Ionicons name="close" size={26} color={colors.textSecondary} />
       </Pressable>
     </View>
@@ -198,14 +209,14 @@ export default function StreakScreen() {
         ) : null}
         {note ? <Notice tone="accent" text={note} icon="information-circle-outline" /> : null}
 
-        <Card style={{ gap: space.md }}>
+        <Card style={{ gap: space.md, padding: space.lg, backgroundColor: colors.accentSoft, borderColor: colors.borderAccent }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
             <View
               style={{
                 width: 56,
                 height: 56,
                 borderRadius: radius.md,
-                backgroundColor: colors.accentSoft,
+                backgroundColor: colors.bgCard,
                 alignItems: "center",
                 justifyContent: "center",
               }}
@@ -213,7 +224,7 @@ export default function StreakScreen() {
               <Ionicons name="flame" size={28} color={colors.accent} />
             </View>
             <View style={{ flex: 1 }}>
-              <T variant="xl" weight="700">
+              <T variant="xxl" weight="700" style={{ color: colors.accent }}>
                 {streakCount} day{streakCount === 1 ? "" : "s"}
               </T>
               <T variant="sm" tone="muted">
@@ -278,7 +289,7 @@ export default function StreakScreen() {
               {GROUPS.find((g) => g.key === group)?.blurb}
             </T>
 
-            {items.map(([id, item]) => {
+            {items.length ? items.map(([id, item]) => {
               const price = priceOf(id, item);
               const onDeal = id === dealId;
               const affordable = balance >= price;
@@ -321,7 +332,21 @@ export default function StreakScreen() {
                   />
                 </Card>
               );
-            })}
+            }) : (
+              <EmptyState
+                icon="bag-handle-outline"
+                title={`No ${GROUPS.find((g) => g.key === group)?.label.toLowerCase()} yet`}
+                body="Try another shop category to see what you can unlock."
+                action={otherAvailableGroup ? (
+                  <Button
+                    title={`Browse ${otherAvailableGroup.label}`}
+                    kind="secondary"
+                    icon="arrow-forward"
+                    onPress={() => setGroup(otherAvailableGroup.key)}
+                  />
+                ) : undefined}
+              />
+            )}
           </>
         ) : (
           <Notice

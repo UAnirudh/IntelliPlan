@@ -220,11 +220,17 @@ export default function EditTaskScreen() {
           borderBottomColor: colors.border,
         }}
       >
-        <T variant="lg" weight="700" style={{ flex: 1 }}>
-          Edit task
-        </T>
-        <Pressable onPress={() => router.back()} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close">
-          <Ionicons name="close" size={26} color={colors.textSecondary} />
+        <View style={{ flex: 1, gap: 2 }}>
+          <T variant="lg" weight="700">Edit task</T>
+          <T variant="xs" tone="muted">Update the details when plans change</T>
+        </View>
+        <Pressable
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Close edit task"
+          style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.bgCard, alignItems: "center", justifyContent: "center" }}
+        >
+          <Ionicons name="close" size={23} color={colors.textSecondary} />
         </Pressable>
       </View>
 

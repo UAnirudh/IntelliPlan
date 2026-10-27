@@ -166,7 +166,13 @@ export default function ConnectScreen() {
             {connected.length ? `${connected.length} connected` : "Nothing connected yet"}
           </T>
         </View>
-        <Pressable onPress={() => router.back()} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close">
+        <Pressable
+          onPress={() => router.back()}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel="Close school connections"
+          style={{ width: 44, height: 44, borderRadius: radius.pill, backgroundColor: colors.bgElevated, alignItems: "center", justifyContent: "center" }}
+        >
           <Ionicons name="close" size={26} color={colors.textSecondary} />
         </Pressable>
       </View>

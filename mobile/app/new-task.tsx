@@ -126,11 +126,17 @@ export default function NewTaskScreen() {
           borderBottomColor: colors.border,
         }}
       >
-        <T variant="lg" weight="700" style={{ flex: 1 }}>
-          New task
-        </T>
-        <Pressable onPress={() => router.back()} hitSlop={10} accessibilityRole="button" accessibilityLabel="Close">
-          <Ionicons name="close" size={26} color={colors.textSecondary} />
+        <View style={{ flex: 1, gap: 2 }}>
+          <T variant="lg" weight="700">New task</T>
+          <T variant="xs" tone="muted">Capture it and plan your next step</T>
+        </View>
+        <Pressable
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Close new task"
+          style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.bgCard, alignItems: "center", justifyContent: "center" }}
+        >
+          <Ionicons name="close" size={23} color={colors.textSecondary} />
         </Pressable>
       </View>
 
@@ -151,9 +157,11 @@ export default function NewTaskScreen() {
           {quick.trim() ? (
             <Button title="Add it" icon="flash-outline" busy={quickBusy} onPress={quickAdd} />
           ) : null}
-          <T variant="xs" tone="muted">
-            Or fill in the details yourself:
-          </T>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm, marginTop: space.xs }}>
+            <View style={{ width: 28, height: 1, backgroundColor: colors.border }} />
+            <T variant="xs" tone="muted">OR ADD DETAILS</T>
+            <View style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
+          </View>
 
           <Field
             label="What needs doing"
