@@ -315,7 +315,7 @@ export default function PlanCustomScreen() {
                 {blocks.length > 1 ? (
                   <Pressable
                     onPress={() => removeBlock(i)}
-                    hitSlop={10}
+                    style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}
                     accessibilityRole="button"
                     accessibilityLabel={`Remove block ${i + 1}`}
                   >

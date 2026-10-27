@@ -287,15 +287,8 @@ export default function AccountsScreen() {
                   );
                 }
                 return (
-                  <Pressable
+                  <View
                     key={p.id}
-                    disabled={p.is_active || !!rowBusy}
-                    onPress={() => switchTo(p.id, p.name)}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: p.is_active, disabled: p.is_active }}
-                    accessibilityLabel={
-                      p.is_active ? `${p.name}, active profile` : `Switch to ${p.name}`
-                    }
                     style={{
                       flexDirection: "row",
                       alignItems: "center",
@@ -308,19 +301,30 @@ export default function AccountsScreen() {
                       opacity: spinning ? 0.5 : 1,
                     }}
                   >
-                    <Ionicons
-                      name={p.is_active ? "radio-button-on" : "radio-button-off"}
-                      size={20}
-                      color={p.is_active ? colors.accent : colors.textSecondary}
-                    />
-                    <View style={{ flex: 1 }}>
-                      <T variant="base" weight="600">{p.name}</T>
-                      <T variant="xs" tone="muted">
-                        {PLATFORM_LABEL[(p.login_type || "").toLowerCase()] || p.login_type}
-                      </T>
-                    </View>
                     <Pressable
-                      hitSlop={10}
+                      disabled={p.is_active || !!rowBusy}
+                      onPress={() => switchTo(p.id, p.name)}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: p.is_active, disabled: p.is_active || !!rowBusy }}
+                      accessibilityLabel={
+                        p.is_active ? `${p.name}, active profile` : `Switch to ${p.name}`
+                      }
+                      style={{ flex: 1, minHeight: 44, flexDirection: "row", alignItems: "center", gap: space.md }}
+                    >
+                      <Ionicons
+                        name={p.is_active ? "radio-button-on" : "radio-button-off"}
+                        size={20}
+                        color={p.is_active ? colors.accent : colors.textSecondary}
+                      />
+                      <View style={{ flex: 1 }}>
+                        <T variant="base" weight="600">{p.name}</T>
+                        <T variant="xs" tone="muted">
+                          {PLATFORM_LABEL[(p.login_type || "").toLowerCase()] || p.login_type}
+                        </T>
+                      </View>
+                    </Pressable>
+                    <Pressable
+                      style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}
                       disabled={!!rowBusy}
                       onPress={() => { setEditing(p.id); setDraftName(p.name); }}
                       accessibilityRole="button"
@@ -329,7 +333,7 @@ export default function AccountsScreen() {
                       <Ionicons name="create-outline" size={20} color={colors.textSecondary} />
                     </Pressable>
                     <Pressable
-                      hitSlop={10}
+                      style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}
                       disabled={!!rowBusy}
                       onPress={() => removeProfile(p)}
                       accessibilityRole="button"
@@ -337,7 +341,7 @@ export default function AccountsScreen() {
                     >
                       <Ionicons name="trash-outline" size={20} color={colors.danger} />
                     </Pressable>
-                  </Pressable>
+                  </View>
                 );
               })}
 
@@ -372,17 +376,8 @@ export default function AccountsScreen() {
                   (status.accounts || []).map((a) => {
                     const active = a.is_active || a.id === status.active_id;
                     return (
-                      <Pressable
+                      <View
                         key={a.id}
-                        disabled={active || !!rowBusy}
-                        onPress={() => useGoogleAccount(a.id)}
-                        accessibilityRole="button"
-                        accessibilityState={{ selected: active, disabled: active }}
-                        accessibilityLabel={
-                          active
-                            ? `${a.email || "Google account"}, in use`
-                            : `Use ${a.email || "this Google account"}`
-                        }
                         style={{
                           flexDirection: "row",
                           alignItems: "center",
@@ -395,16 +390,29 @@ export default function AccountsScreen() {
                           opacity: rowBusy === `g${a.id}` ? 0.5 : 1,
                         }}
                       >
-                        <Ionicons
-                          name={active ? "radio-button-on" : "radio-button-off"}
-                          size={20}
-                          color={active ? colors.accent : colors.textSecondary}
-                        />
-                        <T variant="sm" style={{ flex: 1 }} numberOfLines={1}>
-                          {a.email || a.name || `Account ${a.id}`}
-                        </T>
                         <Pressable
-                          hitSlop={10}
+                          disabled={active || !!rowBusy}
+                          onPress={() => useGoogleAccount(a.id)}
+                          accessibilityRole="button"
+                          accessibilityState={{ selected: active, disabled: active || !!rowBusy }}
+                          accessibilityLabel={
+                            active
+                              ? `${a.email || "Google account"}, in use`
+                              : `Use ${a.email || "this Google account"}`
+                          }
+                          style={{ flex: 1, minHeight: 44, flexDirection: "row", alignItems: "center", gap: space.md }}
+                        >
+                          <Ionicons
+                            name={active ? "radio-button-on" : "radio-button-off"}
+                            size={20}
+                            color={active ? colors.accent : colors.textSecondary}
+                          />
+                          <T variant="sm" style={{ flex: 1 }} numberOfLines={1}>
+                            {a.email || a.name || `Account ${a.id}`}
+                          </T>
+                        </Pressable>
+                        <Pressable
+                          style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}
                           disabled={!!rowBusy}
                           onPress={() => dropGoogleAccount(a.id, a.email)}
                           accessibilityRole="button"
@@ -412,7 +420,7 @@ export default function AccountsScreen() {
                         >
                           <Ionicons name="trash-outline" size={20} color={colors.danger} />
                         </Pressable>
-                      </Pressable>
+                      </View>
                     );
                   })
                 ) : (
