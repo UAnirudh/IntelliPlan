@@ -73,7 +73,7 @@
 
 /* ── NAV TABS ── */
 .study-nav {
-  display:flex; gap:4px; margin-bottom:1.5rem;
+  display:flex; gap:4px; margin-bottom:1.5rem; overflow-x:auto;
   background:var(--surf); border:1px solid var(--bdr);
   border-radius:16px; padding:5px;
   box-shadow:0 2px 8px rgba(0,0,0,0.04);
@@ -1132,7 +1132,8 @@ function pulseChip(id) {
 function switchTab(tab) {
   G.tabActive = tab;
   ['learn','flashcards','review','mastery','progress','quests','shop','streak'].forEach(t => {
-    document.getElementById('tab-' + t).classList.toggle('active', t === tab);
+    const button = document.getElementById('tab-' + t);
+    if (button) button.classList.toggle('active', t === tab);
     document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1)).style.display = t === tab ? 'block' : 'none';
   });
   if (tab === 'streak') renderStreakTab();
