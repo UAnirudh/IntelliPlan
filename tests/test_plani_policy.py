@@ -88,6 +88,26 @@ def signed_client(account):
     return client
 
 
+def test_plani_uses_allowlisted_text_only_action_markers_with_legacy_support():
+    marker = lambda value: f'[[IP_ACTION]]{json.dumps(value)}[[/IP_ACTION]]'
+    reply = 'I will do that. ' + marker({
+        'action': 'create_task', 'arguments': {'title': 'Essay', 'course': 'English'}})
+    reply += marker({'action': 'create_task', 'arguments': {'course': 'English', 'title': 'Essay'}})
+    reply += marker({'action': 'run_shell', 'arguments': {'command': 'echo unsafe'}})
+    reply += marker({'action': 'create_task', 'arguments': ['not', 'an', 'object']})
+
+    assert plani._parse_tool_calls(reply) == [
+        {'name': 'create_task', 'args': {'title': 'Essay', 'course': 'English'}}]
+    assert plani._parse_tool_calls(
+        '```tool_call\n{"name":"list_tasks","args":{"filter":"today"}}\n```') == [
+            {'name': 'list_tasks', 'args': {'filter': 'today'}}]
+    prompt = plani.AGENT_SYSTEM_PROMPT + plani._tool_list_prompt()
+    assert '[[IP_ACTION]]' in prompt
+    assert 'AVAILABLE ACTIONS:' in prompt
+    assert '```tool_call' not in prompt
+    assert 'AVAILABLE TOOLS:' not in prompt
+
+
 @pytest.mark.parametrize('owner', ['another-account', ''])
 def test_chat_rejects_stale_account_before_provider_work(account, monkeypatch, owner):
     provider = Mock(side_effect=AssertionError('provider must not receive stale history'))
@@ -99,6 +119,23 @@ def test_chat_rejects_stale_account_before_provider_work(account, monkeypatch, o
     assert response.get_json()['error'] == 'account_changed'
     assert 'Private old account' not in response.get_data(as_text=True)
     provider.assert_not_called()
+
+
+def test_chat_reports_unconfigured_free_provider_without_calling_ai(account, monkeypatch):
+    readiness = Mock(return_value=False)
+    generate = Mock(side_effect=AssertionError('an unavailable provider must not be called'))
+    monkeypatch.setattr(plani, 'ai_available', readiness)
+    monkeypatch.setattr(plani, 'ai_chat', generate)
+    monkeypatch.setattr(plani.ai_firewall, 'guard', lambda *a, **k: SimpleNamespace(
+        max_output_tokens=1000, plan='free'))
+
+    response = signed_client(account).post('/api/plani/agent', json={'message': 'Help me plan'})
+
+    assert response.status_code == 503
+    assert response.json['error'] == 'ai_provider_not_configured'
+    assert 'temporarily unavailable for your account' in response.json['reply']
+    readiness.assert_called_once_with(plan='free')
+    generate.assert_not_called()
 
 
 @pytest.mark.parametrize('include_owner', [True, False])
@@ -567,12 +604,13 @@ def test_finalized_repair_preserves_duplicate_title_deadlines(account):
 @pytest.mark.parametrize('preview', [False, True])
 def test_real_chat_route_returns_repaired_plan_with_accurate_preview_state(account, monkeypatch, preview):
     row_id, original, progress = prepare_repair(account, monkeypatch)
-    monkeypatch.setattr(plani, 'ai_available', lambda: True)
+    monkeypatch.setattr(plani, 'ai_available', lambda *a, **k: True)
     monkeypatch.setattr(plani, 'build_agent_context', lambda uid: '')
     monkeypatch.setattr('intelliplan.retrieval.retrieve_context', lambda *a: '')
     request = json.dumps({'name': 'adjust_schedule', 'args': {
         'action': 'skip_day', 'day': '2026-10-13', 'preview': preview}})
-    chat = Mock(side_effect=['```tool_call\n' + request + '\n```', 'Your plan is ready.'])
+    action_request = request.replace('"name":', '"action":').replace('"args":', '"arguments":')
+    chat = Mock(side_effect=['[[IP_ACTION]]' + action_request + '[[/IP_ACTION]]', 'Your plan is ready.'])
     monkeypatch.setattr(plani, 'ai_chat', chat)
     response = signed_client(account).post('/api/plani/agent', json={
         'message': 'Show a preview for skipping tonight' if preview else 'I cannot study tonight; move my work.'})
@@ -603,7 +641,7 @@ def test_route_note_retrieval_requires_consent_and_capabilities(account, monkeyp
         App.db.session.get(App.User, account[0]).ai_personalization_opt_in = consent
         App.db.session.commit()
     fixture_generation(monkeypatch)
-    monkeypatch.setattr(plani, 'ai_available', lambda: True)
+    monkeypatch.setattr(plani, 'ai_available', lambda *a, **k: True)
     monkeypatch.setattr(plani, 'build_agent_context', lambda uid: '')
     monkeypatch.setattr(plani, 'ai_chat', lambda *a, **kw: 'General help')
     retrieve = Mock(return_value='PRIVATE NOTE')
@@ -614,13 +652,13 @@ def test_route_note_retrieval_requires_consent_and_capabilities(account, monkeyp
 
 def test_consent_withdrawal_stops_agent_before_next_provider_round(account, monkeypatch):
     fixture_generation(monkeypatch)
-    monkeypatch.setattr(plani, 'ai_available', lambda: True)
+    monkeypatch.setattr(plani, 'ai_available', lambda *a, **k: True)
     monkeypatch.setattr(plani, 'build_agent_context', lambda uid: 'CONSENTED CONTEXT')
     monkeypatch.setattr('intelliplan.retrieval.retrieve_context', lambda *a: '')
     def withdraw(*args, **kwargs):
         App.db.session.get(App.User, account[0]).ai_personalization_opt_in = False
         App.db.session.commit()
-        return '```tool_call\n{"name":"get_grades","args":{}}\n```'
+        return '[[IP_ACTION]]{"action":"get_grades","arguments":{}}[[/IP_ACTION]]'
     chat = Mock(side_effect=withdraw)
     monkeypatch.setattr(plani, 'ai_chat', chat)
     response = signed_client(account).post('/api/plani/agent', json={'message': 'Help'})
@@ -646,7 +684,7 @@ def test_malformed_agent_input_never_reaches_provider(account, monkeypatch, payl
 @pytest.mark.parametrize('fallback', [False, True])
 def test_plain_reply_and_final_fallback_are_withheld_after_revocation(account, monkeypatch, fallback):
     fixture_generation(monkeypatch)
-    monkeypatch.setattr(plani, 'ai_available', lambda: True)
+    monkeypatch.setattr(plani, 'ai_available', lambda *a, **k: True)
     monkeypatch.setattr(plani, 'build_agent_context', lambda uid: 'CONSENTED CONTEXT')
     monkeypatch.setattr('intelliplan.retrieval.retrieve_context', lambda *a: '')
     monkeypatch.setattr(plani, 'MAX_TOOL_ROUNDS', 0 if fallback else 5)
@@ -664,7 +702,7 @@ def test_plain_reply_and_final_fallback_are_withheld_after_revocation(account, m
 
 def test_agent_charges_each_round_and_reports_final_failure_truthfully(account, monkeypatch):
     fixture_generation(monkeypatch)
-    monkeypatch.setattr(plani, 'ai_available', lambda: True)
+    monkeypatch.setattr(plani, 'ai_available', lambda *a, **k: True)
     monkeypatch.setattr(plani, 'build_agent_context', lambda uid: '')
     monkeypatch.setattr('intelliplan.retrieval.retrieve_context', lambda *a: '')
     monkeypatch.setattr(plani, 'MAX_TOOL_ROUNDS', 2)
@@ -672,7 +710,7 @@ def test_agent_charges_each_round_and_reports_final_failure_truthfully(account, 
     record = Mock()
     monkeypatch.setattr(plani.ai_firewall, 'guard', guard)
     monkeypatch.setattr(plani.ai_firewall, 'record_tokens', record)
-    chat = Mock(side_effect=['```tool_call\n{"name":"navigate_to","args":{"section":"settings"}}\n```'] * 2 + [RuntimeError('offline')])
+    chat = Mock(side_effect=['[[IP_ACTION]]{"action":"navigate_to","arguments":{"section":"settings"}}[[/IP_ACTION]]'] * 2 + [RuntimeError('offline')])
     monkeypatch.setattr(plani, 'ai_chat', chat)
     response = signed_client(account).post('/api/plani/agent', json={'message': 'Help'})
     assert response.status_code == 502

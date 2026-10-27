@@ -81,6 +81,13 @@ def current_tier(user: Any = None, now: datetime | None = None) -> str:
     if user is None or not getattr(user, "is_authenticated", False):
         return FREE
     now = now or utcnow()
+    try:
+        from intelliplan.learning.entitlements import school_plan_for
+        school_plan = school_plan_for(user)
+        if school_plan in {PRO, "premium", "premium_byok"}:
+            return school_plan
+    except Exception as exc:
+        logger.warning("school tier lookup failed; using individual plan: %s", exc)
     if growth_plans.plan_for(getattr(user, "paid_until", None), now) != growth_plans.PAID:
         return FREE
     tier = getattr(user, "plan_tier", None) or PRO

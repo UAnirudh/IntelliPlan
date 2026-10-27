@@ -142,7 +142,7 @@ def test_agent_refuses_before_context_provider_or_tools(monkeypatch, agent_accou
     import plani_agent as agent
     import chatbot_api
     from flask_login import login_user
-    monkeypatch.setattr(agent, 'ai_available', lambda: True)
+    monkeypatch.setattr(agent, 'ai_available', lambda *a, **k: True)
     monkeypatch.setattr(agent.ai_firewall, 'guard', lambda *a, **k: SimpleNamespace(max_output_tokens=1000, plan='free'))
     provider = Mock(side_effect=AssertionError('unsafe input must not reach generation'))
     monkeypatch.setattr(agent, 'ai_chat', provider)
@@ -161,12 +161,12 @@ def test_agent_output_gate_prevents_side_effects(monkeypatch, agent_account, out
     import plani_agent as agent
     import chatbot_api
     from flask_login import login_user
-    monkeypatch.setattr(agent, 'ai_available', lambda: True)
+    monkeypatch.setattr(agent, 'ai_available', lambda *a, **k: True)
     monkeypatch.setattr(agent.ai_firewall, 'guard', lambda *a, **k: SimpleNamespace(max_output_tokens=1000, plan='free'))
     monkeypatch.setattr(agent.ai_firewall, 'record_tokens', lambda *a, **k: None)
     monkeypatch.setattr(agent, '_processing_state', lambda uid: (False, '{}'))
     monkeypatch.setattr(agent, 'build_agent_context', lambda uid: '')
-    monkeypatch.setattr(agent, 'ai_chat', lambda *a, **k: '```tool_call\n{"name":"create_task","args":{"title":"unsafe payload"}}\n```')
+    monkeypatch.setattr(agent, 'ai_chat', lambda *a, **k: '[[IP_ACTION]]{"action":"create_task","arguments":{"title":"unsafe payload"}}[[/IP_ACTION]]')
     execute = Mock(side_effect=AssertionError('output must be checked before side effects'))
     monkeypatch.setattr(agent, '_execute_tool', execute)
     monkeypatch.setattr(chatbot_api, '_approved_safety_terms', lambda: ())
@@ -188,7 +188,7 @@ def test_later_agent_rounds_judge_the_same_tool_results_as_generation(monkeypatc
     import plani_agent as agent
     import chatbot_api
     from flask_login import login_user
-    monkeypatch.setattr(agent, 'ai_available', lambda: True)
+    monkeypatch.setattr(agent, 'ai_available', lambda *a, **k: True)
     monkeypatch.setattr(agent.ai_firewall, 'guard', lambda *a, **k: SimpleNamespace(max_output_tokens=1000, plan='free'))
     monkeypatch.setattr(agent.ai_firewall, 'record_tokens', lambda *a, **k: None)
     monkeypatch.setattr(agent, '_processing_state', lambda uid: (False, '{}'))
@@ -199,7 +199,7 @@ def test_later_agent_rounds_judge_the_same_tool_results_as_generation(monkeypatc
     judged = []
     def generate(messages, **kwargs):
         generated.append(messages)
-        return ('```tool_call\n{"name":"get_schedule","args":{}}\n```'
+        return ('[[IP_ACTION]]{"action":"get_schedule","arguments":{}}[[/IP_ACTION]]'
                 if len(generated) == 1 else 'A safe explanation of the result.')
     def classify(messages, *, output=None, **kwargs):
         if output is not None:
@@ -212,14 +212,14 @@ def test_later_agent_rounds_judge_the_same_tool_results_as_generation(monkeypatc
         login_user(App.db.session.get(App.User, agent_account))
         assert agent.plani_agent().get_json()['status'] == 'ok'
     assert len(judged) == 2
-    assert any('TOOL RESULTS:' in turn['content'] for turn in judged[-1])
+    assert any('ACTION RESULTS:' in turn['content'] for turn in judged[-1])
 
 
 def test_onboarding_cannot_bypass_input_safety(monkeypatch, agent_account):
     import App
     import chatbot_api
     from flask_login import login_user
-    monkeypatch.setattr(App, 'ai_available', lambda: True)
+    monkeypatch.setattr(App, 'ai_available', lambda *a, **k: True)
     provider = Mock(side_effect=AssertionError('onboarding is not a safety bypass'))
     monkeypatch.setattr(App, 'ai_chat', provider)
     monkeypatch.setattr(chatbot_api, '_approved_safety_terms', lambda: ())

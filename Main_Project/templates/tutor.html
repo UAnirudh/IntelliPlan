@@ -637,6 +637,15 @@ main {
   color: var(--text-primary); background: var(--bg-elevated); font: inherit;
   text-align: left; white-space: normal; overflow-wrap: anywhere; cursor: pointer;
 }
+.tutor-flashcard { padding: 14px 0; border-bottom: 1px solid var(--border); }
+.tutor-flashcard:last-of-type { border-bottom: 0; }
+.tutor-flashcard-count { color: var(--text-muted); }
+.tutor-flashcard h3 { margin: 6px 0 10px; font-size: 1rem; }
+.tutor-flashcard p { margin: 0 0 10px; line-height: 1.6; }
+.tutor-flashcard button { min-height: 44px; padding: 8px 13px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--text-primary); font: inherit; cursor: pointer; }
+.tutor-citations { display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; margin-top:8px; font-size:.8rem; }
+.tutor-citations > span { color:var(--text-muted); font-weight:650; }
+.tutor-citations a { color:var(--accent); text-decoration:underline; text-underline-offset:2px; }
 .tutor-artifact .quiz-option:focus-visible, .tutor-artifact input:focus-visible {
   outline: 2px solid var(--accent); outline-offset: 3px;
 }
@@ -2519,6 +2528,8 @@ function parseArtifactAttrs(raw) {
 
 function parseArtifacts(content) {
   content = window.IPRichText ? window.IPRichText.normalize(content) : String(content);
+  const structured = parseStructuredStudyJson(content);
+  if (structured) return structured;
   const segments = [];
   let lastIndex = 0;
   let match;
@@ -2544,6 +2555,37 @@ function parseArtifacts(content) {
     if (text) segments.push({ kind: 'text', text });
   }
   if (!segments.length) segments.push({ kind: 'text', text: content });
+  return segments;
+}
+
+/* Older and alternate providers sometimes return the exact study JSON we
+   asked for, without the artifact wrapper. Recognize only a complete,
+   validated study object; every value is still rendered with textContent. */
+function parseStructuredStudyJson(content) {
+  const raw = String(content || '').trim();
+  const fenced = raw.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```$/i);
+  const candidate = (fenced ? fenced[1] : raw).trim();
+  if (!candidate.startsWith('{') || candidate.length > 20000) return null;
+  let value;
+  try { value = JSON.parse(candidate); } catch (_) { return null; }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+
+  const segments = [];
+  const title = typeof value.title === 'string' ? value.title.trim().slice(0, 120) : '';
+  const summary = typeof value.summary === 'string' ? value.summary.trim().slice(0, 1800) : '';
+  if (summary || (title && !Array.isArray(value.cards) && !Array.isArray(value.quiz))) {
+    segments.push({ kind: 'text', text: [title && `### ${title}`, summary].filter(Boolean).join('\n\n') });
+  }
+  const validCards = (items) => Array.isArray(items) ? items.slice(0, 30).filter((item) =>
+    item && typeof item === 'object' && !Array.isArray(item) &&
+    typeof item.question === 'string' && item.question.trim() && item.question.length <= 1500 &&
+    typeof item.answer === 'string' && item.answer.trim() && item.answer.length <= 2000
+  ).map((item) => ({ question: item.question.trim(), answer: item.answer.trim() })) : [];
+  const cards = validCards(value.cards);
+  const quizCards = validCards(value.quiz);
+  if (cards.length) segments.push({ kind: 'artifact', type: 'flashcards', title: title || 'Study flashcards', content: JSON.stringify({ cards }) });
+  if (quizCards.length) segments.push({ kind: 'artifact', type: 'flashcards', title: 'Quiz yourself', content: JSON.stringify({ cards: quizCards }) });
+  if (!cards.length && !quizCards.length) return null;
   return segments;
 }
 
@@ -2603,6 +2645,7 @@ async function sendTutorMessage() {
   let reply = '';
   let refusal = null;
   let premiumMeta = null;
+  let studySources = [];
   let clarifying = false;
   try {
     let endpoint = '/api/tutor';
@@ -2640,6 +2683,7 @@ async function sendTutorMessage() {
     reply = (window.IPRichText ? window.IPRichText.normalize(data.reply || '') : String(data.reply || '')).trim() || 'Sorry, I hit a snag. Try again.';
     refusal = data.refusal || null;
     premiumMeta = data.premium || null;
+    studySources = Array.isArray(data.study_sources) ? data.study_sources : [];
     clarifying = !!data.clarify;
     if (data.assignment_context) {
       const context = data.assignment_context;
@@ -2665,7 +2709,7 @@ async function sendTutorMessage() {
 
   document.getElementById('tutorThinking').classList.remove('visible');
   setPlaniState('responding');
-  addTutorMsg('bot', reply, refusal);
+  addTutorMsg('bot', reply, refusal, studySources);
   renderPremiumMeta(premiumMeta, clarifying);
   tutorHistory.push({ role: 'assistant', content: reply });
   speakReply(stripArtifacts(reply));
@@ -2782,7 +2826,7 @@ function visibleTutorText(text) {
   return String(text).replace(/^\[Subject:\s*[^\]]+\]\s*\n?/, '').trim();
 }
 
-function addTutorMsg(role, text, refusal) {
+function addTutorMsg(role, text, refusal, studySources) {
   const container = document.getElementById('tutorMessages');
 
   const group = document.createElement('div');
@@ -2854,6 +2898,22 @@ function addTutorMsg(role, text, refusal) {
 
   wrap.appendChild(sender);
   wrap.appendChild(bubble);
+  if (role === 'bot' && Array.isArray(studySources) && studySources.length) {
+    const sourceList = document.createElement('div');
+    sourceList.className = 'tutor-citations';
+    const label = document.createElement('span');
+    label.textContent = 'From your notes';
+    sourceList.appendChild(label);
+    studySources.slice(0, 5).forEach((source, index) => {
+      if (!source || !Number.isInteger(Number(source.note_id))) return;
+      const link = document.createElement('a');
+      link.href = `/notes/${encodeURIComponent(source.note_id)}`;
+      link.textContent = `[N${index + 1}] ${[source.course, source.title].filter(Boolean).join(' · ') || 'Course notes'}`;
+      link.setAttribute('aria-label', `Open source note ${index + 1}: ${link.textContent}`);
+      sourceList.appendChild(link);
+    });
+    if (sourceList.querySelector('a')) wrap.appendChild(sourceList);
+  }
   if (role === 'bot' && !refusal) {
     const actions = document.createElement('div'); actions.className = 'tutor-response-actions';
     const read = document.createElement('button');

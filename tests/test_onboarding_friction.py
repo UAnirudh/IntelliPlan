@@ -194,6 +194,19 @@ def test_command_chat_owner_comes_from_the_signed_in_account(client):
     assert f'data-chat-owner="{uid}"' in html
 
 
+def test_initial_dashboard_offers_user_scoped_reminder_setup(client):
+    uid = _make_user(completed=True)
+    _sign_in(client, uid)
+
+    response = client.get('/dashboard')
+    html = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert 'id="commandRemind"' in html
+    assert f'data-user-id="{uid}"' in html
+    assert '/static/js/command_remind.js' in html
+
+
 def test_reminders_are_offered_while_every_channel_is_off(client):
     assert 'id="commandRemind"' in _command_center(client)
 

@@ -43,6 +43,26 @@ def test_additive_watermark_migration_preserves_existing_user_and_can_repeat(mon
         engine.dispose()
 
 
+def test_email_verification_and_trial_migration_preserves_existing_user(monkeypatch):
+    from types import SimpleNamespace
+    from sqlalchemy import create_engine, inspect, text
+    engine = create_engine('sqlite:///:memory:')
+    with engine.begin() as connection:
+        connection.execute(text('CREATE TABLE users (id INTEGER PRIMARY KEY, email TEXT, password_hash TEXT)'))
+        connection.execute(text("INSERT INTO users VALUES (7, 'preserved@example.test', 'hash')"))
+    monkeypatch.setattr(App, 'db', SimpleNamespace(engine=engine, session=App.db.session))
+    try:
+        App._migrate_user_columns()
+        App._migrate_user_columns()
+        columns = {column['name']: column for column in inspect(engine).get_columns('users')}
+        assert 'email_verified' in columns and 'trial_started_at' in columns
+        with engine.connect() as connection:
+            row = connection.execute(text('SELECT email, password_hash, email_verified, trial_started_at FROM users')).one()
+        assert tuple(row) == ('preserved@example.test', 'hash', 0, None)
+    finally:
+        engine.dispose()
+
+
 @pytest.mark.parametrize('missing', ['stripe_paid_until', 'stripe_event_created'])
 def test_release_health_rejects_missing_payment_watermark(monkeypatch, missing):
     from types import SimpleNamespace

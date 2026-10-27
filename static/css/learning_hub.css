@@ -145,6 +145,36 @@ html[data-theme] body:has(.learning-hub) { background: var(--bg); }
 .learning-organization p { font-size: .85rem; color: var(--text-secondary); }
 .learning-admin-layout { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr); align-items: start; gap: 24px; }
 .learning-policy-panel { grid-row: span 4; }
+.learning-admin .learning-intro { padding-bottom: 20px; }
+.learning-admin .learning-intro .learning-eyebrow { letter-spacing: .13em; font-size: .72rem; }
+.learning-admin .learning-intro h1 { margin-top: 14px; }
+.learning-admin .admin-orgbar { align-items: center; margin: 10px 0 16px; border-radius: 16px; }
+.learning-admin .admin-orgbar > div { flex: 1 1 340px; }
+.learning-admin .admin-orgbar > p { flex: 2 1 340px; margin: 0; }
+.admin-overview { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; margin: 0 0 18px; }
+.admin-stat { display: grid; gap: 3px; min-height: 120px; align-content: center; padding: 18px 20px; border: 1px solid var(--border-strong); border-radius: 14px; background: var(--bg-card); }
+.admin-stat strong { font-size: 1.8rem; line-height: 1.1; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
+.admin-stat > span:last-child { color: var(--text-secondary); font-size: .8rem; }
+.admin-stat-status strong { font-size: 1.1rem; letter-spacing: -.015em; }
+.admin-section-nav { display: flex; gap: 6px; overflow-x: auto; padding: 0 0 16px; margin-bottom: 12px; border-bottom: 1px solid var(--border-strong); scroll-snap-type: x proximity; }
+.admin-section-nav a { flex: 0 0 auto; min-height: 44px; display: inline-flex; align-items: center; padding: 0 14px; border: 1px solid var(--border-strong); border-radius: 9px; color: var(--text-secondary); text-decoration: none; font-size: .84rem; scroll-snap-align: start; }
+.admin-section-nav a:hover { color: var(--text-primary); background: var(--bg-card); }
+.learning-admin-layout { grid-template-columns: minmax(0,1fr); }
+.learning-policy-panel { grid-row: auto; }
+.learning-admin-secondary { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px; align-items: start; }
+.learning-admin-secondary > .learning-panel { border-radius: 16px; }
+.admin-person-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--border-strong); }
+.admin-person-identity { display: grid; gap: 3px; min-width: 0; }
+.admin-person-identity strong { overflow-wrap: anywhere; font-size: .9rem; }
+.admin-person-identity span,.admin-person-controls small { color: var(--text-secondary); font-size: .77rem; overflow-wrap: anywhere; }
+.admin-person-controls { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex: 0 0 auto; }
+.learning-admin .admin-person-controls select { width: auto; min-width: 115px; margin: 0; }
+.learning-admin .admin-person-controls button { min-height: 44px; padding: 8px 12px; color: var(--text-secondary); }
+.admin-audit-row { display: grid; gap: 3px; padding: 13px 0; border-bottom: 1px solid var(--border-strong); }
+.admin-audit-row strong { font-size: .86rem; }
+.admin-audit-row span,.admin-audit-row small { color: var(--text-secondary); font-size: .77rem; overflow-wrap: anywhere; }
+.admin-empty { padding: 14px 0; color: var(--text-secondary); font-size: .85rem; }
+#admin-audit { max-height: 380px; }
 .learning-admin .learning-panel > p { color: var(--text-secondary); font-size: .875rem; }
 #admin-members p, #admin-audit p, #admin-beta-participants p, #admin-operations p, #hub-progress > p { padding: 12px 0; margin: 0; border-bottom: 1px solid var(--border-strong); font-size: .875rem; font-variant-numeric: tabular-nums; }
 #admin-audit { max-height: 260px; overflow: auto; }
@@ -156,6 +186,8 @@ html[data-theme] body:has(.learning-hub) { background: var(--bg); }
 }
 @media (max-width: 800px) {
   .learning-workspace, .learning-admin-layout { grid-template-columns: 1fr; }
+  .admin-overview { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .learning-admin-secondary { grid-template-columns: 1fr; }
   .learning-guide { padding: 24px; }
   .learning-guide-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
   .learning-policy-panel { grid-row: auto; }
@@ -173,6 +205,9 @@ html[data-theme] body:has(.learning-hub) { background: var(--bg); }
   .learning-hub .learning-starters button { grid-template-columns: 1fr; gap: 4px; }
   .learning-guide-steps { display: block; }
   .learning-organization { display: block; padding: 18px; }
+  .learning-admin .admin-orgbar > p { margin-top: 10px; }
+  .admin-person-row { align-items: flex-start; flex-direction: column; }
+  .admin-person-controls { width: 100%; justify-content: flex-start; }
   .learning-form-grid { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) {

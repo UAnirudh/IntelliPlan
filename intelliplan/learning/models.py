@@ -21,6 +21,35 @@ def register(db):
         role = db.Column(db.String(16), nullable=False, default='student')
         __table_args__ = (db.UniqueConstraint('user_id', 'organization_id'),)
 
+    class SchoolDomain(db.Model):
+        """Owner-verified email domains used only for school membership.
+
+        Verification secrets are stored as hashes; the one-time DNS TXT
+        value is returned only when the owner creates the domain record.
+        """
+        __tablename__ = 'learning_school_domains'
+        id = db.Column(db.Integer, primary_key=True)
+        organization_id = db.Column(db.Integer, db.ForeignKey('learning_organizations.id', ondelete='CASCADE'),
+                                    nullable=False, index=True)
+        domain = db.Column(db.String(253), nullable=False, unique=True, index=True)
+        verification_hash = db.Column(db.String(64), nullable=False)
+        verified_at = db.Column(db.DateTime)
+        created_by_id = db.Column(db.Integer, nullable=False)
+        verified_by_id = db.Column(db.Integer)
+        created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+
+    class SchoolPlan(db.Model):
+        """One owner-assigned subscription tier per partner school/district."""
+        __tablename__ = 'learning_school_plans'
+        id = db.Column(db.Integer, primary_key=True)
+        organization_id = db.Column(db.Integer, db.ForeignKey('learning_organizations.id', ondelete='CASCADE'),
+                                    nullable=False, unique=True, index=True)
+        plan_tier = db.Column(db.String(24), nullable=False, default='free')
+        updated_by_id = db.Column(db.Integer, nullable=False)
+        created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+        updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow,
+                               onupdate=datetime.utcnow)
+
     class Audit(db.Model):
         __tablename__ = 'learning_policy_audit'
         id = db.Column(db.Integer, primary_key=True)
@@ -122,6 +151,7 @@ def register(db):
         reserved_tokens = db.Column(db.Integer, nullable=False, default=0)
         __table_args__ = (db.UniqueConstraint('organization_id', 'month'), db.UniqueConstraint('user_id', 'month'))
 
-    return dict(Organization=Organization, Membership=Membership, Audit=Audit,
+    return dict(Organization=Organization, Membership=Membership, SchoolDomain=SchoolDomain,
+                SchoolPlan=SchoolPlan, Audit=Audit,
                 Course=Course, Lesson=Lesson, Job=Job, Evidence=Evidence, Sitting=Sitting,
                 BetaEnrollment=BetaEnrollment, Feedback=Feedback, Budget=Budget)

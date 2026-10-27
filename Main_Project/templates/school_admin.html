@@ -2,12 +2,22 @@
 {% block page_title %}Institution Settings | IntelliPlan{% endblock %}
 {% block content %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/learning_hub.css') }}">
-<article class="learning-hub learning-admin" aria-labelledby="admin-title" data-no-motion><header class="learning-intro"><div class="learning-context"><span class="learning-eyebrow">Institution settings</span><a href="{{ adult_home|default('/learning') }}">Back to workspace <span aria-hidden="true">↗</span></a></div>
-<h1 id="admin-title">Choose the tools for your district.</h1><p>Turn individual tools on or off for each district or school. District restrictions apply to every linked school, including direct API requests.</p></header>
+<article class="learning-hub learning-admin" aria-labelledby="admin-title" data-no-motion><header class="learning-intro"><div class="learning-context"><span class="learning-eyebrow">INTELLIPLAN · SCHOOL ADMIN</span><a href="{{ adult_home|default('/learning') }}">Back to workspace <span aria-hidden="true">↗</span></a></div>
+<h1 id="admin-title">School workspace</h1><p>Manage your people, classrooms, and learning policies from one place. Your district's restrictions always take priority.</p></header>
 <p id="admin-status" role="status" aria-live="polite"></p>
-<div class="learning-organization"><div><label for="admin-organization">District, school, or classroom</label><select id="admin-organization" aria-describedby="admin-scope" disabled></select></div><p id="admin-scope"></p></div>
+<div class="learning-organization admin-orgbar"><div><label for="admin-organization">Workspace</label><select id="admin-organization" aria-describedby="admin-scope" disabled></select></div><p id="admin-scope">Loading your school workspaces…</p></div>
+<section class="admin-overview" aria-label="Workspace overview">
+ <article class="admin-stat"><span class="learning-eyebrow">People</span><strong id="admin-stat-members">—</strong><span>in this workspace</span></article>
+ <article class="admin-stat"><span class="learning-eyebrow">Teachers</span><strong id="admin-stat-teachers">—</strong><span>with teaching access</span></article>
+ <article class="admin-stat"><span class="learning-eyebrow">Child workspaces</span><strong id="admin-stat-children">—</strong><span>schools or classrooms</span></article>
+ <article class="admin-stat admin-stat-status"><span class="learning-eyebrow">Workspace status</span><strong id="admin-stat-status">Active</strong><span>policy controls enforced</span></article>
+</section>
+<nav class="admin-section-nav" aria-label="School administration sections">
+ <a href="#admin-members-section">People &amp; access</a><a href="#admin-classrooms-section">Classrooms</a>
+ <a href="#admin-policy-section">Policies</a><a href="#admin-audit-section">Activity</a>
+</nav>
 <div class="learning-admin-layout">
-<section class="learning-panel learning-policy-panel" aria-labelledby="policy-title"><span class="learning-eyebrow">Tool access</span><h2 id="policy-title">A workspace that fits your school.</h2>
+<section id="admin-policy-section" class="learning-panel learning-policy-panel" aria-labelledby="policy-title"><span class="learning-eyebrow">POLICY</span><h2 id="policy-title">Workspace access</h2>
 <p id="admin-tool-summary" class="policy-summary" role="status"></p>
 <label class="policy-filter" for="admin-tool-filter">Find a tool<input id="admin-tool-filter" type="search" placeholder="Search tools and connections…"></label>
 <p id="admin-filter-empty" hidden>No tools match your search.</p>
@@ -25,12 +35,12 @@
 <label>Scheduled assessment windows · one timezone-qualified start/end pair per line<textarea id="admin-assessment-windows" rows="3" placeholder="2026-10-12T09:00:00-07:00 / 2026-10-12T10:00:00-07:00"></textarea></label>
  </fieldset><div class="policy-save-row"><button type="submit" class="learning-primary" id="admin-save" disabled>Save policy</button><button type="button" id="admin-reload">Reload policy</button><p>Changes apply to members of this district or school after saving.</p></div></form></section>
 <div class="learning-admin-secondary">
-<section class="learning-panel"><h2>Classrooms</h2><p id="admin-classroom-scope">Select a school above to create a classroom. Its school and district restrictions will apply.</p>
+<section id="admin-classrooms-section" class="learning-panel"><span class="learning-eyebrow">CLASSROOMS</span><h2>Classrooms</h2><p id="admin-classroom-scope">Select a school above to create a classroom. Its school and district restrictions will apply.</p>
 <form id="admin-classroom"><label for="admin-classroom-name">Classroom name<input id="admin-classroom-name" maxlength="160" required placeholder="Health · Grade 9"></label><button type="submit" id="admin-classroom-create" disabled>Create classroom</button></form>
 <p>After creating a classroom, use Members below to assign its teacher and students. This grants classroom access only; it does not grant institution administration.</p><a href="/teacher/terminology">Manage clinical lesson vocabulary</a></section>
-<section class="learning-panel"><h2>Members</h2><p>Use the ID of an existing account. Administrative authority is delegated by the platform owner.</p>
-<form id="admin-member"><label>Account ID<input id="admin-user-id" type="number" min="1" required></label><label>Role<select id="admin-role"><option value="student">Student</option><option value="teacher">Teacher</option></select></label><button type="submit">Add or update member</button></form><div id="admin-members"></div></section>
-<section class="learning-panel"><h2>Policy audit</h2><p>Administrative changes only. This dashboard does not expose students' private tutor conversations.</p><div id="admin-audit"></div></section>
+<section id="admin-members-section" class="learning-panel"><span class="learning-eyebrow">PEOPLE &amp; ACCESS</span><h2>People</h2><p>Give existing accounts student or teacher access in this workspace. School admins cannot grant administrative access.</p>
+<form id="admin-member"><label for="admin-member-email">School account email<input id="admin-member-email" type="email" autocomplete="email" maxlength="254" required placeholder="teacher@school.edu"></label><label for="admin-role">Workspace role<select id="admin-role"><option value="teacher">Teacher</option><option value="student">Student</option></select></label><button type="submit" class="learning-primary">Add or update access</button></form><div id="admin-members"></div></section>
+<section id="admin-audit-section" class="learning-panel"><span class="learning-eyebrow">ACTIVITY</span><h2>Recent changes</h2><p>Review who changed workspace access or policies. Student conversations remain private.</p><div id="admin-audit"></div></section>
 <section class="learning-panel"><h2>Approved practice preview participants</h2><p>Approval lets a member choose whether to accept the current beta notice. It does not enroll them automatically. The platform feature flag must also be enabled.</p><form id="admin-beta"><label>Existing member ID<input id="admin-beta-user" type="number" min="1" required></label><label>Approval<select id="admin-beta-approved"><option value="true">Approve optional preview</option><option value="false">Revoke approval</option></select></label><button type="submit">Update preview approval</button></form><div id="admin-beta-participants"></div></section>
 <section class="learning-panel"><h2>Generation budgets and beta feedback</h2><p>Reserved tokens include failed attempts and blueprint calls. They are not provider invoices. Feedback is submitted explicitly by participants.</p><div id="admin-operations"></div></section>
 </div>

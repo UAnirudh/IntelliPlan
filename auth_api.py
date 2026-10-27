@@ -563,6 +563,13 @@ def api_register():
     except TypeError:
         user = User(email=email, password_hash=pw_hash)
     db.session.add(user)
+    db.session.flush()
+    try:
+        import growth_glue
+        growth_glue.grant_signup_trial(user)
+    except Exception as exc:
+        # Billing must never prevent a new student from creating an account.
+        print(f"[trial] API signup grant skipped: {exc}")
     db.session.commit()
 
     return _ok({"token": make_token(user), "user": user_to_dict(user)}, 201)

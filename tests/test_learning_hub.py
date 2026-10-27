@@ -859,6 +859,60 @@ def test_school_admin_cannot_grant_administrative_authority(client, monkeypatch)
     assert r.status_code == 403
 
 
+def test_school_admin_can_manage_teacher_access_by_email_and_revoke_it(client, monkeypatch):
+    admin_id = user(client, monkeypatch)
+    oid = org(admin_id, role='admin')
+    teacher_id = user(client, monkeypatch)
+    with App.app.app_context():
+        teacher_email = App.db.session.get(App.User, teacher_id).email
+        teacher_name = App.db.session.get(App.User, teacher_id).name or ''
+    with client.session_transaction() as session:
+        session['_user_id'] = str(admin_id)
+        session['_fresh'] = True
+
+    added = client.post(f'/api/school-admin/organizations/{oid}/members',
+        json={'email': teacher_email.upper(), 'role': 'teacher'})
+    assert added.status_code == 200, added.get_json()
+    members = client.get(f'/api/school-admin/organizations/{oid}/members').json
+    assert members['can_manage_admin'] is False
+    assert next(m for m in members['members'] if m['user_id'] == teacher_id) == dict(
+        user_id=teacher_id, role='teacher', email=teacher_email, name=teacher_name)
+
+    changed = client.post(f'/api/school-admin/organizations/{oid}/members',
+        json={'user_id': teacher_id, 'role': 'student'})
+    assert changed.status_code == 200
+    removed = client.delete(f'/api/school-admin/organizations/{oid}/members',
+        json={'user_id': teacher_id})
+    assert removed.status_code == 200 and removed.json['removed'] is True
+    remaining = client.get(f'/api/school-admin/organizations/{oid}/members').json['members']
+    assert teacher_id not in {m['user_id'] for m in remaining}
+    audit = client.get(f'/api/school-admin/organizations/{oid}/audit').json['events']
+    assert audit[0]['action'] == 'membership_removed'
+    assert audit[0]['actor_email']
+    assert audit[0]['changes'] == {'user_id': teacher_id, 'role': 'student'}
+
+
+def test_school_admin_cannot_remove_admin_or_change_outside_school_members(client, monkeypatch):
+    admin_id = user(client, monkeypatch)
+    school_id = org(admin_id, role='admin')
+    outside_owner_id = user(client, monkeypatch)
+    outside_id = org(outside_owner_id, role='admin')
+    managed_admin_id = user(client, monkeypatch)
+    with App.app.app_context():
+        M = policy.models()
+        App.db.session.add(M['Membership'](user_id=managed_admin_id,
+            organization_id=school_id, role='admin'))
+        App.db.session.commit()
+    with client.session_transaction() as session:
+        session['_user_id'] = str(admin_id)
+        session['_fresh'] = True
+
+    assert client.delete(f'/api/school-admin/organizations/{school_id}/members',
+        json={'user_id': managed_admin_id}).status_code == 403
+    assert client.delete(f'/api/school-admin/organizations/{outside_id}/members',
+        json={'user_id': managed_admin_id}).status_code == 403
+
+
 def test_curated_course_is_multisource_persistent_and_owned(client, monkeypatch):
     uid = enable(monkeypatch, client)
     cid = create(client)

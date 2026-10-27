@@ -67,11 +67,16 @@
     $('admin-assessment-windows').value = (selected.policy.assessment_windows || []).map(w => `${w.start} / ${w.end}`).join('\n');
     const [members, audit] = await Promise.all([api(`/api/school-admin/organizations/${selected.id}/members`), api(`/api/school-admin/organizations/${selected.id}/audit`)]);
     if (selected !== renderedOrganization) return;
-    for (const [id, rows, format] of [['admin-members', members.members, r => `Account ${r.user_id} · ${r.role}`],
-      ['admin-audit', audit.events, r => `${r.created_at} · ${r.action} · actor ${r.actor_id || 'deleted account'}`]]) {
-      $(id).replaceChildren(); for (const row of rows) { const p = document.createElement('p'); p.textContent = format(row); $(id).append(p); }
-      if (!rows.length) { const p = document.createElement('p'); p.textContent = id === 'admin-members' ? 'No members added to this organization yet.' : 'Policy changes will appear here.'; $(id).append(p); }
-    }
+    $('admin-stat-members').textContent = String(members.members.length);
+    $('admin-stat-teachers').textContent = String(members.members.filter(m => m.role === 'teacher').length);
+    $('admin-stat-children').textContent = String(organizations.filter(o => o.parent_id === selected.id).length);
+    const addAdminRole = $('admin-role').querySelector('option[value="admin"]');
+    if (members.can_manage_admin && !addAdminRole) {
+      const option = document.createElement('option'); option.value = 'admin'; option.textContent = 'School administrator';
+      $('admin-role').append(option);
+    } else if (!members.can_manage_admin && addAdminRole) addAdminRole.remove();
+    renderMembers(members);
+    renderAudit(audit.events);
     const [beta, operations] = await Promise.all([api(`/api/school-admin/organizations/${renderedOrganization.id}/beta`), api(`/api/school-admin/organizations/${renderedOrganization.id}/operations`)]);
     if (selected !== renderedOrganization) return;
     $('admin-beta-participants').replaceChildren();
@@ -81,6 +86,92 @@
     for (const row of operations.budgets) { const p = document.createElement('p'); p.textContent = `${row.month} · ${row.reserved_tokens} tokens reserved`; $('admin-operations').append(p); }
     for (const row of operations.feedback) { const p = document.createElement('p'); p.textContent = `${row.feature} · ${row.category}: ${row.message}`; $('admin-operations').append(p); }
     if (!operations.budgets.length && !operations.feedback.length) $('admin-operations').textContent = 'Generation reservations and participant feedback will appear here.';
+  }
+  function renderMembers(data) {
+    const scope = selected;
+    const container = $('admin-members');
+    container.replaceChildren();
+    for (const member of data.members) {
+      const row = document.createElement('article'); row.className = 'admin-person-row';
+      const identity = document.createElement('div'); identity.className = 'admin-person-identity';
+      const name = document.createElement('strong'); name.textContent = member.name || member.email;
+      const email = document.createElement('span'); email.textContent = `${member.email} · ID ${member.user_id}`;
+      identity.append(name, email);
+      const controls = document.createElement('div'); controls.className = 'admin-person-controls';
+      const role = document.createElement('select'); role.setAttribute('aria-label', `Access role for ${member.email}`);
+      const roleOptions = [['student','Student'],['teacher','Teacher']];
+      if (data.can_manage_admin) roleOptions.push(['admin','School administrator']);
+      for (const [value, label] of roleOptions) {
+        const option = document.createElement('option'); option.value = value; option.textContent = label;
+        role.append(option);
+      }
+      role.value = roleOptions.some(([value]) => value === member.role) ? member.role : 'student';
+      const remove = document.createElement('button'); remove.type = 'button'; remove.textContent = 'Remove';
+      remove.setAttribute('aria-label', `Remove ${member.email} from this workspace`);
+      const lockedAdmin = member.role === 'admin' && !data.can_manage_admin;
+      role.disabled = lockedAdmin;
+      remove.disabled = lockedAdmin;
+      if (lockedAdmin) {
+        const note = document.createElement('small'); note.textContent = 'Admin access is managed by the platform owner.';
+        controls.append(note);
+      }
+      role.addEventListener('change', async () => {
+        if (saving) return;
+        saving = true;
+        $('admin-organization').disabled = true;
+        role.disabled = true;
+        try {
+          await api(`/api/school-admin/organizations/${scope.id}/members`, {
+            method:'POST', body:JSON.stringify({user_id:member.user_id, role:role.value}),
+          });
+          status(`${member.email} now has ${role.value} access.`);
+          if (selected === scope) await render();
+        } catch (error) { status(error.message); role.value = member.role; }
+        finally { saving = false; role.disabled = lockedAdmin; $('admin-organization').disabled = !organizations.length; }
+      });
+      remove.addEventListener('click', async () => {
+        if (saving || !window.confirm(`Remove ${member.email} from ${scope.name}?`)) return;
+        saving = true;
+        $('admin-organization').disabled = true;
+        remove.disabled = true;
+        try {
+          await api(`/api/school-admin/organizations/${scope.id}/members`, {
+            method:'DELETE', body:JSON.stringify({user_id:member.user_id}),
+          });
+          status(`${member.email} no longer has access to this workspace.`);
+          if (selected === scope) await render();
+        } catch (error) { status(error.message); remove.disabled = lockedAdmin; }
+        finally { saving = false; $('admin-organization').disabled = !organizations.length; }
+      });
+      controls.append(role, remove); row.append(identity, controls); container.append(row);
+    }
+    if (!data.members.length) {
+      const empty = document.createElement('p'); empty.className = 'admin-empty';
+      empty.textContent = 'No people have access to this workspace yet. Add a teacher by their school email to get started.';
+      container.append(empty);
+    }
+  }
+  function renderAudit(events) {
+    const container = $('admin-audit'); container.replaceChildren();
+    const labels = {policy_updated:'Policy updated', membership_updated:'Member access changed',
+      membership_removed:'Member access removed', organization_created:'Classroom created',
+      beta_approval_updated:'Preview approval changed'};
+    for (const event of events) {
+      const item = document.createElement('article'); item.className = 'admin-audit-row';
+      const heading = document.createElement('strong'); heading.textContent = labels[event.action] || event.action.replaceAll('_',' ');
+      const byline = document.createElement('span');
+      const actor = event.actor_name || event.actor_email || (event.actor_id ? `Account ${event.actor_id}` : 'Deleted account');
+      const when = new Date(event.created_at);
+      byline.textContent = `${actor} · ${Number.isNaN(when.getTime()) ? event.created_at : when.toLocaleString()}`;
+      const details = document.createElement('small');
+      const changes = event.changes || {};
+      details.textContent = changes.email
+        ? `${changes.email} · ${changes.role || 'access changed'}`
+        : changes.user_id ? `Member ID ${changes.user_id}${changes.role ? ` · ${changes.role}` : ''}`
+          : Object.keys(changes).length ? `${Object.keys(changes).length} setting${Object.keys(changes).length === 1 ? '' : 's'} updated` : 'Workspace change';
+      item.append(heading, byline, details); container.append(item);
+    }
+    if (!events.length) container.textContent = 'Activity will appear here as admins make changes.';
   }
   function updateSummary() {
     const inputs = Object.keys(settings).map(key => $(`policy-${key}`));
@@ -127,8 +218,9 @@
   $('admin-member').addEventListener('submit', async event => {
     event.preventDefault(); if (!selected || saving) return; event.submitter.disabled = true;
     const target = selected; saving = true; $('admin-organization').disabled = true;
-    try { await api(`/api/school-admin/organizations/${target.id}/members`, {method:'POST', body:JSON.stringify({user_id:Number($('admin-user-id').value), role:$('admin-role').value})});
-      if (selected === target) { await render(); status('Membership saved.'); }
+    try { await api(`/api/school-admin/organizations/${target.id}/members`, {method:'POST', body:JSON.stringify({email:$('admin-member-email').value.trim(), role:$('admin-role').value})});
+      $('admin-member-email').value = '';
+      if (selected === target) { await render(); status('Workspace access updated.'); }
     } catch(e) { status(e.message); } finally {
       saving = false; event.submitter.disabled = false;
       $('admin-organization').disabled = !organizations.length;

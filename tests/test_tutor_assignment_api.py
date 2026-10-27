@@ -133,6 +133,96 @@ def test_selected_assignment_reaches_tutor_without_entering_saved_messages(clien
     assert all('SECRET SCHOOL TEXT' not in message['content'] for message in saved)
 
 
+def test_explicit_test_prep_retrieves_only_the_students_notes_and_returns_citations(client, monkeypatch):
+    _sign_in(client, consent=False)
+    with App.app.app_context():
+        owner_id = User.query.filter_by(email='tam+student@example.com').one().id
+
+    sync_calls, search_calls, seen_messages = [], [], []
+    monkeypatch.setattr(chatbot_api, '_check_and_increment_tutor_limit', lambda: (True, 49, 50))
+    monkeypatch.setattr(chatbot_api.ai_firewall, 'guard',
+                        lambda *a, **k: SimpleNamespace(max_output_tokens=1800, plan='free'))
+    monkeypatch.setattr(chatbot_api.ai_firewall, 'record_tokens', lambda *a, **k: None)
+    monkeypatch.setattr(chatbot_api, '_safety_check_user_message', lambda *a: None)
+    monkeypatch.setattr(chatbot_api, '_safety_check_assistant_reply', lambda *a: None)
+    monkeypatch.setattr(chatbot_api, '_load_tutor_memory', lambda: {'id': 1, 'profile_json': '{}'})
+    monkeypatch.setattr(chatbot_api, '_build_personalization_prompt', lambda **k: None)
+    monkeypatch.setattr(chatbot_api, '_prepare_adaptive_turn', lambda *a: None)
+    monkeypatch.setattr(chatbot_api, '_load_user_identity', lambda: {})
+    monkeypatch.setattr(chatbot_api, '_save_tutor_profile', lambda *a: None)
+    monkeypatch.setattr(chatbot_api, '_record_adaptive_turn', lambda *a: None)
+    monkeypatch.setattr(chatbot_api, '_ensure_conversation', lambda *a: {'id': 31, 'title': 'New chat'})
+    monkeypatch.setattr(chatbot_api, '_save_conversation', lambda *a: None)
+    monkeypatch.setattr(chatbot_api.ai_firewall, 'record_tokens', lambda *a: None)
+    monkeypatch.setattr(chatbot_api.ai_firewall, 'guard',
+                        lambda *a, **k: SimpleNamespace(max_output_tokens=1800, plan='free'))
+
+    from intelliplan.learning import policy
+    monkeypatch.setattr(policy, 'decision', lambda user, key: (True, 'allowed'))
+    monkeypatch.setattr(policy, 'permitted_providers', lambda user: {'groq'})
+    monkeypatch.setattr(App._retrieval, 'sync_user', lambda uid: sync_calls.append(uid))
+    monkeypatch.setattr(App._retrieval, 'search', lambda uid, query, k=5: search_calls.append((uid, query, k)) or [{
+        'note_id': 72, 'title': 'Cell structure review', 'course': 'Biology',
+        'date': '2026-10-20', 'text': 'Mitochondria release usable energy through cellular respiration.',
+    }])
+    monkeypatch.setattr(chatbot_api, '_llm_chat', lambda **kwargs: (
+        seen_messages.extend(kwargs['messages']) or
+        'Here are two cards from your notes. [N1]'))
+
+    result = client.post('/api/tutor', json={'messages': [{
+        'role': 'user', 'content': 'Make flashcards for my biology test from my notes.'
+    }]})
+
+    assert result.status_code == 200, result.get_json()
+    assert sync_calls == [owner_id]
+    assert search_calls[0][0] == owner_id  # retrieval is scoped to the signed-in account
+    assert search_calls[0][2] == 5
+    context = '\n'.join(m['content'] for m in seen_messages if m['role'] == 'system')
+    assert 'Mitochondria release usable energy' in context
+    assert 'Cite supporting material inline as [N1]' in context
+    assert result.json['study_sources'] == [{
+        'note_id': 72, 'title': 'Cell structure review', 'course': 'Biology', 'date': '2026-10-20'
+    }]
+
+
+def test_exam_note_retrieval_stops_when_school_blocks_uploads(client, monkeypatch):
+    _sign_in(client, consent=True)
+    calls = []
+    from intelliplan.learning import policy
+    monkeypatch.setattr(policy, 'decision', lambda user, key: (key != 'uploads', 'blocked'))
+    monkeypatch.setattr(policy, 'permitted_providers', lambda user: {'groq'})
+    monkeypatch.setattr(App._retrieval, 'sync_user', lambda uid: calls.append(('sync', uid)))
+    monkeypatch.setattr(App._retrieval, 'search', lambda *args, **kwargs: calls.append(('search', args)))
+
+    with App.app.app_context():
+        user = User.query.filter_by(email='tam+student@example.com').one()
+        context, sources = chatbot_api._retrieve_exam_notes(user, 'make cards for my chemistry test')
+
+    assert context == '' and sources == []
+    assert calls == []
+
+
+def test_note_retrieval_intent_requires_an_explicit_study_request():
+    assert chatbot_api._STUDY_MATERIAL_INTENT.search('Make note cards to prepare for my physics final.')
+    assert chatbot_api._STUDY_MATERIAL_INTENT.search('Quiz me on the notes for my biology test.')
+    assert not chatbot_api._STUDY_MATERIAL_INTENT.search('How do I use this Python test fixture?')
+
+
+def test_tutor_provider_readiness_uses_resolved_plan_and_model_tier(monkeypatch):
+    calls = []
+    monkeypatch.setattr(chatbot_api, '_use_ollama', lambda: False)
+    monkeypatch.setattr(chatbot_api, 'ai_available',
+                        lambda **kwargs: calls.append(kwargs) or True)
+    monkeypatch.setattr(chatbot_api, 'ai_chat', lambda *args, **kwargs: 'synthetic reply')
+
+    reply = chatbot_api._llm_chat(
+        model='openai/gpt-oss-120b', messages=[{'role': 'user', 'content': 'hello'}],
+        plan='paid')
+
+    assert reply == 'synthetic reply'
+    assert calls == [{'plan': 'paid', 'tier': 'standard'}]
+
+
 @pytest.mark.parametrize('mode', ['single', 'multi'])
 def test_photo_tutor_receives_selected_assignment_context(client, monkeypatch, mode):
     monkeypatch.setattr(chatbot_api, '_moderation_response', lambda *a, **k: None)

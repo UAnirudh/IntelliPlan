@@ -145,26 +145,59 @@ def organization_policy(oid):
     return jsonify(version=version + 1)
 
 
-@bp.route('/api/school-admin/organizations/<int:oid>/members', methods=['GET', 'POST'])
+@bp.route('/api/school-admin/organizations/<int:oid>/members', methods=['GET', 'POST', 'DELETE'])
 def organization_members(oid):
-    from App import db, User, is_admin
+    from App import db, User, is_owner
     M = policy.models()
     if not policy.administers(current_user, oid):
         abort(403)
     if request.method == 'GET':
-        return jsonify(members=[dict(user_id=r.user_id, role=r.role) for r in
-            M['Membership'].query.filter_by(organization_id=oid).limit(200).all()])
+        rows = (M['Membership'].query
+                .join(User, User.id == M['Membership'].user_id)
+                .filter(M['Membership'].organization_id == oid)
+                .order_by(M['Membership'].role, User.email)
+                .limit(200).all())
+        users = {u.id: u for u in User.query.filter(
+            User.id.in_({r.user_id for r in rows})).all()} if rows else {}
+        return jsonify(can_manage_admin=is_owner(current_user), members=[dict(user_id=r.user_id, role=r.role,
+            email=users[r.user_id].email, name=users[r.user_id].name or '') for r in rows
+            if r.user_id in users])
+    if request.method == 'DELETE':
+        data = body()
+        uid = data.get('user_id')
+        if type(uid) is not int:
+            raise ValueError('Choose a member to remove.')
+        row = M['Membership'].query.filter_by(user_id=uid, organization_id=oid).first()
+        if row is None:
+            abort(404)
+        # School administrators may manage classroom and member access but
+        # cannot revoke an administrator's delegated authority. The platform
+        # owner remains the only person who can change admin memberships.
+        if row.role == 'admin' and not is_owner(current_user):
+            abort(403)
+        db.session.add(M['Audit'](organization_id=oid, actor_id=current_user.id,
+            action='membership_removed', changes=dict(user_id=uid, role=row.role)))
+        db.session.delete(row)
+        db.session.commit()
+        return jsonify(status='ok', removed=True)
     data = body()
     role, uid = data.get('role', 'student'), data.get('user_id')
-    if role not in {'student', 'teacher', 'admin'} or type(uid) is not int:
-        raise ValueError('Provide a user ID and a valid role.')
+    email = data.get('email')
+    if role not in {'student', 'teacher', 'admin'}:
+        raise ValueError('Choose student or teacher access.')
+    if email is not None:
+        if not isinstance(email, str) or len(email.strip()) > 254 or '@' not in email:
+            raise ValueError('Enter a valid account email address.')
+        uid = db.session.query(User.id).filter(db.func.lower(User.email) == email.strip().lower()).scalar()
+    elif type(uid) is not int:
+        raise ValueError('Enter the email or ID of an existing account.')
     # Delegation of administrative authority is a platform-owner action.
-    if role == 'admin' and not is_admin(current_user):
+    if role == 'admin' and not is_owner(current_user):
         abort(403)
     if not db.session.get(User, uid):
         abort(404)
     row = M['Membership'].query.filter_by(user_id=uid, organization_id=oid).first()
-    if row and row.role == 'admin' and not is_admin(current_user):
+    if row and row.role == 'admin' and not is_owner(current_user):
         abort(403)
     if not row:
         row = M['Membership'](user_id=uid, organization_id=oid, role=role)
@@ -181,8 +214,13 @@ def organization_audit(oid):
     if not policy.administers(current_user, oid):
         abort(403)
     M = policy.models()
+    from App import User
     rows = M['Audit'].query.filter_by(organization_id=oid).order_by(M['Audit'].id.desc()).limit(100).all()
+    actor_ids = {r.actor_id for r in rows if r.actor_id}
+    actors = {u.id: u for u in User.query.filter(User.id.in_(actor_ids)).all()} if actor_ids else {}
     return jsonify(events=[dict(id=r.id, action=r.action, actor_id=r.actor_id,
+        actor_email=actors[r.actor_id].email if r.actor_id in actors else None,
+        actor_name=(actors[r.actor_id].name or '') if r.actor_id in actors else None,
         changes=r.changes, created_at=r.created_at.isoformat()) for r in rows])
 
 
@@ -570,6 +608,8 @@ def install(app):
     from intelliplan.learning.safety_terms import install as install_safety_terms
     install_safety_terms(app)
     app.register_blueprint(bp)
+    from intelliplan.learning.entitlements import install as install_entitlements
+    install_entitlements(app)
     from App import limiter
     endpoint = 'learning_hub.course_list'
     app.view_functions[endpoint] = limiter.limit('10/hour', methods=['POST'])(app.view_functions[endpoint])

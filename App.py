@@ -657,6 +657,9 @@ class User(UserMixin, db.Model):
     __tablename__ = "users"
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(255), unique=True, nullable=False)
+    # Password signups remain unverified until a dedicated verification flow
+    # exists. Google sign-in sets this only from an explicit verified claim.
+    email_verified = db.Column(db.Boolean, nullable=False, default=False)
     password_hash = db.Column(db.String(255), nullable=False, default="")
     google_id = db.Column(db.String(255), unique=True, nullable=True)
     name = db.Column(db.String(255), nullable=True)
@@ -750,6 +753,9 @@ class User(UserMixin, db.Model):
     #: A date rather than a boolean so referral months, checkout renewals
     #: and a lapsed card all reduce to the same comparison.
     paid_until = db.Column(db.DateTime, nullable=True)
+    # The one-time configured Stripe trial is separate from referral-paid
+    # days so a repeated login or retry cannot restart it.
+    trial_started_at = db.Column(db.DateTime, nullable=True)
     #: Set on the *referred* account once its inviter has been paid for it,
     #: so a referral pays out exactly once however often it is settled.
     referral_rewarded_at = db.Column(db.DateTime, nullable=True)
@@ -7325,6 +7331,13 @@ def register():
                 )
                 db.session.add(user)
                 db.session.flush()
+                # Trials are inert until billing, a Stripe secret/Price, and
+                # an explicit trial duration are configured in production.
+                try:
+                    import growth_glue
+                    growth_glue.grant_signup_trial(user)
+                except Exception as _trial_error:
+                    print(f"[trial] signup grant skipped: {_trial_error}")
                 for doc in policy_versions.all_docs():
                     db.session.add(PolicyAcknowledgement(
                         user_id=user.id, doc=doc, version=policy_versions.current_version(doc),
@@ -9040,6 +9053,7 @@ def _handle_google_callback():
 
     google_id = userinfo.get("sub")
     email = (userinfo.get("email") or "").lower().strip()
+    email_verified = userinfo.get("email_verified") is True
     name = userinfo.get("name") or email.split("@")[0]
     print(f"[GOOGLE CALLBACK] userinfo received purpose={purpose}")
 
@@ -9154,6 +9168,24 @@ def _handle_google_callback():
             print("[GOOGLE CALLBACK] created new user")
     else:
         print(f"[GOOGLE CALLBACK] found existing google user id={user.id}")
+
+    # School memberships come only from Google userinfo's explicit verified
+    # email claim, and only when it matches the account's canonical address.
+    db.session.flush()
+    if str(getattr(user, "email", "") or "").strip().lower() == email:
+        user.email_verified = email_verified
+        if email_verified:
+            try:
+                from intelliplan.learning.entitlements import add_verified_school_membership
+                add_verified_school_membership(user, email)
+            except Exception as _school_error:
+                print(f"[school] verified-domain enrollment skipped: {_school_error}")
+    if _is_new_signup:
+        try:
+            import growth_glue
+            growth_glue.grant_signup_trial(user)
+        except Exception as _trial_error:
+            print(f"[trial] Google signup grant skipped: {_trial_error}")
 
     db.session.commit()
 
@@ -17195,6 +17227,12 @@ def extension_register():
         pw_hash = bcrypt.generate_password_hash(password).decode("utf-8")
         user = User(email=email, password_hash=pw_hash)
         db.session.add(user)
+        db.session.flush()
+        try:
+            import growth_glue
+            growth_glue.grant_signup_trial(user)
+        except Exception as _trial_error:
+            print(f"[trial] extension signup grant skipped: {_trial_error}")
         db.session.commit()
         token = secrets_module.token_hex(32)
         db.session.add(ExtensionToken(user_id=user.id, token=token))
@@ -18772,6 +18810,7 @@ def admin_panel():
         daily_active_users=daily_active_users,
         recent_email_sends=recent_email_sends,
         admin_email=(current_user.email if current_user.is_authenticated else ""),
+        is_owner=is_owner(current_user),
     )
 
 
@@ -22579,6 +22618,7 @@ def _migrate_user_columns():
         ("users", "reminder_lead_minutes", "INTEGER DEFAULT 60"),
         ("users", "sms_carrier", "VARCHAR(32) DEFAULT 'tmobile'"),
         ("users", "birth_year", "INTEGER"),
+        ("users", "email_verified", "BOOLEAN DEFAULT FALSE"),
         ("users", "parent_email", "VARCHAR(255)"),
         ("users", "parent_consent_granted", "BOOLEAN DEFAULT FALSE"),
         ("users", "parent_consent_token", "VARCHAR(64)"),
@@ -22595,6 +22635,7 @@ def _migrate_user_columns():
         ("users", "focus_grace_seconds", "INTEGER DEFAULT 25"),
         # users — plan, referral rewards, streak email (intelliplan/growth)
         ("users", "paid_until", "TIMESTAMP"),
+        ("users", "trial_started_at", "TIMESTAMP"),
         ("users", "referral_rewarded_at", "TIMESTAMP"),
         ("users", "streak_emails_opt_in", "BOOLEAN DEFAULT TRUE"),
         ("users", "stripe_customer_id", "VARCHAR(64)"),
@@ -22891,7 +22932,7 @@ def health_check():
         "notion_columns": columns['notion_integrations'],
     }
     expected = {"id", "email", "password_hash", "referral_code", "referred_by_id",
-                "stripe_paid_until", "stripe_event_created"}
+                "email_verified", "trial_started_at", "stripe_paid_until", "stripe_event_created"}
     out["users_schema_ok"] = expected.issubset(set(out["users_columns"]))
     response = flask.jsonify(out)
     response.headers['Cache-Control'] = 'no-store'

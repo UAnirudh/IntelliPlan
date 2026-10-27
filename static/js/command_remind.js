@@ -1,8 +1,5 @@
-/* The "Reminders are off" line on the Command Center.
- *
- * Rendered only for accounts with no reminder channel on. Dismissing it is
- * remembered in this browser for two weeks, then it may ask once more:
- * long enough not to nag, short enough that "not now" is not "never".
+/* A one-time, non-blocking reminder setup prompt on the Command Center.
+ * Permission is requested only inside the Enable button's user gesture.
  */
 (function () {
   'use strict';
@@ -10,34 +7,46 @@
   var bar = document.getElementById('commandRemind');
   if (!bar || !window.IPReminders) return;
 
-  var SNOOZE_KEY = 'ip_remind_snoozed_until';
-  var SNOOZE_MS = 14 * 24 * 60 * 60 * 1000;
+  var owner = bar.dataset.userId || 'guest';
+  var DECISION_KEY = 'ip_remind_prompt_dismissed_' + owner;
   var text = document.getElementById('commandRemindText');
   var on = document.getElementById('commandRemindOn');
   var dismiss = document.getElementById('commandRemindDismiss');
 
-  function snoozedUntil() {
-    try { return Number(localStorage.getItem(SNOOZE_KEY)) || 0; } catch (e) { return 0; }
+  function hasDecision() {
+    try { return localStorage.getItem(DECISION_KEY) === '1'; } catch (e) { return false; }
   }
-  function snooze() {
-    try { localStorage.setItem(SNOOZE_KEY, String(Date.now() + SNOOZE_MS)); } catch (e) { /* private mode */ }
+  function rememberDecision() {
+    try { localStorage.setItem(DECISION_KEY, '1'); } catch (e) { /* private mode */ }
   }
 
-  if (snoozedUntil() > Date.now()) return;
+  if (hasDecision()) return;
   if (!IPReminders.pushSupported()) {
     text.textContent = 'Get an email before sessions and deadlines.';
   }
   bar.hidden = false;
+  // Open the short explanation automatically after the signed-in user has
+  // reached the useful Command Center. No browser permission is requested
+  // until the visible Enable button is pressed.
+  bar.open = true;
 
   dismiss.addEventListener('click', function () {
-    snooze();
+    rememberDecision();
     bar.hidden = true;
   });
 
   on.addEventListener('click', function () {
     on.disabled = true;
     on.textContent = 'Setting up...';
-    IPReminders.enable({ email: true, push: IPReminders.pushSupported() }).then(function (result) {
+    // Start the browser permission request before IPReminders performs any
+    // async preference reads; browsers may otherwise discard user activation.
+    var permissionRequest = null;
+    if (IPReminders.pushSupported() && Notification.permission !== 'granted') {
+      permissionRequest = Notification.requestPermission();
+    }
+    IPReminders.enable({ email: true, push: IPReminders.pushSupported() }, {
+      permissionRequest: permissionRequest,
+    }).then(function (result) {
       on.disabled = false;
       if (!result.saved) {
         on.textContent = 'Try again';
@@ -45,6 +54,7 @@
         text.textContent = 'That did not save. Try again.';
         return;
       }
+      rememberDecision();
       on.hidden = true;
       dismiss.textContent = 'Close';
       bar.querySelector('strong').textContent = 'Reminders are on.';

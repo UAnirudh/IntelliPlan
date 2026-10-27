@@ -2039,7 +2039,14 @@ function generateSchedule(extra) {
       study_start_time: studyStartTime, study_end_time: studyEndTime,
     }, extra || {}))
   })
-  .then(r => r.json())
+  .then(async r => {
+    const response = await r.json().catch(() => null);
+    if (!response) {
+      if (r.status === 401) throw new Error('Your session expired. Sign in again, then retry your schedule.');
+      throw new Error(`The scheduler returned an unreadable response (HTTP ${r.status}). Try again.`);
+    }
+    return response;
+  })
   .then(response => {
     done();
     if (response.status === 'needs_clarification') {
@@ -2075,9 +2082,9 @@ function generateSchedule(extra) {
     updateCalExportButton();
     updateBadge();
   })
-  .catch(() => {
+  .catch(error => {
     done();
-    showGenError('Something went wrong while generating your plan. Check your connection and try again.', true);
+    showGenError(error && error.message || 'Something went wrong while generating your plan. Check your connection and try again.', true);
   });
 }
 

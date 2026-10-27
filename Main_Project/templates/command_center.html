@@ -5,7 +5,7 @@
 {# A fixed app surface: the header row and composer stay put and only the
    conversation scrolls. It used to be a tall page inside the app shell's
    own <main>, so the whole page scrolled and the composer drifted. #}
-<section class="command-chat" aria-label="Command Center" data-assistant-name="{{ assistant_name }}" data-chat-owner="{{ chat_owner }}">
+<section class="command-chat" aria-label="Command Center" data-assistant-name="{{ assistant_name }}" data-chat-owner="{{ chat_owner }}" data-reminder-user-id="{{ current_user.id if current_user.is_authenticated else '' }}">
   <div class="command-chat__header">
     <h1 class="command-chat__title">Command Center</h1>
     <div class="command-chat__actions">
@@ -20,18 +20,7 @@
     <button type="button" id="commandFamilySeen">I saw this</button>
   </div>
 
-  {# Every reminder channel is off until the student turns one on, and
-     accounts made before onboarding asked were never asked at all. #}
-  {% if not reminders_on %}
-  <details class="command-remind" id="commandRemind" hidden>
-    <summary>Reminders are off</summary>
-    <p><strong>Reminders are off.</strong> <span id="commandRemindText">Get an email and a desktop notification before sessions and deadlines.</span></p>
-    <div class="command-remind__actions">
-      <button type="button" class="command-remind__on" id="commandRemindOn">Turn on</button>
-      <button type="button" class="command-remind__dismiss" id="commandRemindDismiss">Not now</button>
-    </div>
-  </details>
-  {% endif %}
+  {% include "partials/reminder_prompt.html" %}
 
   <div class="command-chat__thread" id="chatThread" aria-live="polite" aria-label="Conversation" tabindex="-1">
     <div class="command-chat__inner" id="chatInner">
@@ -69,9 +58,5 @@
   </form>
 </section>
 <script src="/static/js/command_center.js?v={{ asset_v }}" defer></script>
-{% if not reminders_on %}
-<script src="/static/js/ip-reminders.js?v={{ asset_v }}" defer></script>
-<script src="/static/js/command_remind.js?v={{ asset_v }}" defer></script>
-{% endif %}
 <script src="/static/js/command_family_note.js?v={{ asset_v }}" defer></script>
 {% endblock %}

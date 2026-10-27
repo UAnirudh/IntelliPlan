@@ -65,6 +65,12 @@
 </div>
 
 <div class="admin-grid" style="margin-top:1.25rem;">
+  {% if is_owner %}
+  <div class="admin-section" style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;">
+    <div><strong>Partner school access</strong><div style="font-size:.82rem;color:var(--text-muted);margin-top:4px;">Verify school email domains, set the included plan, and review membership activity.</div></div>
+    <a class="btn btn-primary" href="{{ url_for('school_entitlements.owner_schools_page') }}">Manage schools</a>
+  </div>
+  {% endif %}
   <div class="admin-stat-row">
     <div class="admin-stat"><div class="admin-stat-num">{{ user_count }}</div><div class="admin-stat-label">Total users</div></div>
     <div class="admin-stat"><div class="admin-stat-num">{{ daily_active_users if daily_active_users is not none else '—' }}</div><div class="admin-stat-label">Active users today (UTC)</div><div style="font-size:0.72rem;color:var(--text-muted);margin-top:5px;">Distinct signed-in accounts with consented activity. Excludes unconsented use and Foundations practice.</div></div>

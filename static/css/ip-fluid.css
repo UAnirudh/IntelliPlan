@@ -376,6 +376,100 @@ html[data-theme="dark"][data-ui-accent="violet"] { --accent: #bb9afa; --accent-s
 html[data-ui-motion="reduce"]::view-transition-old(root),
 html[data-ui-motion="reduce"]::view-transition-new(root) { animation: none !important; }
 
+/* Conversation surfaces: quiet charcoal canvas, readable inline answers, and
+   only purposeful interactive content gets a contained surface. */
+body.has-side.has-own-chat {
+  background-image: none !important;
+  --workspace-glass: var(--bg-card);
+  --workspace-raised: none;
+}
+body.has-side.has-own-chat .app-side {
+  background: var(--bg-card) !important;
+  background-image: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  box-shadow: none !important;
+}
+body.has-side.has-own-chat :is(.command-chat, .tutor-main, .tutor-shell, .tutor-messages) {
+  background: var(--bg) !important;
+  background-image: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  box-shadow: none !important;
+}
+body.has-side.has-own-chat :is(.tutor-side, .tutor-workspace-header, .command-chat__header) {
+  background: var(--bg) !important;
+  background-image: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  box-shadow: none !important;
+}
+body.has-side.has-own-chat :is(.tutor-side, .tutor-main, .command-chat) {
+  border-radius: 0 !important;
+  border-color: transparent !important;
+}
+body.has-side.has-own-chat :is(.tutor-msg-group.bot .tutor-bubble, .command-chat__message--assistant) {
+  background: transparent !important;
+  background-image: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+body.has-side.has-own-chat :is(.tutor-msg-group.user .tutor-bubble, .command-chat__message--user) {
+  background: var(--bg-elevated) !important;
+  background-image: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+body.has-side.has-own-chat :is(.tutor-input-inner, .command-chat__composer) {
+  background: var(--bg-card) !important;
+  background-image: none !important;
+  border: 1px solid var(--border-strong) !important;
+  border-radius: 20px !important;
+  box-shadow: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+body.has-side.has-own-chat :is(.tutor-input-inner:focus-within, .command-chat__composer:focus-within) {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 2px var(--accent-soft) !important;
+}
+body.has-side.has-own-chat :is(.tutor-artifact, .command-chat__schedule) {
+  background: transparent !important;
+  background-image: none !important;
+  border: 0 !important;
+  border-block: 1px solid var(--border) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+body.has-side.has-own-chat :is(.tutor-artifact-head, .command-chat__schedule header) {
+  background: transparent !important;
+  border-color: var(--border) !important;
+}
+body.has-side.has-own-chat :is(.tutor-sug-card, .tutor-history-item, .command-chat__prompts :is(button,a)) {
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+body.has-side.has-own-chat :is(.tutor-sug-card, .tutor-history-item, .command-chat__prompts :is(button,a)):hover {
+  background: var(--bg-elevated) !important;
+}
+body.has-side.has-own-chat :is(#tutorInput, .command-chat__composer textarea) {
+  background: transparent !important;
+  background-image: none !important;
+}
+#planiChat, #planiChatHeader, #planiInputArea {
+  background-image: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+#planiChat { box-shadow: 0 16px 48px rgba(0,0,0,.28) !important; }
+.plani-msg.bot .plani-msg-bubble { background: transparent !important; border-color: transparent !important; }
+@media (max-width: 768px) {
+  body.has-side.has-own-chat :is(.command-chat, .tutor-main) { border-radius: 0 !important; }
+  body.has-side.has-own-chat :is(.tutor-input-inner, .command-chat__composer) { border-radius: 18px !important; }
+  body.has-side.has-own-chat :is(.tutor-artifact, .command-chat__schedule) { margin-inline: 0; }
+}
+
 /* Reading preferences scale prose without enlarging the navigation chrome. */
 body.has-side { --workspace-reading-size: 1rem; }
 html[data-ui-text="large"] body.has-side { --workspace-reading-size: 1.125rem; }
@@ -394,4 +488,54 @@ body.has-side :is(.tutor-bubble,.command-chat__message) > :last-child { margin-b
   body.has-side #tutorPlaniWrap { margin-bottom: 10px; }
   body.has-side #tutorPlaniSvg { height: 58px; }
   body.has-side .tutor-empty-title { margin-top: 12px; font-size: 2rem; }
+}
+
+/* The same flat surface language applies to the rest of the signed-in app,
+   including mobile tabs and generated schedule results. */
+body:is(.has-side, .has-tabbar) {
+  background-image: none !important;
+  --workspace-glass: var(--bg-card);
+  --workspace-raised: none;
+}
+body:is(.has-side, .has-tabbar) :is(.ipd-card, .ipd-stat, .ipd-upcoming-card, .ipd-sched-card,
+  .ipd-grade-card, .scheduler-panel, .day-card, .iv-day-card, .overview-card, .settings-section,
+  .learning-panel, .learning-organization, .course-card, .focus-card, .library-card,
+  .gp-panel, .cc-card, .tutor-artifact, .clarify-card, .command-chat__schedule) {
+  background: var(--bg-card) !important;
+  background-image: none !important;
+  border-color: var(--border) !important;
+  box-shadow: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+body:is(.has-side, .has-tabbar) :is(.app-side, .app-topbar, .mobile-tabbar) {
+  background-image: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+body:is(.has-side, .has-tabbar) :is(.btn-primary, .learning-primary, .command-chat__composer button:not(:disabled)) {
+  background-image: none !important;
+  box-shadow: none !important;
+}
+body:is(.has-side, .has-tabbar) :is(.scheduler-panel, #scheduleResults, #scheduleOverview, #scheduleDays,
+  .schedule-overview, .schedule-days, .day-card, .iv-day-card, .time-block, .iv-block, .block-duration,
+  .daily-tip, .clarify-card) {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  box-shadow: none !important;
+}
+body:is(.has-side, .has-tabbar) :is(.scheduler-panel, .day-card, .iv-day-card, .overview-card) {
+  border-radius: 14px !important;
+}
+body:is(.has-side, .has-tabbar) :is(.time-block, .iv-block, .daily-tip, .block-duration) {
+  background: var(--bg-elevated) !important;
+  background-image: none !important;
+}
+body:is(.has-side, .has-tabbar) :is(.scheduler-loading, .schedule-empty, .iv-empty) {
+  background-image: none !important;
+}
+@media (max-width: 768px) {
+  body:is(.has-side, .has-tabbar) :is(.scheduler-panel, .day-card, .iv-day-card, .overview-card) {
+    border-radius: 14px !important;
+  }
 }

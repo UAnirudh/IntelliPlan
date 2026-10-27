@@ -69,14 +69,19 @@
     }
   }
 
-  async function subscribePush() {
+  async function subscribePush(permissionRequest) {
     /* The desktop app shows reminders itself (ip-desktop-feed.js) and has
        no push service to subscribe to. Saying yes records this install so
        the server queues reminders for it. */
     if (isDesktopApp()) return registerDesktop();
     if (!pushSupported()) return { ok: false, reason: 'unsupported' };
     try {
-      const permission = await Notification.requestPermission();
+      // Permission must be requested during a visible user gesture. The
+      // caller can start this promise synchronously from its Enable click,
+      // before the async preference lookup below yields control.
+      const permission = permissionRequest
+        ? await permissionRequest
+        : (Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission());
       if (permission !== 'granted') return { ok: false, reason: 'blocked' };
 
       const registration = await workerReady();
@@ -112,7 +117,7 @@
   /* Adds the chosen channels to whatever is already on. A student who set up
      SMS in Settings must not lose it by saying yes to email here.
      Resolves to { saved, email, push, pushMessage }. Never rejects. */
-  async function enable(wanted) {
+  async function enable(wanted, options) {
     const result = { saved: false, email: false, push: false, pushMessage: '' };
     const channels = new Set();
 
@@ -122,7 +127,7 @@
     } catch (error) { /* start from an empty set */ }
 
     if (wanted && wanted.push) {
-      const push = await subscribePush();
+      const push = await subscribePush(options && options.permissionRequest);
       if (push.ok) { channels.add('push'); result.push = true; }
       else result.pushMessage = PUSH_REASONS[push.reason] || PUSH_REASONS.failed;
     }

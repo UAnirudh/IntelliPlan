@@ -1,0 +1,13 @@
+{% if logged_in and not reminders_on %}
+<link rel="stylesheet" href="/static/css/reminder_prompt.css?v={{ asset_v }}">
+<details class="command-remind" id="commandRemind" data-user-id="{{ current_user.id if current_user.is_authenticated else 'guest' }}" hidden>
+  <summary>Set up helpful reminders</summary>
+  <p><strong>Want a heads-up before work is due?</strong> <span id="commandRemindText">Get email and browser notifications before sessions and deadlines. Browser notifications can arrive when IntelliPlan is closed.</span></p>
+  <div class="command-remind__actions">
+    <button type="button" class="command-remind__on" id="commandRemindOn">Enable reminders</button>
+    <button type="button" class="command-remind__dismiss" id="commandRemindDismiss">Not now</button>
+  </div>
+</details>
+<script src="/static/js/ip-reminders.js?v={{ asset_v }}" defer></script>
+<script src="/static/js/command_remind.js?v={{ asset_v }}" defer></script>
+{% endif %}

@@ -215,7 +215,60 @@ def current_plan(user: Any = None, now: datetime | None = None) -> str:
     user = user if user is not None else current_user
     if not getattr(user, "is_authenticated", False):
         return plans.FREE
+    # Institution entitlements are resolved server-side from verified domain
+    # membership or an owner-assigned school plan. A school plan supplements
+    # an individual paid plan; it never downgrades a family's existing access.
+    try:
+        from intelliplan.learning.entitlements import school_plan_for
+        school_plan = school_plan_for(user)
+        if school_plan in {"pro", "premium", "premium_byok"}:
+            return plans.PAID
+    except Exception as exc:
+        logger.warning("school entitlement lookup failed closed: %s", exc)
     return plans.plan_for(getattr(user, "paid_until", None), now or utcnow())
+
+
+def configured_trial_days() -> int:
+    """Trial is off unless billing, Stripe, a Price, and an explicit duration exist."""
+    try:
+        days = int(os.getenv("BILLING_TRIAL_DAYS", "0"))
+    except (TypeError, ValueError):
+        return 0
+    return max(0, min(90, days))
+
+
+def grant_signup_trial(user: Any, now: datetime | None = None) -> bool:
+    """Start the configured one-time trial for a new eligible individual.
+
+    This mutates but does not commit the user, so the signup route can keep
+    trial state atomic with the rest of account creation.
+    """
+    now = now or utcnow()
+    days = configured_trial_days()
+    if not days or not billing_enabled() or not os.getenv("STRIPE_SECRET_KEY", "").strip():
+        return False
+    tier = (os.getenv("BILLING_TRIAL_PLAN", "pro") or "pro").strip().lower()
+    if tier not in {"pro", "premium", "premium_byok"} or _stripe(plans.MONTHLY, tier)[0] is None:
+        return False
+    if not getattr(user, "id", None) or getattr(user, "trial_started_at", None):
+        return False
+    # Do not spend a trial while a child account is awaiting parental consent.
+    if getattr(user, "parent_consent_granted", True) is False:
+        return False
+    try:
+        from intelliplan.learning.entitlements import is_partnered_user
+        if is_partnered_user(user):
+            return False
+    except Exception as exc:
+        logger.warning("school membership lookup failed; withholding trial: %s", exc)
+        return False
+    paid_until = getattr(user, "paid_until", None)
+    if paid_until is not None and paid_until > now:
+        return False
+    user.trial_started_at = now
+    user.paid_until = now + timedelta(days=days)
+    user.plan_tier = tier
+    return True
 
 
 def usage_for(user_id: int, now: datetime | None = None) -> int:
