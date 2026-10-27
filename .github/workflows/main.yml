@@ -77,6 +77,7 @@ jobs:
           python scripts/verify_tutor_exercises_browser.py
           python scripts/verify_tutor_page_browser.py
           python scripts/verify_chemical_rendering_browser.py
+          python scripts/verify_tutor_runtime_browser.py
       - name: Premium study, response rendering and quiz persistence workflows
         env:
           PREMIUM_BROWSER_OUTPUT: ${{ runner.temp }}/tutor-browser-proof/premium-workspace
