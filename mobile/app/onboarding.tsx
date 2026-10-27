@@ -4,10 +4,10 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
-import { getProviders, patchIdentity, Provider, startLinkSession } from "../lib/api";
+import { getProviders, getTasks, patchIdentity, Provider, startLinkSession } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { markOnboarded } from "../lib/onboarding";
-import { setRemindersEnabled } from "../lib/reminders";
+import { setRemindersEnabled, syncReminders } from "../lib/reminders";
 import { useTheme } from "../theme/ThemeProvider";
 import { radius, space } from "../theme/tokens";
 import { Button, Card, Chip, Field, Label, Notice, Screen, T } from "../components/ui";
@@ -38,6 +38,7 @@ export default function OnboardingScreen() {
   const [gradeLevel, setGradeLevel] = useState("");
   const [goals, setGoals] = useState("");
   const [busy, setBusy] = useState(false);
+  const [remindersBusy, setRemindersBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
 
   // Refreshed on focus so returning from the browser shows the connection
@@ -288,13 +289,30 @@ export default function OnboardingScreen() {
                   title="Turn on reminders"
                   kind="secondary"
                   icon="notifications-outline"
+                  busy={remindersBusy}
                   onPress={async () => {
-                    const ok = await setRemindersEnabled(true);
-                    setNote(
-                      ok
-                        ? "Reminders are on. They'll be scheduled once your work loads."
-                        : "Notifications are turned off for IntelliPlan in your phone's settings.",
-                    );
+                    setRemindersBusy(true);
+                    try {
+                      const enabled = await setRemindersEnabled(true);
+                      if (!enabled) {
+                        setNote("Notifications are turned off for IntelliPlan in your phone's settings.");
+                        return;
+                      }
+                      try {
+                        const scheduled = await syncReminders(await getTasks());
+                        setNote(
+                          scheduled
+                            ? `${scheduled} deadline ${scheduled === 1 ? "reminder is" : "reminders are"} scheduled on this phone.`
+                            : "Reminders are on. Add a due date and your phone will schedule a nudge when that work loads.",
+                        );
+                      } catch {
+                        setNote("Reminders are on. Your phone will schedule due dates the next time your work loads.");
+                      }
+                    } catch {
+                      setNote("Couldn't turn on reminders. Try again from Settings.");
+                    } finally {
+                      setRemindersBusy(false);
+                    }
                   }}
                 />
               </Card>

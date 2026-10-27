@@ -79,7 +79,8 @@ def test_successful_receipts_are_counted():
         return {"data": [{"status": "ok"} for _ in batch]}
 
     out = expo_push.send([TOKEN, TOKEN_2], {"title": "x"}, opener=fake)
-    assert out == {"sent": 2, "invalid": []}
+    assert out == {"sent": 2, "invalid": [], "failed": [],
+                   "sent_tokens": [TOKEN, TOKEN_2]}
 
 
 def test_an_uninstalled_app_is_reported_for_deletion():
@@ -90,6 +91,7 @@ def test_an_uninstalled_app_is_reported_for_deletion():
     out = expo_push.send([TOKEN], {"title": "x"}, opener=fake)
     assert out["sent"] == 0
     assert out["invalid"] == [TOKEN]
+    assert out["failed"] == []
 
 
 def test_a_transient_error_does_not_discard_the_device():
@@ -101,6 +103,7 @@ def test_a_transient_error_does_not_discard_the_device():
 
     out = expo_push.send([TOKEN], {"title": "x"}, opener=fake)
     assert out["invalid"] == []
+    assert out["failed"] == [TOKEN]
 
 
 def test_a_network_failure_is_swallowed():
@@ -109,7 +112,25 @@ def test_a_network_failure_is_swallowed():
     def boom(url, batch):
         raise OSError("network down")
 
-    assert expo_push.send([TOKEN], {"title": "x"}, opener=boom) == {"sent": 0, "invalid": []}
+    assert expo_push.send([TOKEN], {"title": "x"}, opener=boom) == {
+        "sent": 0, "invalid": [], "failed": [TOKEN], "sent_tokens": []
+    }
+
+
+def test_missing_or_malformed_expo_receipt_is_retryable():
+    out = expo_push.send([TOKEN], {"title": "x"}, opener=lambda *_: {"data": []})
+    assert out["sent"] == 0
+    assert out["invalid"] == []
+    assert out["failed"] == [TOKEN]
+
+
+def test_partial_expo_receipts_keep_success_and_retry_only_the_missing_token():
+    out = expo_push.send(
+        [TOKEN, TOKEN_2], {"title": "x"},
+        opener=lambda *_: {"data": [{"status": "ok"}]},
+    )
+    assert out["sent_tokens"] == [TOKEN]
+    assert out["failed"] == [TOKEN_2]
 
 
 def test_nothing_to_send_makes_no_request():

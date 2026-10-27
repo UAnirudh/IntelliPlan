@@ -11,6 +11,7 @@ upsert has to key on.
 from __future__ import annotations
 
 import json
+from types import SimpleNamespace
 
 import pytest
 
@@ -284,6 +285,69 @@ def test_a_row_with_no_expiry_leaves_the_default_alone():
         expires_at = None
 
     assert _push_ttl_for(Row()) is None
+
+
+def test_no_live_push_subscription_is_a_permanent_outbox_failure(user_id):
+    from notifications_glue import _send_push
+    from intelliplan.notifications.dispatcher import PermanentDeliveryError
+
+    row = SimpleNamespace(user_id=user_id, title="Study", body="Start now",
+                          url="/active", expires_at=None, last_error=None)
+    with App.app.app_context(), pytest.raises(PermanentDeliveryError, match="no active push"):
+        _send_push(row)
+
+
+def test_transient_webpush_failure_retries_without_duplicating_successful_devices(
+        client, user_id, monkeypatch):
+    import pywebpush
+    import notifications_glue
+
+    login(client, user_id)
+    subscribe(client, PHONE)
+    subscribe(client, LAPTOP)
+    monkeypatch.setenv("VAPID_PRIVATE_KEY", "test-key")
+    attempted = []
+
+    def first_attempt(**kwargs):
+        endpoint = kwargs["subscription_info"]["endpoint"]
+        attempted.append(endpoint)
+        if endpoint == LAPTOP:
+            raise RuntimeError("503 temporary push service outage")
+
+    monkeypatch.setattr(pywebpush, "webpush", first_attempt)
+    row = SimpleNamespace(user_id=user_id, title="Study", body="Start now",
+                          url="/active", expires_at=None, last_error=None)
+
+    with App.app.app_context(), pytest.raises(notifications_glue.DeliveryFailed) as error:
+        notifications_glue._send_push(row)
+
+    assert attempted == [PHONE, LAPTOP]
+    assert "temporarily unavailable" in str(error.value)
+    assert App._push_endpoint_key(PHONE) in str(error.value)
+
+    # The dispatcher persists the retryable error on the outbox row. The
+    # next provider attempt uses it to skip the endpoint that already
+    # accepted this reminder.
+    row.last_error = str(error.value)
+    attempted.clear()
+    monkeypatch.setattr(pywebpush, "webpush", lambda **kwargs: attempted.append(
+        kwargs["subscription_info"]["endpoint"]))
+    with App.app.app_context():
+        assert notifications_glue._send_push(row) is True
+    assert attempted == [LAPTOP]
+
+
+def test_missing_vapid_configuration_is_retryable_not_a_dead_subscription(
+        client, user_id, monkeypatch):
+    import notifications_glue
+
+    login(client, user_id)
+    subscribe(client, PHONE)
+    monkeypatch.delenv("VAPID_PRIVATE_KEY", raising=False)
+    row = SimpleNamespace(user_id=user_id, title="Study", body="Start now",
+                          url="/active", expires_at=None, last_error=None)
+    with App.app.app_context(), pytest.raises(notifications_glue.DeliveryFailed):
+        notifications_glue._send_push(row)
 
 
 def test_an_expired_subscription_is_dropped_rather_than_retried_forever(

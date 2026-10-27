@@ -808,7 +808,20 @@ export async function deleteConversation(id: number): Promise<void> {
 /* ── Push ─────────────────────────────────────────────────────────── */
 
 export async function registerPushToken(token: string): Promise<void> {
-  await apiFetch("/api/v1/push/register", { method: "POST", body: JSON.stringify({ token }) });
+  let timezone = "";
+  try {
+    timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+  } catch {
+    // The server can still use the current UTC offset as a fallback.
+  }
+  await apiFetch("/api/v1/push/register", {
+    method: "POST",
+    body: JSON.stringify({
+      token,
+      timezone,
+      utc_offset_minutes: -new Date().getTimezoneOffset(),
+    }),
+  });
 }
 
 export async function unregisterPushToken(token: string): Promise<void> {

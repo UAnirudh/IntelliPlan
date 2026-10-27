@@ -13,6 +13,7 @@ import {
 import { clearQueryCache } from "./useQuery";
 import { clearQueue } from "./queue";
 import { disablePush } from "./push";
+import { setRemindersEnabled } from "./reminders";
 
 type AuthState = {
   user: Me | null;
@@ -62,6 +63,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // token — the unregister call needs it. On a shared phone, skipping
     // this would keep sending one student's deadlines to the next one.
     await disablePush().catch(() => {});
+    // Local notifications contain task details and are scheduled by the OS
+    // even while the app is closed. Cancel them before another account can
+    // use this device.
+    await setRemindersEnabled(false).catch(() => {});
     await apiLogout();
     await cacheUser(null);
     await clearQueryCache().catch(() => {});

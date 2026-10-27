@@ -20276,16 +20276,41 @@ def api_snapshot():
     return flask.jsonify(snapshot)
 
 
-def _send_push_to_user(user_id, payload, ttl=None):
-    """Send a webpush payload to every subscription tied to user_id.
-    Returns the count of successful deliveries."""
+def _push_endpoint_key(endpoint):
+    """A compact, non-reversible identifier for progress on one endpoint."""
+    return hashlib.sha256(str(endpoint).encode("utf-8")).hexdigest()[:16]
+
+
+def _send_push_to_user(user_id, payload, ttl=None, *,
+                       return_details=False, skip_endpoint_keys=None):
+    """Send a push to every eligible subscription for ``user_id``.
+
+    The default return remains the successful-delivery count for existing
+    direct callers. The outbox asks for details so it can retry transient
+    provider failures without resending to devices that already accepted
+    this same reminder.
+    """
+    skip_endpoint_keys = set(skip_endpoint_keys or ())
+    detail = {"sent": 0, "sent_endpoint_keys": [], "failed_endpoint_keys": [],
+              "invalid": 0, "active": 0}
+
+    def finish():
+        return detail if return_details else detail["sent"]
+
     from intelliplan.learning import policy as learning_policy
     owner = db.session.get(User, user_id)
     if not owner or not learning_policy.decision(owner, 'notifications')[0]:
-        return 0
+        return finish()
     subs = PushSubscription.query.filter_by(user_id=user_id).all()
     if not subs:
-        return 0
+        return finish()
+
+    # Hashes let a retry skip known successful devices without putting raw
+    # push endpoints or Expo tokens into the outbox's diagnostic column.
+    eligible = [s for s in subs if _push_endpoint_key(s.endpoint) not in skip_endpoint_keys]
+    detail["active"] = len(eligible)
+    if not eligible:
+        return finish()
 
     # The phone app registers an Expo token in the same table — one row per
     # device install, which is what these rows already mean. Splitting them
@@ -20293,16 +20318,22 @@ def _send_push_to_user(user_id, payload, ttl=None):
     # reaches the phone without its sender knowing phones exist.
     from intelliplan.notifications import expo_push
 
-    expo_subs = [s for s in subs if expo_push.is_expo_token(s.endpoint)]
-    subs = [s for s in subs if not expo_push.is_expo_token(s.endpoint)]
+    expo_subs = [s for s in eligible if expo_push.is_expo_token(s.endpoint)]
+    subs = [s for s in eligible if not expo_push.is_expo_token(s.endpoint)]
 
-    ok = 0
     if expo_subs:
-        result = expo_push.send([s.endpoint for s in expo_subs], payload)
-        ok += result.get("sent", 0)
+        expo_result = expo_push.send([s.endpoint for s in expo_subs], payload)
+        detail["sent"] += expo_result.get("sent", 0)
+        detail["sent_endpoint_keys"].extend(
+            _push_endpoint_key(token) for token in expo_result.get("sent_tokens", [])
+        )
+        detail["failed_endpoint_keys"].extend(
+            _push_endpoint_key(token) for token in expo_result.get("failed", [])
+        )
         # A token Expo calls DeviceNotRegistered will never work again —
         # the app was uninstalled. Same treatment as a 410 below.
-        for dead in result.get("invalid") or []:
+        for dead in expo_result.get("invalid") or []:
+            detail["invalid"] += 1
             for s in expo_subs:
                 if s.endpoint == dead:
                     try:
@@ -20320,7 +20351,8 @@ def _send_push_to_user(user_id, payload, ttl=None):
         if not _is_desktop_endpoint(s.endpoint):
             continue
         if _desktop_is_alive(s, now):
-            ok += 1
+            detail["sent"] += 1
+            detail["sent_endpoint_keys"].append(_push_endpoint_key(s.endpoint))
             continue
         seen = _desktop_last_seen(s)
         if seen is None or now - seen > DESKTOP_DEAD_AFTER:
@@ -20332,20 +20364,22 @@ def _send_push_to_user(user_id, payload, ttl=None):
     subs = [s for s in subs if not _is_desktop_endpoint(s.endpoint)]
 
     if not subs:
-        return ok
+        return finish()
     try:
         from pywebpush import webpush, WebPushException
     except ImportError:
-        return ok
+        detail["failed_endpoint_keys"].extend(_push_endpoint_key(s.endpoint) for s in subs)
+        return finish()
     private_key = os.getenv("VAPID_PRIVATE_KEY")
     if not private_key:
-        # No VAPID configured is a browser-push problem. Anything already
-        # delivered to a phone still counts — returning 0 here would report
-        # a successful send as a failure.
-        return ok
+        # Missing configuration is recoverable without losing the queued
+        # reminder. Preserve any Expo/desktop successes while retrying only
+        # the browser endpoints when VAPID is configured.
+        detail["failed_endpoint_keys"].extend(_push_endpoint_key(s.endpoint) for s in subs)
+        return finish()
     claims = {"sub": f"mailto:{os.getenv('VAPID_EMAIL', 'hello@intelliplan.tech')}"}
     ttl_seconds = PUSH_DEFAULT_TTL if ttl is None else max(PUSH_MIN_TTL, int(ttl))
-    # Deliberately not reset: `ok` already carries the Expo deliveries.
+    # Deliberately not reset: `detail` already carries the Expo deliveries.
     for sub in list(subs):
         try:
             webpush(
@@ -20355,16 +20389,19 @@ def _send_push_to_user(user_id, payload, ttl=None):
                 vapid_claims=dict(claims),
                 ttl=ttl_seconds,
             )
-            ok += 1
+            detail["sent"] += 1
+            detail["sent_endpoint_keys"].append(_push_endpoint_key(sub.endpoint))
         except Exception as e:
             msg = str(e)
             # 410 Gone / 404 mean the browser unsubscribed — drop the row.
             if "410" in msg or "404" in msg:
+                detail["invalid"] += 1
                 try: db.session.delete(sub); db.session.commit()
                 except Exception: pass
             else:
                 print(f"[push] webpush failed: {e}")
-    return ok
+                detail["failed_endpoint_keys"].append(_push_endpoint_key(sub.endpoint))
+    return finish()
 
 
 def _upcoming_tasks_for(user, lead_minutes):

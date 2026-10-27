@@ -77,16 +77,18 @@ export async function enablePush(): Promise<PushResult> {
   }
 
   let token: string;
+  const easProjectId = projectId();
   try {
     const res = await Notifications.getExpoPushTokenAsync(
-      projectId() ? { projectId: projectId() } : undefined,
+      easProjectId ? { projectId: easProjectId } : undefined,
     );
     token = res.data;
   } catch (e: any) {
     return {
       ok: false,
-      reason:
-        "Couldn't get a push token. In Expo Go this is expected — remote push needs a development build.",
+      reason: !easProjectId
+        ? "Remote reminders are not set up for this app build yet. The app needs to be linked to its Expo EAS project first."
+        : "Couldn't get a push token. Remote push needs an installed development or store build with its platform push credentials configured.",
     };
   }
 
@@ -105,11 +107,10 @@ export async function enablePush(): Promise<PushResult> {
 
 export async function disablePush(): Promise<void> {
   const token = await AsyncStorage.getItem(TOKEN_KEY);
+  // Stop on the server before updating the local switch. If the request
+  // fails, retain the token and enabled state so the student can retry and
+  // does not believe reminders stopped when the server still has this device.
+  if (token) await unregisterPushToken(token);
   await AsyncStorage.setItem(ENABLED_KEY, "0");
-  if (!token) return;
-  try {
-    await unregisterPushToken(token);
-  } finally {
-    await AsyncStorage.removeItem(TOKEN_KEY);
-  }
+  if (token) await AsyncStorage.removeItem(TOKEN_KEY);
 }

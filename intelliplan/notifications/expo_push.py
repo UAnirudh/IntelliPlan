@@ -78,20 +78,23 @@ def build_messages(tokens, payload: dict) -> list[dict]:
 def send(tokens, payload: dict, *, opener=None) -> dict:
     """Push to every Expo token given.
 
-    Returns ``{"sent": n, "invalid": [tokens]}``. Invalid tokens are the
-    ones Expo says will never work again — the app was uninstalled, or the
-    token was rotated — and the caller is expected to delete those rows so
-    the table does not accumulate dead devices.
+    Returns sent, permanently invalid, and retryable token lists. Invalid
+    tokens are the ones Expo says will never work again — the app was
+    uninstalled, or the token was rotated — and the caller should delete
+    those rows. Network failures, malformed responses, rate limits, and
+    other provider errors stay retryable by the notification outbox.
 
     Never raises. A notification that cannot be delivered must not take
     down the cron sweep that was delivering it.
     """
     messages = build_messages(tokens, payload)
     if not messages:
-        return {"sent": 0, "invalid": []}
+        return {"sent": 0, "invalid": [], "failed": [], "sent_tokens": []}
 
     sent = 0
     invalid: list[str] = []
+    failed: list[str] = []
+    sent_tokens: list[str] = []
     request_opener = opener or _post
 
     for start in range(0, len(messages), MAX_BATCH):
@@ -100,16 +103,24 @@ def send(tokens, payload: dict, *, opener=None) -> dict:
             body = request_opener(EXPO_PUSH_URL, batch)
         except Exception as e:                      # noqa: BLE001 - see docstring
             print(f"[expo-push] send failed: {e}")
+            failed.extend(message["to"] for message in batch)
             continue
 
         receipts = (body or {}).get("data")
         if not isinstance(receipts, list):
+            failed.extend(message["to"] for message in batch)
             continue
-        for message, receipt in zip(batch, receipts):
+        for index, message in enumerate(batch):
+            if index >= len(receipts):
+                failed.append(message["to"])
+                continue
+            receipt = receipts[index]
             if not isinstance(receipt, dict):
+                failed.append(message["to"])
                 continue
             if receipt.get("status") == "ok":
                 sent += 1
+                sent_tokens.append(message["to"])
                 continue
             # DeviceNotRegistered is the only error that means "stop trying
             # forever". Everything else — rate limits, Expo hiccups — is
@@ -120,8 +131,10 @@ def send(tokens, payload: dict, *, opener=None) -> dict:
                 invalid.append(message["to"])
             else:
                 print(f"[expo-push] rejected: {receipt.get('message')}")
+                failed.append(message["to"])
 
-    return {"sent": sent, "invalid": invalid}
+    return {"sent": sent, "invalid": invalid, "failed": failed,
+            "sent_tokens": sent_tokens}
 
 
 def _post(url: str, batch: list[dict]) -> dict:

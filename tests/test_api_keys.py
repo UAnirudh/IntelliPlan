@@ -167,6 +167,25 @@ def test_a_key_pasted_into_the_authorization_header_still_works(client):
     assert r.status_code == 200
 
 
+def test_read_profile_key_cannot_register_a_device_for_push(client):
+    user_id = make_user("apitest+push@example.com")
+    login(client, user_id)
+    secret = apply_for(client, ["read:profile"]).get_json()["key"]
+
+    response = client.post(
+        "/api/v1/push/register",
+        headers={"X-API-Key": secret},
+        json={"token": "ExponentPushToken[third-party-key-test]"},
+    )
+
+    assert response.status_code == 403
+    assert response.get_json()["error"] == "first_party_only"
+    with App.app.app_context():
+        user = db.session.get(User, user_id)
+        assert user.push_reminders_opt_in is False
+        assert App.PushSubscription.query.filter_by(user_id=user_id).first() is None
+
+
 def test_a_scope_that_was_not_granted_is_403_not_401(client):
     login(client, make_user("apitest+scope@example.com"))
     secret = apply_for(client, ["read:profile"]).get_json()["key"]

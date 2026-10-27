@@ -186,6 +186,29 @@ def _push_ttl_for(row: Any) -> int | None:
     return max(PUSH_MIN_TTL, remaining)
 
 
+_PUSH_PROGRESS_PREFIX = "[intelliplan-push-sent:v1:"
+
+
+def _push_progress_from_error(value: Any) -> set[str]:
+    """Recover compact hashes of endpoints that accepted this outbox item.
+
+    Keeping this in the existing last_error field avoids a schema change.
+    Raw push endpoints are deliberately never persisted in error text.
+    """
+    text = str(value or "")
+    start = text.rfind(_PUSH_PROGRESS_PREFIX)
+    if start < 0:
+        return set()
+    payload = text[start + len(_PUSH_PROGRESS_PREFIX):].split("]", 1)[0]
+    return {part for part in payload.split(",") if len(part) == 16
+            and all(ch in "0123456789abcdef" for ch in part)}
+
+
+def _push_retry_error(sent_endpoint_keys: set[str]) -> str:
+    marker = _PUSH_PROGRESS_PREFIX + ",".join(sorted(sent_endpoint_keys)) + "]"
+    return ("Push provider temporarily unavailable; retrying. " + marker)[:512]
+
+
 def _send_push(row: Any) -> bool:
     from App import _send_push_to_user
 
@@ -193,12 +216,33 @@ def _send_push(row: Any) -> bool:
         row.user_id,
         {"title": row.title, "body": row.body, "url": row.url},
         ttl=_push_ttl_for(row),
+        return_details=True,
+        skip_endpoint_keys=_push_progress_from_error(getattr(row, "last_error", None)),
     )
-    if delivered and delivered > 0:
+    sent_endpoint_keys = _push_progress_from_error(getattr(row, "last_error", None))
+    sent_endpoint_keys.update(delivered.get("sent_endpoint_keys") or [])
+
+    # A retry can have no endpoints left after skipping devices that already
+    # accepted this notification. That is a completed delivery, not a dead
+    # one. Otherwise, an empty endpoint set is permanent.
+    if delivered.get("active", 0) <= 0:
+        if sent_endpoint_keys:
+            return True
+        raise PermanentDeliveryError("no active push subscriptions")
+
+    failed = delivered.get("failed_endpoint_keys") or []
+    if failed:
+        # Dispatcher backoff handles a transient provider outage. Recording
+        # accepted endpoint hashes prevents retries from notifying those
+        # devices twice while another endpoint recovers.
+        raise DeliveryFailed(_push_retry_error(sent_endpoint_keys))
+
+    if delivered.get("sent", 0) > 0 or sent_endpoint_keys:
         return True
-    # Zero endpoints means the student has no live subscription — a browser
-    # they cleared, or a device they no longer use. That is not a transient
-    # fault and will not fix itself on a retry.
+
+    # Every remaining endpoint was permanently rejected (for example, the
+    # browser returned 410 or Expo returned DeviceNotRegistered) and has
+    # been removed. This cannot heal with a retry.
     raise PermanentDeliveryError("no active push subscriptions")
 
 

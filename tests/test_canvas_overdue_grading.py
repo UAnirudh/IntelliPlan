@@ -10,7 +10,7 @@ can distinguish that from work which still needs the student's attention.
 
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import date, timedelta
 
 import pytest
 
@@ -115,7 +115,10 @@ class _Resp:
 
 
 def _due(days_ago):
-    return (utcnow() - timedelta(days=days_ago)).strftime("%Y-%m-%dT00:00:00Z")
+    # The endpoint compares calendar dates in the server's local timezone.
+    # Anchor this fixture to that same calendar day so it stays overdue
+    # even when UTC has already crossed midnight but Pacific has not.
+    return (date.today() - timedelta(days=days_ago)).strftime("%Y-%m-%dT00:00:00Z")
 
 
 def test_a_graded_past_due_assignment_is_excluded(client, monkeypatch):

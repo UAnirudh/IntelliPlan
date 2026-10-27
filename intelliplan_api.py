@@ -503,6 +503,11 @@ def register_push_token():
     for the account that already authenticated, not any user content. It is
     the same trust level as knowing your own email.
     """
+    # Third-party read:profile keys must not opt a user into push or change
+    # their notification timezone. Only the first-party signed-in app owns
+    # this user-consented device registration.
+    if getattr(g, "api_key_row", None) is not None:
+        return _fail("first_party_only", "Device push registration requires the signed-in IntelliPlan app.", 403)
     db, User, _ = _models()
     body = request.get_json(silent=True) or {}
     token = (body.get("token") or "").strip()
@@ -516,6 +521,7 @@ def register_push_token():
     # a fresh row per launch would multiply notifications by the number of
     # times the student ever opened it.
     row = db.session.query(PushSubscription).filter_by(endpoint=token).first()
+    previous_user_id = row.user_id if row is not None else None
     if row is None:
         row = PushSubscription(
             user_id=g.api_user.id,
@@ -529,6 +535,49 @@ def register_push_token():
         # account would send them someone else's deadlines.
         row.user_id = g.api_user.id
         row.subscription_json = json.dumps({"type": "expo", "token": token})
+
+    # Register is only called after the student turns on Server nudges in
+    # the app. The sweeper requires both this account preference and at
+    # least one device subscription; previously we saved only the token,
+    # so the UI said on while no server reminder could ever be queued.
+    g.api_user.push_reminders_opt_in = True
+
+    # Store the phone's IANA timezone on the same row the web streak flow
+    # uses. This keeps quiet hours local and DST-aware for mobile-only
+    # accounts. The UTC offset is retained as a safe fallback for profiles
+    # whose zone data cannot be read.
+    zone_name = body.get("timezone")
+    if zone_name:
+        from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+        from sqlalchemy import text
+
+        zone_name = str(zone_name).strip()
+        try:
+            ZoneInfo(zone_name)
+        except (ZoneInfoNotFoundError, ValueError, OSError):
+            db.session.rollback()
+            return _err("A valid IANA timezone is required.", 400)
+        db.session.execute(text(
+            "INSERT INTO user_streaks (user_id, timezone) VALUES (:uid, :zone) "
+            "ON CONFLICT (user_id) DO UPDATE SET timezone = excluded.timezone"
+        ), {"uid": g.api_user.id, "zone": zone_name})
+
+    if "utc_offset_minutes" in body:
+        try:
+            offset = int(body["utc_offset_minutes"])
+        except (TypeError, ValueError):
+            db.session.rollback()
+            return _err("utc_offset_minutes must be an integer.", 400)
+        g.api_user.utc_offset_minutes = max(-12 * 60, min(14 * 60, offset))
+
+    # The same token can move between accounts on a shared device. Do not
+    # leave the old account opted in if this was its only reminder target.
+    if previous_user_id and previous_user_id != g.api_user.id:
+        old_user = db.session.get(User, previous_user_id)
+        old_has_devices = db.session.query(PushSubscription.id).filter_by(
+            user_id=previous_user_id).first() is not None
+        if old_user is not None:
+            old_user.push_reminders_opt_in = old_has_devices
     db.session.commit()
     return jsonify({"status": "ok", "registered": True})
 
@@ -538,7 +587,9 @@ def register_push_token():
 def unregister_push_token():
     """Stop sending to this device. Called on sign-out, so signing out of a
     borrowed phone does not keep pushing your deadlines to it."""
-    db, _User, _ = _models()
+    if getattr(g, "api_key_row", None) is not None:
+        return _fail("first_party_only", "Device push registration requires the signed-in IntelliPlan app.", 403)
+    db, User, _ = _models()
     token = ((request.get_json(silent=True) or {}).get("token") or "").strip()
     if not token:
         return _err("token required.", 400)
@@ -547,7 +598,14 @@ def unregister_push_token():
         endpoint=token, user_id=g.api_user.id).first()
     if row is not None:
         db.session.delete(row)
-        db.session.commit()
+    # The preference is account-wide, while an Expo token is per install.
+    # Keep reminders enabled when another browser or phone is still linked.
+    has_devices = db.session.query(PushSubscription.id).filter_by(
+        user_id=g.api_user.id).first() is not None
+    user = db.session.get(User, g.api_user.id)
+    if user is not None:
+        user.push_reminders_opt_in = has_devices
+    db.session.commit()
     # Idempotent: unregistering a token that is already gone is success.
     return jsonify({"status": "ok"})
 

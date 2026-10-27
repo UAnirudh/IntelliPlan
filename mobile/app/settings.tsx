@@ -83,9 +83,16 @@ export default function SettingsScreen() {
         setPush(res.ok);
         if (!res.ok) setPushNote(res.reason);
       } else {
-        await disablePush();
-        setPush(false);
+        try {
+          await disablePush();
+          setPush(false);
+        } catch (e: any) {
+          setPush(true);
+          setPushNote(e?.message || "Couldn't turn off server reminders. Try again.");
+        }
       }
+    } catch (e: any) {
+      setPushNote(e?.message || "Couldn't update server reminders. Try again.");
     } finally {
       setPushBusy(false);
     }
