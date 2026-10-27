@@ -81,9 +81,9 @@ with sync_playwright() as playwright:
 
     page.route('**/*', route)
 
-    def open_page(path):
+    def open_page(path, *, guest=False):
         global active_client
-        active_client = guest_client if path in {'/', '/about', '/login'} or path.startswith(('/register', '/login/account')) else client
+        active_client = guest_client if guest or path in {'/', '/about', '/login'} or path.startswith(('/register', '/login/account')) else client
         errors.clear()
         response = page.goto('https://workspace.test' + path, wait_until='domcontentloaded', timeout=90000)
         assert response.status == 200, (path, response.status)
@@ -105,6 +105,19 @@ with sync_playwright() as playwright:
                 assert not errors, (path, width, theme, errors)
                 page.screenshot(path=str(OUT / f'{path.strip("/")}-{theme}-{width}.png'), full_page=True)
                 report.append({'path': path, 'width': width, 'theme': theme, 'errors': []})
+    for guest in (False, True):
+        for width in (1440, 390):
+            page.set_viewport_size({'width': width, 'height': 900})
+            open_page('/learn', guest=guest)
+            for tab in ('flashcards', 'review', 'mastery', 'progress', 'quests', 'shop', 'learn'):
+                page.locator('#tab-' + tab).click()
+                pane = '#tab' + tab.capitalize()
+                page.wait_for_function('(selector) => document.querySelector(selector).offsetHeight > 0', arg=pane)
+                assert page.locator('#tab-' + tab).evaluate("el => el.classList.contains('active')")
+                assert page.locator('#studyApp > div[id^="tab"]:visible').count() == 1
+                assert not errors, (guest, width, tab, errors)
+            report.append({'flow': 'all visible study navigation tabs render without errors',
+                           'guest': guest, 'width': width, 'passed': True})
     page.set_viewport_size({'width': 1440, 'height': 900})
     open_page('/learning')
     page.evaluate("setThemeMode('light', {instant:true})")
