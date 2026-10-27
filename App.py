@@ -17578,11 +17578,18 @@ def extension_session_token():
 # ── STUDY ROUTES ──────────────────────────────────────────────
 @app.route("/study/evaluate", methods=["POST"])
 def study_evaluate():
-    data = request.json or {}
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict) or any(not isinstance(data.get(key, ''), str)
+            for key in ('question', 'correct_answer', 'user_answer')):
+        return flask.jsonify(status='error', message='Send a JSON object with text answers.'), 400
     question = data.get("question", "").strip()
     correct_answer = data.get("correct_answer", "").strip()
     user_answer = data.get("user_answer", "").strip()
     confidence = data.get("confidence", "medium")
+    if not isinstance(confidence, str) or confidence not in ('low', 'medium', 'high'):
+        return flask.jsonify(status='error', message='Choose low, medium or high confidence.'), 400
+    if not question or not correct_answer or max(map(len, (question, correct_answer, user_answer))) > 6000:
+        return flask.jsonify(status='error', message='Provide a question and answer key; each field must fit within 6000 characters.'), 400
     if not user_answer:
         return flask.jsonify({"status": "error", "message": "No answer provided"})
     prompt = f'''Evaluate this student answer against the correct answer SEMANTICALLY and LENIENTLY.
@@ -17621,22 +17628,8 @@ Scoring guide:
             temperature=0.4,
             max_tokens=800,
         )
-        raw = re.sub(r"```json\n?", "", raw)
-        raw = re.sub(r"```\n?", "", raw)
-        result = json.loads(raw)
-        ua = user_answer.lower()
-        ca = correct_answer.lower()
-        keywords = [w for w in re.findall(r'\w+', ca) if len(w) > 4]
-        keyword_hits = sum(1 for w in keywords if w in ua)
-        from difflib import SequenceMatcher
-        similarity = SequenceMatcher(None, ua, ca).ratio()
-        if result["verdict"] == "incorrect":
-            if keyword_hits >= 2 or similarity > 0.5:
-                result["verdict"] = "partial"
-                result["score"] = max(result.get("score", 0), 45)
-        if result["verdict"] == "partial" and similarity > 0.75:
-            result["verdict"] = "correct"
-            result["score"] = max(result.get("score", 0), 75)
+        from intelliplan.learning.study_contracts import evaluation
+        result = evaluation(raw)
         base = {"correct": 10, "partial": 7, "incorrect": 3}.get(result["verdict"], 3)
         conf_mult = {"high": 1.5, "medium": 1.0, "low": 0.7}.get(confidence, 1.0)
         if result["verdict"] == "incorrect" and confidence == "high":
@@ -17913,10 +17906,15 @@ def api_activity():
 def study_mastery_update():
     uid = current_user.id if current_user.is_authenticated else None
     gid = None if uid else get_guest_session_id()
-    data = request.json or {}
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict) or any(not isinstance(data.get(key, ''), str)
+            for key in ('question_key', 'question_text', 'answer_text', 'topic')):
+        return flask.jsonify(status='error', message='Send a JSON object with text study fields.'), 400
     question_key = data.get("question_key", "")[:512]
     verdict = data.get("verdict", "incorrect")
-    score = int(data.get("score", 0))
+    score = data.get("score", 0)
+    if not isinstance(verdict, str) or verdict not in ('correct', 'partial', 'incorrect') or type(score) is not int or not 0 <= score <= 100:
+        return flask.jsonify(status='error', message='Provide a valid verdict and a score from 0 to 100.'), 400
     if not question_key:
         return flask.jsonify({"status": "error"})
     today = datetime.now().strftime("%Y-%m-%d")
@@ -17925,6 +17923,9 @@ def study_mastery_update():
         if not q:
             q = StudyMastery(user_id=uid, guest_session_id=gid, question_key=question_key, question_text=data.get("question_text", "")[:1000], answer_text=data.get("answer_text", "")[:1000], topic=data.get("topic", "")[:256])
             db.session.add(q)
+            # Column defaults are populated by INSERT, not by construction.
+            # Without this the first review increments None and is never saved.
+            db.session.flush()
         q.times_seen += 1
         q.last_seen = today
         if verdict == "correct":
@@ -17961,6 +17962,7 @@ def study_mastery_update():
         return flask.jsonify({"status": "ok", "mastery_level": q.mastery_level, "mastery_label": mastery_labels[q.mastery_level], "next_review": q.next_review, "interval_days": q.interval_days})
     except Exception as e:
         print(f"Mastery update error: {e}")
+        db.session.rollback()
         return flask.jsonify({"status": "error", "message": safe_error_message(e)})
 
 @app.route("/study/mastery/due", methods=["GET"])
@@ -18401,10 +18403,12 @@ def study_transcribe():
 
 @app.route("/study/generate", methods=["POST"])
 def study_generate():
-    data = request.json or {}
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict) or not isinstance(data.get('content', ''), str):
+        return flask.jsonify(status='error', message='Send a JSON object with text study material.'), 400
     content = data.get("content", "").strip()
     mode = data.get("mode", "casual")
-    if mode not in STUDY_MODES:
+    if not isinstance(mode, str) or mode not in STUDY_MODES:
         mode = "casual"
     # Bare ``int()`` on unvalidated input, outside the try below, meant
     # {"num_questions": "eight"} returned Flask's HTML 500 page -- which the
@@ -18413,7 +18417,7 @@ def study_generate():
     # request for 500 questions from being billed as 500 questions.
     try:
         num_questions = int(data.get("num_questions", 8))
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         num_questions = 8
     num_questions = max(1, min(num_questions, 20))
     if not content:
@@ -18467,9 +18471,8 @@ Be accurate, but keep the tone supportive and student-friendly.'''
             temperature=0.5,
             max_tokens=1200 if _is_guest() else 3000,
         )
-        raw = re.sub(r"```json\s*", "", raw)
-        raw = re.sub(r"```", "", raw).strip()
-        result = json.loads(raw)
+        from intelliplan.learning.study_contracts import generation
+        result = generation(raw, num_questions)
         if _is_guest():
             usage = _get_guest_usage()
             usage["generations"] += 1

@@ -683,7 +683,7 @@ body.serious-mode .nav-tabs { display:none !important; }
 </div>
 
 <!-- Main App -->
-<div id="studyApp">
+<div id="studyApp" data-no-motion>
   <div class="sh">
     <h1 class="st">Study <em>&amp; Learn</em></h1>
   </div>
@@ -758,24 +758,24 @@ body.serious-mode .nav-tabs { display:none !important; }
       <div class="sp">
         <div class="sp-label">Step 2, Choose Mode</div>
         <div class="mode-grid">
-          <div class="mc sel" style="--mc:var(--sg)" data-mode="casual" onclick="selMode('casual')">
-            <div class="mc-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></div>
-            <div class="mc-name">Casual</div>
-            <div class="mc-desc">Relaxed. No timer. Full AI evaluation.</div>
+          <button type="button" aria-pressed="true" class="mc sel" style="--mc:var(--sg)" data-mode="casual" onclick="selMode('casual')">
+            <span class="mc-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></span>
+            <span class="mc-name">Casual</span>
+            <span class="mc-desc">Relaxed. No timer. Full AI evaluation.</span>
             <span class="mc-badge" style="background:var(--low-bg);color:var(--sg);">Chill</span>
-          </div>
-          <div class="mc" style="--mc:var(--si)" data-mode="serious" onclick="selMode('serious')">
-            <div class="mc-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-clock"/></svg></div>
-            <div class="mc-name">Serious</div>
-            <div class="mc-desc">25-min Pomodoro. Hides nav. Focus mode.</div>
+          </button>
+          <button type="button" aria-pressed="false" class="mc" style="--mc:var(--si)" data-mode="serious" onclick="selMode('serious')">
+            <span class="mc-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-clock"/></svg></span>
+            <span class="mc-name">Serious</span>
+            <span class="mc-desc">25-min Pomodoro. Hides nav. Focus mode.</span>
             <span class="mc-badge" style="background:var(--si-soft);color:var(--si);">Focus</span>
-          </div>
-          <div class="mc" style="--mc:var(--sr)" data-mode="extreme" onclick="selMode('extreme')">
-            <div class="mc-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-fire"/></svg></div>
-            <div class="mc-name">Extreme</div>
-            <div class="mc-desc">Fullscreen lock. 10s hold to exit.</div>
+          </button>
+          <button type="button" aria-pressed="false" class="mc" style="--mc:var(--sr)" data-mode="extreme" onclick="selMode('extreme')">
+            <span class="mc-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-fire"/></svg></span>
+            <span class="mc-name">Extreme</span>
+            <span class="mc-desc">Fullscreen lock. 10s hold to exit.</span>
             <span class="mc-badge" style="background:var(--danger-soft);color:var(--danger-text);">Locked</span>
-          </div>
+          </button>
         </div>
       </div>
 
@@ -1028,6 +1028,26 @@ const G = {
   fcIndex: 0, fcFlipped: false,
   tabActive: 'learn'
 };
+let studySessionEpoch = 0;
+let completingStudyEpoch = null;
+function localStudyDate(value = new Date()) {
+  return [value.getFullYear(), String(value.getMonth() + 1).padStart(2, '0'), String(value.getDate()).padStart(2, '0')].join('-');
+}
+async function studyRequest(path, body) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 60000);
+  try {
+    const response = await fetch(path, {method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(body), signal: controller.signal});
+    const data = await response.json();
+    if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('The server returned an unreadable response. Try again.');
+    if (!response.ok || data.status !== 'ok') throw new Error(data.message || 'The request could not be completed.');
+    return data;
+  } catch (error) {
+    if (error.name === 'AbortError') throw new Error('This request took too long. Please try again.');
+    throw error;
+  } finally { clearTimeout(timeout); }
+}
 
 // ══ INIT ══════════════════════════════════════════════════
 async function init() {
@@ -1135,7 +1155,7 @@ function switchInputTab(tab) {
 
 function selMode(m) {
   G.mode = m;
-  document.querySelectorAll('.mc').forEach(c => c.classList.toggle('sel', c.dataset.mode === m));
+  document.querySelectorAll('.mc').forEach(c => { c.classList.toggle('sel', c.dataset.mode === m); c.setAttribute('aria-pressed', String(c.dataset.mode === m)); });
 }
 
 // ══ UPLOAD ════════════════════════════════════════════════
@@ -1314,12 +1334,8 @@ async function startSession() {
   G.generating = true;
 
   try {
-    const r = await fetch('/study/generate', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({content, mode: G.mode, num_questions: 8})
-    });
-    const d = await r.json();
-    if (d.status !== 'ok') throw new Error(d.message || 'Failed');
+    const d = await studyRequest('/study/generate', {content, mode: G.mode, num_questions: 8});
+    ++studySessionEpoch;
 
     G.questions = d.data.questions || [];
     G.keyConcepts = d.data.key_concepts || [];
@@ -1418,32 +1434,31 @@ function setConf(c, btn) {
 }
 
 async function submitAnswer() {
+  const btn = document.getElementById('submitBtn');
+  if (!btn || btn.disabled || btn.style.display === 'none') return;
   const ans = document.getElementById('ansInput').value.trim();
   if (!ans) { IP.alert('Please type an answer.'); return; }
   const q = G.questions[G.curQ];
 
-  const btn = document.getElementById('submitBtn');
+  const epoch = studySessionEpoch;
   btn.disabled = true; btn.innerHTML = '<span class="btn-spin"></span>Evaluating...';
 
   try {
-    const r = await fetch('/study/evaluate', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({
+    const d = await studyRequest('/study/evaluate', {
         question: q.question,
         correct_answer: q.answer,
         user_answer: ans,
         confidence: G.currentConf
-      })
     });
-    const d = await r.json();
-    if (d.status !== 'ok') throw new Error(d.message);
+    if (epoch !== studySessionEpoch || G.questions[G.curQ] !== q) return;
 
     const ev = d.evaluation;
     displayFeedback(ev, q, ans);
 
     // Points
     const pts = ev.verdict === 'correct' ? 2 : ev.verdict === 'partial' ? 1 : 0;
-    if (pts > 0) await addPoints(pts, `+${pts} Sparks`);
+    if (pts > 0) await addPoints(pts, `+${pts} Sparks`, epoch);
+    if (epoch !== studySessionEpoch || G.questions[G.curQ] !== q) return;
 
     // Track
     G.sesAnswered++;
@@ -1458,11 +1473,12 @@ async function submitAnswer() {
 
     document.getElementById('nextBtn').style.display = 'block';
   } catch(e) {
-    // Fallback: show correct answer without AI eval
-    displayFallbackFeedback(q, ans);
-    G.sesAnswered++;
-    await addPoints(1, '+1 Sparks');
-    document.getElementById('nextBtn').style.display = 'block';
+    if (epoch !== studySessionEpoch || G.questions[G.curQ] !== q) return;
+    const feedback = document.getElementById('fbArea');
+    feedback.style.display = 'block'; feedback.setAttribute('role', 'status');
+    feedback.textContent = 'Evaluation unavailable. Your answer is saved here. Try again.';
+    btn.disabled = false; btn.textContent = 'Try evaluation again';
+    return;
   }
 
   btn.style.display = 'none';
@@ -1539,6 +1555,8 @@ function displayFallbackFeedback(q, userAns) {
 }
 
 async function updateMastery(q, verdict, score) {
+  const epoch = studySessionEpoch;
+  const mode = G.mode, index = mode === 'extreme' ? G.xQ : G.curQ;
   try {
     const r = await fetch('/study/mastery/update', {
       method:'POST', headers:{'Content-Type':'application/json'},
@@ -1551,6 +1569,8 @@ async function updateMastery(q, verdict, score) {
       })
     });
     const d = await r.json();
+    if (epoch !== studySessionEpoch || G.mode !== mode ||
+        (mode === 'extreme' ? G.xQ : G.curQ) !== index || G.questions[index] !== q) return;
     if (d.status === 'ok') {
       const dotsEl = document.getElementById('masteryDots');
       const lblEl = document.getElementById('masteryLabelDisp');
@@ -1565,6 +1585,7 @@ async function updateMastery(q, verdict, score) {
 }
 
 function nextQuestion() {
+  if (completingStudyEpoch === studySessionEpoch) return;
   G.curQ++;
   if (G.curQ >= G.questions.length) completeSession();
   else renderQ();
@@ -1573,6 +1594,7 @@ function nextQuestion() {
 async function exitSession() {
   if (!await IP.confirm('Your progress in this session will not be saved.',
                         { title: 'Leave this session?', confirmLabel: 'Leave', danger: true })) return;
+  ++studySessionEpoch;
   stopTimers();
   document.body.classList.remove('serious-mode');
   document.getElementById('sesTimerWrap').style.display = 'none';
@@ -1581,24 +1603,34 @@ async function exitSession() {
 }
 
 async function completeSession() {
+  const epoch = studySessionEpoch;
+  if (completingStudyEpoch === epoch) return;
+  completingStudyEpoch = epoch;
   const duration = Math.round((Date.now() - G.sesStart) / 1000);
   stopTimers();
   if (G.mode === 'serious') { document.body.classList.remove('serious-mode'); document.getElementById('sesTimerWrap').style.display = 'none'; }
 
-  const today = new Date().toISOString().split('T')[0];
-  if (!G.streakHistory.includes(today)) await addPoints(10, '+10 Sparks - first session today');
-  await addPoints(20, '+20 Sparks - session complete');
+  const today = localStudyDate();
+  if (!G.streakHistory.includes(today)) await addPoints(10, '+10 Sparks - first session today', epoch);
+  if (epoch !== studySessionEpoch) return;
+  await addPoints(20, '+20 Sparks - session complete', epoch);
+  if (epoch !== studySessionEpoch) return;
   if (G.mode === 'serious') {
-    await addPoints(10, '+10 Sparks - Serious mode');
+    await addPoints(10, '+10 Sparks - Serious mode', epoch);
+    if (epoch !== studySessionEpoch) return;
     const minBonus = Math.floor(G.activeSecs / 60);
-    if (minBonus > 0) await addPoints(minBonus, `+${minBonus} Sparks - active time`);
+    if (minBonus > 0) await addPoints(minBonus, `+${minBonus} Sparks - active time`, epoch);
+    if (epoch !== studySessionEpoch) return;
   }
   if (G.mode === 'extreme') {
-    await addPoints(25, '+25 Sparks - Extreme mode');
+    await addPoints(25, '+25 Sparks - Extreme mode', epoch);
+    if (epoch !== studySessionEpoch) return;
   }
-  if (G.questions.length > 0 && G.sesCorrect >= G.questions.length) await addPoints(30, '+30 Sparks - perfect session');
+  if (G.questions.length > 0 && G.sesCorrect >= G.questions.length) await addPoints(30, '+30 Sparks - perfect session', epoch);
+  if (epoch !== studySessionEpoch) return;
 
-  const streakRes = await updateStreak();
+  const streakRes = await updateStreak(epoch);
+  if (epoch !== studySessionEpoch) return;
   document.getElementById('progFill').style.transform = 'scaleX(1)';
   document.getElementById('progTxt').innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg> Complete`;
   document.getElementById('questionArea').style.display = 'none';
@@ -1645,6 +1677,7 @@ async function completeSession() {
       body: JSON.stringify({ mode: G.mode, questions_total: G.questions.length, questions_correct: G.sesCorrect, questions_partial: G.sesPartial, points_earned: G.sesPts, duration_seconds: duration, already_awarded: true, local_date: today, local_hour: new Date().getHours() })
     });
     const d = await r.json();
+    if (epoch !== studySessionEpoch) return;
     if (d.status === 'ok') {
       G.totalPts = d.total_points ?? G.totalPts;
       G.sparkBalance = d.spark_balance ?? G.sparkBalance;
@@ -1658,6 +1691,7 @@ async function completeSession() {
 }
 
 function restartSetup() {
+  ++studySessionEpoch;
   document.getElementById('sessionView').style.display = 'none';
   document.getElementById('setupView').style.display = 'block';
   document.getElementById('completeCard').style.display = 'none';
@@ -1690,13 +1724,11 @@ function updateTimerUI() {
 }
 
 // ══ POINTS ════════════════════════════════════════════════
-async function addPoints(delta, msg) {
+async function addPoints(delta, msg, epoch = studySessionEpoch) {
+  if (epoch !== studySessionEpoch) return 0;
   try {
-    const r = await fetch('/study/sparks/update', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({delta, reason: msg})
-    });
-    const d = await r.json();
+    const d = await studyRequest('/study/sparks/update', {delta, reason: msg});
+    if (epoch !== studySessionEpoch) return 0;
     if (d.status === 'ok') {
       const awarded = d.awarded ?? delta;
       G.sesPts += awarded;
@@ -1713,9 +1745,8 @@ async function addPoints(delta, msg) {
       return awarded;
     }
   } catch(e) {}
-  G.sesPts += delta; G.totalPts += delta; G.sparkBalance += delta; G.sparksEarnedTotal += delta;
-  updateChips(); pulseChip('sChipPts'); showToast(msg.replace(/pts/g, 'Sparks')); saveLocal();
-  return delta;
+  if (epoch === studySessionEpoch) showToast('Sparks could not be saved. Your answer was checked.');
+  return 0;
 }
 
 function showToast(msg) {
@@ -1726,13 +1757,16 @@ function showToast(msg) {
 }
 
 // ══ STREAK ════════════════════════════════════════════════
-async function updateStreak() {
+async function updateStreak(epoch = studySessionEpoch) {
+  if (epoch !== studySessionEpoch) return null;
+  if (G.sesAnswered < 5) {
+    showToast('Complete at least 5 questions to count toward your streak.');
+    return null;
+  }
   try {
-    const r = await fetch('/study/streak/update', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({questions_answered: G.sesAnswered, questions_total: G.questions.length, local_date: new Date().toISOString().split('T')[0]})
-    });
-    const d = await r.json();
+    const d = await studyRequest('/study/streak/update', {questions_answered: G.sesAnswered,
+      questions_total: G.questions.length, local_date: localStudyDate()});
+    if (epoch !== studySessionEpoch) return null;
     if (d.status === 'ok') {
       G.streak = d.streak_count;
       G.freezes = d.streak_freeze_count;
@@ -1750,18 +1784,7 @@ async function updateStreak() {
       return d;
     }
   } catch(e) {
-    // Local fallback
-    const today = new Date().toISOString().split('T')[0];
-    const yesterday = new Date(Date.now()-86400000).toISOString().split('T')[0];
-    if (G.lastActive !== today) {
-      if (G.lastActive === yesterday) G.streak++;
-      else if (G.freezes > 0) { G.freezes--; G.streak++; }
-      else G.streak = 1;
-      if (G.streak > G.longestStreak) G.longestStreak = G.streak;
-      G.lastActive = today;
-      if (!G.streakHistory.includes(today)) G.streakHistory.push(today);
-    }
-    updateChips(); saveLocal();
+    if (epoch === studySessionEpoch) showToast('Streak update could not be confirmed. Your saved streak is unchanged.');
   }
   return null;
 }
@@ -1787,7 +1810,7 @@ function renderStreakTab() {
   document.getElementById('totalSesDisp').textContent = G.totalSessions;
   document.getElementById('totalPtsDisp2').textContent = G.sparkBalance;
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = localStudyDate();
   const sub = document.getElementById('streakSubMsg');
   if (G.streak === 0) sub.textContent = 'Complete a session today to start your streak!';
   else if (G.streakHistory.includes(today)) sub.textContent = `Day ${G.streak}. Today's session is in.`;
@@ -1803,7 +1826,7 @@ function renderStreakTab() {
   const days = [];
   for (let i = 59; i >= 0; i--) {
     const d = new Date(); d.setDate(d.getDate() - i);
-    days.push(d.toISOString().split('T')[0]);
+    days.push(localStudyDate(d));
   }
   // Pad start to align with week
   const firstDay = new Date(days[0] + 'T00:00:00').getDay();
@@ -1971,7 +1994,7 @@ function srsGetOrCreate(q, a) {
   const cards = srsLoad();
   const id = srsCardId(q);
   if (!cards[id]) {
-    cards[id] = { q, a, interval: 1, easeFactor: 2.5, repetitions: 0, nextReview: new Date().toISOString().slice(0,10) };
+    cards[id] = { q, a, interval: 1, easeFactor: 2.5, repetitions: 0, nextReview: localStudyDate() };
     srsSave(cards);
   }
   return { id, ...cards[id] };
@@ -1995,13 +2018,13 @@ function srsRate(cardId, quality) {
   easeFactor = Math.max(1.3, easeFactor + 0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
   const next = new Date();
   next.setDate(next.getDate() + interval);
-  cards[cardId] = { ...c, interval, easeFactor, repetitions, nextReview: next.toISOString().slice(0,10) };
+  cards[cardId] = { ...c, interval, easeFactor, repetitions, nextReview: localStudyDate(next) };
   srsSave(cards);
 }
 
 function srsDueCards() {
   const cards = srsLoad();
-  const today = new Date().toISOString().slice(0,10);
+  const today = localStudyDate();
   return Object.entries(cards)
     .filter(([,c]) => c.nextReview <= today)
     .map(([id, c]) => ({ id, ...c }));
@@ -2014,7 +2037,7 @@ function srsRegisterQuestions(questions) {
   questions.forEach(q => {
     const id = srsCardId(q.question || q.q || '');
     if (id && !cards[id]) {
-      cards[id] = { q: q.question || q.q, a: q.answer || q.a || '', interval: 1, easeFactor: 2.5, repetitions: 0, nextReview: new Date().toISOString().slice(0,10) };
+      cards[id] = { q: q.question || q.q, a: q.answer || q.a || '', interval: 1, easeFactor: 2.5, repetitions: 0, nextReview: localStudyDate() };
       changed = true;
     }
   });
@@ -2227,18 +2250,17 @@ function xSetConf(c, btn) {
 }
 
 async function xSubmit() {
+  const btn = document.getElementById('xSubmitBtn');
+  if (btn.disabled || btn.style.display === 'none') return;
   const ans = document.getElementById('xAnsInput').value.trim();
   if (!ans) { IP.alert('Type an answer first.'); return; }
   const q = G.questions[G.xQ];
-  const btn = document.getElementById('xSubmitBtn');
+  const epoch = studySessionEpoch;
   btn.disabled = true; btn.textContent = 'Evaluating...';
 
   try {
-    const r = await fetch('/study/evaluate', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ question: q.question, correct_answer: q.answer, user_answer: ans, confidence: G.xConf })
-    });
-    const d = await r.json();
+    const d = await studyRequest('/study/evaluate', {question: q.question, correct_answer: q.answer, user_answer: ans, confidence: G.xConf});
+    if (epoch !== studySessionEpoch || G.questions[G.xQ] !== q) return;
     if (d.status === 'ok') {
       const ev = d.evaluation;
       const fb = document.getElementById('xFbBox');
@@ -2250,13 +2272,15 @@ async function xSubmit() {
         ${ev.memory_anchor ? `<div style="margin-top:8px;padding:8px;background:rgba(245,158,11,0.15);border-radius:8px;font-size:0.82rem;">${escHtml(ev.memory_anchor)}</div>` : ''}`;
 
       const pts = ev.verdict === 'correct' ? 2 : ev.verdict === 'partial' ? 1 : 0;
-      if (pts > 0) await addPoints(pts, `+${pts} Sparks`);
+      if (pts > 0) await addPoints(pts, `+${pts} Sparks`, epoch);
+      if (epoch !== studySessionEpoch || G.questions[G.xQ] !== q) return;
       G.sesAnswered++;
       if (ev.verdict === 'correct') G.sesCorrect++;
       else if (ev.verdict === 'partial') G.sesPartial++;
       updateMastery(q, ev.verdict, ev.score);
     }
   } catch(e) {
+    if (epoch !== studySessionEpoch || G.questions[G.xQ] !== q) return;
     // The grader could not be reached. This is what the self-check row is
     // for, and it was never shown: the student was handed the answer, given
     // one Spark whether they were right or wrong, and their mastery record
@@ -2280,11 +2304,14 @@ async function xSubmit() {
    notice. Now the row appears when the grader is unreachable, and this
    scores the answer the student gave themselves. */
 async function xMark(correct) {
+  if (document.getElementById('xSelfCheck').style.display !== 'flex') return;
+  const epoch = studySessionEpoch;
   const q = G.questions[G.xQ];
   document.getElementById('xSelfCheck').style.display = 'none';
 
   if (correct) {
     await addPoints(2, '+2 Sparks');
+    if (epoch !== studySessionEpoch || G.questions[G.xQ] !== q) return;
     G.sesCorrect++;
   }
   G.sesAnswered++;
@@ -2308,6 +2335,7 @@ async function xComplete() {
 }
 
 async function exitExtreme(completed = false) {
+  ++studySessionEpoch;
   document.getElementById('xOverlay').classList.remove('on');
   document.removeEventListener('fullscreenchange', onFSChange);
   if (document.exitFullscreen && document.fullscreenElement) await document.exitFullscreen().catch(() => {});
