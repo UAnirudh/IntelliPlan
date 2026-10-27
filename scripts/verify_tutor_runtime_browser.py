@@ -4,6 +4,7 @@ The provider is replaced with generated PCM audio; HTMLAudioElement decoding,
 playback, real Flask speech authorization, and the client queue remain real.
 This proves browser integration, not the sound of a deployed provider voice.
 """
+import base64
 import io
 import json
 import math
@@ -85,6 +86,7 @@ markdown = (r'#### Check the relationship' + '\n\n' + r'Area is \(A=\pi r^2\).'
             + '<img src=x onerror="window.__xss=true"><script>window.__xss=true</script>')
 reply = '```json\n' + json.dumps({'response': {'content': [{'type': 'text', 'text': markdown}]}}) + '\n```'
 report = []
+tutor_failure = None
 with sync_playwright() as playwright:
     browser = playwright.chromium.launch(args=['--autoplay-policy=no-user-gesture-required',
                                               '--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'])
@@ -114,7 +116,9 @@ with sync_playwright() as playwright:
             if path.is_relative_to(ROOT / 'static') and path.is_file():
                 return handler.fulfill(body=path.read_bytes(), content_type=mimetypes.guess_type(path)[0] or 'application/octet-stream')
             return handler.fulfill(status=404)
-        if parsed.path == '/api/tutor' and request.method == 'POST':
+        if parsed.path in {'/api/tutor', '/api/tutor/vision'} and request.method == 'POST':
+            if tutor_failure:
+                return handler.fulfill(**tutor_failure)
             return handler.fulfill(json={'reply': reply})
         if parsed.path == '/api/tutor/voices':
             return handler.fulfill(json={'voices': [], 'speech_max_chars': 2000,
@@ -187,6 +191,57 @@ with sync_playwright() as playwright:
     assert len(speech_requests) == before + 1
     assert page.evaluate('__nativePlayed') == played and page.evaluate('__fallbackCalls') == 0
     report.append({'flow': 'real Flask policy denial produces neither server audio nor browser fallback', 'passed': True})
+
+    tutor_failure = {'status': 401, 'json': {'error': 'authentication_required'}}
+    history_before = page.evaluate('JSON.stringify(tutorHistory)')
+    audio_before = page.evaluate('[__nativePlayed, __fallbackCalls]')
+    png = base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aWQAAAABJRU5ErkJggg==')
+    for with_image in (False, True):
+        draft = 'Explain photosynthesis using my notes.'
+        page.locator('#tutorInput').fill(draft)
+        if with_image:
+            page.locator('#snapFileInput').set_input_files(
+                {'name': 'fixture.png', 'mimeType': 'image/png', 'buffer': png})
+            expect(page.locator('#tutorImgPreview')).to_be_visible()
+            assert page.evaluate('pendingImageMime') == 'image/png'
+        page.locator('#tutorSendBtn').click()
+        bubble = page.locator('.tutor-msg-group.bot .tutor-bubble').last
+        expect(bubble.get_by_role('link', name='Sign in', exact=True)).to_have_attribute(
+            'href', '/login?next=%2Fstudy-and-learn')
+        expect(bubble).not_to_contain_text('authentication_required')
+        expect(page.locator('#tutorInput')).to_have_value(draft)
+        expect(page.locator('#tutorSendBtn')).to_be_enabled()
+        assert page.evaluate('JSON.stringify(tutorHistory)') == history_before
+        if with_image:
+            assert page.evaluate('pendingImageMime') == 'image/png'
+            assert page.evaluate('pendingImageB64') == base64.b64encode(png).decode()
+            expect(page.locator('#tutorImgPreview')).to_be_visible()
+        report.append({'flow': 'sign-in recovery preserves draft without fake reply history',
+                       'with_image': with_image, 'passed': True})
+
+    page.evaluate('clearSnapImage()')
+    for failure in ({'status': 200, 'json': {}}, {'status': 200, 'json': None},
+                    {'status': 200, 'body': '<html>Sign in</html>', 'content_type': 'text/html'}):
+        tutor_failure = failure
+        page.locator('#tutorInput').fill('Explain this topic in a short paragraph.')
+        page.locator('#tutorSendBtn').click()
+        expect(page.locator('.tutor-msg-group.bot .tutor-bubble').last).to_contain_text(
+            'did not return an explanation')
+        expect(page.locator('#tutorInput')).to_have_value('Explain this topic in a short paragraph.')
+        expect(page.locator('#tutorSendBtn')).to_be_enabled()
+        assert page.evaluate('JSON.stringify(tutorHistory)') == history_before
+        report.append({'flow': 'malformed successful response preserves draft and history', 'passed': True})
+    assert page.evaluate('[__nativePlayed, __fallbackCalls]') == audio_before
+
+    quota_reply = 'The tutor is at its current quota. Please try again later.'
+    tutor_failure = {'status': 429, 'json': {'reply': quota_reply}}
+    page.evaluate('ttsEnabled = false')
+    page.locator('#tutorInput').fill('Explain this topic.')
+    page.locator('#tutorSendBtn').click()
+    expect(page.locator('.tutor-msg-group.bot .tutor-bubble').last).to_have_text(quota_reply)
+    expect(page.locator('#tutorInput')).to_have_value('')
+    assert page.evaluate('tutorHistory[tutorHistory.length - 1].content') == quota_reply
+    report.append({'flow': 'written quota response survives unsuccessful HTTP status', 'passed': True})
 
     for width in (1440, 390):
         page.set_viewport_size({'width': width, 'height': 900})

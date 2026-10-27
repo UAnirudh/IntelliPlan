@@ -1794,7 +1794,8 @@ function captureSnapPhoto() {
 }
 
 function applySnapImage(dataUrl, label) {
-  pendingImageMime = 'image/jpeg';
+  const imageType = String(dataUrl).match(/^data:(image\/[a-z0-9.+-]+);base64,/i);
+  pendingImageMime = imageType ? imageType[1].toLowerCase() : 'image/jpeg';
   pendingImageB64 = dataUrl.split(',')[1];
   document.getElementById('tutorImgThumb').src = dataUrl;
   document.getElementById('tutorImgName').textContent = label || 'Photo';
@@ -1807,7 +1808,6 @@ function handleSnapFile(fileInput) {
   const file = fileInput.files[0];
   if (!file) return;
   if (file.size > 8 * 1024 * 1024) { IP.alert('Image must be under 8 MB.'); return; }
-  pendingImageMime = file.type || 'image/jpeg';
   const reader = new FileReader();
   reader.onload = e => {
     applySnapImage(e.target.result, file.name);
@@ -2636,7 +2636,8 @@ async function sendTutorMessage() {
   const prefixStr = a11yPrefix.length ? `[${a11yPrefix.join(' ')}]\n` : '';
 
   addTutorMsg('user', text || '(image attached)');
-  tutorHistory.push({ role: 'user', content: `[Subject: ${currentSubject}]\n${prefixStr}${text || 'What is shown in this image?'}` });
+  const userMessage = { role: 'user', content: `[Subject: ${currentSubject}]\n${prefixStr}${text || 'What is shown in this image?'}` };
+  tutorHistory.push(userMessage);
   scrollBottom();
 
   setPlaniState('thinking');
@@ -2647,6 +2648,7 @@ async function sendTutorMessage() {
   let premiumMeta = null;
   let studySources = [];
   let clarifying = false;
+  let receivedReply = false;
   try {
     let endpoint = '/api/tutor';
     let body = {
@@ -2678,9 +2680,14 @@ async function sendTutorMessage() {
     // A 429/503 from the tutor carries a written explanation -- the AI is at
     // today's quota, or no backend is reachable. Throwing on !ok discarded it
     // and showed the generic snag line for every one of those cases.
-    const data = await res.json().catch(function () { return {}; });
-    if (!res.ok && !(data && data.reply)) throw new Error(data.error || `HTTP ${res.status}`);
-    reply = (window.IPRichText ? window.IPRichText.normalize(data.reply || '') : String(data.reply || '')).trim() || 'Sorry, I hit a snag. Try again.';
+    const data = (await res.json().catch(function () { return {}; })) || {};
+    if (res.status === 401) {
+      throw new Error('[Sign in](/login?next=%2Fstudy-and-learn) to continue with the tutor. Your account and school settings need to be checked.');
+    }
+    if (!res.ok && !(data && data.reply)) throw new Error(data.message || data.error || `HTTP ${res.status}`);
+    reply = (window.IPRichText ? window.IPRichText.normalize(data.reply || '') : String(data.reply || '')).trim();
+    if (!reply) throw new Error('The tutor did not return an explanation. Your question is ready to try again.');
+    receivedReply = true;
     refusal = data.refusal || null;
     premiumMeta = data.premium || null;
     studySources = Array.isArray(data.study_sources) ? data.study_sources : [];
@@ -2705,14 +2712,24 @@ async function sendTutorMessage() {
   } catch (err) {
     console.error('Tutor error:', err);
     reply = err.message || 'Connection issue, check your internet and try again.';
+    if (!receivedReply) {
+      if (tutorHistory[tutorHistory.length - 1] === userMessage) tutorHistory.pop();
+      if (!input.value.trim()) input.value = text;
+      if (hasImage && !pendingImageB64) {
+        applySnapImage(`data:${imageMime};base64,${imageB64}`, 'Attached photo');
+        pendingImageMime = imageMime;
+      }
+    }
   }
 
   document.getElementById('tutorThinking').classList.remove('visible');
   setPlaniState('responding');
   addTutorMsg('bot', reply, refusal, studySources);
   renderPremiumMeta(premiumMeta, clarifying);
-  tutorHistory.push({ role: 'assistant', content: reply });
-  speakReply(stripArtifacts(reply));
+  if (receivedReply) {
+    tutorHistory.push({ role: 'assistant', content: reply });
+    speakReply(stripArtifacts(reply));
+  }
   setTimeout(() => setPlaniState('idle'), 650);
 
   isProcessing = false;
