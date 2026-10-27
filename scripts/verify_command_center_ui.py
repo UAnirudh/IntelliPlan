@@ -45,6 +45,9 @@ try:
     with sync_playwright() as pw:
         browser = pw.chromium.launch(headless=True, executable_path=os.environ['PLAYWRIGHT_CHROMIUM_EXECUTABLE'])
         context = browser.new_context()
+        # Each viewport starts in the first-run state, independent of the
+        # previous viewport's dismissal or mocked opt-in.
+        context.add_init_script(f"localStorage.removeItem('ip_remind_prompt_dismissed_{uid}')")
         context.add_cookies([dict(name=cookie.key, value=cookie.value, domain='127.0.0.1', path='/')])
         page = context.new_page()
         page.on('pageerror', lambda error: errors.append(str(error)))
@@ -57,11 +60,8 @@ try:
                 page.wait_for_selector('.command-chat__prompts')
                 reminders = page.locator('#commandRemind')
                 reminders.wait_for(state='visible')
-                assert not reminders.evaluate('(element) => element.open')
-                reminders.locator('summary').click()
+                assert reminders.evaluate('(element) => element.open')
                 page.locator('#commandRemindOn').wait_for(state='visible')
-                reminders.locator('summary').click()
-                page.locator('#commandRemindOn').wait_for(state='hidden')
                 consent = page.get_by_role('button', name='Essential only', exact=True)
                 if consent.is_visible():
                     consent.click()
@@ -75,7 +75,6 @@ try:
                 # UI success state only: no provider call, notification permission
                 # prompt, or real preference write is made by this fixture.
                 page.evaluate("window.IPReminders.enable = () => Promise.resolve({saved:true,push:false,pushMessage:''})")
-                reminders.locator('summary').click()
                 page.locator('#commandRemindOn').click()
                 page.wait_for_function("document.querySelector('#commandRemind summary').textContent === 'Reminders are on'")
                 reminders.locator('summary').click()

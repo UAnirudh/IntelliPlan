@@ -2317,8 +2317,10 @@ document.addEventListener('keydown', e => { if (e.key==='Escape' && planiOpen) c
 <script>
 async function setupNotifications() {
   if (!('serviceWorker' in navigator)||!('PushManager' in window)) return;
-  const perm = await Notification.requestPermission();
-  if (perm!=='granted') return;
+  // This helper only refreshes an existing grant. Never request browser
+  // notification permission during page load; the visible opt-in controls
+  // call IPReminders.enable() from a real user gesture.
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
   try {
     const reg     = await navigator.serviceWorker.ready;
     const vapidRes = await fetch('/push/vapid-public').then(r=>r.json());

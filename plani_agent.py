@@ -254,11 +254,15 @@ CONNECT_LINKS = {
 }
 
 
-AGENT_SYSTEM_PROMPT = """You are Plani — IntelliPlan's agentic AI assistant. You sit at the center of the user's Command Center and act as their AI operating system for school.
+ACTION_START = "[[IP_ACTION]]"
+ACTION_END = "[[/IP_ACTION]]"
+
+
+AGENT_SYSTEM_PROMPT = """You are Plani — IntelliPlan's AI assistant. You sit at the center of the user's Command Center and help them manage school.
 
 PERSONALITY: Friendly, smart, concise. Talk like a sharp friend who's also their TA. Never corporate. 1-3 sentences unless the user wants depth.
 
-WHAT YOU CAN DO: You have tools to read AND write the user's data. When the user asks you to do something, USE THE TOOLS. Don't explain what you would do — actually do it.
+WHAT YOU CAN DO: You can request the actions listed below. When the user asks you to do something, request the relevant action instead of only describing it.
 
 WHAT YOU ALREADY KNOW: Account context is supplied only when AI
 personalization is enabled and school policy allows its data sources.
@@ -268,7 +272,7 @@ denial and never claim that a denied action succeeded. Do not invent
 courses, assignments, numbers, or access to unavailable account data.
 
 INTELLIGENT BEHAVIOR:
-- If the user says "mark X done", call complete_task with title="X".
+- If the user says "mark X done", request complete_task with title="X".
 - Changing study time does not change an assignment's deadline. For "I can't
   study tonight", use adjust_schedule with skip_day. For "only 30 minutes",
   use limit_day. For "I'm behind", use catch_up. Only change due_date when
@@ -278,37 +282,35 @@ INTELLIGENT BEHAVIOR:
 - adjust_schedule changes the saved study plan. It does not move existing
   external calendar events. Never claim those events were updated; if the
   user requested calendar changes, explain this boundary.
-- For "What should I focus on", use supplied context or an allowed
-  get_today_plan result. If account access is unavailable, ask the user
+- For "What should I focus on", use supplied context or request an allowed
+  get_today_plan action. If account access is unavailable, ask the user
   to describe their tasks and offer general planning help.
 - If they ask about assignments, grades or their calendar and nothing is
-  connected, call connect_account for the system they name (or "other")
+  connected, request connect_account for the system they name (or "other")
   so they get a button right here. Do not send them to Settings in words.
-- Outside courses (Khan Academy, Coursera, edX, any link): track_course when
+- Outside courses (Khan Academy, Coursera, edX, any link): request track_course when
   they give you a link, log_course_progress when they say they worked on
   one, list_tracked_courses to check pace. For "what should I take",
-  call recommend_courses and pass on its links unchanged. Time a student
+  request recommend_courses and pass on its links unchanged. Time a student
   reports is self-reported; never call it verified.
-- If they ask to go somewhere, call navigate_to. The client ASKS the user
+- If they ask to go somewhere, request navigate_to. The client ASKS the user
   before moving them, so propose freely — but say in your reply where you
   are offering to take them and why, because that is what they will be
   agreeing to. Never navigate as a way of avoiding an answer you could
   give here.
-- Chain multiple tools when needed: e.g. list_tasks → identify the target → complete_task.
+- Chain multiple actions when needed: e.g. list_tasks → identify the target → complete_task.
 
 SCHEDULING — VERY IMPORTANT:
 When the user asks you to schedule, plan, or organize their study time:
 1. First, create any new tasks they mentioned using create_task (one per assignment/item).
-2. Then call generate_schedule to build a full study plan from ALL pending tasks.
+2. Then request generate_schedule to build a full study plan from ALL pending tasks.
 3. After generating, save a summary note using save_note (course="General", title="Study Schedule — [date]") so it persists in their memories.
 4. Tell the user the schedule is saved and visible on both the Scheduler page and Dashboard.
 Always be proactive: if a user says "I have a math test Friday and an essay due Monday", create BOTH tasks first, THEN generate the schedule. Don't ask — just do it.
 
-TOOL CALLING FORMAT — emit a JSON block exactly like this (no extra text before the block):
-```tool_call
-{"name": "tool_name", "args": {"param": "value"}}
-```
-Multiple blocks allowed. After the tool results come back, give a brief natural-language reply.
+ACTION FORMAT — these markers are plain text in your answer; no separate action-call channel is provided. Emit one or more un-fenced blocks exactly like this:
+[[IP_ACTION]]{"action":"action_name","arguments":{"param":"value"}}[[/IP_ACTION]]
+Use only action names and arguments listed below. Do not wrap the marker in Markdown fences. After action results come back, give a brief natural-language reply.
 
 WHO MADE INTELLIPLAN:
 Anirudh Ulabala built IntelliPlan solo — design, backend, interface, AI and the
@@ -1087,21 +1089,47 @@ def _execute_tool(name: str, args: dict, user_id: int) -> dict[str, Any]:
 
 
 def _parse_tool_calls(text: str) -> list[dict]:
-    pattern = r"```tool_call\s*\n?(.*?)\n?```"
-    matches = re.findall(pattern, text, re.DOTALL)
-    calls = []
-    for m in matches:
+    """Parse allow-listed actions from Plani's text-only marker protocol.
+
+    Old fenced ``tool_call`` blocks remain accepted during rollout so a
+    conversation generated against the previous prompt can finish. Model
+    output stays untrusted: validate action names and argument shape here;
+    `_execute_tool` still applies per-user authorization before any effect.
+    """
+    if not isinstance(text, str) or not text:
+        return []
+    matches = list(re.finditer(
+        r"\[\[IP_ACTION\]\]\s*(.*?)\s*\[\[/IP_ACTION\]\]", text, re.DOTALL))
+    matches.extend(re.finditer(r"```tool_call\s*\n?(.*?)\n?```", text, re.DOTALL))
+    allowed = {item["name"] for item in AGENT_TOOLS}
+    calls, seen = [], set()
+    for match in sorted(matches, key=lambda item: item.start()):
         try:
-            parsed = json.loads(m.strip())
-            if isinstance(parsed, dict) and "name" in parsed:
-                calls.append(parsed)
-        except json.JSONDecodeError:
+            parsed = json.loads(match.group(1).strip())
+        except (json.JSONDecodeError, TypeError):
             continue
+        if not isinstance(parsed, dict):
+            continue
+        name = parsed.get("action", parsed.get("name"))
+        args = parsed.get("arguments", parsed.get("args", {}))
+        if not isinstance(name, str) or name not in allowed or not isinstance(args, dict):
+            continue
+        identity = (name, json.dumps(args, sort_keys=True, separators=(",", ":")))
+        if identity in seen:
+            continue
+        seen.add(identity)
+        calls.append({"name": name, "args": args})
     return calls
 
 
+def _strip_action_blocks(text: str) -> str:
+    """Remove action protocol blocks before assistant text reaches the UI."""
+    text = re.sub(r"\[\[IP_ACTION\]\].*?\[\[/IP_ACTION\]\]", "", text, flags=re.DOTALL)
+    return re.sub(r"```tool_call.*?```", "", text, flags=re.DOTALL).strip()
+
+
 def _tool_list_prompt() -> str:
-    lines = ["AVAILABLE TOOLS:"]
+    lines = ["AVAILABLE ACTIONS:"]
     for t in AGENT_TOOLS:
         params = t.get("parameters", {})
         if params:
@@ -1459,14 +1487,14 @@ def build_agent_context(user_id: int) -> str:
         # Truncate on a line boundary — a half-line of data reads as a
         # fact, and a fact cut in half is a wrong fact.
         body = body[:_CTX_MAX_CHARS].rsplit("\n", 1)[0] + \
-            "\n  …context truncated; use the read tools for anything not listed."
+            "\n  …context truncated; request a read action for anything not listed."
 
     return (
         "\n=== WHAT YOU ALREADY KNOW ABOUT THIS USER ===\n"
         "This is live data from their account, assembled just now. Treat it "
-        "as true and current — you do NOT need to call a tool to re-read "
+        "as true and current — you do NOT need to request an action to re-read "
         "anything already stated here. Use it to answer immediately and "
-        "specifically. Call the read tools only for detail this does not "
+        "specifically. Request read actions only for detail this does not "
         "cover, and never repeat this block back verbatim.\n"
         f"{body}\n"
         "=== END ===\n"
@@ -1536,10 +1564,6 @@ def plani_agent():
         return jsonify({"status": "error",
             "reply": "No messages provided."}), 400
 
-    if not ai_available():
-        return jsonify({"status": "error",
-            "reply": "AI is temporarily unavailable. Try again in a moment."}), 503
-
     # The agent loop can make MAX_TOOL_ROUNDS model calls for one message, so
     # it is the most expensive surface in the product per request and goes
     # through the same allowance as the tutor.
@@ -1556,6 +1580,11 @@ def plani_agent():
         if e.retry_after:
             payload["retry_after"] = e.retry_after
         return jsonify(payload), e.status
+
+    if not ai_available(plan=decision.plan):
+        logger.error("Plani has no permitted AI provider for plan=%s", decision.plan)
+        return jsonify({"status": "error", "error": "ai_provider_not_configured",
+            "reply": "Plani's AI is temporarily unavailable for your account. The team has been notified; please try again later."}), 503
 
     from chatbot_api import _moderation_response
     safety_response = _moderation_response(messages)
@@ -1640,7 +1669,7 @@ def plani_agent():
             return safety_response
         tool_calls = _parse_tool_calls(reply)
         if not tool_calls:
-            clean = re.sub(r"```tool_call.*?```", "", reply, flags=re.DOTALL).strip()
+            clean = _strip_action_blocks(reply)
             return jsonify({"status": "ok",
                 "reply": clean or "Done.",
                 "actions": actions,
@@ -1681,7 +1710,7 @@ def plani_agent():
             results_text.append(f"[{name}] → {json.dumps(result, default=str)}")
 
         llm_messages.append({"role": "user",
-            "content": "TOOL RESULTS:\n" + "\n".join(results_text) +
+            "content": "ACTION RESULTS:\n" + "\n".join(results_text) +
                        "\n\nNow give the user a brief natural-language reply."})
 
     # Fell through: too many tool rounds
@@ -1703,7 +1732,7 @@ def plani_agent():
             return jsonify(status='error', error='account_access_changed',
                            reply='Account access changed. Start a new request.',
                            actions=actions, tool_log=tool_log), 403
-        final = re.sub(r"```tool_call.*?```", "", final, flags=re.DOTALL).strip()
+        final = _strip_action_blocks(final)
     except AIBlocked as e:
         return jsonify(status='error', error=e.reason, reply=e.message,
                        actions=actions, tool_log=tool_log), e.status

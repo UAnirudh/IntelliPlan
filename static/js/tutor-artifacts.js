@@ -128,6 +128,36 @@
     });
     element('small', 'AI-generated practice; this result is not a scored mastery check.', wrap);
   }
+  function flashcards(config, wrap) {
+    if (!Array.isArray(config.cards) || config.cards.length < 1 || config.cards.length > 30 ||
+        config.cards.some(function (card) {
+          return !card || typeof card.question !== 'string' || !card.question.trim() ||
+            card.question.length > 1500 || typeof card.answer !== 'string' ||
+            !card.answer.trim() || card.answer.length > 2000;
+        })) throw new Error('Invalid flashcards');
+    var status = element('p', '', wrap);
+    status.setAttribute('role', 'status');
+    status.setAttribute('aria-live', 'polite');
+    config.cards.forEach(function (card, index) {
+      var section = element('article', undefined, wrap);
+      section.className = 'tutor-flashcard';
+      var count = element('small', 'Card ' + (index + 1) + ' of ' + config.cards.length, section);
+      count.className = 'tutor-flashcard-count';
+      element('h3', card.question.trim(), section);
+      var answer = element('p', card.answer.trim(), section);
+      answer.hidden = true;
+      var button = element('button', 'Show answer', section);
+      button.type = 'button';
+      button.setAttribute('aria-expanded', 'false');
+      button.addEventListener('click', function () {
+        answer.hidden = !answer.hidden;
+        button.textContent = answer.hidden ? 'Show answer' : 'Hide answer';
+        button.setAttribute('aria-expanded', String(!answer.hidden));
+        status.textContent = answer.hidden ? 'Answer hidden.' : 'Answer revealed.';
+      });
+    });
+    element('small', 'Generated from study material. Check the linked notes when accuracy matters.', wrap);
+  }
   function create(segment) {
     var wrap = element('section'); wrap.className = 'tutor-artifact';
     wrap.setAttribute('aria-label', label(segment.title, 'Interactive practice'));
@@ -143,6 +173,7 @@
       if (!config || typeof config !== 'object' || Array.isArray(config)) throw new Error('Invalid data');
       if (segment.type === 'svg-exercise') visual(config, body);
       else if (segment.type === 'quiz') quiz(config, body);
+      else if (segment.type === 'flashcards') flashcards(config, body);
       else throw new Error('Unsupported exercise');
     } catch (error) {
       // Old HTML/script artifacts and invalid generated data remain inspectable

@@ -39,6 +39,7 @@ import {
   T,
 } from "../../components/ui";
 import { Header, IconButton } from "../../components/Header";
+import { ReminderOptInPrompt } from "../../components/ReminderOptInPrompt";
 import { Ring } from "../../components/Ring";
 import { ForecastBars } from "../../components/Bars";
 import { TaskRow } from "../../components/TaskRow";
@@ -255,6 +256,7 @@ export default function TodayScreen() {
 
   return (
     <Screen>
+      <ReminderOptInPrompt userId={user?.id} />
       <Header
         title={firstName ? `${greeting}, ${firstName}` : greeting}
         subtitle={dateLabel}

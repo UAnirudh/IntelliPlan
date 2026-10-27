@@ -317,8 +317,24 @@ def groq_vision_key() -> str | None:
     return os.getenv("GROQ_VISUAL_API_KEY") or os.getenv("GROQ_API_KEY")
 
 
-def ai_available() -> bool:
-    return bool(gemini_available() or groq_api_key() or anthropic_api_key())
+def ai_available(plan: str | None = None, tier: Tier = "standard") -> bool:
+    """Report whether this request can use at least one permitted provider.
+
+    Without a plan, retain the legacy process-wide readiness check for callers
+    that only need to know whether any provider is configured. When a plan is
+    supplied, respect the same model/provider policy as ``chat``. In
+    particular, an Anthropic key by itself does not make AI available to a
+    free account because the platform Claude key is a paid-plan capability.
+    Student-linked keys are included through the normal request hook.
+    """
+    if plan is None:
+        return bool(gemini_available() or groq_api_key() or anthropic_api_key())
+    try:
+        if _linked_steps(tier):
+            return True
+    except Exception as exc:
+        logger.info("linked provider readiness check failed: %s", exc)
+    return bool(model_chain(tier, plan))
 
 
 def _gemini_client():

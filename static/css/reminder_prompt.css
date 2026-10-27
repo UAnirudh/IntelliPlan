@@ -1,0 +1,46 @@
+.command-remind {
+  display: block;
+  margin: 0 0 1rem;
+  padding: 12px 16px;
+  color: var(--text-primary);
+  border: 1px solid var(--border-accent, var(--border));
+  border-radius: 14px;
+  background: var(--accent-soft);
+}
+.command-remind[hidden] { display: none; }
+.command-remind summary {
+  min-height: 28px;
+  color: var(--text-primary);
+  font-size: .88rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.command-remind summary:focus-visible,
+.command-remind__actions button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+.command-remind:not([open]) > :not(summary) { display: none; }
+.command-remind p { margin: 10px 0 0; font-size: .88rem; line-height: 1.5; }
+.command-remind p[data-tone="warn"] span { color: var(--high); }
+.command-remind__actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+.command-remind__actions button {
+  min-height: 44px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  font: inherit;
+  font-size: .84rem;
+  font-weight: 650;
+  cursor: pointer;
+}
+.command-remind__on {
+  color: var(--on-accent, #fff);
+  border: 1px solid transparent;
+  background: var(--accent);
+}
+.command-remind__on:disabled { opacity: .6; cursor: progress; }
+.command-remind__dismiss { color: var(--text-secondary); border: 1px solid var(--border); background: transparent; }
+@media (max-width: 520px) {
+  .command-remind__actions { justify-content: stretch; }
+  .command-remind__actions button { flex: 1; }
+}

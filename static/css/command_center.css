@@ -214,6 +214,7 @@ body:has(.command-chat) .pet-xp-toast { display: none; }
 .command-remind{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px 16px;border:1px solid var(--border-accent);border-radius:14px;background:var(--accent-soft);margin:0 14px 10px;color:var(--text-primary)}
 .command-remind[hidden]{display:none}
 details.command-remind{display:block;background:transparent;border-color:var(--border);border-radius:8px}
+.command-remind[open]{background:var(--accent-soft);border-color:var(--border-accent);border-radius:14px;padding:12px 16px}
 .command-remind:not([open]) > :not(summary){display:none}
 .command-remind summary{font-size:.82rem;color:var(--text-secondary);cursor:pointer;min-height:24px}
 .command-remind summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px}

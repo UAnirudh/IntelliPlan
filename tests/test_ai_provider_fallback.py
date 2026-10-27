@@ -187,6 +187,16 @@ def test_no_backend_configured_raises_clearly(no_keys):
         ai_provider.chat(MSGS)
 
 
+def test_paid_only_anthropic_key_is_not_available_to_free_plan(monkeypatch, no_keys):
+    monkeypatch.setattr(ai_provider, "anthropic_api_key", lambda: "configured-platform-key")
+
+    # The legacy process-wide check was misleading here: Claude is configured,
+    # but the platform only offers that key to paid users.
+    assert ai_provider.ai_available() is True
+    assert ai_provider.ai_available(plan="free") is False
+    assert ai_provider.ai_available(plan="paid") is True
+
+
 def test_single_attempt_does_not_retry_gemini_configuration(gemini_only, monkeypatch):
     calls = []
     def rejected(**kwargs):
