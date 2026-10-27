@@ -30,7 +30,7 @@ body.has-side { background-image: none; }
 body.has-side .app-side { background: var(--bg-secondary); box-shadow: none; }
 body.has-side .app-side button.side-link {
   width: 100%; text-align: left; background: transparent;
-  border: 1px solid transparent; color: var(--text-secondary); font-family: var(--font-ui);
+  border: 0; color: var(--text-secondary); font-family: var(--font-ui);
 }
 body.has-side .app-side button.side-link:hover { background: var(--bg-elevated); color: var(--text-primary); }
 body.has-side :is(.side-link,.command-chat__btn) { min-height: 44px; }
