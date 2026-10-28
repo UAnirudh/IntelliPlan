@@ -88,6 +88,7 @@ with sync_playwright() as playwright:
         assert 'not active yet' in page.locator('#paiOpenAIRedirectStatus').inner_text()
         copy_button = page.get_by_role('button',name='Copy redirect URI',exact=True)
         assert copy_button.is_visible()
+        assert copy_button.bounding_box()['height'] >= 44
         copy_button.click()
         assert page.evaluate('navigator.clipboard.readText()') == 'https://intelliplan.tech/auth/openai/callback'
         assert 'Copied.' in page.locator('#paiOpenAIRedirectStatus').inner_text()
