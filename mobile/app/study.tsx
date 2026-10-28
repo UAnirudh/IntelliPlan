@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -7,7 +7,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -21,6 +21,7 @@ import {
   StudyQuestion,
   StudySet,
 } from "../lib/api";
+import { taskStudyMaterial } from "../lib/task-study-context.mjs";
 import { useTheme } from "../theme/ThemeProvider";
 import { radius, space } from "../theme/tokens";
 import {
@@ -66,13 +67,31 @@ const VERDICT_TONE: Record<string, "ok" | "warn" | "danger"> = {
   incorrect: "danger",
 };
 
+function firstParam(value: string | string[] | undefined): string {
+  const first = Array.isArray(value) ? value[0] : value;
+  return first?.trim() || "";
+}
+
 export default function StudyScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const params = useLocalSearchParams<{
+    taskTitle?: string | string[];
+    course?: string | string[];
+    notes?: string | string[];
+  }>();
+  const taskTitle = firstParam(params.taskTitle);
+  const course = firstParam(params.course);
+  const taskNotes = firstParam(params.notes);
+  const hasTaskContext = !!(taskTitle || course || taskNotes);
+  const initialMaterial = useMemo(
+    () => taskStudyMaterial({ taskTitle, course, notes: taskNotes }),
+    [taskTitle, course, taskNotes],
+  );
 
   const [source, setSource] = useState<Source>("paste");
-  const [text, setText] = useState("");
+  const [text, setText] = useState(initialMaterial);
   const [url, setUrl] = useState("");
   const [pdfName, setPdfName] = useState<string | null>(null);
   const [count, setCount] = useState(8);
@@ -83,6 +102,18 @@ export default function StudyScreen() {
 
   const cards = set?.key_concepts || [];
   const questions = useMemo(() => set?.questions || [], [set]);
+
+  useEffect(() => {
+    // Expo Router can reuse an existing Study screen when opened from another
+    // task. Replace only the task context so notes from the prior task never
+    // carry into the new one; a plain Study Tools entry still starts empty.
+    setText(initialMaterial);
+    setSource("paste");
+    setUrl("");
+    setPdfName(null);
+    setSet(null);
+    setError(null);
+  }, [initialMaterial]);
 
   /* ── Getting the material in ───────────────────────────────────── */
 
@@ -159,11 +190,11 @@ export default function StudyScreen() {
 
   const startOver = useCallback(() => {
     setSet(null);
-    setText("");
+    setText(initialMaterial);
     setUrl("");
     setPdfName(null);
     setError(null);
-  }, []);
+  }, [initialMaterial]);
 
   /* ── Rendering ─────────────────────────────────────────────────── */
 
@@ -228,6 +259,20 @@ export default function StudyScreen() {
         >
           {error ? <Notice text={error} icon="alert-circle-outline" /> : null}
 
+          {hasTaskContext ? (
+            <Card style={{ gap: space.xs, backgroundColor: colors.accentSoft, borderColor: colors.borderAccent }}>
+              <Label style={{ color: colors.accent }}>Starting from this task</Label>
+              {taskTitle ? <T variant="base" weight="700">{taskTitle}</T> : null}
+              {course ? <Chip label={course} icon="book-outline" /> : null}
+              <T variant="xs" tone="secondary">
+                The task handoff contains only its title, course, and attached notes. No school content is fetched.
+              </T>
+              <T variant="xs" tone="muted">
+                {taskNotes ? "Review or add to the notes below." : "No notes are attached. Add class notes below or choose a PDF or video."}
+              </T>
+            </Card>
+          ) : null}
+
           {!set ? (
             <>
               <Card style={{ gap: space.md }}>
@@ -236,7 +281,7 @@ export default function StudyScreen() {
 
                 {source === "paste" ? (
                   <View style={{ gap: space.sm }}>
-                    <Label>Your notes</Label>
+                    <Label>{hasTaskContext ? "Study material" : "Your notes"}</Label>
                     <TextInput
                       value={text}
                       onChangeText={setText}

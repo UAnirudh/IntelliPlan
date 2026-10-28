@@ -9,6 +9,7 @@ import { enqueue, isRetryable } from "../lib/queue";
 import { useTheme } from "../theme/ThemeProvider";
 import { priorityColour, radius, space } from "../theme/tokens";
 import { dueLabel, minutes, shortDate } from "../lib/format";
+import { taskStudyParams } from "../lib/task-study-context.mjs";
 import { Button, Card, Chip, Label, Notice, Screen, T } from "../components/ui";
 
 /**
@@ -262,6 +263,22 @@ export default function TaskScreen() {
               }
             />
           ) : null}
+
+          <Button
+            title={isTest ? "Study for this test" : "Study this task"}
+            kind="secondary"
+            icon="albums-outline"
+            accessibilityLabel={`Study ${task.title} using its title, course, and any attached notes`}
+            onPress={() =>
+              router.push({
+                pathname: "/study",
+                params: taskStudyParams(task),
+              })
+            }
+          />
+          <T variant="xs" tone="muted" style={{ textAlign: "center" }}>
+            Starts with this task's title, course, and any attached notes. Add more material for useful practice.
+          </T>
 
           <Button
             title={done ? "Put it back" : "Mark done"}
