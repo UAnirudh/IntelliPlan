@@ -921,6 +921,45 @@ def test_school_admin_can_manage_teacher_access_by_email_and_revoke_it(client, m
     assert audit[0]['changes'] == {'user_id': teacher_id, 'role': 'student'}
 
 
+def test_school_roster_pagination_is_bounded_ordered_and_counts_all_members(client, monkeypatch):
+    admin_id = user(client, monkeypatch)
+    oid = org(admin_id, role='admin')
+    with App.app.app_context():
+        admin_email = App.db.session.get(App.User, admin_id).email
+    with App.app.app_context():
+        M = policy.models()
+        for email, role in (
+            ('roster-z@example.test', 'teacher'),
+            ('roster-b@example.test', 'student'),
+            ('roster-a@example.test', 'student'),
+        ):
+            row = App.User(email=email, password_hash='x', birth_year=2000)
+            App.db.session.add(row)
+            App.db.session.flush()
+            App.db.session.add(M['Membership'](user_id=row.id, organization_id=oid, role=role))
+        App.db.session.commit()
+
+    first = client.get(f'/api/school-admin/organizations/{oid}/members?limit=2&offset=0')
+    second = client.get(f'/api/school-admin/organizations/{oid}/members?limit=2&offset=2')
+    assert first.status_code == second.status_code == 200
+    a, b = first.json, second.json
+    assert a['total'] == 4
+    assert a['role_counts'] == {'admin': 1, 'student': 2, 'teacher': 1}
+    assert a['offset'] == 0 and a['limit'] == 2 and a['has_more'] is True
+    assert b['offset'] == 2 and b['limit'] == 2 and b['has_more'] is False
+    ordered = a['members'] + b['members']
+    assert [(member['role'], member['email']) for member in ordered] == [
+        ('admin', admin_email),
+        ('student', 'roster-a@example.test'),
+        ('student', 'roster-b@example.test'),
+        ('teacher', 'roster-z@example.test'),
+    ]
+    assert len({member['user_id'] for member in ordered}) == 4
+
+    assert client.get(f'/api/school-admin/organizations/{oid}/members?limit=101').status_code == 400
+    assert client.get(f'/api/school-admin/organizations/{oid}/members?offset=-1').status_code == 400
+
+
 def test_school_admin_cannot_remove_admin_or_change_outside_school_members(client, monkeypatch):
     admin_id = user(client, monkeypatch)
     school_id = org(admin_id, role='admin')

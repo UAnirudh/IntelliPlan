@@ -181,16 +181,32 @@ def organization_members(oid):
     if not policy.administers(current_user, oid):
         abort(403)
     if request.method == 'GET':
-        rows = (M['Membership'].query
-                .join(User, User.id == M['Membership'].user_id)
-                .filter(M['Membership'].organization_id == oid)
-                .order_by(M['Membership'].role, User.email)
-                .limit(200).all())
+        try:
+            offset = int(request.args.get('offset', '0'))
+            limit = int(request.args.get('limit', '50'))
+        except (TypeError, ValueError):
+            raise ValueError('Member paging needs a numeric offset and limit.') from None
+        if offset < 0 or offset > 1_000_000:
+            raise ValueError('Member offset must be between 0 and 1000000.')
+        if limit < 1 or limit > 100:
+            raise ValueError('Member page size must be between 1 and 100.')
+
+        roster = (M['Membership'].query
+                  .join(User, User.id == M['Membership'].user_id)
+                  .filter(M['Membership'].organization_id == oid))
+        total = roster.count()
+        role_counts = dict(db.session.query(M['Membership'].role, db.func.count())
+            .join(User, User.id == M['Membership'].user_id)
+            .filter(M['Membership'].organization_id == oid)
+            .group_by(M['Membership'].role).all())
+        rows = (roster.order_by(M['Membership'].role, User.email, M['Membership'].id)
+                .offset(offset).limit(limit).all())
         users = {u.id: u for u in User.query.filter(
             User.id.in_({r.user_id for r in rows})).all()} if rows else {}
         return jsonify(can_manage_admin=is_owner(current_user), members=[dict(user_id=r.user_id, role=r.role,
             email=users[r.user_id].email, name=users[r.user_id].name or '') for r in rows
-            if r.user_id in users])
+            if r.user_id in users], total=total, role_counts=role_counts,
+            offset=offset, limit=limit, has_more=offset + len(rows) < total)
     if request.method == 'DELETE':
         data = body()
         uid = data.get('user_id')
