@@ -60,6 +60,7 @@ with sync_playwright() as playwright:
     context.add_init_script("localStorage.setItem('ip_tour_done','1'); if (!localStorage.getItem('ip_side_mode')) localStorage.setItem('ip_side_mode','expanded');")
     page = context.new_page()
     errors = []
+    mastery_timezones = []
     page.on('pageerror', lambda error: errors.append(str(error)))
 
     def route(handler):
@@ -67,6 +68,8 @@ with sync_playwright() as playwright:
         parsed = urlsplit(req.url)
         if parsed.hostname != 'workspace.test':
             return handler.abort()
+        if parsed.path in {'/study/mastery/update', '/study/mastery/due'}:
+            mastery_timezones.append((parsed.path, req.headers.get('x-timezone')))
         if parsed.path.startswith('/static/'):
             path = (ROOT / parsed.path.lstrip('/')).resolve()
             if path.is_relative_to(ROOT / 'static') and path.is_file():
@@ -74,6 +77,7 @@ with sync_playwright() as playwright:
             return handler.fulfill(status=404)
         response = active_client.open(parsed.path + ('?' + parsed.query if parsed.query else ''),
                                method=req.method, data=req.post_data,
+                               headers={'X-Timezone': req.headers.get('x-timezone', '')},
                                content_type=req.headers.get('content-type'), follow_redirects=True)
         headers = {key: value for key, value in response.headers.items()
                    if key.lower() not in {'set-cookie', 'content-length', 'content-encoding'}}
@@ -233,6 +237,9 @@ with sync_playwright() as playwright:
         reviews = App.StudyMastery.query.filter_by(user_id=uid).all()
         assert len(reviews) == 1 and reviews[0].times_seen == 1 and reviews[0].times_correct == 0
     report.append({'flow':'First real mastery review initializes and persists exactly one attempt', 'passed':True})
+    assert {path for path, _ in mastery_timezones} == {'/study/mastery/update', '/study/mastery/due'}
+    assert all(zone == 'America/Los_Angeles' for _, zone in mastery_timezones)
+    report.append({'flow':'Browser sends local IANA timezone on real mastery update and due requests', 'passed':True})
     # Exercise extreme mode without requiring OS fullscreen access in headless CI.
     page.evaluate('() => { G.mode = "extreme"; launchExtreme(); }')
     page.locator('#xAnsInput').fill('It lowers blood glucose.')

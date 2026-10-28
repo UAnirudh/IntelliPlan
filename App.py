@@ -18034,8 +18034,10 @@ def study_mastery_update():
         return flask.jsonify(status='error', message='Provide a valid verdict and a score from 0 to 100.'), 400
     if not question_key:
         return flask.jsonify({"status": "error"})
-    today = datetime.now().strftime("%Y-%m-%d")
     try:
+        from intelliplan.scheduler_clock import now_for
+        review_day = now_for(uid).date()
+        today = review_day.isoformat()
         q = StudyMastery.query.filter_by(user_id=uid, guest_session_id=gid, question_key=question_key).first()
         if not q:
             q = StudyMastery(user_id=uid, guest_session_id=gid, question_key=question_key, question_text=data.get("question_text", "")[:1000], answer_text=data.get("answer_text", "")[:1000], topic=data.get("topic", "")[:256])
@@ -18063,7 +18065,7 @@ def study_mastery_update():
             q.interval_days = 1
             q.easiness_factor = max(1.3, q.easiness_factor - 0.2)
             q.mastery_level = max(0, q.mastery_level - 1)
-        q.next_review = (datetime.now() + timedelta(days=q.interval_days)).strftime("%Y-%m-%d")
+        q.next_review = (review_day + timedelta(days=q.interval_days)).isoformat()
         db.session.commit()
         # Learning Graph: concept reviewed
         if uid:
@@ -18086,8 +18088,9 @@ def study_mastery_update():
 def study_mastery_due():
     uid = current_user.id if current_user.is_authenticated else None
     gid = None if uid else get_guest_session_id()
-    today = datetime.now().strftime("%Y-%m-%d")
     try:
+        from intelliplan.scheduler_clock import now_for
+        today = now_for(uid).date().isoformat()
         if uid:
             items = StudyMastery.query.filter(StudyMastery.user_id == uid, StudyMastery.next_review <= today, StudyMastery.mastery_level < 3).order_by(StudyMastery.next_review.asc()).limit(20).all()
         else:

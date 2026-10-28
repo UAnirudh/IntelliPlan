@@ -14,6 +14,7 @@ Two things were wrong with the way this endpoint read its request body:
 """
 
 import json
+from datetime import datetime, timedelta
 from uuid import uuid4
 
 import pytest
@@ -209,3 +210,38 @@ def test_first_review_is_persisted_with_initialized_counters(client, verdict, sc
 def test_malformed_review_is_a_json_validation_error(client, body):
     response = client.post('/study/mastery/update', json=body)
     assert response.status_code == 400 and response.json['status'] == 'error'
+
+
+@pytest.mark.parametrize('identity', ['client', 'guest'])
+@pytest.mark.parametrize(('instant', 'zone', 'local_day'), [
+    ('2026-10-28T00:30:00', 'America/Los_Angeles', '2026-10-27'),
+    ('2026-10-28T23:30:00', 'Asia/Tokyo', '2026-10-29'),
+    ('2026-11-01T08:30:00', 'America/Los_Angeles', '2026-11-01'),
+    ('2026-11-01T09:30:00', 'America/Los_Angeles', '2026-11-01'),
+])
+def test_mastery_dates_and_due_boundary_use_student_clock(
+        request, monkeypatch, identity, instant, zone, local_day):
+    from intelliplan import scheduler_clock
+
+    browser = request.getfixturevalue(identity)
+    tick = datetime.fromisoformat(instant)
+    monkeypatch.setattr(scheduler_clock, 'utcnow', lambda: tick)
+    key = f'local-review-{uuid4().hex}'
+    headers = {'X-Timezone': zone}
+    tomorrow = (datetime.fromisoformat(local_day) + timedelta(days=1)).date().isoformat()
+    try:
+        response = browser.post('/study/mastery/update', headers=headers, json={
+            'question_key': key, 'verdict': 'correct', 'score': 100})
+        assert response.json['status'] == 'ok'
+        assert response.json['next_review'] == tomorrow
+        with App.app.app_context():
+            assert App.StudyMastery.query.filter_by(question_key=key).one().last_seen == local_day
+        due = browser.get('/study/mastery/due', headers=headers).json
+        assert key not in {item['question_key'] for item in due}
+        tick += timedelta(days=1)
+        due = browser.get('/study/mastery/due', headers=headers).json
+        assert key in {item['question_key'] for item in due}
+    finally:
+        with App.app.app_context():
+            App.StudyMastery.query.filter_by(question_key=key).delete()
+            App.db.session.commit()
