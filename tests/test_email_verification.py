@@ -1,10 +1,11 @@
 """Password-account email verification and school-domain enrollment tests."""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 import re
 from uuid import uuid4
 
 import App
+import growth_glue
 from intelliplan.email_verification import consume_verification, send_verification
 from intelliplan.learning import policy
 from time_utils import utcnow
@@ -38,6 +39,14 @@ def _token_from_message(call):
     return re.search(r"/verify-email\?token=([^\s]+)", text_body).group(1)
 
 
+def _configure_trial(monkeypatch):
+    monkeypatch.setenv("BILLING_ENABLED", "1")
+    monkeypatch.setenv("STRIPE_SECRET_KEY", "fixture-only-no-network")
+    monkeypatch.setenv("BILLING_TRIAL_DAYS", "14")
+    monkeypatch.setenv("STRIPE_PRICE_ID", "price_pro_test")
+    monkeypatch.setattr(growth_glue, "_stripe", lambda interval, tier: (object(), "price_pro_test"))
+
+
 def test_verified_token_is_hash_only_single_use_and_enrolls_matching_school(monkeypatch):
     previous = App.limiter.enabled
     App.limiter.enabled = False
@@ -64,6 +73,47 @@ def test_verified_token_is_hash_only_single_use_and_enrolls_matching_school(monk
                     user_id=user_id, organization_id=school.id, role="student").first()
                 assert membership is not None
                 assert consume_verification(raw, now=datetime(2026, 10, 20, 0, 2)) is False
+    finally:
+        App.limiter.enabled = previous
+
+
+def test_trial_waits_for_email_proof_and_verified_school_enrollment(monkeypatch):
+    previous = App.limiter.enabled
+    App.limiter.enabled = False
+    sent = []
+    monkeypatch.setattr(App, "_send_email", lambda *a, **kw: sent.append((a, kw)) or "mail-id")
+    _configure_trial(monkeypatch)
+    try:
+        now = datetime(2026, 10, 27, 12)
+        with App.app.app_context():
+            App.db.create_all()
+            domain = f"partner-{uuid4().hex}.edu"
+            school = _school_domain(domain)
+            partner = _user(f"student@{domain}")
+            individual = _user(f"individual-{uuid4().hex}@example.test")
+            partner_id, individual_id = partner.id, individual.id
+            assert send_verification(partner, now=now)[0]
+            partner_token = _token_from_message(sent[-1])
+            assert send_verification(individual, now=now)[0]
+            individual_token = _token_from_message(sent[-1])
+
+            # Signup cannot spend a trial before proof reveals whether the
+            # canonical email belongs to an owner-verified school domain.
+            assert growth_glue.grant_signup_trial(partner, now) is False
+            assert partner.trial_started_at is None
+            assert consume_verification(partner_token, now=now + timedelta(minutes=1)) is True
+            partner = App.db.session.get(App.User, partner_id)
+            assert policy.models()["Membership"].query.filter_by(
+                user_id=partner_id, organization_id=school.id, role="student").one()
+            assert partner.trial_started_at is None
+
+            # An individually verified account still receives its configured
+            # one-time trial as part of the same verification transaction.
+            assert consume_verification(individual_token, now=now + timedelta(minutes=1)) is True
+            individual = App.db.session.get(App.User, individual_id)
+            verified_at = now + timedelta(minutes=1)
+            assert individual.trial_started_at == verified_at
+            assert individual.paid_until == verified_at + timedelta(days=14)
     finally:
         App.limiter.enabled = previous
 

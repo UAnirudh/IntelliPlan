@@ -138,7 +138,20 @@ def school_plan_details_for_organization(organization, organizations_by_id, plan
 
 
 def is_partnered_user(user) -> bool:
-    """A verified-domain member or explicitly-plan-assigned school member."""
+    """A verified-domain member or explicitly-plan-assigned school member.
+
+    The email-domain check is independent of membership insertion so a
+    transient enrollment failure cannot accidentally make a partner-school
+    account eligible for an individual trial.
+    """
+    if getattr(user, "email_verified", False) is True:
+        address = str(getattr(user, "email", "") or "").strip().lower()
+        if "@" in address:
+            domain = address.rsplit("@", 1)[1]
+            M = _models()
+            if M["SchoolDomain"].query.filter_by(domain=domain).filter(
+                    M["SchoolDomain"].verified_at.isnot(None)).first() is not None:
+                return True
     ids = _membership_organization_ids(user)
     if not ids:
         return False

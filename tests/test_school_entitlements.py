@@ -180,11 +180,11 @@ def test_trial_requires_config_is_one_time_and_skips_partner_members(monkeypatch
         M = policy.models()
         school = _org()
         App.db.session.add(M['SchoolPlan'](organization_id=school.id, plan_tier='pro', updated_by_id=1))
-        partner = _user()
+        partner = _user(verified=True)
         App.db.session.add(M['Membership'](user_id=partner.id, organization_id=school.id, role='student'))
-        individual = _user()
+        individual = _user(verified=True)
         App.db.session.commit()
-        partner_id, individual_id = partner.id, individual.id
+        partner_id, individual_id, school_id = partner.id, individual.id, school.id
     monkeypatch.setenv('BILLING_ENABLED', '1')
     monkeypatch.setenv('STRIPE_SECRET_KEY', 'fixture-only-no-network')
     monkeypatch.setenv('BILLING_TRIAL_DAYS', '14')
@@ -195,6 +195,16 @@ def test_trial_requires_config_is_one_time_and_skips_partner_members(monkeypatch
         individual = App.db.session.get(App.User, individual_id)
         assert growth_glue.grant_signup_trial(partner, now) is False
         assert partner.trial_started_at is None
+        # Domain proof still excludes a verified school account if the
+        # membership insert is temporarily missing or failed.
+        domain_only = _user(f"verified-only@{uuid4().hex}.test", verified=True)
+        domain = M['SchoolDomain'](organization_id=school_id,
+            domain=domain_only.email.rsplit('@', 1)[1], verification_hash='x',
+            verified_at=now, created_by_id=partner_id)
+        App.db.session.add(domain)
+        App.db.session.flush()
+        assert growth_glue.grant_signup_trial(domain_only, now) is False
+        assert domain_only.trial_started_at is None
         assert growth_glue.grant_signup_trial(individual, now) is True
         App.db.session.commit()
         assert individual.trial_started_at == now
