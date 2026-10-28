@@ -29,10 +29,11 @@ with Play Console access, a physical device, or a design tool.
   only, so the video and audio permissions would have been unused
   permissions on the listing — which is both a review risk and a Data Safety
   mismatch.
-- **done** — Feature graphic at `mobile/assets/play-feature-graphic.png`
-  (1024×500), regenerable with `python3 scripts/gen-feature-graphic.py`. It
-  is a clean brand placeholder, not a designed asset; replace it when there
-  is one.
+- **done** — Designed feature graphic at `mobile/assets/play-feature-graphic.png`
+  (1024×500), regenerable from `mobile/` with
+  `python scripts/gen-feature-graphic.py`. It uses the flat light/blue visual
+  system and an illustrative Today timeline; it avoids gradient fills and
+  keeps essential copy away from the store badge/crop edges.
 - **done** — `npm run typecheck` passes; `npx expo-doctor` passes all 21
   checks after aligning the Expo SDK 57 package patch versions.
 - **done** — Release config: `eas.json` production profile builds an
@@ -69,7 +70,8 @@ an incompatible Expo downgrade.
 ## Store listing — you
 
 - [ ] App name, short and full descriptions — drafts in `STORE-LISTING.md`.
-- [ ] Icon (have) and feature graphic (have, placeholder).
+- [ ] Icon and feature graphic (design complete; verify the final upload in
+      Play Console's listing preview).
 - [ ] **Phone screenshots — at least 2, and the real blocker here.** Nothing
       in this repo can produce them; they need the release build running on
       a device or emulator. Suggested set: Today, Plan, Plani, Grades.
