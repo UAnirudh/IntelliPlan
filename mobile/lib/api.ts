@@ -128,7 +128,14 @@ export async function apiUpload<T>(path: string, form: FormData): Promise<T> {
 
 /* ── Auth ─────────────────────────────────────────────────────────── */
 
-export type Me = { id: number; email: string; name?: string | null };
+export type AgeConsentStatus = "age_required" | "parent_consent_pending" | "ready";
+export type Me = {
+  id: number;
+  email: string;
+  name?: string | null;
+  age_consent_status?: AgeConsentStatus;
+  email_verified?: boolean;
+};
 
 export async function login(email: string, password: string): Promise<Me> {
   const data = await apiFetch<{ token: string; user: Me }>("/api/v1/auth/token", {
@@ -136,7 +143,7 @@ export async function login(email: string, password: string): Promise<Me> {
     body: JSON.stringify({ email, password }),
   });
   await setToken(data.token);
-  return data.user;
+  return getMe();
 }
 
 /**
@@ -153,11 +160,32 @@ export async function register(email: string, password: string, name?: string): 
     body: JSON.stringify({ email, password, name }),
   });
   await setToken(data.token);
-  return data.user;
+  return getMe();
 }
 
 export async function getMe(): Promise<Me> {
   return apiFetch<Me>("/api/v1/me");
+}
+
+export type AgeSetupResult = {
+  age_consent_status: AgeConsentStatus;
+  email_verified: boolean;
+  consent_email_sent?: boolean;
+  message: string;
+};
+
+export async function submitAge(birthYear: number, parentEmail?: string): Promise<AgeSetupResult> {
+  return apiFetch<AgeSetupResult>("/api/v1/age", {
+    method: "POST",
+    body: JSON.stringify({ birth_year: birthYear, parent_email: parentEmail }),
+  });
+}
+
+export async function resendParentConsent(): Promise<AgeSetupResult> {
+  return apiFetch<AgeSetupResult>("/api/v1/age/parent-consent/resend", {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
 }
 
 export async function logout(): Promise<void> {

@@ -21,6 +21,7 @@ type AuthState = {
   booting: boolean;
   signIn: (email: string, password: string) => Promise<Me>;
   signUp: (email: string, password: string, name?: string) => Promise<Me>;
+  refreshUser: () => Promise<Me>;
   signOut: () => Promise<void>;
 };
 
@@ -51,6 +52,7 @@ const Ctx = createContext<AuthState>({
   booting: true,
   signIn: async () => ({ id: -1, email: "" }),
   signUp: async () => ({ id: -1, email: "" }),
+  refreshUser: async () => ({ id: -1, email: "" }),
   signOut: async () => {},
 });
 
@@ -75,6 +77,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // assignments instead.
     await clearQueue().catch(() => {});
     setUser(null);
+  }, []);
+
+  const refreshUser = useCallback(async () => {
+    const me = await getMe();
+    setUser(me);
+    await cacheUser(me);
+    return me;
   }, []);
 
   useEffect(() => {
@@ -133,8 +142,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const value = useMemo<AuthState>(
-    () => ({ user, booting, signIn, signUp, signOut }),
-    [user, booting, signIn, signUp, signOut],
+    () => ({ user, booting, signIn, signUp, refreshUser, signOut }),
+    [user, booting, signIn, signUp, refreshUser, signOut],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

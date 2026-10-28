@@ -18,6 +18,14 @@ export default function Index() {
       router.replace("/login");
       return;
     }
+    if (!user.age_consent_status || user.age_consent_status === "age_required") {
+      router.replace("/age-setup");
+      return;
+    }
+    if (user.age_consent_status === "parent_consent_pending") {
+      router.replace("/parent-consent-pending");
+      return;
+    }
     // Onboarding is per-account, so a shared phone gives the second
     // student the tour rather than dropping them into someone else's
     // finished setup.

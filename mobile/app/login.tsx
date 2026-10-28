@@ -57,8 +57,9 @@ export default function LoginScreen() {
         // onboarded flag stays unset until they finish or skip, so
         // force-quitting mid-setup resumes there rather than dropping
         // them into an app they have not configured.
-        await signUp(email, password, name);
-        router.replace("/onboarding");
+        const me = await signUp(email, password, name);
+        router.replace(me.age_consent_status === "age_required" ? "/age-setup" :
+          me.age_consent_status === "parent_consent_pending" ? "/parent-consent-pending" : "/onboarding");
       } else {
         // Signing in means the account already exists, so the tour has
         // nothing to tell them — they are only here on this device for
@@ -67,7 +68,8 @@ export default function LoginScreen() {
         // for months.
         const me = await signIn(email, password);
         if (me?.id !== undefined) await markOnboarded(me.id);
-        router.replace("/(tabs)/today");
+        router.replace(me.age_consent_status === "age_required" ? "/age-setup" :
+          me.age_consent_status === "parent_consent_pending" ? "/parent-consent-pending" : "/(tabs)/today");
       }
     } catch (e: any) {
       setError(e?.message || "That didn't work. Try again.");
