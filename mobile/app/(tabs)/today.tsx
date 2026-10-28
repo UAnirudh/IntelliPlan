@@ -467,6 +467,33 @@ export default function TodayScreen() {
           />
         )}
 
+        <Pressable
+          onPress={() => router.push("/study")}
+          accessibilityRole="button"
+          accessibilityLabel="Open study tools to make flashcards or a quiz"
+          style={({ pressed }) => ({ opacity: pressed ? 0.78 : 1 })}
+        >
+          <Card style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
+            <View
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: radius.md,
+                backgroundColor: colors.accentSoft,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Ionicons name="albums-outline" size={22} color={colors.accent} />
+            </View>
+            <View style={{ flex: 1, gap: 2 }}>
+              <T variant="base" weight="700">Study tools</T>
+              <T variant="xs" tone="muted">Make flashcards or a quiz from your notes</T>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+          </Card>
+        </Pressable>
+
         <View style={{ gap: space.sm }}>
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
             <T variant="lg" weight="700">Your day</T>
