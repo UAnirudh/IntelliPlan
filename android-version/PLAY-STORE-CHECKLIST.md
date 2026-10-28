@@ -62,10 +62,12 @@ with Play Console access, a physical device, or a design tool.
 
 Current local state: `mobile/extra.eas.projectId` is not linked and EAS CLI
 is not authenticated in this checkout. The production build has not been
-created. `npm audit` currently reports five high findings in Expo CLI/build
-dependencies (`node-forge` and `zod`); inspect the current advisory and
-remediation before release. Do not use `npm audit fix --force`, which proposes
-an incompatible Expo downgrade.
+created. A fresh `npm audit` in `mobile/` on 2026-10-27 reported 7 low, 0
+moderate, 0 high, and 0 critical findings, all in the Expo CLI/build tool
+dependency tree. The suggested forced fix would downgrade the app from Expo
+SDK 57 to SDK 51. Do not use `npm audit fix --force`; re-run the audit before
+release and use only a compatible Expo-supported patch or documented
+mitigation.
 
 ## Store listing — you
 
