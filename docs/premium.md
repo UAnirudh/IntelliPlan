@@ -98,21 +98,35 @@ The Stripe webhook must send `checkout.session.completed` and `invoice.paid`. Ch
 The implemented linked-account route accepts **developer API keys**, billed separately
 by the provider. It does not spend a ChatGPT subscription.
 
-As checked on October 22, 2026, OpenAI supports optional eligible ChatGPT plan usage
-through Sign in with ChatGPT. The public open-source flow covers open-source and
-locally hosted apps. A paid or remotely hosted app such as hosted IntelliPlan needs
-OpenAI's approval; it cannot reuse another application's OAuth client registration.
-The AI settings page distinguishes these connections and does not offer a connection
-that has not been configured and approved.
+As checked on October 27, 2026, OpenAI separates Sign in with ChatGPT for websites
+from ChatGPT plan usage in open-source/local apps. The website flow is currently
+available to selected commercial partners through a limited trial. ChatGPT plan
+usage in an open-source app uses a separate user-authorized client-registration
+flow; its loopback callback is not a hosted SaaS callback. Hosted IntelliPlan needs
+OpenAI's approval and its own registered client. It cannot reuse another
+application's OAuth client registration.
 
-The application can use this proposed hosted redirect URI:
-`https://intelliplan.tech/auth/openai/callback`. It is not a live callback today;
-register it only after the hosted OAuth callback has been implemented and OpenAI
-has approved the integration. The final URI must exactly match the callback configured
-in IntelliPlan and the OpenAI client registration.
+| Hosted website value | Current IntelliPlan state |
+|---|---|
+| Proposed redirect URI: `https://intelliplan.tech/auth/openai/callback` | Displayed on `/settings/ai` for application planning only; no callback route is implemented. |
+| Sign-in start route: `GET /auth/openai` | Not implemented. |
+| Callback route: `GET /auth/openai/callback` | Not implemented. |
+| OAuth client ID, registered redirect URI, and client authentication method | Must come from OpenAI after the hosted application is accepted. |
 
-- [Plan usage availability](https://developers.openai.com/siwc/token-sharing-open-source)
-- [Hosted website integration](https://developers.openai.com/siwc/website)
+Do not register or present the proposed URI as a working integration. Once OpenAI
+approves the hosted application and issues its client configuration, implement the
+start and callback routes, then register the exact deployed callback URL. The
+requested `redirect_uri` and the registered URL must match byte-for-byte. OpenAI's
+local/open-source plan-use guide shows a loopback callback such as
+`http://127.0.0.1:1455/auth/callback`; that URL belongs to a locally hosted client
+and must not be substituted for IntelliPlan's hosted callback.
+
+The AI settings page distinguishes developer API keys (which bill separately)
+from eligible ChatGPT plan usage and does not offer a connection that has not been
+configured and approved.
+
+- [Open-source/local plan usage and its client flow](https://developers.openai.com/siwc/token-sharing-open-source)
+- [Hosted website integration and limited partner availability](https://developers.openai.com/siwc/website)
 - [Request hosted integration access](https://openai.com/form/sign-in-with-chatgpt-interest/)
 
 After approval, add a separate subscription adapter rather than treating OAuth tokens
