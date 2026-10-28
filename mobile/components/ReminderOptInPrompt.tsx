@@ -80,7 +80,7 @@ export function ReminderOptInPrompt({ userId }: { userId?: number | string }) {
       try {
         await syncReminders(await getTasks(), operation);
       } catch {
-        // Tasks are refreshed on the Due screen and reminders sync then.
+        // The app shell refreshes tasks at startup and when the app returns.
       }
       setVisible(false);
     } catch {
@@ -116,11 +116,11 @@ export function ReminderOptInPrompt({ userId }: { userId?: number | string }) {
           <View style={[styles.detail, { backgroundColor: colors.bgElevated }]}>
             <Ionicons name="lock-closed-outline" size={16} color={colors.textMuted} />
             <T variant="xs" tone="muted" style={styles.detailText}>
-              Only tasks you've synced to this phone are scheduled. Change or turn off reminders anytime in Settings.
+              This schedule uses tasks last synced to this phone. Changes made elsewhere refresh when you reopen IntelliPlan; turn on Server nudges for push updates while it stays closed.
             </T>
           </View>
           <T variant="xs" tone="muted" style={styles.serverNote}>
-            Server nudges are separate and need this app's remote-push setup. Check Settings if you want to use them.
+            Server nudges are separate and need a linked EAS project, platform push credentials, and a real device. Check Settings to enable them.
           </T>
           {error ? <T variant="xs" tone="warn" accessibilityRole="alert">{error}</T> : null}
           <Button

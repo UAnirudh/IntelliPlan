@@ -9,6 +9,8 @@ import { AuthProvider } from "../lib/auth";
 import { useAuth } from "../lib/auth";
 import { ConfirmProvider } from "../components/Confirm";
 import { flushQueue } from "../lib/queue";
+import { getTasks } from "../lib/api";
+import { areRemindersEnabled, getReminderOperation, isReminderOperationCurrent, syncReminders } from "../lib/reminders";
 import { AppErrorBoundary } from "../components/ErrorBoundary";
 import { ThemeProvider, useTheme } from "../theme/ThemeProvider";
 
@@ -100,6 +102,56 @@ function Shell() {
     flushQueue().catch(() => {});
     return () => sub.remove();
   }, []);
+
+  // Keep local reminders current from the app shell, even when someone uses
+  // Today, Tutor, or another tab without opening Due. Local notifications
+  // survive a closed app, so refresh the server's task list at startup and
+  // whenever the app returns to the foreground, then rebuild the OS schedule.
+  // The operation token prevents a slow response from an older session or
+  // reminder setting from overwriting the current account's schedule.
+  React.useEffect(() => {
+    if (booting || !user) return;
+
+    let active = true;
+    let syncing = false;
+    let refreshRequested = false;
+    const refreshReminders = async () => {
+      if (!active) return;
+      if (syncing) {
+        refreshRequested = true;
+        return;
+      }
+      const operation = getReminderOperation();
+      if (operation < 0 || !isReminderOperationCurrent(operation)) return;
+      syncing = true;
+      try {
+        if (!(await areRemindersEnabled()) || !isReminderOperationCurrent(operation)) return;
+        const tasks = await getTasks();
+        if (active && isReminderOperationCurrent(operation)) {
+          await syncReminders(tasks, operation);
+        }
+      } catch {
+        // A transient network failure must not block app navigation. The
+        // last successful on-device schedule remains available offline.
+      } finally {
+        syncing = false;
+        if (active && refreshRequested) {
+          refreshRequested = false;
+          void refreshReminders();
+        }
+      }
+    };
+
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") void refreshReminders();
+    });
+    void refreshReminders();
+
+    return () => {
+      active = false;
+      subscription.remove();
+    };
+  }, [booting, user?.id]);
 
   return (
     // The stack animates between screens over whatever is behind it; without

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AppState, Modal, Pressable, RefreshControl, ScrollView, SectionList, StyleSheet, View } from "react-native";
+import { Modal, Pressable, RefreshControl, ScrollView, SectionList, StyleSheet, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
@@ -67,25 +67,11 @@ export default function TasksScreen() {
     }, []),
   );
 
-  // Refresh task deadlines when the app returns from the background. This
-  // keeps local scheduled reminders in sync after a student changes work on
-  // another device while IntelliPlan was closed.
-  useEffect(() => {
-    const subscription = AppState.addEventListener("change", (state) => {
-      if (state === "active") q.refresh().catch(() => {});
-    });
-    return () => subscription.remove();
-    // useQuery's refresh callback delegates through a stable run function.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const tasks = useMemo(() => q.data || [], [q.data]);
 
-  // The reminder schedule is rebuilt whenever this list changes. This screen
-  // is the only place holding the full task list, so it is the only place
-  // that can keep on-device reminders honest — a deadline that moved, or
-  // work that got ticked off, is reflected the next time the list loads
-  // rather than firing a reminder for something already finished.
+  // Rebuild after edits made in this screen. The app shell also refreshes the
+  // schedule on startup and foreground, including when the student never
+  // opens Due, so changes from the web are reflected without visiting here.
   useEffect(() => {
     if (!q.data) return;
     // An empty, successfully loaded task list is meaningful too: it must
