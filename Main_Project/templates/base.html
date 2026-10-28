@@ -2822,7 +2822,7 @@ window.addEventListener('load',()=>{
     position: relative;
   }
   .nav-streak-badge {
-    background: linear-gradient(135deg, #fff7ed 0%, #fed7aa 100%);
+    background: var(--medium-bg);
     color: var(--medium);
     border: 1.5px solid var(--medium);
     box-shadow: 0 1px 3px rgba(28,25,20,0.10);
@@ -2879,25 +2879,27 @@ window.addEventListener('load',()=>{
   .side-streak-badge,
   .side-pet-badge {
     margin-left: auto;
-    background: linear-gradient(135deg, #fb923c, #f97316);
-    color: #fff;
     font-family: var(--font-ui, sans-serif);
     font-weight: 700;
     font-size: 0.72rem;
     padding: 2px 8px;
     border-radius: 999px;
     line-height: 1.3;
-    box-shadow: 0 1px 3px rgba(28,25,20,0.16);
+    box-shadow: none;
+  }
+  .side-streak-badge {
+    background: var(--medium-bg);
+    color: var(--medium);
   }
   .side-pet-badge {
-    background: linear-gradient(135deg, var(--accent-hover), var(--accent));
-    box-shadow: 0 1px 3px rgba(28,25,20,0.16);
+    background: var(--accent-soft);
+    color: var(--accent);
   }
   /* Dark theme adjustments */
   [data-theme="dark"] .nav-streak-badge {
-    background: linear-gradient(135deg, rgba(251, 146, 60, 0.18), rgba(249, 115, 22, 0.22));
-    color: #fed7aa;
-    border-color: rgba(251, 146, 60, 0.55);
+    background: var(--medium-bg);
+    color: var(--medium);
+    border-color: color-mix(in srgb, var(--medium) 55%, var(--border));
   }
   [data-theme="dark"] .nav-pet-badge {
     background: rgba(var(--accent-shadow), 0.16);
@@ -2931,8 +2933,8 @@ window.addEventListener('load',()=>{
     bottom: 24px;
     left: 50%;
     transform: translateX(-50%) translateY(20px);
-    background: linear-gradient(135deg, var(--accent-hover), var(--accent));
-    color: #fff;
+    background: var(--ink);
+    color: var(--on-ink);
     padding: 10px 20px;
     border-radius: 999px;
     font-family: var(--font-ui, sans-serif);
@@ -2951,7 +2953,7 @@ window.addEventListener('load',()=>{
   .pet-evolve-flash {
     position: fixed;
     inset: 0;
-    background: radial-gradient(circle at 50% 50%, rgba(var(--accent-shadow), 0.55), transparent 62%);
+    background: rgba(var(--accent-shadow), 0.12);
     z-index: 9998;
     pointer-events: none;
     opacity: 0;

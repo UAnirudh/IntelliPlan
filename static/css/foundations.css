@@ -38,7 +38,7 @@
 .primer-chapter-marker { position:relative; display:flex; align-items:center; justify-content:center; min-height:32px; border-radius:999px; border:1px solid var(--border); color:var(--text-muted); background:var(--bg); font-size:.68rem; font-weight:700; white-space:nowrap; }
 .primer-chapter-marker[data-state="done"] { border-color:var(--accent); color:var(--accent); background:var(--accent-soft); }
 .primer-chapter-marker[data-state="current"] { border-color:var(--accent); background:var(--accent); color:var(--bg-card); }
-.primer-scene { position:relative; overflow:hidden; border:1px solid var(--border); border-radius:16px; padding:clamp(23px,3vw,35px); margin-bottom:25px; background:radial-gradient(circle at 92% 10%,var(--accent-soft) 0,var(--accent-soft) 12%,transparent 12.3%),linear-gradient(135deg,var(--bg-elevated),var(--bg-card)); }
+.primer-scene { position:relative; overflow:hidden; border:1px solid var(--border); border-radius:16px; padding:clamp(23px,3vw,35px); margin-bottom:25px; background:var(--bg-elevated); }
 .primer-scene::before { content:"✦"; position:absolute; right:24px; bottom:6px; color:var(--accent); opacity:.25; font-size:5rem; line-height:1; pointer-events:none; }
 .primer-scene p { position:relative; z-index:1; max-width:55ch; font-family:var(--font-display); font-size:clamp(1.05rem,1.5vw,1.25rem); line-height:1.6; margin:0; }
 .primer-scene .primer-scene__memory { font-family:var(--font-ui,inherit); font-size:.78rem; line-height:1.5; color:var(--accent); font-weight:650; margin-bottom:12px; }
