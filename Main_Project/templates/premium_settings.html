@@ -36,6 +36,8 @@
   .pai-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
   .pai-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .pai-btn:disabled { opacity: 0.5; cursor: default; }
+  .pai-redirect { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-top: var(--space-3); }
+  .pai-redirect code { min-width: 0; overflow-wrap: anywhere; padding: 0.5rem 0.65rem; border: 1px solid var(--border); border-radius: 8px; color: var(--text-primary); background: var(--bg-card, transparent); font-family: var(--font-mono, monospace); font-size: 0.82rem; }
   .pai-note { font-family: var(--font-ui); font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5; margin: 0.6rem 0 0; }
   .pai-msg { font-family: var(--font-ui); font-size: 0.85rem; min-height: 1.2em; margin: 0.4rem 0 0; color: var(--text-secondary); }
   .pai-msg.is-err { color: var(--danger, #c2410c); }
@@ -132,6 +134,12 @@
     <h2 id="paiChatgptH">Use your ChatGPT plan</h2>
     <p>IntelliPlan is preparing support for eligible ChatGPT plan usage. OpenAI must approve this hosted app before people can connect and choose to use their plan here. Linking an OpenAI API key above is a separate option with separate API billing.</p>
     <p class="pai-note">When you apply, request <strong>Sign in and ChatGPT plan use for AI requests</strong>. Approval is required before this connection can be enabled.</p>
+    <p class="pai-note"><strong>Proposed website redirect URI for the application</strong></p>
+    <div class="pai-redirect">
+      <code id="paiOpenAIRedirect">https://intelliplan.tech/auth/openai/callback</code>
+      <button type="button" class="pai-btn" id="paiCopyOpenAIRedirect" aria-describedby="paiOpenAIRedirectStatus">Copy redirect URI</button>
+    </div>
+    <p class="pai-note" id="paiOpenAIRedirectStatus" role="status" aria-live="polite">This is a proposed URI only. The callback route is not active yet; register it only after the hosted integration is implemented and approved.</p>
     <p class="pai-note"><a href="https://openai.com/form/sign-in-with-chatgpt-interest/" target="_blank" rel="noopener">Request OpenAI partner access</a> · <a href="https://developers.openai.com/siwc/website" target="_blank" rel="noopener">Website integration requirements</a> · <a href="https://help.openai.com/en/articles/20001542-using-your-chatgpt-plan-in-other-apps-and-sites" target="_blank" rel="noopener">How ChatGPT plan sharing works</a></p>
   </section>
 
@@ -183,6 +191,23 @@
     el.textContent = text;
     el.classList.toggle('is-err', !!bad);
   }
+
+  const openAIRedirectButton = document.getElementById('paiCopyOpenAIRedirect');
+  if (openAIRedirectButton) openAIRedirectButton.addEventListener('click', async () => {
+    const uri = document.getElementById('paiOpenAIRedirect').textContent.trim();
+    const status = document.getElementById('paiOpenAIRedirectStatus');
+    try {
+      await navigator.clipboard.writeText(uri);
+      status.textContent = 'Copied. This proposed callback is not active yet.';
+    } catch (_) {
+      const range = document.createRange();
+      range.selectNodeContents(document.getElementById('paiOpenAIRedirect'));
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+      status.textContent = 'Clipboard access is unavailable here. Select and copy the URI above.';
+    }
+  });
 
   async function savePrefs(body) {
     try { await post('/api/premium/preferences', body); say('paiPrefsMsg', 'Saved.'); }

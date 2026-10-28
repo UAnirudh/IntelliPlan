@@ -105,6 +105,12 @@ OpenAI's approval; it cannot reuse another application's OAuth client registrati
 The AI settings page distinguishes these connections and does not offer a connection
 that has not been configured and approved.
 
+The application can use this proposed hosted redirect URI:
+`https://intelliplan.tech/auth/openai/callback`. It is not a live callback today;
+register it only after the hosted OAuth callback has been implemented and OpenAI
+has approved the integration. The final URI must exactly match the callback configured
+in IntelliPlan and the OpenAI client registration.
+
 - [Plan usage availability](https://developers.openai.com/siwc/token-sharing-open-source)
 - [Hosted website integration](https://developers.openai.com/siwc/website)
 - [Request hosted integration access](https://openai.com/form/sign-in-with-chatgpt-interest/)

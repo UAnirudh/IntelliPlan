@@ -43,6 +43,7 @@ report = []
 with sync_playwright() as playwright:
     browser = playwright.chromium.launch()
     context = browser.new_context(viewport={'width':1440,'height':1000}, service_workers='block')
+    context.grant_permissions(['clipboard-read', 'clipboard-write'], origin='https://ui.test')
     context.add_init_script("localStorage.setItem('ip_tour_done','1');localStorage.setItem('ip_side_mode','expanded');")
     page = context.new_page()
     errors = []
@@ -83,6 +84,13 @@ with sync_playwright() as playwright:
         open_page(student,'/settings/ai')
         page.get_by_role('heading',name='Use your ChatGPT plan',exact=True).wait_for()
         assert 'OpenAI must approve this hosted app' in page.locator('.pai').inner_text()
+        assert page.locator('#paiOpenAIRedirect').inner_text() == 'https://intelliplan.tech/auth/openai/callback'
+        assert 'not active yet' in page.locator('#paiOpenAIRedirectStatus').inner_text()
+        copy_button = page.get_by_role('button',name='Copy redirect URI',exact=True)
+        assert copy_button.is_visible()
+        copy_button.click()
+        assert page.evaluate('navigator.clipboard.readText()') == 'https://intelliplan.tech/auth/openai/callback'
+        assert 'Copied.' in page.locator('#paiOpenAIRedirectStatus').inner_text()
         assert page.get_by_text('OpenAI API',exact=True).is_visible()
         assert page.get_by_role('button',name='Continue with ChatGPT',exact=True).count() == 0
         capture('chatgpt-availability')
