@@ -24,7 +24,7 @@
     list.innerHTML = state.schools.length ? state.schools.map((school) => `
       <button class="owner-row" type="button" data-school="${school.id}" aria-current="${school.id === state.selected ? 'true' : 'false'}">
         <span class="owner-row-top"><strong>${esc(school.name)}</strong><span class="owner-pill">${esc(school.kind)}</span></span>
-        <small>${school.members.members} members · ${school.domains.filter((d) => d.verified).length} verified domains · ${esc(school.plan_tier)}</small>
+        <small>${school.members.members} members · ${school.domains.filter((d) => d.verified).length} verified domains · Effective ${esc(school.effective_plan_tier)}${school.effective_plan_inherited ? ` via ${esc(school.effective_plan_source_name)}` : ''}</small>
       </button>`).join('') : '<div class="owner-empty">No partner organizations yet. Create one to get started.</div>';
     list.querySelectorAll('[data-school]').forEach((button) => button.addEventListener('click', () => select(Number(button.dataset.school))));
     const districts = state.schools.filter((school) => school.kind === 'district');
@@ -54,7 +54,8 @@
     detail.innerHTML = `
       <div class="owner-head"><div><div class="owner-eyebrow">${esc(school.kind)}</div><h2 class="owner-section-title">${esc(school.name)}</h2><p class="owner-hint">${school.members.members} members · ${school.members.admins} school admins</p></div></div>
       <p class="owner-hint"><a href="/school-admin">Open school workspace controls</a> to assign school administrators, manage teacher access, and edit learning policies.</p>
-      <h3 class="owner-section-title">Included school plan</h3><p class="owner-hint">This plan is controlled by the platform owner and applies to verified members of this institution.</p>
+      <h3 class="owner-section-title">Included school plan</h3><p class="owner-hint">Members receive the strongest plan assigned to this institution or a parent district. The direct assignment is controlled by the platform owner.</p>
+      <p class="owner-effective-plan">Effective for members: <strong>${esc(school.effective_plan_tier)}</strong>${school.effective_plan_inherited ? ` · inherited from ${esc(school.effective_plan_source_name)}` : school.plan_configured ? ' · assigned to this institution' : ' · free default'}</p>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><select id="planTier" class="owner-select" style="max-width:220px">${state.tiers.map((tier) => `<option value="${tier}" ${tier === school.plan_tier ? 'selected' : ''}>${esc(tier)}</option>`).join('')}</select><button id="savePlan" class="owner-btn" type="button">Save plan</button></div>
       <p id="detailNotice" class="owner-notice" role="status"></p>
       <h3 class="owner-section-title" style="margin-top:20px">Verified school domains</h3><p class="owner-hint">Add a domain you control. Members are enrolled only after Google confirms the account email is verified.</p>

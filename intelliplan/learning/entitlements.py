@@ -97,6 +97,46 @@ def school_plan_for(user) -> str | None:
     return max(valid, key=lambda tier: _PLAN_RANK[tier]) if valid else None
 
 
+def school_plan_details_for_organization(organization, organizations_by_id, plans_by_org) -> dict:
+    """Describe the strongest owner-assigned plan on one org's ancestry.
+
+    The owner UI still edits the direct assignment. Members receive the
+    strongest configured tier across their school and district memberships,
+    so both owner and school-admin dashboards need the effective tier/source.
+    Callers pass preloaded maps to avoid per-row queries.
+    """
+    direct = plans_by_org.get(organization.id)
+    candidates = []
+    seen: set[int] = set()
+    current = organization
+    depth = 0
+    while current and current.id not in seen and depth < 32:
+        seen.add(current.id)
+        row = plans_by_org.get(current.id)
+        if row and row.plan_tier in SCHOOL_PLAN_TIERS:
+            candidates.append((_PLAN_RANK[row.plan_tier], -depth, row.plan_tier, current))
+        current = organizations_by_id.get(current.parent_id) if current.parent_id else None
+        depth += 1
+    if not candidates:
+        return {
+            "direct_plan_tier": direct.plan_tier if direct and direct.plan_tier in SCHOOL_PLAN_TIERS else "free",
+            "plan_configured": direct is not None,
+            "effective_plan_tier": "free",
+            "effective_plan_source_id": None,
+            "effective_plan_source_name": None,
+            "effective_plan_inherited": False,
+        }
+    _, _, tier, source = max(candidates, key=lambda item: (item[0], item[1]))
+    return {
+        "direct_plan_tier": direct.plan_tier if direct and direct.plan_tier in SCHOOL_PLAN_TIERS else "free",
+        "plan_configured": direct is not None,
+        "effective_plan_tier": tier,
+        "effective_plan_source_id": source.id,
+        "effective_plan_source_name": source.name,
+        "effective_plan_inherited": source.id != organization.id,
+    }
+
+
 def is_partnered_user(user) -> bool:
     """A verified-domain member or explicitly-plan-assigned school member."""
     ids = _membership_organization_ids(user)
@@ -114,8 +154,8 @@ def is_partnered_user(user) -> bool:
 def add_verified_school_membership(user, email: str | None = None) -> bool:
     """Assign a member only when their stored email and verification flag agree.
 
-    Called after Google userinfo explicitly confirms ``email_verified=true``.
-    A self-entered password-account address is never sufficient.
+    Called after either Google confirms a verified email or a password account
+    consumes its one-time email proof. A self-entered address is never enough.
     """
     normalized = str(email or getattr(user, "email", "") or "").strip().lower()
     if (not getattr(user, "is_authenticated", True) or not getattr(user, "id", None)
@@ -140,6 +180,37 @@ def add_verified_school_membership(user, email: str | None = None) -> bool:
         "user_id": int(user.id), "role": role, "domain_id": int(verified.id),
     })
     return True
+
+
+def _enroll_existing_verified_domain_users(domain_row) -> int:
+    """Enroll already-verified accounts after the owner proves a school domain.
+
+    Email proof can precede owner DNS proof. Password email links are single
+    use, so without this backfill those users would have no way to claim the
+    school plan after the owner verifies the domain.
+    """
+    from App import User, db
+    M = _models()
+    suffix = "@" + domain_row.domain.lower()
+    users = User.query.filter(
+        User.email_verified.is_(True),
+        func.lower(func.trim(User.email)).endswith(suffix),
+    ).yield_per(500)
+    existing_user_ids = set(row[0] for row in db.session.query(M["Membership"].user_id).filter_by(
+        organization_id=domain_row.organization_id).all())
+    enrolled = 0
+    for user in users:
+        if user.id in existing_user_ids:
+            continue
+        role = "teacher" if getattr(user, "role", "student") == "teacher" else "student"
+        db.session.add(M["Membership"](user_id=user.id,
+            organization_id=domain_row.organization_id, role=role))
+        _audit(domain_row.organization_id, "verified_domain_member_added", {
+            "user_id": int(user.id), "role": role, "domain_id": int(domain_row.id),
+        })
+        existing_user_ids.add(user.id)
+        enrolled += 1
+    return enrolled
 
 
 def _record_for_org(organization_id: int):
@@ -213,7 +284,8 @@ def owner_schools():
     ).order_by(M["Organization"].name.asc()).all()
     ids = [organization.id for organization in organizations]
     plan_rows = M["SchoolPlan"].query.filter(M["SchoolPlan"].organization_id.in_(ids)).all() if ids else []
-    plans_by_org = {row.organization_id: row.plan_tier for row in plan_rows}
+    plans_by_org = {row.organization_id: row for row in plan_rows}
+    organizations_by_id = {organization.id: organization for organization in organizations}
     domains = M["SchoolDomain"].query.filter(M["SchoolDomain"].organization_id.in_(ids)).all() if ids else []
     domains_by_org: dict[int, list[dict]] = {oid: [] for oid in ids}
     for row in domains:
@@ -235,12 +307,20 @@ def owner_schools():
                 key = role + "s" if role in {"student", "teacher", "admin"} else "members"
                 if key in counts[oid]:
                     counts[oid][key] += int(count)
-    return jsonify(schools=[{
-        "id": organization.id, "name": organization.name, "kind": organization.kind,
-        "parent_id": organization.parent_id, "plan_tier": plans_by_org.get(organization.id, "free"),
-        "plan_configured": organization.id in plans_by_org,
-        "members": counts[organization.id], "domains": domains_by_org.get(organization.id, []),
-    } for organization in organizations], plan_tiers=list(SCHOOL_PLAN_TIERS))
+    schools = []
+    for organization in organizations:
+        plan_details = school_plan_details_for_organization(organization, organizations_by_id, plans_by_org)
+        schools.append({
+            "id": organization.id, "name": organization.name, "kind": organization.kind,
+            "parent_id": organization.parent_id, "plan_tier": plan_details["direct_plan_tier"],
+            "plan_configured": plan_details["plan_configured"],
+            "effective_plan_tier": plan_details["effective_plan_tier"],
+            "effective_plan_source_id": plan_details["effective_plan_source_id"],
+            "effective_plan_source_name": plan_details["effective_plan_source_name"],
+            "effective_plan_inherited": plan_details["effective_plan_inherited"],
+            "members": counts[organization.id], "domains": domains_by_org.get(organization.id, []),
+        })
+    return jsonify(schools=schools, plan_tiers=list(SCHOOL_PLAN_TIERS))
 
 
 @bp.route("/api/owner/schools/<int:organization_id>/plan", methods=["PUT"])
@@ -305,8 +385,10 @@ def owner_school_domain_verify(organization_id: int, domain_id: int):
     row.verified_at = utcnow()
     row.verified_by_id = current_user.id
     _audit(organization.id, "school_domain_verified", {"domain": row.domain})
+    enrolled = _enroll_existing_verified_domain_users(row)
     db.session.commit()
-    return jsonify(status="ok", verified=True, verified_at=row.verified_at.isoformat())
+    return jsonify(status="ok", verified=True, verified_at=row.verified_at.isoformat(),
+                   enrolled_existing_members=enrolled)
 
 
 @bp.route("/api/owner/schools/<int:organization_id>/domains/<int:domain_id>", methods=["DELETE"])

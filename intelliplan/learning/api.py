@@ -118,9 +118,38 @@ def organizations():
             parent_id = parent.parent_id
         return sorted(restricted)
 
-    return jsonify(organizations=[dict(id=o.id, name=o.name, kind=o.kind, parent_id=o.parent_id,
-        policy=o.policy, version=o.version, inherited_restrictions=inherited_restrictions(o))
-        for o in rows if policy.administers(current_user, o.id)])
+    visible = [o for o in rows if policy.administers(current_user, o.id)]
+    organizations_by_id = {o.id: o for o in rows}
+    plan_scope_ids = {o.id for o in visible}
+    # A visible school's district parent may sit outside the 200-row admin
+    # listing window; load missing ancestors explicitly for the read-only
+    # entitlement summary without broadening the admin's organization access.
+    for organization in visible:
+        parent_id = organization.parent_id
+        seen = {organization.id}
+        while parent_id and parent_id not in seen:
+            seen.add(parent_id)
+            plan_scope_ids.add(parent_id)
+            parent = organizations_by_id.get(parent_id) or db.session.get(M['Organization'], parent_id)
+            if parent is None:
+                break
+            organizations_by_id[parent.id] = parent
+            parent_id = parent.parent_id
+    plan_rows = M['SchoolPlan'].query.filter(
+        M['SchoolPlan'].organization_id.in_(plan_scope_ids)
+    ).all() if plan_scope_ids else []
+    plans_by_org = {row.organization_id: row for row in plan_rows}
+    from intelliplan.learning.entitlements import school_plan_details_for_organization
+    result = []
+    for organization in visible:
+        plan = school_plan_details_for_organization(organization, organizations_by_id, plans_by_org)
+        result.append(dict(id=organization.id, name=organization.name, kind=organization.kind,
+            parent_id=organization.parent_id, policy=organization.policy, version=organization.version,
+            inherited_restrictions=inherited_restrictions(organization),
+            plan_tier=plan['effective_plan_tier'],
+            plan_source=plan['effective_plan_source_name'],
+            plan_inherited=plan['effective_plan_inherited']))
+    return jsonify(organizations=result)
 
 
 @bp.route('/api/school-admin/organizations/<int:oid>/policy', methods=['PUT'])

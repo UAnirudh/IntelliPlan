@@ -5,6 +5,7 @@ from uuid import uuid4
 
 import App
 import growth_glue
+from intelliplan.learning import entitlements
 from intelliplan.learning import policy
 from intelliplan.learning.entitlements import add_verified_school_membership
 
@@ -86,6 +87,88 @@ def test_domain_and_plan_mutation_are_platform_owner_only(monkeypatch):
         with App.app.app_context():
             assert policy.models()['SchoolPlan'].query.filter_by(organization_id=org_id).one().plan_tier == 'premium'
             assert policy.models()['Audit'].query.filter_by(organization_id=org_id).count() >= 2
+    finally:
+        App.limiter.enabled = previous
+
+
+def test_owner_school_list_distinguishes_direct_and_effective_district_plan(monkeypatch):
+    previous = App.limiter.enabled
+    App.limiter.enabled = False
+    App.app.config['TESTING'] = True
+    with App.app.app_context():
+        App.db.create_all()
+        M = policy.models()
+        district = _org('North County', 'district')
+        school = _org('Northview High', parent_id=district.id)
+        owner = _user(f"owner-{uuid4().hex}@example.test")
+        district_plan = M['SchoolPlan'].query.filter_by(organization_id=district.id).first()
+        if district_plan is None:
+            district_plan = M['SchoolPlan'](organization_id=district.id,
+                plan_tier='pro', updated_by_id=owner.id)
+            App.db.session.add(district_plan)
+        else:
+            district_plan.plan_tier = 'pro'
+            district_plan.updated_by_id = owner.id
+        App.db.session.commit()
+        owner_id, owner_email, school_id = owner.id, owner.email, school.id
+    try:
+        monkeypatch.setattr(App, 'ADMIN_EMAILS', frozenset({owner_email}))
+        client = App.app.test_client()
+        _login(client, owner_id)
+        response = client.get('/api/owner/schools')
+        assert response.status_code == 200
+        listed = next(row for row in response.json['schools'] if row['id'] == school_id)
+        assert listed['plan_tier'] == 'free'
+        assert listed['plan_configured'] is False
+        assert listed['effective_plan_tier'] == 'pro'
+        assert listed['effective_plan_source_name'] == 'North County'
+        assert listed['effective_plan_inherited'] is True
+    finally:
+        App.limiter.enabled = previous
+
+
+def test_domain_verification_enrolls_already_verified_users_once(monkeypatch):
+    previous = App.limiter.enabled
+    App.limiter.enabled = False
+    App.app.config['TESTING'] = True
+    domain_name = f"verified-{uuid4().hex}.example.test"
+    with App.app.app_context():
+        App.db.create_all()
+        M = policy.models()
+        school = _org('Verified Domain School')
+        owner = _user(f"owner-{uuid4().hex}@example.test")
+        verified_student = _user(f"student@{domain_name}", verified=True)
+        verified_teacher = _user(f"teacher@{domain_name}", role='teacher', verified=True)
+        unverified_student = _user(f"unverified@{domain_name}", verified=False)
+        domain = M['SchoolDomain'](organization_id=school.id, domain=domain_name,
+            verification_hash='proof-hash', created_by_id=owner.id)
+        App.db.session.add(domain)
+        App.db.session.commit()
+        owner_id, owner_email, school_id, domain_id = owner.id, owner.email, school.id, domain.id
+        verified_roles = {verified_student.id: 'student', verified_teacher.id: 'teacher'}
+        unverified_id = unverified_student.id
+    try:
+        monkeypatch.setattr(App, 'ADMIN_EMAILS', frozenset({owner_email}))
+        monkeypatch.setattr(entitlements, '_dns_txt_contains', lambda domain, token: True)
+        client = App.app.test_client()
+        _login(client, owner_id)
+        response = client.post(f'/api/owner/schools/{school_id}/domains/{domain_id}/verify')
+        assert response.status_code == 200, response.get_json()
+        assert response.json['enrolled_existing_members'] == 2
+        with App.app.app_context():
+            M = policy.models()
+            memberships = M['Membership'].query.filter_by(organization_id=school_id).all()
+            assert {row.user_id: row.role for row in memberships} == verified_roles
+            assert unverified_id not in {row.user_id for row in memberships}
+            audit_count = M['Audit'].query.filter_by(
+                organization_id=school_id, action='verified_domain_member_added').count()
+        repeated = client.post(f'/api/owner/schools/{school_id}/domains/{domain_id}/verify')
+        assert repeated.status_code == 200
+        with App.app.app_context():
+            M = policy.models()
+            assert M['Membership'].query.filter_by(organization_id=school_id).count() == 2
+            assert M['Audit'].query.filter_by(organization_id=school_id,
+                action='verified_domain_member_added').count() == audit_count
     finally:
         App.limiter.enabled = previous
 

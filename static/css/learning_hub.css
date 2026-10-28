@@ -151,7 +151,7 @@ html[data-theme] body:has(.learning-hub) { background: var(--bg); }
 .learning-admin .admin-orgbar { align-items: center; margin: 10px 0 16px; border-radius: 16px; }
 .learning-admin .admin-orgbar > div { flex: 1 1 340px; }
 .learning-admin .admin-orgbar > p { flex: 2 1 340px; margin: 0; }
-.admin-overview { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; margin: 0 0 18px; }
+.admin-overview { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: 12px; margin: 0 0 18px; }
 .admin-stat { display: grid; gap: 3px; min-height: 120px; align-content: center; padding: 18px 20px; border: 1px solid var(--border-strong); border-radius: 14px; background: var(--bg-card); }
 .admin-stat strong { font-size: 1.8rem; line-height: 1.1; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
 .admin-stat > span:last-child { color: var(--text-secondary); font-size: .8rem; }
