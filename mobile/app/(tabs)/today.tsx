@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import { Ionicons } from "@expo/vector-icons";
+import Svg, { Circle } from "react-native-svg";
 import {
   blockMinutes,
   blockTitle,
@@ -97,9 +98,45 @@ function blocksForToday(raw: SavedSchedule | null | undefined, date: Date): Bloc
 }
 
 function timeForBlock(block: Block): string {
-  if (block.time_slot) return String(block.time_slot);
-  if (block.start && block.end) return `${block.start} – ${block.end}`;
-  return String(block.start || "Flexible");
+  // The time column is intentionally compact on phones. Put the start time
+  // here and leave the duration in the study-block card, where it is easier
+  // to scan than a truncated "8:25 PM – 8:55 PM" label.
+  const raw = block.time_slot || block.start;
+  if (!raw) return "Flexible";
+  return String(raw).split(/\s+[–—-]\s+/)[0];
+}
+
+function CompletionRing({ done, total }: { done: number; total: number }) {
+  const { colors } = useTheme();
+  const size = 58;
+  const stroke = 5;
+  const radiusValue = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * radiusValue;
+  const progress = total ? Math.max(0, Math.min(1, done / total)) : 0;
+  const colour = total > 0 && done >= total ? colors.ok : colors.accent;
+
+  return (
+    <View
+      style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}
+    >
+      <Svg width={size} height={size} style={{ position: "absolute" }}>
+        <Circle cx={size / 2} cy={size / 2} r={radiusValue} stroke={colors.bgElevated} strokeWidth={stroke} fill="none" />
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radiusValue}
+          stroke={colour}
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          fill="none"
+          strokeDasharray={`${circumference} ${circumference}`}
+          strokeDashoffset={circumference * (1 - progress)}
+          transform={`rotate(-90 ${size / 2} ${size / 2})`}
+        />
+      </Svg>
+      <Ionicons name={progress >= 1 && total > 0 ? "checkmark" : "ellipse-outline"} size={22} color={colour} />
+    </View>
+  );
 }
 
 function taskDetails(task: Task | PlannedTask, isFallback: boolean) {
@@ -202,7 +239,8 @@ export default function TodayScreen() {
     );
   }
 
-  const tasks = (today.missing ? fallback.data || [] : data?.plan || []).filter(
+  const allTasks = today.missing ? fallback.data || [] : data?.plan || [];
+  const tasks = allTasks.filter(
     (task) => !done.has(task.title),
   );
   const featuredTask = tasks[0];
@@ -221,6 +259,9 @@ export default function TodayScreen() {
     (block) => !block.is_break && !block.unplaced && !(block.block_id && scheduleProgress[block.block_id]?.done),
   );
   const focusedBlockIndex = focusedBlock ? todayBlocks.indexOf(focusedBlock) : -1;
+  const progressTotal = blockProgress.total || allTasks.length;
+  const progressDone = blockProgress.total ? blockProgress.done : done.size;
+  const progressKind = blockProgress.total ? "study blocks" : "tasks";
 
   const openTask = (task: Task | PlannedTask) => {
     router.push({
@@ -429,9 +470,7 @@ export default function TodayScreen() {
         <View style={{ gap: space.sm }}>
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
             <T variant="lg" weight="700">Your day</T>
-            {blockProgress.total ? (
-              <T variant="xs" tone="muted">{blockProgress.done} of {blockProgress.total} blocks done</T>
-            ) : null}
+            {blockProgress.total ? <T variant="xs" tone="muted">In time order</T> : null}
           </View>
 
           {todayBlocks.length ? (
@@ -442,7 +481,7 @@ export default function TodayScreen() {
                 const isLast = index === todayBlocks.length - 1;
                 return (
                   <View key={block.block_id || `${title}-${index}`} style={{ flexDirection: "row", gap: space.md }}>
-                    <View style={{ width: 58, alignItems: "flex-end", paddingTop: 13 }}>
+                    <View style={{ width: 68, alignItems: "flex-end", paddingTop: 13 }}>
                       <T variant="xs" tone={checked ? "muted" : "secondary"} numberOfLines={1}>
                         {timeForBlock(block)}
                       </T>
@@ -474,9 +513,9 @@ export default function TodayScreen() {
                         paddingHorizontal: space.md,
                         marginBottom: space.sm,
                         borderRadius: radius.lg,
-                        backgroundColor: checked ? colors.bgSecondary : colors.bgCard,
+                        backgroundColor: checked ? colors.bgSecondary : index === focusedBlockIndex ? colors.accentSoft : colors.bgCard,
                         borderWidth: 1,
-                        borderColor: colors.border,
+                        borderColor: !checked && index === focusedBlockIndex ? colors.borderAccent : colors.border,
                         opacity: pressed && !block.is_break ? 0.75 : 1,
                         flexDirection: "row",
                         alignItems: "center",
@@ -484,6 +523,9 @@ export default function TodayScreen() {
                       })}
                     >
                       <View style={{ flex: 1, gap: 3 }}>
+                        {!checked && index === focusedBlockIndex && !block.is_break ? (
+                          <T variant="micro" tone="accent" weight="700">NEXT UP</T>
+                        ) : null}
                         <T variant="base" weight="600" numberOfLines={1} style={checked ? { textDecorationLine: "line-through" } : undefined}>
                           {title}
                         </T>
@@ -527,6 +569,35 @@ export default function TodayScreen() {
             </Pressable>
           )}
         </View>
+
+        {progressTotal > 0 ? (
+          <Pressable
+            onPress={() => router.push("/(tabs)/plan")}
+            accessibilityRole="button"
+            accessibilityLabel={`Today's progress: ${Math.min(progressDone, progressTotal)} of ${progressTotal} ${progressKind} complete. View your plan.`}
+            style={({ pressed }) => ({ opacity: pressed ? 0.8 : 1 })}
+          >
+            <Card style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
+              <CompletionRing done={progressDone} total={progressTotal} />
+              <View style={{ flex: 1, gap: 4 }}>
+                <T variant="md" weight="700">Today's progress</T>
+                <T variant="sm" tone="secondary">
+                  {Math.min(progressDone, progressTotal)} of {progressTotal} {progressKind} complete
+                </T>
+                <View style={{ height: 5, borderRadius: radius.pill, overflow: "hidden", backgroundColor: colors.bgElevated }}>
+                  <View
+                    style={{
+                      width: `${Math.round((Math.min(progressDone, progressTotal) / progressTotal) * 100)}%`,
+                      height: "100%",
+                      backgroundColor: progressDone >= progressTotal ? colors.ok : colors.accent,
+                    }}
+                  />
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+            </Card>
+          </Pressable>
+        ) : null}
 
         {laterTasks.length ? (
           <View style={{ gap: space.sm }}>
