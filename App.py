@@ -20603,11 +20603,44 @@ def _send_reminders_for_user(user, mark_sent=True, force=False):
     # users x tasks x channels round-trips.
     already_sent = set()
     if not force:
-        keys = [f"manual:{t.id}:{due.isoformat(timespec='seconds')}" for t, due in upcoming]
+        current_keys = {
+            f"manual:{task.id}": f"manual:{task.id}:{due.isoformat(timespec='seconds')}"
+            for task, due in upcoming
+        }
+        # Pre-upgrade rows only identified the task. Associate each legacy
+        # marker with its currently observed due time before delivery, so
+        # rollout does not resend every already-notified upcoming task.
+        keys = [*current_keys.values(), *current_keys.keys()]
         rows = ReminderSent.query.filter(
             ReminderSent.user_id == user.id, ReminderSent.task_key.in_(keys)
         ).all()
-        already_sent = {(r.task_key, r.channel) for r in rows}
+        already_sent = {
+            (row.task_key, row.channel)
+            for row in rows
+            if row.task_key not in current_keys
+        }
+        current_markers = {
+            (row.task_key, row.channel)
+            for row in rows
+            if row.task_key not in current_keys
+        }
+        migrated_legacy = False
+        for row in rows:
+            current_key = current_keys.get(row.task_key)
+            if current_key is None:
+                continue
+            marker = (current_key, row.channel)
+            if marker in current_markers:
+                db.session.delete(row)
+            else:
+                row.task_key = current_key
+                current_markers.add(marker)
+            migrated_legacy = True
+        already_sent = current_markers
+        if migrated_legacy:
+            # If this migration fails, abort the sweep so it can be retried
+            # before any sends are attempted against a legacy marker.
+            db.session.commit()
     for task, due in upcoming:
         sent["tasks"] += 1
         # Keep the sent marker tied to this exact schedule generation. If a

@@ -349,6 +349,55 @@ def test_manual_reminder_dedupes_per_deadline_and_resends_after_a_move(client, m
         assert all(key.startswith(f"manual:{task_id}:") for key in keys)
 
 
+def test_legacy_manual_reminder_marker_migrates_then_allows_a_moved_deadline(
+    client, monkeypatch
+):
+    uid = make_user("reminder+legacy-generation@example.com",
+                    birth_year=2005, push_reminders_opt_in=True,
+                    reminder_lead_minutes=60)
+    delivered = []
+    monkeypatch.setattr(
+        App, "_send_push_to_user",
+        lambda user_id, payload: delivered.append((user_id, payload)) or 1,
+    )
+
+    with App.app.app_context():
+        task = ManualTask(
+            user_id=uid,
+            title="Revise the essay",
+            course="English",
+            due_date=(utcnow() + timedelta(minutes=30)).strftime("%Y-%m-%dT%H:%M:%S"),
+        )
+        db.session.add(task)
+        db.session.flush()
+        task_id = task.id
+        db.session.add(ReminderSent(
+            user_id=uid, task_key=f"manual:{task_id}", channel="push"
+        ))
+        db.session.commit()
+
+        user = db.session.get(User, uid)
+        unchanged = App._send_reminders_for_user(user)
+        assert unchanged["push"] == 0
+        assert unchanged["skipped"] == 1
+        assert delivered == []
+        [marker] = ReminderSent.query.filter_by(user_id=uid).all()
+        original_deadline_key = marker.task_key
+        assert original_deadline_key.startswith(f"manual:{task_id}:")
+
+        task = db.session.get(ManualTask, task_id)
+        task.due_date = (utcnow() + timedelta(minutes=45)).strftime("%Y-%m-%dT%H:%M:%S")
+        db.session.commit()
+
+        moved = App._send_reminders_for_user(user)
+        assert moved["push"] == 1
+        assert len(delivered) == 1
+        keys = {row.task_key for row in ReminderSent.query.filter_by(user_id=uid).all()}
+        assert len(keys) == 2
+        assert original_deadline_key in keys
+        assert all(key.startswith(f"manual:{task_id}:") for key in keys)
+
+
 # ── The ticker runs every minute, not every lease ────────────
 
 
