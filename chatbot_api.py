@@ -132,6 +132,8 @@ def _ai_guest_cookie(response):
     """Hand a guest the signed device id the firewall minted for them, so the
     next call counts against the same subject instead of a fresh one."""
     try:
+        if request.path.startswith('/api/tutor/assignment'):
+            response.headers['Cache-Control'] = 'no-store, private'
         return ai_firewall.attach_guest_cookie(response)
     except Exception:
         return response
