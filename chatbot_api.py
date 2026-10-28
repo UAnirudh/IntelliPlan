@@ -957,25 +957,17 @@ def rename_tutor_conversation(convo_id):
         return jsonify({'error': 'rename failed'}), 500
 
 
-def _check_and_increment_tutor_limit():
-    """Return (allowed, remaining, limit) and increment the monthly counter.
+def _reserve_tutor_message():
+    """Atomically reserve one free tutor message and return its refund token.
 
-    Pro users bypass the counter entirely.  Guests are always allowed (no
-    account to track).  The counter is reset on the 1st of each month.
+    Pro users bypass the counter entirely. Guests are always allowed. The
+    conditional database updates keep concurrent requests from overshooting
+    the free limit, including when the counter rolls into a new month.
     """
     if not current_user.is_authenticated:
-        return True, None, None
-    from datetime import timedelta
+        return True, None, None, None
     db = _get_db()
     now = datetime.utcnow()
-    # Monthly reset
-    if current_user.tutor_reset_date is None or now >= current_user.tutor_reset_date:
-        current_user.monthly_tutor_messages = 0
-        if now.month == 12:
-            current_user.tutor_reset_date = datetime(now.year + 1, 1, 1)
-        else:
-            current_user.tutor_reset_date = datetime(now.year, now.month + 1, 1)
-        db.session.commit()
     # Paid plans bypass. This read ``current_user.pro_active``, which no
     # model has ever defined: the AttributeError was swallowed, so every
     # paying student was held to the free plan's monthly message count.
@@ -983,17 +975,84 @@ def _check_and_increment_tutor_limit():
         from growth_glue import current_plan
         from intelliplan.growth import plans as _plans
         if current_plan(current_user) == _plans.PAID:
-            return True, None, None
+            return True, None, None, None
     except Exception as exc:
         print(f'[tutor] plan check failed: {exc}')
     limit = int(current_app.config.get('FREE_TUTOR_MESSAGES_PER_MONTH', 50))
-    used = current_user.monthly_tutor_messages or 0
-    if used >= limit:
-        return False, 0, limit
-    # Increment
-    current_user.monthly_tutor_messages = used + 1
-    db.session.commit()
-    return True, limit - used - 1, limit
+    from sqlalchemy import func, or_
+    from App import User
+
+    user_id = int(current_user.id)
+    next_reset = datetime(now.year + (now.month == 12), 1 if now.month == 12 else now.month + 1, 1)
+
+    # A rollover and its first reservation are one write. If another request
+    # already rolled the period, this conditional update affects no row and we
+    # retry against the new period below.
+    for _ in range(2):
+        reset_at = current_user.tutor_reset_date
+        if reset_at is None or now >= reset_at:
+            reset = db.session.query(User).filter(
+                User.id == user_id,
+                or_(User.tutor_reset_date.is_(None), User.tutor_reset_date <= now),
+            ).update({
+                User.monthly_tutor_messages: 1,
+                User.tutor_reset_date: next_reset,
+            }, synchronize_session=False)
+            if reset:
+                db.session.commit()
+                return True, limit - 1, limit, (user_id, next_reset)
+            db.session.expire(current_user)
+            continue
+
+        reserved = db.session.query(User).filter(
+            User.id == user_id,
+            User.tutor_reset_date == reset_at,
+            User.tutor_reset_date > now,
+            func.coalesce(User.monthly_tutor_messages, 0) < limit,
+        ).update({
+            User.monthly_tutor_messages: func.coalesce(User.monthly_tutor_messages, 0) + 1,
+        }, synchronize_session=False)
+        if reserved:
+            db.session.commit()
+            db.session.expire(current_user)
+            used_after = int(current_user.monthly_tutor_messages or 0)
+            return True, max(0, limit - used_after), limit, (user_id, reset_at)
+        db.session.expire(current_user)
+        used = int(current_user.monthly_tutor_messages or 0)
+        if current_user.tutor_reset_date and current_user.tutor_reset_date > now and used >= limit:
+            return False, 0, limit, None
+
+    # A request can only get here if its billing period changed repeatedly
+    # while reserving. Fail closed instead of allowing an over-limit answer.
+    return False, 0, limit, None
+
+
+def _check_and_increment_tutor_limit():
+    """Backward-compatible three-value wrapper for the monthly counter."""
+    allowed, remaining, limit, _reservation = _reserve_tutor_message()
+    return allowed, remaining, limit
+
+
+def _refund_tutor_message(reservation):
+    """Release a failed turn's reservation without touching a later period."""
+    if not reservation:
+        return
+    try:
+        user_id, reset_at = reservation
+        db = _get_db()
+        from App import User
+        refunded = db.session.query(User).filter(
+            User.id == user_id,
+            User.tutor_reset_date == reset_at,
+            User.monthly_tutor_messages > 0,
+        ).update({
+            User.monthly_tutor_messages: User.monthly_tutor_messages - 1,
+        }, synchronize_session=False)
+        if refunded:
+            db.session.commit()
+    except Exception as exc:
+        _get_db().session.rollback()
+        print(f'[tutor] failed to release message reservation: {exc}')
 
 
 def _prepare_adaptive_turn(modality_mode=None, student_message=''):
@@ -1287,6 +1346,7 @@ def _premium_tutor_turn(system_messages, recent, skip_clarify):
 
 @chatbot_bp.route('/api/tutor', methods=['POST'])
 def tutor():
+    quota_reservation = None
     try:
         data = request.get_json()
         if not data:
@@ -1298,25 +1358,12 @@ def tutor():
                 for m in raw_messages)):
             return jsonify(error='invalid_messages', reply='Send a shorter text message.'), 400
 
-        # ── Usage limit check (free tier: 50 messages/month) ──
-        allowed, remaining, limit = _check_and_increment_tutor_limit()
-        if not allowed:
-            return jsonify({
-                'error': 'limit_reached',
-                'limit_type': 'tutor_messages',
-                'message': f'You have used all {limit} free Plani messages this month.',
-                'remaining': 0,
-                'limit': limit,
-            }), 429
-
         incoming_messages = _normalize_tutor_messages(data.get('messages', []))
         if not incoming_messages:
             return jsonify({'error': 'No messages provided'}), 400
 
-        # Cost and abuse gate. Runs before any provider call and before the
-        # monthly counter, because the monthly counter only knows about signed
-        # in students -- this is what stands between an anonymous script and
-        # the whole day's Gemini allowance.
+        # Cost and abuse gate runs before the monthly reservation. Invalid or
+        # blocked requests must not spend a student's free tutor messages.
         decision = ai_firewall.guard(
             current_user,
             prompts=[m.get('content', '') for m in incoming_messages if m.get('role') == 'user'],
@@ -1392,6 +1439,19 @@ def tutor():
         if assignment_context:
             from assignment_materials import assignment_prompt
             system_messages.append({'role': 'system', 'content': assignment_prompt(assignment_context)})
+
+        # Reserve immediately before invoking a tutor provider. The update is
+        # atomic, so concurrent requests cannot pass the free-plan limit. A
+        # failed provider turn releases this reservation in the exception path.
+        allowed, remaining, limit, quota_reservation = _reserve_tutor_message()
+        if not allowed:
+            return jsonify({
+                'error': 'limit_reached',
+                'limit_type': 'tutor_messages',
+                'message': f'You have used all {limit} free Plani messages this month.',
+                'remaining': 0,
+                'limit': limit,
+            }), 429
 
         # Premium (or a linked AI account): route the question, maybe ask for
         # clarification, then answer on Claude or the student's own key.
@@ -1500,9 +1560,11 @@ def tutor():
         return jsonify(payload)
 
     except SafetyUnavailable:
+        _refund_tutor_message(quota_reservation)
         return jsonify(error='safety_unavailable', retryable=True,
             reply="Plani's safety check is temporarily unavailable. Please try again shortly."), 503
     except AIBlocked as e:
+        _refund_tutor_message(quota_reservation)
         # A refusal the student can act on: which limit, and when it lifts.
         payload = {'reply': e.message, 'error': e.reason}
         if e.retry_after:
@@ -1512,6 +1574,7 @@ def tutor():
             resp.headers['Retry-After'] = str(e.retry_after)
         return resp, e.status
     except AIQuotaExhausted as e:
+        _refund_tutor_message(quota_reservation)
         # Every model in the chain is out of allowance. Saying so, with the
         # wait, is worth more to the student than "hit a snag" -- and it is
         # the signal that tells the operator to add a second provider key.
@@ -1524,12 +1587,14 @@ def tutor():
             'retry_after': wait,
         }), 503
     except AIUnavailable as e:
+        _refund_tutor_message(quota_reservation)
         print(f'Plani tutor has no AI backend: {e}')
         return jsonify({
             'reply': "Plani's AI is not reachable right now. This is on our side, not yours.",
             'error': 'ai_unavailable',
         }), 503
     except Exception as e:
+        _refund_tutor_message(quota_reservation)
         import traceback
         print(f'Plani tutor error: {e}')
         traceback.print_exc()

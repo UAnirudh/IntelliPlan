@@ -99,7 +99,7 @@ def test_selected_assignment_reaches_tutor_without_entering_saved_messages(clien
                'skipped_count': 0}
     monkeypatch.setattr(assignment_materials, 'load_assignment',
                         lambda url, token, course, assignment: context)
-    monkeypatch.setattr(chatbot_api, '_check_and_increment_tutor_limit', lambda: (True, 49, 50))
+    monkeypatch.setattr(chatbot_api, '_reserve_tutor_message', lambda: (True, 49, 50, None))
     monkeypatch.setattr(chatbot_api.ai_firewall, 'guard',
                         lambda *a, **k: SimpleNamespace(max_output_tokens=1800, plan='free'))
     monkeypatch.setattr(chatbot_api.ai_firewall, 'record_tokens', lambda *a, **k: None)
@@ -139,7 +139,7 @@ def test_explicit_test_prep_retrieves_only_the_students_notes_and_returns_citati
         owner_id = User.query.filter_by(email='tam+student@example.com').one().id
 
     sync_calls, search_calls, seen_messages = [], [], []
-    monkeypatch.setattr(chatbot_api, '_check_and_increment_tutor_limit', lambda: (True, 49, 50))
+    monkeypatch.setattr(chatbot_api, '_reserve_tutor_message', lambda: (True, 49, 50, None))
     monkeypatch.setattr(chatbot_api.ai_firewall, 'guard',
                         lambda *a, **k: SimpleNamespace(max_output_tokens=1800, plan='free'))
     monkeypatch.setattr(chatbot_api.ai_firewall, 'record_tokens', lambda *a, **k: None)
