@@ -58,6 +58,20 @@ test("student-added source material takes precedence over short task context", (
   );
 });
 
+test("a short student addition stays topic-based instead of being misrepresented as class material", () => {
+  const initialMaterial = taskStudyMaterial({ taskTitle: "Cell structure", course: "Biology" });
+  const shortAddition = "Review cell membranes";
+  const result = studyGenerationInput({
+    text: `${initialMaterial}\n\n${shortAddition}`,
+    initialMaterial,
+    taskTitle: "Cell structure",
+    course: "Biology",
+  });
+
+  assert.equal(result.kind, "topic");
+  assert.ok(result.content.includes(shortAddition));
+});
+
 test("short material without task context cannot be sent to generate", () => {
   assert.equal(
     studyGenerationInput({ text: "Too short for practice", initialMaterial: "" }),

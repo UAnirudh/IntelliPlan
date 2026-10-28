@@ -44,17 +44,22 @@ export function studyGenerationInput({
   const attachedNotes = clean(notes);
   const title = clean(taskTitle);
   const taskContext = !!(title || clean(course) || attachedNotes);
-  const isUneditedTaskHandoff = taskContext && material === clean(initialMaterial);
+  const initial = clean(initialMaterial);
+  const isUneditedTaskHandoff = taskContext && material === initial;
+  const addedMaterial = initial && material.startsWith(initial)
+    ? material.slice(initial.length).trim()
+    : material;
+  const groundedMaterialLength = isUneditedTaskHandoff ? attachedNotes.length : addedMaterial.length;
 
-  if (material.length >= MIN_STUDY_MATERIAL_CHARS &&
-      (!isUneditedTaskHandoff || attachedNotes.length >= MIN_STUDY_MATERIAL_CHARS)) {
+  if (material.length >= MIN_STUDY_MATERIAL_CHARS && groundedMaterialLength >= MIN_STUDY_MATERIAL_CHARS) {
     return { content: material, kind: "materials" };
   }
 
   // Preserve the task's short notes as clues, but don't label the result as
   // grounded practice unless the student supplied enough actual material.
   if (taskContext && (title || clean(course))) {
-    const topic = taskStudyMaterial({ taskTitle: title, course, notes: attachedNotes });
+    const topicNotes = [attachedNotes, addedMaterial].filter(Boolean).join("\n");
+    const topic = taskStudyMaterial({ taskTitle: title, course, notes: topicNotes });
     return { content: topic, kind: "topic" };
   }
 
