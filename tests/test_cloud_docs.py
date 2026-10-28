@@ -865,7 +865,7 @@ def test_tutor_studies_a_non_canvas_assignment_from_drive(client, configured, ui
                                                   "modified": "2026-09-01T00:00:00Z"}],
                        lambda item: "Mitochondria make ATP for the cell. UNIQUE-DRIVE-TEXT")
     monkeypatch.setattr(App, "cloud_docs_sources", lambda user_id=None: [source])
-    monkeypatch.setattr(chatbot_api, "_check_and_increment_tutor_limit", lambda: (True, 49, 50))
+    monkeypatch.setattr(chatbot_api, "_reserve_tutor_message", lambda: (True, 49, 50, None))
     monkeypatch.setattr(chatbot_api.ai_firewall, "guard",
                         lambda *a, **k: SimpleNamespace(max_output_tokens=1800, plan="free"))
     monkeypatch.setattr(chatbot_api.ai_firewall, "record_tokens", lambda *a, **k: None)
