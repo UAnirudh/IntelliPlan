@@ -14,3 +14,18 @@ export async function markReminderPromptAnswered(
   if (userId === undefined) return;
   await AsyncStorage.setItem(promptKey(userId), answer);
 }
+
+/**
+ * Sign-out cancels local reminders so another student cannot receive this
+ * account's task details. Forget an enabled answer too, so this student is
+ * asked to opt in again when they return and their reminders can be rebuilt.
+ */
+export async function clearEnabledReminderPromptAnswer(
+  userId: number | string | undefined,
+): Promise<void> {
+  if (userId === undefined) return;
+  const key = promptKey(userId);
+  if ((await AsyncStorage.getItem(key)) === "enabled") {
+    await AsyncStorage.removeItem(key);
+  }
+}

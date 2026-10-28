@@ -21,7 +21,7 @@ import { useQuery } from "../lib/useQuery";
 import { useAuth } from "../lib/auth";
 import { openPublicPage } from "../lib/web";
 import { disablePush, enablePush, isPushEnabled } from "../lib/push";
-import { areRemindersEnabled, setRemindersEnabled, syncReminders } from "../lib/reminders";
+import { areRemindersEnabled, beginReminderOperation, isReminderOperationCurrent, setRemindersEnabled, syncReminders } from "../lib/reminders";
 import { getTasks } from "../lib/api";
 import { useTheme, ThemeMode } from "../theme/ThemeProvider";
 import { radius, space } from "../theme/tokens";
@@ -101,8 +101,10 @@ export default function SettingsScreen() {
   const toggleLocal = useCallback(async (on: boolean) => {
     setLocalBusy(true);
     setLocalNote(null);
+    const operation = beginReminderOperation();
     try {
-      const granted = await setRemindersEnabled(on);
+      const granted = await setRemindersEnabled(on, operation);
+      if (!isReminderOperationCurrent(operation)) return;
       setLocal(granted);
       if (on && !granted) {
         setLocalNote("Notifications are turned off for IntelliPlan in your phone's settings.");
@@ -112,7 +114,7 @@ export default function SettingsScreen() {
         // Scheduled from the current list rather than whatever was cached
         // whenever the student last opened the Due tab — turning reminders
         // on should reflect what is actually due now.
-        const n = await syncReminders(await getTasks());
+        const n = await syncReminders(await getTasks(), operation);
         setLocalNote(
           n
             ? `${n} reminder${n === 1 ? "" : "s"} set for the next week.`
