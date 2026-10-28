@@ -154,8 +154,8 @@ def is_partnered_user(user) -> bool:
 def add_verified_school_membership(user, email: str | None = None) -> bool:
     """Assign a member only when their stored email and verification flag agree.
 
-    Called after Google userinfo explicitly confirms ``email_verified=true``.
-    A self-entered password-account address is never sufficient.
+    Called after either Google confirms a verified email or a password account
+    consumes its one-time email proof. A self-entered address is never enough.
     """
     normalized = str(email or getattr(user, "email", "") or "").strip().lower()
     if (not getattr(user, "is_authenticated", True) or not getattr(user, "id", None)
@@ -180,6 +180,37 @@ def add_verified_school_membership(user, email: str | None = None) -> bool:
         "user_id": int(user.id), "role": role, "domain_id": int(verified.id),
     })
     return True
+
+
+def _enroll_existing_verified_domain_users(domain_row) -> int:
+    """Enroll already-verified accounts after the owner proves a school domain.
+
+    Email proof can precede owner DNS proof. Password email links are single
+    use, so without this backfill those users would have no way to claim the
+    school plan after the owner verifies the domain.
+    """
+    from App import User, db
+    M = _models()
+    suffix = "@" + domain_row.domain.lower()
+    users = User.query.filter(
+        User.email_verified.is_(True),
+        func.lower(func.trim(User.email)).endswith(suffix),
+    ).yield_per(500)
+    existing_user_ids = set(row[0] for row in db.session.query(M["Membership"].user_id).filter_by(
+        organization_id=domain_row.organization_id).all())
+    enrolled = 0
+    for user in users:
+        if user.id in existing_user_ids:
+            continue
+        role = "teacher" if getattr(user, "role", "student") == "teacher" else "student"
+        db.session.add(M["Membership"](user_id=user.id,
+            organization_id=domain_row.organization_id, role=role))
+        _audit(domain_row.organization_id, "verified_domain_member_added", {
+            "user_id": int(user.id), "role": role, "domain_id": int(domain_row.id),
+        })
+        existing_user_ids.add(user.id)
+        enrolled += 1
+    return enrolled
 
 
 def _record_for_org(organization_id: int):
@@ -354,8 +385,10 @@ def owner_school_domain_verify(organization_id: int, domain_id: int):
     row.verified_at = utcnow()
     row.verified_by_id = current_user.id
     _audit(organization.id, "school_domain_verified", {"domain": row.domain})
+    enrolled = _enroll_existing_verified_domain_users(row)
     db.session.commit()
-    return jsonify(status="ok", verified=True, verified_at=row.verified_at.isoformat())
+    return jsonify(status="ok", verified=True, verified_at=row.verified_at.isoformat(),
+                   enrolled_existing_members=enrolled)
 
 
 @bp.route("/api/owner/schools/<int:organization_id>/domains/<int:domain_id>", methods=["DELETE"])
