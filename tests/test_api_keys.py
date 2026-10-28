@@ -40,6 +40,8 @@ def make_user(email, age=timedelta(days=30)):
             email=email,
             password_hash=App.bcrypt.generate_password_hash("hunter2ok").decode(),
             name="API Tester",
+            birth_year=2000,
+            parent_consent_granted=True,
             created_at=datetime.utcnow() - age,
         )
         db.session.add(u)
