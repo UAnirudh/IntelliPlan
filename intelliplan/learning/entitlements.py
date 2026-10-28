@@ -336,6 +336,66 @@ def owner_schools():
     return jsonify(schools=schools, plan_tiers=list(SCHOOL_PLAN_TIERS))
 
 
+@bp.route("/api/owner/schools/<int:organization_id>/members")
+def owner_school_members(organization_id: int):
+    """Show only school staff in the platform-owner institution console."""
+    _require_owner()
+    from App import User
+    organization = _record_for_org(organization_id)
+    M = _models()
+    rows = (M["Membership"].query
+            .join(User, User.id == M["Membership"].user_id)
+            .filter(M["Membership"].organization_id == organization.id,
+                    M["Membership"].role.in_(("teacher", "admin")))
+            .order_by(M["Membership"].role, User.email, M["Membership"].id)
+            .limit(500).all())
+    users = {user.id: user for user in User.query.filter(
+        User.id.in_({row.user_id for row in rows})).all()} if rows else {}
+    return jsonify(members=[{
+        "membership_id": row.id,
+        "user_id": row.user_id,
+        "role": row.role,
+        "email": users[row.user_id].email,
+        "name": users[row.user_id].name or "",
+    } for row in rows if row.user_id in users], limit=500)
+
+
+@bp.route("/api/owner/schools/<int:organization_id>/members/<int:membership_id>", methods=["PUT", "DELETE"])
+def owner_school_member(organization_id: int, membership_id: int):
+    """Change or revoke an existing staff membership, scoped to this school."""
+    _require_owner()
+    from App import db
+    organization = _record_for_org(organization_id)
+    M = _models()
+    row = M["Membership"].query.filter_by(
+        id=membership_id, organization_id=organization.id
+    ).first_or_404()
+    if row.role not in {"teacher", "admin"}:
+        abort(404)
+
+    if request.method == "DELETE":
+        old_role = row.role
+        db.session.delete(row)
+        _audit(organization.id, "school_staff_access_revoked", {
+            "membership_id": int(membership_id), "user_id": int(row.user_id), "role": old_role,
+        })
+        db.session.commit()
+        return jsonify(status="ok", removed=True)
+
+    role = _json_body().get("role")
+    if role not in {"teacher", "admin"}:
+        return jsonify(error="invalid_role", message="Choose teacher or school admin access."), 400
+    previous = row.role
+    if previous != role:
+        row.role = role
+        _audit(organization.id, "school_staff_role_updated", {
+            "membership_id": int(membership_id), "user_id": int(row.user_id),
+            "from": previous, "to": role,
+        })
+        db.session.commit()
+    return jsonify(status="ok", role=role)
+
+
 @bp.route("/api/owner/schools/<int:organization_id>/plan", methods=["PUT"])
 def owner_school_plan(organization_id: int):
     _require_owner()

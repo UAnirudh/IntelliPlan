@@ -53,7 +53,9 @@
     const detail = $('detailCard');
     detail.innerHTML = `
       <div class="owner-head"><div><div class="owner-eyebrow">${esc(school.kind)}</div><h2 class="owner-section-title">${esc(school.name)}</h2><p class="owner-hint">${school.members.members} members · ${school.members.admins} school admins</p></div></div>
-      <p class="owner-hint"><a href="/school-admin">Open school workspace controls</a> to assign school administrators, manage teacher access, and edit learning policies.</p>
+      <h3 class="owner-section-title" style="margin-top:20px">Teacher and admin access</h3>
+      <p class="owner-hint">Manage staff already enrolled at this institution. Only you can change school administrator access from this console.</p>
+      <div id="staffRoster" class="owner-staff-roster" aria-live="polite"><div class="owner-hint">Loading staff…</div></div>
       <h3 class="owner-section-title">Included school plan</h3><p class="owner-hint">Members receive the strongest plan assigned to this institution or a parent district. The direct assignment is controlled by the platform owner.</p>
       <p class="owner-effective-plan">Effective for members: <strong>${esc(school.effective_plan_tier)}</strong>${school.effective_plan_inherited ? ` · inherited from ${esc(school.effective_plan_source_name)}` : school.plan_configured ? ' · assigned to this institution' : ' · free default'}</p>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><select id="planTier" class="owner-select" style="max-width:220px">${state.tiers.map((tier) => `<option value="${tier}" ${tier === school.plan_tier ? 'selected' : ''}>${esc(tier)}</option>`).join('')}</select><button id="savePlan" class="owner-btn" type="button">Save plan</button></div>
@@ -67,6 +69,7 @@
       try { await api(`/api/owner/schools/${school.id}/plan`, { method: 'PUT', body: JSON.stringify({ plan_tier: $('planTier').value }) }); notice(message, 'School plan updated.', 'success'); await load(); }
       catch (error) { notice(message, error.message, 'error'); }
     });
+    renderStaff(school);
     $('domainForm').addEventListener('submit', async (event) => {
       event.preventDefault(); const message = $('detailNotice');
       try {
@@ -90,6 +93,48 @@
       const target = $('auditList');
       target.innerHTML = audit.events.length ? audit.events.map((event) => `<div class="owner-event"><span>${esc(event.action.replaceAll('_', ' '))}</span><small>${esc(event.created_at ? new Date(event.created_at).toLocaleString() : '')}</small></div>`).join('') : '<div class="owner-hint">No changes recorded yet.</div>';
     } catch (error) { $('auditList').textContent = error.message; }
+  }
+  async function renderStaff(school) {
+    const target = $('staffRoster');
+    try {
+      const data = await api(`/api/owner/schools/${school.id}/members`);
+      if (state.selected !== school.id || !target?.isConnected) return;
+      target.innerHTML = data.members.length ? data.members.map((member) => `
+        <div class="owner-staff-row" data-membership="${member.membership_id}">
+          <div class="owner-staff-person"><strong>${esc(member.name || member.email)}</strong>${member.name ? `<small>${esc(member.email)}</small>` : ''}</div>
+          <label class="owner-staff-role"><span class="sr-only">Role for ${esc(member.email)}</span>
+            <select class="owner-select" data-role>
+              <option value="admin" ${member.role === 'admin' ? 'selected' : ''}>School admin</option>
+              <option value="teacher" ${member.role === 'teacher' ? 'selected' : ''}>Teacher</option>
+            </select>
+          </label>
+          <div class="owner-actions owner-staff-actions"><button class="owner-btn secondary" data-save-staff type="button">Save</button><button class="owner-btn danger" data-revoke-staff type="button">Revoke</button></div>
+        </div>`).join('') : '<div class="owner-empty">No teachers or school admins are enrolled yet. Staff appear here after joining with a verified school email.</div>';
+      target.querySelectorAll('[data-membership]').forEach((row) => {
+        const membershipId = row.dataset.membership;
+        const originalRole = data.members.find((member) => String(member.membership_id) === membershipId)?.role;
+        row.querySelector('[data-save-staff]').addEventListener('click', async () => {
+          const role = row.querySelector('[data-role]').value;
+          if (originalRole === 'admin' && role === 'teacher' && !window.confirm('Remove school administrator access for this person?')) return;
+          try {
+            await api(`/api/owner/schools/${school.id}/members/${membershipId}`, { method: 'PUT', body: JSON.stringify({ role }) });
+            notice($('detailNotice'), 'Staff access updated.', 'success'); await load();
+          } catch (error) { notice($('detailNotice'), error.message, 'error'); }
+        });
+        row.querySelector('[data-revoke-staff]').addEventListener('click', async () => {
+          const message = originalRole === 'admin'
+            ? 'Revoke this school administrator’s access? They will lose access to school controls.'
+            : 'Revoke this teacher’s access to the school?';
+          if (!window.confirm(message)) return;
+          try {
+            await api(`/api/owner/schools/${school.id}/members/${membershipId}`, { method: 'DELETE' });
+            notice($('detailNotice'), 'Staff membership revoked.', 'success'); await load();
+          } catch (error) { notice($('detailNotice'), error.message, 'error'); }
+        });
+      });
+    } catch (error) {
+      if (target?.isConnected) target.textContent = `Could not load staff: ${error.message}`;
+    }
   }
   function renderProof() {
     const target = $('proofBox');

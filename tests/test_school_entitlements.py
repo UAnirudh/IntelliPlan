@@ -91,6 +91,73 @@ def test_domain_and_plan_mutation_are_platform_owner_only(monkeypatch):
         App.limiter.enabled = previous
 
 
+def test_owner_staff_roster_is_scoped_audited_and_owner_only(monkeypatch):
+    previous = App.limiter.enabled
+    App.limiter.enabled = False
+    App.app.config['TESTING'] = True
+    with App.app.app_context():
+        App.db.create_all()
+        M = policy.models()
+        school = _org('Staff roster school')
+        other_school = _org('Other roster school')
+        admin = _user(f'admin-{uuid4().hex}@example.test')
+        teacher = _user(f'teacher-{uuid4().hex}@example.test')
+        student = _user(f'student-{uuid4().hex}@example.test')
+        other_teacher = _user(f'other-teacher-{uuid4().hex}@example.test')
+        App.db.session.add_all([
+            M['Membership'](user_id=admin.id, organization_id=school.id, role='admin'),
+            M['Membership'](user_id=teacher.id, organization_id=school.id, role='teacher'),
+            M['Membership'](user_id=student.id, organization_id=school.id, role='student'),
+            M['Membership'](user_id=other_teacher.id, organization_id=other_school.id, role='teacher'),
+        ])
+        owner = _user(f'owner-{uuid4().hex}@example.test')
+        App.db.session.commit()
+        admin_id, owner_id, owner_email = admin.id, owner.id, owner.email
+        school_id, other_school_id = school.id, other_school.id
+        teacher_membership_id = M['Membership'].query.filter_by(
+            user_id=teacher.id, organization_id=school.id).one().id
+        student_membership_id = M['Membership'].query.filter_by(
+            user_id=student.id, organization_id=school.id).one().id
+        other_membership_id = M['Membership'].query.filter_by(
+            user_id=other_teacher.id, organization_id=other_school.id).one().id
+        teacher_email = teacher.email
+        admin_email = admin.email
+    try:
+        monkeypatch.setattr(App, 'ADMIN_EMAILS', frozenset({owner_email}))
+        client = App.app.test_client()
+        _login(client, admin_id)
+        assert client.get(f'/api/owner/schools/{school_id}/members').status_code == 404
+        assert client.put(f'/api/owner/schools/{school_id}/members/{teacher_membership_id}',
+                          json={'role': 'admin'}).status_code == 404
+        _login(client, owner_id)
+        roster = client.get(f'/api/owner/schools/{school_id}/members')
+        assert roster.status_code == 200
+        members = roster.get_json()['members']
+        assert {member['email'] for member in members} == {teacher_email, admin_email}
+        assert all(member['role'] in {'teacher', 'admin'} for member in members)
+        assert client.put(f'/api/owner/schools/{school_id}/members/{teacher_membership_id}',
+                          json={'role': 'admin'}).get_json()['role'] == 'admin'
+        assert client.put(f'/api/owner/schools/{school_id}/members/{teacher_membership_id}',
+                          json={'role': 'student'}).status_code == 400
+        assert client.put(f'/api/owner/schools/{school_id}/members/{student_membership_id}',
+                          json={'role': 'admin'}).status_code == 404
+        assert client.delete(f'/api/owner/schools/{school_id}/members/{other_membership_id}').status_code == 404
+        removed = client.delete(f'/api/owner/schools/{school_id}/members/{teacher_membership_id}')
+        assert removed.status_code == 200 and removed.get_json()['removed'] is True
+        with App.app.app_context():
+            M = policy.models()
+            changed = M['Audit'].query.filter_by(organization_id=school_id,
+                                                  action='school_staff_role_updated').one()
+            assert changed.changes['from'] == 'teacher' and changed.changes['to'] == 'admin'
+            revoked = M['Audit'].query.filter_by(organization_id=school_id,
+                                                  action='school_staff_access_revoked').one()
+            assert revoked.changes['role'] == 'admin'
+            assert M['Membership'].query.filter_by(
+                organization_id=other_school_id, id=other_membership_id).one()
+    finally:
+        App.limiter.enabled = previous
+
+
 def test_owner_school_list_distinguishes_direct_and_effective_district_plan(monkeypatch):
     previous = App.limiter.enabled
     App.limiter.enabled = False

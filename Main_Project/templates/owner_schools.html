@@ -29,12 +29,14 @@
   .owner-empty{padding:24px 12px;text-align:center;color:var(--text-muted);border:1px dashed var(--border-strong,var(--border));border-radius:14px}
   .owner-domain{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;padding:12px 0;border-top:1px solid var(--border)}
   .owner-domain:first-of-type{border-top:0}.owner-domain-name{font-weight:750;overflow-wrap:anywhere}.owner-domain small{display:block;color:var(--text-muted);margin-top:3px}
+  .owner-staff-roster{display:grid;gap:8px;margin:0 0 20px}.owner-staff-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(130px,170px) auto;gap:10px;align-items:center;padding:11px 0;border-top:1px solid var(--border)}
+  .owner-staff-person{min-width:0}.owner-staff-person strong,.owner-staff-person small{display:block;overflow-wrap:anywhere}.owner-staff-person small{margin-top:3px;color:var(--text-muted);font-size:.76rem}.owner-staff-role{min-width:0}.owner-staff-actions{margin:0;justify-content:flex-end}.owner-staff-actions .owner-btn{min-height:40px;padding:0 11px}
   .owner-proof{margin-top:12px;border:1px solid color-mix(in srgb,var(--accent,#3983f6) 30%,var(--border));border-radius:13px;padding:13px;background:color-mix(in srgb,var(--accent,#3983f6) 5%,var(--bg))}
   .owner-proof code{display:block;padding:9px;margin-top:6px;border-radius:8px;background:var(--bg);overflow-wrap:anywhere;user-select:all}
   .owner-audit{display:grid;gap:8px}.owner-event{display:flex;justify-content:space-between;gap:12px;border-top:1px solid var(--border);padding:10px 0;font-size:.79rem}.owner-event:first-child{border:0}.owner-event small{color:var(--text-muted);text-align:right}
   .owner-notice{min-height:1.4em;color:var(--text-muted);font-size:.84rem}.owner-notice.error{color:#d94b60}.owner-notice.success{color:#16825d}
   @media(max-width:850px){.owner-workspace{grid-template-columns:1fr}.owner-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
-  @media(max-width:520px){.owner-card{padding:15px}.owner-domain{grid-template-columns:1fr}.owner-domain .owner-actions{margin-top:0}.owner-stats{gap:8px}.owner-stat{padding:12px}}
+  @media(max-width:520px){.owner-card{padding:15px}.owner-domain{grid-template-columns:1fr}.owner-domain .owner-actions{margin-top:0}.owner-stats{gap:8px}.owner-stat{padding:12px}.owner-staff-row{grid-template-columns:minmax(0,1fr) auto}.owner-staff-role{grid-column:1}.owner-staff-actions{grid-column:2;grid-row:1 / span 2;flex-direction:column}.owner-staff-actions .owner-btn{width:100%}}
 </style>
 <main class="owner-shell" id="ownerSchools">
   <header class="owner-head">
