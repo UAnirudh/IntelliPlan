@@ -60,6 +60,13 @@ def test_json_embedded_in_prose_is_extracted():
     assert _parse_schedule_json(raw)["overview"] == "A plan"
 
 
+def test_schedule_is_extracted_after_an_unrelated_json_example():
+    example = json.dumps({"example": {"notes": 'Braces like { these } and quotes "here" are text.'}})
+    actual = json.dumps(GOOD)
+    raw = "Example response shape: " + example + "\nHere is your schedule: " + actual
+    assert _parse_schedule_json(raw)["overview"] == "A plan"
+
+
 # ── truncation recovery ───────────────────────────────────────────
 
 

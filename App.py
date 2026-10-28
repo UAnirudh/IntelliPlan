@@ -4648,6 +4648,55 @@ def _repair_truncated_json(raw):
         return None
 
 
+def _embedded_schedule_object(text):
+    """Find the first complete, usable schedule object inside model prose.
+
+    A response can contain an explanatory JSON example before the actual
+    schedule. Greedy matching then joins both objects and rejects the whole
+    response. Scan balanced containers instead, ignoring braces in strings.
+    """
+    stack = []
+    start = None
+    in_string = escaped = False
+    matching = {"}": "{", "]": "["}
+
+    for index, char in enumerate(text):
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+            continue
+
+        if char == '"':
+            in_string = True
+        elif char in "{[":
+            if not stack and char == "{":
+                start = index
+            stack.append(char)
+        elif char in "}]":
+            if not stack or stack[-1] != matching[char]:
+                stack = []
+                start = None
+                continue
+            stack.pop()
+            if not stack and start is not None:
+                try:
+                    candidate = json.loads(text[start:index + 1])
+                except json.JSONDecodeError:
+                    candidate = None
+                if isinstance(candidate, dict):
+                    days = candidate.get("schedule")
+                    if isinstance(days, list) and days and any(
+                        isinstance(day, dict) and day.get("blocks") for day in days
+                    ):
+                        return candidate
+                start = None
+    return None
+
+
 def _parse_schedule_json(raw):
     """Turn a model response into a schedule dict, or raise.
 
@@ -4663,12 +4712,7 @@ def _parse_schedule_json(raw):
     try:
         data = json.loads(text)
     except json.JSONDecodeError:
-        m = re.search(r"\{[\s\S]*\}", text)
-        if m:
-            try:
-                data = json.loads(m.group(0))
-            except json.JSONDecodeError:
-                data = None
+        data = _embedded_schedule_object(text)
         if data is None:
             data = _repair_truncated_json(text)
             if data is not None:
