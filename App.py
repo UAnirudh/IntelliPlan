@@ -657,9 +657,13 @@ class User(UserMixin, db.Model):
     __tablename__ = "users"
     id = db.Column(db.Integer, primary_key=True)
     email = db.Column(db.String(255), unique=True, nullable=False)
-    # Password signups remain unverified until a dedicated verification flow
-    # exists. Google sign-in sets this only from an explicit verified claim.
+    # Password signups remain unverified until their one-time email proof is
+    # consumed. Google sign-in sets this only from an explicit verified claim.
     email_verified = db.Column(db.Boolean, nullable=False, default=False)
+    email_verification_hash = db.Column(db.String(64), nullable=True)
+    email_verification_email_hash = db.Column(db.String(64), nullable=True)
+    email_verification_expires_at = db.Column(db.DateTime, nullable=True)
+    email_verification_sent_at = db.Column(db.DateTime, nullable=True)
     password_hash = db.Column(db.String(255), nullable=False, default="")
     google_id = db.Column(db.String(255), unique=True, nullable=True)
     name = db.Column(db.String(255), nullable=True)
@@ -7365,6 +7369,9 @@ def register():
                 # eligibility gate holds it back until a parent consents,
                 # which is the same answer it would give the daily sweep.
                 send_welcome_email_on_signup(user.id)
+                # School-domain access requires proof of this mailbox. The
+                # sender itself waits for the normal age/parent-consent gate.
+                send_email_verification_on_signup(user.id)
                 # Under-13 accounts stay logged-out until the parent clicks
                 # the consent link. Show a friendly "waiting for parent" page.
                 if under_13:
@@ -19295,6 +19302,28 @@ def send_welcome_email_on_signup(user_id):
         print(f"[welcome] could not start delivery thread for user {user_id}: {exc}")
 
 
+def send_email_verification_on_signup(user_id):
+    """Queue a transactional email-ownership confirmation after signup."""
+    import threading
+
+    def _deliver():
+        try:
+            with app.app_context():
+                user = db.session.get(User, user_id)
+                if user is None:
+                    return
+                from intelliplan.email_verification import send_verification
+                sent, reason = send_verification(user, bypass_cooldown=True)
+                print(f"[email-verification] user {user_id}: {reason}")
+        except Exception as exc:
+            print(f"[email-verification] delivery setup failed for user {user_id}: {type(exc).__name__}")
+
+    try:
+        threading.Thread(target=_deliver, name=f"ip-verify-email-{user_id}", daemon=True).start()
+    except Exception as exc:
+        print(f"[email-verification] could not queue for user {user_id}: {type(exc).__name__}")
+
+
 def _mini_page(title: str, body_html: str) -> str:
     """A standalone one-off HTML page, on-brand without a template.
 
@@ -19388,6 +19417,7 @@ def _welcome_after_age_known(user):
         if created is None or utcnow() - created > WELCOME_AFTER_AGE_WINDOW:
             return
         send_welcome_email_on_signup(user.id)
+        send_email_verification_on_signup(user.id)
     except Exception as exc:
         print(f"[welcome] after age step failed for user {getattr(user, 'id', '?')}: {exc}")
 
@@ -22478,6 +22508,11 @@ _install_premium(app)
 # Each link attempt makes a call to the provider with the pasted key: an
 # open endpoint would let anyone test stolen keys through us.
 limiter.limit("10 per hour")(app.view_functions["premium.api_ai_accounts_link"])
+# Email verification issues a one-time bearer token. The account-specific
+# cooldown complements these IP limits so the public resend endpoint cannot
+# be used as an email-sending relay.
+limiter.limit("6 per hour")(app.view_functions["auth_api_bp.email_verification_resend"])
+limiter.limit("20 per hour")(app.view_functions["auth_api_bp.verify_email"])
 # ── Consented product insight. Declares its own cookie in cookie_policy,
 # records nothing without consent, and never touches a child's account.
 from insight_glue import install as _install_insight
@@ -22622,6 +22657,10 @@ def _migrate_user_columns():
         ("users", "sms_carrier", "VARCHAR(32) DEFAULT 'tmobile'"),
         ("users", "birth_year", "INTEGER"),
         ("users", "email_verified", "BOOLEAN DEFAULT FALSE"),
+        ("users", "email_verification_hash", "VARCHAR(64)"),
+        ("users", "email_verification_email_hash", "VARCHAR(64)"),
+        ("users", "email_verification_expires_at", "TIMESTAMP"),
+        ("users", "email_verification_sent_at", "TIMESTAMP"),
         ("users", "parent_email", "VARCHAR(255)"),
         ("users", "parent_consent_granted", "BOOLEAN DEFAULT FALSE"),
         ("users", "parent_consent_token", "VARCHAR(64)"),
@@ -22935,7 +22974,9 @@ def health_check():
         "notion_columns": columns['notion_integrations'],
     }
     expected = {"id", "email", "password_hash", "referral_code", "referred_by_id",
-                "email_verified", "trial_started_at", "stripe_paid_until", "stripe_event_created"}
+                "email_verified", "email_verification_hash", "email_verification_email_hash",
+                "email_verification_expires_at", "email_verification_sent_at",
+                "trial_started_at", "stripe_paid_until", "stripe_event_created"}
     out["users_schema_ok"] = expected.issubset(set(out["users_columns"]))
     response = flask.jsonify(out)
     response.headers['Cache-Control'] = 'no-store'
@@ -23087,10 +23128,11 @@ def _family_host_entry():
             return redirect(url_for("login_account"))
         return render_template("parent_portal.html", noindex_page=True,
                                parent_mode=current_user.role == "parent", family_home_url="/")
-    allowed = ("/static/", "/api/roles/", "/api/school-admin/")
+    allowed = ("/static/", "/api/roles/", "/api/school-admin/",
+               "/api/auth/email-verification/")
     if request.path.startswith(allowed) or request.path in {
         "/login", "/login/account", "/register", "/logout",
-        "/forgot-password", "/reset-password", "/favicon.ico", "/adult/account", "/legal", "/teacher", "/account/delete",
+        "/forgot-password", "/reset-password", "/verify-email", "/favicon.ico", "/adult/account", "/legal", "/teacher", "/account/delete",
         "/school-admin", "/admin/accounts", "/api/admin/accounts",
     }:
         return None

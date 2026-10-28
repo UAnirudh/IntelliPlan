@@ -402,7 +402,7 @@ with App.py's web routes (/login, /register, /logout).
 import os
 import time
 import urllib.parse
-from flask import Blueprint, jsonify, request, current_app, session
+from flask import Blueprint, jsonify, request, current_app, session, render_template, make_response
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
 auth_bp = Blueprint("auth_api_bp", __name__)
@@ -572,7 +572,73 @@ def api_register():
         print(f"[trial] API signup grant skipped: {exc}")
     db.session.commit()
 
+    # API and mobile password registrations use the same ownership proof as
+    # the HTML signup. The sender applies age/parent-consent eligibility, so
+    # an API signup with unknown age remains unverified and receives no mail
+    # until the account completes the age gate.
+    try:
+        import App as app_module
+        app_module.send_email_verification_on_signup(user.id)
+    except Exception as exc:
+        current_app.logger.warning("email verification signup dispatch failed (%s)", type(exc).__name__)
+
     return _ok({"token": make_token(user), "user": user_to_dict(user)}, 201)
+
+
+@auth_bp.route("/api/auth/email-verification/resend", methods=["POST"])
+@auth_bp.route("/api/ext/email-verification/resend", methods=["POST"])
+def email_verification_resend():
+    """Resend proof without revealing whether an address has an account."""
+    data = request.get_json(silent=True) or request.form
+    address = str(data.get("email") or "").strip().lower()[:255]
+    if address and "@" in address:
+        try:
+            _, User, _ = _models()
+            user = User.query.filter_by(email=address).first()
+            if user is not None:
+                from intelliplan.email_verification import send_verification
+                send_verification(user)
+        except Exception as exc:
+            # The response is intentionally identical for known/unknown or
+            # currently ineligible addresses. Never log a bearer token.
+            current_app.logger.warning("email verification request failed (%s)", type(exc).__name__)
+    return jsonify({"status": "ok", "message": "If this account needs verification, a link has been sent."})
+
+
+@auth_bp.route("/verify-email", methods=["GET", "POST"])
+def verify_email():
+    """Show a confirmation page on GET; consume the token only on explicit POST.
+
+    Mail scanners routinely visit links, so GET must never consume a bearer
+    token. POST requests are protected by the app-wide same-origin
+    Origin/Referer guard used for HTML forms.
+    """
+    verified = False
+    invalid = False
+    token = request.args.get("token", "") if request.method == "GET" else (
+        (request.get_json(silent=True) or {}).get("token") or request.form.get("token", "")
+    )
+    if request.method == "POST":
+        try:
+            from intelliplan.email_verification import consume_verification
+            verified = consume_verification(str(token))
+        except Exception as exc:
+            current_app.logger.warning("email verification consume failed (%s)", type(exc).__name__)
+        invalid = not verified
+        if request.is_json:
+            response = jsonify({"status": "ok" if verified else "error",
+                                "message": "Email confirmed." if verified else "That link is invalid or expired."})
+            response.status_code = 200 if verified else 400
+            response.headers["Cache-Control"] = "no-store"
+            response.headers["Referrer-Policy"] = "no-referrer"
+            return response
+    response = make_response(render_template(
+        "verify_email.html", token=str(token)[:256], verified=verified, invalid=invalid,
+        active_page="login",
+    ))
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    return response
 
 
 @auth_bp.route("/api/auth/login", methods=["POST", "OPTIONS"])

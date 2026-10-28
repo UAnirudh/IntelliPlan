@@ -499,7 +499,7 @@ body:is(.has-side, .has-tabbar) {
 }
 body:is(.has-side, .has-tabbar) :is(.ipd-card, .ipd-stat, .ipd-upcoming-card, .ipd-sched-card,
   .ipd-grade-card, .scheduler-panel, .day-card, .iv-day-card, .overview-card, .settings-section,
-  .learning-panel, .learning-organization, .course-card, .focus-card, .library-card,
+  .learning-panel, .learning-organization, .course-card, .focus-card, .library-card, .ipd-assistant-card,
   .gp-panel, .cc-card, .tutor-artifact, .clarify-card, .command-chat__schedule) {
   background: var(--bg-card) !important;
   background-image: none !important;
@@ -508,6 +508,16 @@ body:is(.has-side, .has-tabbar) :is(.ipd-card, .ipd-stat, .ipd-upcoming-card, .i
   -webkit-backdrop-filter: none !important;
   backdrop-filter: none !important;
 }
+/* The dashboard's assistant card historically used the primary text color as
+   its surface, which made it white in dark mode. Keep it quiet and theme-aware
+   like the rest of the signed-in workspace. */
+body:is(.has-side, .has-tabbar) .ipd-assistant-card {
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border) !important;
+}
+body:is(.has-side, .has-tabbar) .ipd-assistant-card::before { display: none !important; }
+body:is(.has-side, .has-tabbar) .ipd-assistant-label { color: var(--text-muted); opacity: 1; }
+body:is(.has-side, .has-tabbar) .ipd-assistant-cta { color: var(--accent); opacity: 1; }
 body:is(.has-side, .has-tabbar) :is(.app-side, .app-topbar, .mobile-tabbar) {
   background-image: none !important;
   -webkit-backdrop-filter: none !important;

@@ -37,3 +37,16 @@ def test_password_at_the_floor_is_accepted(client):
     r = client.post("/api/auth/register", json={"email": _email(), "password": "Abcdef12"})
     assert r.status_code == 201, r.get_data(as_text=True)
     assert r.get_json()["token"]
+
+
+def test_api_signup_queues_verification_dispatch(client, monkeypatch):
+    queued = []
+    monkeypatch.setattr(app_module, "send_email_verification_on_signup",
+                        lambda user_id: queued.append(user_id))
+    r = client.post("/api/auth/register", json={"email": _email(), "password": "Abcdef12"})
+    assert r.status_code == 201, r.get_data(as_text=True)
+    assert len(queued) == 1
+    user = app_module.db.session.get(app_module.User, queued[0])
+    # API signup has no age capture; dispatch is queued but eligibility keeps
+    # actual delivery blocked until the age/parent-consent gate is satisfied.
+    assert user.email_verified is False

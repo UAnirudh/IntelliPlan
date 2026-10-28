@@ -158,20 +158,25 @@ export default function PlaniScreen() {
     async (from: "camera" | "library") => {
       if (busy) return;
 
-      const perm =
-        from === "camera"
-          ? await ImagePicker.requestCameraPermissionsAsync()
-          : await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!perm.granted) {
-        await confirm({
-          title: "Permission needed",
-          message:
-            from === "camera"
-              ? "Allow camera access in your phone's settings to photograph a problem."
-              : "Allow photo access in your phone's settings to pick a problem.",
-          actions: [{ label: "OK", cancel: true }],
-        });
-        return;
+      if (from === "camera" || Platform.OS !== "android") {
+        // The Android system photo picker grants temporary access to the
+        // selected image. Do not ask for broad gallery access just to attach
+        // one worksheet photo. Camera capture still needs its runtime grant.
+        const perm =
+          from === "camera"
+            ? await ImagePicker.requestCameraPermissionsAsync()
+            : await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!perm.granted) {
+          await confirm({
+            title: "Permission needed",
+            message:
+              from === "camera"
+                ? "Allow camera access in your phone's settings to photograph a problem."
+                : "Allow photo access in your phone's settings to pick a problem.",
+            actions: [{ label: "OK", cancel: true }],
+          });
+          return;
+        }
       }
 
       const opts: ImagePicker.ImagePickerOptions = {

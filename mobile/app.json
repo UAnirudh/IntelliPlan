@@ -58,8 +58,7 @@
       },
       "permissions": [
         "android.permission.POST_NOTIFICATIONS",
-        "android.permission.CAMERA",
-        "android.permission.READ_MEDIA_IMAGES"
+        "android.permission.CAMERA"
       ],
       "blockedPermissions": [
         "android.permission.RECORD_AUDIO",
@@ -99,7 +98,8 @@
         "expo-image-picker",
         {
           "photosPermission": "Attach a photo of a problem so Plani can walk you through it.",
-          "cameraPermission": "Snap a photo of a problem so Plani can walk you through it."
+          "cameraPermission": "Snap a photo of a problem so Plani can walk you through it.",
+          "microphonePermission": false
         }
       ],
       "expo-font",

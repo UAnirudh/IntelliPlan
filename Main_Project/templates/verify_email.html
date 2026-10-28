@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Confirm your email | IntelliPlan{% endblock %}
+{% block content %}
+<main class="auth-wrap" style="max-width:560px;margin:clamp(2rem,8vh,5rem) auto;padding:1.5rem">
+  <section class="auth-card" aria-labelledby="verify-title">
+    {% if verified %}
+      <h1 id="verify-title">Email confirmed</h1>
+      <p>Your email is verified. If your school has an active IntelliPlan partnership, its plan is now available to your account.</p>
+      <a class="btn btn-primary" href="/command-center">Continue to IntelliPlan</a>
+    {% elif invalid %}
+      <h1 id="verify-title">That link has expired</h1>
+      <p>Request a fresh confirmation link from the sign-in page, then try again.</p>
+      <a class="btn btn-primary" href="/login">Back to sign in</a>
+    {% elif token %}
+      <h1 id="verify-title">Confirm your email</h1>
+      <p>Confirm that you own this address to receive any school benefits attached to its verified domain.</p>
+      <form method="post" action="/verify-email">
+        <input type="hidden" name="token" value="{{ token }}">
+        <button class="btn btn-primary" type="submit">Confirm email</button>
+      </form>
+    {% else %}
+      <h1 id="verify-title">Open your email link</h1>
+      <p>Use the confirmation link we sent you. For your security, visiting the link alone does not activate it; press Confirm email on the page.</p>
+    {% endif %}
+  </section>
+</main>
+{% endblock %}
