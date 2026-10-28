@@ -137,7 +137,7 @@
       /* Card elevation stays on the warm-neutral ramp; the inner highlights
          are what make the surface read as glass, not a coloured cast. */
       --glass-shadow:  inset 1.5px 1.5px 2px rgba(255,255,255,0.7), inset -1.5px -1.5px 2px rgba(255,255,255,0.55), inset 0 1px 0 rgba(255,255,255,0.95), 0 12px 34px -10px rgba(28,25,20,0.16), 0 3px 12px rgba(28,25,20,0.07);
-      --glass-highlight: linear-gradient(180deg, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.08) 30%, rgba(255,255,255,0) 55%);
+      --glass-highlight: none;
       /* Glass interactive-element family — buttons, inputs, chips, icon
          buttons. Frosted translucent fill + bright edge-light so the glass is
          obvious in light mode while text stays high-contrast. */
@@ -260,7 +260,7 @@
       /* One faint top edge, where a light above would actually catch, rather
          than rim-lighting all four sides of every card. */
       --glass-shadow:  inset 0 1px 0 rgba(255,246,232,0.08), 0 2px 6px rgba(8,6,4,0.40), 0 18px 44px -16px rgba(8,6,4,0.60);
-      --glass-highlight: linear-gradient(180deg, rgba(255,246,232,0.06) 0%, rgba(255,246,232,0.015) 40%, rgba(255,246,232,0) 62%);
+      --glass-highlight: none;
       --glass-btn-bg:       rgba(255,244,230,0.06);
       --glass-btn-border:   rgba(255,244,230,0.12);
       --glass-btn-hover:    rgba(255,244,230,0.12);
@@ -284,14 +284,14 @@
       --bg:#f0f5fa; --bg-secondary:#ffffff; --bg-card:#ffffff; --bg-elevated:#edf2f7;
       --accent:#0369a1; --accent-hover:#075985;
       --accent-soft:rgba(3,105,161,0.08); --accent-mid:rgba(3,105,161,0.25); --border-accent:rgba(3,105,161,0.28);
-      --grad-brand:linear-gradient(135deg,#075985 0%,#0284c7 55%,#38bdf8 100%);
+      --grad-brand:var(--accent);
       --toggle-knob:#0369a1; --footer-link:#0369a1;
     }
     :root[data-palette="ocean"][data-theme="dark"] {
       --bg:#070a0d; --bg-secondary:#0c1218; --bg-card:#111820; --bg-elevated:#162030;
       --accent:#38bdf8; --accent-hover:#7dd3fc;
       --accent-soft:rgba(56,189,248,0.10); --accent-mid:rgba(56,189,248,0.28); --border-accent:rgba(56,189,248,0.30);
-      --grad-brand:linear-gradient(135deg,#075985 0%,#0284c7 55%,#38bdf8 100%);
+      --grad-brand:var(--accent);
       --toggle-knob:#38bdf8; --footer-link:#38bdf8;
     }
 
@@ -299,14 +299,14 @@
       --bg:#f0f5f0; --bg-secondary:#ffffff; --bg-card:#ffffff; --bg-elevated:#edf2ed;
       --accent:#15803d; --accent-hover:#166534;
       --accent-soft:rgba(21,128,61,0.08); --accent-mid:rgba(21,128,61,0.25); --border-accent:rgba(21,128,61,0.28);
-      --grad-brand:linear-gradient(135deg,#166534 0%,#16a34a 55%,#4ade80 100%);
+      --grad-brand:var(--accent);
       --toggle-knob:#15803d; --footer-link:#15803d;
     }
     :root[data-palette="forest"][data-theme="dark"] {
       --bg:#070d08; --bg-secondary:#0c180e; --bg-card:#112016; --bg-elevated:#1e2c22;
       --accent:#4ade80; --accent-hover:#86efac;
       --accent-soft:rgba(74,222,128,0.10); --accent-mid:rgba(74,222,128,0.28); --border-accent:rgba(74,222,128,0.30);
-      --grad-brand:linear-gradient(135deg,#166534 0%,#22c55e 55%,#86efac 100%);
+      --grad-brand:var(--accent);
       --toggle-knob:#4ade80; --footer-link:#4ade80;
     }
 
@@ -314,14 +314,14 @@
       --bg:#fbf5f0; --bg-secondary:#ffffff; --bg-card:#ffffff; --bg-elevated:#f2ece7;
       --accent:#c2410c; --accent-hover:#9a3412;
       --accent-soft:rgba(194,65,12,0.08); --accent-mid:rgba(194,65,12,0.25); --border-accent:rgba(194,65,12,0.28);
-      --grad-brand:linear-gradient(135deg,#9a3412 0%,#ea580c 55%,#fb923c 100%);
+      --grad-brand:var(--accent);
       --toggle-knob:#c2410c; --footer-link:#c2410c;
     }
     :root[data-palette="sunset"][data-theme="dark"] {
       --bg:#0d0907; --bg-secondary:#180e0c; --bg-card:#201510; --bg-elevated:#2c2118;
       --accent:#fb923c; --accent-hover:#fdba74;
       --accent-soft:rgba(251,146,60,0.10); --accent-mid:rgba(251,146,60,0.28); --border-accent:rgba(251,146,60,0.30);
-      --grad-brand:linear-gradient(135deg,#9a3412 0%,#ea580c 55%,#fb923c 100%);
+      --grad-brand:var(--accent);
       --toggle-knob:#fb923c; --footer-link:#fb923c;
     }
 
@@ -329,14 +329,14 @@
       --bg:#fbf0f5; --bg-secondary:#ffffff; --bg-card:#ffffff; --bg-elevated:#f2edf0;
       --accent:#be185d; --accent-hover:#9d174d;
       --accent-soft:rgba(190,24,93,0.08); --accent-mid:rgba(190,24,93,0.25); --border-accent:rgba(190,24,93,0.28);
-      --grad-brand:linear-gradient(135deg,#9d174d 0%,#db2777 55%,#f472b6 100%);
+      --grad-brand:var(--accent);
       --toggle-knob:#be185d; --footer-link:#be185d;
     }
     :root[data-palette="rose"][data-theme="dark"] {
       --bg:#0d0710; --bg-secondary:#180c18; --bg-card:#201020; --bg-elevated:#2c1c28;
       --accent:#f472b6; --accent-hover:#f9a8d4;
       --accent-soft:rgba(244,114,182,0.10); --accent-mid:rgba(244,114,182,0.28); --border-accent:rgba(244,114,182,0.30);
-      --grad-brand:linear-gradient(135deg,#9d174d 0%,#ec4899 55%,#f9a8d4 100%);
+      --grad-brand:var(--accent);
       --toggle-knob:#f472b6; --footer-link:#f472b6;
     }
 
@@ -348,7 +348,7 @@
       --text-primary:#e2e8f4; --text-secondary:#8892a8; --text-muted:#7c8598;
       --border:rgba(255,255,255,0.065); --border-strong:rgba(255,255,255,0.10);
       --nav-bg:rgba(7,6,13,0.9);
-      --grad-brand:linear-gradient(135deg,#5b21b6 0%,#7c3aed 55%,#a78bfa 100%);
+      --grad-brand:var(--accent);
       --toggle-knob:#a78bfa; --footer-link:#a78bfa;
     }
 
@@ -356,14 +356,14 @@
       --bg:#f7f3f0; --bg-secondary:#ffffff; --bg-card:#ffffff; --bg-elevated:#ede8e2;
       --accent:#78552e; --accent-hover:#5c3d1e;
       --accent-soft:rgba(120,85,46,0.08); --accent-mid:rgba(120,85,46,0.25); --border-accent:rgba(120,85,46,0.28);
-      --grad-brand:linear-gradient(135deg,#5c3d1e 0%,#92652e 55%,#c8a17a 100%);
+      --grad-brand:var(--accent);
       --toggle-knob:#78552e; --footer-link:#78552e;
     }
     :root[data-palette="mocha"][data-theme="dark"] {
       --bg:#0d0a07; --bg-secondary:#18130c; --bg-card:#201a10; --bg-elevated:#2a221a;
       --accent:#c8a17a; --accent-hover:#dcb893;
       --accent-soft:rgba(200,161,122,0.10); --accent-mid:rgba(200,161,122,0.28); --border-accent:rgba(200,161,122,0.30);
-      --grad-brand:linear-gradient(135deg,#5c3d1e 0%,#a47551 55%,#c8a17a 100%);
+      --grad-brand:var(--accent);
       --toggle-knob:#c8a17a; --footer-link:#c8a17a;
     }
 
@@ -744,18 +744,10 @@
       text-rendering: optimizeLegibility;
       position: relative;
     }
-    /* Ambient glass atmosphere — a fixed field of accent-tinted light so
-       every translucent surface has real color to refract. Tuned to read as
-       premium depth without tinting body text; recolors per theme/palette
-       because it's built on the live --accent-shadow RGB triplet. */
+    /* Keep the shared page canvas flat. Cards and controls provide the
+       hierarchy; decorative ambient washes made the whole app feel busy. */
     body::before {
-      content:'';
-      position: fixed; inset: 0;
-      pointer-events: none; z-index: 0;
-      background:
-        radial-gradient(56rem 48rem at -4% -12%, rgba(var(--accent-shadow),0.08) 0%, transparent 52%),
-        radial-gradient(52rem 46rem at 104% 110%, rgba(var(--accent-shadow),0.06) 0%, transparent 54%);
-      opacity: 1;
+      display: none;
     }
     /* Brand marks that are black by design disappear on a dark ground.
        Notion's mark is published in black or white depending on the
@@ -767,32 +759,15 @@
       box-shadow: 0 0 0 1px rgba(255,244,230,0.16);
     }
 
-    /* Dark gets its own atmosphere rather than the light theme's tinted
-       corners at 90% strength. Two symmetric accent-coloured washes on
-       near-black is the "ambient glow" every generated dark UI ships with,
-       and with a blue accent it was the loudest tell in the theme. This is
-       one warm light source high on the left and a slight settling of the
-       dark toward the bottom -- a lit room, not a gradient. */
+    /* Dark mode uses the same flat canvas treatment as light mode. */
     [data-theme="dark"] body::before {
-      opacity: 1;
-      background:
-        radial-gradient(70rem 52rem at 6% -18%, rgba(255,238,214,0.045) 0%, transparent 58%),
-        radial-gradient(60rem 60rem at 108% 8%, rgba(var(--accent-shadow),0.05) 0%, transparent 60%),
-        linear-gradient(180deg, transparent 55%, rgba(6,5,4,0.35) 100%);
+      display: none;
     }
-    /* Fine-grain noise overlay — adds tactile warmth so surfaces don't
-       feel like a clinical CSS gradient. Heavy on light theme, lighter on dark. */
+    /* Keep the page canvas clean and uniform in both themes. */
     body::after {
-      content:'';
-      position: fixed; inset: 0;
-      pointer-events: none; z-index: 0;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' seed='3'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.5 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-      opacity: 0.025;
-      mix-blend-mode: multiply;
+      display: none;
     }
-    /* Large dark fields show banding and read as vector fill without it, so
-       dark carries slightly more grain than light. */
-    [data-theme="dark"] body::after { opacity: 0.05; mix-blend-mode: screen; }
+    [data-theme="dark"] body::after { display: none; }
     body > * { position: relative; z-index: 1; }
 
     h1, h2, h3 {
@@ -2164,35 +2139,6 @@
       color: #fff;
     }
     [data-theme="dark"] .auth-aside { background: #0e0d0b; }
-    /* Fine grid texture. Two 1px gradients beat a background-image here:
-       no request, and it scales with the panel instead of tiling visibly. */
-    .auth-aside::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      z-index: -1;
-      background-image:
-        linear-gradient(rgba(255,255,255,0.045) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.045) 1px, transparent 1px);
-      background-size: 46px 46px;
-      /* Fade the grid out toward the bottom so the copy sits on clean ink. */
-      -webkit-mask-image: radial-gradient(120% 90% at 20% 0%, #000 0%, transparent 72%);
-      mask-image: radial-gradient(120% 90% at 20% 0%, #000 0%, transparent 72%);
-    }
-    .auth-aside .ipm-aurora { z-index: -1; }
-    .auth-aside-a {
-      width: 420px; height: 420px; top: -140px; right: -120px;
-      background: radial-gradient(circle, rgb(var(--accent-shadow, 37,99,235)) 0%, transparent 68%);
-    }
-    .auth-aside-b {
-      width: 340px; height: 340px; bottom: -120px; left: -90px;
-      background: radial-gradient(circle, #f59e0b 0%, transparent 70%);
-      opacity: 0.28;
-      --ipm-drift-dur: 27s;
-      --ipm-drift-delay: -8s;
-    }
-    [data-theme="dark"] .auth-aside-b { opacity: 0.2; }
-
     .auth-aside-brand {
       display: flex; align-items: center; gap: 10px;
       font-family: var(--font-ui); font-weight: 700; font-size: 0.95rem;
@@ -2473,14 +2419,14 @@
     #planiChat.open { opacity:1; transform:translateY(0) scale(1); pointer-events:auto; }
 
     #planiChatHeader {
-      background:linear-gradient(135deg, var(--plani-shell-1) 0%, var(--plani-body-2) 100%);
+      background:var(--plani-shell-1);
       padding:13px 15px; display:flex; align-items:center; gap:10px; flex-shrink:0;
       position:relative;
     }
     /* Amber hairline tying the panel to the robot's signal colour. */
     #planiChatHeader::after {
       content:''; position:absolute; left:0; right:0; bottom:0; height:1px;
-      background:linear-gradient(90deg, transparent, var(--plani-signal), transparent);
+      background:var(--plani-signal);
       opacity:0.55;
     }
     .plani-hdr-avatar {

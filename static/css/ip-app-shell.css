@@ -43,22 +43,12 @@
     --ipx-shadow: 0 12px 36px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.4);
   }
 
-  /* ── Page light ───────────────────────────────────────────────────
-     The same three washes the app paints behind its glass (Backdrop in
-     mobile/components/glass.tsx): glass over a flat fill reads grey. */
+  /* ── Page canvas ───────────────────────────────────────────────────
+     Keep mobile web and native app backgrounds consistent and flat. */
   body.has-tabbar {
     background-color: var(--bg);
-    background-image:
-      radial-gradient(120% 60% at 0% 0%, rgba(26, 86, 219, 0.11), rgba(26, 86, 219, 0) 60%),
-      radial-gradient(90% 50% at 100% 55%, rgba(10, 117, 88, 0.06), rgba(10, 117, 88, 0) 70%),
-      radial-gradient(100% 55% at 100% 100%, rgba(200, 137, 15, 0.08), rgba(200, 137, 15, 0) 65%);
+    background-image: none;
     background-attachment: fixed;
-  }
-  :root[data-theme="dark"] body.has-tabbar {
-    background-image:
-      radial-gradient(120% 60% at 0% 0%, rgba(91, 147, 245, 0.16), rgba(91, 147, 245, 0) 60%),
-      radial-gradient(90% 50% at 100% 55%, rgba(61, 212, 160, 0.06), rgba(61, 212, 160, 0) 70%),
-      radial-gradient(100% 55% at 100% 100%, rgba(224, 169, 74, 0.07), rgba(224, 169, 74, 0) 65%);
   }
 
   /* ── Header: glass, and the hamburger retires ─────────────────────
