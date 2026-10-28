@@ -3,6 +3,18 @@
   const $ = id => document.getElementById(id);
   const status = message => { $('admin-status').textContent = message; };
   let organizations = [], selected, dirty = false, saving = false;
+  const policyViewport = window.matchMedia('(max-width: 520px)');
+  const policyGroups = Array.from(document.querySelectorAll('.admin-policy-group[data-mobile-collapse]'));
+  function syncPolicyDisclosure() {
+    policyGroups.forEach(group => {
+      if (!group.dataset.userToggled) group.open = !policyViewport.matches;
+    });
+  }
+  policyGroups.forEach(group => group.querySelector('summary')?.addEventListener('click', () => {
+    group.dataset.userToggled = '1';
+  }));
+  syncPolicyDisclosure();
+  policyViewport.addEventListener?.('change', syncPolicyDisclosure);
   const settings = {tutor:'AI tutor', study:'Study sessions', review:'Review & flashcards', focus:'Focus tools',
     scheduler:'Scheduling', writing:'Writing assistant', math:'Math assistant', extractor:'Task extractor',
     text_dissector:'Text dissector', grade_modeler:'Grade modeler', meetings:'Meetings', groups:'Study groups',

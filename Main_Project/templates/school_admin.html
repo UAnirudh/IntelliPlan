@@ -22,19 +22,20 @@
 <p id="admin-tool-summary" class="policy-summary" role="status"></p>
 <label class="policy-filter" for="admin-tool-filter">Find a tool<input id="admin-tool-filter" type="search" placeholder="Search tools and connections…"></label>
 <p id="admin-filter-empty" hidden>No tools match your search.</p>
-<form id="admin-policy"><fieldset><legend>Student activities</legend><div id="admin-features" class="learning-policy-grid"></div></fieldset>
-<fieldset><legend>Individual workspace tools</legend><p class="learning-note">These switches let you restrict one tool while keeping the others available. AI tools also require the AI tutor policy.</p><div id="admin-tools" class="learning-policy-grid"></div></fieldset>
-<fieldset><legend>Connections and communication</legend><div id="admin-connections" class="learning-policy-grid"></div></fieldset>
-<fieldset><legend>Beta features and AI processing</legend><div id="admin-experiments" class="learning-policy-grid"></div></fieldset>
-<fieldset><legend>Permitted text AI providers</legend><div id="admin-providers" class="learning-policy-grid"></div></fieldset>
-<fieldset><legend>Generation limits</legend><div class="learning-form-grid">
+<form id="admin-policy">
+<details class="admin-policy-group" data-mobile-collapse open><summary>Student activities</summary><fieldset><legend class="sr-only">Student activities</legend><div id="admin-features" class="learning-policy-grid"></div></fieldset></details>
+<details class="admin-policy-group" data-mobile-collapse open><summary>Individual workspace tools</summary><fieldset><legend class="sr-only">Individual workspace tools</legend><p class="learning-note">These switches let you restrict one tool while keeping the others available. AI tools also require the AI tutor policy.</p><div id="admin-tools" class="learning-policy-grid"></div></fieldset></details>
+<details class="admin-policy-group" data-mobile-collapse open><summary>Connections and communication</summary><fieldset><legend class="sr-only">Connections and communication</legend><div id="admin-connections" class="learning-policy-grid"></div></fieldset></details>
+<details class="admin-policy-group" data-mobile-collapse open><summary>Beta features and AI processing</summary><fieldset><legend class="sr-only">Beta features and AI processing</legend><div id="admin-experiments" class="learning-policy-grid"></div></fieldset></details>
+<details class="admin-policy-group" data-mobile-collapse open><summary>Permitted text AI providers</summary><fieldset><legend class="sr-only">Permitted text AI providers</legend><div id="admin-providers" class="learning-policy-grid"></div></fieldset></details>
+<details class="admin-policy-group" data-mobile-collapse open><summary>Generation limits</summary><fieldset><legend class="sr-only">Generation limits</legend><div class="learning-form-grid">
 <label>Maximum course generation token reservation<input id="admin-budget" type="number" min="1000" max="100000" value="24000"></label>
-<label>Shared monthly generation token ceiling<input id="admin-monthly-budget" type="number" min="1000" max="1000000" value="100000"></label></div></fieldset>
-<fieldset><legend>Retention and assessments</legend>
+<label>Shared monthly generation token ceiling<input id="admin-monthly-budget" type="number" min="1000" max="1000000" value="100000"></label></div></fieldset></details>
+<details class="admin-policy-group" data-mobile-collapse open><summary>Retention and assessments</summary><fieldset><legend class="sr-only">Retention and assessments</legend>
 <label>Learning activity retention in days · 0 keeps records until account deletion<input id="admin-retention" type="number" min="0" max="3650" value="0"></label>
 <p class="learning-note">Retention is processed by an operator-reviewed command. Unfinished sessions and courses are preserved.</p>
 <label>Scheduled assessment windows · one timezone-qualified start/end pair per line<textarea id="admin-assessment-windows" rows="3" placeholder="2026-10-12T09:00:00-07:00 / 2026-10-12T10:00:00-07:00"></textarea></label>
- </fieldset><div class="policy-save-row"><button type="submit" class="learning-primary" id="admin-save" disabled>Save policy</button><button type="button" id="admin-reload">Reload policy</button><p>Changes apply to members of this district or school after saving.</p></div></form></section>
+ </fieldset></details><div class="policy-save-row"><button type="submit" class="learning-primary" id="admin-save" disabled>Save policy</button><button type="button" id="admin-reload">Reload policy</button><p>Changes apply to members of this district or school after saving.</p></div></form></section>
 <div class="learning-admin-secondary">
 <section id="admin-classrooms-section" class="learning-panel"><span class="learning-eyebrow">CLASSROOMS</span><h2>Classrooms</h2><p id="admin-classroom-scope">Select a school above to create a classroom. Its school and district restrictions will apply.</p>
 <form id="admin-classroom"><label for="admin-classroom-name">Classroom name<input id="admin-classroom-name" maxlength="160" required placeholder="Health · Grade 9"></label><button type="submit" id="admin-classroom-create" disabled>Create classroom</button></form>
