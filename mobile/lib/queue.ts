@@ -10,6 +10,7 @@ import {
   unmarkTest,
   updateManualTask,
 } from "./api";
+import { refreshAndSyncReminders } from "./reminders";
 
 /**
  * Writes that could not be sent, kept until they can be.
@@ -174,12 +175,16 @@ export async function flushQueue(): Promise<number> {
   try {
     let items = await read();
     let sent = 0;
+    let taskMutationSent = false;
 
     while (items.length) {
       const [next, ...rest] = items;
       try {
         await send(next);
         sent += 1;
+        if (["dismiss", "restore", "createTask", "updateTask", "deleteTask"].includes(next.kind)) {
+          taskMutationSent = true;
+        }
         items = rest;
         await write(items);
       } catch (e) {
@@ -191,6 +196,12 @@ export async function flushQueue(): Promise<number> {
         items = rest;
         await write(items);
       }
+    }
+    if (taskMutationSent) {
+      // Offline task edits become real only after the server accepts them.
+      // Rebuild from that canonical list so queued creates, deletes, and
+      // completion toggles update the device schedule too.
+      await refreshAndSyncReminders().catch(() => {});
     }
     return sent;
   } finally {

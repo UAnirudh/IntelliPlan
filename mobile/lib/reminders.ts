@@ -1,6 +1,6 @@
 import * as Notifications from "expo-notifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Task } from "./api";
+import { getTasks, Task } from "./api";
 import { parseDate } from "./format";
 
 /**
@@ -68,6 +68,25 @@ export function getReminderOperation(): number {
 
 export async function areRemindersEnabled(): Promise<boolean> {
   return (await AsyncStorage.getItem(ENABLED_KEY)) === "1";
+}
+
+/**
+ * Refresh the on-device schedule after a task mutation.
+ *
+ * Checking the opt-in before fetching avoids network work for students who
+ * have reminders off. The operation is checked again after the request so a
+ * task response that races sign-out or a newer reminder choice cannot put
+ * private task data back into the OS notification queue.
+ */
+export async function refreshAndSyncReminders(
+  operation = beginReminderOperation(),
+): Promise<number> {
+  if (operation < 0 || activeSignOuts > 0 || !isReminderOperationCurrent(operation)) return 0;
+  if (!(await areRemindersEnabled()) || !isReminderOperationCurrent(operation)) return 0;
+
+  const tasks = await getTasks();
+  if (activeSignOuts > 0 || !isReminderOperationCurrent(operation)) return 0;
+  return syncReminders(tasks, operation);
 }
 
 export function setRemindersEnabled(on: boolean, operation = reminderOperation): Promise<boolean> {

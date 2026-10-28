@@ -37,6 +37,25 @@ new apps and updates submitted from August 31, 2026 must target Android 16
 before uploading; the Expo SDK number does not itself prove the built target
 API level.
 
+After building an AAB, inspect the artifact itself (not just `app.json`) with
+the repository audit. It checks package identity, remote version code,
+target API, configured and blocked permissions, and prints the complete
+merged permission list for owner review. Install Java and the official
+`bundletool` release first, then run from `mobile/`:
+
+```powershell
+$env:BUNDLETOOL_JAR = "C:\tools\bundletool-all.jar"
+npm run audit:android-bundle -- --bundle .\path\to\production.aab
+```
+
+The audit defaults to target API 36, currently required for new Play
+submissions and updates. `--fail-on-undeclared` makes merged permissions not
+listed in `app.json` block the audit; the default prints them as a review item
+because Expo and Android libraries may contribute baseline permissions.
+This artifact check does not replace Play Console review, Data safety review,
+or physical-device testing. See the [Android `bundletool` documentation](https://developer.android.com/tools/bundletool)
+for the official artifact inspection utility.
+
 ## 1. Owner accounts, app record, and credentials
 
 - [ ] Confirm the legal developer-account owner and the Google Play Developer

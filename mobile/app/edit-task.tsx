@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { deleteManualTask, NewTask, updateManualTask } from "../lib/api";
+import { refreshAndSyncReminders } from "../lib/reminders";
 import { enqueue, isRetryable } from "../lib/queue";
 import { useConfirm } from "../components/Confirm";
 import { useTheme } from "../theme/ThemeProvider";
@@ -156,6 +157,7 @@ export default function EditTaskScreen() {
     };
     try {
       await updateManualTask(id!, patch);
+      void refreshAndSyncReminders().catch(() => {});
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       done();
     } catch (e: any) {
@@ -189,6 +191,7 @@ export default function EditTaskScreen() {
     setError(null);
     try {
       await deleteManualTask(id!);
+      void refreshAndSyncReminders().catch(() => {});
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       done();
     } catch (e: any) {

@@ -23,6 +23,7 @@ import {
   TodayPayload,
 } from "../../lib/api";
 import { dueLabel, minutes } from "../../lib/format";
+import { refreshAndSyncReminders } from "../../lib/reminders";
 import { useQuery } from "../../lib/useQuery";
 import { useAuth } from "../../lib/auth";
 import { useTheme } from "../../theme/ThemeProvider";
@@ -186,6 +187,7 @@ export default function TodayScreen() {
     setBusyTitle(title);
     try {
       await dismissTask(title);
+      void refreshAndSyncReminders().catch(() => {});
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       setDone((prev) => new Set(prev).add(title));
     } catch {
