@@ -8,6 +8,7 @@ import { getProviders, getTasks, patchIdentity, Provider, startLinkSession } fro
 import { useAuth } from "../lib/auth";
 import { markOnboarded } from "../lib/onboarding";
 import { setRemindersEnabled, syncReminders } from "../lib/reminders";
+import { markReminderPromptAnswered } from "../lib/reminderPrompt";
 import { useTheme } from "../theme/ThemeProvider";
 import { radius, space } from "../theme/tokens";
 import { Button, Card, Chip, Field, Label, Notice, Screen, T } from "../components/ui";
@@ -308,9 +309,11 @@ export default function OnboardingScreen() {
                     try {
                       const enabled = await setRemindersEnabled(true);
                       if (!enabled) {
+                        await markReminderPromptAnswered(user?.id, "dismissed");
                         setNote("Notifications are turned off for IntelliPlan in your phone's settings.");
                         return;
                       }
+                      await markReminderPromptAnswered(user?.id, "enabled");
                       try {
                         const scheduled = await syncReminders(await getTasks());
                         setNote(
@@ -322,6 +325,9 @@ export default function OnboardingScreen() {
                         setNote("Reminders are on. Your phone will schedule due dates the next time your work loads.");
                       }
                     } catch {
+                      // The student explicitly chose reminders; avoid showing a
+                      // second opt-in prompt immediately after setup.
+                      await markReminderPromptAnswered(user?.id, "dismissed").catch(() => {});
                       setNote("Couldn't turn on reminders. Try again from Settings.");
                     } finally {
                       setRemindersBusy(false);
