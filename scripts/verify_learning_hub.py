@@ -7,6 +7,7 @@ not external provider quality or production access. Run from the repo root.
 import json
 import faulthandler
 import os
+import re
 import sys
 import tempfile
 import threading
@@ -156,9 +157,13 @@ with App.app.app_context():
     student = App.User(
         email="browser-student@example.test", password_hash="x", birth_year=2000
     )
-    App.db.session.add_all([admin, student])
+    teacher = App.User(
+        email="browser-teacher@example.test", name="Taylor Teacher",
+        password_hash="x", birth_year=2000
+    )
+    App.db.session.add_all([admin, student, teacher])
     App.db.session.flush()
-    aid, sid = admin.id, student.id
+    aid, sid, tid = admin.id, student.id, teacher.id
     App.ADMIN_EMAILS.add(admin.email)
     school = policy.models()["Organization"](
         name="Browser pilot school",
@@ -167,17 +172,18 @@ with App.app.app_context():
     )
     App.db.session.add(school)
     App.db.session.flush()
-    for uid in [aid, sid]:
+    for uid in [aid, sid, tid]:
         App.db.session.add(
             policy.models()["Membership"](
-                user_id=uid, organization_id=school.id, role="student"
+                user_id=uid, organization_id=school.id,
+                role="teacher" if uid == tid else "student"
             )
         )
     # Adult synthetic fixtures acknowledge the current policies. This does not
     # alter or bypass notices for real accounts.
     import policy_versions
 
-    for uid in [aid, sid]:
+    for uid in [aid, sid, tid]:
         for doc, versions in [
             ("terms", policy_versions.TERMS_VERSIONS),
             ("privacy", policy_versions.PRIVACY_VERSIONS),
@@ -646,6 +652,41 @@ try:
         expect(page.locator("#admin-organization")).to_contain_text(
             "Browser pilot school"
         )
+        page.set_viewport_size({"width": 390, "height": 844})
+        page.goto("http://127.0.0.1:5098/school-admin", wait_until="networkidle")
+        expect(page.locator("#admin-member-email")).to_be_visible()
+        expect(page.locator("#admin-role")).to_be_visible()
+        expect(page.get_by_role("button", name="Add or update access")).to_be_visible()
+        expect(page.get_by_label("Access role for browser-teacher@example.test")).to_be_visible()
+        member_y = page.locator("#admin-members-section").evaluate("el => el.getBoundingClientRect().top")
+        policy_y = page.locator("#admin-policy-section").evaluate("el => el.getBoundingClientRect().top")
+        assert member_y < policy_y, "Teacher access must appear before advanced school policy on phones"
+        assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth"), "School admin overflows horizontally at 390px"
+        groups = page.locator("#admin-policy-section details.admin-policy-group")
+        assert groups.count() >= 6 and all(not groups.nth(i).evaluate("el => el.open") for i in range(groups.count()))
+        nav = page.get_by_role("navigation", name="School administration sections")
+        assert nav.evaluate("el => getComputedStyle(el).overflowX") in {"auto", "scroll"}
+        assert nav.evaluate("el => getComputedStyle(el).position") == "sticky"
+        page.get_by_role("link", name="Policies", exact=True).click()
+        expect(page).to_have_url(re.compile(r"#admin-policy-section$"))
+        first_group_summary = groups.nth(0).locator("summary")
+        first_group_summary.focus()
+        page.keyboard.press("Enter")
+        assert groups.nth(0).evaluate("el => el.open"), "Native policy disclosure must be keyboard-operable"
+        page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+        page.wait_for_timeout(150)
+        sticky_top = nav.evaluate("el => el.getBoundingClientRect().top")
+        header_bottom = page.locator("body > header").evaluate("el => el.getBoundingClientRect().bottom")
+        assert header_bottom - 2 <= sticky_top <= header_bottom + 8, f"Section navigation should stick below app header: {sticky_top}, {header_bottom}"
+        page.get_by_role("link", name="Classrooms", exact=True).click()
+        expect(page).to_have_url(re.compile(r"#admin-classrooms-section$"))
+        assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+        page.screenshot(path=str(OUTPUT / "school-admin-mobile-390.png"), full_page=True)
+        results['ui_checks'].append(dict(surface='school-admin-mobile-390', viewport=page.viewport_size,
+            people_before_policy=True, sticky_navigation=True, keyboard_disclosures=True, overflow=False))
+        page.set_viewport_size({"width": 1440, "height": 1000})
+        page.goto("http://127.0.0.1:5098/school-admin", wait_until="networkidle")
+        assert all(groups.nth(i).evaluate("el => el.open") for i in range(groups.count())), "Desktop policy sections must remain expanded"
         page.locator("#policy-tutor").uncheck()
         page.locator("#admin-monthly-budget").fill("85000")
         page.locator("#admin-retention").fill("30")

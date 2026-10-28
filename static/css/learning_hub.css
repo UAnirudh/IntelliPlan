@@ -159,6 +159,14 @@ html[data-theme] body:has(.learning-hub) { background: var(--bg); }
 .admin-section-nav { display: flex; gap: 6px; overflow-x: auto; padding: 0 0 16px; margin-bottom: 12px; border-bottom: 1px solid var(--border-strong); scroll-snap-type: x proximity; }
 .admin-section-nav a { flex: 0 0 auto; min-height: 44px; display: inline-flex; align-items: center; padding: 0 14px; border: 1px solid var(--border-strong); border-radius: 9px; color: var(--text-secondary); text-decoration: none; font-size: .84rem; scroll-snap-align: start; }
 .admin-section-nav a:hover { color: var(--text-primary); background: var(--bg-card); }
+.admin-policy-group { border-top: 1px solid var(--border-strong); }
+.admin-policy-group > summary { display: flex; align-items: center; min-height: 48px; padding: 8px 2px; color: var(--text-primary); font-size: .9rem; font-weight: 650; cursor: pointer; list-style: none; }
+.admin-policy-group > summary::-webkit-details-marker { display: none; }
+.admin-policy-group > summary::after { content: '⌄'; margin-left: auto; color: var(--text-secondary); font-size: 1.1rem; transition: transform .16s ease; }
+.admin-policy-group[open] > summary::after { transform: rotate(180deg); }
+.admin-policy-group > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
+.admin-policy-group > fieldset { padding-top: 8px; border-top: 0; }
+.learning-admin :is(#admin-members-section,#admin-classrooms-section,#admin-policy-section,#admin-audit-section) { scroll-margin-top: calc(var(--nav-height, 62px) + 64px); }
 .learning-admin-layout { grid-template-columns: minmax(0,1fr); }
 .learning-policy-panel { grid-row: auto; }
 .learning-admin-secondary { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px; align-items: start; }
@@ -207,6 +215,16 @@ html[data-theme] body:has(.learning-hub) { background: var(--bg); }
   .learning-guide-steps { display: block; }
   .learning-organization { display: block; padding: 18px; }
   .learning-admin .admin-orgbar > p { margin-top: 10px; }
+  .learning-admin .admin-section-nav { position: sticky; top: var(--nav-height, 62px); z-index: 40; margin-inline: -4px; padding: 8px 4px; border: 1px solid var(--border); border-radius: 14px; background: var(--bg-card); box-shadow: 0 6px 18px -14px var(--text-primary); overscroll-behavior-inline: contain; scrollbar-width: thin; }
+  .learning-admin .admin-section-nav a { background: var(--bg-card); }
+  .learning-admin-layout { display: flex; flex-direction: column; align-items: stretch; }
+  .learning-admin-secondary { display: contents; }
+  .learning-admin-secondary > .learning-panel { order: 5; width: 100%; }
+  .learning-admin #admin-members-section { order: 1; width: 100%; }
+  .learning-admin #admin-classrooms-section { order: 2; width: 100%; }
+  .learning-admin #admin-policy-section { order: 3; width: 100%; }
+  .learning-admin #admin-audit-section { order: 4; width: 100%; }
+  .admin-policy-group > summary { min-height: 52px; }
   .admin-person-row { align-items: flex-start; flex-direction: column; }
   .admin-person-controls { width: 100%; justify-content: flex-start; }
   .learning-form-grid { grid-template-columns: 1fr; }
