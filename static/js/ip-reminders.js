@@ -10,13 +10,31 @@
  */
 (function () {
   'use strict';
+  if (window.IPReminders) return;
 
   /* navigator.serviceWorker.ready never settles when no worker registered,
      which would leave a "Setting up…" button spinning forever. */
   const WORKER_WAIT_MS = 8000;
 
-  function pushSupported() {
+  function pushApiAvailable() {
     return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+  }
+
+  function iosNeedsHomeScreen() {
+    const appleMobile = /iPhone|iPad|iPod/i.test(navigator.userAgent)
+      || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const standalone = navigator.standalone === true
+      || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+    return appleMobile && !standalone;
+  }
+
+  function pushUnavailableReason() {
+    if (iosNeedsHomeScreen()) return 'ios-home-screen';
+    return pushApiAvailable() ? '' : 'unsupported';
+  }
+
+  function pushSupported() {
+    return pushUnavailableReason() === '';
   }
 
   function keyBytes(base64Url) {
@@ -109,6 +127,7 @@
 
   const PUSH_REASONS = {
     unsupported: 'This browser cannot show desktop notifications.',
+    'ios-home-screen': 'On iPhone or iPad, add IntelliPlan to your Home Screen to receive browser reminders.',
     blocked: 'Notifications are blocked for this site. Allow them in your browser settings, then try again.',
     'not-configured': 'Desktop notifications are not available right now.',
     failed: 'Desktop notifications could not be set up on this device.',
@@ -152,5 +171,25 @@
     return result;
   }
 
-  window.IPReminders = { pushSupported, subscribePush, registerDesktop, enable };
+  async function restoreSavedBrowserPush(userId) {
+    if (!userId || !pushSupported() || Notification.permission !== 'granted') return false;
+    const restoreKey = `ip_push_restore_user_${userId}`;
+    let shouldRestore = false;
+    try { shouldRestore = localStorage.getItem(restoreKey) === '1'; } catch (_) { return false; }
+    if (!shouldRestore) return false;
+    try {
+      const response = await fetch('/api/notifications/preferences', {credentials: 'same-origin'});
+      if (!response.ok) return false;
+      const preferences = await response.json();
+      if (!(preferences.channels || []).includes('push')) {
+        localStorage.removeItem(restoreKey);
+        return false;
+      }
+      const result = await subscribePush(Promise.resolve('granted'));
+      if (result.ok) localStorage.removeItem(restoreKey);
+      return result.ok;
+    } catch (_) { return false; }
+  }
+
+  window.IPReminders = { pushSupported, pushUnavailableReason, subscribePush, registerDesktop, enable, restoreSavedBrowserPush };
 })();

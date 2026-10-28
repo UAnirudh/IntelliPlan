@@ -97,6 +97,37 @@ def test_resubscribing_the_same_browser_updates_in_place(client, user_id):
     assert len(rows_for(user_id)) == 1
 
 
+def test_unsubscribe_removes_only_the_signed_in_users_current_browser(client, user_id):
+    with App.app.app_context():
+        other = User(email="push+other-account@example.com",
+            password_hash=App.bcrypt.generate_password_hash("hunter2ok").decode())
+        db.session.add(other)
+        db.session.commit()
+        other_id = other.id
+        db.session.add(PushSubscription(user_id=other_id, endpoint=PHONE,
+            subscription_json=json.dumps(sub_payload(PHONE)["subscription"])))
+        db.session.commit()
+    try:
+        login(client, user_id)
+        subscribe(client, PHONE)
+        subscribe(client, LAPTOP)
+        response = client.post("/push/unsubscribe", json={"endpoint": PHONE})
+        assert response.status_code == 200
+        assert [row.endpoint for row in rows_for(user_id)] == [LAPTOP]
+        assert [row.endpoint for row in rows_for(other_id)] == [PHONE]
+    finally:
+        with App.app.app_context():
+            PushSubscription.query.filter_by(user_id=other_id).delete(synchronize_session=False)
+            User.query.filter_by(id=other_id).delete(synchronize_session=False)
+            db.session.commit()
+
+
+def test_unsubscribe_requires_login_and_valid_endpoint(client, user_id):
+    assert client.post("/push/unsubscribe", json={"endpoint": PHONE}).status_code == 401
+    login(client, user_id)
+    assert client.post("/push/unsubscribe", json={"endpoint": "http://example.com/push"}).status_code == 400
+
+
 def test_the_endpoint_is_stored_not_just_buried_in_the_json(client, user_id):
     login(client, user_id)
     subscribe(client, PHONE)

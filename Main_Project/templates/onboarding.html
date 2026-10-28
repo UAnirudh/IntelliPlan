@@ -721,7 +721,9 @@ function onbDressRemind() {
   const box = document.getElementById('onbRemindPush');
   box.checked = false; box.disabled = true;
   document.getElementById('onbRemindPushDesc').textContent =
-    'Not available in this browser. On a phone, install IntelliPlan to your home screen first.';
+    window.IPReminders && window.IPReminders.pushUnavailableReason() === 'ios-home-screen'
+      ? 'On iPhone or iPad, add IntelliPlan to your Home Screen first, then enable reminders from the installed app.'
+      : 'Not available in this browser. On a phone, install IntelliPlan to your Home Screen first.';
 }
 
 async function onbSaveReminders() {

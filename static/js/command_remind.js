@@ -22,7 +22,9 @@
 
   if (hasDecision()) return;
   if (!IPReminders.pushSupported()) {
-    text.textContent = 'Get an email before sessions and deadlines.';
+    text.textContent = IPReminders.pushUnavailableReason() === 'ios-home-screen'
+      ? 'On iPhone or iPad, add IntelliPlan to your Home Screen to receive browser reminders. You can enable email reminders here.'
+      : 'Get an email before sessions and deadlines.';
   }
   bar.hidden = false;
   // Open the short explanation automatically after the signed-in user has
