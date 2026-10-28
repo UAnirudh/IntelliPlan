@@ -118,7 +118,7 @@ export function inspectIOSReleaseConfig({ appConfig, easConfig, env = {}, authSt
     hasToken ? "EAS authentication material is present via EXPO_TOKEN." : "EAS CLI authentication state file is present.",
     "No EAS authentication material detected; the owner must set EXPO_TOKEN or sign in with eas login.");
 
-  checks.push({ status: "INFO", message: "Before upload, verify the EAS build log uses Xcode 26 or later with an iOS 26 SDK (Apple requirement since April 28, 2026)." });
+  checks.push({ status: "INFO", message: "Before upload, verify the date-specific Apple SDK requirement in the EAS build log: Xcode 26 / iOS 26 since April 28, 2026; from April 2027, Xcode 27 / iOS 27 and an iOS 15 or later deployment target. Confirm the Expo SDK and EAS image support it." });
   checks.push({ status: "INFO", message: "The notifications plugin creates the APNs entitlement; EAS still needs the owner's Apple push credentials, and remote push must be tested on a physical TestFlight build." });
   checks.push({ status: "INFO", message: "Static checks do not verify Apple signing credentials, a signed build or built IPA, privacy disclosures, screenshots, review access, or legal approval." });
   return checks;

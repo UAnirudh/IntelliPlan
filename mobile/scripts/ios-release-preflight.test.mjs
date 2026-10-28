@@ -49,7 +49,7 @@ test("configured iOS release passes static checks without claiming a store-ready
   });
   assert.equal(checks.filter(({ status }) => status === "BLOCKED").length, 0);
   assert.ok(checks.some(({ status, message }) => status === "PASS" && message.includes("privacy manifest")));
-  assert.ok(checks.some(({ status, message }) => status === "INFO" && message.includes("Xcode 26")));
+  assert.ok(checks.some(({ status, message }) => status === "INFO" && message.includes("Xcode 26") && message.includes("April 2027") && message.includes("Xcode 27")));
   assert.ok(checks.some(({ status, message }) => status === "INFO" && message.includes("Apple push credentials")));
   assert.ok(checks.some(({ status, message }) => status === "INFO" && message.includes("signed build")));
   assert.ok(checks.every(({ message }) => !message.includes("secret-token")));
