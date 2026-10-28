@@ -293,6 +293,66 @@ export async function getAssignments(): Promise<Task[]> {
   return d?.assignments || [];
 }
 
+export type TutorAssignment = {
+  id: string;
+  course_id: string;
+  title: string;
+  course: string;
+  due_date?: string;
+};
+
+export type TutorAssignmentMaterials = {
+  title: string;
+  content: string;
+  materials: { name: string; source?: string }[];
+  skipped_count: number;
+};
+
+/** Assignments and material retrieval use the existing consent-gated tutor API. */
+export async function getTutorAssignments(): Promise<TutorAssignment[]> {
+  const d = await apiFetch<{ assignments?: TutorAssignment[] }>("/api/tutor/assignments");
+  return d?.assignments || [];
+}
+
+export async function getTutorAssignmentMaterials(
+  assignment: Pick<TutorAssignment, "id" | "course_id" | "course">,
+): Promise<TutorAssignmentMaterials> {
+  return apiFetch<TutorAssignmentMaterials>("/api/tutor/assignment-materials", {
+    method: "POST",
+    body: JSON.stringify({
+      assignment_ref: {
+        assignment_id: assignment.id,
+        course_id: assignment.course_id,
+        course: assignment.course,
+      },
+    }),
+  });
+}
+
+export async function generateAssignmentStudySet(
+  content: string,
+  numQuestions: number,
+  assignment: Pick<TutorAssignment, "id" | "course_id" | "course">,
+): Promise<StudySet> {
+  const d = await apiFetch<{ status?: string; message?: string; error?: string; data?: StudySet }>(
+    "/api/tutor/assignment-study-set",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        content,
+        num_questions: numQuestions,
+        assignment_ref: {
+          assignment_id: assignment.id,
+          course_id: assignment.course_id,
+          course: assignment.course,
+        },
+      }),
+    },
+  );
+  if (d?.error) throw new ApiError(400, d.error);
+  return studyOk(d, "Couldn't build a study set from that assignment.").data || {};
+}
+
 export type NewTask = {
   title: string;
   course?: string;

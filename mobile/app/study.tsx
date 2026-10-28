@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -17,9 +17,13 @@ import {
   evaluateAnswer,
   extractPdfText,
   extractYoutubeText,
+  generateAssignmentStudySet,
   generateStudySet,
+  getTutorAssignmentMaterials,
+  getTutorAssignments,
   StudyQuestion,
   StudySet,
+  TutorAssignment,
 } from "../lib/api";
 import {
   MIN_STUDY_MATERIAL_CHARS,
@@ -104,6 +108,15 @@ export default function StudyScreen() {
   const [set, setSet] = useState<StudySet | null>(null);
   const [tab, setTab] = useState<"cards" | "quiz">("cards");
   const [topicBasedSet, setTopicBasedSet] = useState(false);
+  const assignmentRequestGeneration = useRef(0);
+  const materialRequestGeneration = useRef(0);
+  const [assignmentRows, setAssignmentRows] = useState<TutorAssignment[] | null>(null);
+  const [assignmentQuery, setAssignmentQuery] = useState(taskTitle);
+  const [selectedAssignment, setSelectedAssignment] = useState<TutorAssignment | null>(null);
+  const [loadingAssignmentKey, setLoadingAssignmentKey] = useState<string | null>(null);
+  const [materialNames, setMaterialNames] = useState<string[]>([]);
+  const [connectedMaterial, setConnectedMaterial] = useState(false);
+  const [skippedMaterials, setSkippedMaterials] = useState(0);
   const generationInput = useMemo(
     () => studyGenerationInput({
       text,
@@ -122,6 +135,9 @@ export default function StudyScreen() {
     // Expo Router can reuse an existing Study screen when opened from another
     // task. Replace only the task context so notes from the prior task never
     // carry into the new one; a plain Study Tools entry still starts empty.
+    assignmentRequestGeneration.current += 1;
+    materialRequestGeneration.current += 1;
+    setBusy(null);
     setText(initialMaterial);
     setSource("paste");
     setUrl("");
@@ -129,6 +145,13 @@ export default function StudyScreen() {
     setSet(null);
     setError(null);
     setTopicBasedSet(false);
+    setAssignmentRows(null);
+    setAssignmentQuery(taskTitle);
+    setSelectedAssignment(null);
+    setLoadingAssignmentKey(null);
+    setMaterialNames([]);
+    setConnectedMaterial(false);
+    setSkippedMaterials(0);
   }, [initialMaterial]);
 
   /* ── Getting the material in ───────────────────────────────────── */
@@ -185,6 +208,54 @@ export default function StudyScreen() {
     }
   }, [url]);
 
+  const findCanvasAssignments = useCallback(async () => {
+    const requestGeneration = ++assignmentRequestGeneration.current;
+    setError(null);
+    setBusy("assignments");
+    try {
+      const rows = await getTutorAssignments();
+      if (requestGeneration === assignmentRequestGeneration.current) setAssignmentRows(rows);
+    } catch (e: any) {
+      if (requestGeneration === assignmentRequestGeneration.current) {
+        setError(e?.message || "Couldn't load your connected Canvas assignments.");
+      }
+    } finally {
+      if (requestGeneration === assignmentRequestGeneration.current) setBusy(null);
+    }
+  }, []);
+
+  const loadCanvasMaterials = useCallback(async (assignment: TutorAssignment) => {
+    const key = `${assignment.course_id}:${assignment.id}`;
+    const requestGeneration = ++materialRequestGeneration.current;
+    setError(null);
+    setBusy("materials");
+    setLoadingAssignmentKey(key);
+    try {
+      const result = await getTutorAssignmentMaterials(assignment);
+      if (requestGeneration !== materialRequestGeneration.current) return;
+      setText(result.content);
+      setSource("paste");
+      setPdfName(null);
+      setSelectedAssignment(assignment);
+      setConnectedMaterial(true);
+      setSkippedMaterials(result.skipped_count || 0);
+      setMaterialNames((result.materials || []).map((item) =>
+        item.source ? `${item.name} · ${item.source}` : item.name,
+      ));
+      setSet(null);
+      setTopicBasedSet(false);
+    } catch (e: any) {
+      if (requestGeneration === materialRequestGeneration.current) {
+        setError(e?.message || "Couldn't load materials for that assignment.");
+      }
+    } finally {
+      if (requestGeneration === materialRequestGeneration.current) {
+        setLoadingAssignmentKey(null);
+        setBusy(null);
+      }
+    }
+  }, []);
+
   const generate = useCallback(async () => {
     const input = studyGenerationInput({
       text,
@@ -200,7 +271,9 @@ export default function StudyScreen() {
     setBusy("generate");
     setError(null);
     try {
-      const result = await generateStudySet(input.content, count);
+      const result = connectedMaterial && selectedAssignment
+        ? await generateAssignmentStudySet(input.content, count, selectedAssignment)
+        : await generateStudySet(input.content, count);
       setSet(result);
       setTopicBasedSet(input.kind === "topic");
       setTab((result.key_concepts || []).length ? "cards" : "quiz");
@@ -211,16 +284,30 @@ export default function StudyScreen() {
     } finally {
       setBusy(null);
     }
-  }, [text, initialMaterial, taskTitle, course, taskNotes, count]);
+  }, [text, initialMaterial, taskTitle, course, taskNotes, count, connectedMaterial, selectedAssignment]);
 
   const startOver = useCallback(() => {
+    materialRequestGeneration.current += 1;
     setSet(null);
     setText(initialMaterial);
     setUrl("");
     setPdfName(null);
     setError(null);
     setTopicBasedSet(false);
+    setConnectedMaterial(false);
+    setSelectedAssignment(null);
+    setMaterialNames([]);
+    setSkippedMaterials(0);
   }, [initialMaterial]);
+
+  const matchingAssignments = useMemo(() => {
+    if (!assignmentRows) return [];
+    const query = assignmentQuery.trim().toLocaleLowerCase();
+    const filtered = query
+      ? assignmentRows.filter((item) => `${item.title} ${item.course}`.toLocaleLowerCase().includes(query))
+      : assignmentRows;
+    return filtered.slice(0, 12);
+  }, [assignmentRows, assignmentQuery]);
 
   /* ── Rendering ─────────────────────────────────────────────────── */
 
@@ -291,11 +378,73 @@ export default function StudyScreen() {
               {taskTitle ? <T variant="base" weight="700">{taskTitle}</T> : null}
               {course ? <Chip label={course} icon="book-outline" /> : null}
               <T variant="xs" tone="secondary">
-                No school content is fetched. Add class notes, a PDF, or a video for class-specific practice.
+                Connected school content is only loaded after you choose an assignment. You can review it before making a study set.
               </T>
               <T variant="xs" tone="muted">
-                {taskNotes ? "Review or add to the notes below, or start a general topic set." : "No notes are attached. Add class notes below, choose a PDF or video, or start a general topic set from this task."}
+                {taskNotes ? "Review or add to the notes below, find a Canvas assignment, or start a general topic set." : "No notes are attached. Find a Canvas assignment, add notes below, choose a PDF or video, or start a general topic set from this task."}
               </T>
+            </Card>
+          ) : null}
+
+          {!connectedMaterial ? (
+            <Card style={{ gap: space.sm }}>
+              <Label>Use your class materials</Label>
+              <T variant="sm" tone="secondary">
+                Choose an assignment from your connected Canvas account. You can review its text before asking IntelliPlan to make flashcards and quiz questions.
+              </T>
+              <Button
+                title={assignmentRows ? "Refresh Canvas assignments" : "Find connected class materials"}
+                icon="school-outline"
+                kind="secondary"
+                busy={busy === "assignments"}
+                onPress={findCanvasAssignments}
+              />
+            </Card>
+          ) : null}
+
+          {assignmentRows ? (
+            <Card style={{ gap: space.sm }}>
+              <Label>Choose your Canvas assignment</Label>
+              <Field
+                label="Search assignments"
+                placeholder="Search by assignment or course"
+                value={assignmentQuery}
+                onChangeText={setAssignmentQuery}
+              />
+              {matchingAssignments.length ? matchingAssignments.map((item) => (
+                <View key={`${item.course_id}:${item.id}`} style={{ gap: space.xs, paddingVertical: space.sm, borderTopWidth: 1, borderTopColor: colors.border }}>
+                  <T variant="base" weight="700">{item.title}</T>
+                  <T variant="sm" tone="secondary">{item.course}{item.due_date ? ` · Due ${item.due_date}` : ""}</T>
+                  <Button
+                    title={loadingAssignmentKey === `${item.course_id}:${item.id}` ? "Loading materials…" : "Preview class materials"}
+                    icon="document-text-outline"
+                    kind="secondary"
+                    busy={loadingAssignmentKey === `${item.course_id}:${item.id}`}
+                    disabled={busy !== null}
+                    onPress={() => loadCanvasMaterials(item)}
+                  />
+                </View>
+              )) : (
+                <Notice
+                  text={assignmentRows.length === 0
+                    ? "No assignments are available from this Canvas account right now."
+                    : "No assignments match that search. Try part of the course name or clear the search."}
+                  icon="search-outline"
+                />
+              )}
+              <T variant="xs" tone="muted">Only assignments from your connected Canvas account are shown. Choosing one loads text for you to review; it is not sent to AI until you make a study set. Matching personal Drive or OneDrive files may also be included.</T>
+            </Card>
+          ) : null}
+
+          {connectedMaterial && selectedAssignment ? (
+            <Card style={{ gap: space.xs, backgroundColor: colors.accentSoft, borderColor: colors.borderAccent }}>
+              <Label style={{ color: colors.accent }}>Assignment materials loaded for review</Label>
+              <T variant="base" weight="700">{selectedAssignment.title}</T>
+              <T variant="sm" tone="secondary">{selectedAssignment.course}</T>
+              <T variant="xs" tone="muted">Review or edit the extracted text below. It only goes to study generation when you press Make questions & flashcards.</T>
+              {materialNames.length ? <T variant="xs" tone="muted">Included files: {materialNames.join(", ")}</T> : null}
+              {skippedMaterials > 0 ? <Notice text={`${skippedMaterials} attachment${skippedMaterials === 1 ? " was" : "s were"} skipped because it couldn't be safely read.`} icon="information-circle-outline" /> : null}
+              {generationInput?.kind !== "materials" ? <Notice text="This assignment has too little readable text for grounded cards yet. Add class notes or choose another assignment." icon="information-circle-outline" /> : null}
             </Card>
           ) : null}
 
@@ -303,7 +452,24 @@ export default function StudyScreen() {
             <>
               <Card style={{ gap: space.md }}>
                 <Label>Choose your material</Label>
-                <SegmentedRow options={SOURCES} value={source} onChange={setSource} />
+                <SegmentedRow
+                  options={SOURCES}
+                  value={source}
+                  disabled={busy === "materials"}
+                  onChange={(next) => {
+                    setSource(next);
+                    // Changing input source discards the selected Canvas
+                    // binding so unrelated PDF/video text cannot inherit it.
+                    if (connectedMaterial) {
+                      materialRequestGeneration.current += 1;
+                      setText(initialMaterial);
+                      setConnectedMaterial(false);
+                      setSelectedAssignment(null);
+                      setMaterialNames([]);
+                      setSkippedMaterials(0);
+                    }
+                  }}
+                />
 
                 {source === "paste" ? (
                   <View style={{ gap: space.sm }}>
@@ -392,7 +558,7 @@ export default function StudyScreen() {
                     ? `Make ${count} topic questions & flashcards`
                     : `Make ${count} questions & flashcards`}
                   icon="sparkles"
-                  disabled={!generationInput}
+                  disabled={!generationInput || busy !== null || (connectedMaterial && generationInput.kind !== "materials")}
                   onPress={generate}
                 />
               </Card>
