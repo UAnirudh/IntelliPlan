@@ -70,6 +70,13 @@
     $('admin-stat-members').textContent = String(members.members.length);
     $('admin-stat-teachers').textContent = String(members.members.filter(m => m.role === 'teacher').length);
     $('admin-stat-children').textContent = String(organizations.filter(o => o.parent_id === selected.id).length);
+    const planNames = {free:'Free', pro:'Pro', premium:'Premium', premium_byok:'Premium with your AI key'};
+    $('admin-stat-plan').textContent = planNames[selected.plan_tier] || selected.plan_tier || 'Free';
+    $('admin-stat-plan-source').textContent = selected.plan_inherited
+      ? `Inherited from ${selected.plan_source || 'the parent district'}`
+      : selected.plan_tier === 'free'
+        ? 'No paid school plan is assigned'
+        : 'Assigned to this workspace by the platform owner';
     const addAdminRole = $('admin-role').querySelector('option[value="admin"]');
     if (members.can_manage_admin && !addAdminRole) {
       const option = document.createElement('option'); option.value = 'admin'; option.textContent = 'School administrator';

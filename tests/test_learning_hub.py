@@ -719,6 +719,35 @@ def test_school_admin_can_see_inherited_tool_restrictions(client, monkeypatch):
     assert b'id="admin-tools"' in page.data
 
 
+def test_school_admin_sees_read_only_effective_plan_from_parent_district(client, monkeypatch):
+    uid = user(client, monkeypatch)
+    with App.app.app_context():
+        M = policy.models()
+        district = M['Organization'](name='Plan District', kind='district', policy={})
+        App.db.session.add(district)
+        App.db.session.flush()
+        school = M['Organization'](name='Plan School', kind='school',
+            parent_id=district.id, policy={})
+        App.db.session.add(school)
+        App.db.session.flush()
+        App.db.session.add(M['Membership'](user_id=uid, organization_id=school.id, role='admin'))
+        district_plan = M['SchoolPlan'].query.filter_by(organization_id=district.id).first()
+        if district_plan is None:
+            district_plan = M['SchoolPlan'](organization_id=district.id,
+                plan_tier='premium', updated_by_id=uid)
+            App.db.session.add(district_plan)
+        else:
+            district_plan.plan_tier = 'premium'
+        App.db.session.commit()
+        school_id = school.id
+    response = client.get('/api/school-admin/organizations')
+    assert response.status_code == 200
+    row = next(org for org in response.json['organizations'] if org['id'] == school_id)
+    assert row['plan_tier'] == 'premium'
+    assert row['plan_source'] == 'Plan District'
+    assert row['plan_inherited'] is True
+
+
 def test_tool_policy_updates_preserve_other_districts_and_reject_stale_writes(client, monkeypatch):
     uid = user(client, monkeypatch)
     first = org(uid, role='admin')

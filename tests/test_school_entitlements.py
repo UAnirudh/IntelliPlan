@@ -90,6 +90,36 @@ def test_domain_and_plan_mutation_are_platform_owner_only(monkeypatch):
         App.limiter.enabled = previous
 
 
+def test_owner_school_list_distinguishes_direct_and_effective_district_plan(monkeypatch):
+    previous = App.limiter.enabled
+    App.limiter.enabled = False
+    App.app.config['TESTING'] = True
+    with App.app.app_context():
+        App.db.create_all()
+        M = policy.models()
+        district = _org('North County', 'district')
+        school = _org('Northview High', parent_id=district.id)
+        owner = _user(f"owner-{uuid4().hex}@example.test")
+        App.db.session.add(M['SchoolPlan'](organization_id=district.id,
+            plan_tier='pro', updated_by_id=owner.id))
+        App.db.session.commit()
+        owner_id, owner_email, school_id = owner.id, owner.email, school.id
+    try:
+        monkeypatch.setattr(App, 'ADMIN_EMAILS', frozenset({owner_email}))
+        client = App.app.test_client()
+        _login(client, owner_id)
+        response = client.get('/api/owner/schools')
+        assert response.status_code == 200
+        listed = next(row for row in response.json['schools'] if row['id'] == school_id)
+        assert listed['plan_tier'] == 'free'
+        assert listed['plan_configured'] is False
+        assert listed['effective_plan_tier'] == 'pro'
+        assert listed['effective_plan_source_name'] == 'North County'
+        assert listed['effective_plan_inherited'] is True
+    finally:
+        App.limiter.enabled = previous
+
+
 def test_trial_requires_config_is_one_time_and_skips_partner_members(monkeypatch):
     now = datetime(2026, 10, 26, 12)
     with App.app.app_context():

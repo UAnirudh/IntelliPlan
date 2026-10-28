@@ -118,9 +118,34 @@ def organizations():
             parent_id = parent.parent_id
         return sorted(restricted)
 
-    return jsonify(organizations=[dict(id=o.id, name=o.name, kind=o.kind, parent_id=o.parent_id,
-        policy=o.policy, version=o.version, inherited_restrictions=inherited_restrictions(o))
-        for o in rows if policy.administers(current_user, o.id)])
+    visible = [o for o in rows if policy.administers(current_user, o.id)]
+    plan_rows = M['SchoolPlan'].query.all()
+    plans_by_org = {row.organization_id: row for row in plan_rows}
+    organizations_by_id = {o.id: o for o in rows}
+    # A visible school's district parent may sit outside the 200-row admin
+    # listing window; load missing ancestors explicitly for the read-only
+    # entitlement summary without broadening the admin's organization access.
+    for organization in visible:
+        parent_id = organization.parent_id
+        seen = set(organizations_by_id)
+        while parent_id and parent_id not in seen:
+            parent = db.session.get(M['Organization'], parent_id)
+            if parent is None:
+                break
+            organizations_by_id[parent.id] = parent
+            seen.add(parent.id)
+            parent_id = parent.parent_id
+    from intelliplan.learning.entitlements import school_plan_details_for_organization
+    result = []
+    for organization in visible:
+        plan = school_plan_details_for_organization(organization, organizations_by_id, plans_by_org)
+        result.append(dict(id=organization.id, name=organization.name, kind=organization.kind,
+            parent_id=organization.parent_id, policy=organization.policy, version=organization.version,
+            inherited_restrictions=inherited_restrictions(organization),
+            plan_tier=plan['effective_plan_tier'],
+            plan_source=plan['effective_plan_source_name'],
+            plan_inherited=plan['effective_plan_inherited']))
+    return jsonify(organizations=result)
 
 
 @bp.route('/api/school-admin/organizations/<int:oid>/policy', methods=['PUT'])

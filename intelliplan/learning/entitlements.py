@@ -97,6 +97,46 @@ def school_plan_for(user) -> str | None:
     return max(valid, key=lambda tier: _PLAN_RANK[tier]) if valid else None
 
 
+def school_plan_details_for_organization(organization, organizations_by_id, plans_by_org) -> dict:
+    """Describe the strongest owner-assigned plan on one org's ancestry.
+
+    The owner UI still edits the direct assignment. Members receive the
+    strongest configured tier across their school and district memberships,
+    so both owner and school-admin dashboards need the effective tier/source.
+    Callers pass preloaded maps to avoid per-row queries.
+    """
+    direct = plans_by_org.get(organization.id)
+    candidates = []
+    seen: set[int] = set()
+    current = organization
+    depth = 0
+    while current and current.id not in seen and depth < 32:
+        seen.add(current.id)
+        row = plans_by_org.get(current.id)
+        if row and row.plan_tier in SCHOOL_PLAN_TIERS:
+            candidates.append((_PLAN_RANK[row.plan_tier], -depth, row.plan_tier, current))
+        current = organizations_by_id.get(current.parent_id) if current.parent_id else None
+        depth += 1
+    if not candidates:
+        return {
+            "direct_plan_tier": direct.plan_tier if direct and direct.plan_tier in SCHOOL_PLAN_TIERS else "free",
+            "plan_configured": direct is not None,
+            "effective_plan_tier": "free",
+            "effective_plan_source_id": None,
+            "effective_plan_source_name": None,
+            "effective_plan_inherited": False,
+        }
+    _, _, tier, source = max(candidates, key=lambda item: (item[0], item[1]))
+    return {
+        "direct_plan_tier": direct.plan_tier if direct and direct.plan_tier in SCHOOL_PLAN_TIERS else "free",
+        "plan_configured": direct is not None,
+        "effective_plan_tier": tier,
+        "effective_plan_source_id": source.id,
+        "effective_plan_source_name": source.name,
+        "effective_plan_inherited": source.id != organization.id,
+    }
+
+
 def is_partnered_user(user) -> bool:
     """A verified-domain member or explicitly-plan-assigned school member."""
     ids = _membership_organization_ids(user)
@@ -213,7 +253,8 @@ def owner_schools():
     ).order_by(M["Organization"].name.asc()).all()
     ids = [organization.id for organization in organizations]
     plan_rows = M["SchoolPlan"].query.filter(M["SchoolPlan"].organization_id.in_(ids)).all() if ids else []
-    plans_by_org = {row.organization_id: row.plan_tier for row in plan_rows}
+    plans_by_org = {row.organization_id: row for row in plan_rows}
+    organizations_by_id = {organization.id: organization for organization in organizations}
     domains = M["SchoolDomain"].query.filter(M["SchoolDomain"].organization_id.in_(ids)).all() if ids else []
     domains_by_org: dict[int, list[dict]] = {oid: [] for oid in ids}
     for row in domains:
@@ -235,12 +276,20 @@ def owner_schools():
                 key = role + "s" if role in {"student", "teacher", "admin"} else "members"
                 if key in counts[oid]:
                     counts[oid][key] += int(count)
-    return jsonify(schools=[{
-        "id": organization.id, "name": organization.name, "kind": organization.kind,
-        "parent_id": organization.parent_id, "plan_tier": plans_by_org.get(organization.id, "free"),
-        "plan_configured": organization.id in plans_by_org,
-        "members": counts[organization.id], "domains": domains_by_org.get(organization.id, []),
-    } for organization in organizations], plan_tiers=list(SCHOOL_PLAN_TIERS))
+    schools = []
+    for organization in organizations:
+        plan_details = school_plan_details_for_organization(organization, organizations_by_id, plans_by_org)
+        schools.append({
+            "id": organization.id, "name": organization.name, "kind": organization.kind,
+            "parent_id": organization.parent_id, "plan_tier": plan_details["direct_plan_tier"],
+            "plan_configured": plan_details["plan_configured"],
+            "effective_plan_tier": plan_details["effective_plan_tier"],
+            "effective_plan_source_id": plan_details["effective_plan_source_id"],
+            "effective_plan_source_name": plan_details["effective_plan_source_name"],
+            "effective_plan_inherited": plan_details["effective_plan_inherited"],
+            "members": counts[organization.id], "domains": domains_by_org.get(organization.id, []),
+        })
+    return jsonify(schools=schools, plan_tiers=list(SCHOOL_PLAN_TIERS))
 
 
 @bp.route("/api/owner/schools/<int:organization_id>/plan", methods=["PUT"])
