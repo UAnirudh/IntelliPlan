@@ -1,5 +1,10 @@
 # Play Store submission checklist
 
+The current release gate checklist is [`Google-Play-Launch/README.md`](../Google-Play-Launch/README.md).
+This older packet is retained for its verified account-deletion details and
+task notes; use the linked guide for current Play Console, build, privacy,
+testing, and release sign-off steps.
+
 Status as of the last pass through this repo. Anything marked **done** was
 checked against the code, not assumed; anything marked **you** needs a person
 with Play Console access, a physical device, or a design tool.
@@ -22,13 +27,12 @@ with Play Console access, a physical device, or a design tool.
   confirm step, in `mobile/app/settings.tsx`.
 - **done** — Privacy policy URL: `https://intelliplan.tech/legal#privacy`
   (`/privacy` 301-redirects there).
-- **done** — Android permissions are declared explicitly in `mobile/app.json`
-  rather than inherited from plugins: `POST_NOTIFICATIONS`, `CAMERA` and
-  `READ_MEDIA_IMAGES` are requested; `RECORD_AUDIO`, `READ_MEDIA_VIDEO` and
-  the legacy external-storage pair are blocked. Snap & Solve takes photos
-  only, so the video and audio permissions would have been unused
-  permissions on the listing — which is both a review risk and a Data Safety
-  mismatch.
+- **checked in config** — `mobile/app.json` explicitly declares
+  `POST_NOTIFICATIONS` and `CAMERA`, and blocks `RECORD_AUDIO`,
+  `READ_MEDIA_VIDEO` and the legacy external-storage pair. Expo plugins can
+  contribute permissions to the merged Android manifest; inspect the
+  generated AAB, especially the image-picker permissions, before answering
+  Play's permissions and Data Safety forms.
 - **done** — Designed feature graphic at `mobile/assets/play-feature-graphic.png`
   (1024×500), regenerable from `mobile/` with
   `python scripts/gen-feature-graphic.py`. It uses the flat light/blue visual
@@ -60,12 +64,12 @@ with Play Console access, a physical device, or a design tool.
 - [ ] Install the release build on a physical device and check it against
       production, not just the emulator against localhost.
 
-Current local state: `mobile/extra.eas.projectId` is not linked and EAS CLI
-is not authenticated in this checkout. The production build has not been
-created. `npm audit` currently reports five high findings in Expo CLI/build
-dependencies (`node-forge` and `zod`); inspect the current advisory and
-remediation before release. Do not use `npm audit fix --force`, which proposes
-an incompatible Expo downgrade.
+Current local state noted in this packet: `mobile/extra.eas.projectId` is not
+linked, EAS CLI is not authenticated in this checkout, and no production
+build has been created. A fresh `npm audit` in `mobile/` on 2026-10-27
+reported 7 low and 0 moderate/high/critical findings in the Expo CLI/build
+dependency tree; re-run it before release. Do not use `npm audit fix --force`
+without reviewing its proposed Expo SDK downgrade.
 
 ## Store listing — you
 

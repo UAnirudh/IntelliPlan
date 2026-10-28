@@ -5,16 +5,18 @@ declarations, so treat this as a starting point to verify rather than an
 answer key. What follows was read off the code in this repo; what production
 actually has enabled is the thing that counts.
 
-## Permissions the Android build requests
+## Permissions to verify in the Android build
 
-Declared explicitly in `mobile/app.json` so the manifest is intentional
-rather than whatever the plugins happened to add:
+The checked-in `mobile/app.json` explicitly declares notification and camera
+permissions and blocks several unused permissions. Expo plugins can add
+entries to the generated manifest, so verify the merged permissions in the
+release AAB before using this worksheet for Play Console answers:
 
 | Permission | Why | Where |
 | --- | --- | --- |
 | `POST_NOTIFICATIONS` | Deadline and study-session reminders the student opted into. | `expo-notifications`, `mobile/lib/push.ts` |
 | `CAMERA` | Snap & Solve: photograph a problem for the AI tutor. | `mobile/app/(tabs)/plani.tsx` |
-| `READ_MEDIA_IMAGES` | The same feature, picking an existing photo instead. | as above |
+| `READ_MEDIA_IMAGES` | Image-picker access to an existing photo, if present in the merged manifest. | `expo-image-picker`; verify the generated AAB |
 
 Blocked, so they never reach the manifest: `RECORD_AUDIO`,
 `READ_MEDIA_VIDEO`, `READ_EXTERNAL_STORAGE`, `WRITE_EXTERNAL_STORAGE`. The

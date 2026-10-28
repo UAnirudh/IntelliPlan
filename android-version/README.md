@@ -14,13 +14,13 @@ iOS and web builds.
 - Production API: `https://intelliplan.tech`
 - Adaptive icon, splash screen, notification icon, secure storage, and
   Expo Router
-- Android permissions declared explicitly rather than inherited from plugins:
-  `POST_NOTIFICATIONS`, `CAMERA` and `READ_MEDIA_IMAGES` requested, with
+- `POST_NOTIFICATIONS` and `CAMERA` declared in `mobile/app.json`, with
   `RECORD_AUDIO`, `READ_MEDIA_VIDEO` and the legacy external-storage pair
-  blocked (Snap & Solve takes photos only)
+  blocked. Inspect the merged manifest for plugin-added permissions before
+  submission.
 - Feature graphic at `mobile/assets/play-feature-graphic.png`, regenerable
-  with `python3 scripts/gen-feature-graphic.py` — a brand placeholder, fine
-  to submit, worth replacing with a designed asset
+  with `python scripts/gen-feature-graphic.py`; preview the exact upload in
+  Play Console.
 - In-app account deletion at `POST /account/delete`, linked from mobile
   Settings, authenticating by session or mobile bearer token
 - A public data-deletion page at `/delete-account` (and `/account-deletion`),
@@ -38,7 +38,9 @@ npx eas build:configure
 npx eas build --platform android --profile production
 ```
 
-Before the first submission, complete [PLAY-STORE-CHECKLIST.md](PLAY-STORE-CHECKLIST.md),
+Before the first submission, complete the current
+[Google Play release checklist](../Google-Play-Launch/README.md),
+[PLAY-STORE-CHECKLIST.md](PLAY-STORE-CHECKLIST.md),
 [STORE-LISTING.md](STORE-LISTING.md), and [DATA-SAFETY.md](DATA-SAFETY.md).
 
 Upload the resulting `.aab` to Google Play Console, or submit the draft release
