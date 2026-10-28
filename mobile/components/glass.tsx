@@ -8,7 +8,6 @@ import {
   ViewProps,
   ViewStyle,
 } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import {
   GlassContainer,
   GlassView,
@@ -184,50 +183,8 @@ export function GlassGroup({
   );
 }
 
-/**
- * The light behind the glass.
- *
- * Glass over a flat fill has nothing to bend, so it reads as a slightly
- * grey box. Three soft washes — the brand blue up top, a thread of green
- * across the middle, something warm low down — give every surface light to
- * refract, while staying quiet enough that the page still reads as the same
- * off-white (or near-black) it always was.
- */
+/** A quiet page canvas keeps native and web surfaces visually consistent. */
 export function Backdrop() {
-  const { colors, scheme } = useTheme();
-  const dark = scheme === "dark";
-  // Each wash fades to its own colour at zero alpha. Fading to the keyword
-  // `transparent` means fading through transparent *black*, which leaves a
-  // grey band across the middle of a light page.
-  const cool = dark ? [91, 147, 245, 0.2] : [26, 86, 219, 0.13];
-  const mint = dark ? [61, 212, 160, 0.08] : [10, 117, 88, 0.07];
-  const warm = dark ? [224, 169, 74, 0.1] : [200, 137, 15, 0.1];
-
-  return (
-    <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: colors.bg }]}>
-      <LinearGradient
-        colors={[rgba(cool), rgba(cool, 0)]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0.85, y: 0.55 }}
-        style={StyleSheet.absoluteFill}
-      />
-      <LinearGradient
-        colors={[rgba(mint, 0), rgba(mint), rgba(mint, 0)]}
-        locations={[0.25, 0.55, 0.85]}
-        start={{ x: 1, y: 0.1 }}
-        end={{ x: 0, y: 0.9 }}
-        style={StyleSheet.absoluteFill}
-      />
-      <LinearGradient
-        colors={[rgba(warm, 0), rgba(warm)]}
-        start={{ x: 0.2, y: 0.45 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
-    </View>
-  );
-}
-
-function rgba([r, g, b, a]: number[], alpha = a): string {
-  return `rgba(${r},${g},${b},${alpha})`;
+  const { colors } = useTheme();
+  return <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: colors.bg }]} />;
 }
