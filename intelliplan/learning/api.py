@@ -102,7 +102,39 @@ def organizations():
                                  action='organization_created', changes=row.policy))
         db.session.commit()
         return jsonify(id=row.id), 201
-    rows = M['Organization'].query.order_by(M['Organization'].id).limit(200).all()
+    try:
+        offset = int(request.args.get('offset', '0'))
+        limit = int(request.args.get('limit', '50'))
+    except (TypeError, ValueError):
+        raise ValueError('Organization paging needs a numeric offset and limit.') from None
+    if offset < 0 or offset > 1_000_000:
+        raise ValueError('Organization offset must be between 0 and 1000000.')
+    if limit < 1 or limit > 100:
+        raise ValueError('Organization page size must be between 1 and 100.')
+
+    # Scope the database query before counting, ordering, or paging. School
+    # admins can manage their directly administered organizations and all
+    # descendants, matching policy.administers()'s ancestor walk.
+    organization_query = M['Organization'].query
+    if not is_admin(current_user):
+        memberships = M['Membership']
+        admin_orgs = db.session.query(
+            memberships.organization_id.label('id')
+        ).filter(
+            memberships.user_id == current_user.id,
+            memberships.role == 'admin'
+        ).cte(name='managed_organization_ids', recursive=True)
+        descendants = db.session.query(M['Organization'].id.label('id')).join(
+            admin_orgs, M['Organization'].parent_id == admin_orgs.c.id
+        )
+        admin_orgs = admin_orgs.union(descendants)
+        organization_query = organization_query.filter(
+            M['Organization'].id.in_(db.session.query(admin_orgs.c.id))
+        )
+
+    total = organization_query.count()
+    rows = (organization_query.order_by(M['Organization'].id)
+            .offset(offset).limit(limit).all())
     def inherited_restrictions(organization):
         restricted, seen = set(), {organization.id}
         parent_id = organization.parent_id
@@ -118,11 +150,11 @@ def organizations():
             parent_id = parent.parent_id
         return sorted(restricted)
 
-    visible = [o for o in rows if policy.administers(current_user, o.id)]
+    visible = rows
     organizations_by_id = {o.id: o for o in rows}
     plan_scope_ids = {o.id for o in visible}
-    # A visible school's district parent may sit outside the 200-row admin
-    # listing window; load missing ancestors explicitly for the read-only
+    # A visible school's district parent may sit outside the current page;
+    # load missing ancestors explicitly for the read-only
     # entitlement summary without broadening the admin's organization access.
     for organization in visible:
         parent_id = organization.parent_id
@@ -149,7 +181,8 @@ def organizations():
             plan_tier=plan['effective_plan_tier'],
             plan_source=plan['effective_plan_source_name'],
             plan_inherited=plan['effective_plan_inherited']))
-    return jsonify(organizations=result)
+    return jsonify(organizations=result, total=total, offset=offset, limit=limit,
+                   has_more=offset + len(rows) < total)
 
 
 @bp.route('/api/school-admin/organizations/<int:oid>/policy', methods=['PUT'])

@@ -322,9 +322,21 @@
     } catch(error) { status(error.message); } finally { event.submitter.disabled = false; }
   });
   async function loadOrganizations(preferredId) {
-    const data = await api('/api/school-admin/organizations');
+    const pageSize = 100;
+    const organizationRows = [];
+    let offset = 0;
+    while (true) {
+      const data = await api(`/api/school-admin/organizations?offset=${offset}&limit=${pageSize}`);
+      organizationRows.push(...data.organizations);
+      if (!data.has_more) break;
+      const nextOffset = data.offset + data.organizations.length;
+      if (!Number.isInteger(nextOffset) || nextOffset <= offset) {
+        throw new Error('Could not load the complete organization list. Please reload.');
+      }
+      offset = nextOffset;
+    }
     const selectedId = preferredId ?? selected?.id;
-    organizations = data.organizations;
+    organizations = organizationRows;
     $('admin-organization').replaceChildren();
     for (const org of organizations) { const option = document.createElement('option'); option.value = org.id; option.textContent = org.name; $('admin-organization').append(option); }
     $('admin-organization').disabled = !organizations.length;
