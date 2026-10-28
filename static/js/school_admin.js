@@ -67,8 +67,8 @@
     $('admin-assessment-windows').value = (selected.policy.assessment_windows || []).map(w => `${w.start} / ${w.end}`).join('\n');
     const [members, audit] = await Promise.all([api(`/api/school-admin/organizations/${selected.id}/members`), api(`/api/school-admin/organizations/${selected.id}/audit`)]);
     if (selected !== renderedOrganization) return;
-    $('admin-stat-members').textContent = String(members.members.length);
-    $('admin-stat-teachers').textContent = String(members.members.filter(m => m.role === 'teacher').length);
+    $('admin-stat-members').textContent = String(members.total);
+    $('admin-stat-teachers').textContent = String(members.role_counts.teacher || 0);
     $('admin-stat-children').textContent = String(organizations.filter(o => o.parent_id === selected.id).length);
     const planNames = {free:'Free', pro:'Pro', premium:'Premium', premium_byok:'Premium with your AI key'};
     $('admin-stat-plan').textContent = planNames[selected.plan_tier] || selected.plan_tier || 'Free';
@@ -97,8 +97,12 @@
   function renderMembers(data) {
     const scope = selected;
     const container = $('admin-members');
+    const generation = (renderMembers.generation || 0) + 1;
+    renderMembers.generation = generation;
     container.replaceChildren();
-    for (const member of data.members) {
+    let loaded = 0;
+    let loadButton = null;
+    const appendMember = member => {
       const row = document.createElement('article'); row.className = 'admin-person-row';
       const identity = document.createElement('div'); identity.className = 'admin-person-identity';
       const name = document.createElement('strong'); name.textContent = member.name || member.email;
@@ -150,12 +154,50 @@
         } catch (error) { status(error.message); remove.disabled = lockedAdmin; }
         finally { saving = false; $('admin-organization').disabled = !organizations.length; }
       });
-      controls.append(role, remove); row.append(identity, controls); container.append(row);
-    }
-    if (!data.members.length) {
+      controls.append(role, remove); row.append(identity, controls);
+      if (loadButton) container.insertBefore(row, loadButton);
+      else container.append(row);
+    };
+    for (const member of data.members) appendMember(member);
+    loaded = data.members.length;
+    if (!data.total) {
       const empty = document.createElement('p'); empty.className = 'admin-empty';
       empty.textContent = 'No people have access to this workspace yet. Add a teacher by their school email to get started.';
       container.append(empty);
+    }
+    if (data.has_more) {
+      loadButton = document.createElement('button');
+      loadButton.type = 'button';
+      loadButton.className = 'learning-secondary';
+      loadButton.dataset.memberLoadMore = '';
+      container.append(loadButton);
+      const refreshLoadButton = () => {
+        loadButton.textContent = `Load more people (${loaded} of ${data.total})`;
+        loadButton.setAttribute('aria-label', `Load more people. ${loaded} of ${data.total} shown.`);
+      };
+      refreshLoadButton();
+      loadButton.addEventListener('click', async () => {
+        if (loadButton.disabled || selected !== scope) return;
+        loadButton.disabled = true;
+        loadButton.textContent = 'Loading people…';
+        try {
+          const next = await api(`/api/school-admin/organizations/${scope.id}/members?offset=${loaded}&limit=${data.limit}`);
+          if (selected !== scope || renderMembers.generation !== generation) return;
+          for (const member of next.members) appendMember(member);
+          loaded += next.members.length;
+          if (!next.has_more) loadButton.remove();
+          else {
+            loadButton.disabled = false;
+            refreshLoadButton();
+          }
+        } catch (error) {
+          if (selected === scope && renderMembers.generation === generation) {
+            status(error.message);
+            loadButton.disabled = false;
+            loadButton.textContent = 'Try loading more people';
+          }
+        }
+      });
     }
   }
   function renderAudit(events) {

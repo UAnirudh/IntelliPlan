@@ -164,6 +164,7 @@ html[data-theme] body:has(.learning-hub) { background: var(--bg); }
 .learning-admin-secondary { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px; align-items: start; }
 .learning-admin-secondary > .learning-panel { border-radius: 16px; }
 .admin-person-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--border-strong); }
+.learning-admin #admin-members [data-member-load-more] { display: block; margin: 16px auto 0; }
 .admin-person-identity { display: grid; gap: 3px; min-width: 0; }
 .admin-person-identity strong { overflow-wrap: anywhere; font-size: .9rem; }
 .admin-person-identity span,.admin-person-controls small { color: var(--text-secondary); font-size: .77rem; overflow-wrap: anywhere; }
