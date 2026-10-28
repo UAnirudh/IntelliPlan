@@ -719,6 +719,64 @@ def test_school_admin_can_see_inherited_tool_restrictions(client, monkeypatch):
     assert b'id="admin-tools"' in page.data
 
 
+def test_school_admin_organization_pages_include_managed_orgs_after_200_and_stay_scoped(client, monkeypatch):
+    admin_id = user(client, monkeypatch)
+    student_id = user(client, monkeypatch)
+    with App.app.app_context():
+        M = policy.models()
+        organizations = [
+            M['Organization'](name=f'Managed school {index:03d}', kind='school', policy={})
+            for index in range(205)
+        ]
+        App.db.session.add_all(organizations)
+        App.db.session.flush()
+        ids = [organization.id for organization in organizations]
+        App.db.session.add_all([
+            M['Membership'](user_id=admin_id, organization_id=organization_id, role='admin')
+            for organization_id in ids
+        ])
+        App.db.session.add(M['Membership'](
+            user_id=student_id, organization_id=ids[-1], role='student'))
+        App.db.session.commit()
+
+    with client.session_transaction() as session:
+        session['_user_id'] = str(admin_id)
+        session['_fresh'] = True
+    collected = []
+    first = client.get('/api/school-admin/organizations?offset=0&limit=100')
+    assert first.status_code == 200
+    assert first.json['total'] == 205
+    assert first.json['offset'] == 0 and first.json['limit'] == 100
+    assert first.json['has_more'] is True
+    collected.extend(first.json['organizations'])
+    second = client.get('/api/school-admin/organizations?offset=100&limit=100')
+    assert second.status_code == 200 and second.json['has_more'] is True
+    collected.extend(second.json['organizations'])
+    third = client.get('/api/school-admin/organizations?offset=200&limit=100')
+    assert third.status_code == 200 and third.json['has_more'] is False
+    collected.extend(third.json['organizations'])
+    assert [row['id'] for row in collected] == ids
+    assert collected[-1]['id'] > 200
+
+    with client.session_transaction() as session:
+        session['_user_id'] = str(student_id)
+        session['_fresh'] = True
+    hidden = client.get('/api/school-admin/organizations?offset=200&limit=100')
+    assert hidden.status_code == 200
+    assert hidden.json['organizations'] == []
+    assert hidden.json['total'] == 0
+    assert client.put(f"/api/school-admin/organizations/{ids[-1]}/policy",
+                      json={'policy': {}, 'version': 1}).status_code == 403
+    assert client.get(f'/api/school-admin/organizations/{ids[-1]}/members').status_code == 403
+
+
+@pytest.mark.parametrize('query', ['?offset=-1', '?limit=101', '?offset=nope', '?limit=nope'])
+def test_school_admin_organization_paging_rejects_invalid_parameters(client, monkeypatch, query):
+    uid = user(client, monkeypatch)
+    org(uid, role='admin')
+    assert client.get(f'/api/school-admin/organizations{query}').status_code == 400
+
+
 def test_school_admin_sees_read_only_effective_plan_from_parent_district(client, monkeypatch):
     uid = user(client, monkeypatch)
     with App.app.app_context():
