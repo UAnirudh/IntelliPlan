@@ -1,161 +1,99 @@
 #!/usr/bin/env python3
-"""Generate the Play Store feature graphic (1024x500).
+"""Generate IntelliPlan's flat 1024x500 Play Store feature graphic.
 
-Run from mobile/:  python3 scripts/gen-feature-graphic.py
-
-Google requires a feature graphic before a listing can be published, and a
-missing one blocks submission outright. This produces a clean, on-brand
-placeholder from assets already in the repo, so the listing is never held up
-waiting on a design pass.
-
-It is a placeholder in the honest sense: correct dimensions, correct brand
-colours, no text that the store will crop or that duplicates the app name
-badge Play draws over it. Replace it with a designed asset when there is
-one — the file path is all the Play Console cares about.
-
-Kept as a script rather than a checked-in image for the same reason
-gen-icons.py is: change the source icon and re-run, and nothing drifts.
+Run from mobile/: python scripts/gen-feature-graphic.py
 """
 from __future__ import annotations
 
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFilter, ImageFont
+from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parent.parent
-SRC_ICON = ROOT / "assets" / "icon.png"
 OUT = ROOT / "assets" / "play-feature-graphic.png"
-
-#: Exactly what Play asks for. Anything else is rejected at upload.
 SIZE = (1024, 500)
 
-#: The same indigo→violet ramp the app header and the emails use.
-GRADIENT_FROM = (30, 27, 75)     # #1e1b4b
-GRADIENT_MID = (49, 46, 129)     # #312e81
-GRADIENT_TO = (76, 29, 149)      # #4c1d95
+BG = "#F7F9FC"
+WHITE = "#FFFFFF"
+INK = "#14233B"
+MUTED = "#66758A"
+LINE = "#E4EAF2"
+BLUE = "#2878F0"
+BLUE_SOFT = "#EAF2FF"
+GREEN = "#17835D"
+GREEN_SOFT = "#E8F6EF"
+VIOLET = "#7657C8"
+VIOLET_SOFT = "#F1EDFB"
 
-TITLE = "IntelliPlan"
-TAGLINE = "Your assignments, planned."
-
-#: The square of the source icon holding the symbol but not the wordmark,
-#: as (left, top, right, bottom) fractions. Re-measure this if the icon art
-#: is ever redrawn.
-SYMBOL_CROP = (0.17, 0.12, 0.77, 0.72)
-
-#: Inter is the product face but is not installed on most machines, so the
-#: script degrades to whatever is available rather than failing. DejaVu ships
-#: with Pillow's usual environments and with most Linux images.
-FONT_CANDIDATES = (
-    "/usr/share/fonts/truetype/inter/Inter-Bold.ttf",
-    "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
-    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-    "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
-)
-FONT_CANDIDATES_REGULAR = (
-    "/usr/share/fonts/truetype/inter/Inter-Regular.ttf",
-    "/System/Library/Fonts/Supplemental/Arial.ttf",
+FONT_REGULAR = (
+    "C:/Windows/Fonts/segoeui.ttf",
+    "C:/Windows/Fonts/arial.ttf",
     "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-    "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+    "/System/Library/Fonts/Supplemental/Arial.ttf",
+)
+FONT_SEMIBOLD = (
+    "C:/Windows/Fonts/seguisb.ttf",
+    "C:/Windows/Fonts/arialbd.ttf",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+    "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
 )
 
 
-def _font(candidates: tuple[str, ...], size: int) -> ImageFont.FreeTypeFont:
-    for path in candidates:
-        if Path(path).exists():
-            return ImageFont.truetype(path, size)
+def font(candidates: tuple[str, ...], size: int) -> ImageFont.FreeTypeFont:
+    for candidate in candidates:
+        if Path(candidate).exists():
+            return ImageFont.truetype(candidate, size)
     return ImageFont.load_default()
 
 
-def _gradient(size: tuple[int, int]) -> Image.Image:
-    """A left-to-right three-stop ramp, drawn a column at a time.
-
-    Diagonal would match the app more closely, but Play crops the graphic
-    differently across surfaces and a horizontal ramp survives every crop.
-    """
-    width, height = size
-    base = Image.new("RGB", size)
-    draw = ImageDraw.Draw(base)
-    for x in range(width):
-        t = x / max(1, width - 1)
-        if t < 0.5:
-            local = t / 0.5
-            start, end = GRADIENT_FROM, GRADIENT_MID
-        else:
-            local = (t - 0.5) / 0.5
-            start, end = GRADIENT_MID, GRADIENT_TO
-        colour = tuple(
-            int(round(start[i] + (end[i] - start[i]) * local)) for i in range(3)
-        )
-        draw.line([(x, 0), (x, height)], fill=colour)
-    return base
+def rounded(draw: ImageDraw.ImageDraw, box: tuple[int, int, int, int], radius: int,
+            fill: str, outline: str | None = None, width: int = 1) -> None:
+    draw.rounded_rectangle(box, radius=radius, fill=fill, outline=outline, width=width)
 
 
 def main() -> None:
-    canvas = _gradient(SIZE)
-    draw = ImageDraw.Draw(canvas, "RGBA")
+    canvas = Image.new("RGB", SIZE, BG)
+    draw = ImageDraw.Draw(canvas)
 
-    # A couple of soft highlights so the panel is not a flat wash. Drawn on
-    # their own layer and blurred: an un-blurred ellipse at this alpha reads
-    # as a hard-edged circle someone left behind, not as light.
-    glow = Image.new("RGBA", SIZE, (0, 0, 0, 0))
-    glow_draw = ImageDraw.Draw(glow)
-    for centre, radius, alpha in (((250, 90), 260, 30), ((880, 430), 300, 24)):
-        glow_draw.ellipse(
-            [
-                centre[0] - radius,
-                centre[1] - radius,
-                centre[0] + radius,
-                centre[1] + radius,
-            ],
-            fill=(255, 255, 255, alpha),
-        )
-    glow = glow.filter(ImageFilter.GaussianBlur(110))
-    canvas = Image.alpha_composite(canvas.convert("RGBA"), glow).convert("RGB")
-    draw = ImageDraw.Draw(canvas, "RGBA")
+    # A compact brand cue and message stay clear of the Play badge and crop edges.
+    rounded(draw, (72, 91, 126, 145), 16, BLUE)
+    draw.line([(86, 118), (96, 128), (114, 106)], fill=WHITE, width=5, joint="curve")
+    draw.text((148, 96), "A clearer plan", font=font(FONT_SEMIBOLD, 42), fill=INK)
+    draw.text((148, 150), "for every study day.", font=font(FONT_SEMIBOLD, 42), fill=BLUE)
+    draw.text((74, 231), "Turn schoolwork into small, doable steps.",
+              font=font(FONT_REGULAR, 23), fill=MUTED)
 
-    # Icon on the left, generously inset. Play overlays UI near the edges on
-    # some surfaces, so nothing meaningful goes within ~80px of one.
-    icon_box = 240
-    if SRC_ICON.exists():
-        icon = Image.open(SRC_ICON).convert("RGBA")
-        # Crop to the mark alone. The source icon carries the wordmark under
-        # the symbol, and using it whole puts "IntelliPlan" on the graphic
-        # twice — once clipped by the rounded corner, once as the title
-        # beside it.
-        width, height = icon.size
-        icon = icon.crop(
-            (
-                int(width * SYMBOL_CROP[0]),
-                int(height * SYMBOL_CROP[1]),
-                int(width * SYMBOL_CROP[2]),
-                int(height * SYMBOL_CROP[3]),
-            )
-        )
-        icon = icon.resize((icon_box, icon_box), Image.LANCZOS)
-        rounded = Image.new("L", (icon_box, icon_box), 0)
-        ImageDraw.Draw(rounded).rounded_rectangle(
-            [0, 0, icon_box, icon_box], radius=int(icon_box * 0.22), fill=255
-        )
-        canvas.paste(icon, (104, (SIZE[1] - icon_box) // 2), rounded)
-    else:
-        print(f"warning: {SRC_ICON} is missing; drawing text only")
+    # Three restrained proof points describe the product without making claims
+    # about grades or guaranteed outcomes.
+    features = [("Priorities", BLUE), ("Study plan", GREEN), ("Focus time", VIOLET)]
+    x = 74
+    for label, color in features:
+        draw.ellipse((x, 310, x + 14, 324), fill=color)
+        draw.text((x + 24, 304), label, font=font(FONT_SEMIBOLD, 18), fill=INK)
+        x += 157
 
-    text_x = 104 + icon_box + 56
-    title_font = _font(FONT_CANDIDATES, 76)
-    tagline_font = _font(FONT_CANDIDATES_REGULAR, 32)
+    # Small, illustrative Today timeline inspired by the real app's clean cards.
+    # Keep the example labels generic and the UI free of gradients or tiny copy.
+    rounded(draw, (552, 43, 952, 457), 28, WHITE, LINE, 2)
+    draw.text((585, 76), "TODAY", font=font(FONT_SEMIBOLD, 15), fill=MUTED)
+    draw.text((585, 104), "A good place to start", font=font(FONT_SEMIBOLD, 25), fill=INK)
+    rounded(draw, (850, 76, 920, 105), 15, BLUE_SOFT)
+    draw.text((862, 83), "3 steps", font=font(FONT_SEMIBOLD, 13), fill=BLUE)
 
-    title_h = draw.textbbox((0, 0), TITLE, font=title_font)[3]
-    tagline_h = draw.textbbox((0, 0), TAGLINE, font=tagline_font)[3]
-    block_h = title_h + 22 + tagline_h
-    top = (SIZE[1] - block_h) // 2
+    # Timeline rail
+    draw.line([(606, 178), (606, 378)], fill=LINE, width=3)
 
-    draw.text((text_x, top), TITLE, font=title_font, fill=(255, 255, 255))
-    draw.text(
-        (text_x, top + title_h + 22),
-        TAGLINE,
-        font=tagline_font,
-        fill=(196, 181, 253),  # #c4b5fd, the same muted violet the emails use
-    )
+    rows = [
+        (166, "10:00", "Biology review", "Read the next chapter", BLUE_SOFT, BLUE, True),
+        (255, "11:30", "Study block", "Practice a few problems", GREEN_SOFT, GREEN, False),
+        (344, "1:00", "Take a break", "Then come back refreshed", VIOLET_SOFT, VIOLET, False),
+    ]
+    for y, time, title, detail, tint, accent, active in rows:
+        draw.ellipse((598, y + 13, 614, y + 29), fill=accent if active else "#C7D0DD")
+        draw.text((632, y + 4), time, font=font(FONT_SEMIBOLD, 15), fill=accent if active else MUTED)
+        rounded(draw, (704, y - 3, 922, y + 70), 18, tint)
+        draw.text((724, y + 7), title, font=font(FONT_SEMIBOLD, 17), fill=INK)
+        draw.text((724, y + 36), detail, font=font(FONT_REGULAR, 13), fill=MUTED)
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
     canvas.save(OUT, "PNG", optimize=True)
