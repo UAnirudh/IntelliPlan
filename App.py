@@ -1737,12 +1737,16 @@ class PushSubscription(db.Model):
 
 
 class ReminderSent(db.Model):
-    """Dedupe row — one per (user, task, channel) so a reminder is sent
-    at most once per task, regardless of how often the cron runs."""
+    """Dedupe row — one per (user, task deadline, channel).
+
+    A due date can move after a reminder was sent. Including the deadline in
+    the key lets the new schedule notify the student while retries for the
+    same deadline stay idempotent.
+    """
     __tablename__ = "reminders_sent"
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
-    task_key = db.Column(db.String(256), nullable=False)  # "manual:<id>" or "canvas:<id>"
+    task_key = db.Column(db.String(256), nullable=False)  # "manual:<id>:<due-iso>"
     channel = db.Column(db.String(16), nullable=False)    # "sms" or "push"
     sent_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -20599,14 +20603,51 @@ def _send_reminders_for_user(user, mark_sent=True, force=False):
     # users x tasks x channels round-trips.
     already_sent = set()
     if not force:
-        keys = [f"manual:{t.id}" for t, _ in upcoming]
+        current_keys = {
+            f"manual:{task.id}": f"manual:{task.id}:{due.isoformat(timespec='seconds')}"
+            for task, due in upcoming
+        }
+        # Pre-upgrade rows only identified the task. Associate each legacy
+        # marker with its currently observed due time before delivery, so
+        # rollout does not resend every already-notified upcoming task.
+        keys = [*current_keys.values(), *current_keys.keys()]
         rows = ReminderSent.query.filter(
             ReminderSent.user_id == user.id, ReminderSent.task_key.in_(keys)
         ).all()
-        already_sent = {(r.task_key, r.channel) for r in rows}
+        already_sent = {
+            (row.task_key, row.channel)
+            for row in rows
+            if row.task_key not in current_keys
+        }
+        current_markers = {
+            (row.task_key, row.channel)
+            for row in rows
+            if row.task_key not in current_keys
+        }
+        migrated_legacy = False
+        for row in rows:
+            current_key = current_keys.get(row.task_key)
+            if current_key is None:
+                continue
+            marker = (current_key, row.channel)
+            if marker in current_markers:
+                db.session.delete(row)
+            else:
+                row.task_key = current_key
+                current_markers.add(marker)
+            migrated_legacy = True
+        already_sent = current_markers
+        if migrated_legacy:
+            # If this migration fails, abort the sweep so it can be retried
+            # before any sends are attempted against a legacy marker.
+            db.session.commit()
     for task, due in upcoming:
         sent["tasks"] += 1
-        key = f"manual:{task.id}"
+        # Keep the sent marker tied to this exact schedule generation. If a
+        # task's deadline moves after a reminder was delivered, the new due
+        # time gets one reminder of its own; repeated cron runs for that same
+        # deadline remain deduplicated.
+        key = f"manual:{task.id}:{due.isoformat(timespec='seconds')}"
         for channel, want in (("sms", want_sms), ("push", want_push)):
             if not want:
                 continue
