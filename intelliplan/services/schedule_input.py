@@ -5,6 +5,24 @@ import math
 from typing import Any
 
 
+def validate_saved_schedule(body: Any) -> dict[str, Any]:
+    """Check the stored plan envelope before retiring an existing plan."""
+    if not isinstance(body, dict):
+        raise ValueError('Send a JSON object containing a schedule.')
+    plan = body.get('schedule_data')
+    if not isinstance(plan, dict) or not isinstance(plan.get('schedule'), list):
+        raise ValueError('Send a schedule containing a list of days.')
+    for day in plan['schedule']:
+        if not isinstance(day, dict) or not isinstance(day.get('blocks', []), list):
+            raise ValueError('Each schedule day must contain a list of blocks.')
+        if any(not isinstance(block, dict) for block in day.get('blocks', [])):
+            raise ValueError('Schedule blocks must be objects.')
+    name = body.get('name')
+    if 'name' in body and (not isinstance(name, str) or not name.strip() or len(name) > 256):
+        raise ValueError('Schedule name must contain 1 to 256 characters.')
+    return body
+
+
 def validate_schedule_request(body: Any) -> dict[str, Any]:
     """Return a copy with normalized hours; leave provider metadata intact.
 

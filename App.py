@@ -15818,11 +15818,13 @@ def api_import_status():
 # ── SAVED SCHEDULE ────────────────────────────────────────────
 @app.route("/schedule/save", methods=["POST"])
 def save_schedule():
-    data = request.json or {}
-    schedule_data = data.get("schedule_data")
+    from intelliplan.services.schedule_input import validate_saved_schedule
+    try:
+        data = validate_saved_schedule(request.get_json(silent=True))
+    except ValueError as error:
+        return flask.jsonify(status='error', message=str(error)), 400
+    schedule_data = data["schedule_data"]
     name = data.get("name", f"Schedule {datetime.now().strftime('%b %d')}")
-    if not schedule_data:
-        return flask.jsonify({"status": "error", "message": "No schedule data"})
     uid = current_user.id if current_user.is_authenticated else None
     gid = None if current_user.is_authenticated else get_guest_session_id()
     if uid:

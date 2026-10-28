@@ -62,6 +62,9 @@ PLAN = {
 
 
 def run_width(browser, width):
+    with App.app.app_context():
+        App.SavedSchedule.query.filter_by(user_id=uid).delete()
+        App.db.session.commit()
     context = browser.new_context(viewport={'width': width, 'height': 960},
                                   timezone_id='Asia/Tokyo', reduced_motion='reduce',
                                   service_workers='block')
@@ -143,11 +146,13 @@ def run_width(browser, width):
         if parsed.path == '/generate_schedule':
             generated.append(json.loads(req.post_data))
             return handler.fulfill(json={'status': 'ok', 'data': PLAN})
-        if parsed.path == '/schedule/saved':
-            return handler.fulfill(json={'status': 'empty'})
+        if parsed.path in ('/schedule/save', '/schedule/saved'):
+            response = client.open(parsed.path, method=req.method, data=req.post_data,
+                                   content_type=req.headers.get('content-type'))
+            return handler.fulfill(status=response.status_code, json=response.get_json())
         if parsed.path == '/archive/context':
             return handler.fulfill(json={'custom_tasks': []})
-        if parsed.path in ('/schedule/save', '/schedule/progress'):
+        if parsed.path == '/schedule/progress':
             return handler.fulfill(json={'status': 'ok', 'id': 1})
         if parsed.path == '/api/schedule/forecast':
             return handler.fulfill(json={'status': 'ok', 'risk': {'tasks': []}})
@@ -234,6 +239,17 @@ def run_width(browser, width):
         assert [row['id'] for row in generated[0]['assignments']] == ['11'], generated
         capture('generated-study-plan')
         checks.append('Real Generate and renderSchedule render timed study block and export action')
+        with page.expect_response(lambda res: urlsplit(res.url).path == '/schedule/save') as saved:
+            page.get_by_role('button', name='Save to dashboard', exact=True).click()
+        assert saved.value.status == 200 and saved.value.json()['status'] == 'ok'
+        expect(page.locator('[onclick="saveSchedule()"]')).to_contain_text('Saved!')
+        with App.app.app_context():
+            active = App.SavedSchedule.query.filter_by(user_id=uid, is_active=True).one()
+            assert json.loads(active.schedule_data)['schedule'][0]['blocks'][0]['assignment'] == 'Algebra practice'
+        stored = client.get('/schedule/saved').get_json()
+        assert stored['status'] == 'ok'
+        assert stored['data']['schedule'][0]['blocks'][0]['assignment'] == 'Algebra practice'
+        checks.append('Save to dashboard persists the rendered plan through real save and read endpoints')
 
         with page.expect_response(lambda res: urlsplit(res.url).path == '/calendar/export'):
             page.locator('#calExportBtn').click()
