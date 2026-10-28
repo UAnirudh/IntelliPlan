@@ -222,7 +222,8 @@
 /* ── STEP 2, Encoding (voice call UI) ── */
 .ds-call-shell {
   position: relative; padding: 2rem 1.5rem;
-  background: radial-gradient(ellipse at center top, var(--accent-soft) 0%, var(--bg) 65%);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   border-radius: var(--r-lg);
   text-align: center;
   min-height: 360px;
@@ -230,7 +231,7 @@
 }
 .ds-call-avatar {
   width: 110px; height: 110px; border-radius: 50%;
-  background: linear-gradient(135deg, var(--accent), var(--accent-hover));
+  background: var(--accent);
   margin: 0 auto 1.25rem;
   display: flex; align-items: center; justify-content: center;
   box-shadow: 0 0 0 6px var(--accent-soft), 0 12px 40px rgba(0,0,0,0.18);
