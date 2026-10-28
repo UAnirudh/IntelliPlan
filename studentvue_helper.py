@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 import html as html_module
 import re
 from urllib.parse import urlparse
+import net_guard
 
 SOAP_ACTION = "http://edupoint.com/webservices/ProcessWebServiceRequest"
 
@@ -78,7 +79,7 @@ def normalize_district_url(district_url):
     return f"{parsed.scheme}://{parsed.netloc}"
 
 def make_request(district_url, username, password, method, params="&lt;Parms/&gt;"):
-    district_url = normalize_district_url(district_url)
+    district_url = _safe_district_url(district_url)
     user_xml = html_module.escape(username or "", quote=True)
     pass_xml = html_module.escape(password or "", quote=True)
     url = f"{district_url}/Service/PXPCommunication.asmx"
@@ -100,7 +101,9 @@ def make_request(district_url, username, password, method, params="&lt;Parms/&gt
     </ProcessWebServiceRequest>
   </soap:Body>
 </soap:Envelope>"""
-    response = requests.post(url, headers=headers, data=body, timeout=15)
+    response = net_guard.pinned_https_request(
+        url, "POST", headers=headers, data=body, timeout=15
+    )
     response.raise_for_status()
     return response.text
 
@@ -127,7 +130,22 @@ class JsonApiUnavailable(Exception):
 
 
 def _json_url(district_url, method):
-    return f"{normalize_district_url(district_url)}/api/v1/mobile/PXPWebServices/{method}"
+    return f"{_safe_district_url(district_url)}/api/v1/mobile/PXPWebServices/{method}"
+
+
+def _safe_district_url(district_url):
+    """Require a public HTTPS district before sending school credentials."""
+    normalized = normalize_district_url(district_url)
+    try:
+        parsed = urlparse(normalized)
+        port = parsed.port
+    except ValueError:
+        raise net_guard.BlockedURL(normalized) from None
+    if (parsed.scheme.lower() != "https" or not parsed.hostname
+            or parsed.username is not None or parsed.password is not None
+            or port not in (None, 443) or parsed.query or parsed.fragment):
+        raise net_guard.BlockedURL(normalized)
+    return normalized
 
 
 def _json_arguments(request_fields):
@@ -155,8 +173,8 @@ def json_login(district_url, username, password):
     requests.RequestException when it can't be reached at all.
     """
     basic = base64.b64encode(f"{username or ''}:{password or ''}".encode("utf-8")).decode("ascii")
-    response = requests.post(
-        _json_url(district_url, "AttemptLogin"),
+    response = net_guard.pinned_https_request(
+        _json_url(district_url, "AttemptLogin"), "POST",
         headers={**JSON_API_HEADERS, "Authorization": f"Basic {basic}"},
         # The app nulls the credentials in the body; they travel only in
         # the Basic header.
@@ -181,8 +199,8 @@ def json_call(district_url, access_token, method, request_fields):
     the real status. Code 2100 means "feature not enabled at this school",
     which is empty data, not a failure.
     """
-    response = requests.post(
-        _json_url(district_url, method),
+    response = net_guard.pinned_https_request(
+        _json_url(district_url, method), "POST",
         headers={**JSON_API_HEADERS, "Authorization": f"Bearer {access_token}"},
         data=_json_arguments(request_fields),
         timeout=20,
@@ -345,10 +363,16 @@ def _gradebook_raw(district_url, username, password):
             raw = html_module.unescape(inner.group(1))
             if "RT_ERROR" not in raw:
                 return raw
+    except net_guard.BlockedURL:
+        # A legacy session may contain an HTTP district URL from before the
+        # HTTPS-only rule. Treat it as disconnected rather than a route error.
+        return None
     except requests.RequestException as exc:
         soap_error = exc
     try:
         return _json_gradebook_raw(district_url, username, password)
+    except net_guard.BlockedURL:
+        return None
     except (JsonApiUnavailable, requests.RequestException):
         if soap_error is not None:
             raise soap_error

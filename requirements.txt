@@ -50,6 +50,8 @@ Pillow==13.0.0
 # IANA zones on Windows and slim runtimes without a system zone database.
 tzdata>=2025.2
 requests>=2.31.0
+# Pin public-host HTTPS connections to validated IPs without a second DNS lookup.
+urllib3>=2.0.0,<3
 # Parses untrusted district XML (StudentVUE timetables) without entity expansion.
 defusedxml>=0.7.1
 python-dotenv>=1.0.0
