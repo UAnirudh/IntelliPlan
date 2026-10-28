@@ -85,7 +85,7 @@ with sync_playwright() as playwright:
         page.get_by_role('heading',name='Use your ChatGPT plan',exact=True).wait_for()
         assert 'OpenAI must approve this hosted app' in page.locator('.pai').inner_text()
         assert page.locator('#paiOpenAIRedirect').inner_text() == 'https://intelliplan.tech/auth/openai/callback'
-        assert 'not active yet' in page.locator('#paiOpenAIRedirectStatus').inner_text()
+        assert 'route is not live yet' in page.locator('#paiOpenAIRedirectStatus').inner_text().lower()
         copy_button = page.get_by_role('button',name='Copy redirect URI',exact=True)
         assert copy_button.is_visible()
         assert copy_button.bounding_box()['height'] >= 44
