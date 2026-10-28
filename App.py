@@ -12353,7 +12353,7 @@ def _planner_timezone_context(user_id=None):
     return {'timezone_name': zone, 'timezone_offset_minutes': offset}
 
 
-def _planner_task_rows(normalized_assignments, custom_tasks, descriptions=None):
+def _planner_task_rows(normalized_assignments, custom_tasks, descriptions=None, *, today=None):
     """Flatten assignments and free-text custom tasks into planner input.
 
     Custom tasks carry no metadata at all — they are a title someone typed
@@ -12389,7 +12389,9 @@ def _planner_task_rows(normalized_assignments, custom_tasks, descriptions=None):
     try:
         from intelliplan.services.prioritisation import score_rows
 
-        scores = score_rows(normalized_assignments, date.today())
+        scores = score_rows(
+            normalized_assignments, today if today is not None else date.today()
+        )
     except Exception as e:
         print(f"[planner] priority scoring failed, using labels: {e}")
 
@@ -12523,6 +12525,7 @@ def _build_planner_schedule(normalized_assignments, custom_tasks, uid, gid,
             normalized_assignments,
             custom_tasks,
             descriptions=_saved_descriptions_for(normalized_assignments),
+            today=planning_now.date(),
         )
         if not rows:
             return None
