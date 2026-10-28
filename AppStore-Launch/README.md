@@ -58,10 +58,15 @@ does not publish the app to the public App Store.
       for accepted pixel sizes before export.
 - [ ] Provide a working review account and notes for sign-in, school imports,
       age gates, AI tutor, photo use, and any feature needing external setup.
-- [ ] Confirm the production archive was built with Xcode 26 or later and an
-      iOS 26 SDK. Apple has required this for App Store Connect uploads since
-      April 28, 2026; EAS selects the build image from the Expo SDK unless an
-      image is explicitly configured, so retain/check the EAS build details.
+- [ ] Confirm the production archive meets Apple's SDK requirement for its
+      upload date. Since April 28, 2026, App Store Connect uploads require
+      Xcode 26 or later with the iOS 26 SDK; starting April 2027, uploads must
+      use Xcode 27 or later with the iOS 27 SDK and target iOS 15 or later.
+      IntelliPlan's spring 2027 release may fall after that change, so confirm
+      the planned submission date and that the selected Expo SDK and EAS build
+      image support the applicable minimum before producing the release
+      archive. Retain and review the EAS build details. See Apple's current
+      [submission requirements](https://developer.apple.com/app-store/submitting/).
 - [ ] Verify the archive contains valid privacy manifests for the app and any
       SDKs that require them, and that every required-reason API declaration
       matches actual use. A JSON config check cannot validate the built IPA.
