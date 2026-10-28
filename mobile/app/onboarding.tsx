@@ -7,7 +7,7 @@ import * as WebBrowser from "expo-web-browser";
 import { getProviders, getTasks, patchIdentity, Provider, startLinkSession } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { markOnboarded } from "../lib/onboarding";
-import { setRemindersEnabled, syncReminders } from "../lib/reminders";
+import { beginReminderOperation, isReminderOperationCurrent, setRemindersEnabled, syncReminders } from "../lib/reminders";
 import { markReminderPromptAnswered } from "../lib/reminderPrompt";
 import { useTheme } from "../theme/ThemeProvider";
 import { radius, space } from "../theme/tokens";
@@ -306,8 +306,10 @@ export default function OnboardingScreen() {
                   busy={remindersBusy}
                   onPress={async () => {
                     setRemindersBusy(true);
+                    const operation = beginReminderOperation();
                     try {
-                      const enabled = await setRemindersEnabled(true);
+                      const enabled = await setRemindersEnabled(true, operation);
+                      if (!isReminderOperationCurrent(operation)) return;
                       if (!enabled) {
                         await markReminderPromptAnswered(user?.id, "dismissed");
                         setNote("Notifications are turned off for IntelliPlan in your phone's settings.");
@@ -315,7 +317,7 @@ export default function OnboardingScreen() {
                       }
                       await markReminderPromptAnswered(user?.id, "enabled");
                       try {
-                        const scheduled = await syncReminders(await getTasks());
+                        const scheduled = await syncReminders(await getTasks(), operation);
                         setNote(
                           scheduled
                             ? `${scheduled} deadline ${scheduled === 1 ? "reminder is" : "reminders are"} scheduled on this phone.`
@@ -327,8 +329,10 @@ export default function OnboardingScreen() {
                     } catch {
                       // The student explicitly chose reminders; avoid showing a
                       // second opt-in prompt immediately after setup.
-                      await markReminderPromptAnswered(user?.id, "dismissed").catch(() => {});
-                      setNote("Couldn't turn on reminders. Try again from Settings.");
+                      if (isReminderOperationCurrent(operation)) {
+                        await markReminderPromptAnswered(user?.id, "dismissed").catch(() => {});
+                        setNote("Couldn't turn on reminders. Try again from Settings.");
+                      }
                     } finally {
                       setRemindersBusy(false);
                     }

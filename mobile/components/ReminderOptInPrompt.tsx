@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { Modal, Pressable, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { getTasks } from "../lib/api";
-import { areRemindersEnabled, setRemindersEnabled, syncReminders } from "../lib/reminders";
+import { areRemindersEnabled, beginReminderOperation, getReminderOperation, isReminderOperationCurrent, setRemindersEnabled, syncReminders } from "../lib/reminders";
 import { getReminderPromptAnswer, markReminderPromptAnswered } from "../lib/reminderPrompt";
 import { useTheme } from "../theme/ThemeProvider";
 import { radius, space } from "../theme/tokens";
@@ -22,6 +22,7 @@ export function ReminderOptInPrompt({ userId }: { userId?: number | string }) {
 
   useEffect(() => {
     let active = true;
+    const operation = getReminderOperation();
     if (userId === undefined) {
       setChecking(false);
       return () => { active = false; };
@@ -30,11 +31,14 @@ export function ReminderOptInPrompt({ userId }: { userId?: number | string }) {
     (async () => {
       try {
         const answered = await getReminderPromptAnswer(userId);
+        if (!isReminderOperationCurrent(operation)) return;
         if (answered) return;
         if (await areRemindersEnabled()) {
+          if (!isReminderOperationCurrent(operation)) return;
           await markReminderPromptAnswered(userId, "enabled");
           return;
         }
+        if (!isReminderOperationCurrent(operation)) return;
         // Show an in-app explanation first. The OS permission dialog is only
         // requested by the explicit Enable button below.
         if (active) setVisible(true);
@@ -60,8 +64,10 @@ export function ReminderOptInPrompt({ userId }: { userId?: number | string }) {
     if (busy) return;
     setBusy(true);
     setError(null);
+    const operation = beginReminderOperation();
     try {
-      const enabled = await setRemindersEnabled(true);
+      const enabled = await setRemindersEnabled(true, operation);
+      if (!isReminderOperationCurrent(operation)) return;
       // A clear yes/no answer from the system dialog should not trigger the
       // same prompt on every later launch. The Settings switch remains usable.
       if (userId !== undefined) {
@@ -72,7 +78,7 @@ export function ReminderOptInPrompt({ userId }: { userId?: number | string }) {
         return;
       }
       try {
-        await syncReminders(await getTasks());
+        await syncReminders(await getTasks(), operation);
       } catch {
         // Tasks are refreshed on the Due screen and reminders sync then.
       }

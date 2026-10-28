@@ -13,7 +13,8 @@ import {
 import { clearQueryCache } from "./useQuery";
 import { clearQueue } from "./queue";
 import { disablePush } from "./push";
-import { setRemindersEnabled } from "./reminders";
+import { beginReminderSignOut, endReminderSignOut, setRemindersEnabled } from "./reminders";
+import { clearEnabledReminderPromptAnswer } from "./reminderPrompt";
 
 type AuthState = {
   user: Me | null;
@@ -61,23 +62,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [booting, setBooting] = useState(true);
 
   const signOut = useCallback(async () => {
-    // Tell the server to stop pushing to this device *before* dropping the
-    // token — the unregister call needs it. On a shared phone, skipping
-    // this would keep sending one student's deadlines to the next one.
-    await disablePush().catch(() => {});
-    // Local notifications contain task details and are scheduled by the OS
-    // even while the app is closed. Cancel them before another account can
-    // use this device.
-    await setRemindersEnabled(false).catch(() => {});
-    await apiLogout();
-    await cacheUser(null);
-    await clearQueryCache().catch(() => {});
-    // Unsent edits belong to the account that made them. On a shared phone
-    // replaying them after the next student signs in would tick off their
-    // assignments instead.
-    await clearQueue().catch(() => {});
-    setUser(null);
-  }, []);
+    // Invalidate an opt-in that might still be waiting on the OS permission
+    // prompt before any cleanup starts, and prevent settings or a stale task
+    // fetch from re-enabling/scheduling them until sign-out finishes.
+    const reminderOperation = beginReminderSignOut();
+    try {
+      // Local notifications contain task details and are scheduled by the OS
+      // even while the app is closed. Cancel them before another account can
+      // use this device.
+      await setRemindersEnabled(false, reminderOperation).catch(() => {});
+      // The device-level reminder switch was reset above. Do not let a saved
+      // enabled answer hide the opt-in prompt when this student signs back in.
+      await clearEnabledReminderPromptAnswer(user?.id).catch(() => {});
+      // Tell the server to stop pushing to this device *before* dropping the
+      // token — the unregister call needs it. On a shared phone, skipping
+      // this would keep sending one student's deadlines to the next one.
+      await disablePush().catch(() => {});
+      await apiLogout();
+      await cacheUser(null);
+      await clearQueryCache().catch(() => {});
+      // Unsent edits belong to the account that made them. On a shared phone
+      // replaying them after the next student signs in would tick off their
+      // assignments instead.
+      await clearQueue().catch(() => {});
+      setUser(null);
+    } finally {
+      endReminderSignOut();
+    }
+  }, [user]);
 
   const refreshUser = useCallback(async () => {
     const me = await getMe();

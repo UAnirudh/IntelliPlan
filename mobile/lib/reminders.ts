@@ -36,27 +36,69 @@ const HORIZON_DAYS = 7;
 /** Evening before, local time — late enough to be actionable tonight. */
 const EVENING_HOUR = 18;
 
+let reminderOperation = 0;
+let reminderWriteQueue: Promise<void> = Promise.resolve();
+let activeSignOuts = 0;
+
+/** Start a reminder action that supersedes any older in-flight opt-in. */
+export function beginReminderOperation(): number {
+  if (activeSignOuts > 0) return -1;
+  reminderOperation += 1;
+  return reminderOperation;
+}
+
+/** Block reminder opt-ins and rescheduling while this account is signing out. */
+export function beginReminderSignOut(): number {
+  activeSignOuts += 1;
+  reminderOperation += 1;
+  return reminderOperation;
+}
+
+export function endReminderSignOut(): void {
+  activeSignOuts = Math.max(0, activeSignOuts - 1);
+}
+
+export function isReminderOperationCurrent(operation: number): boolean {
+  return operation === reminderOperation;
+}
+
+export function getReminderOperation(): number {
+  return activeSignOuts > 0 ? -1 : reminderOperation;
+}
+
 export async function areRemindersEnabled(): Promise<boolean> {
   return (await AsyncStorage.getItem(ENABLED_KEY)) === "1";
 }
 
-export async function setRemindersEnabled(on: boolean): Promise<boolean> {
-  if (!on) {
-    await AsyncStorage.setItem(ENABLED_KEY, "0");
-    await cancelAll();
-    return false;
-  }
+export function setRemindersEnabled(on: boolean, operation = reminderOperation): Promise<boolean> {
+  if (on && activeSignOuts > 0) return Promise.resolve(false);
+  const update = async (): Promise<boolean> => {
+    if (!isReminderOperationCurrent(operation)) return false;
+    if (on && activeSignOuts > 0) return false;
+    if (!on) {
+      await AsyncStorage.setItem(ENABLED_KEY, "0");
+      await cancelAll();
+      return false;
+    }
 
-  const existing = await Notifications.getPermissionsAsync();
-  let granted = existing.granted;
-  if (!granted) granted = (await Notifications.requestPermissionsAsync()).granted;
-  if (!granted) {
-    await AsyncStorage.setItem(ENABLED_KEY, "0");
-    return false;
-  }
+    const existing = await Notifications.getPermissionsAsync();
+    let granted = existing.granted;
+    if (!granted) granted = (await Notifications.requestPermissionsAsync()).granted;
+    // Sign-out or a newer settings choice can happen while the OS permission
+    // prompt is open. A stale opt-in must never restore task-bearing notices.
+    if (!isReminderOperationCurrent(operation)) return false;
+    if (!granted) {
+      await AsyncStorage.setItem(ENABLED_KEY, "0");
+      return false;
+    }
 
-  await AsyncStorage.setItem(ENABLED_KEY, "1");
-  return true;
+    await AsyncStorage.setItem(ENABLED_KEY, "1");
+    return true;
+  };
+
+  const pending = reminderWriteQueue.then(update, update);
+  reminderWriteQueue = pending.then(() => undefined, () => undefined);
+  return pending;
 }
 
 async function cancelAll(): Promise<void> {
@@ -93,47 +135,57 @@ function fireAt(due: Date, now: Date): Date | null {
  * re-syncs — three ways to end up reminding someone about work they
  * finished last week.
  */
-export async function syncReminders(tasks: Task[]): Promise<number> {
-  if (!(await areRemindersEnabled())) return 0;
+export function syncReminders(tasks: Task[], operation = reminderOperation): Promise<number> {
+  if (activeSignOuts > 0) return Promise.resolve(0);
+  const update = async (): Promise<number> => {
+    if (activeSignOuts > 0) return 0;
+    if (!isReminderOperationCurrent(operation) || !(await areRemindersEnabled())) return 0;
 
-  await cancelAll();
+    await cancelAll();
+    if (!isReminderOperationCurrent(operation)) return 0;
 
-  const now = new Date();
-  const horizon = new Date(now.getTime() + HORIZON_DAYS * 86_400_000);
+    const now = new Date();
+    const horizon = new Date(now.getTime() + HORIZON_DAYS * 86_400_000);
 
-  const upcoming = tasks
-    .filter((t) => !t.dismissed)
-    .map((t) => ({ task: t, due: parseDate(t.due_date) }))
-    .filter((x): x is { task: Task; due: Date } => !!x.due && x.due > now && x.due <= horizon)
-    .sort((a, b) => a.due.getTime() - b.due.getTime())
-    .slice(0, MAX_SCHEDULED);
+    const upcoming = tasks
+      .filter((t) => !t.dismissed)
+      .map((t) => ({ task: t, due: parseDate(t.due_date) }))
+      .filter((x): x is { task: Task; due: Date } => !!x.due && x.due > now && x.due <= horizon)
+      .sort((a, b) => a.due.getTime() - b.due.getTime())
+      .slice(0, MAX_SCHEDULED);
 
-  let scheduled = 0;
-  for (const { task, due } of upcoming) {
-    const at = fireAt(due, now);
-    if (!at) continue;
-    try {
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title: task.course ? `${task.course} — due soon` : "Due soon",
-          body: task.title,
-          data: {
-            tag: TAG,
-            title: task.title,
-            url: "/task",
-            task,
+    let scheduled = 0;
+    for (const { task, due } of upcoming) {
+      if (!isReminderOperationCurrent(operation)) break;
+      const at = fireAt(due, now);
+      if (!at) continue;
+      try {
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title: task.course ? `${task.course} — due soon` : "Due soon",
+            body: task.title,
+            data: {
+              tag: TAG,
+              title: task.title,
+              url: "/task",
+              task,
+            },
           },
-        },
-        trigger: {
-          type: Notifications.SchedulableTriggerInputTypes.DATE,
-          date: at,
-        },
-      });
-      scheduled += 1;
-    } catch {
-      // One deadline that will not schedule should not cost the student
-      // the other thirty-one.
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.DATE,
+            date: at,
+          },
+        });
+        scheduled += 1;
+      } catch {
+        // One deadline that will not schedule should not cost the student
+        // the other thirty-one.
+      }
     }
-  }
-  return scheduled;
+    return scheduled;
+  };
+
+  const pending = reminderWriteQueue.then(update, update);
+  reminderWriteQueue = pending.then(() => undefined, () => undefined);
+  return pending;
 }
