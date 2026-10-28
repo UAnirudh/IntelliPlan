@@ -312,6 +312,23 @@ export default function TodayScreen() {
           </Pressable>
         ) : null}
 
+        {user && !user.email_verified ? (
+          <Pressable
+            onPress={() => router.push("/email-verification")}
+            accessibilityRole="button"
+            accessibilityLabel="Confirm your school email to access school benefits"
+          >
+            <Card style={{ flexDirection: "row", alignItems: "center", gap: space.md }}>
+              <Ionicons name="mail-outline" size={21} color={colors.accent} />
+              <View style={{ flex: 1, gap: 2 }}>
+                <T variant="sm" weight="600">Confirm your school email</T>
+                <T variant="xs" tone="muted">Unlock verified school benefits</T>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+            </Card>
+          </Pressable>
+        ) : null}
+
         {today.stale || fallback.stale || schedule.stale ? (
           <Notice text="Offline — showing the last version that loaded." icon="cloud-offline-outline" />
         ) : null}

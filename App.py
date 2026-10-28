@@ -19401,25 +19401,53 @@ WELCOME_AFTER_AGE_WINDOW = timedelta(days=14)
 
 
 def _welcome_after_age_known(user):
-    """Send the welcome once we know the account may receive email.
+    """Start eligible verification mail and a timely welcome after age setup.
 
     Google sign-ups are created without a birth year, and the welcome is
     sent the moment the account exists, so the eligibility gate refused
     every one of them as ``unknown_age``. Production logs showed it for each
-    Google sign-up. The age step and a parent's approval are the points
-    where the account becomes eligible, so the welcome goes out then.
-    ``send_lifecycle_email`` dedupes per (user, key), so an account that was
-    already welcomed is not welcomed twice. An account older than the window
-    gets nothing: "welcome" months after signing up reads as a mistake.
+    Google sign-up. The age step and a parent's approval are the points where
+    the account becomes eligible. Email verification is sent then regardless
+    of account age because school entitlements need ownership proof. The
+    welcome remains limited to recent sign-ups; lifecycle email dedupes per
+    (user, key), so an account that was already welcomed is not welcomed twice.
     """
     try:
+        # School benefits depend on verified ownership, so send this as soon
+        # as the age/consent gate allows it, even for legacy accounts whose
+        # welcome-email window has passed.
+        if not getattr(user, "email_verified", False):
+            send_email_verification_on_signup(user.id)
         created = getattr(user, "created_at", None)
         if created is None or utcnow() - created > WELCOME_AFTER_AGE_WINDOW:
             return
         send_welcome_email_on_signup(user.id)
-        send_email_verification_on_signup(user.id)
     except Exception as exc:
         print(f"[welcome] after age step failed for user {getattr(user, 'id', '?')}: {exc}")
+
+
+def _send_parental_consent_email(user):
+    """Deliver the existing one-time parental notice for an account."""
+    if (user is None or not getattr(user, "parent_email", None)
+            or not getattr(user, "parent_consent_token", None)):
+        return False
+    try:
+        consent_url = (f"{APP_BASE_URL}/parent/consent"
+                       f"?token={user.parent_consent_token}")
+        deny_url = (f"{APP_BASE_URL}/parent/deny"
+                    f"?token={user.parent_consent_token}")
+        body = parental_notice.email_body(
+            user.email, consent_url, deny_url, APP_BASE_URL,
+        )
+        return bool(_send_email(
+            user.parent_email,
+            "Consent needed: your child's IntelliPlan account",
+            body,
+        ))
+    except Exception as exc:
+        # Never log the token-bearing URLs or provider response.
+        print(f"[coppa] parental notice delivery failed ({type(exc).__name__})")
+        return False
 
 
 def _needs_age_gate(user):
@@ -22382,6 +22410,8 @@ app.register_blueprint(developer_api_bp)
 # the ceiling it was granted instead of the shared default. Applied to the
 # whole blueprint so a new endpoint can't be added without a limit.
 limiter.limit(api_rate_limit_value, key_func=api_rate_limit_key)(intelliplan_api_bp)
+limiter.limit("4 per hour")(app.view_functions["intelliplan_api_bp.resend_parental_consent"])
+limiter.limit("4 per hour")(app.view_functions["intelliplan_api_bp.resend_email_verification"])
 # Applying for a key is cheap to submit and expensive to review, so it gets
 # its own much tighter budget.
 limiter.limit("10 per hour")(app.view_functions["developer_api_bp.apply_for_key"])
@@ -23026,6 +23056,9 @@ def _enforce_pending_parental_consent():
                "account_age_gate", "account_age_pending", "parent_consent", "parent_deny",
                "account_delete", "delete_account_info", "api_policy_pending",
                "api_policy_acknowledge", "api_cookie_consent_state", "api_cookie_consent_save"}
+    if request.path in {"/api/v1/me", "/api/v1/age/parent-consent/resend",
+                        "/api/v1/email-verification/resend", "/api/v1/push/unregister"}:
+        return None
     if request.endpoint in allowed:
         return None
     user = current_user._get_current_object()
@@ -23049,6 +23082,54 @@ def _enforce_pending_parental_consent():
         return flask.jsonify({"status": "error", "reason": "parent_consent_required",
                               "message": "A parent must approve your account before you can use this feature."}), 403
     return redirect("/account/age/pending")
+
+
+@app.before_request
+def _enforce_bearer_age_gate():
+    """Gate every first-party bearer API surface until age/consent is cleared.
+
+    Browser session routes retain their existing flows. The native bearer
+    can reach only the minimum profile/status and age setup actions until
+    this account has recorded an age and any required parent has consented.
+    """
+    if request.path in {
+        "/api/v1/me", "/api/v1/age", "/api/v1/age/parent-consent/resend",
+        "/api/v1/push/unregister", "/api/v1/health",
+        "/api/v1/", "/api/v1/docs",
+        "/api/auth/register", "/api/auth/login",
+        "/api/auth/email-verification/resend", "/account/delete",
+    }:
+        return None
+    authorization = (request.headers.get("Authorization") or "").strip()
+    if not authorization.startswith("Bearer "):
+        return None
+    token = authorization.split(" ", 1)[1].strip()
+    payload = verify_token(token)
+    user_id = payload.get("user_id") if isinstance(payload, dict) else None
+    if not user_id:
+        return None
+    try:
+        user = db.session.get(User, int(user_id))
+    except (TypeError, ValueError):
+        return None
+    if user is None:
+        return None
+    if user.birth_year is None:
+        return flask.jsonify({
+            "status": "error", "reason": "age_required",
+            "message": "Enter your birth year to continue.",
+            "next_action": "submit_age",
+        }), 403
+    age = age_from_birth_year(user.birth_year, utcnow())
+    pending = (bool(user.parent_email) or (age is not None and age < 13)) \
+        and not bool(user.parent_consent_granted)
+    if pending:
+        return flask.jsonify({
+            "status": "error", "reason": "parent_consent_required",
+            "message": "A parent or guardian must approve this account before you can use IntelliPlan.",
+            "next_action": "check_parent_consent",
+        }), 403
+    return None
 
 
 @app.before_request

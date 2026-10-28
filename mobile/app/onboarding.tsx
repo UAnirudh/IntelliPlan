@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -31,7 +31,7 @@ export default function OnboardingScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, booting } = useAuth();
 
   const [step, setStep] = useState<Step>(0);
   const [providers, setProviders] = useState<Provider[] | null>(null);
@@ -40,6 +40,19 @@ export default function OnboardingScreen() {
   const [busy, setBusy] = useState(false);
   const [remindersBusy, setRemindersBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (booting) return;
+    if (!user) {
+      router.replace("/login");
+      return;
+    }
+    if (!user.age_consent_status || user.age_consent_status === "age_required") {
+      router.replace("/age-setup");
+    } else if (user.age_consent_status === "parent_consent_pending") {
+      router.replace("/parent-consent-pending");
+    }
+  }, [booting, user, router]);
 
   // Refreshed on focus so returning from the browser shows the connection
   // that was just made — that is the moment the step's whole point lands.

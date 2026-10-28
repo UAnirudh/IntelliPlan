@@ -159,6 +159,7 @@ def auth(client):
     with app_module.app.app_context():
         u = app_module.User(
             email=email, name="Push",
+            birth_year=2000, parent_consent_granted=True,
             password_hash=app_module.bcrypt.generate_password_hash(password).decode(),
         )
         app_module.db.session.add(u)

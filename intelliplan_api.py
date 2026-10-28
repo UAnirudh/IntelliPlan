@@ -35,6 +35,7 @@ from flask import Blueprint, jsonify, request, g, current_app
 
 from auth_api import make_token, verify_token, get_bearer_token
 from api_keys import SCOPES, resolve_api_key, touch_key, looks_like_api_key
+from intelliplan.email.eligibility import age_from_birth_year
 
 api_bp = Blueprint("intelliplan_api_bp", __name__, url_prefix="/api/v1")
 API_VERSION = "v1"
@@ -237,6 +238,41 @@ def require_auth(*required_scopes):
 require_token = require_auth
 
 
+@api_bp.before_request
+def _gate_age_and_parental_consent():
+    """Keep authenticated API data closed until the account age gate clears.
+
+    ``/me`` and the age/verification actions are the recovery path for a
+    native account. Public docs, health, and token exchange remain available;
+    every other API data route needs an authenticated, age-eligible account.
+    The existing web/session gate remains in place for browser routes.
+    """
+    if request.path in {
+        "/api/v1/", "/api/v1/docs", "/api/v1/health", "/api/v1/auth/token",
+        "/api/v1/me", "/api/v1/age", "/api/v1/age/parent-consent/resend",
+        "/api/v1/email-verification/resend", "/api/v1/push/unregister",
+    }:
+        return None
+
+    user, _key_row, _scopes = _resolve_credential()
+    if user is None:
+        # Each data endpoint still applies its ordinary authentication and
+        # scope decorator, preserving its established error response.
+        return None
+    if getattr(user, "birth_year", None) is None:
+        return _fail("age_required", "Enter your birth year to continue.", 403,
+                     next_action="submit_age")
+
+    age = age_from_birth_year(user.birth_year, utcnow())
+    pending = (bool(getattr(user, "parent_email", None)) or (age is not None and age < 13)) \
+        and not bool(getattr(user, "parent_consent_granted", False))
+    if pending:
+        return _fail("parent_consent_required",
+                     "A parent or guardian must approve this account before you can use IntelliPlan.",
+                     403, next_action="check_parent_consent")
+    return None
+
+
 def api_rate_limit_key():
     """flask-limiter bucket for /api/v1.
 
@@ -325,7 +361,9 @@ def api_index():
         "endpoints": {
             "GET  /api/v1/health": "Liveness probe. No credential needed.",
             "POST /api/v1/auth/token": "Exchange email+password for a Bearer token.",
-            "GET  /api/v1/me": "Current authenticated user. [read:profile]",
+            "GET  /api/v1/me": "Current authenticated user and age/consent state. [read:profile]",
+            "POST /api/v1/age": "Record the account owner's birth year; under-13 accounts require a parent email and approval. [write:identity]",
+            "POST /api/v1/age/parent-consent/resend": "Resend the pending parent's approval request. [write:identity]",
             "GET  /api/v1/assignments": "Unified assignment list from all sources. [read:assignments]",
             "POST /api/v1/tasks": "Create a manual task. [write:tasks]",
             "POST /api/v1/tasks/quick-add": "Add a task from one line of text "
@@ -388,10 +426,13 @@ def auth_token():
 def me():
     u = g.api_user
     key = getattr(g, "api_key_row", None)
+    age_status = _age_consent_status(u)
     return jsonify({
         "id": u.id,
         "email": u.email,
         "name": u.name,
+        "age_consent_status": age_status,
+        "email_verified": bool(getattr(u, "email_verified", False)),
         "created_at": u.created_at.isoformat() if u.created_at else None,
         "credential": {
             "type": "api_key" if key else "bearer",
@@ -400,6 +441,142 @@ def me():
             "scopes": getattr(g, "api_scopes", []),
         },
     })
+
+
+def _age_consent_status(user):
+    """Expose only the next action, never birth year, parent address, or token."""
+    birth_year = getattr(user, "birth_year", None)
+    if birth_year is None:
+        return "age_required"
+    age = age_from_birth_year(birth_year, utcnow())
+    pending = (bool(getattr(user, "parent_email", None)) or (age is not None and age < 13)) \
+        and not bool(getattr(user, "parent_consent_granted", False))
+    return "parent_consent_pending" if pending else "ready"
+
+
+@api_bp.route("/age", methods=["POST"])
+@require_auth("write:identity")
+def submit_age():
+    """Record the account owner's birth year and start the existing gates."""
+    if getattr(g, "api_key_row", None) is not None:
+        return _fail("first_party_only", "Age setup requires the signed-in IntelliPlan app.", 403)
+
+    body = request.get_json(silent=True) or {}
+    if not isinstance(body, dict):
+        return _err("Enter a valid birth year.", 400)
+    raw_year = body.get("birth_year")
+    if isinstance(raw_year, bool) or not isinstance(raw_year, (int, str)):
+        return _err("Please enter a valid birth year.", 400)
+    try:
+        year_text = str(raw_year).strip()
+        if not year_text.isdecimal():
+            return _err("Please enter a valid birth year.", 400)
+        birth_year = int(year_text)
+    except (TypeError, ValueError):
+        return _err("Please enter a valid birth year.", 400)
+    current_year = utcnow().year
+    if birth_year < 1900 or birth_year > current_year:
+        return _err("Please enter a valid birth year.", 400)
+
+    user = g.api_user
+    if getattr(user, "birth_year", None) is not None:
+        return _fail("age_already_recorded", "Birth year has already been recorded.", 409,
+                     age_consent_status=_age_consent_status(user))
+
+    age = age_from_birth_year(birth_year, utcnow())
+    raw_parent_email = body.get("parent_email")
+    parent_email = raw_parent_email.strip().lower() if isinstance(raw_parent_email, str) else ""
+    under_13 = age is not None and age < 13
+    if under_13:
+        if not parent_email or "@" not in parent_email:
+            return _err("Because you're under 13, a parent or guardian's email is required.", 400)
+        if parent_email == str(getattr(user, "email", "") or "").strip().lower():
+            return _err("Your parent or guardian's email must be different from your own.", 400)
+
+    db, _User, _bcrypt = _models()
+    user.birth_year = birth_year
+    user.parent_consent_granted = not under_13
+    user.parent_email = parent_email if under_13 else None
+    user.parent_consent_token = None
+    if under_13:
+        import secrets as secrets_module
+        user.parent_consent_token = secrets_module.token_urlsafe(24)
+        user.parent_consent_at = None
+        user.parent_consent_notice_version = None
+        user.marketing_emails_opt_in = False
+        user.marketing_opt_in_at = None
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return _fail("server_error", "Could not save age setup. Please try again.", 500)
+
+    import App as app_module
+    if under_13:
+        delivered = app_module._send_parental_consent_email(user)
+        return jsonify({
+            "status": "ok",
+            "age_consent_status": "parent_consent_pending",
+            "email_verified": bool(getattr(user, "email_verified", False)),
+            "consent_email_sent": bool(delivered),
+            "message": ("A parent or guardian must approve this account before you can use IntelliPlan."
+                        if delivered else "We couldn't send the consent email yet. Try sending it again."),
+        }), 201
+
+    app_module._welcome_after_age_known(user)
+    return jsonify({
+        "status": "ok",
+        "age_consent_status": "ready",
+        "email_verified": bool(getattr(user, "email_verified", False)),
+        "message": "Age saved. Your account is ready.",
+    }), 201
+
+
+@api_bp.route("/email-verification/resend", methods=["POST"])
+@require_auth("write:identity")
+def resend_email_verification():
+    """Retry school-email ownership proof without exposing account details."""
+    if getattr(g, "api_key_row", None) is not None:
+        return _fail("first_party_only", "Email verification is available in the signed-in IntelliPlan app.", 403)
+    user = g.api_user
+    if _age_consent_status(user) != "ready":
+        return _fail("age_gate_required", "Finish age and parent setup before requesting email verification.", 403,
+                     next_action="complete_age_setup")
+    try:
+        from intelliplan.email_verification import send_verification
+        sent, _reason = send_verification(user)
+    except Exception:
+        sent = False
+    return jsonify({
+        "status": "ok",
+        "email_verified": bool(getattr(user, "email_verified", False)),
+        "email_sent": bool(sent),
+        "message": ("If your account needs verification, a confirmation link has been sent."
+                    if sent else "If your account needs verification, you can request another link shortly."),
+    })
+
+
+@api_bp.route("/age/parent-consent/resend", methods=["POST"])
+@require_auth("write:identity")
+def resend_parental_consent():
+    if getattr(g, "api_key_row", None) is not None:
+        return _fail("first_party_only", "Age setup requires the signed-in IntelliPlan app.", 403)
+    user = g.api_user
+    age = age_from_birth_year(getattr(user, "birth_year", None), utcnow())
+    if (age is None or age >= 13 or not getattr(user, "parent_email", None)
+            or getattr(user, "parent_consent_granted", False)):
+        return _fail("not_pending", "This account is not waiting for parent consent.", 409)
+    import App as app_module
+    delivered = app_module._send_parental_consent_email(user)
+    return jsonify({
+        "status": "ok",
+        "age_consent_status": "parent_consent_pending",
+        "consent_email_sent": bool(delivered),
+        "message": ("If the parent email is correct, another consent link has been sent."
+                    if delivered else "We couldn't send the consent email. Try again later."),
+    })
+
+
 
 
 # ── Assignments ───────────────────────────────────────────────────────

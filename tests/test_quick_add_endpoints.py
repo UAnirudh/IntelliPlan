@@ -56,7 +56,8 @@ def _wipe():
 @pytest.fixture
 def student():
     with App.app.app_context():
-        u = User(email="qa+a@example.com", name="Quick",
+        u = User(email="qa+a@example.com", name="Quick", birth_year=2000,
+                 parent_consent_granted=True,
                  password_hash=App.bcrypt.generate_password_hash(PASSWORD).decode())
         db.session.add(u)
         db.session.commit()
