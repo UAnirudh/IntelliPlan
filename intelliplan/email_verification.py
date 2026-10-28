@@ -127,6 +127,15 @@ def consume_verification(token: str, *, now=None) -> bool:
     try:
         from intelliplan.learning.entitlements import add_verified_school_membership
         add_verified_school_membership(user, address)
+        # Start an eligible individual trial only after domain enrollment has
+        # had the chance to identify partner-school accounts. The trial
+        # helper is best-effort like it is at the other signup entry points;
+        # billing configuration errors must not invalidate mailbox proof.
+        try:
+            import growth_glue
+            growth_glue.grant_signup_trial(user, now=now)
+        except Exception as exc:
+            current_app.logger.warning("verified-signup trial grant skipped (%s)", type(exc).__name__)
         db.session.commit()
     except Exception:
         db.session.rollback()

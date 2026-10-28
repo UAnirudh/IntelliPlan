@@ -238,7 +238,7 @@ def configured_trial_days() -> int:
 
 
 def grant_signup_trial(user: Any, now: datetime | None = None) -> bool:
-    """Start the configured one-time trial for a new eligible individual.
+    """Start the configured one-time trial for a verified individual.
 
     This mutates but does not commit the user, so the signup route can keep
     trial state atomic with the rest of account creation.
@@ -251,6 +251,11 @@ def grant_signup_trial(user: Any, now: datetime | None = None) -> bool:
     if tier not in {"pro", "premium", "premium_byok"} or _stripe(plans.MONTHLY, tier)[0] is None:
         return False
     if not getattr(user, "id", None) or getattr(user, "trial_started_at", None):
+        return False
+    # School membership is only assigned after mailbox proof. Do not start an
+    # individual trial before that proof, or a verified partner-school domain
+    # could receive both the school entitlement and an individual trial.
+    if getattr(user, "email_verified", False) is not True:
         return False
     # Do not spend a trial while a child account is awaiting parental consent.
     if getattr(user, "parent_consent_granted", True) is False:
