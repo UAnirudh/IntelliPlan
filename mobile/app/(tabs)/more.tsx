@@ -6,7 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as WebBrowser from "expo-web-browser";
 import { startLinkSession } from "../../lib/api";
-import { NavItem, SIDEBAR, SIDEBAR_FOOT } from "../../lib/nav";
+import { MORE_ITEMS, NavItem, SIDEBAR_FOOT } from "../../lib/nav";
 import { useAuth } from "../../lib/auth";
 import { useTheme } from "../../theme/ThemeProvider";
 import { radius, space } from "../../theme/tokens";
@@ -16,13 +16,12 @@ import { Header } from "../../components/Header";
 import { useConfirm } from "../../components/Confirm";
 
 /**
- * Everything in the website sidebar, on the phone.
+ * Additional website destinations, on the phone.
  *
- * A tab bar cannot hold thirteen destinations, so it keeps the daily five
- * and this screen carries the whole sidebar in the website's own order.
- * Pages the app has a native screen for open natively; the rest open the
- * real web page in an in-app browser that is already signed in, so nothing
- * on the website is out of reach from the phone.
+ * A tab bar keeps the daily five. This screen carries the remaining pages in
+ * the website's own order without repeating destinations already in the bar.
+ * Pages the app has a native screen for open natively; the rest open the real
+ * web page in an in-app browser that is already signed in.
  */
 export default function MoreScreen() {
   const insets = useSafeAreaInsets();
@@ -76,7 +75,7 @@ export default function MoreScreen() {
 
   return (
     <Screen>
-      <Header title="More" subtitle="Everything on the website" showSettings={false} />
+      <Header title="More" subtitle="More places to explore" showSettings={false} />
       <ScrollView
         contentContainerStyle={{
           padding: space.lg,
@@ -86,7 +85,7 @@ export default function MoreScreen() {
       >
         {error ? <Notice text={error} icon="alert-circle-outline" /> : null}
 
-        <Group items={SIDEBAR} opening={opening} onOpen={open} />
+        <Group items={MORE_ITEMS} opening={opening} onOpen={open} />
 
         <Label style={{ marginTop: space.sm, marginLeft: space.xs }}>Account</Label>
         <Group items={SIDEBAR_FOOT} opening={opening} onOpen={open}>

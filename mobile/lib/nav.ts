@@ -117,6 +117,16 @@ export const SIDEBAR: NavItem[] = [
   },
 ];
 
+/**
+ * The five daily destinations already have permanent bottom tabs. Keep the
+ * native More screen focused on the additional pages so the same view is not
+ * offered twice under two different labels (for example Plan and Scheduler).
+ */
+const PRIMARY_TAB_ROUTES = new Set(["/tasks", "/plan", "/grades"]);
+export const MORE_ITEMS = SIDEBAR.filter(
+  (item) => !item.route || !PRIMARY_TAB_ROUTES.has(item.route),
+);
+
 export const SIDEBAR_FOOT: NavItem[] = [
   {
     key: "settings",
