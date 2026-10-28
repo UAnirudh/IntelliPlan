@@ -9,7 +9,9 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "release:preflight": "node scripts/android-release-preflight.mjs",
+    "test:release-preflight": "node --test scripts/android-release-preflight.test.mjs"
   },
   "dependencies": {
     "@expo/metro-runtime": "~57.0.15",

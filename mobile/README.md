@@ -262,6 +262,20 @@ Before the first store submission:
    `android.edgeToEdgeEnabled` keys; the splash now lives in the
    `expo-splash-screen` plugin entry in `app.json`.
 
+Run the Android/EAS static release preflight from `mobile/` before building:
+
+```bash
+npm run release:preflight
+npm run test:release-preflight
+```
+
+The preflight checks app identity and version fields, EAS project linkage,
+production API URL, Android app-bundle/versioning settings, and whether an
+`EXPO_TOKEN` or local EAS CLI auth state is present. It never prints token or
+API URL values. A passing auth check only confirms that auth material exists;
+it does not validate access to the Expo project or Play Console. The script
+does not build or submit the app.
+
 App icons in `assets/` are generated from `static/icons/icon-512.png`, so
 the phone app carries the same mark as the website. Regenerate them with
 `scripts/gen-icons.py` if the web icon changes.
