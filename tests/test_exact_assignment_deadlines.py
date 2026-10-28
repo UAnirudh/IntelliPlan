@@ -120,6 +120,28 @@ def test_assignment_rows_preserve_explicit_source_and_custom_deadline(monkeypatc
     assert rows[1]['deadline_at'] == '2026-10-14T09:00:00'
 
 
+def test_planner_task_priority_uses_injected_student_local_date(monkeypatch):
+    import App
+    from intelliplan.services import prioritisation
+
+    received = {}
+
+    def capture_score_rows(assignments, today):
+        received['today'] = today
+        return {}
+
+    monkeypatch.setattr(App, '_sized_estimate', lambda *args: (60, 0, []))
+    monkeypatch.setattr(prioritisation, 'score_rows', capture_score_rows)
+    rows = App._planner_task_rows(
+        [{'id': 'due-today', 'title': 'Quiz', 'due_date': DAY.isoformat()}],
+        [],
+        today=DAY,
+    )
+
+    assert received['today'] == DAY
+    assert rows[0]['title'] == 'Quiz'
+
+
 def test_shared_morning_capacity_moves_one_assignment_to_previous_day():
     service = SchedulingService(StudentContext(availability={
         'Tue': {'start': '18:00', 'end': '20:00'},
