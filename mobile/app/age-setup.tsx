@@ -32,7 +32,8 @@ export default function AgeSetupScreen() {
       }
       if (user.age_consent_status === "ready") {
         const onboarded = await hasOnboarded(user.id);
-        if (!cancelled) router.replace(onboarded ? "/(tabs)/today" : "/onboarding");
+        if (!cancelled) router.replace(user.email_verified ?
+          (onboarded ? "/(tabs)/today" : "/onboarding") : "/email-verification");
       }
     }
     void routeIfAlreadyReady();
@@ -64,7 +65,7 @@ export default function AgeSetupScreen() {
         return;
       }
       const onboarded = user ? await hasOnboarded(user.id) : false;
-      router.replace(onboarded ? "/(tabs)/today" : "/onboarding");
+      router.replace(me.email_verified ? (onboarded ? "/(tabs)/today" : "/onboarding") : "/email-verification");
     } catch (e: any) {
       setError(e?.message || "Couldn't save age setup. Check your connection and try again.");
     } finally {

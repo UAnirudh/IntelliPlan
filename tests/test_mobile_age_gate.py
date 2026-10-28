@@ -106,6 +106,31 @@ def test_unknown_age_blocks_native_api_and_web_api_until_age_is_recorded(client)
     assert client.get("/api/today", headers=headers).status_code != 403
 
 
+def test_email_verification_resend_requires_age_gate_and_first_party_user(client, monkeypatch):
+    user_id, headers = _account(client)
+    blocked = client.post("/api/v1/email-verification/resend", headers=headers, json={})
+    assert blocked.status_code == 403
+    assert blocked.get_json()["reason"] == "age_required"
+
+    sent = []
+    monkeypatch.setattr("intelliplan.email_verification.send_verification",
+                        lambda user: sent.append(user.id) or (True, "sent"))
+    with App.app.app_context():
+        user = App.db.session.get(App.User, user_id)
+        user.birth_year = App.utcnow().year - 20
+        user.parent_consent_granted = True
+        App.db.session.commit()
+
+    response = client.post("/api/v1/email-verification/resend", headers=headers, json={})
+    assert response.status_code == 200
+    assert response.get_json()["email_sent"] is True
+    assert sent == [user_id]
+
+    api_key = client.post("/api/v1/email-verification/resend",
+                          headers={"X-API-Key": "ip_live_invalid"}, json={})
+    assert api_key.status_code == 401
+
+
 def test_under_13_remains_blocked_until_existing_parent_consent_route_approves(client, monkeypatch):
     sent = []
     monkeypatch.setattr(App, "_send_email", lambda *args, **kwargs: sent.append(args) or True)

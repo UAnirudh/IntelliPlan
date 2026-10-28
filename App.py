@@ -19401,23 +19401,27 @@ WELCOME_AFTER_AGE_WINDOW = timedelta(days=14)
 
 
 def _welcome_after_age_known(user):
-    """Send the welcome once we know the account may receive email.
+    """Start eligible verification mail and a timely welcome after age setup.
 
     Google sign-ups are created without a birth year, and the welcome is
     sent the moment the account exists, so the eligibility gate refused
     every one of them as ``unknown_age``. Production logs showed it for each
-    Google sign-up. The age step and a parent's approval are the points
-    where the account becomes eligible, so the welcome goes out then.
-    ``send_lifecycle_email`` dedupes per (user, key), so an account that was
-    already welcomed is not welcomed twice. An account older than the window
-    gets nothing: "welcome" months after signing up reads as a mistake.
+    Google sign-up. The age step and a parent's approval are the points where
+    the account becomes eligible. Email verification is sent then regardless
+    of account age because school entitlements need ownership proof. The
+    welcome remains limited to recent sign-ups; lifecycle email dedupes per
+    (user, key), so an account that was already welcomed is not welcomed twice.
     """
     try:
+        # School benefits depend on verified ownership, so send this as soon
+        # as the age/consent gate allows it, even for legacy accounts whose
+        # welcome-email window has passed.
+        if not getattr(user, "email_verified", False):
+            send_email_verification_on_signup(user.id)
         created = getattr(user, "created_at", None)
         if created is None or utcnow() - created > WELCOME_AFTER_AGE_WINDOW:
             return
         send_welcome_email_on_signup(user.id)
-        send_email_verification_on_signup(user.id)
     except Exception as exc:
         print(f"[welcome] after age step failed for user {getattr(user, 'id', '?')}: {exc}")
 
@@ -22407,6 +22411,7 @@ app.register_blueprint(developer_api_bp)
 # whole blueprint so a new endpoint can't be added without a limit.
 limiter.limit(api_rate_limit_value, key_func=api_rate_limit_key)(intelliplan_api_bp)
 limiter.limit("4 per hour")(app.view_functions["intelliplan_api_bp.resend_parental_consent"])
+limiter.limit("4 per hour")(app.view_functions["intelliplan_api_bp.resend_email_verification"])
 # Applying for a key is cheap to submit and expensive to review, so it gets
 # its own much tighter budget.
 limiter.limit("10 per hour")(app.view_functions["developer_api_bp.apply_for_key"])
@@ -23052,7 +23057,7 @@ def _enforce_pending_parental_consent():
                "account_delete", "delete_account_info", "api_policy_pending",
                "api_policy_acknowledge", "api_cookie_consent_state", "api_cookie_consent_save"}
     if request.path in {"/api/v1/me", "/api/v1/age/parent-consent/resend",
-                        "/api/v1/push/unregister"}:
+                        "/api/v1/email-verification/resend", "/api/v1/push/unregister"}:
         return None
     if request.endpoint in allowed:
         return None

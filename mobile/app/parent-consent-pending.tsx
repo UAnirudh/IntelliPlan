@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Button, Notice, Screen, T } from "../components/ui";
 import { useAuth } from "../lib/auth";
+import { hasOnboarded } from "../lib/onboarding";
 import { resendParentConsent } from "../lib/api";
 import { useTheme } from "../theme/ThemeProvider";
 import { space } from "../theme/tokens";
@@ -17,27 +18,37 @@ export default function ParentConsentPendingScreen() {
   const [note, setNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const routeReady = useCallback(async (emailVerified: boolean) => {
+    if (!user) return;
+    if (!emailVerified) {
+      router.replace("/email-verification");
+      return;
+    }
+    const onboarded = await hasOnboarded(user.id);
+    router.replace(onboarded ? "/(tabs)/today" : "/onboarding");
+  }, [router, user]);
+
   const checkStatus = useCallback(async () => {
     setBusy(true);
     setError(null);
     try {
       const me = await refreshUser();
       if (me.age_consent_status === "age_required") router.replace("/age-setup");
-      else if (me.age_consent_status === "ready") router.replace("/onboarding");
+      else if (me.age_consent_status === "ready") await routeReady(me.email_verified === true);
       else setNote("Approval is still pending. This screen will keep your account protected until it is confirmed.");
     } catch (e: any) {
       setError(e?.message || "Couldn't check approval right now. Try again when you're back online.");
     } finally {
       setBusy(false);
     }
-  }, [refreshUser, router]);
+  }, [refreshUser, routeReady, router]);
 
   useEffect(() => {
     if (!user) router.replace("/login");
     else if (user.age_consent_status === "age_required") router.replace("/age-setup");
-    else if (user.age_consent_status === "ready") router.replace("/onboarding");
+    else if (user.age_consent_status === "ready") void routeReady(user.email_verified === true);
     else setNote("We sent a one-time approval request to the parent or guardian address you entered.");
-  }, [user, router]);
+  }, [user, routeReady, router]);
 
   async function resend() {
     setBusy(true);

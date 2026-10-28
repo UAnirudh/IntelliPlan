@@ -116,6 +116,7 @@ function Shell() {
         <Stack.Screen name="login" />
         <Stack.Screen name="age-setup" />
         <Stack.Screen name="parent-consent-pending" />
+        <Stack.Screen name="email-verification" />
         <Stack.Screen name="onboarding" />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="settings" options={{ presentation: "modal" }} />

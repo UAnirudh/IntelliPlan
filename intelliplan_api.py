@@ -250,7 +250,7 @@ def _gate_age_and_parental_consent():
     if request.path in {
         "/api/v1/", "/api/v1/docs", "/api/v1/health", "/api/v1/auth/token",
         "/api/v1/me", "/api/v1/age", "/api/v1/age/parent-consent/resend",
-        "/api/v1/push/unregister",
+        "/api/v1/email-verification/resend", "/api/v1/push/unregister",
     }:
         return None
 
@@ -523,12 +523,37 @@ def submit_age():
                         if delivered else "We couldn't send the consent email yet. Try sending it again."),
         }), 201
 
+    app_module._welcome_after_age_known(user)
     return jsonify({
         "status": "ok",
         "age_consent_status": "ready",
         "email_verified": bool(getattr(user, "email_verified", False)),
         "message": "Age saved. Your account is ready.",
     }), 201
+
+
+@api_bp.route("/email-verification/resend", methods=["POST"])
+@require_auth("write:identity")
+def resend_email_verification():
+    """Retry school-email ownership proof without exposing account details."""
+    if getattr(g, "api_key_row", None) is not None:
+        return _fail("first_party_only", "Email verification is available in the signed-in IntelliPlan app.", 403)
+    user = g.api_user
+    if _age_consent_status(user) != "ready":
+        return _fail("age_gate_required", "Finish age and parent setup before requesting email verification.", 403,
+                     next_action="complete_age_setup")
+    try:
+        from intelliplan.email_verification import send_verification
+        sent, _reason = send_verification(user)
+    except Exception:
+        sent = False
+    return jsonify({
+        "status": "ok",
+        "email_verified": bool(getattr(user, "email_verified", False)),
+        "email_sent": bool(sent),
+        "message": ("If your account needs verification, a confirmation link has been sent."
+                    if sent else "If your account needs verification, you can request another link shortly."),
+    })
 
 
 @api_bp.route("/age/parent-consent/resend", methods=["POST"])

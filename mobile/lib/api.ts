@@ -188,6 +188,19 @@ export async function resendParentConsent(): Promise<AgeSetupResult> {
   });
 }
 
+export type EmailVerificationResult = {
+  email_verified: boolean;
+  email_sent: boolean;
+  message: string;
+};
+
+export async function resendEmailVerification(): Promise<EmailVerificationResult> {
+  return apiFetch<EmailVerificationResult>("/api/v1/email-verification/resend", {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
 export async function logout(): Promise<void> {
   await setToken(null);
 }
