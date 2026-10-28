@@ -476,8 +476,9 @@ export default function SettingsScreen() {
             <View style={{ flex: 1 }}>
               <Label>Deadline reminders</Label>
               <T variant="sm" tone="secondary" style={{ marginTop: 4 }}>
-                Your phone reminds you the evening before something is due. Works
-                offline, and in Expo Go.
+                Your phone reminds you the evening before something is due. It
+                works offline using tasks last synced to this phone; changes
+                made elsewhere refresh when you reopen IntelliPlan.
               </T>
             </View>
             <Switch
@@ -496,7 +497,8 @@ export default function SettingsScreen() {
               <Label>Server nudges</Label>
               <T variant="sm" tone="secondary" style={{ marginTop: 4 }}>
                 IntelliPlan pushes when a streak is at risk or a deadline moves,
-                even with the app closed. Needs a development build.
+                even with the app closed. Requires a real device, linked EAS
+                project, and platform push credentials.
               </T>
             </View>
             <Switch
