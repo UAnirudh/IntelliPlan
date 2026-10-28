@@ -65,6 +65,7 @@ def test_assignment_list_requires_signed_in_consent_and_own_canvas(client, monke
         db.session.commit()
     result = client.get('/api/tutor/assignments')
     assert result.status_code == 200
+    assert result.headers['Cache-Control'] == 'no-store, private'
     assert result.json['assignments'][0]['id'] == '8'
     assert calls == [('https://school.instructure.com', 'student-token')]
 
@@ -95,6 +96,7 @@ def test_mobile_material_preview_is_consent_gated_and_does_not_call_ai(client, m
         db.session.commit()
     result = client.post('/api/tutor/assignment-materials', json=payload)
     assert result.status_code == 200, result.json
+    assert result.headers['Cache-Control'] == 'no-store, private'
     assert result.json['title'] == 'Cell structure'
     assert 'Compare plant and animal cells.' in result.json['content']
     assert 'Plant cells contain chloroplasts.' in result.json['content']
@@ -151,6 +153,7 @@ def test_assignment_study_generation_rechecks_consent_and_treats_source_as_data(
         db.session.commit()
     result = client.post('/api/tutor/assignment-study-set', json=payload)
     assert result.status_code == 200, result.json
+    assert result.headers['Cache-Control'] == 'no-store, private'
     assert result.json['status'] == 'ok'
     assert result.json['data']['questions'][0]['question'] == 'What contains chloroplasts?'
     assert result.json['data']['assignment_title'] == 'Cell structure'
