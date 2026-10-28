@@ -108,15 +108,18 @@ application's OAuth client registration.
 
 | Hosted website value | Current IntelliPlan state |
 |---|---|
-| Proposed redirect URI: `https://intelliplan.tech/auth/openai/callback` | Displayed on `/settings/ai` for application planning only; no callback route is implemented. |
+| Application callback URI: `https://intelliplan.tech/auth/openai/callback` | Displayed on `/settings/ai` so the owner can include the exact URL in the OpenAI application/client request; no callback route is implemented. |
 | Sign-in start route: `GET /auth/openai` | Not implemented. |
 | Callback route: `GET /auth/openai/callback` | Not implemented. |
 | OAuth client ID, registered redirect URI, and client authentication method | Must come from OpenAI after the hosted application is accepted. |
 
-Do not register or present the proposed URI as a working integration. Once OpenAI
-approves the hosted application and issues its client configuration, implement the
-start and callback routes, then register the exact deployed callback URL. The
-requested `redirect_uri` and the registered URL must match byte-for-byte. OpenAI's
+The owner may submit this exact callback URI with the application/client request;
+OpenAI's website guide says an exact registered callback URL is required for each
+environment. The URI is not a working integration: IntelliPlan has not implemented
+the start or callback routes, and users cannot connect. After OpenAI approves the
+hosted application and issues its client configuration, implement the routes and
+confirm the deployed callback is registered exactly. The requested `redirect_uri`
+and the registered URL must match byte-for-byte. OpenAI's
 local/open-source plan-use guide shows a loopback callback such as
 `http://127.0.0.1:1455/auth/callback`; that URL belongs to a locally hosted client
 and must not be substituted for IntelliPlan's hosted callback.

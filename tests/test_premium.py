@@ -495,6 +495,16 @@ def test_the_ai_settings_page_shows_the_budget(client):
     assert "$20.00" in page and "Linked AI accounts" in page
 
 
+def test_chatgpt_plan_callback_is_application_ready_but_not_claimed_live(client):
+    _user(client)
+    page = client.get("/settings/ai").get_data(as_text=True)
+    assert "https://intelliplan.tech/auth/openai/callback" in page
+    assert "include in your OpenAI application" in page
+    assert "registered callback URL to match exactly" in page
+    assert "The route is not live yet" in page
+    assert "register it only after" not in page
+
+
 def test_preferences_are_validated_and_saved(client):
     _user(client)
     assert client.post("/api/premium/preferences", json={"model_pref": "turbo"}).status_code == 400
