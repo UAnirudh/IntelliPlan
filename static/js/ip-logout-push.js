@@ -48,6 +48,16 @@
     if (shouldRestore) window.IPReminders.restoreSavedBrowserPush(userId);
   }
 
+  function submitLogoutForm(form) {
+    if (typeof form.requestSubmit === 'function') {
+      form.requestSubmit();
+      return;
+    }
+    const event = new Event('submit', {bubbles: true, cancelable: true});
+    if (form.dispatchEvent(event)) form.submit();
+  }
+  window.IPLogoutPush = {submit: submitLogoutForm};
+
   if (document.readyState === 'complete') restoreSavedSubscriptionForCurrentAccount();
   else window.addEventListener('load', restoreSavedSubscriptionForCurrentAccount, {once: true});
 

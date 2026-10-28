@@ -1387,7 +1387,10 @@ if (mobileMenuBtn) {
     { section:'Actions', label:'Collapse or expand sidebar', icon:'i-settings', keys:'sidebar minimize collapse expand rail toggle', action:() => window.IPSidebar && window.IPSidebar.toggle() },
     { section:'Actions', label:'Customize sidebar', icon:'i-settings', keys:'sidebar hide show pin nav layout', action:() => window.openSidebarCustomizer && window.openSidebarCustomizer() },
     { section:'Actions', label:'Logout', icon:'i-logout', keys:'sign out', action:() => {
-        const f = document.createElement('form'); f.method='POST'; f.action='/logout'; document.body.appendChild(f); f.submit();
+        const f = document.createElement('form'); f.method='POST'; f.action='/logout'; document.body.appendChild(f);
+        if (window.IPLogoutPush) window.IPLogoutPush.submit(f);
+        else if (typeof f.requestSubmit === 'function') f.requestSubmit();
+        else { const e = new Event('submit', {bubbles:true, cancelable:true}); if (f.dispatchEvent(e)) f.submit(); }
     }},
     { section:'Themes', label:'Theme: Classic',  icon:'i-palette', keys:'palette default blue', action:() => window.setThemePalette && window.setThemePalette('default') },
     { section:'Themes', label:'Theme: Ocean',    icon:'i-palette', keys:'palette blue water',    action:() => window.setThemePalette && window.setThemePalette('ocean') },

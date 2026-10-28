@@ -46,9 +46,11 @@ test('unsupported browsers retain the generic unsupported reason', () => {
 test('logout removes and unsubscribes only the current browser endpoint before submitting', async () => {
   let submitHandler;
   let serverRequest;
+  let prevented = 0;
   const sequence = [];
   class HTMLFormElement {
     constructor() { this.action = '/logout'; this.dataset = {}; }
+    requestSubmit() { submitHandler({target: this, preventDefault() { prevented += 1; }}); }
     submit() { sequence.push('logout'); }
   }
   const subscription = {
@@ -66,11 +68,10 @@ test('logout removes and unsubscribes only the current browser endpoint before s
   };
   const document = {body: {dataset: {userId: '42'}}, addEventListener(name, handler) { if (name === 'submit') submitHandler = handler; }};
   const fetch = async (url, options) => { serverRequest = {url, options}; sequence.push('server'); return {ok: true}; };
-  vm.runInNewContext(logoutScript, {document, window, navigator, fetch, localStorage, HTMLFormElement, URL, Promise, setTimeout, clearTimeout});
+  vm.runInNewContext(logoutScript, {document, window, navigator, fetch, localStorage, HTMLFormElement, URL, Event, Promise, setTimeout, clearTimeout});
   const form = new HTMLFormElement();
-  let prevented = 0;
-  submitHandler({target: form, preventDefault() { prevented += 1; }});
-  submitHandler({target: form, preventDefault() { prevented += 1; }});
+  window.IPLogoutPush.submit(form);
+  form.requestSubmit();
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(prevented, 2);
   assert.equal(serverRequest.url, '/push/unsubscribe');
