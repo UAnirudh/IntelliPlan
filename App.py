@@ -16948,6 +16948,26 @@ def push_subscribe():
         return flask.jsonify({"status": "error", "message": safe_error_message(e)}), 500
     return flask.jsonify({"status": "ok"})
 
+
+@app.route("/push/unsubscribe", methods=["POST"])
+def push_unsubscribe():
+    """Forget only the authenticated user's current browser endpoint."""
+    if not current_user.is_authenticated:
+        return flask.jsonify({"status": "error", "message": "authentication required"}), 401
+    data = request.get_json(silent=True) or {}
+    endpoint = data.get("endpoint")
+    if not isinstance(endpoint, str) or not endpoint.startswith("https://") or len(endpoint) > 512:
+        return flask.jsonify({"status": "error", "message": "invalid endpoint"}), 400
+    try:
+        PushSubscription.query.filter_by(
+            user_id=current_user.id, guest_session_id=None, endpoint=endpoint
+        ).delete(synchronize_session=False)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return flask.jsonify({"status": "error", "message": safe_error_message(e)}), 500
+    return flask.jsonify({"status": "ok"})
+
 #: A desktop-app install, stored beside browser subscriptions and phone
 #: tokens. It has no push service behind it: the row only records that this
 #: student has somewhere for a push-channel reminder to be shown, and the
