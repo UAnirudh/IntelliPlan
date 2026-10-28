@@ -225,8 +225,9 @@ silently does nothing:
   from the task list the app already fetched, for the evening before each
   deadline. They fire in Expo Go, they fire offline, and they cost nothing
   to deliver — the trade is that they only know about deadlines as of the
-  last time you opened the app. The schedule is rebuilt from scratch every
-  time the Due list loads, so finished work stops nagging you.
+  last time you opened the app. The schedule is rebuilt when the Due list
+  loads and after successful task changes or queued offline edits sync, so a
+  new deadline is added promptly and finished work stops nagging you.
 * **Server nudges** (`lib/push.ts`) are remote push, and **do not work in
   Expo Go on Android** (SDK 53+). The toggle says so rather than failing
   silently. Use a development build to test it:

@@ -13,6 +13,7 @@ import {
   heartbeatSession,
   startSession,
 } from "../lib/api";
+import { refreshAndSyncReminders } from "../lib/reminders";
 import { useTheme } from "../theme/ThemeProvider";
 import { radius, space } from "../theme/tokens";
 import { Button, Card, Chip, Label, Notice, Screen, SegmentedRow, T } from "../components/ui";
@@ -227,7 +228,12 @@ export default function FocusScreen() {
         // and an assignment are separate things: you can finish an hour of
         // work without finishing the essay.
         if (completed && params.taskId && params.title) {
-          await dismissTask(params.title).catch(() => {});
+          try {
+            await dismissTask(params.title);
+            void refreshAndSyncReminders().catch(() => {});
+          } catch {
+            // Session completion still stands if the task endpoint is down.
+          }
         }
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
         router.back();

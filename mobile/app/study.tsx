@@ -21,7 +21,11 @@ import {
   StudyQuestion,
   StudySet,
 } from "../lib/api";
-import { taskStudyMaterial } from "../lib/task-study-context.mjs";
+import {
+  MIN_STUDY_MATERIAL_CHARS,
+  studyGenerationInput,
+  taskStudyMaterial,
+} from "../lib/task-study-context.mjs";
 import { useTheme } from "../theme/ThemeProvider";
 import { radius, space } from "../theme/tokens";
 import {
@@ -99,6 +103,17 @@ export default function StudyScreen() {
   const [error, setError] = useState<string | null>(null);
   const [set, setSet] = useState<StudySet | null>(null);
   const [tab, setTab] = useState<"cards" | "quiz">("cards");
+  const [topicBasedSet, setTopicBasedSet] = useState(false);
+  const generationInput = useMemo(
+    () => studyGenerationInput({
+      text,
+      initialMaterial,
+      taskTitle,
+      course,
+      notes: taskNotes,
+    }),
+    [text, initialMaterial, taskTitle, course, taskNotes],
+  );
 
   const cards = set?.key_concepts || [];
   const questions = useMemo(() => set?.questions || [], [set]);
@@ -113,6 +128,7 @@ export default function StudyScreen() {
     setPdfName(null);
     setSet(null);
     setError(null);
+    setTopicBasedSet(false);
   }, [initialMaterial]);
 
   /* ── Getting the material in ───────────────────────────────────── */
@@ -142,6 +158,7 @@ export default function StudyScreen() {
       }
       setText(extracted);
       setSource("paste");
+      setTopicBasedSet(false);
     } catch (e: any) {
       setError(e?.message || "Couldn't read that PDF.");
     } finally {
@@ -160,6 +177,7 @@ export default function StudyScreen() {
       const extracted = await extractYoutubeText(url.trim());
       setText(extracted);
       setSource("paste");
+      setTopicBasedSet(false);
     } catch (e: any) {
       setError(e?.message || "Couldn't fetch that video's transcript.");
     } finally {
@@ -168,16 +186,23 @@ export default function StudyScreen() {
   }, [url]);
 
   const generate = useCallback(async () => {
-    const content = text.trim();
-    if (content.length < 40) {
+    const input = studyGenerationInput({
+      text,
+      initialMaterial,
+      taskTitle,
+      course,
+      notes: taskNotes,
+    });
+    if (!input) {
       setError("Add a bit more material — a paragraph or two is enough to work with.");
       return;
     }
     setBusy("generate");
     setError(null);
     try {
-      const result = await generateStudySet(content, count);
+      const result = await generateStudySet(input.content, count);
       setSet(result);
+      setTopicBasedSet(input.kind === "topic");
       setTab((result.key_concepts || []).length ? "cards" : "quiz");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     } catch (e: any) {
@@ -186,7 +211,7 @@ export default function StudyScreen() {
     } finally {
       setBusy(null);
     }
-  }, [text, count]);
+  }, [text, initialMaterial, taskTitle, course, taskNotes, count]);
 
   const startOver = useCallback(() => {
     setSet(null);
@@ -194,6 +219,7 @@ export default function StudyScreen() {
     setUrl("");
     setPdfName(null);
     setError(null);
+    setTopicBasedSet(false);
   }, [initialMaterial]);
 
   /* ── Rendering ─────────────────────────────────────────────────── */
@@ -265,10 +291,10 @@ export default function StudyScreen() {
               {taskTitle ? <T variant="base" weight="700">{taskTitle}</T> : null}
               {course ? <Chip label={course} icon="book-outline" /> : null}
               <T variant="xs" tone="secondary">
-                The task handoff contains only its title, course, and attached notes. No school content is fetched.
+                No school content is fetched. Add class notes, a PDF, or a video for class-specific practice.
               </T>
               <T variant="xs" tone="muted">
-                {taskNotes ? "Review or add to the notes below." : "No notes are attached. Add class notes below or choose a PDF or video."}
+                {taskNotes ? "Review or add to the notes below, or start a general topic set." : "No notes are attached. Add class notes below, choose a PDF or video, or start a general topic set from this task."}
               </T>
             </Card>
           ) : null}
@@ -356,13 +382,17 @@ export default function StudyScreen() {
                   <Label>How many questions?</Label>
                   <SegmentedRow options={COUNTS} value={count} onChange={setCount} />
                   <T variant="xs" tone="muted">
-                    We’ll make one set you can use for both review and practice.
+                    {generationInput?.kind === "topic"
+                      ? "General topic practice uses the task title, course, and any short notes. It does not include or verify your teacher’s materials."
+                      : `We’ll make one set you can use for both review and practice. Add at least ${MIN_STUDY_MATERIAL_CHARS} characters of notes for class-specific cards.`}
                   </T>
                 </View>
                 <Button
-                  title={`Make ${count} questions & flashcards`}
+                  title={generationInput?.kind === "topic"
+                    ? `Make ${count} topic questions & flashcards`
+                    : `Make ${count} questions & flashcards`}
                   icon="sparkles"
-                  disabled={text.trim().length < 40}
+                  disabled={!generationInput}
                   onPress={generate}
                 />
               </Card>
@@ -377,6 +407,13 @@ export default function StudyScreen() {
                 value={tab}
                 onChange={setTab}
               />
+
+              {topicBasedSet ? (
+                <Notice
+                  text="General topic practice based on the task details and AI knowledge, not your teacher’s materials. Check it against your class notes."
+                  icon="information-circle-outline"
+                />
+              ) : null}
 
               {tab === "cards" ? (
                 cards.length ? (

@@ -12,7 +12,9 @@
     "typecheck": "tsc --noEmit",
     "release:preflight": "node scripts/android-release-preflight.mjs",
     "release:preflight:ios": "node scripts/ios-release-preflight.mjs",
-    "test:release-preflight": "node --test scripts/android-release-preflight.test.mjs scripts/ios-release-preflight.test.mjs"
+    "audit:android-bundle": "node scripts/audit-android-bundle.mjs",
+    "test:release-preflight": "node --test scripts/android-release-preflight.test.mjs scripts/ios-release-preflight.test.mjs scripts/audit-android-bundle.test.mjs",
+    "test:reminder-mutation-sync": "node --test scripts/reminder-mutation-sync.test.mjs"
   },
   "dependencies": {
     "@expo/metro-runtime": "~57.0.15",

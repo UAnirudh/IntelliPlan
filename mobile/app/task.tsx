@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { dismissTask, markTest, restoreTask, unmarkTest } from "../lib/api";
+import { refreshAndSyncReminders } from "../lib/reminders";
 import { enqueue, isRetryable } from "../lib/queue";
 import { useTheme } from "../theme/ThemeProvider";
 import { priorityColour, radius, space } from "../theme/tokens";
@@ -67,6 +68,7 @@ export default function TaskScreen() {
     try {
       if (done) await restoreTask(task.title);
       else await dismissTask(task.title);
+      void refreshAndSyncReminders().catch(() => {});
       setDone(!done);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     } catch (e: any) {

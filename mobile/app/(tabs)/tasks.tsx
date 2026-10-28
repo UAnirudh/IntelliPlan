@@ -4,7 +4,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import { dismissTask, getTasks, restoreTask, Task } from "../../lib/api";
-import { syncReminders } from "../../lib/reminders";
+import { refreshAndSyncReminders, syncReminders } from "../../lib/reminders";
 import { enqueue, flushQueue, isRetryable, onQueueChange, pendingCount } from "../../lib/queue";
 import { useQuery } from "../../lib/useQuery";
 import { useTheme } from "../../theme/ThemeProvider";
@@ -147,6 +147,7 @@ export default function TasksScreen() {
       try {
         if (done) await restoreTask(t.title);
         else await dismissTask(t.title);
+        void refreshAndSyncReminders().catch(() => {});
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       } catch (e) {
         if (isRetryable(e)) {
