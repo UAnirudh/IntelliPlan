@@ -258,10 +258,12 @@ export function SegmentedRow<V extends string | number>({
   options,
   value,
   onChange,
+  disabled = false,
 }: {
   options: { label: string; value: V }[];
   value: V;
   onChange: (v: V) => void;
+  disabled?: boolean;
 }) {
   const { colors } = useTheme();
   const glass = useGlass();
@@ -300,6 +302,7 @@ export function SegmentedRow<V extends string | number>({
             <Pressable
               key={String(o.value)}
               onPress={() => onChange(o.value)}
+              disabled={disabled}
               onLayout={(e) => {
                 spans.current[String(o.value)] = {
                   x: e.nativeEvent.layout.x,
@@ -308,9 +311,9 @@ export function SegmentedRow<V extends string | number>({
                 if (on) reveal();
               }}
               accessibilityRole="button"
-              accessibilityState={{ selected: on }}
+              accessibilityState={{ selected: on, disabled }}
               accessibilityLabel={o.label}
-              style={{ minHeight: 44, justifyContent: "center" }}
+              style={{ minHeight: 44, justifyContent: "center", opacity: disabled ? 0.55 : 1 }}
             >
               <GlassSurface
                 interactive
