@@ -119,22 +119,26 @@ def organizations():
         return sorted(restricted)
 
     visible = [o for o in rows if policy.administers(current_user, o.id)]
-    plan_rows = M['SchoolPlan'].query.all()
-    plans_by_org = {row.organization_id: row for row in plan_rows}
     organizations_by_id = {o.id: o for o in rows}
+    plan_scope_ids = {o.id for o in visible}
     # A visible school's district parent may sit outside the 200-row admin
     # listing window; load missing ancestors explicitly for the read-only
     # entitlement summary without broadening the admin's organization access.
     for organization in visible:
         parent_id = organization.parent_id
-        seen = set(organizations_by_id)
+        seen = {organization.id}
         while parent_id and parent_id not in seen:
-            parent = db.session.get(M['Organization'], parent_id)
+            seen.add(parent_id)
+            plan_scope_ids.add(parent_id)
+            parent = organizations_by_id.get(parent_id) or db.session.get(M['Organization'], parent_id)
             if parent is None:
                 break
             organizations_by_id[parent.id] = parent
-            seen.add(parent.id)
             parent_id = parent.parent_id
+    plan_rows = M['SchoolPlan'].query.filter(
+        M['SchoolPlan'].organization_id.in_(plan_scope_ids)
+    ).all() if plan_scope_ids else []
+    plans_by_org = {row.organization_id: row for row in plan_rows}
     from intelliplan.learning.entitlements import school_plan_details_for_organization
     result = []
     for organization in visible:

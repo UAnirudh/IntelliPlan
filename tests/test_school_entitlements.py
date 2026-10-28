@@ -100,8 +100,14 @@ def test_owner_school_list_distinguishes_direct_and_effective_district_plan(monk
         district = _org('North County', 'district')
         school = _org('Northview High', parent_id=district.id)
         owner = _user(f"owner-{uuid4().hex}@example.test")
-        App.db.session.add(M['SchoolPlan'](organization_id=district.id,
-            plan_tier='pro', updated_by_id=owner.id))
+        district_plan = M['SchoolPlan'].query.filter_by(organization_id=district.id).first()
+        if district_plan is None:
+            district_plan = M['SchoolPlan'](organization_id=district.id,
+                plan_tier='pro', updated_by_id=owner.id)
+            App.db.session.add(district_plan)
+        else:
+            district_plan.plan_tier = 'pro'
+            district_plan.updated_by_id = owner.id
         App.db.session.commit()
         owner_id, owner_email, school_id = owner.id, owner.email, school.id
     try:
