@@ -2573,7 +2573,7 @@ function parseStructuredStudyJson(content) {
   const segments = [];
   const title = typeof value.title === 'string' ? value.title.trim().slice(0, 120) : '';
   const summary = typeof value.summary === 'string' ? value.summary.trim().slice(0, 1800) : '';
-  if (summary || (title && !Array.isArray(value.cards) && !Array.isArray(value.quiz))) {
+  if (summary || title) {
     segments.push({ kind: 'text', text: [title && `### ${title}`, summary].filter(Boolean).join('\n\n') });
   }
   const validCards = (items) => Array.isArray(items) ? items.slice(0, 30).filter((item) =>
@@ -2585,7 +2585,7 @@ function parseStructuredStudyJson(content) {
   const quizCards = validCards(value.quiz);
   if (cards.length) segments.push({ kind: 'artifact', type: 'flashcards', title: title || 'Study flashcards', content: JSON.stringify({ cards }) });
   if (quizCards.length) segments.push({ kind: 'artifact', type: 'flashcards', title: 'Quiz yourself', content: JSON.stringify({ cards: quizCards }) });
-  if (!cards.length && !quizCards.length) return null;
+  if (!segments.length) return null;
   return segments;
 }
 
