@@ -1,14 +1,12 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Modal, Pressable, StyleSheet, View } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 import { getTasks } from "../lib/api";
 import { areRemindersEnabled, setRemindersEnabled, syncReminders } from "../lib/reminders";
+import { getReminderPromptAnswer, markReminderPromptAnswered } from "../lib/reminderPrompt";
 import { useTheme } from "../theme/ThemeProvider";
 import { radius, space } from "../theme/tokens";
 import { Button, T } from "./ui";
-
-const PROMPT_KEY = (userId: number | string) => `ip_reminder_prompt_answered_${userId}`;
 
 /**
  * Ask once, after a student has reached Today and seen the app's context.
@@ -31,11 +29,10 @@ export function ReminderOptInPrompt({ userId }: { userId?: number | string }) {
 
     (async () => {
       try {
-        const key = PROMPT_KEY(userId);
-        const answered = await AsyncStorage.getItem(key);
+        const answered = await getReminderPromptAnswer(userId);
         if (answered) return;
         if (await areRemindersEnabled()) {
-          await AsyncStorage.setItem(key, "enabled");
+          await markReminderPromptAnswered(userId, "enabled");
           return;
         }
         // Show an in-app explanation first. The OS permission dialog is only
@@ -54,7 +51,7 @@ export function ReminderOptInPrompt({ userId }: { userId?: number | string }) {
 
   const dismiss = useCallback(async () => {
     if (userId !== undefined) {
-      await AsyncStorage.setItem(PROMPT_KEY(userId), "dismissed").catch(() => {});
+      await markReminderPromptAnswered(userId, "dismissed").catch(() => {});
     }
     setVisible(false);
   }, [userId]);
@@ -68,7 +65,7 @@ export function ReminderOptInPrompt({ userId }: { userId?: number | string }) {
       // A clear yes/no answer from the system dialog should not trigger the
       // same prompt on every later launch. The Settings switch remains usable.
       if (userId !== undefined) {
-        await AsyncStorage.setItem(PROMPT_KEY(userId), enabled ? "enabled" : "dismissed");
+        await markReminderPromptAnswered(userId, enabled ? "enabled" : "dismissed");
       }
       if (!enabled) {
         setError("Notifications are off in your phone settings. You can turn them on later in IntelliPlan Settings.");
