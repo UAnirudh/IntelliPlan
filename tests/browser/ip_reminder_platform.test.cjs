@@ -68,10 +68,11 @@ test('logout removes and unsubscribes only the current browser endpoint before s
   const fetch = async (url, options) => { serverRequest = {url, options}; sequence.push('server'); return {ok: true}; };
   vm.runInNewContext(logoutScript, {document, window, navigator, fetch, localStorage, HTMLFormElement, URL, Promise, setTimeout, clearTimeout});
   const form = new HTMLFormElement();
-  let prevented = false;
-  submitHandler({target: form, preventDefault() { prevented = true; }});
+  let prevented = 0;
+  submitHandler({target: form, preventDefault() { prevented += 1; }});
+  submitHandler({target: form, preventDefault() { prevented += 1; }});
   await new Promise((resolve) => setImmediate(resolve));
-  assert.equal(prevented, true);
+  assert.equal(prevented, 2);
   assert.equal(serverRequest.url, '/push/unsubscribe');
   assert.equal(JSON.parse(serverRequest.options.body).endpoint, subscription.endpoint);
   assert.deepEqual(sequence, ['server', 'unsubscribe', 'logout']);

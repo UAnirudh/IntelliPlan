@@ -53,7 +53,11 @@
 
   document.addEventListener('submit', (event) => {
     const form = event.target;
-    if (!(form instanceof HTMLFormElement) || signingOut) return;
+    if (!(form instanceof HTMLFormElement)) return;
+    if (signingOut) {
+      event.preventDefault();
+      return;
+    }
     let path;
     try { path = new URL(form.action, window.location.href).pathname; } catch (_) { return; }
     if (path !== '/logout') return;
