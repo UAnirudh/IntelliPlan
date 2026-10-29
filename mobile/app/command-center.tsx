@@ -13,6 +13,7 @@ import { useTheme } from "../theme/ThemeProvider";
 import { radius, space } from "../theme/tokens";
 import { Button, Card, ErrorState, Label, Loading, Notice, Screen, T } from "../components/ui";
 import { Header } from "../components/Header";
+import { TutorResponse } from "../components/TutorResponse";
 
 type ChatItem =
   | { id: string; type: "message"; role: "user" | "assistant"; text: string }
@@ -185,7 +186,7 @@ function ChatRow({ item, onLink }: { item: ChatItem; onLink: (url: string) => vo
   if (item.type === "schedule") return <ScheduleCard schedule={item.schedule} />;
   if (item.type === "links") return <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.sm }}>{item.links.filter((link) => safeUrl(link.url)).map((link) => <Button key={`${link.label}-${link.url}`} title={link.label} kind="secondary" icon="open-outline" onPress={() => onLink(link.url)} />)}</View>;
   const user = item.role === "user";
-  return <View style={{ alignSelf: user ? "flex-end" : "stretch", maxWidth: "92%", paddingHorizontal: user ? space.md : 0, paddingVertical: user ? space.sm : space.xs, borderRadius: radius.lg, backgroundColor: user ? colors.accentSoft : "transparent" }}><T variant="sm" style={{ color: colors.textPrimary, lineHeight: 23 }}>{item.text}</T></View>;
+  return <View style={{ alignSelf: user ? "flex-end" : "stretch", maxWidth: "92%", paddingHorizontal: user ? space.md : 0, paddingVertical: user ? space.sm : space.xs, borderRadius: radius.lg, backgroundColor: user ? colors.accentSoft : "transparent" }}>{user ? <T variant="sm" style={{ color: colors.textPrimary, lineHeight: 23 }}>{item.text}</T> : <TutorResponse text={item.text} />}</View>;
 }
 
 function ScheduleCard({ schedule }: { schedule: NonNullable<CommandCenterReply["schedule"]> }) {

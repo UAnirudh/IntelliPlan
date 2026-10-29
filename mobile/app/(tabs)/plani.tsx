@@ -31,6 +31,7 @@ import { radius, space } from "../../theme/tokens";
 import { Card, Chip, EmptyState, ErrorState, Label, Loading, Notice, Screen, T } from "../../components/ui";
 import { useConfirm } from "../../components/Confirm";
 import { Header, IconButton } from "../../components/Header";
+import { TutorResponse } from "../../components/TutorResponse";
 import {
   GlassGroup,
   GlassSurface,
@@ -750,14 +751,11 @@ function MessageBubble({ msg, onRetry }: { msg: Bubble; onRetry?: () => void }) 
           </View>
         ) : (
           <>
-            <T
-              variant="base"
-              tone={mine ? "onAccent" : msg.failed ? "danger" : "primary"}
-              style={{ lineHeight: 22 }}
-              selectable
-            >
-              {msg.content}
-            </T>
+            {mine || msg.failed ? (
+              <T variant="base" tone={mine ? "onAccent" : "danger"} style={{ lineHeight: 22 }} selectable>
+                {msg.content}
+              </T>
+            ) : <TutorResponse text={msg.content} />}
             {!mine && !msg.failed && msg.study_sources?.length ? (
               <View
                 accessibilityLabel="Notes Plani used for this answer"
