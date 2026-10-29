@@ -19697,6 +19697,7 @@ def account_age_pending():
 
 
 @app.route("/account/age/pending/resend", methods=["POST"])
+@limiter.limit("4 per hour")
 def account_age_pending_resend():
     """Rotate and resend the logged-in child's pending parent-consent link."""
     if not current_user.is_authenticated:

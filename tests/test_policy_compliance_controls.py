@@ -45,16 +45,23 @@ def test_web_pending_screen_can_resend_and_rotates_expired_link(client, monkeypa
     sign_in(client, uid)
     delivered = []
     monkeypatch.setattr(App, "_send_email", lambda *args, **kwargs: delivered.append(args) or True)
-
-    page = client.get("/account/age/pending")
-    assert page.status_code == 200
-    assert b"expires after 7 days" in page.data
-    assert b"/account/age/pending/resend" in page.data
-    response = client.post("/account/age/pending/resend", headers={"Origin": "http://localhost"})
-    assert response.status_code == 200
-    assert b"fresh approval link has been sent" in response.data
-    assert len(delivered) == 1
-    new_token = delivered[0][2].split("token=", 1)[1].split()[0]
+    was_limiter_enabled = App.limiter.enabled
+    App.limiter.enabled = True
+    try:
+        page = client.get("/account/age/pending")
+        assert page.status_code == 200
+        assert b"expires after 7 days" in page.data
+        assert b"/account/age/pending/resend" in page.data
+        for _ in range(4):
+            response = client.post("/account/age/pending/resend", headers={"Origin": "http://localhost"})
+            assert response.status_code == 200
+        assert b"fresh approval link has been sent" in response.data
+        assert len(delivered) == 4
+        limited = client.post("/account/age/pending/resend", headers={"Origin": "http://localhost"})
+        assert limited.status_code == 429
+    finally:
+        App.limiter.enabled = was_limiter_enabled
+    new_token = delivered[-1][2].split("token=", 1)[1].split()[0]
     assert new_token != old_token
     assert client.get(f"/parent/consent?token={old_token}").status_code == 404
     assert client.get(f"/parent/consent?token={new_token}").status_code == 200
