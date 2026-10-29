@@ -93,11 +93,12 @@ npx eas build --platform android --profile production
 npx eas submit --platform android --profile production
 ```
 
-The current `submit.production.android` points at the **internal** track and
-marks a release as a **draft**. That is suitable for preparing an internal
-upload; it is not a production rollout. Decide explicitly whether to upload
-from Play Console to a closed testing track or change the EAS submit track.
-Do not change the track until the owner is ready to submit the artifact.
+The `submit.production.android` profile targets the **production** track and
+marks an upload as a **draft**. This sends the bundle to the intended public
+track without releasing it automatically. Complete the Play Console listing,
+review setup tasks and release notes, then manually send the draft for review
+and rollout when the owner is ready. Use the separate `preview` build profile
+for installation testing; do not submit that APK as a store build.
 
 ## 2. Store listing and assets
 
