@@ -99,13 +99,39 @@ body.has-side :is(.today-pill, .priority-badge, .ipd-task-badge, .test-auto-badg
   --bg-elevated: #1f2127;
 }
 
-/* ── 4. Solid surfaces on app pages ───────────────────────────────── */
-body.has-side { --glass-bg: var(--bg-card); }
+/* ── 4. Flat, solid surfaces on app pages ──────────────────────────── */
+body.has-side {
+  --glass-bg: var(--bg-card);
+  background-image: none !important;
+}
 body.has-side :is(.day-card, .iv-day-card, .overview-card, .scheduler-panel, .settings-section,
   .ipd-card, .block-duration) {
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
+
+/* The new app direction uses solid fills and quiet dividers. Keep loading
+   skeletons animated, but remove decorative colour sweeps and glows. */
+body.has-side .ipm-shimmer {
+  background: none;
+  -webkit-text-fill-color: currentColor;
+  animation: none;
+}
+body.has-side .ipm-sheen::after,
+body.has-side .ipui-btn--shimmer::after,
+body.has-side .u-sheen::after,
+body.has-side [data-spotlight]::before,
+body.has-side .ipg-bloom,
+body.has-side .ipe-takeover__noise {
+  display: none;
+}
+body.has-side #ipNavProgress,
+body.has-side #ipmScrollRail,
+body.has-side .ip-progress,
+body.has-side .ipm-input::after {
+  background: var(--accent);
+}
+body.has-side :is(.u-rule, .ip-rule) { background: var(--border-strong); }
 
 /* Cards get a hairline top highlight in dark mode so a surface reads as
    raised rather than as a slightly different shade of black. */
