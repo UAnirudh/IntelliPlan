@@ -452,6 +452,26 @@ export async function getGrades(): Promise<GradeRow[]> {
   return d?.grades || [];
 }
 
+export type MyStats = {
+  tasks_completed: number;
+  study_sessions: number;
+  study_minutes: number;
+  questions_answered: number;
+  questions_correct: number;
+  accuracy: number | null;
+  current_streak: number;
+  longest_streak: number;
+  mastery_concepts: number;
+  mastery_mastered: number;
+  daily_completions: Record<string, number>;
+  daily_study_minutes: Record<string, number>;
+  grades: Array<{ course: string; percentage: number; letter?: string | null }>;
+};
+
+export async function getMyStats(): Promise<MyStats> {
+  return apiFetch<MyStats>("/api/my-stats");
+}
+
 export type Prediction = {
   course: string;
   current_percent: number | null;
