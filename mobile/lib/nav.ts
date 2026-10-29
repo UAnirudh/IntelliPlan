@@ -28,7 +28,7 @@ export const SIDEBAR: NavItem[] = [
     key: "command_center",
     label: "Command Center",
     icon: "flash-outline",
-    page: "command_center",
+    route: "/command-center",
     blurb: "Chat-first planner on your calendar",
   },
   {
@@ -79,6 +79,20 @@ export const SIDEBAR: NavItem[] = [
     icon: "copy-outline",
     route: "/flashcards",
     blurb: "Your saved decks",
+  },
+  {
+    key: "courses",
+    label: "Courses",
+    icon: "school-outline",
+    page: "courses",
+    blurb: "Explore and track courses",
+  },
+  {
+    key: "foundations",
+    label: "Foundations",
+    icon: "library-outline",
+    page: "foundations",
+    blurb: "Build strong study habits and skills",
   },
   {
     key: "streak",

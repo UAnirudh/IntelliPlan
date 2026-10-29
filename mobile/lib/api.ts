@@ -97,7 +97,7 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
     let detail = res.statusText || `Request failed (${res.status})`;
     try {
       const body = await res.json();
-      detail = body?.message || body?.error || detail;
+      detail = body?.message || body?.reply || body?.error || detail;
     } catch {
       /* HTML error page, or an empty body — the status text is all we have */
     }
@@ -261,6 +261,37 @@ export async function getToday(): Promise<TodayPayload> {
 
 export async function refreshToday(): Promise<TodayPayload> {
   return apiFetch<TodayPayload>("/api/today/refresh", { method: "POST", body: JSON.stringify({}) });
+}
+
+/* ── Command Center agent ───────────────────────────────────────── */
+
+export type CommandCenterSchedule = {
+  preview?: boolean;
+  total_study_time?: string;
+  schedule?: {
+    date?: string;
+    day_name?: string;
+    blocks?: { time_slot?: string; assignment?: string; title?: string; is_break?: boolean }[];
+  }[];
+};
+
+export type CommandCenterReply = {
+  status?: string;
+  reply?: string;
+  message?: string;
+  actions?: string[];
+  schedule?: CommandCenterSchedule;
+  links?: { label: string; url: string }[];
+  navigate?: string;
+  refresh?: boolean;
+  error?: string;
+};
+
+export async function askCommandCenter(messages: ChatMessage[]): Promise<CommandCenterReply> {
+  return apiFetch<CommandCenterReply>("/api/plani/agent", {
+    method: "POST",
+    body: JSON.stringify({ messages: messages.slice(-12) }),
+  });
 }
 
 /* ── Tasks & assignments ──────────────────────────────────────────── */

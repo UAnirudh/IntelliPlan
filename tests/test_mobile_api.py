@@ -150,6 +150,16 @@ def test_mobile_pet_status_and_care_actions_use_the_signed_in_account(client, au
     assert after["care"]["pet"]["ready"] is False
 
 
+def test_mobile_command_center_agent_accepts_bearer_account_auth(client, auth):
+    response = client.post(
+        "/api/plani/agent", headers=auth["headers"], json={"messages": []},
+    )
+    # The empty history is intentionally rejected after authentication. A 401
+    # here would mean the native Command Center could not call the agent.
+    assert response.status_code == 400
+    assert response.get_json()["reply"] == "Send a message to start the conversation."
+
+
 def test_mobile_push_unregister_keeps_opt_in_until_last_device_is_removed(client, auth):
     tokens = [
         "ExponentPushToken[mobile-reminders-one]",
