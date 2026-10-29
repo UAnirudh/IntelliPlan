@@ -142,6 +142,8 @@ def test_every_page_the_app_menu_opens_resolves():
     ("memories", "/memories"),
     ("study_hub", "/study-and-learn"),
     ("my_stats", "/my-stats"),
+    ("courses", "/my-courses"),
+    ("foundations", "/foundations"),
     ("command_center", "/command-center"),
 ])
 def test_pages_resolve_to_their_website_route(page, expected):

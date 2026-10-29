@@ -97,7 +97,7 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
     let detail = res.statusText || `Request failed (${res.status})`;
     try {
       const body = await res.json();
-      detail = body?.message || body?.error || detail;
+      detail = body?.message || body?.reply || body?.error || detail;
     } catch {
       /* HTML error page, or an empty body — the status text is all we have */
     }
@@ -261,6 +261,37 @@ export async function getToday(): Promise<TodayPayload> {
 
 export async function refreshToday(): Promise<TodayPayload> {
   return apiFetch<TodayPayload>("/api/today/refresh", { method: "POST", body: JSON.stringify({}) });
+}
+
+/* ── Command Center agent ───────────────────────────────────────── */
+
+export type CommandCenterSchedule = {
+  preview?: boolean;
+  total_study_time?: string;
+  schedule?: {
+    date?: string;
+    day_name?: string;
+    blocks?: { time_slot?: string; assignment?: string; title?: string; is_break?: boolean }[];
+  }[];
+};
+
+export type CommandCenterReply = {
+  status?: string;
+  reply?: string;
+  message?: string;
+  actions?: string[];
+  schedule?: CommandCenterSchedule;
+  links?: { label: string; url: string }[];
+  navigate?: string;
+  refresh?: boolean;
+  error?: string;
+};
+
+export async function askCommandCenter(messages: ChatMessage[]): Promise<CommandCenterReply> {
+  return apiFetch<CommandCenterReply>("/api/plani/agent", {
+    method: "POST",
+    body: JSON.stringify({ messages: messages.slice(-12) }),
+  });
 }
 
 /* ── Tasks & assignments ──────────────────────────────────────────── */
@@ -1052,13 +1083,25 @@ export async function patchIdentity(patch: Identity): Promise<Identity> {
 
 /* ── Plani (AI tutor) ─────────────────────────────────────────────── */
 
-export type ChatMessage = { role: "user" | "assistant"; content: string };
+export type StudySource = {
+  note_id: number;
+  title: string;
+  course?: string;
+  date?: string;
+};
+
+export type ChatMessage = {
+  role: "user" | "assistant";
+  content: string;
+  study_sources?: StudySource[];
+};
 
 export type TutorReply = {
   reply: string;
   conversation_id?: number;
   title?: string;
   refusal?: unknown;
+  study_sources?: StudySource[];
 };
 
 export async function askPlani(
@@ -1101,7 +1144,25 @@ export async function getConversation(
         ((m as ChatMessage).role === "user" || (m as ChatMessage).role === "assistant") &&
         typeof (m as ChatMessage).content === "string",
     )
-    .map((m) => ({ role: m.role, content: m.content }));
+    .map((m) => {
+      const candidate = m as ChatMessage;
+      const sources = Array.isArray(candidate.study_sources)
+        ? candidate.study_sources
+            .filter((source) => source && Number.isInteger(source.note_id) && source.note_id > 0)
+            .slice(0, 5)
+            .map((source) => ({
+              note_id: source.note_id,
+              title: String(source.title || "Course notes").slice(0, 160),
+              course: String(source.course || "").slice(0, 100),
+              date: String(source.date || "").slice(0, 32),
+            }))
+        : [];
+      return {
+        role: candidate.role,
+        content: candidate.content,
+        ...(sources.length ? { study_sources: sources } : {}),
+      };
+    });
   return { id: d.id, title: d.title, messages };
 }
 

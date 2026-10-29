@@ -93,6 +93,44 @@ The Stripe webhook must send `checkout.session.completed` and `invoice.paid`. Ch
   applies to Anthropic as much as to Gemini: confirm the API terms permit the audience
   before sending under-18 students' prompts to Claude on IntelliPlan's key.
 
+## AI incident response
+
+`GET /health` verifies application availability and schema state; it does not
+prove that an AI provider is configured or reachable. A tutor `ai_unavailable`
+response means there was no permitted provider or every provider in the allowed
+fallback chain failed. A separate `ai_quota_exhausted` response means configured
+providers were attempted but all reported depleted quota. Review the runtime
+logs and the service's configured variable *names* in the deployment console;
+never paste secret values into a terminal transcript, ticket, or chat.
+
+For a local credential check, run the bounded synthetic-account workflow from
+the repository root:
+
+```powershell
+python scripts/verify_plani_provider.py --run-live
+```
+
+It uses a disposable database and an adult synthetic account, and sends at most
+three synthetic questions to providers configured in the local environment.
+Use `--env-file` only with an existing protected environment file; the script
+reads provider settings without printing their values. It does not contact or
+diagnose the deployed production runtime. The generated report confirms a
+locally configured provider response, not student-specific linked-key health,
+live quota at the time of a later request, or production readiness.
+
+The server free-model ladder needs a configured Groq key for its supported
+default path. Gemini stays excluded for this student-facing service unless an
+express written contractual exception and the required Vertex configuration
+are in place. Do not flip `GEMINI_MINORS_CONTRACT_APPROVED` as a troubleshooting
+shortcut. Claude on IntelliPlan's key is restricted to paid-plan usage; a
+student's own linked provider remains separately authorized by that student.
+
+After changing provider configuration, redeploy the web service and verify a
+synthetic request, quota behavior, and the runtime fallback logs. If local
+preflight returns `blocked_no_permitted_provider`, first restore the provider
+credential/configuration through the owner-controlled deployment console; a
+healthy `/health` response alone will not restore the tutor.
+
 ## What "link your AI account" can and can't mean
 
 The implemented linked-account route accepts **developer API keys**, billed separately

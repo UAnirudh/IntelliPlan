@@ -86,6 +86,8 @@ _ALLOWED_NEXT = {
     "balance": "/balance",
     "features": "/features",
     "my_stats": "/my-stats",
+    "courses": "/my-courses",
+    "foundations": "/foundations",
 }
 
 #: Providers whose connect flow may be started this way.
@@ -95,7 +97,7 @@ LINKABLE = ("canvas", "google", "notion")
 PAGES = (
     "command_center", "dashboard", "scheduler", "active", "memories",
     "gradebook", "study_hub", "flashcards", "streak", "pet", "balance",
-    "features", "my_stats", "settings",
+    "features", "my_stats", "courses", "foundations", "settings",
 )
 
 _CODE_RE = re.compile(r"^[A-Za-z0-9_-]{16,64}$")

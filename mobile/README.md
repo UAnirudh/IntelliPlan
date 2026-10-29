@@ -251,8 +251,9 @@ Before the first store submission:
 
 1. `npx eas init` to create the EAS project — this fills in
    `extra.eas.projectId`, which `lib/push.ts` needs to mint push tokens.
-2. Set `ios.appleTeamId` / ASC app id and the Play service-account key in
-   `eas.json`'s `submit` block (or let `eas submit` prompt for them).
+2. Set the owner-provided iOS Apple team / App Store Connect IDs and upload
+   credentials in EAS. Assign the Google Play service-account key to the
+   Android app in EAS credentials.
 3. Bump `expo.version` for each store release. `autoIncrement` handles
    `buildNumber` / `versionCode`.
 4. Android remote push needs FCM: create a Firebase project, then
@@ -269,6 +270,17 @@ Run the Android/EAS static release preflight from `mobile/` before building:
 npm run release:preflight
 npm run test:release-preflight
 ```
+
+The production Android submit profile selects the Play production track but
+leaves the release in draft. After upload, complete the store listing and
+review checklist in Play Console before manually sending the release for
+review. For new personal Play developer accounts created after November 13,
+2023, Google requires a closed test with at least 12 opted-in testers for 14
+continuous days before production access. The `closed-test` submit profile
+targets Play's alpha track and releases to those opted-in testers; see the
+[Play testing requirements](https://support.google.com/googleplay/android-developer/answer/14151465?hl=en).
+EAS project linkage, login, Play credentials, and a signed app bundle are
+still required before submission.
 
 The preflight checks app identity and version fields, EAS project linkage,
 production API URL, Android app-bundle/versioning settings, and whether an

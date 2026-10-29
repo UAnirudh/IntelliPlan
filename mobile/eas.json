@@ -38,9 +38,15 @@
     }
   },
   "submit": {
+    "closed-test": {
+      "android": {
+        "track": "alpha",
+        "releaseStatus": "completed"
+      }
+    },
     "production": {
       "android": {
-        "track": "internal",
+        "track": "production",
         "releaseStatus": "draft"
       }
     }

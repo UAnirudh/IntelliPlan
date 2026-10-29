@@ -31,6 +31,7 @@ import { radius, space } from "../../theme/tokens";
 import { Card, Chip, EmptyState, ErrorState, Label, Loading, Notice, Screen, T } from "../../components/ui";
 import { useConfirm } from "../../components/Confirm";
 import { Header, IconButton } from "../../components/Header";
+import { TutorResponse } from "../../components/TutorResponse";
 import {
   GlassGroup,
   GlassSurface,
@@ -123,7 +124,11 @@ export default function PlaniScreen() {
         if (res.conversation_id) setConversationId(res.conversation_id);
         setMessages((prev) => {
           const next = [...prev];
-          next[next.length - 1] = { role: "assistant", content: res.reply || "…" };
+          next[next.length - 1] = {
+            role: "assistant",
+            content: res.reply || "…",
+            ...(res.study_sources?.length ? { study_sources: res.study_sources.slice(0, 5) } : {}),
+          };
           return next;
         });
       } catch (e: any) {
@@ -746,14 +751,30 @@ function MessageBubble({ msg, onRetry }: { msg: Bubble; onRetry?: () => void }) 
           </View>
         ) : (
           <>
-            <T
-              variant="base"
-              tone={mine ? "onAccent" : msg.failed ? "danger" : "primary"}
-              style={{ lineHeight: 22 }}
-              selectable
-            >
-              {msg.content}
-            </T>
+            {mine || msg.failed ? (
+              <T variant="base" tone={mine ? "onAccent" : "danger"} style={{ lineHeight: 22 }} selectable>
+                {msg.content}
+              </T>
+            ) : <TutorResponse key={msg.content} text={msg.content} />}
+            {!mine && !msg.failed && msg.study_sources?.length ? (
+              <View
+                accessibilityLabel="Notes Plani used for this answer"
+                style={{ marginTop: space.sm, paddingTop: space.sm, borderTopWidth: 1, borderTopColor: colors.border, gap: space.xs }}
+              >
+                <View style={{ flexDirection: "row", alignItems: "center", gap: space.xs }}>
+                  <Ionicons name="document-text-outline" size={14} color={colors.textMuted} />
+                  <T variant="xs" weight="700" tone="muted">From your notes</T>
+                </View>
+                {msg.study_sources.slice(0, 5).map((source, index) => (
+                  <View key={`${source.note_id}-${index}`} style={{ flexDirection: "row", alignItems: "flex-start", gap: space.xs }}>
+                    <T variant="xs" weight="700" tone="accent">N{index + 1}</T>
+                    <T variant="xs" tone="muted" style={{ flex: 1, lineHeight: 18 }}>
+                      {[source.course, source.title].filter(Boolean).join(" · ") || "Course notes"}
+                    </T>
+                  </View>
+                ))}
+              </View>
+            ) : null}
             {msg.failed ? (
               <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: space.md, marginTop: 6 }}>
                 <Chip label="Not sent" icon="alert-circle-outline" fg={colors.dangerText} bg={colors.dangerSoft} />

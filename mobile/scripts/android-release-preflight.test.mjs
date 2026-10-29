@@ -20,7 +20,10 @@ const validEas = {
       env: { EXPO_PUBLIC_API_BASE: "https://api.example.com" },
     },
   },
-  submit: { production: { android: { track: "internal", releaseStatus: "draft" } } },
+  submit: {
+    "closed-test": { android: { track: "alpha", releaseStatus: "completed" } },
+    production: { android: { track: "production", releaseStatus: "draft" } },
+  },
 };
 
 test("all configured Android production checks pass with EAS auth material", () => {
@@ -36,6 +39,19 @@ test("missing EAS project linkage and auth are blocking", () => {
   const checks = inspectReleaseConfig({ appConfig, easConfig: validEas });
   assert.ok(checks.some(({ status, message }) => status === "BLOCKED" && message.includes("npx eas init")));
   assert.ok(checks.some(({ status, message }) => status === "BLOCKED" && message.includes("No active EAS account")));
+});
+
+test("an internal testing track cannot pass as the production submit target", () => {
+  const easConfig = structuredClone(validEas);
+  easConfig.submit.production.android.track = "internal";
+  const checks = inspectReleaseConfig({ appConfig: validApp, easConfig, authStateExists: true, easAuthenticated: true });
+  assert.ok(checks.some(({ status, message }) => status === "BLOCKED" && message.includes("track to production")));
+  assert.ok(checks.some(({ status, message }) => status === "INFO" && message.includes("stay in draft")));
+});
+
+test("a closed-test submit profile targets the alpha track for its opt-in testers", () => {
+  const checks = inspectReleaseConfig({ appConfig: validApp, easConfig: validEas, authStateExists: true, easAuthenticated: true });
+  assert.ok(checks.some(({ status, message }) => status === "INFO" && message.includes("alpha track")));
 });
 
 test("a stale auth state file does not count as a verified EAS login", () => {
