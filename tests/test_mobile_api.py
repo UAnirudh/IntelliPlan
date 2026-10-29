@@ -73,6 +73,83 @@ def test_mobile_push_registration_enables_server_reminders_and_saves_timezone(cl
         assert streak.timezone == "America/Los_Angeles"
 
 
+def test_mobile_memories_bearer_can_list_and_restore_its_saved_schedule(client, auth):
+    saved = client.post(
+        "/archive/save",
+        headers=auth["headers"],
+        json={
+            "date": "2026-10-28",
+            "item_type": "schedule",
+            "title": "Exam week",
+            "payload": {"schedule": [{"date": "2026-10-29", "blocks": []}]},
+        },
+    )
+    assert saved.status_code == 200
+    memory_id = saved.get_json()["id"]
+
+    page = client.get("/archive/days?per_page=14&page=1", headers=auth["headers"])
+    assert page.status_code == 200
+    day = page.get_json()["days"][0]
+    assert day["date"] == "2026-10-28"
+    assert day["items"][0]["id"] == memory_id
+    assert day["items"][0]["title"] == "Exam week"
+
+    restored = client.post(f"/archive/load/{memory_id}", headers=auth["headers"], json={})
+    assert restored.status_code == 200
+    assert restored.get_json()["loaded"] == "schedule"
+    with app_module.app.app_context():
+        schedule = app_module.SavedSchedule.query.filter_by(user_id=auth["user_id"], is_active=True).one()
+        assert "2026-10-29" in schedule.schedule_data
+
+
+def test_mobile_memories_delete_is_scoped_to_the_bearer_account(client, auth):
+    other = app_module.User(
+        email=f"mob-other-{uuid.uuid4().hex[:12]}@example.test",
+        name="Another mobile user",
+        birth_year=2000,
+        parent_consent_granted=True,
+        password_hash=app_module.bcrypt.generate_password_hash("correcthorsebattery1").decode(),
+    )
+    with app_module.app.app_context():
+        app_module.db.session.add(other)
+        app_module.db.session.commit()
+        other_email = other.email
+    other_token = client.post(
+        "/api/v1/auth/token",
+        json={"email": other_email, "password": "correcthorsebattery1"},
+    ).get_json()["token"]
+    other_headers = {"Authorization": f"Bearer {other_token}"}
+
+    saved = client.post(
+        "/archive/save",
+        headers=auth["headers"],
+        json={"item_type": "notes", "title": "Private notes", "payload": {"text": "one student's work"}},
+    )
+    memory_id = saved.get_json()["id"]
+
+    assert client.get("/archive/days", headers=other_headers).get_json()["days"] == []
+    denied = client.post(f"/archive/delete/{memory_id}", headers=other_headers, json={})
+    assert denied.status_code == 404
+    assert client.post(f"/archive/delete/{memory_id}", headers=auth["headers"], json={}).get_json()["status"] == "ok"
+
+
+def test_mobile_pet_status_and_care_actions_use_the_signed_in_account(client, auth):
+    status = client.get("/api/pet/status", headers=auth["headers"])
+    assert status.status_code == 200
+    before = status.get_json()
+    assert before["status"] == "ok"
+    assert set(before["care"]) == {"feed", "play", "pet", "study_with"}
+
+    action = client.post(
+        "/api/pet/care", headers=auth["headers"], json={"action": "pet"},
+    )
+    assert action.status_code == 200
+    assert action.get_json()["status"] == "ok"
+    after = client.get("/api/pet/status", headers=auth["headers"]).get_json()
+    assert after["xp"] > before["xp"]
+    assert after["care"]["pet"]["ready"] is False
+
+
 def test_mobile_push_unregister_keeps_opt_in_until_last_device_is_removed(client, auth):
     tokens = [
         "ExponentPushToken[mobile-reminders-one]",

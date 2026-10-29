@@ -731,6 +731,13 @@ async function onbSaveReminders() {
     email: document.getElementById('onbRemindEmail').checked,
     push: document.getElementById('onbRemindPush').checked,
   };
+  // Ask while this function is still on the Enable button's user gesture.
+  // IPReminders.enable fetches saved preferences before it subscribes, and
+  // that await can otherwise make the browser reject the later permission ask.
+  const permissionRequest = wanted.push && IPReminders.pushSupported()
+    && Notification.permission !== 'granted'
+    ? Notification.requestPermission()
+    : null;
   const msg = document.getElementById('onbRemindMsg');
   if (!wanted.email && !wanted.push) { onbShow('plan'); return; }
 
@@ -739,7 +746,7 @@ async function onbSaveReminders() {
   btn.disabled = true; btn.textContent = 'Setting up...';
   msg.removeAttribute('data-tone'); msg.textContent = '';
 
-  const result = await IPReminders.enable(wanted);
+  const result = await IPReminders.enable(wanted, { permissionRequest });
   btn.disabled = false;
 
   if (!result.saved) {

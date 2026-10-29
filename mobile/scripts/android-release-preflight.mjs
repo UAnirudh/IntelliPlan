@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { existsSync, readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -32,7 +33,7 @@ function add(checks, pass, passedMessage, blockedMessage) {
 }
 
 /** Return release preflight results without echoing config values or credentials. */
-export function inspectReleaseConfig({ appConfig, easConfig, env = {}, authStateExists = false }) {
+export function inspectReleaseConfig({ appConfig, easConfig, env = {}, authStateExists = false, easAuthenticated = false }) {
   const checks = [];
   const expo = appConfig?.expo;
   const android = expo?.android;
@@ -69,10 +70,11 @@ export function inspectReleaseConfig({ appConfig, easConfig, env = {}, authState
   add(checks, easConfig?.cli?.appVersionSource === "remote",
     "EAS remote versioning is configured.", "Set cli.appVersionSource to remote in eas.json.");
 
-  const hasToken = isNonEmptyString(env.EXPO_TOKEN);
-  add(checks, hasToken || authStateExists,
-    hasToken ? "EAS authentication material is present via EXPO_TOKEN." : "EAS CLI authentication state file is present.",
-    "No EAS authentication material detected; set EXPO_TOKEN or sign in with eas login.");
+  add(checks, easAuthenticated,
+    "EAS CLI confirmed an active account.",
+    authStateExists || isNonEmptyString(env.EXPO_TOKEN)
+      ? "EAS credentials are present but could not be validated; run npx eas-cli whoami, then sign in again if needed."
+      : "No active EAS account detected; set EXPO_TOKEN or sign in with eas login.");
 
   if (easConfig?.submit?.production?.android?.track === "internal") {
     checks.push({ status: "INFO", message: "Android submission is configured for the internal testing track." });
@@ -99,6 +101,7 @@ export function main({ env = process.env, statePath = join(homedir(), ".expo", "
     easConfig,
     env,
     authStateExists: existsSync(statePath),
+    easAuthenticated: checkEasAuthentication(),
   });
 
   if (!appConfig) checks.unshift({ status: "BLOCKED", message: "mobile/app.json is missing or invalid JSON." });
@@ -109,6 +112,19 @@ export function main({ env = process.env, statePath = join(homedir(), ".expo", "
   const blocked = checks.some(({ status }) => status === "BLOCKED");
   console.log(blocked ? "Result: BLOCKED — resolve the checks above before building." : "Result: READY — static checks passed.");
   return blocked ? 1 : 0;
+}
+
+/** A cached CLI state file can outlive its token; ask EAS before reporting ready. */
+function checkEasAuthentication() {
+  const result = spawnSync("npx", ["eas-cli", "whoami"], {
+    cwd: mobileDir,
+    encoding: "utf8",
+    timeout: 20_000,
+    windowsHide: true,
+    shell: process.platform === "win32",
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  return result.status === 0 && isNonEmptyString(result.stdout);
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {

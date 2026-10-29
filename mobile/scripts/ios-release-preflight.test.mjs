@@ -46,6 +46,7 @@ test("configured iOS release passes static checks without claiming a store-ready
     appConfig: validApp,
     easConfig: validEas,
     env: { EXPO_TOKEN: "secret-token" },
+    easAuthenticated: true,
   });
   assert.equal(checks.filter(({ status }) => status === "BLOCKED").length, 0);
   assert.ok(checks.some(({ status, message }) => status === "PASS" && message.includes("privacy manifest")));
@@ -53,6 +54,11 @@ test("configured iOS release passes static checks without claiming a store-ready
   assert.ok(checks.some(({ status, message }) => status === "INFO" && message.includes("Apple push credentials")));
   assert.ok(checks.some(({ status, message }) => status === "INFO" && message.includes("signed build")));
   assert.ok(checks.every(({ message }) => !message.includes("secret-token")));
+});
+
+test("a stale auth state file does not count as a verified EAS login", () => {
+  const checks = inspectIOSReleaseConfig({ appConfig: validApp, easConfig: validEas, authStateExists: true });
+  assert.ok(checks.some(({ status, message }) => status === "BLOCKED" && message.includes("could not be validated")));
 });
 
 test("missing project linkage and EAS auth are blocked without inventing identifiers", () => {
@@ -72,7 +78,7 @@ test("invalid identity, production API, platform build settings and permission s
   easConfig.build.production.env.EXPO_PUBLIC_API_BASE = "http://localhost:5000";
   easConfig.build.production.distribution = "internal";
   easConfig.build.production.ios.simulator = true;
-  const checks = inspectIOSReleaseConfig({ appConfig, easConfig, authStateExists: true });
+  const checks = inspectIOSReleaseConfig({ appConfig, easConfig, authStateExists: true, easAuthenticated: true });
   assert.equal(checks.filter(({ status }) => status === "BLOCKED").length, 6);
 });
 
@@ -81,7 +87,7 @@ test("malformed privacy manifest is blocked and secrets are never echoed", () =>
   appConfig.expo.ios.privacyManifests.NSPrivacyAccessedAPITypes[0].NSPrivacyAccessedAPITypeReasons = [];
   const easConfig = structuredClone(validEas);
   easConfig.submit.production.ios.ascAppId = "secret-app-id";
-  const checks = inspectIOSReleaseConfig({ appConfig, easConfig, env: { EXPO_TOKEN: "secret-token" }, authStateExists: true });
+  const checks = inspectIOSReleaseConfig({ appConfig, easConfig, env: { EXPO_TOKEN: "secret-token" }, authStateExists: true, easAuthenticated: true });
   assert.ok(checks.some(({ status, message }) => status === "BLOCKED" && message.includes("privacyManifests")));
   assert.ok(checks.every(({ message }) => !message.includes("secret-app-id") && !message.includes("secret-token")));
 });
@@ -89,7 +95,7 @@ test("malformed privacy manifest is blocked and secrets are never echoed", () =>
 test("missing App Store IDs are owner setup notes and do not become guessed values", () => {
   const easConfig = structuredClone(validEas);
   delete easConfig.submit.production.ios;
-  const checks = inspectIOSReleaseConfig({ appConfig: validApp, easConfig, authStateExists: true });
+  const checks = inspectIOSReleaseConfig({ appConfig: validApp, easConfig, authStateExists: true, easAuthenticated: true });
   assert.ok(checks.some(({ status, message }) => status === "INFO" && message.includes("owner-provided App Store Connect app ID")));
   assert.ok(checks.some(({ status, message }) => status === "INFO" && message.includes("owner-provided Apple team ID")));
   assert.ok(checks.every(({ status }) => status !== "BLOCKED"));

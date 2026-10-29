@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { existsSync, readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -55,7 +56,7 @@ function validPrivacyManifest(manifest) {
 }
 
 /** Static checks only. This never proves a signed build or store submission is ready. */
-export function inspectIOSReleaseConfig({ appConfig, easConfig, env = {}, authStateExists = false }) {
+export function inspectIOSReleaseConfig({ appConfig, easConfig, env = {}, authStateExists = false, easAuthenticated = false }) {
   const checks = [];
   const expo = appConfig?.expo;
   const ios = expo?.ios;
@@ -113,10 +114,11 @@ export function inspectIOSReleaseConfig({ appConfig, easConfig, env = {}, authSt
     checks.push({ status: "INFO", message: "Add the owner-provided Apple team ID when configuring the submission profile; do not guess it." });
   }
 
-  const hasToken = nonEmpty(env.EXPO_TOKEN);
-  add(checks, hasToken || authStateExists,
-    hasToken ? "EAS authentication material is present via EXPO_TOKEN." : "EAS CLI authentication state file is present.",
-    "No EAS authentication material detected; the owner must set EXPO_TOKEN or sign in with eas login.");
+  add(checks, easAuthenticated,
+    "EAS CLI confirmed an active account.",
+    authStateExists || nonEmpty(env.EXPO_TOKEN)
+      ? "EAS credentials are present but could not be validated; run npx eas-cli whoami, then sign in again if needed."
+      : "No active EAS account detected; the owner must set EXPO_TOKEN or sign in with eas login.");
 
   checks.push({ status: "INFO", message: "Before upload, verify the date-specific Apple SDK requirement in the EAS build log: Xcode 26 / iOS 26 since April 28, 2026; from April 2027, Xcode 27 / iOS 27 and an iOS 15 or later deployment target. Confirm the Expo SDK and EAS image support it." });
   checks.push({ status: "INFO", message: "The notifications plugin creates the APNs entitlement; EAS still needs the owner's Apple push credentials, and remote push must be tested on a physical TestFlight build." });
@@ -135,7 +137,13 @@ function readJson(path) {
 export function main({ env = process.env, statePath = join(homedir(), ".expo", "state.json") } = {}) {
   const appConfig = readJson(join(mobileDir, "app.json"));
   const easConfig = readJson(join(mobileDir, "eas.json"));
-  const checks = inspectIOSReleaseConfig({ appConfig, easConfig, env, authStateExists: existsSync(statePath) });
+  const checks = inspectIOSReleaseConfig({
+    appConfig,
+    easConfig,
+    env,
+    authStateExists: existsSync(statePath),
+    easAuthenticated: checkEasAuthentication(),
+  });
   if (!appConfig) checks.unshift({ status: "BLOCKED", message: "mobile/app.json is missing or invalid JSON." });
   if (!easConfig) checks.unshift({ status: "BLOCKED", message: "mobile/eas.json is missing or invalid JSON." });
 
@@ -146,6 +154,19 @@ export function main({ env = process.env, statePath = join(homedir(), ".expo", "
     ? "Result: BLOCKED — complete the owner/EAS setup before building."
     : "Result: STATIC CHECKS PASSED — a signed build and App Store review are still required.");
   return blocked ? 1 : 0;
+}
+
+/** A cached CLI state file can outlive its token; ask EAS before reporting ready. */
+function checkEasAuthentication() {
+  const result = spawnSync("npx", ["eas-cli", "whoami"], {
+    cwd: mobileDir,
+    encoding: "utf8",
+    timeout: 20_000,
+    windowsHide: true,
+    shell: process.platform === "win32",
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  return result.status === 0 && nonEmpty(result.stdout);
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {

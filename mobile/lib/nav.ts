@@ -56,7 +56,7 @@ export const SIDEBAR: NavItem[] = [
     key: "memories",
     label: "Memories",
     icon: "bookmark-outline",
-    page: "memories",
+    route: "/memories",
     blurb: "Everything you saved, day by day",
   },
   {
@@ -77,7 +77,7 @@ export const SIDEBAR: NavItem[] = [
     key: "flashcards",
     label: "Flashcards",
     icon: "copy-outline",
-    page: "flashcards",
+    route: "/flashcards",
     blurb: "Your saved decks",
   },
   {
@@ -91,7 +91,7 @@ export const SIDEBAR: NavItem[] = [
     key: "pet",
     label: "My Pet",
     icon: "paw-outline",
-    page: "pet",
+    route: "/pet",
     blurb: "Grows as you study",
   },
   {
