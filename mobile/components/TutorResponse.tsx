@@ -1,9 +1,11 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { Pressable, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import { addFlashcards, createFlashcardDeck, getFlashcardDecks } from "../lib/api";
 import { useTheme } from "../theme/ThemeProvider";
 import { radius, space } from "../theme/tokens";
-import { T } from "./ui";
+import { Button, T } from "./ui";
 
 type StudyPrompt = { question: string; answer: string };
 type StudyMaterial = { title?: string; summary?: string; cards: StudyPrompt[]; quiz: StudyPrompt[] };
@@ -11,12 +13,87 @@ type StudyMaterial = { title?: string; summary?: string; cards: StudyPrompt[]; q
 /** Render the tutor's note-card JSON as study material inside the conversation. */
 export function TutorResponse({ text, tone = "primary" }: { text: string; tone?: "primary" | "onAccent" | "danger" }) {
   const { colors } = useTheme();
+  const router = useRouter();
   const material = useMemo(() => parseStudyMaterial(text), [text]);
+  const saveReference = useRef(`tutor-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`);
   const [revealed, setRevealed] = useState<Record<string, boolean>>({});
+  const [deckId, setDeckId] = useState<number | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [retrySafe, setRetrySafe] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   if (!material) {
     return <T variant="base" tone={tone} style={{ lineHeight: 22 }} selectable>{text}</T>;
   }
+
+  const openDeck = (id?: number | null) => router.push(id
+    ? { pathname: "/flashcards", params: { deckId: String(id) } }
+    : "/flashcards");
+
+  const saveCards = async () => {
+    if (saving || saved || !material.cards.length) return;
+    setSaving(true);
+    setSaveError(null);
+    setRetrySafe(false);
+    let targetDeckId = deckId;
+    try {
+      let library = await getFlashcardDecks();
+      if (!targetDeckId) {
+        // If deck creation succeeded but its response was lost, locate the
+        // deck through its private reference instead of creating an orphan.
+        const existing = library.decks.find((deck) => deck.description === saveReference.current);
+        if (existing) targetDeckId = existing.id;
+      }
+      if (!targetDeckId) {
+        const name = (material.title ? `Plani: ${material.title}` : "Plani study cards").slice(0, 200);
+        const deck = await createFlashcardDeck(name, saveReference.current);
+        targetDeckId = deck.id;
+        setDeckId(deck.id);
+        library = await getFlashcardDecks();
+      }
+      if (targetDeckId) setDeckId(targetDeckId);
+
+      // A previous response may have been lost after the server committed.
+      // Check the newly created deck before retrying so cards can't be doubled.
+      const currentCount = library.decks.find((deck) => deck.id === targetDeckId)?.total;
+      if (currentCount === material.cards.length) {
+        setSaved(true);
+        return;
+      }
+      if (currentCount !== 0) {
+        setSaveError("I couldn't confirm this set safely. Open the deck and check its cards before trying again.");
+        return;
+      }
+
+      const result = await addFlashcards(targetDeckId, material.cards.map((card) => ({
+        front: card.question,
+        back: card.answer,
+      })));
+      if (result.added !== material.cards.length) {
+        setSaveError("Some cards could not be saved. Open the deck to review it.");
+        return;
+      }
+      setSaved(true);
+    } catch (error: any) {
+      setSaveError(error?.message || "Couldn't save these flashcards right now.");
+      try {
+        const library = await getFlashcardDecks();
+        const recoveredDeck = targetDeckId
+          ? library.decks.find((deck) => deck.id === targetDeckId)
+          : library.decks.find((deck) => deck.description === saveReference.current);
+        if (recoveredDeck) {
+          setDeckId(recoveredDeck.id);
+          if (recoveredDeck.total === material.cards.length) setSaved(true);
+          else if (recoveredDeck.total === 0) setRetrySafe(true);
+        }
+      } catch {
+        // Leave retries disabled until the saved-card state can be checked.
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <View style={{ gap: space.sm }}>
@@ -64,6 +141,33 @@ export function TutorResponse({ text, tone = "primary" }: { text: string; tone?:
           </Pressable>
         );
       })}
+      {material.cards.length ? (
+        <View style={{ gap: space.xs, paddingTop: space.xs }}>
+          {saveError ? (
+            <T variant="xs" tone="danger" accessibilityLiveRegion="polite">{saveError}</T>
+          ) : null}
+          {saved ? (
+            <Button
+              title="Open saved deck"
+              icon="checkmark-done-outline"
+              kind="secondary"
+              onPress={() => openDeck(deckId)}
+            />
+          ) : deckId && !retrySafe && saveError ? (
+            <Button title="Check flashcard decks" icon="library-outline" kind="secondary" onPress={() => openDeck(deckId)} />
+          ) : (
+            <Button
+              title={retrySafe ? "Try saving again" : `Save ${material.cards.length} flashcard${material.cards.length === 1 ? "" : "s"}`}
+              icon={retrySafe ? "refresh-outline" : "bookmark-outline"}
+              kind="secondary"
+              busy={saving}
+              disabled={saving}
+              accessibilityHint="Saves these cards to your review decks"
+              onPress={saveCards}
+            />
+          )}
+        </View>
+      ) : null}
     </View>
   );
 }
