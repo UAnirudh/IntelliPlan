@@ -761,6 +761,189 @@ export type StudySet = {
   questions?: StudyQuestion[];
 };
 
+/* ── Saved flashcards ───────────────────────────────────────────── */
+
+export type FlashcardDeck = {
+  id: number;
+  name: string;
+  description?: string;
+  source?: string;
+  total: number;
+  new: number;
+  due: number;
+};
+
+export type FlashcardStats = {
+  cards: number;
+  due: number;
+  new: number;
+  reviews_this_week: number;
+  recall_rate: number | null;
+};
+
+export type Flashcard = {
+  id: number;
+  deck_id: number;
+  front: string;
+  back: string;
+  extra?: string;
+  tags?: string;
+  state?: string;
+  due?: string | null;
+};
+
+export type FlashcardDecks = { decks: FlashcardDeck[]; stats: FlashcardStats };
+
+export async function getFlashcardDecks(): Promise<FlashcardDecks> {
+  return apiFetch<FlashcardDecks>("/api/flashcards/decks");
+}
+
+export async function getFlashcardQueue(deckId?: number): Promise<{ cards: Flashcard[]; count: number }> {
+  const query = new URLSearchParams({ limit: "60" });
+  if (deckId) query.set("deck_id", String(deckId));
+  return apiFetch(`/api/flashcards/study?${query.toString()}`);
+}
+
+export async function createFlashcardDeck(name: string, description = ""): Promise<{ id: number; name: string }> {
+  return apiFetch("/api/flashcards/decks", {
+    method: "POST",
+    body: JSON.stringify({ name, description }),
+  });
+}
+
+export async function addFlashcards(
+  deckId: number,
+  cards: { front: string; back: string }[],
+): Promise<{ added: number }> {
+  return apiFetch(`/api/flashcards/decks/${deckId}/cards`, {
+    method: "POST",
+    body: JSON.stringify({ cards }),
+  });
+}
+
+export async function importFlashcardText(args: {
+  text: string;
+  name?: string;
+  format?: "quizlet" | "csv";
+}): Promise<{ deck_id: number; name: string; added: number; warnings?: string[] }> {
+  return apiFetch("/api/flashcards/import", {
+    method: "POST",
+    body: JSON.stringify(args),
+  });
+}
+
+export async function gradeFlashcard(cardId: number, rating: 1 | 2 | 3 | 4): Promise<{ interval?: number }> {
+  return apiFetch(`/api/flashcards/cards/${cardId}/grade`, {
+    method: "POST",
+    body: JSON.stringify({ rating }),
+  });
+}
+
+/* ── Saved memories ──────────────────────────────────────────────── */
+
+export type MemoryItem = {
+  id: number;
+  date: string;
+  item_type: string;
+  type_label: string;
+  title: string;
+  created_at: string;
+  meta?: Record<string, unknown>;
+};
+
+export type MemoryDay = { date: string; label: string; count: number; items: MemoryItem[] };
+export type MemoriesPage = { days: MemoryDay[]; page: number; has_more: boolean; total?: number };
+
+export async function getMemories(page = 1): Promise<MemoriesPage> {
+  const params = new URLSearchParams({ per_page: "14", page: String(page) });
+  const result = await apiFetch<{ status?: string; message?: string } & MemoriesPage>(`/archive/days?${params.toString()}`);
+  if (result?.status === "error") throw new ApiError(400, result.message || "Couldn't load your saved memories.");
+  return result;
+}
+
+export async function saveMemorySnapshot(date: string): Promise<{ status: string; count?: number; message?: string }> {
+  return apiFetch("/archive/snapshot", {
+    method: "POST",
+    body: JSON.stringify({ date }),
+  });
+}
+
+export async function deleteMemoryItem(id: number): Promise<void> {
+  const result = await apiFetch<{ status?: string; message?: string }>(`/archive/delete/${id}`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+  if (result?.status === "error") throw new ApiError(400, result.message || "Couldn't delete that memory.");
+}
+
+export async function loadMemoryItem(id: number): Promise<{ status: string; loaded?: string; redirect?: string; message?: string }> {
+  const result = await apiFetch<{ status: string; loaded?: string; redirect?: string; message?: string }>(`/archive/load/${id}`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+  if (result?.status === "error") throw new ApiError(400, result.message || "Couldn't load that memory.");
+  return result;
+}
+
+/* ── Plani pet ───────────────────────────────────────────────────── */
+
+export type PetCare = { label: string; emoji: string; xp: number; ready: boolean; wait_seconds: number; cooldown_hours: number };
+export type PetStage = { id: string; name: string; title: string; min_xp: number };
+export type PetStatus = {
+  status: string;
+  name: string;
+  xp: number;
+  level: number;
+  stage_id: string;
+  stage_name: string;
+  stage_title: string;
+  stage_color: string;
+  progress_to_next: number;
+  xp_into_stage: number;
+  xp_for_next_stage: number;
+  next_stage_name?: string | null;
+  mood?: string;
+  streak: number;
+  longest_streak: number;
+  stages: PetStage[];
+  care: Record<string, PetCare>;
+  chest: { ready: boolean; current_streak_days: number; next_reward: { xp: number; tier?: string } };
+};
+
+export async function getPetStatus(): Promise<PetStatus> {
+  const result = await apiFetch<PetStatus>("/api/pet/status");
+  if (result?.status === "error") throw new ApiError(400, "Couldn't load Plani right now.");
+  return result;
+}
+
+export async function visitPet(timezone: string): Promise<{ status: string; awarded?: { delta?: number } | null }> {
+  return apiFetch("/api/pet/visit", { method: "POST", body: JSON.stringify({ timezone }) });
+}
+
+export async function renamePet(name: string): Promise<{ status: string; name?: string; message?: string }> {
+  const result = await apiFetch<{ status: string; name?: string; message?: string }>("/api/pet/rename", {
+    method: "POST",
+    body: JSON.stringify({ name }),
+  });
+  if (result.status === "error") throw new ApiError(400, result.message || "Couldn't rename Plani.");
+  return result;
+}
+
+export async function careForPet(action: string): Promise<{ status: string; xp_awarded?: number; copy?: string }> {
+  const result = await apiFetch<{ status: string; xp_awarded?: number; copy?: string; message?: string }>("/api/pet/care", {
+    method: "POST",
+    body: JSON.stringify({ action }),
+  });
+  if (result.status === "cooldown" || result.status === "error") {
+    throw new ApiError(400, result.message || "Plani needs a little time before that again.");
+  }
+  return result;
+}
+
+export async function openPetChest(): Promise<{ status: string; chest?: { xp: number; tier?: string }; chest_streak_days?: number }> {
+  return apiFetch("/api/pet/chest", { method: "POST", body: JSON.stringify({}) });
+}
+
 /** These endpoints report failure as `{status: "error"}` over HTTP 200 in
  *  several branches, so the status is checked rather than the response code. */
 function studyOk<T extends { status?: string; message?: string }>(d: T, fallback: string): T {

@@ -14,6 +14,8 @@ import * as Haptics from "expo-haptics";
 import * as DocumentPicker from "expo-document-picker";
 import {
   Evaluation,
+  addFlashcards,
+  createFlashcardDeck,
   evaluateAnswer,
   extractPdfText,
   extractYoutubeText,
@@ -117,6 +119,8 @@ export default function StudyScreen() {
   const [materialNames, setMaterialNames] = useState<string[]>([]);
   const [connectedMaterial, setConnectedMaterial] = useState(false);
   const [skippedMaterials, setSkippedMaterials] = useState(0);
+  const [savedDeckId, setSavedDeckId] = useState<number | null>(null);
+  const [savingCards, setSavingCards] = useState(false);
   const generationInput = useMemo(
     () => studyGenerationInput({
       text,
@@ -131,6 +135,26 @@ export default function StudyScreen() {
   const cards = set?.key_concepts || [];
   const questions = useMemo(() => set?.questions || [], [set]);
 
+  const saveCards = useCallback(async () => {
+    const usable = (set?.key_concepts || [])
+      .filter((card) => card.term?.trim() && card.definition?.trim())
+      .map((card) => ({ front: card.term.trim(), back: card.definition.trim() }));
+    if (!usable.length || savingCards) return;
+    setSavingCards(true);
+    setError(null);
+    try {
+      const name = set?.title?.trim() || taskTitle || "Study set";
+      const deck = await createFlashcardDeck(name);
+      await addFlashcards(deck.id, usable);
+      setSavedDeckId(deck.id);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    } catch (e: any) {
+      setError(e?.message || "Couldn't save these cards. Try again.");
+    } finally {
+      setSavingCards(false);
+    }
+  }, [savingCards, set, taskTitle]);
+
   useEffect(() => {
     // Expo Router can reuse an existing Study screen when opened from another
     // task. Replace only the task context so notes from the prior task never
@@ -143,6 +167,7 @@ export default function StudyScreen() {
     setUrl("");
     setPdfName(null);
     setSet(null);
+    setSavedDeckId(null);
     setError(null);
     setTopicBasedSet(false);
     setAssignmentRows(null);
@@ -270,6 +295,7 @@ export default function StudyScreen() {
     }
     setBusy("generate");
     setError(null);
+    setSavedDeckId(null);
     try {
       const result = connectedMaterial && selectedAssignment
         ? await generateAssignmentStudySet(input.content, count, selectedAssignment)
@@ -289,6 +315,7 @@ export default function StudyScreen() {
   const startOver = useCallback(() => {
     materialRequestGeneration.current += 1;
     setSet(null);
+    setSavedDeckId(null);
     setText(initialMaterial);
     setUrl("");
     setPdfName(null);
@@ -583,7 +610,18 @@ export default function StudyScreen() {
 
               {tab === "cards" ? (
                 cards.length ? (
-                  cards.map((c, i) => <Flashcard key={i} term={c.term} definition={c.definition} />)
+                  <>
+                    {savedDeckId ? (
+                      <Card style={{ gap: space.sm, backgroundColor: colors.accentSoft, borderColor: colors.borderAccent }}>
+                        <T variant="base" weight="700">Cards saved to your decks</T>
+                        <T variant="sm" tone="muted">Review them any time, and your progress will sync across devices.</T>
+                        <Button title="Open saved deck" icon="copy-outline" kind="secondary" onPress={() => router.push({ pathname: "/flashcards", params: { deckId: String(savedDeckId) } })} />
+                      </Card>
+                    ) : (
+                      <Button title={`Save ${cards.length} cards to a deck`} icon="bookmark-outline" kind="secondary" busy={savingCards} onPress={saveCards} />
+                    )}
+                    {cards.map((c, i) => <Flashcard key={i} term={c.term} definition={c.definition} />)}
+                  </>
                 ) : (
                   <Notice text="No key concepts came back for this material." icon="information-circle-outline" />
                 )

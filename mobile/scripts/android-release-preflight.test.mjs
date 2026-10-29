@@ -24,9 +24,9 @@ const validEas = {
 };
 
 test("all configured Android production checks pass with EAS auth material", () => {
-  const checks = inspectReleaseConfig({ appConfig: validApp, easConfig: validEas, env: { EXPO_TOKEN: "secret-token" } });
+  const checks = inspectReleaseConfig({ appConfig: validApp, easConfig: validEas, env: { EXPO_TOKEN: "secret-token" }, easAuthenticated: true });
   assert.equal(checks.filter(({ status }) => status === "BLOCKED").length, 0);
-  assert.ok(checks.some(({ status, message }) => status === "PASS" && message.includes("EXPO_TOKEN")));
+  assert.ok(checks.some(({ status, message }) => status === "PASS" && message.includes("confirmed an active account")));
   assert.ok(checks.every(({ message }) => !message.includes("secret-token")));
 });
 
@@ -35,7 +35,12 @@ test("missing EAS project linkage and auth are blocking", () => {
   delete appConfig.expo.extra.eas.projectId;
   const checks = inspectReleaseConfig({ appConfig, easConfig: validEas });
   assert.ok(checks.some(({ status, message }) => status === "BLOCKED" && message.includes("npx eas init")));
-  assert.ok(checks.some(({ status, message }) => status === "BLOCKED" && message.includes("No EAS authentication")));
+  assert.ok(checks.some(({ status, message }) => status === "BLOCKED" && message.includes("No active EAS account")));
+});
+
+test("a stale auth state file does not count as a verified EAS login", () => {
+  const checks = inspectReleaseConfig({ appConfig: validApp, easConfig: validEas, authStateExists: true });
+  assert.ok(checks.some(({ status, message }) => status === "BLOCKED" && message.includes("could not be validated")));
 });
 
 test("bad identity, versions, production API, and build settings are blocking", () => {
@@ -48,14 +53,14 @@ test("bad identity, versions, production API, and build settings are blocking", 
   easConfig.build.production.android.buildType = "apk";
   easConfig.build.production.autoIncrement = false;
   easConfig.cli.appVersionSource = "local";
-  const checks = inspectReleaseConfig({ appConfig, easConfig, authStateExists: true });
+  const checks = inspectReleaseConfig({ appConfig, easConfig, authStateExists: true, easAuthenticated: true });
   assert.equal(checks.filter(({ status }) => status === "BLOCKED").length, 7);
 });
 
 test("credentials embedded in the API URL are rejected without echoing them", () => {
   const easConfig = structuredClone(validEas);
   easConfig.build.production.env.EXPO_PUBLIC_API_BASE = "https://user:secret@example.com";
-  const checks = inspectReleaseConfig({ appConfig: validApp, easConfig, authStateExists: true });
+  const checks = inspectReleaseConfig({ appConfig: validApp, easConfig, authStateExists: true, easAuthenticated: true });
   assert.ok(checks.some(({ status, message }) => status === "BLOCKED" && message.includes("HTTPS URL")));
   assert.ok(checks.every(({ message }) => !message.includes("secret")));
 });
