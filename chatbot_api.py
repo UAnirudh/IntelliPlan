@@ -408,7 +408,30 @@ def _default_tutor_profile():
     }
 
 
-def _normalize_tutor_messages(messages):
+def _normalize_study_sources(sources):
+    """Keep only the small, display-safe citation fields used by tutor UI."""
+    if not isinstance(sources, list):
+        return []
+    clean = []
+    for source in sources[:5]:
+        if not isinstance(source, dict):
+            continue
+        try:
+            note_id = int(source.get('note_id'))
+        except (TypeError, ValueError):
+            continue
+        if note_id <= 0:
+            continue
+        clean.append({
+            'note_id': note_id,
+            'title': str(source.get('title') or 'Course notes')[:160],
+            'course': str(source.get('course') or '')[:100],
+            'date': str(source.get('date') or '')[:32],
+        })
+    return clean
+
+
+def _normalize_tutor_messages(messages, *, include_study_sources=False):
     clean = []
     if not isinstance(messages, list):
         return clean
@@ -419,7 +442,12 @@ def _normalize_tutor_messages(messages):
         content = str(msg.get('content', '')).strip()
         if role not in {'user', 'assistant'} or not content:
             continue
-        clean.append({'role': role, 'content': content[:20000]})
+        normalized = {'role': role, 'content': content[:20000]}
+        if include_study_sources and role == 'assistant':
+            sources = _normalize_study_sources(msg.get('study_sources'))
+            if sources:
+                normalized['study_sources'] = sources
+        clean.append(normalized)
     return clean[-_MAX_STORED_TUTOR_MESSAGES:]
 
 
@@ -428,10 +456,22 @@ def _message_key(msg):
 
 
 def _merge_tutor_messages(stored, incoming):
-    stored = _normalize_tutor_messages(stored)
+    stored = _normalize_tutor_messages(stored, include_study_sources=True)
     incoming = _normalize_tutor_messages(incoming)
     if not incoming:
         return stored
+
+    # The browser sends message text on the next turn, but does not own the
+    # provenance attached to saved assistant messages. Carry that metadata
+    # forward only from this account's already-stored history.
+    sources_by_message = {
+        _message_key(message): message['study_sources']
+        for message in stored if message.get('study_sources')
+    }
+    for message in incoming:
+        sources = sources_by_message.get(_message_key(message))
+        if sources:
+            message['study_sources'] = sources
 
     max_overlap = min(len(stored), len(incoming))
     for overlap in range(max_overlap, 0, -1):
@@ -563,7 +603,7 @@ def _ensure_conversation(convo_row, messages):
 def _save_conversation(convo_id, messages, new_title=None):
     db = _get_db()
     values = {
-        'messages_json': json.dumps(_normalize_tutor_messages(messages)),
+        'messages_json': json.dumps(_normalize_tutor_messages(messages, include_study_sources=True)),
         'updated_at': utcnow(),
     }
     if new_title:
@@ -929,7 +969,8 @@ def get_tutor_conversation(convo_id):
         return jsonify({
             'id': row['id'],
             'title': row['title'],
-            'messages': _safe_json(row.get('messages_json'), []),
+            'messages': _normalize_tutor_messages(
+                _safe_json(row.get('messages_json'), []), include_study_sources=True),
             'updated_at': row['updated_at'].isoformat() if row.get('updated_at') else None,
         })
     except Exception as e:
@@ -1609,7 +1650,10 @@ def tutor():
             if out_category:
                 reply, refusal = _refusal_reply(out_category)
                 return jsonify(reply=reply, refusal=refusal)
-            messages.append({'role': 'assistant', 'content': premium['reply']})
+            assistant_message = {'role': 'assistant', 'content': premium['reply']}
+            if study_note_sources:
+                assistant_message['study_sources'] = study_note_sources
+            messages.append(assistant_message)
             convo_row = _ensure_conversation(convo_row, messages)
             _save_conversation(convo_row['id'], messages)
             return jsonify({
@@ -1653,7 +1697,10 @@ def tutor():
                 'conversation_id': convo_row['id'],
             })
 
-        messages.append({'role': 'assistant', 'content': reply})
+        assistant_message = {'role': 'assistant', 'content': reply}
+        if study_note_sources:
+            assistant_message['study_sources'] = study_note_sources
+        messages.append(assistant_message)
         latest_user = next((m['content'] for m in reversed(messages) if m['role'] == 'user'), '')
         profile = _update_tutor_profile(profile, latest_user, reply)
         _save_tutor_profile(memory_row['id'], profile)

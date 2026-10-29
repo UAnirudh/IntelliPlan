@@ -325,6 +325,44 @@ def test_explicit_test_prep_retrieves_only_the_students_notes_and_returns_citati
     }]
 
 
+def test_tutor_history_persists_valid_note_sources_and_keeps_conversations_owner_scoped(client):
+    _sign_in(client, consent=False)
+    created = client.post('/api/tutor/conversations', json={'title': 'Cell structure test prep'})
+    assert created.status_code == 200, created.get_json()
+    conversation_id = created.json['id']
+    sources = [{
+        'note_id': 72, 'title': 'Cell structure review', 'course': 'Biology', 'date': '2026-10-20',
+        'private_text': 'This must never be returned in a citation.',
+    }, {'note_id': -1, 'title': 'Invalid note id'}]
+    with App.app.app_context():
+        chatbot_api._save_conversation(conversation_id, [
+            {'role': 'user', 'content': 'Make cards from my notes'},
+            {'role': 'assistant', 'content': 'Here are your cards. [N1]', 'study_sources': sources},
+        ])
+
+    loaded = client.get(f'/api/tutor/conversations/{conversation_id}')
+    assert loaded.status_code == 200
+    assert loaded.json['messages'][1]['study_sources'] == [{
+        'note_id': 72, 'title': 'Cell structure review', 'course': 'Biology', 'date': '2026-10-20'
+    }]
+
+    merged = chatbot_api._merge_tutor_messages(loaded.json['messages'], [
+        {'role': 'user', 'content': 'Make cards from my notes', 'study_sources': [{'note_id': 999}]},
+        {'role': 'assistant', 'content': 'Here are your cards. [N1]', 'study_sources': [{'note_id': 999}]},
+    ])
+    assert merged[1]['study_sources'][0]['note_id'] == 72
+
+    with App.app.app_context():
+        other = User(email='tam+other@example.com', password_hash='x')
+        db.session.add(other)
+        db.session.commit()
+        other_id = other.id
+    with client.session_transaction() as session:
+        session['_user_id'] = str(other_id)
+        session['_fresh'] = True
+    assert client.get(f'/api/tutor/conversations/{conversation_id}').status_code == 404
+
+
 def test_exam_note_retrieval_stops_when_school_blocks_uploads(client, monkeypatch):
     _sign_in(client, consent=True)
     calls = []

@@ -13,6 +13,7 @@ function harness(fetch, confirm = async () => true) {
   const elements = Object.fromEntries(['tutorInput', 'tutorMessages', 'tutorHistoryList', 'tutorHistoryStatus']
     .map(id => [id, { value: '', innerHTML: '', textContent: '', focus() {} }]));
   const rendered = [];
+  const renderedSources = [];
   const context = vm.createContext({ fetch, document: { getElementById: id => elements[id] },
     IP: { confirm }, console, conversationId: 7, conversationList: [{ id: 7, title: 'Saved chat' }],
     tutorHistory: [{ role: 'user', content: 'My saved question' }], isProcessing: false,
@@ -20,10 +21,13 @@ function harness(fetch, confirm = async () => true) {
     summarizeConversation() {}, stopSpeaking() {}, cancelVoiceInput() {}, clearTutorAssignment() {}, closeTutorDrawer() {},
     showChat() {}, resetToEmpty() {}, scrollBottom() {},
     visibleTutorText: text => text,
-    addTutorMsg: (role, text) => rendered.push([role, text]),
+    addTutorMsg: (role, text, refusal, sources) => {
+      rendered.push([role, text]);
+      renderedSources.push(sources || []);
+    },
   });
   vm.runInContext(escaping + history, context);
-  return { api: context, elements, rendered };
+  return { api: context, elements, rendered, renderedSources };
 }
 
 test('a delayed history response cannot replace a more recently selected chat', async () => {
@@ -36,6 +40,18 @@ test('a delayed history response cannot replace a more recently selected chat', 
   await old;
   assert.equal(api.conversationId, 2);
   assert.deepEqual(rendered, [['bot', 'Second chat']]);
+});
+
+test('saved assistant messages restore their note citations when a chat reopens', async () => {
+  const sources = [{ note_id: 72, title: 'Cell structure review', course: 'Biology', date: '2026-10-20' }];
+  const { api, rendered, renderedSources } = harness(async () => reply({ id: 7, messages: [
+    { role: 'user', content: 'Make flashcards from my notes.' },
+    { role: 'assistant', content: 'Here are your cards. [N1]', study_sources: sources },
+  ] }));
+  await api.loadConversation(7);
+  assert.deepEqual(rendered, [['user', 'Make flashcards from my notes.'], ['bot', 'Here are your cards. [N1]']]);
+  assert.deepEqual(renderedSources[1], sources);
+  assert.deepEqual(api.tutorHistory[1].study_sources, sources);
 });
 
 test('starting a new chat invalidates a pending saved-chat load', async () => {
