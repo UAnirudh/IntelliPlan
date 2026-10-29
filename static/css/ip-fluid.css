@@ -12,9 +12,7 @@ body {
   --ipd-radius-md: var(--r-md);
   --ipd-radius-lg: var(--r-lg);
 }
-body.has-side {
-  background-image: radial-gradient(ellipse at 90% 0%, var(--accent-soft), transparent 55%);
-}
+body.has-side { background-image: none; }
 body :is(button, a, input, select, textarea):focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
@@ -230,7 +228,7 @@ body.has-side {
   --workspace-raised: 0 4px 16px -10px color-mix(in srgb, var(--text-primary) 20%, transparent), inset 0 1px 0 color-mix(in srgb, var(--bg-card) 65%, transparent);
   --workspace-inset: inset 0 1px 3px color-mix(in srgb, var(--text-primary) 5%, transparent), 0 1px 0 color-mix(in srgb, var(--bg-card) 70%, transparent);
   --workspace-measure: 820px;
-  background-image: radial-gradient(ellipse at 90% 0%, var(--accent-soft), transparent 70%);
+  background-image: none;
 }
 html[data-theme="light"] body.has-side { --bg: #f3f5f8; --bg-elevated: #e9edf3; }
 html[data-theme="dark"]:not([data-palette]) body.has-side { --bg: #15171b; --bg-elevated: #202329; }
