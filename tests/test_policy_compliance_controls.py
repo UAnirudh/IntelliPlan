@@ -1,6 +1,6 @@
 """Regression checks for the concrete privacy controls, not legal certification."""
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import pytest
 
@@ -27,7 +27,8 @@ def pending_user():
         user = App.User(email=f"privacy-{uuid.uuid4().hex}@example.test",
                         password_hash="x", birth_year=datetime.utcnow().year - 12,
                         parent_email="parent@example.test", parent_consent_granted=False,
-                        parent_consent_token=uuid.uuid4().hex)
+                        parent_consent_token=uuid.uuid4().hex,
+                        parent_consent_expires_at=App.utcnow() + timedelta(days=7))
         App.db.session.add(user)
         App.db.session.commit()
         return user.id, user.parent_consent_token
@@ -37,6 +38,29 @@ def sign_in(client, uid):
     with client.session_transaction() as session:
         session["_user_id"] = str(uid)
         session["_fresh"] = True
+
+
+def test_web_pending_screen_can_resend_and_rotates_expired_link(client, monkeypatch):
+    uid, old_token = pending_user()
+    sign_in(client, uid)
+    delivered = []
+    monkeypatch.setattr(App, "_send_email", lambda *args, **kwargs: delivered.append(args) or True)
+
+    page = client.get("/account/age/pending")
+    assert page.status_code == 200
+    assert b"expires after 7 days" in page.data
+    assert b"/account/age/pending/resend" in page.data
+    response = client.post("/account/age/pending/resend", headers={"Origin": "http://localhost"})
+    assert response.status_code == 200
+    assert b"fresh approval link has been sent" in response.data
+    assert len(delivered) == 1
+    new_token = delivered[0][2].split("token=", 1)[1].split()[0]
+    assert new_token != old_token
+    assert client.get(f"/parent/consent?token={old_token}").status_code == 404
+    assert client.get(f"/parent/consent?token={new_token}").status_code == 200
+    with App.app.app_context():
+        user = App.db.session.get(App.User, uid)
+        assert user.parent_consent_expires_at > App.utcnow()
 
 
 def test_parent_link_requires_informed_post_and_records_notice(client):
@@ -70,6 +94,24 @@ def test_parent_denial_get_does_not_delete_account(client):
     with App.app.app_context():
         assert App.db.session.get(App.User, uid) is None
         assert App.PolicyAcknowledgement.query.filter_by(user_id=uid).count() == 0
+
+
+@pytest.mark.parametrize("path", ["/parent/consent", "/parent/deny"])
+def test_expired_parent_link_fails_closed_and_is_invalidated(client, path):
+    uid, token = pending_user()
+    with App.app.app_context():
+        user = App.db.session.get(App.User, uid)
+        user.parent_consent_expires_at = App.utcnow() - timedelta(seconds=1)
+        App.db.session.commit()
+
+    response = client.get(path, query_string={"token": token})
+    assert response.status_code == 404
+    with App.app.app_context():
+        user = App.db.session.get(App.User, uid)
+        assert user is not None
+        assert user.parent_consent_granted is False
+        assert user.parent_consent_token is None
+        assert user.parent_consent_expires_at is None
 
 
 @pytest.mark.parametrize("path", ["/notes/upload", "/api/syllabus/import"])

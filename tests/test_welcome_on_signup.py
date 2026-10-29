@@ -161,6 +161,10 @@ def test_an_under_13_signup_is_not_emailed_before_a_parent_consents(client, rese
     assert r.status_code == 200
 
     assert [p for p in resend if p["to"] == [email]] == []
+    with app_module.app.app_context():
+        user = User.query.filter_by(email=email).one()
+        assert user.parent_consent_token
+        assert user.parent_consent_expires_at > utcnow()
 
 
 def test_a_failed_signup_creates_no_account_and_sends_nothing(client, resend):

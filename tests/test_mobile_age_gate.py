@@ -161,12 +161,19 @@ def test_under_13_remains_blocked_until_existing_parent_consent_route_approves(c
     resent = client.post("/api/v1/age/parent-consent/resend", headers=headers, json={})
     assert resent.status_code == 200
     assert len(sent) == 2
+    resent_token = sent[1][2].split("token=", 1)[1].split()[0]
+    assert resent_token != token
+    assert client.get(f"/parent/consent?token={token}").status_code == 404
+    with App.app.app_context():
+        pending = App.db.session.get(App.User, _user_id)
+        assert pending.parent_consent_expires_at > App.utcnow()
+        assert pending.parent_consent_expires_at <= App.utcnow() + App.PARENT_CONSENT_TOKEN_TTL
 
     # The emailed one-time token enters the same review and explicit POST
     # consent route as a web signup. Client-supplied consent was ignored.
-    review = client.get(f"/parent/consent?token={token}")
+    review = client.get(f"/parent/consent?token={resent_token}")
     assert review.status_code == 200
-    approved = client.post("/parent/consent", data={"token": token, "acknowledged": "yes"})
+    approved = client.post("/parent/consent", data={"token": resent_token, "acknowledged": "yes"})
     assert approved.status_code == 200
 
     state = client.get("/api/v1/me", headers=headers)

@@ -253,6 +253,7 @@ def test_an_under_13_account_is_held_until_a_parent_approves(client):
         user = db.session.get(User, uid)
         assert user.parent_consent_granted is False
         assert user.parent_consent_token
+        assert user.parent_consent_expires_at > App.utcnow()
         # COPPA: no marketing to a child without verified parental consent.
         assert user.marketing_emails_opt_in is False
 

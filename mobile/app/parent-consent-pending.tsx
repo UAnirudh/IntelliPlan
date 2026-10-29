@@ -74,7 +74,7 @@ export default function ParentConsentPendingScreen() {
         <View style={{ gap: space.sm }}>
           <T variant="xxl" weight="700">Waiting for parent approval</T>
           <T tone="secondary">
-            IntelliPlan stays locked until your parent or guardian reviews and approves the one-time request. You can check again here after they finish.
+            IntelliPlan stays locked until your parent or guardian reviews and approves the request. The email link expires after 7 days; resend the request here if it expires.
           </T>
         </View>
         {note ? <Notice tone="accent" icon="mail-outline" text={note} /> : null}

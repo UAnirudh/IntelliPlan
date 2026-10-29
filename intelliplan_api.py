@@ -498,9 +498,10 @@ def submit_age():
     user.parent_consent_granted = not under_13
     user.parent_email = parent_email if under_13 else None
     user.parent_consent_token = None
+    user.parent_consent_expires_at = None
     if under_13:
-        import secrets as secrets_module
-        user.parent_consent_token = secrets_module.token_urlsafe(24)
+        import App as app_module
+        app_module._issue_parental_consent_token(user)
         user.parent_consent_at = None
         user.parent_consent_notice_version = None
         user.marketing_emails_opt_in = False
@@ -567,6 +568,13 @@ def resend_parental_consent():
             or getattr(user, "parent_consent_granted", False)):
         return _fail("not_pending", "This account is not waiting for parent consent.", 409)
     import App as app_module
+    app_module._issue_parental_consent_token(user)
+    db, _User, _bcrypt = _models()
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return _fail("server_error", "Could not create a new consent link. Please try again.", 500)
     delivered = app_module._send_parental_consent_email(user)
     return jsonify({
         "status": "ok",
