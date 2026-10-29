@@ -30,11 +30,13 @@ export type RowTask = {
 export function TaskRow({
   task,
   busy,
+  error,
   onToggle,
   onPress,
 }: {
   task: RowTask;
   busy?: boolean;
+  error?: string;
   onToggle?: () => void;
   onPress?: () => void;
 }) {
@@ -46,78 +48,81 @@ export function TaskRow({
   const platform = task.platform || task.source;
 
   return (
-    <Card
-      style={{
-        padding: space.md,
-        flexDirection: "row",
-        gap: space.md,
-        alignItems: "flex-start",
-        borderColor: overdue ? colors.borderAccent : colors.border,
-        opacity: task.done ? 0.55 : 1,
-      }}
-    >
-      {onToggle ? (
-        <Pressable
-          onPress={() => {
-            Haptics.selectionAsync().catch(() => {});
-            onToggle();
-          }}
-          disabled={busy}
-          hitSlop={10}
-          accessibilityRole="checkbox"
-          accessibilityState={{ checked: !!task.done, busy: !!busy }}
-          accessibilityLabel={task.done ? `Restore ${task.title}` : `Mark ${task.title} done`}
-          style={{ paddingTop: 2 }}
-        >
-          {busy ? (
-            <ActivityIndicator size="small" color={colors.accent} />
-          ) : (
-            <Ionicons
-              name={task.done ? "checkmark-circle" : "ellipse-outline"}
-              size={24}
-              color={task.done ? colors.ok : colors.textMuted}
-            />
-          )}
-        </Pressable>
-      ) : null}
-
-      <Pressable
-        onPress={onPress}
-        disabled={!onPress}
-        style={{ flex: 1, gap: 6 }}
-        accessibilityRole={onPress ? "button" : undefined}
+    <View style={{ gap: space.xs }}>
+      <Card
+        style={{
+          padding: space.md,
+          flexDirection: "row",
+          gap: space.md,
+          alignItems: "flex-start",
+          borderColor: overdue ? colors.borderAccent : colors.border,
+          opacity: task.done ? 0.55 : 1,
+        }}
       >
-        <T
-          variant="base"
-          weight="600"
-          numberOfLines={2}
-          style={task.done ? { textDecorationLine: "line-through" } : undefined}
-        >
-          {task.title}
-        </T>
-
-        {task.why_now ? (
-          <T variant="sm" tone="secondary" numberOfLines={2}>
-            {task.why_now}
-          </T>
+        {onToggle ? (
+          <Pressable
+            onPress={() => {
+              Haptics.selectionAsync().catch(() => {});
+              onToggle();
+            }}
+            disabled={busy}
+            hitSlop={10}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: !!task.done, busy: !!busy }}
+            accessibilityLabel={task.done ? `Restore ${task.title}` : `Mark ${task.title} done`}
+            style={{ paddingTop: 2 }}
+          >
+            {busy ? (
+              <ActivityIndicator size="small" color={colors.accent} />
+            ) : (
+              <Ionicons
+                name={task.done ? "checkmark-circle" : "ellipse-outline"}
+                size={24}
+                color={task.done ? colors.ok : colors.textMuted}
+              />
+            )}
+          </Pressable>
         ) : null}
 
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 2 }}>
-          {task.course ? <Chip label={String(task.course)} /> : null}
-          <Chip
-            label={dueLabel(task.due_date)}
-            icon="time-outline"
-            fg={overdue ? colors.dangerText : colors.textMuted}
-            bg={overdue ? colors.dangerSoft : undefined}
-          />
-          {est ? <Chip label={minutes(est)} icon="hourglass-outline" /> : null}
-          {task.priority ? (
-            <Chip label={String(task.priority)} fg={pri.fg} bg={pri.bg} />
+        <Pressable
+          onPress={onPress}
+          disabled={!onPress}
+          style={{ flex: 1, gap: 6 }}
+          accessibilityRole={onPress ? "button" : undefined}
+        >
+          <T
+            variant="base"
+            weight="600"
+            numberOfLines={2}
+            style={task.done ? { textDecorationLine: "line-through" } : undefined}
+          >
+            {task.title}
+          </T>
+
+          {task.why_now ? (
+            <T variant="sm" tone="secondary" numberOfLines={2}>
+              {task.why_now}
+            </T>
           ) : null}
-          {platform ? <Chip label={String(platform)} /> : null}
-        </View>
-      </Pressable>
-    </Card>
+
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 2 }}>
+            {task.course ? <Chip label={String(task.course)} /> : null}
+            <Chip
+              label={dueLabel(task.due_date)}
+              icon="time-outline"
+              fg={overdue ? colors.dangerText : colors.textMuted}
+              bg={overdue ? colors.dangerSoft : undefined}
+            />
+            {est ? <Chip label={minutes(est)} icon="hourglass-outline" /> : null}
+            {task.priority ? (
+              <Chip label={String(task.priority)} fg={pri.fg} bg={pri.bg} />
+            ) : null}
+            {platform ? <Chip label={String(platform)} /> : null}
+          </View>
+        </Pressable>
+      </Card>
+      {error ? <T variant="xs" tone="danger" accessibilityRole="alert">{error}</T> : null}
+    </View>
   );
 }
 
