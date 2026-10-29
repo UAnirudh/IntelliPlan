@@ -21,11 +21,15 @@ export function Header({
   subtitle,
   right,
   showSettings = false,
+  showBack = false,
+  onBack,
 }: {
   title: string;
   subtitle?: string | null;
   right?: React.ReactNode;
   showSettings?: boolean;
+  showBack?: boolean;
+  onBack?: () => void;
 }) {
   const { colors } = useTheme();
   const glass = useGlass();
@@ -34,6 +38,14 @@ export function Header({
   const router = useRouter();
   const segments = useSegments();
   const isMoreScreen = segments.includes("more");
+  const goBack = () => {
+    if (onBack) {
+      onBack();
+      return;
+    }
+    if (router.canGoBack()) router.back();
+    else router.replace("/more");
+  };
 
   return (
     <GlassSurface
@@ -48,9 +60,12 @@ export function Header({
       }}
     >
       <View style={{ minHeight: 42, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-        <View accessibilityLabel="IntelliPlan" accessibilityRole="header" style={{ flexDirection: "row", alignItems: "baseline" }}>
-          <T variant="md" weight="800">Intelli</T>
-          <T variant="md" weight="800" tone="accent">Plan</T>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: space.xs }}>
+          {showBack ? <IconButton icon="chevron-back" size={22} label="Back to previous screen" onPress={goBack} /> : null}
+          <View accessibilityLabel="IntelliPlan" accessibilityRole="header" style={{ flexDirection: "row", alignItems: "baseline" }}>
+            <T variant="md" weight="800">Intelli</T>
+            <T variant="md" weight="800" tone="accent">Plan</T>
+          </View>
         </View>
         {/* Keep the page actions together at the top edge like a native
             toolbar; this also leaves the page title room on narrow phones. */}
