@@ -1566,13 +1566,19 @@ async function loadConversation(id) {
     conversationId = data.id;
     tutorHistory = (data.messages || [])
       .filter(m => (m.role === 'user' || m.role === 'assistant') && m.content)
-      .map(m => ({ role: m.role, content: String(m.content) }));
+      .map(m => ({
+        role: m.role,
+        content: String(m.content),
+        ...(m.role === 'assistant' && Array.isArray(m.study_sources)
+          ? { study_sources: m.study_sources.slice(0, 5) }
+          : {}),
+      }));
     const container = document.getElementById('tutorMessages');
     container.innerHTML = '';
     if (tutorHistory.length) {
       showChat();
       tutorHistory.forEach(m =>
-        addTutorMsg(m.role === 'assistant' ? 'bot' : 'user', visibleTutorText(m.content)));
+        addTutorMsg(m.role === 'assistant' ? 'bot' : 'user', visibleTutorText(m.content), null, m.study_sources));
     } else {
       resetToEmpty();
     }
