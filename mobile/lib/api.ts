@@ -1083,13 +1083,25 @@ export async function patchIdentity(patch: Identity): Promise<Identity> {
 
 /* ── Plani (AI tutor) ─────────────────────────────────────────────── */
 
-export type ChatMessage = { role: "user" | "assistant"; content: string };
+export type StudySource = {
+  note_id: number;
+  title: string;
+  course?: string;
+  date?: string;
+};
+
+export type ChatMessage = {
+  role: "user" | "assistant";
+  content: string;
+  study_sources?: StudySource[];
+};
 
 export type TutorReply = {
   reply: string;
   conversation_id?: number;
   title?: string;
   refusal?: unknown;
+  study_sources?: StudySource[];
 };
 
 export async function askPlani(
@@ -1132,7 +1144,25 @@ export async function getConversation(
         ((m as ChatMessage).role === "user" || (m as ChatMessage).role === "assistant") &&
         typeof (m as ChatMessage).content === "string",
     )
-    .map((m) => ({ role: m.role, content: m.content }));
+    .map((m) => {
+      const candidate = m as ChatMessage;
+      const sources = Array.isArray(candidate.study_sources)
+        ? candidate.study_sources
+            .filter((source) => source && Number.isInteger(source.note_id) && source.note_id > 0)
+            .slice(0, 5)
+            .map((source) => ({
+              note_id: source.note_id,
+              title: String(source.title || "Course notes").slice(0, 160),
+              course: String(source.course || "").slice(0, 100),
+              date: String(source.date || "").slice(0, 32),
+            }))
+        : [];
+      return {
+        role: candidate.role,
+        content: candidate.content,
+        ...(sources.length ? { study_sources: sources } : {}),
+      };
+    });
   return { id: d.id, title: d.title, messages };
 }
 
