@@ -76,11 +76,11 @@ export function inspectReleaseConfig({ appConfig, easConfig, env = {}, authState
       ? "EAS credentials are present but could not be validated; run npx eas-cli whoami, then sign in again if needed."
       : "No active EAS account detected; set EXPO_TOKEN or sign in with eas login.");
 
-  if (easConfig?.submit?.production?.android?.track === "internal") {
-    checks.push({ status: "INFO", message: "Android submission is configured for the internal testing track." });
-  }
+  add(checks, easConfig?.submit?.production?.android?.track === "production",
+    "Android production submissions target the Google Play production track.",
+    "Set submit.production.android.track to production in eas.json; an internal-track upload is not a public release.");
   if (easConfig?.submit?.production?.android?.releaseStatus === "draft") {
-    checks.push({ status: "INFO", message: "Android submissions are left as drafts in Play Console." });
+    checks.push({ status: "INFO", message: "Android production uploads stay in draft until manually submitted in Play Console." });
   }
   return checks;
 }
