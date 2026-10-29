@@ -182,15 +182,18 @@ export default function TodayScreen() {
   const [busyTitle, setBusyTitle] = useState<string | null>(null);
   const [done, setDone] = useState<Set<string>>(new Set());
   const [rebuilding, setRebuilding] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const complete = useCallback(async (title: string) => {
     setBusyTitle(title);
+    setActionError(null);
     try {
       await dismissTask(title);
       void refreshAndSyncReminders().catch(() => {});
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       setDone((prev) => new Set(prev).add(title));
     } catch {
+      setActionError("Couldn't update this task. Check your connection and try again.");
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
     } finally {
       setBusyTitle(null);
@@ -378,6 +381,7 @@ export default function TodayScreen() {
         {today.error && !today.missing && !today.stale ? (
           <Notice text={today.error} icon="alert-circle-outline" />
         ) : null}
+        {actionError ? <Notice text={actionError} icon="alert-circle-outline" /> : null}
 
         {featuredTask ? (
           <Card
