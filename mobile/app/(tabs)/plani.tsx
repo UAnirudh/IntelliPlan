@@ -755,7 +755,7 @@ function MessageBubble({ msg, onRetry }: { msg: Bubble; onRetry?: () => void }) 
               <T variant="base" tone={mine ? "onAccent" : "danger"} style={{ lineHeight: 22 }} selectable>
                 {msg.content}
               </T>
-            ) : <TutorResponse text={msg.content} />}
+            ) : <TutorResponse key={msg.content} text={msg.content} />}
             {!mine && !msg.failed && msg.study_sources?.length ? (
               <View
                 accessibilityLabel="Notes Plani used for this answer"
