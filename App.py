@@ -713,6 +713,7 @@ class User(UserMixin, db.Model):
     parent_consent_at = db.Column(db.DateTime, nullable=True)
     parent_consent_notice_version = db.Column(db.String(32), nullable=True)
     parent_consent_token = db.Column(db.String(64), nullable=True)  # signed verification token
+    parent_consent_expires_at = db.Column(db.DateTime, nullable=True)
     # JSON: {"grade_source":"active|canvas|...", "assignment_sources":["active","google_classroom",...]}
     lms_preferences = db.Column(db.Text, default="{}")
     # ── AI personalization opt-in. When True, IntelliPlan injects the
@@ -7401,6 +7402,7 @@ def register():
                     parent_email=parent_email_raw if under_13 else None,
                     parent_consent_granted=not under_13,  # adults skip the gate
                     parent_consent_token=consent_token,
+                    parent_consent_expires_at=(utcnow() + PARENT_CONSENT_TOKEN_TTL) if under_13 else None,
                     marketing_emails_opt_in=marketing_optin,
                     marketing_opt_in_at=utcnow() if marketing_optin else None,
                     marketing_consent_version=(
@@ -19511,6 +19513,32 @@ def _safe_next_path(raw, fallback="/command-center"):
 
 #: How recent an account must be for "welcome" to still be the right email.
 WELCOME_AFTER_AGE_WINDOW = timedelta(days=14)
+PARENT_CONSENT_TOKEN_TTL = timedelta(days=7)
+
+
+def _issue_parental_consent_token(user):
+    """Rotate a pending parent's one-time link and set its short lifetime."""
+    user.parent_consent_token = secrets_module.token_urlsafe(24)
+    user.parent_consent_expires_at = utcnow() + PARENT_CONSENT_TOKEN_TTL
+    return user.parent_consent_token
+
+
+def _parental_consent_token_is_active(user, now=None):
+    """Fail closed for legacy or expired links that have no verified expiry."""
+    expires_at = getattr(user, "parent_consent_expires_at", None)
+    return bool(
+        getattr(user, "parent_consent_token", None)
+        and expires_at is not None
+        and expires_at > (now or utcnow())
+        and not getattr(user, "parent_consent_granted", False)
+    )
+
+
+def _expire_parental_consent_token(user):
+    """Invalidate a stale token so only the authenticated resend path can rotate it."""
+    user.parent_consent_token = None
+    user.parent_consent_expires_at = None
+    db.session.commit()
 
 
 def _welcome_after_age_known(user):
@@ -19620,7 +19648,7 @@ def account_age_gate():
             current_user.parent_consent_granted = not under_13
             if under_13:
                 current_user.parent_email = parent_email_raw
-                current_user.parent_consent_token = secrets_module.token_urlsafe(24)
+                _issue_parental_consent_token(current_user)
                 # COPPA: no marketing to a child without verified consent.
                 current_user.marketing_emails_opt_in = False
                 current_user.marketing_opt_in_at = None
@@ -19658,8 +19686,43 @@ def account_age_pending():
         "<h1>Almost there</h1>"
         "<p>We've emailed your parent or guardian a link to approve your account. "
         "Once they do, everything unlocks.</p>"
-        "<p>Nothing else is needed from you right now.</p>"
+        "<p>The link expires after 7 days. If it expires or the email did not arrive, "
+        "you can send a fresh request:</p>"
+        "<form method='post' action='/account/age/pending/resend'>"
+        "<button type='submit' style='min-height:44px;padding:0 18px;border:0;border-radius:999px;"
+        "background:#1a56db;color:#fff;font:600 15px system-ui;cursor:pointer'>"
+        "Resend parent approval email</button></form>"
         "<p><a href='/'>Back to IntelliPlan</a></p>"
+    )
+
+
+@app.route("/account/age/pending/resend", methods=["POST"])
+@limiter.limit("4 per hour")
+def account_age_pending_resend():
+    """Rotate and resend the logged-in child's pending parent-consent link."""
+    if not current_user.is_authenticated:
+        return redirect(url_for("login"))
+    age = age_from_birth_year(getattr(current_user, "birth_year", None), utcnow())
+    if (age is None or age >= 13 or not getattr(current_user, "parent_email", None)
+            or getattr(current_user, "parent_consent_granted", False)):
+        return redirect("/")
+    _issue_parental_consent_token(current_user)
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        return _mini_page("Request unavailable",
+                          "<h1>Could not resend the request</h1>"
+                          "<p>Please try again in a moment.</p>"), 500
+    delivered = _send_parental_consent_email(current_user)
+    message = ("A fresh approval link has been sent. It expires after 7 days."
+               if delivered else "The request is ready, but we could not deliver the email. "
+                                "Please try again later or contact support.")
+    return _mini_page(
+        "Parent approval request",
+        "<h1>Parent approval request</h1>"
+        f"<p>{message}</p>"
+        "<p><a href='/account/age/pending'>Back to waiting screen</a></p>",
     )
 
 
@@ -19670,7 +19733,9 @@ def parent_consent():
     if not token:
         return "Missing consent token.", 400
     user = User.query.filter_by(parent_consent_token=token).first()
-    if not user:
+    if not user or not _parental_consent_token_is_active(user):
+        if user:
+            _expire_parental_consent_token(user)
         # Was rendering error.html with error_title/error_message, which that
         # template does not read — it takes error_code/message. The result was
         # a parent with a stale link seeing "500 · Something went wrong",
@@ -19680,8 +19745,8 @@ def parent_consent():
             "<h1>Link not valid</h1>"
             "<p>This consent link no longer works. Either the account was already approved, "
             "or the link has expired.</p>"
-            "<p>If your child still needs approval, ask them to sign up again and you will "
-            "get a fresh consent email.</p>"
+            "<p>If your child still needs approval, ask them to sign in and resend the request "
+            "from the parent-approval waiting screen.</p>"
             "<p><a href='/'>Back to IntelliPlan</a></p>"
         ), 404
     if request.method == "GET":
@@ -19696,6 +19761,7 @@ def parent_consent():
         user.parent_consent_notice_version = parental_notice.NOTICE_VERSION
         user.parent_consent_granted = True
         user.parent_consent_token = None  # one-shot
+        user.parent_consent_expires_at = None
         db.session.commit()
         _welcome_after_age_known(user)
     # Render a tiny inline confirmation — no template needed.
@@ -19724,7 +19790,9 @@ def parent_deny():
     if not token:
         return "Missing consent token.", 400
     user = User.query.filter_by(parent_consent_token=token).first()
-    if not user:
+    if not user or not _parental_consent_token_is_active(user):
+        if user:
+            _expire_parental_consent_token(user)
         return (
             _mini_page(
                 "Link not valid",
@@ -22844,6 +22912,7 @@ def _migrate_user_columns():
         ("users", "parent_email", "VARCHAR(255)"),
         ("users", "parent_consent_granted", "BOOLEAN DEFAULT FALSE"),
         ("users", "parent_consent_token", "VARCHAR(64)"),
+        ("users", "parent_consent_expires_at", "TIMESTAMP"),
         ("users", "lms_preferences", "TEXT DEFAULT '{}'"),
         ("users", "ai_personalization_opt_in", "BOOLEAN DEFAULT FALSE"),
         ("users", "marketing_emails_opt_in", "BOOLEAN DEFAULT FALSE"),
@@ -23156,6 +23225,7 @@ def health_check():
     expected = {"id", "email", "password_hash", "referral_code", "referred_by_id",
                 "email_verified", "email_verification_hash", "email_verification_email_hash",
                 "email_verification_expires_at", "email_verification_sent_at",
+                "parent_consent_token", "parent_consent_expires_at",
                 "trial_started_at", "stripe_paid_until", "stripe_event_created"}
     out["users_schema_ok"] = expected.issubset(set(out["users_columns"]))
     response = flask.jsonify(out)
@@ -23204,7 +23274,7 @@ def _enforce_pending_parental_consent():
         return None
     allowed = {"static", "legal", "privacy_alias_redirect", "terms_alias_redirect", "cookies_page", "logout",
                "account_age_gate", "account_age_pending", "parent_consent", "parent_deny",
-               "account_delete", "delete_account_info", "api_policy_pending",
+               "account_age_pending_resend", "account_delete", "delete_account_info", "api_policy_pending",
                "api_policy_acknowledge", "api_cookie_consent_state", "api_cookie_consent_save"}
     if request.path in {"/api/v1/me", "/api/v1/age/parent-consent/resend",
                         "/api/v1/email-verification/resend", "/api/v1/push/unregister"}:

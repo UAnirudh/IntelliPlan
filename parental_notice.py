@@ -29,6 +29,7 @@ def email_body(child_email: str, approval_url: str, denial_url: str, base_url: s
             + f"\n\nRead the full privacy policy: {base_url.rstrip('/')}/legal#p-coppa"
             + f"\nReview and explicitly approve: {approval_url}"
             + f"\nReview and delete the pending signup: {denial_url}"
+            + "\nThese one-time links expire after 7 days. Ask your child to resend the request if they expire."
             + "\n\nOpening either link does not approve or delete the account. "
               "If you do not approve, the account stays pending. Contact us to remove an unwanted signup. "
               "Email approval is the current account gate, not independent verification of adult identity."

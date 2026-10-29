@@ -21,7 +21,7 @@ Status: local implementation and policy corrections; badges published separately
 
 | Data / purpose | Stores and recipients | Current evidence and decision required |
 | --- | --- | --- |
-| Account, birth year, parental contact, policy/optional consent | Application database, authentication/email providers | Versioned consent records implemented. Decide lawful operator identity, pending-signup expiry and verifiable adult method. Approval tokens have no verified automatic expiry/purge. |
+| Account, birth year, parental contact, policy/optional consent | Application database, authentication/email providers | Versioned consent records implemented. Parental approval links expire after 7 days and resend rotates the token. Pending-account purge, lawful operator identity and a verifiable adult method still require review. |
 | LMS credentials/tokens, assignments, grades, calendars | Database; authorized LMS/calendar/document providers | Encrypted credential fields exist; import scopes and scheduled synchronization must match school/provider permission. Parent permission does not establish school authorization. |
 | Notes, lesson media, transcripts, learning memory, tutor prompts | Database, upload storage, configured AI/media providers | Owned-file deletion corrected. Verify all storage volumes, provider retention/DPA, age permission and minimization before child/school use. |
 | Study activity and buddy pair | Database; expressly confirmed peers | Sharing gated by current evidence, mutual confirmation and eligibility. Stored personal activity may predate a pair. Revocation hides views, not peer copies or queued notifications. |
