@@ -112,7 +112,7 @@ export const SIDEBAR: NavItem[] = [
     key: "my_stats",
     label: "My Stats",
     icon: "pie-chart-outline",
-    page: "my_stats",
+    route: "/stats",
     blurb: "Your study numbers over time",
   },
 ];
