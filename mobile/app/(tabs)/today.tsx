@@ -182,15 +182,18 @@ export default function TodayScreen() {
   const [busyTitle, setBusyTitle] = useState<string | null>(null);
   const [done, setDone] = useState<Set<string>>(new Set());
   const [rebuilding, setRebuilding] = useState(false);
+  const [actionError, setActionError] = useState<{ title: string; message: string } | null>(null);
 
   const complete = useCallback(async (title: string) => {
     setBusyTitle(title);
+    setActionError(null);
     try {
       await dismissTask(title);
       void refreshAndSyncReminders().catch(() => {});
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       setDone((prev) => new Set(prev).add(title));
     } catch {
+      setActionError({ title, message: "Couldn't update this task. Check your connection, then tap the check to retry." });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
     } finally {
       setBusyTitle(null);
@@ -378,7 +381,6 @@ export default function TodayScreen() {
         {today.error && !today.missing && !today.stale ? (
           <Notice text={today.error} icon="alert-circle-outline" />
         ) : null}
-
         {featuredTask ? (
           <Card
             style={{
@@ -453,6 +455,9 @@ export default function TodayScreen() {
               icon="play"
               onPress={() => startTask(featuredTask)}
             />
+            {actionError?.title === featuredTask.title ? (
+              <Notice text={actionError.message} icon="alert-circle-outline" />
+            ) : null}
           </Card>
         ) : focusedBlock ? (
           <Card style={{ gap: space.md, backgroundColor: colors.accentSoft, borderColor: colors.borderAccent }}>
@@ -653,6 +658,7 @@ export default function TodayScreen() {
                       }
                 }
                 busy={busyTitle === task.title}
+                error={actionError?.title === task.title ? actionError.message : undefined}
                 onToggle={() => complete(task.title)}
                 onPress={() => openTask(task)}
               />
