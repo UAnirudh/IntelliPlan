@@ -63,6 +63,11 @@ for the official artifact inspection utility.
       Play App Signing agreements in Play Console.
 - [ ] Create the Play app with package `tech.intelliplan.app`. Confirm the
       app type, default language, free/paid choice, and public support email.
+- [ ] Check the account type and whether Play Console requires a closed-test
+      period. Newly created personal developer accounts (after November 13,
+      2023) need at least 12 testers continuously opted in for 14 days before
+      applying for production access. Follow the current [Play testing
+      requirements](https://support.google.com/googleplay/android-developer/answer/14151465?hl=en).
 - [ ] Create or select the EAS project from `mobile/` with the owner account:
 
   ```powershell
@@ -92,6 +97,19 @@ cd mobile
 npx eas build --platform android --profile production
 npx eas submit --platform android --profile production
 ```
+
+For a new personal developer account that must complete a closed test, submit
+the production AAB to the configured alpha-track profile and release it to the
+opted-in closed testers:
+
+```powershell
+npx eas submit --platform android --profile closed-test
+```
+
+Keep at least 12 testers opted in for 14 consecutive days before applying for
+production access when that requirement applies to the developer account.
+The regular `production` submit profile targets the production track as a
+draft, so the owner must send it for review and rollout from Play Console.
 
 The `submit.production.android` profile targets the **production** track and
 marks an upload as a **draft**. This sends the bundle to the intended public

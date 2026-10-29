@@ -274,8 +274,13 @@ npm run test:release-preflight
 The production Android submit profile selects the Play production track but
 leaves the release in draft. After upload, complete the store listing and
 review checklist in Play Console before manually sending the release for
-review. EAS project linkage, login, Play credentials, and a signed app bundle
-are still required before submission.
+review. For new personal Play developer accounts created after November 13,
+2023, Google requires a closed test with at least 12 opted-in testers for 14
+continuous days before production access. The `closed-test` submit profile
+targets Play's alpha track and releases to those opted-in testers; see the
+[Play testing requirements](https://support.google.com/googleplay/android-developer/answer/14151465?hl=en).
+EAS project linkage, login, Play credentials, and a signed app bundle are
+still required before submission.
 
 The preflight checks app identity and version fields, EAS project linkage,
 production API URL, Android app-bundle/versioning settings, and whether an

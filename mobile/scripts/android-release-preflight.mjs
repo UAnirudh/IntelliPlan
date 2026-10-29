@@ -82,6 +82,10 @@ export function inspectReleaseConfig({ appConfig, easConfig, env = {}, authState
   if (easConfig?.submit?.production?.android?.releaseStatus === "draft") {
     checks.push({ status: "INFO", message: "Android production uploads stay in draft until manually submitted in Play Console." });
   }
+  if (easConfig?.submit?.["closed-test"]?.android?.track === "alpha" &&
+      easConfig?.submit?.["closed-test"]?.android?.releaseStatus === "completed") {
+    checks.push({ status: "INFO", message: "A closed-testing submit profile targets the alpha track for opted-in testers." });
+  }
   return checks;
 }
 
