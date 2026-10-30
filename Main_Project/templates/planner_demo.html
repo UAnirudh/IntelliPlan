@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Try a fictional week | IntelliPlan</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/planner-demo.css') }}">
+  <script src="{{ url_for('static', filename='js/planner-demo.js') }}" defer></script>
+</head>
+<body>
+<header><a href="/">IntelliPlan</a><a href="/login/account">Sign in for your own coursework</a></header>
+<main>
+  <h1>Try a fictional week</h1>
+  <p class="intro">Build a plan, mark a block complete or missed, then adjust what remains.</p>
+  <aside aria-label="Demo privacy"><strong>Fabricated coursework only.</strong> These examples describe no real learner or school. Changes last only on this page and disappear when you reload. This demo uses no AI and saves no coursework. Sign in and complete account setup before using your own records.</aside>
+  <section aria-labelledby="examples-heading">
+    <h2 id="examples-heading">Three example tasks</h2>
+    <ul class="examples">
+      <li>Review fictional fraction exercises <span>25 minutes</span></li>
+      <li>Outline an imaginary science poster <span>25 minutes</span></li>
+      <li>Read a sample history chapter <span>20 minutes</span></li>
+    </ul>
+    <p>Example deadline: Thursday at 5 pm. Available days: Monday through Thursday, starting at 4 pm. A five-minute break separates blocks on the same day.</p>
+  </section>
+  <section aria-labelledby="availability-heading">
+    <h2 id="availability-heading">Choose example availability</h2>
+    <label for="demo-minutes">Time available each afternoon</label>
+    <select id="demo-minutes">
+      <option value="30">30 minutes, 4–4:30 pm</option>
+      <option value="60">60 minutes, 4–5 pm</option>
+    </select>
+    <div class="actions">
+      <button id="demo-build" type="button">Build example plan</button>
+      <button id="demo-adjust" type="button" hidden>Adjust remaining work</button>
+      <button id="demo-reset" type="button" class="secondary">Reset demo</button>
+    </div>
+    <p id="demo-status" role="status" aria-live="polite" aria-atomic="true">Choose availability, then build the example plan.</p>
+  </section>
+  <section id="demo-result" aria-labelledby="plan-heading" hidden>
+    <h2 id="plan-heading" tabindex="-1">Your example plan</h2>
+    <div id="demo-days"></div>
+    <div id="demo-unplaced"></div>
+    <div id="demo-completed"></div>
+  </section>
+  <noscript><p>This interactive demonstration needs JavaScript. The three fictional tasks above remain readable without it.</p></noscript>
+</main>
+<footer><a href="/legal">Privacy and terms</a><span>Demonstration only; no school approval or student benefit is claimed.</span></footer>
+</body>
+</html>
