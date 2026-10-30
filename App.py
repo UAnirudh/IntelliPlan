@@ -602,7 +602,7 @@ def add_cors_headers(response):
             "https://intelliplan.tech http://localhost:5000"
         )
     csp_header_name = "Content-Security-Policy" if os.getenv("CSP_ENFORCE") == "1" else "Content-Security-Policy-Report-Only"
-    response.headers[csp_header_name] = csp_value
+    response.headers.setdefault(csp_header_name, csp_value)
     response.headers["X-Permitted-Cross-Domain-Policies"] = "none"
     return response
 
@@ -22660,6 +22660,9 @@ limiter.limit("30 per minute")(app.view_functions["group_voice_bp.voice_heartbea
 # (preview, then commit), so neither can live on the shared per-IP default;
 # the two endpoints that reach a school system or the vision model get the
 # tight budgets.
+from intelliplan.api.planner_demo import bp as planner_demo_bp
+app.register_blueprint(planner_demo_bp)
+
 from intelliplan.api.timetable import bp as timetable_bp
 app.register_blueprint(timetable_bp)
 limiter.limit("240 per hour")(app.view_functions["timetable.today_timeline"])
@@ -23275,7 +23278,7 @@ def _enforce_pending_parental_consent():
     allowed = {"static", "legal", "privacy_alias_redirect", "terms_alias_redirect", "cookies_page", "logout",
                "account_age_gate", "account_age_pending", "parent_consent", "parent_deny",
                "account_age_pending_resend", "account_delete", "delete_account_info", "api_policy_pending",
-               "api_policy_acknowledge", "api_cookie_consent_state", "api_cookie_consent_save"}
+               "api_policy_acknowledge", "api_cookie_consent_state", "api_cookie_consent_save", "planner_demo.demo"}
     if request.path in {"/api/v1/me", "/api/v1/age/parent-consent/resend",
                         "/api/v1/email-verification/resend", "/api/v1/push/unregister"}:
         return None
