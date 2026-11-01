@@ -769,7 +769,7 @@ def revoke_credit(user_id: int, amount_micro: int, *, reason: str = "refund",
     return True
 
 
-def apply_billing_event(user: Any, event: Any) -> str:
+def apply_billing_event(user: Any, event: Any, now: datetime | None = None) -> str:
     """Credit a confirmed top-up or claw back a refunded/disputed top-up."""
     kind = event["type"]
     obj = event["data"]["object"]
@@ -779,7 +779,7 @@ def apply_billing_event(user: Any, event: Any) -> str:
             return ''
         from App import AICreditGrant
         ref = f"cs:{obj['id']}"
-        granted = grant_credit(user.id, catalog.topup().credit_micro, reason='topup', stripe_ref=ref)
+        granted = grant_credit(user.id, catalog.topup().credit_micro, reason='topup', stripe_ref=ref, now=now)
         if not granted and not AICreditGrant.query.filter_by(stripe_ref=ref, user_id=user.id).first():
             # A duplicate is successful; a storage failure must be retried.
             raise RuntimeError('Paid top-up credit could not be persisted.')
@@ -796,7 +796,7 @@ def apply_billing_event(user: Any, event: Any) -> str:
         from App import AICreditGrant
         ref = f"rev:{ref_id}"
         reason = 'refund' if kind == 'charge.refunded' else 'dispute'
-        revoked = revoke_credit(user.id, catalog.topup().credit_micro, reason=reason, stripe_ref=ref)
+        revoked = revoke_credit(user.id, catalog.topup().credit_micro, reason=reason, stripe_ref=ref, now=now)
         if not revoked and not AICreditGrant.query.filter_by(stripe_ref=ref, user_id=user.id).first():
             raise RuntimeError('Top-up credit revocation could not be persisted.')
         return "topup_revoked"

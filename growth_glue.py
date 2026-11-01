@@ -876,7 +876,7 @@ def apply_billing_event(event: Any, now: datetime | None = None) -> bool:
             user = None
         if user is None:
             return False
-        return bool(premium_glue.apply_billing_event(user, event))
+        return bool(premium_glue.apply_billing_event(user, event, now=now))
     from intelliplan.premium.billing_events import paid_period, revoked_period
 
     revocation = revoked_period(event)
