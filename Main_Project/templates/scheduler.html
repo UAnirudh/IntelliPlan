@@ -1767,6 +1767,13 @@ function escapeText(s) {
   );
 }
 
+// Schedule colors can originate in imported assignment data. Restrict them
+// to plain hex values before placing them in an inline style attribute.
+function safeScheduleColor(value) {
+  const color = String(value ?? '').trim();
+  return /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(color) ? color : '';
+}
+
 /* Escape a time range for display, binding each clock time together with a
    non-breaking space. The column is too narrow for "12:00 PM - 12:45 PM" on
    one line, so it has to wrap — but it must wrap at the dash, never between
@@ -2382,7 +2389,9 @@ function renderSchedule(data) {
         <div class="day-hours">${escapeText(schedFmtHours(day.total_hours))} planned</div>
       </div>
       <div class="day-blocks">
-        ${(day.blocks || []).map(block => block.is_break ? `
+        ${(day.blocks || []).map(block => {
+          const color = safeScheduleColor(block.color);
+          return block.is_break ? `
           <div class="time-block break-block"
                data-ip-block="${escapeText(JSON.stringify(block))}"
                role="button" tabindex="0"
@@ -2397,12 +2406,13 @@ function renderSchedule(data) {
                aria-label="Open details for ${escapeText(blockTitle(block))}">
             <div class="time-slot">${escapeTimeSlot(block.time_slot || '')}</div>
             <div class="block-content">
-              <div class="block-title">${block.color ? `<span class="block-swatch" style="background:${block.color}"></span>` : ''}${escapeText(blockTitle(block))}${partPill(block)}</div>
+              <div class="block-title">${color ? `<span class="block-swatch" style="background:${color}"></span>` : ''}${escapeText(blockTitle(block))}${partPill(block)}</div>
               ${block.course ? `<div class="block-course">${escapeText(block.course)}</div>` : ''}
               ${block.notes ? `<div class="block-notes">${escapeText(block.notes)}</div>` : ''}
             </div>
             <div class="block-duration">${escapeText(schedFmtMinutes(block.duration_minutes))}</div>
-          </div>`).join('')}
+          </div>`;
+        }).join('')}
       </div>
       ${day.daily_tip ? `<p class="daily-tip">${escapeText(day.daily_tip)}</p>` : ''}
     </section>`;

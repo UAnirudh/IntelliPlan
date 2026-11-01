@@ -57,7 +57,12 @@ PLAN = {
                   'workload_level': 'light', 'blocks': [
                       {'block_id': 'd1-b1', 'assignment': 'Algebra practice',
                        'course': 'Math', 'time_slot': '2:00 PM - 3:00 PM',
-                       'duration_minutes': 60, 'notes': 'Solve and check five equations.'}]}],
+                       'duration_minutes': 60, 'notes': 'Solve and check five equations.',
+                       'color': '#3b82f6'},
+                      {'block_id': 'd1-b2', 'assignment': 'Imported task',
+                       'course': 'Math', 'time_slot': '3:00 PM - 3:30 PM',
+                       'duration_minutes': 30,
+                       'color': '#fff" onpointerenter="window.injected=true'}]}],
 }
 
 
@@ -232,8 +237,13 @@ def run_width(browser, width):
         with page.expect_response(lambda res: urlsplit(res.url).path == '/generate_schedule'):
             page.locator('#generateBtn').click()
         expect(page.locator('#scheduleResults')).to_be_visible()
-        expect(page.locator('.day-card .block-title')).to_have_text('Algebra practice')
-        expect(page.locator('.day-card .time-slot')).to_contain_text('2:00 PM')
+        expect(page.locator('.day-card .block-title').first).to_have_text('Algebra practice')
+        expect(page.locator('.day-card .time-slot').first).to_contain_text('2:00 PM')
+        expect(page.locator('.block-swatch')).to_have_count(1)
+        assert page.locator('.block-swatch').evaluate('(el) => el.style.backgroundColor') == 'rgb(59, 130, 246)'
+        assert page.locator('.block-swatch[onpointerenter]').count() == 0
+        assert page.locator('.day-blocks img').count() == 0
+        assert not page.evaluate('Boolean(window.injected)'), 'Imported schedule color executed markup'
         expect(page.locator('#calExportBtn')).to_have_text('Export to calendar')
         assert len(generated) == 1
         assert [row['id'] for row in generated[0]['assignments']] == ['11'], generated
