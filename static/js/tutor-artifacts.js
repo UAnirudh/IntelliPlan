@@ -138,24 +138,70 @@
     var status = element('p', '', wrap);
     status.setAttribute('role', 'status');
     status.setAttribute('aria-live', 'polite');
-    config.cards.forEach(function (card, index) {
-      var section = element('article', undefined, wrap);
-      section.className = 'tutor-flashcard';
-      var count = element('small', 'Card ' + (index + 1) + ' of ' + config.cards.length, section);
-      count.className = 'tutor-flashcard-count';
-      element('h3', card.question.trim(), section);
-      var answer = element('p', card.answer.trim(), section);
+    status.setAttribute('aria-atomic', 'true');
+    var deck = element('div', undefined, wrap);
+    deck.className = 'tutor-flashcard-deck';
+    var section = element('article', undefined, deck);
+    section.className = 'tutor-flashcard';
+    var count = element('small', '', section);
+    count.className = 'tutor-flashcard-count';
+    var question = element('h3', '', section);
+    var answer = element('p', '', section);
+    answer.className = 'tutor-flashcard-answer';
+    answer.hidden = true;
+
+    var progress = element('div', undefined, deck);
+    progress.className = 'tutor-flashcard-progress';
+    progress.setAttribute('role', 'progressbar');
+    progress.setAttribute('aria-label', 'Flashcard progress');
+    progress.setAttribute('aria-valuemin', '1');
+    progress.setAttribute('aria-valuemax', String(config.cards.length));
+    var progressFill = element('span', undefined, progress);
+
+    var controls = element('div', undefined, deck);
+    controls.className = 'tutor-flashcard-controls';
+    controls.setAttribute('role', 'group');
+    controls.setAttribute('aria-label', 'Flashcard controls');
+    var previous = element('button', 'Previous', controls);
+    previous.type = 'button';
+    previous.setAttribute('aria-label', 'Previous flashcard');
+    var reveal = element('button', 'Show answer', controls);
+    reveal.type = 'button';
+    reveal.className = 'tutor-flashcard-reveal';
+    reveal.setAttribute('aria-expanded', 'false');
+    var next = element('button', 'Next', controls);
+    next.type = 'button';
+    next.setAttribute('aria-label', 'Next flashcard');
+
+    var current = 0;
+    function renderCard(announce) {
+      var card = config.cards[current];
+      count.textContent = 'Card ' + (current + 1) + ' of ' + config.cards.length;
+      question.textContent = card.question.trim();
+      answer.textContent = card.answer.trim();
       answer.hidden = true;
-      var button = element('button', 'Show answer', section);
-      button.type = 'button';
-      button.setAttribute('aria-expanded', 'false');
-      button.addEventListener('click', function () {
-        answer.hidden = !answer.hidden;
-        button.textContent = answer.hidden ? 'Show answer' : 'Hide answer';
-        button.setAttribute('aria-expanded', String(!answer.hidden));
-        status.textContent = answer.hidden ? 'Answer hidden.' : 'Answer revealed.';
-      });
+      reveal.textContent = 'Show answer';
+      reveal.setAttribute('aria-expanded', 'false');
+      previous.disabled = current === 0;
+      next.disabled = current === config.cards.length - 1;
+      progressFill.style.width = ((current + 1) / config.cards.length * 100) + '%';
+      progress.setAttribute('aria-valuenow', String(current + 1));
+      if (announce) status.textContent = 'Card ' + (current + 1) + ' of ' + config.cards.length + '. Answer hidden.';
+    }
+    previous.addEventListener('click', function () {
+      if (current > 0) { current -= 1; renderCard(true); }
     });
+    next.addEventListener('click', function () {
+      if (current < config.cards.length - 1) { current += 1; renderCard(true); }
+    });
+    reveal.addEventListener('click', function () {
+      answer.hidden = !answer.hidden;
+      reveal.textContent = answer.hidden ? 'Show answer' : 'Hide answer';
+      reveal.setAttribute('aria-expanded', String(!answer.hidden));
+      status.textContent = 'Card ' + (current + 1) + ' of ' + config.cards.length +
+        (answer.hidden ? '. Answer hidden.' : '. Answer revealed.');
+    });
+    renderCard(false);
     element('small', 'Generated from study material. Check the linked notes when accuracy matters.', wrap);
   }
   function create(segment) {
