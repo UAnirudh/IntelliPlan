@@ -246,8 +246,11 @@ def test_trial_requires_config_is_one_time_and_skips_partner_members(monkeypatch
         App.db.create_all()
         M = policy.models()
         school = _org()
+        domain_name = f"partner-{uuid4().hex}.edu"
+        App.db.session.add(M['SchoolDomain'](organization_id=school.id, domain=domain_name,
+            verification_hash='x', verified_at=now, created_by_id=1))
         App.db.session.add(M['SchoolPlan'](organization_id=school.id, plan_tier='pro', updated_by_id=1))
-        partner = _user(verified=True)
+        partner = _user(f'partner@{domain_name}', verified=True)
         App.db.session.add(M['Membership'](user_id=partner.id, organization_id=school.id, role='student'))
         individual = _user(verified=True)
         App.db.session.commit()
@@ -280,3 +283,64 @@ def test_trial_requires_config_is_one_time_and_skips_partner_members(monkeypatch
         App.db.session.commit()
         assert growth_glue.grant_signup_trial(individual, now + timedelta(days=30)) is False
         assert individual.trial_started_at == now
+
+
+def test_external_school_admin_addition_keeps_membership_but_not_school_paid_access(monkeypatch):
+    now = datetime(2026, 10, 31, 12)
+    domain_name = f"partner-{uuid4().hex}.edu"
+    previous = App.limiter.enabled
+    App.limiter.enabled = False
+    App.app.config['TESTING'] = True
+    try:
+        with App.app.app_context():
+            App.db.create_all()
+            M = policy.models()
+            school = _org('Partner school')
+            admin = _user(f'admin-{uuid4().hex}@example.test')
+            external = _user(f'external-{uuid4().hex}@example.test', verified=True)
+            partner = _user(f'partner@{domain_name}', verified=True)
+            App.db.session.add_all([
+                M['Membership'](user_id=admin.id, organization_id=school.id, role='admin'),
+                M['Membership'](user_id=partner.id, organization_id=school.id, role='student'),
+                M['SchoolDomain'](organization_id=school.id, domain=domain_name,
+                    verification_hash='x', verified_at=now, created_by_id=admin.id),
+                M['SchoolPlan'](organization_id=school.id, plan_tier='pro', updated_by_id=admin.id),
+            ])
+            App.db.session.commit()
+            admin_id, external_id, partner_id, school_id = admin.id, external.id, partner.id, school.id
+            external_email = external.email
+
+        monkeypatch.setenv('BILLING_ENABLED', '1')
+        monkeypatch.setenv('STRIPE_SECRET_KEY', 'fixture-only-no-network')
+        monkeypatch.setenv('BILLING_TRIAL_DAYS', '14')
+        monkeypatch.setenv('STRIPE_PRICE_ID', 'price_pro_test')
+        monkeypatch.setattr(growth_glue, '_stripe', lambda interval, tier: (object(), 'price_pro_test'))
+        client = App.app.test_client()
+        _login(client, admin_id)
+        added = client.post(f'/api/school-admin/organizations/{school_id}/members',
+            json={'email': external_email, 'role': 'teacher'})
+        assert added.status_code == 200, added.get_json()
+
+        with App.app.app_context():
+            M = policy.models()
+            external = App.db.session.get(App.User, external_id)
+            partner = App.db.session.get(App.User, partner_id)
+            # Roster access remains available to the external account.
+            assert M['Membership'].query.filter_by(user_id=external_id,
+                organization_id=school_id, role='teacher').one()
+            assert school_id in {org.id for org in policy.organizations(external)}
+            # But a manual roster entry alone neither applies the school-paid
+            # plan nor skips the normal individual trial.
+            assert entitlements.school_plan_for(external) is None
+            assert entitlements.is_partnered_user(external) is False
+            assert growth_glue.grant_signup_trial(external, now) is True
+            assert external.trial_started_at == now
+            # A verified member in the same school domain gets the owner-set
+            # school tier and does not consume an individual trial.
+            assert entitlements.school_plan_for(partner) == 'pro'
+            assert entitlements.is_partnered_user(partner) is True
+            assert growth_glue.grant_signup_trial(partner, now) is False
+            assert partner.trial_started_at is None
+            App.db.session.commit()
+    finally:
+        App.limiter.enabled = previous
