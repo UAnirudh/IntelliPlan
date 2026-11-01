@@ -35,12 +35,12 @@ export default function StatsScreen() {
   const maxStudy = Math.max(1, ...activity.map((day) => day.study));
 
   if (stats.loading && !stats.data) {
-    return <Screen><Header title="My Stats" subtitle="Your progress, over time" /><Loading label="Loading your progress…" /></Screen>;
+    return <Screen><Header title="My Stats" subtitle="Your progress, over time" showBack /><Loading label="Loading your progress…" /></Screen>;
   }
 
   return (
     <Screen>
-      <Header title="My Stats" subtitle="Small steps add up" showSettings />
+      <Header title="My Stats" subtitle="Small steps add up" showBack showSettings />
       <ScrollView
         contentContainerStyle={{ padding: space.lg, paddingBottom: insets.bottom + 104, gap: space.lg }}
         refreshControl={<RefreshControl refreshing={stats.refreshing} onRefresh={stats.refresh} tintColor={colors.accent} />}

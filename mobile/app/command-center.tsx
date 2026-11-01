@@ -106,7 +106,7 @@ export default function CommandCenterScreen() {
 
   return (
     <Screen>
-      <Header title="Command Center" subtitle="Plan your day with Plani" showSettings />
+      <Header title="Command Center" subtitle="Plan your day with Plani" showBack showSettings />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView
           ref={scrollRef}
