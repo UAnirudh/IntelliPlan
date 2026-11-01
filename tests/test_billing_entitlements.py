@@ -498,7 +498,7 @@ def test_partial_refund_does_not_revoke_subscription_or_topup(owner):
 @pytest.mark.parametrize('kind', ['charge.refunded', 'charge.dispute.created', 'charge.dispute.funds_withdrawn'])
 def test_topup_refund_or_dispute_claws_back_credit_idempotently(owner, kind):
     assert growth_glue.apply_billing_event(topup(owner), now=NOW)
-    period = utcnow().strftime('%Y-%m')
+    period = NOW.strftime('%Y-%m')
     assert premium_glue.granted_micro(owner, period) == 4_000_000
 
     rev = {'type': kind, 'created': 200, 'data': {'object': {
