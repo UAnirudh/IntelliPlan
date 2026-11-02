@@ -325,6 +325,89 @@ def test_explicit_test_prep_retrieves_only_the_students_notes_and_returns_citati
     }]
 
 
+def test_saved_note_flows_through_real_retrieval_into_tutor_prompt(client, monkeypatch):
+    """Exercise the actual CourseNote -> index -> tutor path without a model call."""
+    _sign_in(client, consent=True)
+    with App.app.app_context():
+        owner = User.query.filter_by(email='tam+student@example.com').one()
+        other = User(email='tam+other@example.com', password_hash='x', birth_year=2000)
+        db.session.add(other)
+        db.session.flush()
+        owner_id, other_id = owner.id, other.id
+        own_note = App.CourseNote(
+            user_id=owner_id, course_name='Biology', note_date='2026-10-20',
+            title='Cell respiration review',
+            text_content=("Biology test flashcards: mitochondria and ATP. Mitochondria's inner "
+                          'membrane performs oxidative phosphorylation and produces ATP, the '
+                          "cell's usable energy currency."),
+        )
+        private_note = App.CourseNote(
+            user_id=other_id, course_name='Biology', note_date='2026-10-20',
+            title='Private mitochondria note',
+            text_content=('PRIVATE OTHER STUDENT NOTE: mitochondria produce ATP; this text '
+                          'must never be included in another student\'s study answer.'),
+        )
+        db.session.add_all([own_note, private_note])
+        db.session.commit()
+        own_note_id = own_note.id
+
+    # Use the production lexical index, but keep this test independent of
+    # network credentials and external embedding providers.
+    from intelliplan.learning import policy
+    from intelliplan.retrieval import index as retrieval_index
+    monkeypatch.setattr(retrieval_index, 'dense_embed', lambda *a, **k: None)
+    monkeypatch.setattr(policy, 'decision', lambda user, feature: (True, 'allowed'))
+    monkeypatch.setattr(policy, 'permitted_providers', lambda user: {'groq'})
+    monkeypatch.setattr(chatbot_api, '_reserve_tutor_message', lambda: (True, 49, 50, None))
+    monkeypatch.setattr(chatbot_api.ai_firewall, 'guard',
+                        lambda *a, **k: SimpleNamespace(max_output_tokens=1800, plan='free'))
+    monkeypatch.setattr(chatbot_api.ai_firewall, 'record_tokens', lambda *a, **k: None)
+    monkeypatch.setattr(chatbot_api, '_safety_check_user_message', lambda *a: None)
+    monkeypatch.setattr(chatbot_api, '_safety_check_assistant_reply', lambda *a: None)
+    monkeypatch.setattr(chatbot_api, '_load_tutor_memory', lambda: {'id': 1, 'profile_json': '{}'})
+    monkeypatch.setattr(chatbot_api, '_build_tutor_memory_prompt', lambda *a: '')
+    monkeypatch.setattr(chatbot_api, '_build_identity_prompt', lambda *a: '')
+    monkeypatch.setattr(chatbot_api, '_build_personalization_prompt', lambda **k: None)
+    monkeypatch.setattr(chatbot_api, '_prepare_adaptive_turn', lambda *a: None)
+    monkeypatch.setattr(chatbot_api, '_load_user_identity', lambda: {})
+    monkeypatch.setattr(chatbot_api, '_save_tutor_profile', lambda *a: None)
+    monkeypatch.setattr(chatbot_api, '_record_adaptive_turn', lambda *a: None)
+    monkeypatch.setattr(chatbot_api, '_premium_tutor_turn', lambda *a: None)
+    monkeypatch.setattr(chatbot_api, '_ensure_conversation',
+                        lambda *a: {'id': 31, 'title': 'Mitochondria test prep'})
+    monkeypatch.setattr(chatbot_api, '_save_conversation', lambda *a: None)
+    monkeypatch.setattr('intelliplan.learning.evidence.tutor_context', lambda user: '')
+    seen_messages = []
+    monkeypatch.setattr(chatbot_api, '_llm_chat', lambda **kwargs: (
+        seen_messages.extend(kwargs['messages']) or 'ATP is produced by mitochondria. [N1]'))
+
+    try:
+        result = client.post('/api/tutor', json={'messages': [{
+            'role': 'user', 'content': 'Make flashcards for my biology test on mitochondria and ATP.'
+        }]})
+
+        assert result.status_code == 200, result.get_json()
+        prompt = '\n'.join(message['content'] for message in seen_messages
+                           if message['role'] == 'system')
+        assert 'Mitochondria' in prompt and 'oxidative phosphorylation' in prompt
+        assert 'PRIVATE OTHER STUDENT NOTE' not in prompt
+        assert result.json['study_sources'] == [{
+            'note_id': own_note_id, 'title': 'Cell respiration review',
+            'course': 'Biology', 'date': '2026-10-20',
+        }]
+        with App.app.app_context():
+            chunks = App.MemoryChunk.query.filter_by(user_id=owner_id, source='note').all()
+            assert chunks and all(row.user_id == owner_id for row in chunks)
+            assert not App.MemoryChunk.query.filter_by(user_id=other_id, source='note').count()
+    finally:
+        with App.app.app_context():
+            App._retrieval.purge_user(owner_id)
+            App._retrieval.purge_user(other_id)
+            App.CourseNote.query.filter(App.CourseNote.user_id.in_((owner_id, other_id))).delete(
+                synchronize_session=False)
+            db.session.commit()
+
+
 def test_tutor_history_persists_valid_note_sources_and_keeps_conversations_owner_scoped(client):
     _sign_in(client, consent=False)
     created = client.post('/api/tutor/conversations', json={'title': 'Cell structure test prep'})
