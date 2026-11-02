@@ -2165,8 +2165,22 @@ def chatbot():
     except SafetyUnavailable:
         return jsonify(error='safety_unavailable', retryable=True,
             reply="Plani's safety check is temporarily unavailable. Please try again shortly."), 503
+    except AIBlocked as e:
+        payload = {'error': e.reason, 'reply': e.message, 'retryable': bool(e.retry_after)}
+        if e.retry_after:
+            payload['retry_after'] = e.retry_after
+        return jsonify(payload), e.status
+    except AIQuotaExhausted as e:
+        wait = getattr(e, 'retry_after', None)
+        when = f' Try again in about {wait} seconds.' if wait else ' Try again shortly.'
+        print(f'Plani chatbot out of AI quota: {e}')
+        return jsonify(error='ai_quota_exhausted', retryable=True,
+            retry_after=wait, reply="Plani has reached today's AI limit." + when), 503
+    except AIUnavailable as e:
+        print(f'Plani chatbot has no AI backend: {e}')
+        return jsonify(error='ai_unavailable', retryable=True,
+            reply="Plani's AI is not reachable right now. This is on our side, not yours."), 503
     except Exception as e:
         print(f'Plani chatbot error: {e}')
-        return jsonify({
-            'reply': "Oops, I had a little glitch! 🤖 Try again in a moment. If it keeps happening, check the Discord!"
-        })
+        return jsonify(error='chat_failed', retryable=True,
+            reply="I couldn't generate a reply just now. Your message is still in the composer; please try again."), 502
