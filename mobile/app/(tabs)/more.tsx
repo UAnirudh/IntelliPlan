@@ -6,7 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import * as WebBrowser from "expo-web-browser";
 import { startLinkSession } from "../../lib/api";
-import { MORE_ITEMS, NavItem, SIDEBAR_FOOT } from "../../lib/nav";
+import { MORE_GROUPS, NavItem, SIDEBAR_FOOT } from "../../lib/nav";
 import { useAuth } from "../../lib/auth";
 import { useTheme } from "../../theme/ThemeProvider";
 import { radius, space } from "../../theme/tokens";
@@ -85,7 +85,12 @@ export default function MoreScreen() {
       >
         {error ? <Notice text={error} icon="alert-circle-outline" /> : null}
 
-        <Group items={MORE_ITEMS} opening={opening} onOpen={open} />
+        {MORE_GROUPS.map((group) => (
+          <View key={group.label} style={{ gap: space.xs }}>
+            <Label style={{ marginLeft: space.xs }}>{group.label}</Label>
+            <Group items={group.items} opening={opening} onOpen={open} />
+          </View>
+        ))}
 
         <Label style={{ marginTop: space.sm, marginLeft: space.xs }}>Account</Label>
         <Group items={SIDEBAR_FOOT} opening={opening} onOpen={open}>
