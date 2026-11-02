@@ -122,3 +122,4 @@ def test_verified_admin_allowlist_email_does_not_receive_founder_privileges(monk
         monkeypatch.setattr(App, "ADMIN_EMAILS", {admin.email.lower()})
         monkeypatch.setattr(App, "FOUNDER_EMAIL", "founder@example.test")
         assert not App.is_owner(admin)
+        assert not App.is_admin(admin)
