@@ -110,7 +110,7 @@ def test_family_hostname_account_and_configured_hostname(accounts, monkeypatch):
     with App.app.app_context():
         App.db.session.get(App.User, accounts['parent']['id']).email_verified = True
         App.db.session.commit()
-    monkeypatch.setattr(App, 'ADMIN_EMAILS', App.ADMIN_EMAILS | {accounts['parent']['email']})
+    monkeypatch.setattr(App, 'FOUNDER_EMAIL', accounts['parent']['email'])
     page = client.get('/admin/accounts', base_url=host)
     assert page.status_code == 200 and b'adult-workspace' in page.data
 

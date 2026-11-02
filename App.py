@@ -18770,6 +18770,11 @@ def error_403(e):
 # ── ADMIN / FEATURE FLAGS ───────────────────────────────────────────
 # Hidden admin surface for the project owner. Email-gated so even if
 # someone discovers the URL, only the configured account can use it.
+# Exactly one configured account receives Founder-level controls. This is
+# intentionally separate from ADMIN_EMAILS, which is a delivery/test allowlist
+# and may contain other operators who should remain delegated admins.
+FOUNDER_EMAIL = (os.getenv("FOUNDER_EMAIL") or "uanirudh0811@gmail.com").strip().lower()
+
 ADMIN_EMAILS = {
     e.strip().lower()
     for e in (os.getenv("ADMIN_EMAILS") or "uanirudh0811@gmail.com").split(",")
@@ -18781,7 +18786,7 @@ ADMIN_PATH = os.getenv("ADMIN_PATH", "/admin-x9k2p7")  # not linked anywhere
 def is_owner(user):
     return bool(user and getattr(user, "is_authenticated", False)
                 and getattr(user, "email_verified", False) is True
-                and (user.email or "").strip().lower() in ADMIN_EMAILS)
+                and (user.email or "").strip().lower() == FOUNDER_EMAIL)
 
 
 def founder_mode_active(user=None):

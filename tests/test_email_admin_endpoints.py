@@ -57,7 +57,7 @@ def make_user(days_old=20, admin=False, **overrides):
 def admin_client(ctx, monkeypatch):
     """A client signed in as an admin, the way require_admin expects."""
     admin = make_user(days_old=90, admin=True, email_verified=True)
-    monkeypatch.setattr(app_module, "ADMIN_EMAILS", {admin.email.lower()}, raising=False)
+    monkeypatch.setattr(app_module, "FOUNDER_EMAIL", admin.email.lower(), raising=False)
     client = app_module.app.test_client()
     with client.session_transaction() as session:
         session["_user_id"] = str(admin.id)

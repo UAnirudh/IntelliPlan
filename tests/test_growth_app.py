@@ -449,7 +449,7 @@ def test_admin_growth_report(client, monkeypatch):
             qualified_dates_json=f'["{(date.today() - timedelta(days=12)).isoformat()}"]',
         ))
         db.session.commit()
-    monkeypatch.setattr(App, "ADMIN_EMAILS", {"growth+admin@example.test"})
+    monkeypatch.setattr(App, "FOUNDER_EMAIL", "growth+admin@example.test")
     sign_in(client, admin_id)
     res = client.get("/admin/growth?format=json")
     assert res.status_code == 200

@@ -69,7 +69,7 @@ def user(client, monkeypatch, admin=False):
         App.db.session.commit()
         uid, email = row.id, row.email
     if admin:
-        monkeypatch.setattr(App, "ADMIN_EMAILS", App.ADMIN_EMAILS | {email})
+        monkeypatch.setattr(App, "FOUNDER_EMAIL", email)
     with client.session_transaction() as session:
         session["_user_id"] = str(uid)
         session["_fresh"] = True

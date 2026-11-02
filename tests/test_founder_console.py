@@ -64,7 +64,7 @@ def test_unverified_matching_email_cannot_claim_owner_privileges(client, monkeyp
     with App.app.app_context():
         user = _user(verified=False)
         user_id = user.id
-        monkeypatch.setattr(App, "ADMIN_EMAILS", {user.email.lower()})
+        monkeypatch.setattr(App, "FOUNDER_EMAIL", user.email.lower())
         assert not App.is_owner(user)
     _sign_in(client, user_id)
 
@@ -80,7 +80,7 @@ def test_founder_mode_unlocks_aggregate_growth_console_only_for_verified_owner(c
         owner = _user(verified=True)
         active = _user(verified=True, created_at=now - timedelta(days=10))
         owner_id, active_id = owner.id, active.id
-        monkeypatch.setattr(App, "ADMIN_EMAILS", {owner.email.lower()})
+        monkeypatch.setattr(App, "FOUNDER_EMAIL", owner.email.lower())
         App.db.session.add_all([
             App.ProductEvent(actor=f"u:{active_id}", user_id=active_id,
                              kind="view", rule="/dashboard", created_at=now - timedelta(days=2)),
@@ -114,3 +114,11 @@ def test_founder_mode_unlocks_aggregate_growth_console_only_for_verified_owner(c
     assert response.status_code == 302
     assert response.headers["Location"].endswith("/dashboard")
     assert client.get("/founder").status_code == 404
+
+
+def test_verified_admin_allowlist_email_does_not_receive_founder_privileges(monkeypatch):
+    with App.app.app_context():
+        admin = _user(verified=True)
+        monkeypatch.setattr(App, "ADMIN_EMAILS", {admin.email.lower()})
+        monkeypatch.setattr(App, "FOUNDER_EMAIL", "founder@example.test")
+        assert not App.is_owner(admin)

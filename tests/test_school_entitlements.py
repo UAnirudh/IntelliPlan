@@ -71,7 +71,7 @@ def test_domain_and_plan_mutation_are_platform_owner_only(monkeypatch):
         App.db.session.commit()
         owner_id, owner_email = owner.id, owner.email
     try:
-        monkeypatch.setattr(App, 'ADMIN_EMAILS', frozenset({owner_email}))
+        monkeypatch.setattr(App, 'FOUNDER_EMAIL', owner_email)
         client = App.app.test_client()
         _login(client, admin_id)
         denied = client.get('/owner/schools', headers={'Referer': 'http://localhost/dashboard'})
@@ -124,7 +124,7 @@ def test_owner_staff_roster_is_scoped_audited_and_owner_only(monkeypatch):
         teacher_email = teacher.email
         admin_email = admin.email
     try:
-        monkeypatch.setattr(App, 'ADMIN_EMAILS', frozenset({owner_email}))
+        monkeypatch.setattr(App, 'FOUNDER_EMAIL', owner_email)
         client = App.app.test_client()
         _login(client, admin_id)
         assert client.get(f'/api/owner/schools/{school_id}/members').status_code == 404
@@ -194,7 +194,7 @@ def test_owner_school_list_distinguishes_direct_and_effective_district_plan(monk
         ).order_by(M['Organization'].name.asc(), M['Organization'].id.asc()).all()]
         school_offset = ordered_ids.index(school_id)
     try:
-        monkeypatch.setattr(App, 'ADMIN_EMAILS', frozenset({owner_email}))
+        monkeypatch.setattr(App, 'FOUNDER_EMAIL', owner_email)
         client = App.app.test_client()
         _login(client, owner_id)
         # The school and its parent district are on different one-row pages;
@@ -253,7 +253,7 @@ def test_owner_school_console_paginates_and_keeps_global_stats_accurate(monkeypa
             .filter(Organization.kind.in_(['school', 'district']),
                     M['Membership'].role == 'teacher').count())
     try:
-        monkeypatch.setattr(App, 'ADMIN_EMAILS', frozenset({owner_email}))
+        monkeypatch.setattr(App, 'FOUNDER_EMAIL', owner_email)
         client = App.app.test_client()
         with App.app.app_context():
             regular = _user(f'regular-{marker}@example.test')
@@ -311,7 +311,7 @@ def test_owner_school_staff_roster_can_page_past_legacy_cap(monkeypatch):
         App.db.session.commit()
         owner_id, owner_email, school_id = owner.id, owner.email, school.id
     try:
-        monkeypatch.setattr(App, 'ADMIN_EMAILS', frozenset({owner_email}))
+        monkeypatch.setattr(App, 'FOUNDER_EMAIL', owner_email)
         client = App.app.test_client()
         _login(client, owner_id)
         first = client.get(f'/api/owner/schools/{school_id}/members?offset=0&limit=100').get_json()
@@ -343,7 +343,7 @@ def test_domain_verification_enrolls_already_verified_users_once(monkeypatch):
         verified_roles = {verified_student.id: 'student', verified_teacher.id: 'teacher'}
         unverified_id = unverified_student.id
     try:
-        monkeypatch.setattr(App, 'ADMIN_EMAILS', frozenset({owner_email}))
+        monkeypatch.setattr(App, 'FOUNDER_EMAIL', owner_email)
         monkeypatch.setattr(entitlements, '_dns_txt_contains', lambda domain, token: True)
         client = App.app.test_client()
         _login(client, owner_id)
