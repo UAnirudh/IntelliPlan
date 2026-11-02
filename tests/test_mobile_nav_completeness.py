@@ -138,3 +138,25 @@ def test_grades_and_the_grade_modeler_are_told_apart(page):
     markup = drawer_markup(page)
     assert "Grade Modeler" in markup
     assert 'href="/grades"' in markup
+
+
+def test_closed_mobile_drawer_is_hidden_from_keyboard_and_accessibility_tree():
+    source = open("Main_Project/templates/base.html", encoding="utf-8").read()
+    state_fn = source[source.find("function setMobileMenuState("):
+                      source.find("function toggleMobileMenu(")]
+    assert "nav.inert = isMobile && !isVisible" in state_fn
+    assert "nav.setAttribute('aria-hidden', 'true')" in state_fn
+    assert "nav.removeAttribute('aria-hidden')" in state_fn
+    assert "firstItem.focus()" in state_fn
+
+
+def test_mobile_drawer_escape_restores_focus_and_keeps_tab_inside():
+    source = open("Main_Project/templates/base.html", encoding="utf-8").read()
+    mobile_start = source.find("/* ── MOBILE MENU")
+    setup_start = source.find("document.addEventListener('DOMContentLoaded', () => {", mobile_start)
+    setup_end = source.find("const mobileMenuBtn =", setup_start)
+    setup = source[setup_start:setup_end]
+    assert "e.key === 'Escape'" in setup
+    assert "setMobileMenuState(false, true)" in setup
+    assert "e.key !== 'Tab'" in setup
+    assert "last.focus()" in setup and "first.focus()" in setup

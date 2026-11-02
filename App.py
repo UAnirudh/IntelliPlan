@@ -61,6 +61,7 @@ from studentvue_helper import (
 # patching one attribute, and none of its names collide with StudentVUE's.
 import hac_helper
 from ai_provider import ai_available, chat as ai_chat, vision as ai_vision, transcribe_audio, chat_json as ai_chat_json
+import ipaddress
 import re
 import html as _html_mod
 import unicodedata as _unicodedata
@@ -16945,6 +16946,61 @@ PUSH_MIN_TTL = 60
 #: a loop re-subscribing on every page load cannot grow the table forever.
 MAX_PUSH_SUBSCRIPTIONS = 10
 
+# Web Push endpoints are supplied by the browser, so never send to an
+# arbitrary URL. These are the push services currently used by supported
+# browsers. Windows Edge uses region-specific WNS subdomains.
+_WEB_PUSH_HOSTS = {
+    "fcm.googleapis.com",
+    "updates.push.services.mozilla.com",
+    "web.push.apple.com",
+}
+
+
+def _is_supported_web_push_endpoint(endpoint):
+    """Accept only HTTPS endpoints owned by supported browser push services."""
+    if not isinstance(endpoint, str) or not endpoint or any(ch.isspace() for ch in endpoint):
+        return False
+    try:
+        parsed = urllib.parse.urlsplit(endpoint)
+        # Reading .port raises ValueError for malformed/out-of-range ports.
+        port = parsed.port
+        host = parsed.hostname
+    except (TypeError, ValueError):
+        return False
+    if (parsed.scheme.lower() != "https" or not parsed.netloc or not host
+            or "@" in parsed.netloc or parsed.fragment or port not in (None, 443)):
+        return False
+    # Reject all IP literals, including public IPs. Push providers use
+    # service hostnames, so accepting an IP has no legitimate browser case.
+    try:
+        ipaddress.ip_address(host)
+        return False
+    except ValueError:
+        pass
+    host = host.lower()
+    if host in _WEB_PUSH_HOSTS:
+        return True
+    # Edge returns region-specific names such as wns2-...notify.windows.com.
+    # Require a real subdomain so lookalike suffixes do not pass.
+    return (host == "cloud.notify.windows.com"
+            or bool(re.fullmatch(r"wns[0-9]+-[a-z0-9-]+\.notify\.windows\.com", host)))
+
+
+def _web_push_subscription_info(subscription):
+    """Return safe, consistent subscription JSON or None for legacy bad rows."""
+    try:
+        info = json.loads(subscription.subscription_json or "")
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(info, dict) or info.get("endpoint") != subscription.endpoint:
+        return None
+    keys = info.get("keys")
+    if (not isinstance(keys, dict) or not isinstance(keys.get("p256dh"), str)
+            or not keys["p256dh"] or not isinstance(keys.get("auth"), str)
+            or not keys["auth"]):
+        return None
+    return info if _is_supported_web_push_endpoint(info.get("endpoint")) else None
+
 
 def _prune_push_subscriptions(uid, gid):
     """Drop the oldest rows so a new one stays inside the per-owner cap.
@@ -16972,8 +17028,10 @@ def push_subscribe():
     # subscription always has an https endpoint + p256dh + auth keys.
     endpoint = (sub.get("endpoint") if isinstance(sub, dict) else None) or ""
     keys = sub.get("keys") if isinstance(sub, dict) else None
-    if (not isinstance(endpoint, str) or not endpoint.startswith("https://")
-            or not isinstance(keys, dict) or "p256dh" not in keys or "auth" not in keys):
+    if (not _is_supported_web_push_endpoint(endpoint)
+            or not isinstance(keys, dict)
+            or not isinstance(keys.get("p256dh"), str) or not keys["p256dh"]
+            or not isinstance(keys.get("auth"), str) or not keys["auth"]):
         return flask.jsonify({"status": "error", "message": "invalid subscription"}), 400
     sub_json = json.dumps(sub)
     # Cap size to avoid abusive payloads filling the DB.
@@ -17127,6 +17185,20 @@ def push_test():
     gid = None if current_user.is_authenticated else get_guest_session_id()
     subs = [s for s in PushSubscription.query.filter_by(user_id=uid, guest_session_id=gid).all()
             if not _is_desktop_endpoint(s.endpoint)]
+    valid_subs = []
+    for sub in subs:
+        if _web_push_subscription_info(sub) is not None:
+            valid_subs.append(sub)
+        else:
+            # Rows created before endpoint validation was added must not
+            # remain a server-side request target.
+            db.session.delete(sub)
+    if len(valid_subs) != len(subs):
+        try:
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+    subs = valid_subs
     if not subs:
         return flask.jsonify({
             "status": "error",
@@ -20646,6 +20718,23 @@ def _send_push_to_user(user_id, payload, ttl=None, *,
 
     if not subs:
         return finish()
+    valid_subs = []
+    invalid_web_subscriptions = 0
+    for sub in subs:
+        if _web_push_subscription_info(sub) is not None:
+            valid_subs.append(sub)
+        else:
+            detail["invalid"] += 1
+            invalid_web_subscriptions += 1
+            try:
+                db.session.delete(sub)
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
+    subs = valid_subs
+    detail["active"] = max(0, detail["active"] - invalid_web_subscriptions)
+    if not subs:
+        return finish()
     try:
         from pywebpush import webpush, WebPushException
     except ImportError:
@@ -20664,7 +20753,7 @@ def _send_push_to_user(user_id, payload, ttl=None, *,
     for sub in list(subs):
         try:
             webpush(
-                subscription_info=json.loads(sub.subscription_json),
+                subscription_info=_web_push_subscription_info(sub),
                 data=json.dumps(payload),
                 vapid_private_key=private_key,
                 vapid_claims=dict(claims),
