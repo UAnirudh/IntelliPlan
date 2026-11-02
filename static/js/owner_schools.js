@@ -5,7 +5,13 @@
   const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (ch) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
   })[ch]);
-  const state = { schools: [], tiers: [], selected: null, proof: null };
+  const state = {
+    schools: [], tiers: [], selected: null, proof: null,
+    limit: 50, offset: 0, total: 0, hasMore: false,
+    summary: { organizations: 0, verified_domains: 0, students: 0, teachers: 0 },
+    districtOffset: 0, districtLimit: 50, districtTotal: 0, districtHasMore: false,
+    districtsLoaded: false,
+  };
   const notice = (node, message, kind = '') => {
     node.textContent = message;
     node.className = `owner-notice ${kind}`;
@@ -25,25 +31,62 @@
       <button class="owner-row" type="button" data-school="${school.id}" aria-current="${school.id === state.selected ? 'true' : 'false'}">
         <span class="owner-row-top"><strong>${esc(school.name)}</strong><span class="owner-pill">${esc(school.kind)}</span></span>
         <small>${school.members.members} members · ${school.domains.filter((d) => d.verified).length} verified domains · Effective ${esc(school.effective_plan_tier)}${school.effective_plan_inherited ? ` via ${esc(school.effective_plan_source_name)}` : ''}</small>
-      </button>`).join('') : '<div class="owner-empty">No partner organizations yet. Create one to get started.</div>';
+      </button>`).join('') : (state.total
+        ? '<div class="owner-empty">No institutions on this page. Use Previous to return to the list.</div>'
+        : '<div class="owner-empty">No partner organizations yet. Create one to get started.</div>');
     list.querySelectorAll('[data-school]').forEach((button) => button.addEventListener('click', () => select(Number(button.dataset.school))));
-    const districts = state.schools.filter((school) => school.kind === 'district');
-    $('orgParent').innerHTML = districts.map((school) => `<option value="${school.id}">${esc(school.name)}</option>`).join('');
+    const paging = $('schoolPagination');
+    paging.hidden = state.total <= state.limit;
+    $('schoolsPrevious').disabled = state.offset <= 0;
+    $('schoolsNext').disabled = !state.hasMore;
+    $('schoolPageInfo').textContent = state.schools.length
+      ? `Showing ${state.offset + 1}–${state.offset + state.schools.length} of ${state.total}`
+      : (state.total ? `No institutions on this page · ${state.total} total` : '0 institutions');
   }
   function renderStats() {
-    $('statSchools').textContent = state.schools.length;
-    $('statDomains').textContent = state.schools.reduce((n, s) => n + s.domains.filter((d) => d.verified).length, 0);
-    $('statStudents').textContent = state.schools.reduce((n, s) => n + s.members.students, 0);
-    $('statTeachers').textContent = state.schools.reduce((n, s) => n + s.members.teachers, 0);
+    $('statSchools').textContent = state.summary.organizations;
+    $('statDomains').textContent = state.summary.verified_domains;
+    $('statStudents').textContent = state.summary.students;
+    $('statTeachers').textContent = state.summary.teachers;
   }
-  async function load() {
-    const data = await api('/api/owner/schools');
+  async function load({ offset = state.offset } = {}) {
+    const data = await api(`/api/owner/schools?limit=${state.limit}&offset=${Math.max(0, offset)}`);
     state.schools = data.schools;
     state.tiers = data.plan_tiers;
+    state.limit = data.limit;
+    state.offset = data.offset;
+    state.total = data.total;
+    state.hasMore = data.has_more;
+    state.summary = data.summary;
     if (!state.schools.some((s) => s.id === state.selected)) state.selected = state.schools[0]?.id ?? null;
     renderStats(); renderList();
+    if (!state.districtsLoaded) await loadDistricts({ reset: true });
+    $('parentWrap').hidden = $('orgKind').value !== 'school' || state.districtTotal === 0;
     if (state.selected) await renderDetail();
     else $('detailCard').innerHTML = '<div class="owner-empty">Choose an institution to manage its plan, verify a school email domain, and review changes.</div>';
+  }
+  async function loadDistricts({ reset = false } = {}) {
+    const offset = reset ? 0 : state.districtOffset + state.districtLimit;
+    const data = await api(`/api/owner/schools/district-options?limit=${state.districtLimit}&offset=${offset}`);
+    const select = $('orgParent');
+    if (reset) {
+      select.innerHTML = '<option value="">No parent district</option>';
+      state.districtOffset = 0;
+    }
+    data.districts.forEach((district) => {
+      const option = document.createElement('option');
+      option.value = String(district.id);
+      option.textContent = district.name;
+      select.append(option);
+    });
+    state.districtOffset = data.offset;
+    state.districtTotal = data.total;
+    state.districtHasMore = data.has_more;
+    state.districtsLoaded = true;
+    $('loadMoreDistricts').hidden = !data.has_more;
+    $('loadMoreDistricts').textContent = data.has_more
+      ? `Load more districts (${Math.min(data.offset + data.districts.length, data.total)} of ${data.total})`
+      : '';
   }
   function selectedSchool() { return state.schools.find((s) => s.id === state.selected); }
   function select(id) { state.selected = id; state.proof = null; renderList(); renderDetail(); }
@@ -182,14 +225,26 @@
     if (!target || !state.proof) return;
     target.innerHTML = `<div class="owner-proof"><strong>Publish this DNS TXT record</strong><p class="owner-hint" style="margin:6px 0">Add the record below at your DNS provider. The token is shown once, so keep this value until verified.</p><span>Name</span><code>${esc(state.proof.txt_name)}</code><span>Value</span><code>${esc(state.proof.txt_value)}</code></div>`;
   }
-  $('orgKind').addEventListener('change', () => { $('parentWrap').hidden = $('orgKind').value !== 'school' || !state.schools.some((s) => s.kind === 'district'); });
+  $('orgKind').addEventListener('change', () => { $('parentWrap').hidden = $('orgKind').value !== 'school' || state.districtTotal === 0; });
+  $('schoolsPrevious').addEventListener('click', () => load({ offset: Math.max(0, state.offset - state.limit) }).catch((error) => notice($('createNotice'), error.message, 'error')));
+  $('schoolsNext').addEventListener('click', () => load({ offset: state.offset + state.limit }).catch((error) => notice($('createNotice'), error.message, 'error')));
+  $('loadMoreDistricts').addEventListener('click', async () => {
+    const button = $('loadMoreDistricts');
+    if (!state.districtHasMore || button.disabled) return;
+    button.disabled = true;
+    try { await loadDistricts(); }
+    catch (error) { notice($('createNotice'), error.message, 'error'); }
+    finally { button.disabled = false; }
+  });
   $('createOrgForm').addEventListener('submit', async (event) => {
     event.preventDefault(); const kind = $('orgKind').value;
     const parent = $('orgParent').value;
     const message = $('createNotice');
     try {
       await api('/api/owner/schools', { method: 'POST', body: JSON.stringify({ name: $('orgName').value, kind, parent_id: kind === 'school' && parent ? Number(parent) : null }) });
-      $('orgName').value = ''; notice(message, 'Institution created.', 'success'); await load();
+      $('orgName').value = ''; notice(message, 'Institution created.', 'success');
+      if (kind === 'district') await loadDistricts({ reset: true });
+      await load({ offset: 0 });
     } catch (error) { notice(message, error.message, 'error'); }
   });
   load().catch((error) => notice($('createNotice'), error.message, 'error'));

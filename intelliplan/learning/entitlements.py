@@ -21,6 +21,8 @@ SCHOOL_PLAN_TIERS = ("free", "pro", "premium", "premium_byok")
 _PLAN_RANK = {"free": 0, "pro": 1, "premium": 2, "premium_byok": 2}
 _DOMAIN_LABEL = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
 _TXT_PREFIX = "intelliplan-verification="
+OWNER_SCHOOL_PAGE_SIZE = 50
+OWNER_SCHOOL_PAGE_MAX = 100
 
 
 def normalize_domain(value: object) -> str:
@@ -317,13 +319,25 @@ def owner_schools():
         db.session.commit()
         return jsonify(id=organization.id), 201
 
-    organizations = M["Organization"].query.filter(
-        M["Organization"].kind.in_(["school", "district"])
-    ).order_by(M["Organization"].name.asc()).all()
+    Organization = M["Organization"]
+    base_query = Organization.query.filter(Organization.kind.in_(["school", "district"]))
+    total = base_query.count()
+    limit = min(OWNER_SCHOOL_PAGE_MAX, max(1, request.args.get(
+        "limit", OWNER_SCHOOL_PAGE_SIZE, type=int) or OWNER_SCHOOL_PAGE_SIZE))
+    offset = max(0, request.args.get("offset", 0, type=int) or 0)
+    organizations = (base_query.order_by(Organization.name.asc(), Organization.id.asc())
+                     .offset(offset).limit(limit).all())
     ids = [organization.id for organization in organizations]
-    plan_rows = M["SchoolPlan"].query.filter(M["SchoolPlan"].organization_id.in_(ids)).all() if ids else []
+    # A school may inherit a plan from its parent district even when that
+    # district is on a different page. Fetch only parents referenced here.
+    parent_ids = {organization.parent_id for organization in organizations
+                  if organization.parent_id and organization.parent_id not in ids}
+    parents = Organization.query.filter(Organization.id.in_(parent_ids)).all() if parent_ids else []
+    organizations_by_id = {organization.id: organization for organization in [*organizations, *parents]}
+    plan_org_ids = set(ids) | parent_ids
+    plan_rows = (M["SchoolPlan"].query.filter(
+        M["SchoolPlan"].organization_id.in_(plan_org_ids)).all() if plan_org_ids else [])
     plans_by_org = {row.organization_id: row for row in plan_rows}
-    organizations_by_id = {organization.id: organization for organization in organizations}
     domains = M["SchoolDomain"].query.filter(M["SchoolDomain"].organization_id.in_(ids)).all() if ids else []
     domains_by_org: dict[int, list[dict]] = {oid: [] for oid in ids}
     for row in domains:
@@ -345,6 +359,18 @@ def owner_schools():
                 key = role + "s" if role in {"student", "teacher", "admin"} else "members"
                 if key in counts[oid]:
                     counts[oid][key] += int(count)
+    all_orgs = Organization.kind.in_(["school", "district"])
+    total_domains = (db.session.query(func.count(M["SchoolDomain"].id))
+                     .join(Organization, Organization.id == M["SchoolDomain"].organization_id)
+                     .filter(all_orgs, M["SchoolDomain"].verified_at.isnot(None)).scalar() or 0)
+    global_roles = (db.session.query(M["Membership"].role, func.count(M["Membership"].id))
+                    .join(Organization, Organization.id == M["Membership"].organization_id)
+                    .filter(all_orgs).group_by(M["Membership"].role).all())
+    global_counts = {"students": 0, "teachers": 0}
+    for role, count in global_roles:
+        key = role + "s" if role in {"student", "teacher"} else None
+        if key in global_counts:
+            global_counts[key] = int(count)
     schools = []
     for organization in organizations:
         plan_details = school_plan_details_for_organization(organization, organizations_by_id, plans_by_org)
@@ -358,7 +384,28 @@ def owner_schools():
             "effective_plan_inherited": plan_details["effective_plan_inherited"],
             "members": counts[organization.id], "domains": domains_by_org.get(organization.id, []),
         })
-    return jsonify(schools=schools, plan_tiers=list(SCHOOL_PLAN_TIERS))
+    return jsonify(schools=schools, plan_tiers=list(SCHOOL_PLAN_TIERS),
+                   limit=limit, offset=offset, total=total,
+                   has_more=offset + len(organizations) < total,
+                   summary={"organizations": total, "verified_domains": int(total_domains),
+                            **global_counts})
+
+
+@bp.route("/api/owner/schools/district-options")
+def owner_school_district_options():
+    """Return a bounded district page for the parent selector."""
+    _require_owner()
+    Organization = _models()["Organization"]
+    query = Organization.query.filter_by(kind="district")
+    total = query.count()
+    limit = min(OWNER_SCHOOL_PAGE_MAX, max(1, request.args.get(
+        "limit", OWNER_SCHOOL_PAGE_SIZE, type=int) or OWNER_SCHOOL_PAGE_SIZE))
+    offset = max(0, request.args.get("offset", 0, type=int) or 0)
+    rows = (query.order_by(Organization.name.asc(), Organization.id.asc())
+            .offset(offset).limit(limit).all())
+    return jsonify(districts=[{"id": row.id, "name": row.name} for row in rows],
+                   limit=limit, offset=offset, total=total,
+                   has_more=offset + len(rows) < total)
 
 
 @bp.route("/api/owner/schools/<int:organization_id>/members")

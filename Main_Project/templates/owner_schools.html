@@ -20,6 +20,7 @@
   .owner-btn.danger{background:transparent;border:1px solid color-mix(in srgb,#ef596f 45%,var(--border));color:#d94b60}
   .owner-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
   .owner-list{display:grid;gap:8px;margin-top:16px}.owner-row{width:100%;text-align:left;border:1px solid var(--border);border-radius:13px;padding:13px;background:var(--bg);color:var(--text-primary);cursor:pointer}
+  .owner-page-controls{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px;font-size:.8rem;color:var(--text-muted)}.owner-page-controls[hidden]{display:none}.owner-page-controls .owner-btn{min-height:38px;padding:0 11px}
   .owner-row[aria-current=true]{border-color:var(--accent,#3983f6);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent,#3983f6) 18%,transparent)}
   .owner-row-top{display:flex;justify-content:space-between;gap:10px}.owner-row small{color:var(--text-muted)}
   .owner-effective-plan{margin:0 0 16px;padding:12px 14px;border:1px solid var(--border);border-radius:11px;background:var(--bg);font-size:.86rem;color:var(--text-secondary)}
@@ -55,11 +56,16 @@
       <form id="createOrgForm">
         <label class="owner-label" for="orgName">Organization name</label><input class="owner-input" id="orgName" maxlength="160" required placeholder="e.g. Northview High School">
         <label class="owner-label" for="orgKind">Type</label><select class="owner-select" id="orgKind"><option value="school">School</option><option value="district">District</option></select>
-        <div id="parentWrap" hidden><label class="owner-label" for="orgParent">Parent district</label><select class="owner-select" id="orgParent"></select></div>
+        <div id="parentWrap" hidden><label class="owner-label" for="orgParent">Parent district</label><select class="owner-select" id="orgParent"><option value="">No parent district</option></select><button class="owner-btn secondary" id="loadMoreDistricts" type="button" hidden style="margin-top:8px;width:100%"></button></div>
         <div class="owner-actions"><button class="owner-btn" type="submit">Create institution</button></div>
       </form>
       <p class="owner-notice" id="createNotice" role="status"></p>
       <div class="owner-list" id="schoolList"><div class="owner-empty">Loading institutions…</div></div>
+      <nav class="owner-page-controls" id="schoolPagination" hidden aria-label="Institution pages">
+        <button class="owner-btn secondary" id="schoolsPrevious" type="button">Previous</button>
+        <span id="schoolPageInfo" aria-live="polite"></span>
+        <button class="owner-btn secondary" id="schoolsNext" type="button">Next</button>
+      </nav>
     </section>
     <section class="owner-card" id="detailCard" aria-live="polite">
       <div class="owner-empty">Choose an institution to manage its plan, verify a school email domain, and review changes.</div>
