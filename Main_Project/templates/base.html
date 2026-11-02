@@ -654,12 +654,9 @@ body {
   {# ── Simplified nav: Dashboard, Scheduler, Grade Modeler, Study & Learn hub ── #}
   {%- set _study_sub = ['tutor','priority','classes','grades','dismissed','tests','study','learn','focus','library','streak','lessons','writing','math','extractor','meetings','groups','study_hub'] -%}
   <div class="side-nav-list" id="sideNavList">
-
+    <h2 class="side-section-label">Plan &amp; focus</h2>
     <a href="/command-center" data-nav-item="command_center" class="side-link {% if active_page == 'command_center' %}active{% endif %}">
       <span class="side-icon"><svg><use href="#i-lightning"/></svg></span>Command Center
-    </a>
-    <a href="/foundations" data-nav-item="primer" class="side-link {% if active_page == 'primer' %}active{% endif %}">
-      <span class="side-icon"><svg><use href="#i-book"/></svg></span>Foundations
     </a>
     <a href="/dashboard" data-nav-item="dashboard" class="side-link {% if active_page == 'dashboard' %}active{% endif %}">
       <span class="side-icon"><svg><use href="#i-dashboard"/></svg></span>Dashboard
@@ -670,11 +667,13 @@ body {
     <a href="/active" data-nav-item="active" class="side-link {% if active_page == 'active' %}active{% endif %}">
       <span class="side-icon"><svg><use href="#i-video"/></svg></span>Active Study
     </a>
+
+    <h2 class="side-section-label">Study</h2>
+    <a href="/foundations" data-nav-item="primer" class="side-link {% if active_page == 'primer' %}active{% endif %}">
+      <span class="side-icon"><svg><use href="#i-book"/></svg></span>Foundations
+    </a>
     <a href="/memories" data-nav-item="memories" class="side-link {% if active_page == 'memories' %}active{% endif %}">
       <span class="side-icon"><svg><use href="#i-save"/></svg></span>Memories
-    </a>
-    <a href="/gradebook" data-nav-item="gradebook" class="side-link {% if active_page in ['gradebook','grademodel'] %}active{% endif %}">
-      <span class="side-icon"><svg><use href="#i-modeler"/></svg></span>Grade Modeler
     </a>
     <a href="/study-and-learn" data-nav-item="study_hub" class="side-link {% if active_page in _study_sub %}active{% endif %}">
       <span class="side-icon"><svg><use href="#i-study"/></svg></span>Study &amp; Learn
@@ -685,22 +684,29 @@ body {
     <a href="/my-courses" data-nav-item="courses" class="side-link {% if active_page == 'courses' %}active{% endif %}">
       <span class="side-icon"><svg><use href="#i-graduation"/></svg></span>Courses
     </a>
+
+    <h2 class="side-section-label">Progress</h2>
+    <a href="/gradebook" data-nav-item="gradebook" class="side-link {% if active_page in ['gradebook','grademodel'] %}active{% endif %}">
+      <span class="side-icon"><svg><use href="#i-modeler"/></svg></span>Grade Modeler
+    </a>
     <a href="/streak" data-nav-item="streak" class="side-link {% if active_page == 'streak' %}active{% endif %}">
       <span class="side-icon"><svg><use href="#i-fire"/></svg></span>Streak
-      <span class="side-streak-badge" id="sideStreakBadge" hidden></span>
+      <span class="side-link-meta" id="sideStreakMeta" hidden></span>
     </a>
     <a href="/pet" data-nav-item="pet" class="side-link {% if active_page == 'pet' %}active{% endif %}">
       <span class="side-icon"><svg><use href="#i-sparkle"/></svg></span>My Pet
-      <span class="side-pet-badge" id="sidePetBadge" hidden></span>
+      <span class="side-link-meta" id="sidePetMeta" hidden></span>
     </a>
     <a href="/balance" data-nav-item="balance" class="side-link {% if active_page == 'balance' %}active{% endif %}">
       <span class="side-icon"><svg><use href="#i-sparkle"/></svg></span>Balance
     </a>
-    <a href="/features" data-nav-item="features" class="side-link {% if active_page == 'features' %}active{% endif %}">
-      <span class="side-icon"><svg><use href="#i-lightning"/></svg></span>Ideas
-    </a>
     <a href="/my-stats" data-nav-item="my_stats" class="side-link {% if active_page == 'my_stats' %}active{% endif %}">
       <span class="side-icon"><svg><use href="#i-modeler"/></svg></span>My Stats
+    </a>
+
+    <h2 class="side-section-label">Tools / Connect</h2>
+    <a href="/features" data-nav-item="features" class="side-link {% if active_page == 'features' %}active{% endif %}">
+      <span class="side-icon"><svg><use href="#i-lightning"/></svg></span>Ideas
     </a>
 
   </div>
@@ -729,7 +735,7 @@ body {
       <a href="/login" class="side-link {% if active_page == 'login' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-login"/></svg></span>Login</a>
     {% endif %}
     <div class="side-foot-row">
-      <span class="date-badge" id="dateBadgeSide"></span>
+      <time class="nav-date" id="dateBadgeSide"></time>
       <span style="flex:1"></span>
       <label class="toggle" title="Toggle dark mode" aria-label="Toggle dark mode">
         <input type="checkbox" id="themeToggleSide" aria-label="Toggle dark mode" />
@@ -800,8 +806,8 @@ body {
       </div>
       <div class="nav-group nav-more">
         <span class="nav-more-head">Progress</span>
-        <a href="/streak"   class="nav-tab {% if active_page == 'streak' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-fire"/></svg></span><span class="nav-label">Streak</span></a>
-        <a href="/pet"      class="nav-tab {% if active_page == 'pet' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-sparkle"/></svg></span><span class="nav-label">My Pet</span></a>
+        <a href="/streak"   class="nav-tab {% if active_page == 'streak' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-fire"/></svg></span><span class="nav-label">Streak</span><span class="nav-link-meta" id="navStreakMeta" hidden></span></a>
+        <a href="/pet"      class="nav-tab {% if active_page == 'pet' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-sparkle"/></svg></span><span class="nav-label">My Pet</span><span class="nav-link-meta" id="navPetMeta" hidden></span></a>
         <a href="/balance"  class="nav-tab {% if active_page == 'balance' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-heart"/></svg></span><span class="nav-label">Balance</span></a>
         <a href="/my-stats" class="nav-tab {% if active_page == 'my_stats' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-chart-bar"/></svg></span><span class="nav-label">My Stats</span></a>
         <a href="/features" class="nav-tab {% if active_page == 'features' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-lightning"/></svg></span><span class="nav-label">Ideas</span></a>
@@ -818,17 +824,6 @@ body {
         <a href="/groups"   class="nav-tab {% if active_page == 'groups' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-users"/></svg></span><span class="nav-label">Study Groups</span></a>
         <a href="/meetings" class="nav-tab {% if active_page == 'meetings' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-video"/></svg></span><span class="nav-label">Meetings</span></a>
         <a href="/connect"  class="nav-tab {% if active_page == 'connect' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-link"/></svg></span><span class="nav-label">Integrations</span></a>
-      </div>
-      {# ── Streak flame + Plani Pet badge — Duolingo-style nav widgets ── #}
-      <div class="nav-group nav-rewards" id="navRewards" hidden>
-        <a href="/streak" class="nav-streak-badge" id="navStreakBadge" title="Your daily streak">
-          <span class="nav-streak-flame"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-fire"/></svg></span>
-          <span class="nav-streak-count" id="navStreakCount">0</span>
-        </a>
-        <a href="/pet" class="nav-pet-badge" id="navPetBadge" title="My Pet">
-          <span class="nav-pet-emoji" id="navPetEmoji"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-sparkle"/></svg></span>
-          <span class="nav-pet-level" id="navPetLevel">1</span>
-        </a>
       </div>
       <div class="nav-divider" aria-hidden="true"></div>
       <div class="nav-group">
@@ -884,7 +879,7 @@ body {
         </span>
       </button>
       <div id="mobileNavBackdrop" aria-hidden="true"></div>
-      <span class="date-badge" id="dateBadge"></span>
+      <time class="nav-date" id="dateBadge"></time>
       <label class="toggle" title="Toggle dark mode" aria-label="Toggle dark mode">
         <input type="checkbox" id="themeToggle" aria-label="Toggle dark mode" />
         <div class="toggle-track"></div>
@@ -1297,11 +1292,13 @@ themeToggles.forEach(toggle => {
   toggle.addEventListener('change', () => setThemeMode(toggle.checked ? 'dark' : 'light'));
 });
 
-/* ── DATE BADGE ─────────────────────── */
-const _dateStr = new Date().toLocaleDateString('en-US', {weekday:'short',month:'short',day:'numeric'});
+/* ── Current date: quiet inline context in the header and sidebar. ── */
+const _today = new Date();
+const _dateStr = _today.toLocaleDateString('en-US', {weekday:'short',month:'short',day:'numeric'});
+const _dateIso = `${_today.getFullYear()}-${String(_today.getMonth()+1).padStart(2,'0')}-${String(_today.getDate()).padStart(2,'0')}`;
 ['dateBadge','dateBadgeSide'].forEach(id => {
   const el = document.getElementById(id);
-  if (el) el.textContent = _dateStr;
+  if (el) { el.textContent = _dateStr; el.dateTime = _dateIso; }
 });
 
 /* ── MOBILE MENU ────────────────────── */
@@ -1779,14 +1776,24 @@ if (mobileMenuBtn) {
     if (!order.length) return;
     const list = side.querySelector('.side-nav-list');
     if (!list) return;
-    const byKey = new Map(links.map(l => [l.dataset.navItem, l]));
-    // Named keys first, in the saved order; everything else keeps its
-    // relative template order behind them.
-    const seen = new Set();
-    const sorted = [];
-    order.forEach(k => { const el = byKey.get(k); if (el && !seen.has(k)) { sorted.push(el); seen.add(k); } });
-    links.forEach(el => { if (!seen.has(el.dataset.navItem)) sorted.push(el); });
-    sorted.forEach(el => list.appendChild(el));
+    const rank = key => {
+      const index = order.indexOf(key);
+      return index < 0 ? Number.MAX_SAFE_INTEGER : index;
+    };
+    // Section headings are structural labels, not nav items. Reorder links
+    // only inside their existing section so custom layouts cannot detach or
+    // strand a heading above the wrong group.
+    Array.from(list.querySelectorAll('.side-section-label')).forEach(heading => {
+      const sectionLinks = [];
+      let nextHeading = heading.nextElementSibling;
+      while (nextHeading && !nextHeading.matches('.side-section-label')) {
+        if (nextHeading.matches('[data-nav-item]')) sectionLinks.push(nextHeading);
+        nextHeading = nextHeading.nextElementSibling;
+      }
+      const sectionEnd = nextHeading;
+      sectionLinks.sort((a, b) => rank(a.dataset.navItem) - rank(b.dataset.navItem) || links.indexOf(a) - links.indexOf(b));
+      sectionLinks.forEach(link => list.insertBefore(link, sectionEnd));
+    });
   }
 
   // Kept as an alias: several call sites and the command palette refer to
@@ -2853,140 +2860,12 @@ window.addEventListener('load',()=>{
 </script>
 
 {# ══════════════════════════════════════════════════════════════
-   GLOBAL STREAK + PET WIDGET — Duolingo-style nav badges
-   Visible on every authenticated page. Loads on idle, polls /api/pet/status
-   (which also surfaces the streak count) and renders the flame + pet badge.
-   Also grants the once-per-day visit XP automatically.
+   GLOBAL STREAK + PET CONTEXT
+   Keeps useful counts beside their navigation links as plain text and
+   grants the once-per-day visit XP automatically.
 ══════════════════════════════════════════════════════════════ #}
 {% if logged_in %}
 <style>
-  /* Nav rewards group — flame + pet badge */
-  .nav-rewards {
-    display: flex !important;
-    gap: 8px;
-    align-items: center;
-    margin-left: 4px;
-  }
-  .nav-streak-badge,
-  .nav-pet-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
-    border-radius: 999px;
-    text-decoration: none;
-    font-family: var(--font-ui, sans-serif);
-    font-weight: 700;
-    font-size: 0.88rem;
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
-    position: relative;
-  }
-  .nav-streak-badge {
-    background: var(--medium-bg);
-    color: var(--medium);
-    border: 1.5px solid var(--medium);
-    box-shadow: 0 1px 3px rgba(28,25,20,0.10);
-  }
-  .nav-streak-badge:hover {
-    transform: translateY(-1px) scale(1.04);
-    box-shadow: 0 4px 12px -4px rgba(28,25,20,0.24);
-  }
-  .nav-streak-badge .nav-streak-flame {
-    font-size: 1.05rem;
-    line-height: 1;
-    display: inline-block;
-    animation: navFlameFlicker 1.6s ease-in-out infinite;
-    transform-origin: 50% 80%;
-  }
-  .nav-streak-badge.cold .nav-streak-flame {
-    filter: grayscale(0.7);
-    animation: none;
-    opacity: 0.55;
-  }
-  .nav-streak-badge .nav-streak-count {
-    font-variant-numeric: tabular-nums;
-    letter-spacing: -0.01em;
-  }
-  /* Was a lavender gradient with a violet border — the one piece of purple
-     in the global chrome, and the reason the pet colour scheme leaked onto
-     every page. It now reads from the accent, so it follows the palette. */
-  .nav-pet-badge {
-    background: var(--accent-soft);
-    color: var(--accent);
-    border: 1.5px solid var(--border-accent);
-    box-shadow: 0 1px 3px rgba(28,25,20,0.10);
-  }
-  .nav-pet-badge:hover {
-    transform: translateY(-1px) scale(1.04);
-    box-shadow: 0 4px 12px -4px rgba(28,25,20,0.24);
-  }
-  .nav-pet-emoji {
-    font-size: 1.1rem;
-    line-height: 1;
-    display: inline-block;
-    animation: navPetBob 2.4s ease-in-out infinite;
-  }
-  .nav-pet-level {
-    font-variant-numeric: tabular-nums;
-    font-size: 0.74rem;
-    padding: 2px 6px;
-    border-radius: 999px;
-    background: var(--bg-card);
-    color: var(--accent);
-    line-height: 1;
-  }
-  /* Sidebar streak/pet little badge bubbles */
-  .side-streak-badge,
-  .side-pet-badge {
-    margin-left: auto;
-    font-family: var(--font-ui, sans-serif);
-    font-weight: 700;
-    font-size: 0.72rem;
-    padding: 2px 8px;
-    border-radius: 999px;
-    line-height: 1.3;
-    box-shadow: none;
-  }
-  .side-streak-badge {
-    background: var(--medium-bg);
-    color: var(--medium);
-  }
-  .side-pet-badge {
-    background: var(--accent-soft);
-    color: var(--accent);
-  }
-  /* Dark theme adjustments */
-  [data-theme="dark"] .nav-streak-badge {
-    background: var(--medium-bg);
-    color: var(--medium);
-    border-color: color-mix(in srgb, var(--medium) 55%, var(--border));
-  }
-  [data-theme="dark"] .nav-pet-badge {
-    background: rgba(var(--accent-shadow), 0.16);
-    color: var(--accent-hover);
-    border-color: rgba(var(--accent-shadow), 0.5);
-  }
-  [data-theme="dark"] .nav-pet-level {
-    background: rgba(255, 255, 255, 0.12);
-    color: var(--accent-hover);
-  }
-  @keyframes navFlameFlicker {
-    0%, 100% { transform: translateY(0) rotate(-2deg) scale(1); }
-    25% { transform: translateY(-1px) rotate(2deg) scale(1.08); }
-    50% { transform: translateY(-2px) rotate(-1deg) scale(0.96); }
-    75% { transform: translateY(-1px) rotate(1.5deg) scale(1.05); }
-  }
-  @keyframes navPetBob {
-    0%, 100% { transform: translateY(0) scale(1); }
-    50% { transform: translateY(-2px) scale(1.07); }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .nav-streak-flame, .nav-pet-emoji { animation: none !important; }
-  }
-  /* Hide on small screens — they get the mobile streak fab instead */
-  @media (max-width: 760px) {
-    .nav-rewards { display: none !important; }
-  }
   /* XP earned floating toast */
   .pet-xp-toast {
     position: fixed;
@@ -3030,12 +2909,6 @@ window.addEventListener('load',()=>{
 
 <script>
 (function(){
-  // ── Stage → emoji map (mirrors pet_engine.STAGES) ──────────
-  const STAGE_LABEL = {
-    egg: 'E', hatchling: 'H', sprout: 'S', cub: 'C',
-    scholar: 'Sc', sage: 'Sa', guardian: 'G', mythic: 'M', cosmic: 'Co'
-  };
-
   const tz = (typeof Intl !== 'undefined') ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'UTC';
 
   function showXpToast(text){
@@ -3055,33 +2928,17 @@ window.addEventListener('load',()=>{
 
   function renderRewards(data){
     if (!data || data.status !== 'ok') return;
-    const wrap = document.getElementById('navRewards');
-    if (wrap) wrap.hidden = false;
-
-    // Streak flame
-    const streak = data.streak || 0;
-    const sBadge = document.getElementById('navStreakBadge');
-    const sCount = document.getElementById('navStreakCount');
-    if (sCount) sCount.textContent = streak;
-    if (sBadge) sBadge.classList.toggle('cold', streak === 0);
-
-    // Pet
-    const petLvl = document.getElementById('navPetLevel');
-    const petEmoji = document.getElementById('navPetEmoji');
-    if (petLvl) petLvl.textContent = 'L' + (data.level || 1);
-    if (petEmoji) petEmoji.textContent = STAGE_LABEL[data.stage_id] || 'E';
-
-    // Sidebar badges
-    const sideStreak = document.getElementById('sideStreakBadge');
-    if (sideStreak) {
-      sideStreak.hidden = streak === 0;
-      sideStreak.textContent = streak + 'd';
-    }
-    const sidePet = document.getElementById('sidePetBadge');
-    if (sidePet) {
-      sidePet.hidden = false;
-      sidePet.textContent = 'L' + (data.level || 1);
-    }
+    const streak = Math.max(0, Number(data.streak) || 0);
+    const level = Math.max(1, Number(data.level) || 1);
+    const streakText = streak === 1 ? '1 day' : `${streak} days`;
+    [['sideStreakMeta', streakText, streak > 0], ['navStreakMeta', streakText, streak > 0],
+     ['sidePetMeta', `Level ${level}`, true], ['navPetMeta', `Level ${level}`, true]]
+      .forEach(([id, text, visible]) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.textContent = text;
+        el.hidden = !visible;
+      });
   }
 
   async function loadStatus(){
@@ -3111,7 +2968,7 @@ window.addEventListener('load',()=>{
           flashEvolve();
           setTimeout(() => showXpToast('Your pet evolved!'), 1100);
         }
-        // Refresh after a beat so the badge ticks up
+        // Refresh after a beat so the inline count reflects today's visit.
         setTimeout(loadStatus, 600);
       }
     } catch (e) { /* silent */ }

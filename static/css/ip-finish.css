@@ -34,7 +34,7 @@ body.has-side {
   --ipd-radius-sm: 12px;
 }
 body.has-side :is(.time-slot, .iv-time, .day-hours, .iv-day-meta, .block-duration,
-  .iv-duration, .overview-stat, .ipd-stat-value, .stat-value, .date-badge) {
+  .iv-duration, .overview-stat, .ipd-stat-value, .stat-value, .nav-date) {
   font-variant-numeric: tabular-nums;
   letter-spacing: 0;
 }

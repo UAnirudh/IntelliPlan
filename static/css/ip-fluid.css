@@ -127,10 +127,10 @@ body.has-side .learning-policy-grid .learning-consent:has(input:checked) { backg
     inset: 12px auto 12px 12px;
     width: calc(var(--side-w) - 20px);
     padding: 16px 10px 12px;
-    border: 1px solid var(--border);
+    border: 0;
     border-radius: 26px;
     background: color-mix(in srgb, var(--bg-card) 80%, var(--bg));
-    box-shadow: var(--fluid-shadow);
+    box-shadow: none;
     scrollbar-width: thin;
   }
   body.has-side .app-side .side-link {
@@ -140,7 +140,16 @@ body.has-side .learning-policy-grid .learning-consent:has(input:checked) { backg
     gap: 12px;
     transition: color .2s, background-color .2s;
   }
-  body.has-side .app-side .side-link.active { box-shadow: inset 0 0 0 1px var(--border-accent); }
+  body.has-side .app-side .side-link.active {
+    background: color-mix(in srgb, var(--bg-elevated) 68%, transparent);
+    box-shadow: none;
+  }
+  body.has-side .app-side .side-link:focus-visible {
+    outline: 2px solid var(--focus-ring, var(--accent));
+    outline-offset: 2px;
+    position: relative;
+    z-index: 1;
+  }
   body.has-side [data-extra-collapsed="true"] .side-extra-link:not(.active) { display: none !important; }
   body.has-side .side-extra-toggle { width: 100%; text-align: left; background: transparent; border: 0; font-family: var(--font-ui); cursor: pointer; }
   body.has-side .side-extra-toggle .side-icon { font-size: 24px; line-height: .5; }
@@ -154,7 +163,7 @@ body.has-side .learning-policy-grid .learning-consent:has(input:checked) { backg
   html[data-side-rail] body.has-side .app-side {
     width: var(--side-peek-w);
     background-image: none;
-    border: 1px solid var(--border);
+    border: 0;
     clip-path: inset(0 calc(var(--side-peek-w) - var(--side-rail-w)) 0 0 round 26px);
     transition: clip-path .28s var(--fluid-ease);
   }
@@ -323,7 +332,18 @@ body #tutorAudioPlay { color: var(--accent); background: transparent; border: 0;
 body #tutorAudioPlay[hidden] { display: none; }
 body.has-side.has-own-chat .ip-fb .ip-fb-trigger { display: none; }
 @media (min-width: 769px) {
-  body.has-side .app-side { background: var(--workspace-glass); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); box-shadow: var(--workspace-raised); }
+  body.has-side .app-side {
+    background: color-mix(in srgb, var(--bg-card) 24%, var(--bg));
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    border: 0;
+    box-shadow: none;
+  }
+  body.has-side .app-side .side-link.active { box-shadow: none; }
+  body.has-side .app-side .side-link:focus-visible {
+    outline: 2px solid var(--focus-ring, var(--accent));
+    outline-offset: 2px;
+  }
   body.has-side .tutor-shell { gap: 0; padding-left: 0; }
   body.has-side .tutor-side { width: 226px; background: transparent; border: 0; border-right: 1px solid var(--border); border-radius: 0; }
   body.has-side .tutor-main { border: 0; border-radius: 0; background: transparent; }
@@ -505,6 +525,14 @@ body:is(.has-side, .has-tabbar) :is(.ipd-card, .ipd-stat, .ipd-upcoming-card, .i
   box-shadow: none !important;
   -webkit-backdrop-filter: none !important;
   backdrop-filter: none !important;
+}
+body.has-side :is(.scheduler-panel, .overview-card, .day-card, .iv-day-card, .clarify-card) {
+  background: color-mix(in srgb, var(--bg-card) 72%, var(--bg)) !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+:root[data-theme="dark"] body.has-side :is(.scheduler-panel, .overview-card, .day-card, .iv-day-card, .clarify-card) {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.028) !important;
 }
 /* The dashboard's assistant card historically used the primary text color as
    its surface, which made it white in dark mode. Keep it quiet and theme-aware

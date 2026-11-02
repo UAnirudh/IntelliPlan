@@ -184,7 +184,7 @@
     if (!note) return '<div class="ft-auto">' + toggle + '</div>';
     var reasons = (note.reasons || []).map(function (r) { return '<li>' + esc(r) + '</li>'; }).join('');
     return '<div class="ft-auto ft-auto--acted" role="status">' +
-      '<div class="ft-auto-head"><span class="ft-auto-badge">Autopilot</span>' +
+      '<div class="ft-auto-head"><span class="ft-auto-label">Autopilot</span>' +
       '<strong>' + esc(note.headline) + '</strong></div>' +
       (reasons ? '<ul class="ft-auto-reasons">' + reasons + '</ul>' : '') +
       '<div class="ft-auto-actions">' +
@@ -196,7 +196,7 @@
   function barMarkup() {
     var missed = state.forecast && state.forecast.missed_minutes;
     var behind = missed > 0
-      ? '<span class="ft-badge" title="Planned on earlier days and not ticked off">' + esc(missed) + ' min</span>'
+      ? '<span class="ft-inline-meta" title="Planned on earlier days and not ticked off">' + esc(missed) + ' min</span>'
       : '';
     return '<div class="ft-bar">' +
       '<div class="ft-bar-head">' +

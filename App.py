@@ -12828,6 +12828,8 @@ def _schedule_without_ai(assignments, preferred_time, hours_per_day,
                               "retryable": True}), error_status
 
     try:
+        from intelliplan.scheduler_clock import now_for
+        uid = current_user.id if current_user.is_authenticated else None
         data = fallback_scheduler.build_schedule(
             assignments,
             hours_per_day=hours_per_day,
@@ -12835,6 +12837,7 @@ def _schedule_without_ai(assignments, preferred_time, hours_per_day,
             availability=availability,
             commitments=commitments,
             dna=dna,
+            today=now_for(uid).date(),
         )
     except Exception as exc:
         print(f"[scheduler] fallback planner also failed: {exc}")
@@ -12910,6 +12913,8 @@ def generate_schedule():
 
     uid = current_user.id if current_user.is_authenticated else None
     gid = None if uid else get_guest_session_id()
+    from intelliplan.scheduler_clock import now_for
+    planning_today = now_for(uid).date()
 
     # ── Clarification gate ────────────────────────────────────────
     try:
@@ -13057,7 +13062,7 @@ def generate_schedule():
             raw_est = 60
         a["estimated_time"] = dna.adjust_estimate(raw_est, a.get("course", ""))
 
-    today_str = datetime.now().strftime("%Y-%m-%d")
+    today_str = planning_today.isoformat()
     overdue = [a for a in normalized_assignments if a.get("due_date", "9999") < today_str]
     upcoming = [a for a in normalized_assignments if a.get("due_date", "9999") >= today_str]
     upcoming.sort(key=lambda x: x.get("due_date", "9999"))
@@ -13090,7 +13095,7 @@ def generate_schedule():
     custom_text = ""
     if custom_tasks:
         custom_text = f"\nCUSTOM TASKS ADDED BY STUDENT — use EXACT names as written ({len(custom_tasks)}):\n" + "\n".join([f"  - {t}" for t in custom_tasks])
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = planning_today.isoformat()
     total = len(normalized_assignments) + len(custom_tasks)
     # Build personalized student context. When the user has opted in
     # (Settings → Privacy), we layer in grade signals so the AI can weight

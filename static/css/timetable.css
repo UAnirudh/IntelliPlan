@@ -23,10 +23,8 @@
 .tl-head-meta a:hover, .tl-head-meta a:focus-visible { color: var(--text-primary); }
 .tl-rotation:empty { display: none; }
 .tl-rotation {
-  padding: 2px 9px;
-  border-radius: 999px;
-  border: 1px solid var(--border-strong);
-  color: var(--text-primary);
+  padding: 0;
+  color: var(--text-muted);
 }
 
 .tl-next {
@@ -49,8 +47,9 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   border-radius: var(--ipd-radius-md, 14px);
-  border: 1px solid var(--border);
-  background: var(--bg);
+  border: 0;
+  background: color-mix(in srgb, var(--bg-card) 72%, var(--bg));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.035);
 }
 .tl-scroll[hidden] { display: none; }
 
@@ -64,7 +63,7 @@
   position: absolute;
   left: -52px;
   right: -8px;
-  border-top: 1px dashed var(--border);
+  border-top: 1px solid color-mix(in srgb, var(--border) 48%, transparent);
   pointer-events: none;
 }
 .tl-hour span {
@@ -72,7 +71,7 @@
   left: 8px;
   top: -0.6em;
   padding: 0 4px;
-  background: var(--bg);
+  background: color-mix(in srgb, var(--bg-card) 72%, var(--bg));
   font-family: var(--font-mono, ui-monospace, monospace);
   font-size: 0.68rem;
   color: var(--text-muted);
@@ -89,12 +88,12 @@
   gap: 6px;
   padding: 4px 8px;
   border-radius: 10px;
-  border: 1px solid var(--border-strong);
-  background: var(--bg-card);
+  border: 0;
+  background: color-mix(in srgb, var(--bg-card) 76%, var(--bg));
   color: var(--text-primary);
   font-size: 0.8rem;
   line-height: 1.25;
-  transition: box-shadow 0.15s ease;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
 }
 .tl-body { display: flex; flex-direction: column; min-width: 0; flex: 1; }
 .tl-title { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -102,30 +101,29 @@
 
 .tl-class {
   --tl-swatch: var(--text-muted);
-  border-left: 4px solid var(--tl-swatch);
-  background: var(--bg-secondary);
+  background: color-mix(in srgb, var(--tl-swatch) 8%, var(--bg-card));
 }
 .tl-busy {
-  border-style: dashed;
-  background: repeating-linear-gradient(135deg, transparent 0 6px, rgba(127, 127, 127, 0.10) 6px 12px), var(--bg);
+  background: color-mix(in srgb, var(--bg-elevated) 56%, var(--bg));
   color: var(--text-secondary);
 }
 .tl-study {
-  border-color: var(--accent);
-  background: var(--accent-soft, var(--bg-card));
+  background: color-mix(in srgb, var(--accent-soft, var(--bg-card)) 78%, var(--bg-card));
   cursor: grab;
 }
-.tl-break { background: var(--bg); color: var(--text-muted); border-style: dotted; }
+.tl-break { background: transparent; color: var(--text-muted); }
 .tl-item.is-done { opacity: 0.6; }
 .tl-item.is-done .tl-title { text-decoration: line-through; }
-.tl-item.has-conflict { border-color: var(--danger); }
+.tl-item.has-conflict { box-shadow: inset 0 0 0 1px var(--danger); }
 .tl-item.is-current { box-shadow: 0 0 0 2px var(--accent); }
+.tl-item.has-conflict.is-current { box-shadow: inset 0 0 0 1px var(--danger), 0 0 0 2px var(--accent); }
 .tl-item.is-moving { cursor: grabbing; z-index: 3; box-shadow: var(--shadow-lg, 0 8px 24px rgba(0, 0, 0, 0.18)); }
 .tl-study:focus-visible { outline: 3px solid var(--focus-ring, var(--accent)); outline-offset: 2px; z-index: 2; }
 
 /* The grip is the touch target for dragging, so a finger anywhere else on a
    block still scrolls the day. 44px tall where the block allows. */
 .tl-grip {
+  position: relative;
   flex: 0 0 auto;
   align-self: stretch;
   width: 22px;
@@ -133,10 +131,17 @@
   margin: -4px -8px -4px 0;
   touch-action: none;
   cursor: grab;
-  background:
-    radial-gradient(circle, var(--text-muted) 1.2px, transparent 1.6px) 0 0 / 7px 7px;
-  background-position: center;
-  opacity: 0.55;
+  background: transparent;
+}
+.tl-grip::after {
+  content: "";
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 3px; height: 16px;
+  transform: translate(-50%, -50%);
+  border-radius: 99px;
+  background: var(--text-muted);
+  opacity: 0.42;
 }
 
 .tl-left {
@@ -155,7 +160,8 @@
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: conic-gradient(var(--accent) calc(var(--tl-p, 0) * 360deg), var(--border-strong) 0);
+  background: conic-gradient(var(--accent) var(--tl-angle, 0deg), color-mix(in srgb, var(--accent) 18%, var(--bg-elevated)) 0);
+  box-shadow: inset 0 0 0 3px var(--bg-card);
 }
 
 .tl-now {
@@ -181,8 +187,8 @@
 
 .tl-empty {
   padding: 1rem;
-  border: 1px dashed var(--border-strong);
   border-radius: var(--ipd-radius-md, 14px);
+  background: color-mix(in srgb, var(--bg-card) 56%, var(--bg));
   font-size: 0.84rem;
   color: var(--text-muted);
   text-align: center;
@@ -197,9 +203,9 @@
   flex-wrap: wrap;
   margin-top: 0.75rem;
   padding: 10px 12px;
-  border: 1px solid var(--border-strong);
+  border: 0;
   border-radius: var(--ipd-radius-sm, 10px);
-  background: var(--bg-card);
+  background: color-mix(in srgb, var(--bg-card) 72%, var(--bg));
 }
 .tl-confirm[hidden] { display: none; }
 .tl-confirm p { flex: 1 1 220px; margin: 0; font-size: 0.84rem; color: var(--text-primary); }

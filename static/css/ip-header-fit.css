@@ -26,5 +26,5 @@
   }
   body > header[data-fit="icons"] .nav-tab-icon { width: 16px; height: 16px; }
   body > header[data-fit="icons"] #themeLabel,
-  body > header[data-fit="icons"] .date-badge { display: none; }
+  body > header[data-fit="icons"] .nav-date { display: none; }
 }

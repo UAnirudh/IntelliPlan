@@ -244,7 +244,9 @@
         var left = item.end_minute - now;
         var ring = document.createElement("span");
         ring.className = "tl-left";
-        ring.style.setProperty("--tl-p", String(Math.max(0, Math.min(1, (span - left) / span))));
+        var elapsed = Math.max(0, Math.min(1, (span - left) / span));
+        ring.style.setProperty("--tl-p", String(elapsed));
+        ring.style.setProperty("--tl-angle", (elapsed * 360) + "deg");
         ring.textContent = left + " min left";
         node.appendChild(ring);
       });

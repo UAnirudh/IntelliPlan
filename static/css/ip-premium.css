@@ -129,7 +129,7 @@ p, li, dd, .u-body {
 .nav-streak-count, .nav-pet-level,
 .grade-value, .gpa-value, .score-value, .countdown-value,
 table td, table th,
-time, .date-badge {
+time, .nav-date {
   font-variant-numeric: tabular-nums slashed-zero;
   font-feature-settings: "tnum" 1, "zero" 1;
 }
