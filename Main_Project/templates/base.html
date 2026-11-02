@@ -1564,17 +1564,34 @@ if (mobileMenuBtn) {
     }
     const card = document.createElement('div');
     card.style.cssText = 'background:var(--bg-card);border:1px solid var(--border-strong);border-radius:12px;padding:12px 14px;box-shadow:var(--shadow-lg);font-family:var(--font-body);animation:fadeUp 0.22s var(--ease-out) both;display:flex;gap:10px;align-items:flex-start;';
-    card.innerHTML = `
-      <div style="width:30px;height:30px;border-radius:8px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-        <svg width="16" height="16"><use href="#i-clock"/></svg>
-      </div>
-      <div style="flex:1;min-width:0;">
-        <div style="font-weight:700;font-size:0.88rem;color:var(--text-primary);margin-bottom:2px;">${title}</div>
-        <div style="font-size:0.8rem;color:var(--text-secondary);line-height:1.4;">${body}</div>
-      </div>
-      <button type="button" aria-label="Dismiss" style="background:none;border:0;color:var(--text-muted);cursor:pointer;padding:2px;line-height:1;">×</button>
-    `;
-    card.querySelector('button').addEventListener('click', () => card.remove());
+    const icon = document.createElement('div');
+    icon.style.cssText = 'width:30px;height:30px;border-radius:8px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0;';
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('width', '16');
+    svg.setAttribute('height', '16');
+    const clock = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+    clock.setAttribute('href', '#i-clock');
+    svg.appendChild(clock);
+    icon.appendChild(svg);
+
+    const content = document.createElement('div');
+    content.style.cssText = 'flex:1;min-width:0;';
+    const heading = document.createElement('div');
+    heading.style.cssText = 'font-weight:700;font-size:0.88rem;color:var(--text-primary);margin-bottom:2px;';
+    heading.textContent = title;
+    const message = document.createElement('div');
+    message.style.cssText = 'font-size:0.8rem;color:var(--text-secondary);line-height:1.4;';
+    message.textContent = body;
+    content.append(heading, message);
+
+    const dismiss = document.createElement('button');
+    dismiss.type = 'button';
+    dismiss.setAttribute('aria-label', 'Dismiss');
+    dismiss.style.cssText = 'background:none;border:0;color:var(--text-muted);cursor:pointer;padding:2px;line-height:1;';
+    dismiss.textContent = '×';
+    dismiss.addEventListener('click', () => card.remove());
+
+    card.append(icon, content, dismiss);
     host.appendChild(card);
     setTimeout(() => { if (card.isConnected) card.remove(); }, 14000);
   }

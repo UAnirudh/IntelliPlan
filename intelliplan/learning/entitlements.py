@@ -75,24 +75,66 @@ def _membership_organization_ids(user) -> list[int]:
     ids: list[int] = []
     seen: set[int] = set()
     for membership in direct:
-        organization = M["Organization"].query.get(membership.organization_id)
-        depth = 0
-        while organization and organization.id not in seen and depth < 32:
-            seen.add(organization.id)
-            ids.append(organization.id)
-            organization = (M["Organization"].query.get(organization.parent_id)
-                            if organization.parent_id else None)
-            depth += 1
+        for organization_id in _organization_ancestor_ids(membership.organization_id):
+            if organization_id not in seen:
+                seen.add(organization_id)
+                ids.append(organization_id)
     return ids
 
 
+def _organization_ancestor_ids(organization_id: int) -> list[int]:
+    """Return an organization's scope, stopping safely on corrupt hierarchies."""
+    M = _models()
+    ids: list[int] = []
+    seen: set[int] = set()
+    organization = M["Organization"].query.get(organization_id)
+    while organization and organization.id not in seen and len(ids) < 32:
+        seen.add(organization.id)
+        ids.append(organization.id)
+        organization = (M["Organization"].query.get(organization.parent_id)
+                        if organization.parent_id else None)
+    return ids
+
+
+def _verified_school_domain(user):
+    """Return the owner-verified domain matching this verified account email."""
+    if getattr(user, "email_verified", False) is not True:
+        return None
+    address = str(getattr(user, "email", "") or "").strip().lower()
+    if "@" not in address:
+        return None
+    domain = address.rsplit("@", 1)[1]
+    M = _models()
+    return M["SchoolDomain"].query.filter_by(domain=domain).filter(
+        M["SchoolDomain"].verified_at.isnot(None)).first()
+
+
 def school_plan_for(user) -> str | None:
-    """Return the strongest owner-assigned plan for the user's institutions."""
-    ids = _membership_organization_ids(user)
-    if not ids:
+    """Return an owner-assigned plan only inside the verified email's school scope.
+
+    Roster membership remains useful for school features, but an admin-added
+    account cannot inherit a paid school plan unless its verified address is
+    covered by an owner-verified domain in the same organization hierarchy.
+    """
+    domain = _verified_school_domain(user)
+    if domain is None or not getattr(user, "is_authenticated", False):
         return None
     M = _models()
-    rows = M["SchoolPlan"].query.filter(M["SchoolPlan"].organization_id.in_(ids)).all()
+    domain_scope = set(_organization_ancestor_ids(domain.organization_id))
+    memberships = M["Membership"].query.filter_by(user_id=user.id).all()
+    eligible_plan_ids: set[int] = set()
+    for membership in memberships:
+        member_scope = _organization_ancestor_ids(membership.organization_id)
+        # A school domain may be registered on a parent district or on a
+        # child school. Both must be in the same hierarchy; unrelated school
+        # memberships never inherit plans just because the email is partnered
+        # elsewhere.
+        if domain.organization_id in member_scope or membership.organization_id in domain_scope:
+            eligible_plan_ids.update(member_scope)
+    if not eligible_plan_ids:
+        return None
+    rows = M["SchoolPlan"].query.filter(
+        M["SchoolPlan"].organization_id.in_(eligible_plan_ids)).all()
     valid = [row.plan_tier for row in rows if row.plan_tier in SCHOOL_PLAN_TIERS]
     return max(valid, key=lambda tier: _PLAN_RANK[tier]) if valid else None
 
@@ -138,30 +180,13 @@ def school_plan_details_for_organization(organization, organizations_by_id, plan
 
 
 def is_partnered_user(user) -> bool:
-    """A verified-domain member or explicitly-plan-assigned school member.
+    """Whether verified mailbox proof connects this user to a partner school.
 
-    The email-domain check is independent of membership insertion so a
-    transient enrollment failure cannot accidentally make a partner-school
-    account eligible for an individual trial.
+    Domain proof is independent of membership insertion so transient roster
+    enrollment failures do not start an individual trial. A plan or manual
+    roster entry alone is not proof of school affiliation.
     """
-    if getattr(user, "email_verified", False) is True:
-        address = str(getattr(user, "email", "") or "").strip().lower()
-        if "@" in address:
-            domain = address.rsplit("@", 1)[1]
-            M = _models()
-            if M["SchoolDomain"].query.filter_by(domain=domain).filter(
-                    M["SchoolDomain"].verified_at.isnot(None)).first() is not None:
-                return True
-    ids = _membership_organization_ids(user)
-    if not ids:
-        return False
-    M = _models()
-    if M["SchoolPlan"].query.filter(M["SchoolPlan"].organization_id.in_(ids)).first():
-        return True
-    return M["SchoolDomain"].query.filter(
-        M["SchoolDomain"].organization_id.in_(ids),
-        M["SchoolDomain"].verified_at.isnot(None),
-    ).first() is not None
+    return _verified_school_domain(user) is not None
 
 
 def add_verified_school_membership(user, email: str | None = None) -> bool:
