@@ -191,6 +191,10 @@ def run_width(browser, width):
         if cookie.is_visible():
             cookie.click()
         expect(page.locator('#hoursPerDay')).to_be_visible()
+        expect(page.locator('#schedulerMethodNote')).to_contain_text(
+            'feasible plan from your assignments, deadlines and available study hours')
+        expect(page.locator('.scheduler-loading p')).to_have_text(
+            'Building a plan around your assignments and available study time…')
         page.wait_for_function('allAssignments.length === 2')
         page.locator('#assignmentQueue summary').click()
         expect(page.locator('#assignmentQueueCount')).to_contain_text('2 to do · 1 waiting')
