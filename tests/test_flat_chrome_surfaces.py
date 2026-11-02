@@ -13,19 +13,27 @@ def _rule(source: str, selector: str) -> str:
     return match.group(1)
 
 
-def test_global_reward_chrome_uses_flat_theme_fills():
+def test_global_reward_navigation_uses_plain_metadata():
     source = (ROOT / "Main_Project/templates/base.html").read_text(encoding="utf-8")
+    # Streak and pet links are ordinary navigation rows now; avoid bringing
+    # back decorative counters that compete with the page hierarchy.
     for selector in (
         ".nav-streak-badge",
         ".side-streak-badge",
         ".side-pet-badge",
+    ):
+        assert selector not in source
+
+    assert 'class="side-link-meta"' in source
+    assert 'class="nav-link-meta"' in source
+
+    for selector in (
         ".pet-xp-toast",
         ".pet-evolve-flash",
     ):
         rule = _rule(source, selector)
         assert "gradient(" not in rule, selector
 
-    assert "background: var(--medium-bg);" in _rule(source, ".nav-streak-badge")
     assert "background: var(--ink);" in _rule(source, ".pet-xp-toast")
     assert "color: var(--on-ink);" in _rule(source, ".pet-xp-toast")
 
