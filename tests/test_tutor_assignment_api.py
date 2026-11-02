@@ -355,6 +355,10 @@ def test_saved_note_flows_through_real_retrieval_into_tutor_prompt(client, monke
     # network credentials and external embedding providers.
     from intelliplan.learning import policy
     from intelliplan.retrieval import index as retrieval_index
+    # tests/test_retrieval.py runs the same module-level index against a
+    # throwaway Flask app. Rebind it here because the shared index singleton
+    # must use this test's real App database when exercising the tutor route.
+    retrieval_index.init(db, App.CourseNote)
     monkeypatch.setattr(retrieval_index, 'dense_embed', lambda *a, **k: None)
     monkeypatch.setattr(policy, 'decision', lambda user, feature: (True, 'allowed'))
     monkeypatch.setattr(policy, 'permitted_providers', lambda user: {'groq'})
