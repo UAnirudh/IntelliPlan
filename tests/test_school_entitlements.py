@@ -188,11 +188,17 @@ def test_owner_school_list_distinguishes_direct_and_effective_district_plan(monk
             district_plan.updated_by_id = owner.id
         App.db.session.commit()
         owner_id, owner_email, school_id = owner.id, owner.email, school.id
+        ordered_ids = [row.id for row in M['Organization'].query.filter(
+            M['Organization'].kind.in_(['school', 'district'])
+        ).order_by(M['Organization'].name.asc(), M['Organization'].id.asc()).all()]
+        school_offset = ordered_ids.index(school_id)
     try:
         monkeypatch.setattr(App, 'ADMIN_EMAILS', frozenset({owner_email}))
         client = App.app.test_client()
         _login(client, owner_id)
-        response = client.get('/api/owner/schools')
+        # The school and its parent district are on different one-row pages;
+        # the effective inherited plan still has to resolve correctly.
+        response = client.get(f'/api/owner/schools?limit=1&offset={school_offset}')
         assert response.status_code == 200
         listed = next(row for row in response.json['schools'] if row['id'] == school_id)
         assert listed['plan_tier'] == 'free'
@@ -200,6 +206,89 @@ def test_owner_school_list_distinguishes_direct_and_effective_district_plan(monk
         assert listed['effective_plan_tier'] == 'pro'
         assert listed['effective_plan_source_name'] == 'North County'
         assert listed['effective_plan_inherited'] is True
+    finally:
+        App.limiter.enabled = previous
+
+
+def test_owner_school_console_paginates_and_keeps_global_stats_accurate(monkeypatch):
+    previous = App.limiter.enabled
+    App.limiter.enabled = False
+    App.app.config['TESTING'] = True
+    marker = uuid4().hex
+    with App.app.app_context():
+        App.db.create_all()
+        M = policy.models()
+        district = _org(f'Pagination district {marker}', 'district')
+        first_school = _org(f'Pagination school A {marker}', parent_id=district.id)
+        second_school = _org(f'Pagination school B {marker}')
+        owner = _user(f'owner-{marker}@example.test')
+        student = _user(f'pagination-student-{marker}@example.test')
+        teacher = _user(f'pagination-teacher-{marker}@example.test', role='teacher')
+        domain = M['SchoolDomain'](organization_id=first_school.id,
+            domain=f'{marker}.example.test', verification_hash='test',
+            verified_at=datetime.utcnow(), created_by_id=owner.id)
+        App.db.session.add_all([
+            domain,
+            M['Membership'](user_id=student.id, organization_id=first_school.id, role='student'),
+            M['Membership'](user_id=teacher.id, organization_id=second_school.id, role='teacher'),
+        ])
+        App.db.session.commit()
+        owner_id, owner_email = owner.id, owner.email
+        Organization = M['Organization']
+        expected_ids = [row.id for row in Organization.query.filter(
+            Organization.kind.in_(['school', 'district'])
+        ).order_by(Organization.name.asc(), Organization.id.asc()).all()]
+        expected_total = len(expected_ids)
+        expected_domains = (M['SchoolDomain'].query
+            .join(Organization, Organization.id == M['SchoolDomain'].organization_id)
+            .filter(Organization.kind.in_(['school', 'district']),
+                    M['SchoolDomain'].verified_at.isnot(None)).count())
+        expected_student_count = (M['Membership'].query
+            .join(Organization, Organization.id == M['Membership'].organization_id)
+            .filter(Organization.kind.in_(['school', 'district']),
+                    M['Membership'].role == 'student').count())
+        expected_teacher_count = (M['Membership'].query
+            .join(Organization, Organization.id == M['Membership'].organization_id)
+            .filter(Organization.kind.in_(['school', 'district']),
+                    M['Membership'].role == 'teacher').count())
+    try:
+        monkeypatch.setattr(App, 'ADMIN_EMAILS', frozenset({owner_email}))
+        client = App.app.test_client()
+        with App.app.app_context():
+            regular = _user(f'regular-{marker}@example.test')
+            App.db.session.commit()
+            regular_id = regular.id
+        _login(client, regular_id)
+        assert client.get('/api/owner/schools?limit=2').status_code == 404
+        assert client.get('/api/owner/schools/district-options').status_code == 404
+
+        _login(client, owner_id)
+        first = client.get('/api/owner/schools?limit=2&offset=0').get_json()
+        second = client.get('/api/owner/schools?limit=2&offset=2').get_json()
+        assert first['total'] == expected_total
+        assert first['limit'] == 2 and first['offset'] == 0 and first['has_more'] is True
+        assert [row['id'] for row in first['schools']] == expected_ids[:2]
+        assert [row['id'] for row in second['schools']] == expected_ids[2:4]
+        assert second['offset'] == 2
+        assert second['has_more'] == (4 < expected_total)
+        assert first['summary'] == {
+            'organizations': expected_total,
+            'verified_domains': expected_domains,
+            'students': expected_student_count,
+            'teachers': expected_teacher_count,
+        }
+        last = client.get(f'/api/owner/schools?limit=2&offset={expected_total - 1}').get_json()
+        assert [row['id'] for row in last['schools']] == expected_ids[-1:]
+        assert last['has_more'] is False
+        outside = client.get(f'/api/owner/schools?limit=2&offset={expected_total + 20}').get_json()
+        assert outside['schools'] == [] and outside['has_more'] is False
+        assert outside['total'] == expected_total
+        clamped = client.get('/api/owner/schools?limit=1000&offset=-10').get_json()
+        assert clamped['limit'] == entitlements.OWNER_SCHOOL_PAGE_MAX
+        assert clamped['offset'] == 0
+        districts = client.get('/api/owner/schools/district-options?limit=1&offset=0').get_json()
+        assert districts['total'] >= 1 and len(districts['districts']) == 1
+        assert districts['has_more'] is (districts['total'] > 1)
     finally:
         App.limiter.enabled = previous
 
