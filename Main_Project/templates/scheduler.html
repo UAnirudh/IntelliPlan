@@ -1135,6 +1135,7 @@
     </details>
     <div style="display:flex; gap:10px; align-items:center; margin-top:1.5rem; flex-wrap:wrap;">
       <button class="btn-primary" id="generateBtn" type="button" onclick="generateSchedule()" style="padding:14px 32px; border:none; cursor:pointer; display:inline-flex; align-items:center; gap:8px;"><svg width="16" height="16"><use href="#i-robot"/></svg> Generate my study plan</button>
+      <p id="schedulerMethodNote" class="assignment-queue-hint" style="margin:0;max-width:34rem;">Builds a feasible plan from your assignments, deadlines and available study hours.</p>
       <div id="savePanel" style="display:none; gap:8px; align-items:center; flex-wrap:wrap;">
         <input type="text" id="scheduleName" class="form-input" aria-label="Name for this schedule" placeholder="Schedule name..." style="max-width:200px;" />
         <button type="button" onclick="saveSchedule()" style="padding:12px 20px; border-radius:10px; border:1px solid var(--low); background:var(--low-bg); color:var(--low); cursor:pointer; font-family:var(--font-ui); font-size:0.88rem; font-weight:600; display:inline-flex; align-items:center; gap:6px;"><svg width="14" height="14"><use href="#i-save"/></svg> Save to dashboard</button>
@@ -1228,7 +1229,7 @@
 
   <div class="scheduler-loading" id="schedulerLoading" style="display:none;">
     <div class="spinner"></div>
-    <p>AI is building your personalized study plan…</p>
+    <p>Building a plan around your assignments and available study time…</p>
   </div>
 
   <div id="scheduleResults" style="display:none;">
@@ -2061,7 +2062,7 @@ function generateSchedule(extra) {
       return;
     }
     if (response.status === 'error') {
-      showGenError(response.message || 'The AI could not build a schedule.', !!response.retryable);
+      showGenError(response.message || 'We could not build this plan yet. Check your assignments and available study time, then try again.', !!response.retryable);
       return;
     }
     _clarifyAnswers = {};   // consumed — a fresh plan starts clean
