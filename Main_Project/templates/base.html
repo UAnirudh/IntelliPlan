@@ -1308,11 +1308,13 @@ const _dateStr = new Date().toLocaleDateString('en-US', {weekday:'short',month:'
 /* HAMBURGER_SVG / CLOSE_SVG removed — the button now morphs three <span>
    bars via the .is-open class instead of swapping innerHTML. */
 
-function setMobileMenuState(isOpen) {
+function setMobileMenuState(isOpen, restoreFocus = false) {
   const nav = document.getElementById('mainNav');
   const btn = document.getElementById('mobileMenuBtn');
   const back = document.getElementById('mobileNavBackdrop');
   if (!nav || !btn) return;
+  const isMobile = window.matchMedia('(max-width: 768px)').matches;
+  const isVisible = isMobile && isOpen;
   nav.classList.toggle('mobile-open', isOpen);
   if (back) back.classList.toggle('mobile-open', isOpen);
   /* The icon morphs via CSS off this class. Previously this reassigned
@@ -1322,6 +1324,18 @@ function setMobileMenuState(isOpen) {
   btn.setAttribute('aria-expanded', String(isOpen));
   btn.setAttribute('aria-label', isOpen ? 'Close navigation' : 'Open navigation');
   document.body.classList.toggle('mobile-nav-open', isOpen);
+  // A translated-offscreen drawer is still exposed to keyboard and assistive
+  // technology unless it is removed from the accessibility tree as well.
+  nav.inert = isMobile && !isVisible;
+  if (isMobile && !isVisible) nav.setAttribute('aria-hidden', 'true');
+  else nav.removeAttribute('aria-hidden');
+
+  if (isVisible) {
+    const firstItem = nav.querySelector('a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])');
+    if (firstItem) firstItem.focus();
+  } else if (restoreFocus) {
+    btn.focus();
+  }
 }
 
 function toggleMobileMenu() {
@@ -1330,11 +1344,34 @@ function toggleMobileMenu() {
   setMobileMenuState(!nav.classList.contains('mobile-open'));
 }
 
+// Initialize as soon as the parsed shell is available, instead of waiting for
+// DOMContentLoaded and briefly exposing a visually hidden drawer to Tab.
+setMobileMenuState(false);
+
 document.addEventListener('DOMContentLoaded', () => {
   const back = document.getElementById('mobileNavBackdrop');
-  if (back) back.addEventListener('click', () => setMobileMenuState(false));
+  if (back) back.addEventListener('click', () => setMobileMenuState(false, true));
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') setMobileMenuState(false);
+    const nav = document.getElementById('mainNav');
+    if (!nav || !nav.classList.contains('mobile-open')) return;
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      setMobileMenuState(false, true);
+      return;
+    }
+    if (e.key !== 'Tab') return;
+    const items = [...nav.querySelectorAll('a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])')]
+      .filter(item => !item.hidden && item.getAttribute('aria-hidden') !== 'true' && item.getClientRects().length);
+    if (!items.length) return;
+    const first = items[0];
+    const last = items[items.length - 1];
+    if (e.shiftKey && (document.activeElement === first || !nav.contains(document.activeElement))) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && (document.activeElement === last || !nav.contains(document.activeElement))) {
+      e.preventDefault();
+      first.focus();
+    }
   });
 });
 
@@ -1957,10 +1994,10 @@ document.addEventListener('pointerdown', e => {
   const nav = document.getElementById('mainNav');
   const btn = document.getElementById('mobileMenuBtn');
   if (!nav || !btn) return;
-  if (!window.matchMedia('(max-width: 720px)').matches) return;
+  if (!window.matchMedia('(max-width: 768px)').matches) return;
   if (!nav.classList.contains('mobile-open')) return;
   if (!nav.contains(e.target) && !btn.contains(e.target)) {
-    setMobileMenuState(false);
+    setMobileMenuState(false, true);
   }
 });
 
@@ -1972,8 +2009,10 @@ document.querySelectorAll('#mainNav .nav-tab, #mainNav .dropdown-item').forEach(
 });
 
 window.addEventListener('resize', () => {
-  if (!window.matchMedia('(max-width: 720px)').matches) {
+  if (!window.matchMedia('(max-width: 768px)').matches) {
     setMobileMenuState(false);
+  } else {
+    setMobileMenuState(document.getElementById('mainNav')?.classList.contains('mobile-open'));
   }
 });
 

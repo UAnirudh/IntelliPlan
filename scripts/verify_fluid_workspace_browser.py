@@ -130,6 +130,38 @@ with sync_playwright() as playwright:
     # The desktop preference must not make mobile history inert or hidden.
     page.get_by_role('button', name='Hide chat history', exact=True).click()
     page.set_viewport_size({'width': 390, 'height': 900})
+    open_page('/login')  # Public pages use the hamburger drawer on phones.
+    mobile_nav = page.locator('#mainNav')
+    menu_button = page.locator('#mobileMenuBtn')
+    assert mobile_nav.evaluate('(el) => el.inert')
+    assert mobile_nav.get_attribute('aria-hidden') == 'true'
+    menu_button.focus()
+    page.keyboard.press('Tab')
+    assert not mobile_nav.evaluate('(el) => el.contains(document.activeElement)'), \
+        'Tab entered the closed, offscreen mobile navigation drawer'
+    menu_button.click()
+    assert not mobile_nav.evaluate('(el) => el.inert')
+    assert mobile_nav.get_attribute('aria-hidden') is None
+    assert mobile_nav.evaluate('(el) => el.contains(document.activeElement)'), \
+        'Opening the mobile drawer did not move focus into its navigation'
+    page.keyboard.press('Escape')
+    assert mobile_nav.evaluate('(el) => el.inert')
+    assert page.evaluate("document.activeElement.id === 'mobileMenuBtn'")
+    assert not mobile_nav.evaluate('(el) => el.classList.contains("mobile-open")')
+    for width in (720, 768):
+        page.set_viewport_size({'width': width, 'height': 900})
+        open_page('/login')
+        assert menu_button.is_visible(), f'hamburger hidden at mobile breakpoint {width}px'
+        assert mobile_nav.evaluate('(el) => el.inert')
+        menu_button.click()
+        assert mobile_nav.evaluate('(el) => el.classList.contains("mobile-open")')
+        page.set_viewport_size({'width': 769, 'height': 900})
+        assert not mobile_nav.evaluate('(el) => el.classList.contains("mobile-open")')
+        assert not mobile_nav.evaluate('(el) => el.inert')
+        assert mobile_nav.get_attribute('aria-hidden') is None
+        assert menu_button.is_hidden()
+    page.set_viewport_size({'width': 390, 'height': 900})
+    open_page('/tutor')
     page.get_by_role('button', name='Open chat history', exact=True).click()
     assert page.locator('#tutorSide').is_visible()
     assert not page.locator('#tutorSide').evaluate('(el) => el.inert')

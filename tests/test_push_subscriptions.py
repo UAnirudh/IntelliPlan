@@ -156,6 +156,19 @@ def test_the_cap_evicts_the_oldest_not_the_newest(client, user_id):
 # ── Validation ──────────────────────────────────────────────────────
 
 
+@pytest.mark.parametrize("endpoint", [
+    "https://fcm.googleapis.com/fcm/send/device-token",
+    "https://updates.push.services.mozilla.com/wpush/v2/device-token",
+    "https://web.push.apple.com/device-token",
+    "https://cloud.notify.windows.com/?token=device-token",
+    "https://wns2-sea1.notify.windows.com/w/?token=device-token",
+])
+def test_supported_browser_push_services_are_accepted(client, user_id, endpoint):
+    login(client, user_id)
+    assert subscribe(client, endpoint).status_code == 200
+    assert [row.endpoint for row in rows_for(user_id)] == [endpoint]
+
+
 @pytest.mark.parametrize("bad", [
     {},
     {"subscription": {}},
@@ -174,6 +187,104 @@ def test_an_over_long_endpoint_is_rejected(client, user_id):
     login(client, user_id)
     payload = sub_payload("https://fcm.googleapis.com/fcm/send/" + "x" * 600)
     assert client.post("/push/subscribe", json=payload).status_code == 400
+
+
+@pytest.mark.parametrize("endpoint", [
+    "http://fcm.googleapis.com/fcm/send/device-token",
+    "https://127.0.0.1/push",
+    "https://10.0.0.8/push",
+    "https://[::1]/push",
+    "https://attacker.example/push",
+    "https://fcm.googleapis.com.attacker.example/push",
+    "https://fcm.googleapis.com@127.0.0.1/push",
+    "https://fcm.googleapis.com:8443/fcm/send/device-token",
+    "https://fcm.googleapis.com:99999/fcm/send/device-token",
+    "https://evil.notify.windows.com/push",
+    "https://evil.wns.windows.com/push",
+])
+def test_untrusted_or_malformed_push_endpoints_are_rejected(client, user_id, endpoint):
+    login(client, user_id)
+    response = subscribe(client, endpoint)
+    assert response.status_code == 400
+    assert rows_for(user_id) == []
+
+
+def test_subscription_json_cannot_hide_a_different_endpoint(client, user_id):
+    login(client, user_id)
+    body = sub_payload(PHONE)
+    body["subscription"]["endpoint"] = "https://attacker.example/push"
+    response = client.post("/push/subscribe", json=body)
+    assert response.status_code == 400
+    assert rows_for(user_id) == []
+
+
+def test_legacy_untrusted_rows_are_removed_before_test_push(client, user_id, monkeypatch):
+    import pywebpush
+
+    login(client, user_id)
+    with App.app.app_context():
+        endpoint = "https://127.0.0.1/push"
+        db.session.add(PushSubscription(
+            user_id=user_id, endpoint=endpoint,
+            subscription_json=json.dumps(sub_payload(endpoint)["subscription"])))
+        db.session.commit()
+    monkeypatch.setenv("VAPID_PRIVATE_KEY", "test-key")
+
+    def should_not_send(**kwargs):
+        raise AssertionError("untrusted endpoint reached pywebpush")
+
+    monkeypatch.setattr(pywebpush, "webpush", should_not_send)
+    result = client.post("/push/test").get_json()
+    assert result["status"] == "error"
+    assert "no subscription" in result["message"].lower()
+    assert rows_for(user_id) == []
+
+
+def test_scheduled_push_never_sends_to_a_legacy_untrusted_row(user_id, monkeypatch):
+    from App import _send_push_to_user
+    import pywebpush
+
+    with App.app.app_context():
+        endpoint = "https://127.0.0.1/push"
+        db.session.add(PushSubscription(
+            user_id=user_id, endpoint=endpoint,
+            subscription_json=json.dumps(sub_payload(endpoint)["subscription"])))
+        db.session.commit()
+        monkeypatch.setenv("VAPID_PRIVATE_KEY", "test-key")
+
+        def should_not_send(**kwargs):
+            raise AssertionError("untrusted endpoint reached pywebpush")
+
+        monkeypatch.setattr(pywebpush, "webpush", should_not_send)
+        detail = _send_push_to_user(user_id, {"title": "Study", "body": "Start"},
+                                    return_details=True)
+        assert detail["active"] == 0
+        assert detail["invalid"] == 1
+        assert detail["sent"] == 0
+        assert rows_for(user_id) == []
+
+
+def test_scheduled_push_checks_the_endpoint_inside_legacy_subscription_json(user_id, monkeypatch):
+    from App import _send_push_to_user
+    import pywebpush
+
+    with App.app.app_context():
+        stored = sub_payload("https://127.0.0.1/push")["subscription"]
+        db.session.add(PushSubscription(
+            user_id=user_id, endpoint=PHONE, subscription_json=json.dumps(stored)))
+        db.session.commit()
+        monkeypatch.setenv("VAPID_PRIVATE_KEY", "test-key")
+
+        def should_not_send(**kwargs):
+            raise AssertionError("untrusted nested endpoint reached pywebpush")
+
+        monkeypatch.setattr(pywebpush, "webpush", should_not_send)
+        detail = _send_push_to_user(user_id, {"title": "Study", "body": "Start"},
+                                    return_details=True)
+        assert detail["active"] == 0
+        assert detail["invalid"] == 1
+        assert detail["sent"] == 0
+        assert rows_for(user_id) == []
 
 
 # ── The test button ─────────────────────────────────────────────────
