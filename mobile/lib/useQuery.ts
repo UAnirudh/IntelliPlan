@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { AppState } from "react-native";
+import { useFocusEffect } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ApiError } from "./api";
 
@@ -39,9 +41,11 @@ export async function clearQueryCache(): Promise<void> {
 export function useQuery<T>(
   cacheKey: string,
   fetcher: () => Promise<T>,
-  opts: { enabled?: boolean } = {},
+  opts: { enabled?: boolean; refreshOnFocus?: boolean; refreshOnForeground?: boolean } = {},
 ): QueryState<T> {
   const enabled = opts.enabled !== false;
+  const refreshOnFocus = opts.refreshOnFocus === true;
+  const refreshOnForeground = opts.refreshOnForeground === true;
   const [data, setDataState] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [missing, setMissing] = useState(false);
@@ -54,6 +58,8 @@ export function useQuery<T>(
   // below re-fires on every render and the screen fetches in a loop.
   const fetcherRef = useRef(fetcher);
   fetcherRef.current = fetcher;
+  const inFlight = useRef<Promise<void> | null>(null);
+  const firstFocus = useRef(true);
 
   const alive = useRef(true);
   useEffect(() => {
@@ -64,51 +70,61 @@ export function useQuery<T>(
   }, []);
 
   const run = useCallback(
-    async (mode: "initial" | "refresh") => {
-      if (!enabled) return;
+    (mode: "initial" | "refresh") => {
+      if (!enabled) return Promise.resolve();
+      // Initial load, focus, foreground, and pull-to-refresh can coincide.
+      // Share the active request so the screen never fans out duplicates.
+      if (inFlight.current) return inFlight.current;
       if (mode === "refresh") setRefreshing(true);
-      try {
-        const fresh = await fetcherRef.current();
-        if (!alive.current) return;
-        setDataState(fresh);
-        setError(null);
-        setMissing(false);
-        setStale(false);
-        AsyncStorage.setItem(
-          PREFIX + cacheKey,
-          JSON.stringify({ at: Date.now(), value: fresh }),
-        ).catch(() => {});
-      } catch (e) {
-        if (!alive.current) return;
-        const err = e as ApiError;
-        if (err?.status === 404) {
-          setMissing(true);
+      const request = (async () => {
+        try {
+          const fresh = await fetcherRef.current();
+          if (!alive.current) return;
+          setDataState(fresh);
           setError(null);
-        } else {
-          setError(err?.message || "Something went wrong.");
-          // A cached copy is more useful than an error page, but only on
-          // the first load — replacing what the student is already looking
-          // at with older data during a pull-to-refresh would be a
-          // regression they did not ask for.
-          if (mode === "initial") {
-            try {
-              const raw = await AsyncStorage.getItem(PREFIX + cacheKey);
-              if (raw && alive.current) {
-                const parsed = JSON.parse(raw);
-                setDataState(parsed.value as T);
-                setStale(true);
+          setMissing(false);
+          setStale(false);
+          AsyncStorage.setItem(
+            PREFIX + cacheKey,
+            JSON.stringify({ at: Date.now(), value: fresh }),
+          ).catch(() => {});
+        } catch (e) {
+          if (!alive.current) return;
+          const err = e as ApiError;
+          if (err?.status === 404) {
+            setMissing(true);
+            setError(null);
+          } else {
+            setError(err?.message || "Something went wrong.");
+            // A cached copy is more useful than an error page, but only on
+            // the first load — replacing what the student is already looking
+            // at with older data during a pull-to-refresh would be a
+            // regression they did not ask for.
+            if (mode === "initial") {
+              try {
+                const raw = await AsyncStorage.getItem(PREFIX + cacheKey);
+                if (raw && alive.current) {
+                  const parsed = JSON.parse(raw);
+                  setDataState(parsed.value as T);
+                  setStale(true);
+                }
+              } catch {
+                /* a corrupt cache entry is not worth surfacing */
               }
-            } catch {
-              /* a corrupt cache entry is not worth surfacing */
             }
           }
+        } finally {
+          if (alive.current) {
+            setLoading(false);
+            setRefreshing(false);
+          }
         }
-      } finally {
-        if (alive.current) {
-          setLoading(false);
-          setRefreshing(false);
-        }
-      }
+      })();
+      inFlight.current = request;
+      void request.finally(() => {
+        if (inFlight.current === request) inFlight.current = null;
+      });
+      return request;
     },
     [cacheKey, enabled],
   );
@@ -117,6 +133,25 @@ export function useQuery<T>(
     if (enabled) run("initial");
     else setLoading(false);
   }, [run, enabled]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!refreshOnFocus || !enabled) return;
+      if (firstFocus.current) {
+        firstFocus.current = false;
+        return;
+      }
+      void run("refresh");
+    }, [enabled, refreshOnFocus, run]),
+  );
+
+  useEffect(() => {
+    if (!refreshOnForeground || !enabled) return;
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") void run("refresh");
+    });
+    return () => subscription.remove();
+  }, [enabled, refreshOnForeground, run]);
 
   const setData = useCallback((updater: (prev: T | null) => T | null) => {
     setDataState((prev) => updater(prev));
@@ -129,8 +164,8 @@ export function useQuery<T>(
     loading,
     refreshing,
     stale,
-    reload: () => run("initial"),
-    refresh: () => run("refresh"),
+    reload: useCallback(() => run("initial"), [run]),
+    refresh: useCallback(() => run("refresh"), [run]),
     setData,
   };
 }

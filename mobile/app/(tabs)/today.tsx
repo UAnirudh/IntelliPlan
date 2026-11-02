@@ -1,5 +1,5 @@
-import React, { useCallback, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, View } from "react-native";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, AppState, Pressable, RefreshControl, ScrollView, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
@@ -170,14 +170,34 @@ export default function TodayScreen() {
   const router = useRouter();
   const { user } = useAuth();
 
-  const today = useQuery<TodayPayload>("today", getToday);
-  const streak = useQuery<Awaited<ReturnType<typeof getStreak>>>("streak", getStreak);
-  const schedule = useQuery<SavedSchedule>("schedule", getSchedule);
-  const fallback = useQuery<Task[]>("today-fallback", getTasks, { enabled: today.missing });
+  const refreshWhenVisible = { refreshOnFocus: true, refreshOnForeground: true };
+  const today = useQuery<TodayPayload>("today", getToday, refreshWhenVisible);
+  const streak = useQuery<Awaited<ReturnType<typeof getStreak>>>("streak", getStreak, refreshWhenVisible);
+  const schedule = useQuery<SavedSchedule>("schedule", getSchedule, refreshWhenVisible);
+  const fallback = useQuery<Task[]>("today-fallback", getTasks, { ...refreshWhenVisible, enabled: today.missing });
   const live = useQuery<Awaited<ReturnType<typeof getCurrentSession>>>(
     "current-session",
     getCurrentSession,
+    refreshWhenVisible,
   );
+
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const refreshDate = () => setNow(new Date());
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") refreshDate();
+    });
+    return () => subscription.remove();
+  }, []);
+
+  useEffect(() => {
+    // A foreground event handles sleeping through midnight; this timer also
+    // updates the screen if it stays open while the local date changes.
+    const nextMidnight = new Date();
+    nextMidnight.setHours(24, 0, 0, 25);
+    const timer = setTimeout(() => setNow(new Date()), Math.max(1, nextMidnight.getTime() - Date.now()));
+    return () => clearTimeout(timer);
+  }, [now.getFullYear(), now.getMonth(), now.getDate()]);
 
   const [busyTitle, setBusyTitle] = useState<string | null>(null);
   const [done, setDone] = useState<Set<string>>(new Set());
@@ -217,13 +237,13 @@ export default function TodayScreen() {
   const data = today.data;
   const greeting = data?.student?.greeting || "Hello";
   const firstName = (data?.student?.name || user?.name || user?.email?.split("@")[0] || "").split(" ")[0];
-  const now = new Date();
   const dateLabel = now.toLocaleDateString(undefined, {
     weekday: "long",
     month: "long",
     day: "numeric",
   });
-  const todayBlocks = useMemo(() => blocksForToday(schedule.data, now), [schedule.data]);
+  const todayKey = localDateKey(now);
+  const todayBlocks = useMemo(() => blocksForToday(schedule.data, now), [schedule.data, todayKey]);
   const scheduleProgress = schedule.data?.progress || (schedule.data as any)?.data?.progress || {};
 
   if (loading) {
