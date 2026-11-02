@@ -57,6 +57,7 @@ def sign_in(client, uid):
     with client.session_transaction() as s:
         s["_user_id"] = str(uid)
         s["_fresh"] = True
+        s["ip_founder_mode"] = True
 
 
 # ── Metering ─────────────────────────────────────────────────────────
@@ -438,7 +439,8 @@ def test_admin_growth_is_hidden_from_students(client):
 
 def test_admin_growth_report(client, monkeypatch):
     with App.app.app_context():
-        admin_id = make_user(email="growth+admin@example.test", created_at=datetime.utcnow() - timedelta(days=20))
+        admin_id = make_user(email="growth+admin@example.test", email_verified=True,
+                             created_at=datetime.utcnow() - timedelta(days=20))
         make_user(created_at=datetime.utcnow() - timedelta(days=20))
         db.session.add(SavedSchedule(user_id=admin_id, schedule_data="{}"))
         db.session.add(App.LinkedAccount(user_id=admin_id, login_type="ics", credentials="{}"))

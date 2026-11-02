@@ -63,6 +63,7 @@ def user(client, monkeypatch, admin=False):
             email=f"learning-{uuid4().hex}@example.test",
             password_hash="x",
             birth_year=2000,
+            email_verified=admin,
         )
         App.db.session.add(row)
         App.db.session.commit()
@@ -72,6 +73,8 @@ def user(client, monkeypatch, admin=False):
     with client.session_transaction() as session:
         session["_user_id"] = str(uid)
         session["_fresh"] = True
+        if admin:
+            session["ip_founder_mode"] = True
     return uid
 
 

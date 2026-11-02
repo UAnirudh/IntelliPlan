@@ -32,6 +32,7 @@ def _login(client, uid):
     with client.session_transaction() as session:
         session['_user_id'] = str(uid)
         session['_fresh'] = True
+        session['ip_founder_mode'] = True
 
 
 def test_only_explicitly_verified_email_gets_domain_membership():
@@ -66,7 +67,7 @@ def test_domain_and_plan_mutation_are_platform_owner_only(monkeypatch):
         App.db.session.commit()
         admin_id = admin.id
         org_id = school.id
-        owner = _user(f"owner-{uuid4().hex}@example.test")
+        owner = _user(f"owner-{uuid4().hex}@example.test", verified=True)
         App.db.session.commit()
         owner_id, owner_email = owner.id, owner.email
     try:
@@ -110,7 +111,7 @@ def test_owner_staff_roster_is_scoped_audited_and_owner_only(monkeypatch):
             M['Membership'](user_id=student.id, organization_id=school.id, role='student'),
             M['Membership'](user_id=other_teacher.id, organization_id=other_school.id, role='teacher'),
         ])
-        owner = _user(f'owner-{uuid4().hex}@example.test')
+        owner = _user(f'owner-{uuid4().hex}@example.test', verified=True)
         App.db.session.commit()
         admin_id, owner_id, owner_email = admin.id, owner.id, owner.email
         school_id, other_school_id = school.id, other_school.id
@@ -177,7 +178,7 @@ def test_owner_school_list_distinguishes_direct_and_effective_district_plan(monk
         M = policy.models()
         district = _org('North County', 'district')
         school = _org('Northview High', parent_id=district.id)
-        owner = _user(f"owner-{uuid4().hex}@example.test")
+        owner = _user(f"owner-{uuid4().hex}@example.test", verified=True)
         district_plan = M['SchoolPlan'].query.filter_by(organization_id=district.id).first()
         if district_plan is None:
             district_plan = M['SchoolPlan'](organization_id=district.id,
@@ -221,7 +222,7 @@ def test_owner_school_console_paginates_and_keeps_global_stats_accurate(monkeypa
         district = _org(f'Pagination district {marker}', 'district')
         first_school = _org(f'Pagination school A {marker}', parent_id=district.id)
         second_school = _org(f'Pagination school B {marker}')
-        owner = _user(f'owner-{marker}@example.test')
+        owner = _user(f'owner-{marker}@example.test', verified=True)
         student = _user(f'pagination-student-{marker}@example.test')
         teacher = _user(f'pagination-teacher-{marker}@example.test', role='teacher')
         domain = M['SchoolDomain'](organization_id=first_school.id,
@@ -301,7 +302,7 @@ def test_owner_school_staff_roster_can_page_past_legacy_cap(monkeypatch):
         App.db.create_all()
         M = policy.models()
         school = _org('Large staff roster')
-        owner = _user(f'owner-{uuid4().hex}@example.test')
+        owner = _user(f'owner-{uuid4().hex}@example.test', verified=True)
         memberships = []
         for index in range(502):
             teacher = _user(f'roster-{index:03d}-{uuid4().hex}@example.test', role='teacher')
@@ -330,7 +331,7 @@ def test_domain_verification_enrolls_already_verified_users_once(monkeypatch):
         App.db.create_all()
         M = policy.models()
         school = _org('Verified Domain School')
-        owner = _user(f"owner-{uuid4().hex}@example.test")
+        owner = _user(f"owner-{uuid4().hex}@example.test", verified=True)
         verified_student = _user(f"student@{domain_name}", verified=True)
         verified_teacher = _user(f"teacher@{domain_name}", role='teacher', verified=True)
         unverified_student = _user(f"unverified@{domain_name}", verified=False)

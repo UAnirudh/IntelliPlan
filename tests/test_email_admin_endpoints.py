@@ -56,12 +56,13 @@ def make_user(days_old=20, admin=False, **overrides):
 @pytest.fixture
 def admin_client(ctx, monkeypatch):
     """A client signed in as an admin, the way require_admin expects."""
-    admin = make_user(days_old=90, admin=True)
+    admin = make_user(days_old=90, admin=True, email_verified=True)
     monkeypatch.setattr(app_module, "ADMIN_EMAILS", {admin.email.lower()}, raising=False)
     client = app_module.app.test_client()
     with client.session_transaction() as session:
         session["_user_id"] = str(admin.id)
         session["_fresh"] = True
+        session["ip_founder_mode"] = True
     return client
 
 

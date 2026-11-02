@@ -203,6 +203,7 @@ def sign_in(client, uid):
     with client.session_transaction() as s:
         s["_user_id"] = str(uid)
         s["_fresh"] = True
+        s["ip_founder_mode"] = True
 
 
 def events():
@@ -226,7 +227,7 @@ def test_admin_daily_users_counts_distinct_consented_accounts_in_utc_day(client)
 
 def test_admin_dashboard_displays_scoped_daily_count(client, monkeypatch):
     with App.app.app_context():
-        uid = make_user()
+        uid = make_user(email_verified=True)
         email = db.session.get(User, uid).email
         db.session.add(ProductEvent(actor=f"u:{uid}", user_id=uid, kind="view",
                                     rule="/dashboard", created_at=datetime.utcnow()))
@@ -243,7 +244,7 @@ def test_thank_you_send_requires_admin_and_explicit_request(client, monkeypatch)
     from intelliplan.email import campaigns
 
     with App.app.app_context():
-        uid = make_user()
+        uid = make_user(email_verified=True)
         email = db.session.get(User, uid).email
     sent = []
     monkeypatch.setattr(campaigns, "send_thank_you", lambda dry_run=True: sent.append(dry_run) or {"sent": 1})
@@ -426,7 +427,7 @@ def test_the_insight_dashboard_is_admin_only(client):
 def test_the_insight_dashboard_reports(client, monkeypatch):
     accept(client)
     with App.app.app_context():
-        admin_id = make_user(email="insight+admin@example.test")
+        admin_id = make_user(email="insight+admin@example.test", email_verified=True)
         db.session.add(ProductEvent(actor=f"u:{admin_id}", user_id=admin_id,
                                     kind="view", rule="/dashboard", channel="tiktok"))
         db.session.add(InsightAnswer(user_id=admin_id, question="heard_from",
