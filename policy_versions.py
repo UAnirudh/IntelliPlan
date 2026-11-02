@@ -727,6 +727,80 @@ PRIVACY_VERSIONS.append({
 })
 
 
+# Active Study already offered an optional camera check-in, but the published
+# privacy policy described only study activity in general. This entry explains
+# the existing opt-in processing and what the server stores; it does not enable
+# the camera or expand who can access the summaries.
+_ACTIVE_STUDY_BEFORE = (
+    "Study and learning records — focus-timer activity, streaks, study "
+    "progress, tutor conversations, uploaded documents, practice results and "
+    "preferences used to support your learning. Family learning profiles may "
+    "include a learner nickname, selected interests or world, grade or skill "
+    "choices, and reviewed practice evidence. These records are personal data "
+    "when linked to an account."
+)
+_ACTIVE_STUDY_AFTER = (
+    "Study and learning records — focus-timer activity, streaks, study "
+    "progress, tutor conversations, uploaded documents, practice results and "
+    "preferences used to support your learning. If you turn on the optional "
+    "Active Study camera check-in and your account settings allow it, your "
+    "selected study browser analyzes camera frames locally and sends IntelliPlan "
+    "coarse counts (such as samples estimated as present, away or absent), "
+    "session-relative timing, average detector confidence and session summaries "
+    "such as distraction-event and estimated focus-streak counts. These estimates "
+    "are linked to the study session and account; they are not proof that you "
+    "studied. IntelliPlan does not store the camera frames or face images in "
+    "study-session records. Focus counts stay with the session record until it is "
+    "deleted; deleting your account deletes its study sessions and focus counts. "
+    "A phone camera paired to your study browser sends video directly between the "
+    "chosen browsers; IntelliPlan temporarily stores encrypted connection setup "
+    "information so they can connect, then removes stale pairing records through "
+    "expiry and cleanup. If you connect an external network-camera gateway, your "
+    "browser connects to the HTTPS address you enter and that gateway provider's "
+    "own practices also apply. Family learning profiles may include a learner "
+    "nickname, selected interests or world, grade or skill choices, and reviewed "
+    "practice evidence. These records are personal data when linked to an account."
+)
+_ACTIVE_STUDY_USE_BEFORE = (
+    "Personalize study and practice suggestions from your learning and activity "
+    "records. These suggestions are not official grades, diagnoses, or decisions "
+    "about school admission or eligibility."
+)
+_ACTIVE_STUDY_USE_AFTER = (
+    "Use optional Active Study focus check-ins to provide rough, on-device camera "
+    "estimates and related study-session nudges when you choose to turn them on "
+    "and your account settings allow them. The estimates can be wrong and do not "
+    "establish whether you studied. Personalize study and practice suggestions "
+    "from your learning and activity records. These suggestions are not official "
+    "grades, diagnoses, or decisions about school admission or eligibility."
+)
+
+PRIVACY_VERSIONS.append({
+    "version": 5,
+    "effective": "2026-11-01",
+    "tldr": [
+        "Optional camera check-ins stay off until you turn them on and account settings allow them.",
+        "Your selected study browser analyzes frames; IntelliPlan saves account-linked counts and rough session estimates.",
+        "A paired phone sends video directly to your study browser; setup details are encrypted and temporary.",
+        "Camera estimates can be wrong and do not prove that you studied.",
+        "An external camera gateway you choose has its own privacy practices.",
+    ],
+    "summary": [
+        "The policy described study activity generally but did not explain the optional Active Study camera check-in. The policy now says that you must turn it on, and your account settings must allow it, before it runs.",
+        "The selected study browser analyzes camera frames locally. IntelliPlan receives coarse counts and session summary values linked to the study session and account, not camera frames or face images in study-session records. These are estimates, not proof of studying.",
+        "When you pair a phone camera, video goes directly between the chosen browsers. IntelliPlan temporarily holds encrypted connection setup information and removes stale pairing records through expiry and cleanup.",
+        "If you choose an external network-camera gateway, your browser connects to the HTTPS address you enter; that gateway provider's own practices apply.",
+        "This notice describes an existing optional feature. It does not turn on the camera or expand access to its summaries.",
+    ],
+    "clauses": [
+        {"heading": "1. Information we collect — Study and learning records",
+         "before": _ACTIVE_STUDY_BEFORE, "after": _ACTIVE_STUDY_AFTER},
+        {"heading": "2. How we use information — Active Study focus check-ins",
+         "before": _ACTIVE_STUDY_USE_BEFORE, "after": _ACTIVE_STUDY_USE_AFTER},
+    ],
+})
+
+
 #: The short version of each whole document, not of one change.
 #:
 #: Shown to someone accepting a document for the first time (a Google
@@ -747,8 +821,8 @@ DOC_TLDR: dict[str, list[str]] = {
         "account in Settings at any time.",
     ],
     PRIVACY: [
-        "We collect what the planner needs: your account, the schoolwork you "
-        "add or connect, and your study activity.",
+        "We collect your account, connected schoolwork and study activity; "
+        "optional camera check-ins save rough session counts.",
         "We never sell your data or use it for ads.",
         "Reminders by push, desktop app, email or text only reach you if you "
         "turn them on.",
