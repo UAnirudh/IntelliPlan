@@ -343,12 +343,15 @@ def owner_school_members(organization_id: int):
     from App import User
     organization = _record_for_org(organization_id)
     M = _models()
-    rows = (M["Membership"].query
+    query = (M["Membership"].query
             .join(User, User.id == M["Membership"].user_id)
             .filter(M["Membership"].organization_id == organization.id,
-                    M["Membership"].role.in_(("teacher", "admin")))
-            .order_by(M["Membership"].role, User.email, M["Membership"].id)
-            .limit(500).all())
+                    M["Membership"].role.in_(("teacher", "admin"))))
+    total = query.count()
+    limit = min(100, max(1, request.args.get("limit", 50, type=int) or 50))
+    offset = max(0, request.args.get("offset", 0, type=int) or 0)
+    rows = (query.order_by(M["Membership"].role, User.email, M["Membership"].id)
+            .offset(offset).limit(limit).all())
     users = {user.id: user for user in User.query.filter(
         User.id.in_({row.user_id for row in rows})).all()} if rows else {}
     return jsonify(members=[{
@@ -357,7 +360,8 @@ def owner_school_members(organization_id: int):
         "role": row.role,
         "email": users[row.user_id].email,
         "name": users[row.user_id].name or "",
-    } for row in rows if row.user_id in users], limit=500)
+    } for row in rows if row.user_id in users], limit=limit, offset=offset,
+        total=total, has_more=offset + len(rows) < total)
 
 
 @bp.route("/api/owner/schools/<int:organization_id>/members/<int:membership_id>", methods=["PUT", "DELETE"])

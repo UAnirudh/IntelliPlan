@@ -94,12 +94,18 @@
       target.innerHTML = audit.events.length ? audit.events.map((event) => `<div class="owner-event"><span>${esc(event.action.replaceAll('_', ' '))}</span><small>${esc(event.created_at ? new Date(event.created_at).toLocaleString() : '')}</small></div>`).join('') : '<div class="owner-hint">No changes recorded yet.</div>';
     } catch (error) { $('auditList').textContent = error.message; }
   }
+  let staffRosterGeneration = 0;
   async function renderStaff(school) {
     const target = $('staffRoster');
+    const generation = ++staffRosterGeneration;
     try {
-      const data = await api(`/api/owner/schools/${school.id}/members`);
-      if (state.selected !== school.id || !target?.isConnected) return;
-      target.innerHTML = data.members.length ? data.members.map((member) => `
+      const data = await api(`/api/owner/schools/${school.id}/members?offset=0&limit=50`);
+      if (generation !== staffRosterGeneration || state.selected !== school.id || !target?.isConnected) return;
+      target.innerHTML = '';
+      const empty = '<div class="owner-empty">No teachers or school admins are enrolled yet. Staff appear here after joining with a verified school email.</div>';
+      const appendMember = (member) => {
+        const holder = document.createElement('div');
+        holder.innerHTML = `
         <div class="owner-staff-row" data-membership="${member.membership_id}">
           <div class="owner-staff-person"><strong>${esc(member.name || member.email)}</strong>${member.name ? `<small>${esc(member.email)}</small>` : ''}</div>
           <label class="owner-staff-role"><span class="sr-only">Role for ${esc(member.email)}</span>
@@ -109,10 +115,11 @@
             </select>
           </label>
           <div class="owner-actions owner-staff-actions"><button class="owner-btn secondary" data-save-staff type="button">Save</button><button class="owner-btn danger" data-revoke-staff type="button">Revoke</button></div>
-        </div>`).join('') : '<div class="owner-empty">No teachers or school admins are enrolled yet. Staff appear here after joining with a verified school email.</div>';
-      target.querySelectorAll('[data-membership]').forEach((row) => {
-        const membershipId = row.dataset.membership;
-        const originalRole = data.members.find((member) => String(member.membership_id) === membershipId)?.role;
+        </div>`;
+        const row = holder.firstElementChild;
+        const membershipId = String(member.membership_id);
+        const originalRole = member.role;
+        target.insertBefore(row, target.querySelector('[data-staff-load-more]'));
         row.querySelector('[data-save-staff]').addEventListener('click', async () => {
           const role = row.querySelector('[data-role]').value;
           if (originalRole === 'admin' && role === 'teacher' && !window.confirm('Remove school administrator access for this person?')) return;
@@ -131,9 +138,43 @@
             notice($('detailNotice'), 'Staff membership revoked.', 'success'); await load();
           } catch (error) { notice($('detailNotice'), error.message, 'error'); }
         });
-      });
+      };
+      for (const member of data.members) appendMember(member);
+      let loaded = data.members.length;
+      if (!data.total) target.innerHTML = empty;
+      if (data.has_more) {
+        const loadMore = document.createElement('button');
+        loadMore.type = 'button';
+        loadMore.className = 'owner-btn secondary';
+        loadMore.dataset.staffLoadMore = '';
+        const refreshLabel = () => {
+          loadMore.textContent = `Load more staff (${loaded} of ${data.total})`;
+          loadMore.setAttribute('aria-label', `Load more staff. ${loaded} of ${data.total} shown.`);
+        };
+        refreshLabel();
+        loadMore.addEventListener('click', async () => {
+          if (loadMore.disabled || generation !== staffRosterGeneration || state.selected !== school.id) return;
+          loadMore.disabled = true;
+          loadMore.textContent = 'Loading staff…';
+          try {
+            const next = await api(`/api/owner/schools/${school.id}/members?offset=${loaded}&limit=${data.limit}`);
+            if (generation !== staffRosterGeneration || state.selected !== school.id || !target.isConnected) return;
+            for (const member of next.members) appendMember(member);
+            loaded += next.members.length;
+            if (!next.has_more) loadMore.remove();
+            else { loadMore.disabled = false; refreshLabel(); }
+          } catch (error) {
+            if (generation === staffRosterGeneration && state.selected === school.id) {
+              notice($('detailNotice'), error.message, 'error');
+              loadMore.disabled = false;
+              loadMore.textContent = 'Try loading more staff';
+            }
+          }
+        });
+        target.append(loadMore);
+      }
     } catch (error) {
-      if (target?.isConnected) target.textContent = `Could not load staff: ${error.message}`;
+      if (generation === staffRosterGeneration && target?.isConnected) target.textContent = `Could not load staff: ${error.message}`;
     }
   }
   function renderProof() {

@@ -132,9 +132,19 @@ def test_owner_staff_roster_is_scoped_audited_and_owner_only(monkeypatch):
         _login(client, owner_id)
         roster = client.get(f'/api/owner/schools/{school_id}/members')
         assert roster.status_code == 200
-        members = roster.get_json()['members']
+        roster_data = roster.get_json()
+        members = roster_data['members']
+        assert roster_data['total'] == 2 and roster_data['offset'] == 0
+        assert roster_data['limit'] == 50 and roster_data['has_more'] is False
         assert {member['email'] for member in members} == {teacher_email, admin_email}
         assert all(member['role'] in {'teacher', 'admin'} for member in members)
+        first_page = client.get(f'/api/owner/schools/{school_id}/members?offset=0&limit=1').get_json()
+        second_page = client.get(f'/api/owner/schools/{school_id}/members?offset=1&limit=1').get_json()
+        assert first_page['has_more'] is True and len(first_page['members']) == 1
+        assert second_page['has_more'] is False and len(second_page['members']) == 1
+        assert {first_page['members'][0]['email'], second_page['members'][0]['email']} == {teacher_email, admin_email}
+        clamped = client.get(f'/api/owner/schools/{school_id}/members?limit=1000').get_json()
+        assert clamped['limit'] == 100
         assert client.put(f'/api/owner/schools/{school_id}/members/{teacher_membership_id}',
                           json={'role': 'admin'}).get_json()['role'] == 'admin'
         assert client.put(f'/api/owner/schools/{school_id}/members/{teacher_membership_id}',
@@ -190,6 +200,34 @@ def test_owner_school_list_distinguishes_direct_and_effective_district_plan(monk
         assert listed['effective_plan_tier'] == 'pro'
         assert listed['effective_plan_source_name'] == 'North County'
         assert listed['effective_plan_inherited'] is True
+    finally:
+        App.limiter.enabled = previous
+
+
+def test_owner_school_staff_roster_can_page_past_legacy_cap(monkeypatch):
+    previous = App.limiter.enabled
+    App.limiter.enabled = False
+    App.app.config['TESTING'] = True
+    with App.app.app_context():
+        App.db.create_all()
+        M = policy.models()
+        school = _org('Large staff roster')
+        owner = _user(f'owner-{uuid4().hex}@example.test')
+        memberships = []
+        for index in range(502):
+            teacher = _user(f'roster-{index:03d}-{uuid4().hex}@example.test', role='teacher')
+            memberships.append(M['Membership'](user_id=teacher.id, organization_id=school.id, role='teacher'))
+        App.db.session.add_all(memberships)
+        App.db.session.commit()
+        owner_id, owner_email, school_id = owner.id, owner.email, school.id
+    try:
+        monkeypatch.setattr(App, 'ADMIN_EMAILS', frozenset({owner_email}))
+        client = App.app.test_client()
+        _login(client, owner_id)
+        first = client.get(f'/api/owner/schools/{school_id}/members?offset=0&limit=100').get_json()
+        last = client.get(f'/api/owner/schools/{school_id}/members?offset=500&limit=100').get_json()
+        assert first['total'] == 502 and len(first['members']) == 100 and first['has_more'] is True
+        assert last['offset'] == 500 and len(last['members']) == 2 and last['has_more'] is False
     finally:
         App.limiter.enabled = previous
 
