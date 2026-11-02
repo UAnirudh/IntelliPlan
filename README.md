@@ -130,9 +130,9 @@ Full light/dark theme support with preference saved across sessions.
 | **ORM** | Flask-SQLAlchemy |
 | **Auth** | Flask-Login, Flask-Bcrypt, Google OAuth 2.0 (PKCE), JWT tokens |
 | **Sessions** | Flask-Session (SQLAlchemy-backed for persistence across Railway container restarts) |
-| **AI — Scheduling & Study** | Google Gemini 2.5 Flash (Groq Llama fallback) |
-| **AI — Vision / Image Notes** | Google Gemini 2.5 Flash (Groq Llama 4 Scout fallback) |
-| **AI — Tutor & Chatbot** | Google Gemini 2.5 Flash (Groq Llama fallback) |
+| **AI — Scheduling & Study** | Shared Groq provider; optional Gemini Vertex only with an explicit contractual exception for student use |
+| **AI — Vision / Image Notes** | Shared providers allowed by the account's school and privacy policy |
+| **AI — Tutor & Chatbot** | Shared Groq provider; Claude is restricted to eligible paid plans |
 | **School APIs** | Canvas LMS REST API, Google Classroom API, StudentVue API, Schoology API, Blackboard Learn REST API, Moodle Web Services |
 | **Calendar** | Google Calendar API v3 |
 | **Notes** | Notion API |
@@ -150,7 +150,7 @@ Full light/dark theme support with preference saved across sessions.
 IntelliPlan/
 │
 ├── App.py                      # Main Flask app — all routes, models, config
-├── ai_provider.py              # Unified AI layer — Gemini primary, Groq fallback
+├── ai_provider.py              # Unified AI layer — Groq baseline; Gemini Vertex requires an explicit exception
 ├── analytics.py                # PostHog analytics wrapper (no-ops when unconfigured)
 ├── streak_engine.py            # Pure streak logic — no Flask/DB dependencies
 ├── auth_api.py                 # Auth blueprint — JWT token endpoints
@@ -200,7 +200,7 @@ IntelliPlan/
 
 ### Prerequisites
 - Python 3.11+
-- A Google Gemini API key (free at [aistudio.google.com/apikey](https://aistudio.google.com/apikey))
+- A server-side Groq API key for shared student-facing AI. Read [Plani provider setup](docs/plani-provider-setup.md) before configuring providers; a Gemini Developer API key by itself does not enable student-facing AI.
 - Optional: Groq API key as fallback ([console.groq.com](https://console.groq.com))
 - Canvas API token, Google Classroom OAuth, StudentVue credentials, Schoology API key, Blackboard OAuth, or Moodle web-services token (at least one)
 
@@ -228,8 +228,11 @@ The app runs on `http://localhost:3000` by default.
 
 ```env
 SECRET_KEY=your-flask-secret-key
-GEMINI_API_KEY=your-gemini-api-key
-GROQ_API_KEY=your-groq-api-key-optional-fallback
+GROQ_API_KEY=your-groq-api-key
+# Gemini Vertex requires an explicit contractual exception for student use.
+# GEMINI_MINORS_CONTRACT_APPROVED=false
+# GOOGLE_CLOUD_PROJECT=
+# GOOGLE_CLOUD_LOCATION=
 DATABASE_URL=sqlite:///intelliplan.db
 
 # Google OAuth (optional — needed for Google Calendar)
