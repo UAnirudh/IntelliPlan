@@ -141,6 +141,22 @@ export const MORE_ITEMS = SIDEBAR.filter(
   (item) => !item.route || !PRIMARY_TAB_ROUTES.has(item.route),
 );
 
+/**
+ * Keep the full destinations list intact while giving the phone menu clear
+ * scanning anchors. Flattening these groups still follows the website order.
+ */
+const MORE_GROUP_KEYS = [
+  { label: "Plan & focus", keys: ["command_center", "active"] },
+  { label: "Study", keys: ["memories", "study_hub", "flashcards", "courses", "foundations"] },
+  { label: "Progress", keys: ["streak", "pet", "balance"] },
+  { label: "Explore", keys: ["features", "my_stats"] },
+] as const;
+
+export const MORE_GROUPS = MORE_GROUP_KEYS.map(({ label, keys }) => ({
+  label,
+  items: keys.map((key) => MORE_ITEMS.find((item) => item.key === key)!),
+}));
+
 export const SIDEBAR_FOOT: NavItem[] = [
   {
     key: "settings",

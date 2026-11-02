@@ -89,6 +89,8 @@ export function TaskRow({
           disabled={!onPress}
           style={{ flex: 1, gap: 6 }}
           accessibilityRole={onPress ? "button" : undefined}
+          accessibilityLabel={onPress ? `Open ${task.title} details` : undefined}
+          accessibilityHint={onPress ? "View assignment details" : undefined}
         >
           <T
             variant="base"
