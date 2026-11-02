@@ -81,6 +81,48 @@ def test_the_counter_runs_for_a_signed_in_student(user_id):
     assert allowed is True and limit == 50 and remaining == 49
 
 
+def _stub_floating_chat_context(monkeypatch):
+    monkeypatch.setattr(chatbot_api, "_safety_check_user_message", lambda *a: None)
+    monkeypatch.setattr(chatbot_api, "_safety_check_assistant_reply", lambda *a: None)
+    monkeypatch.setattr(chatbot_api, "_load_user_identity", lambda: {})
+    monkeypatch.setattr(chatbot_api, "_build_identity_prompt", lambda *a: "")
+    monkeypatch.setattr(chatbot_api, "_build_personalization_prompt", lambda **k: None)
+
+
+def test_floating_chat_surfaces_retryable_provider_outage(tutor_client, monkeypatch):
+    _stub_floating_chat_context(monkeypatch)
+
+    def unavailable(**_kwargs):
+        raise chatbot_api.AIUnavailable("synthetic provider outage")
+
+    monkeypatch.setattr(chatbot_api, "_llm_chat", unavailable)
+    response = tutor_client.post('/api/chatbot', json={
+        'messages': [{'role': 'user', 'content': 'Help me study'}],
+    })
+    assert response.status_code == 503
+    assert response.json['error'] == 'ai_unavailable'
+    assert response.json['retryable'] is True
+    assert 'on our side' in response.json['reply']
+    assert 'synthetic provider outage' not in response.get_data(as_text=True)
+
+
+def test_floating_chat_reports_quota_limit_as_retryable(tutor_client, monkeypatch):
+    _stub_floating_chat_context(monkeypatch)
+
+    def exhausted(**_kwargs):
+        raise chatbot_api.AIQuotaExhausted('synthetic quota', retry_after=45)
+
+    monkeypatch.setattr(chatbot_api, "_llm_chat", exhausted)
+    response = tutor_client.post('/api/chatbot', json={
+        'messages': [{'role': 'user', 'content': 'Help me study'}],
+    })
+    assert response.status_code == 503
+    assert response.json['error'] == 'ai_quota_exhausted'
+    assert response.json['retryable'] is True
+    assert response.json['retry_after'] == 45
+    assert '45 seconds' in response.json['reply']
+
+
 def test_the_counter_resets_on_the_first_of_next_month(user_id):
     _check(user_id)
     with App.app.app_context():

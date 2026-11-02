@@ -6,11 +6,11 @@ const path = require('node:path');
 
 const template = fs.readFileSync(path.join(__dirname, '../../Main_Project/templates/tutor.html'), 'utf8');
 const source = template.slice(
-  template.indexOf('function parseStructuredStudyJson(content) {'),
-  template.indexOf('function renderArtifact(segment) {'),
+  template.indexOf('const ARTIFACT_RE = '),
+  template.indexOf('async function sendTutorMessage() {'),
 );
-const context = vm.createContext({ JSON, String });
-vm.runInContext(`${source}\nglobalThis.parse = parseStructuredStudyJson;`, context);
+const context = vm.createContext({ JSON, String, window: { IPRichText: null } });
+vm.runInContext(`${source}\nglobalThis.parse = parseStructuredStudyJson; globalThis.readable = readableTutorResponseText;`, context);
 
 test('summary-only JSON renders as readable text instead of falling back to raw JSON', () => {
   const result = context.parse(JSON.stringify({ title: 'Cell structure', summary: 'The nucleus stores DNA.' }));
@@ -41,4 +41,29 @@ test('structured summaries accompany validated flashcards', () => {
 
 test('unknown structured JSON still uses the safe plain-text fallback', () => {
   assert.equal(context.parse('{"status":"ok"}'), null);
+});
+
+for (const [label, envelope] of [
+  ['plain', JSON.stringify({
+    title: 'Cell structure', summary: 'Review energy production.',
+    cards: [{ question: 'What makes ATP?', answer: 'The mitochondrion.' }],
+  })],
+  ['fenced', `\`\`\`json\n${JSON.stringify({
+    title: 'Cell structure', summary: 'Review energy production.',
+    cards: [{ question: 'What makes ATP?', answer: 'The mitochondrion.' }],
+  })}\n\`\`\``],
+]) {
+  test(`${label} structured JSON becomes readable speech and copy text`, () => {
+    const readable = context.readable(envelope);
+    assert.match(readable, /Review energy production/);
+    assert.match(readable, /Card 1\. What makes ATP\? Answer: The mitochondrion\./);
+    assert.doesNotMatch(readable, /[{}"]|"cards"|"question"|"answer"/);
+  });
+}
+
+test('automatic speech, Read aloud, and Copy reply share readable artifact text', () => {
+  assert.match(template, /speakReply\(readableTutorResponseText\(reply\)\)/);
+  assert.match(template, /bubble\._speechSource = readableTutorResponseText\(text\)/);
+  assert.match(template, /speakReply\(readableTutorResponseText\(text\)\)/);
+  assert.match(template, /const source = readableTutorResponseText\(text\);[\s\S]*?navigator\.clipboard\.writeText/);
 });

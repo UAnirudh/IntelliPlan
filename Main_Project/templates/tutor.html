@@ -2600,9 +2600,36 @@ function renderArtifact(segment) {
   return window.IPTutorArtifacts.create(segment);
 }
 
-function stripArtifacts(text) {
-  ARTIFACT_RE.lastIndex = 0;
-  return String(text).replace(ARTIFACT_RE, ' ').trim();
+function readableTutorArtifactData(segment) {
+  const raw = String(segment.content || '');
+  if (raw.length > 20000) return null;
+  try {
+    const data = JSON.parse(raw.replace(/^```(?:json)?\s*\n([\s\S]*?)\n```\s*$/i, '$1'));
+    return data && typeof data === 'object' && !Array.isArray(data) ? data : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function readableTutorResponseText(text) {
+  const normalized = window.IPRichText ? window.IPRichText.normalize(text) : String(text || '');
+  const segments = parseArtifacts(normalized);
+  return segments.map((segment) => {
+    if (segment.kind === 'text') return segment.text;
+    if (segment.type === 'flashcards' || segment.type === 'quiz') {
+      const data = readableTutorArtifactData(segment);
+      const cards = data && Array.isArray(data.cards) ? data.cards.slice(0, 30) : [];
+      const cardText = cards.filter((card) => card && typeof card.question === 'string' && card.question.trim() &&
+        card.question.length <= 1500 && typeof card.answer === 'string' && card.answer.trim() && card.answer.length <= 2000)
+        .map((card, index) => `Card ${index + 1}. ${card.question.trim()} Answer: ${card.answer.trim()}`);
+      if (cardText.length) return `${segment.title}. ${cardText.join(' ')}`;
+    }
+    if (segment.type === 'svg-exercise') {
+      const data = readableTutorArtifactData(segment);
+      if (data && typeof data.question === 'string' && data.question.trim()) return `${segment.title}. ${data.question.trim().slice(0, 1500)}`;
+    }
+    return segment.title || 'Interactive study activity.';
+  }).filter(Boolean).join('\n\n').trim();
 }
 
 async function sendTutorMessage() {
@@ -2735,7 +2762,7 @@ async function sendTutorMessage() {
   renderPremiumMeta(premiumMeta, clarifying);
   if (receivedReply) {
     tutorHistory.push({ role: 'assistant', content: reply });
-    speakReply(stripArtifacts(reply));
+    speakReply(readableTutorResponseText(reply));
   }
   setTimeout(() => setPlaniState('idle'), 650);
 
@@ -2891,7 +2918,7 @@ function addTutorMsg(role, text, refusal, studySources) {
 
   const bubble = document.createElement('div');
   bubble.className = 'tutor-bubble';
-  if (role === 'bot') bubble._speechSource = stripArtifacts(window.IPRichText ? window.IPRichText.normalize(text) : text);
+  if (role === 'bot') bubble._speechSource = readableTutorResponseText(text);
   try {
     if (role === 'bot' && !refusal) {
       // Interleave prose and interactive artifacts in the order Plani sent them.
@@ -2946,7 +2973,7 @@ function addTutorMsg(role, text, refusal, studySources) {
     read.setAttribute('aria-label', 'Read this reply aloud');
     read.addEventListener('click', () => {
       ttsEnabled = true; _renderTtsState();
-      speakReply(stripArtifacts(window.IPRichText ? window.IPRichText.normalize(text) : text));
+      speakReply(readableTutorResponseText(text));
     });
     actions.appendChild(read);
     const copy = document.createElement('button');
@@ -2955,7 +2982,7 @@ function addTutorMsg(role, text, refusal, studySources) {
     copy.setAttribute('aria-live', 'polite');
     copy.addEventListener('click', async () => {
       try {
-        const source = stripArtifacts(window.IPRichText ? window.IPRichText.normalize(text) : text);
+        const source = readableTutorResponseText(text);
         await navigator.clipboard.writeText(window.IPRichText ? window.IPRichText.plainText(source) : source);
         copy.textContent = 'Copied';
       } catch (_) { copy.textContent = 'Select the reply to copy'; }

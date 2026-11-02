@@ -2186,7 +2186,7 @@ window.addEventListener('load', () => {
 });
 
 /* ─── MESSAGES ───────────────────────── */
-function addMsg(role, text) {
+function addMsg(role, text, record = true) {
   const c  = document.getElementById('planiMessages');
   const w  = document.createElement('div');
   w.className = `plani-msg ${role}`;
@@ -2213,7 +2213,8 @@ function addMsg(role, text) {
   c.appendChild(w);
   c.scrollTop = c.scrollHeight;
 
-  planiHistory.push({role: role==='bot' ? 'assistant' : 'user', content: text});
+  if (record) planiHistory.push({role: role==='bot' ? 'assistant' : 'user', content: text});
+  return w;
 }
 
 function setTyping(show) {
@@ -2227,25 +2228,28 @@ async function sendPlaniMessage() {
   const input = document.getElementById('planiInput');
   const text  = input.value.trim();
   if (!text) return;
-  input.value = '';
-  input.style.height = '';
   document.getElementById('planiSendBtn').disabled = true;
-  addMsg('user', text);
+  const userEntry = {role: 'user', content: text};
+  const userBubble = addMsg('user', text, false);
   setTyping(true);
   try {
     const res  = await fetch('/api/chatbot', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({messages: planiHistory})
+      body: JSON.stringify({messages: [...planiHistory, userEntry]})
     });
-    if (!res.ok) throw new Error('Network error');
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.reply || 'Plani could not answer just now. Try again from the composer.');
     setTyping(false);
+    if (input.value.trim() === text) { input.value = ''; input.style.height = ''; }
+    planiHistory.push(userEntry);
     addMsg('bot', data.reply || "I didn't catch that. Say it again?");
   } catch(err) {
     setTyping(false);
-    // "Oops!" makes a failure sound like a stumble the user caused. Say
-    // what happened and what to do.
-    addMsg('bot', "I couldn't reach the server. Try that again in a moment.");
+    userBubble.remove();
+    if (!input.value.trim()) input.value = text;
+    input.style.height = '';
+    // Keep failed turns out of history so a resend is a single clean request.
+    addMsg('bot', `${err.message || "I couldn't reach the server."} You can retry from the composer.`, false);
   } finally {
     document.getElementById('planiSendBtn').disabled = false;
     document.getElementById('planiInput').focus();
