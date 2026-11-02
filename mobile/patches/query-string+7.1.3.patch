@@ -2,7 +2,7 @@ diff --git a/node_modules/query-string/index.js b/node_modules/query-string/inde
 index d45e67d..7a34fbc 100644
 --- a/node_modules/query-string/index.js
 +++ b/node_modules/query-string/index.js
-@@ -1,6 +1,7 @@
+@@ -1,5 +1,6 @@
  'use strict';
  const strictUriEncode = require('strict-uri-encode');
 -const decodeComponent = require('decode-uri-component');
@@ -10,4 +10,3 @@ index d45e67d..7a34fbc 100644
 +const decodeComponent = typeof decoderModule === 'function' ? decoderModule : decoderModule.default;
  const splitOnFirst = require('split-on-first');
  const filterObject = require('filter-obj');
- 
