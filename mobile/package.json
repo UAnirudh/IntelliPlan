@@ -16,7 +16,9 @@
     "test:release-preflight": "node --test scripts/android-release-preflight.test.mjs scripts/ios-release-preflight.test.mjs scripts/audit-android-bundle.test.mjs",
     "test:reminder-mutation-sync": "node --test scripts/reminder-mutation-sync.test.mjs",
     "test:query-refresh": "node --test scripts/query-refresh.test.mjs",
-    "test:navigation": "node --test scripts/mobile-navigation.test.mjs"
+    "test:navigation": "node --test scripts/mobile-navigation.test.mjs",
+    "test:decode-uri-compat": "node --test scripts/decode-uri-compat.test.mjs",
+    "postinstall": "patch-package"
   },
   "dependencies": {
     "@expo/metro-runtime": "~57.0.15",
@@ -49,12 +51,13 @@
   "devDependencies": {
     "@babel/core": "^7.20.0",
     "@types/react": "~19.2.0",
+    "patch-package": "^8.0.0",
     "cross-env": "^10.1.0",
     "typescript": "~6.0.3"
   },
   "private": true,
   "overrides": {
-    "decode-uri-component": "^0.5.0",
+    "decode-uri-component": "^0.5.1",
     "js-yaml": "^4.3.2",
     "postcss": "^8.5.26",
     "xcode": {
