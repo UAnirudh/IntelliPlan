@@ -106,7 +106,10 @@ export default function PlanScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
-  const q = useQuery<SavedSchedule>("schedule", getSchedule);
+  const q = useQuery<SavedSchedule>("schedule", getSchedule, {
+    refreshOnFocus: true,
+    refreshOnForeground: true,
+  });
   const [hours, setHours] = useState(2);
   const [when, setWhen] = useState("evening");
   const [busy, setBusy] = useState(false);

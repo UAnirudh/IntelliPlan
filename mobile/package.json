@@ -14,7 +14,8 @@
     "release:preflight:ios": "node scripts/ios-release-preflight.mjs",
     "audit:android-bundle": "node scripts/audit-android-bundle.mjs",
     "test:release-preflight": "node --test scripts/android-release-preflight.test.mjs scripts/ios-release-preflight.test.mjs scripts/audit-android-bundle.test.mjs",
-    "test:reminder-mutation-sync": "node --test scripts/reminder-mutation-sync.test.mjs"
+    "test:reminder-mutation-sync": "node --test scripts/reminder-mutation-sync.test.mjs",
+    "test:query-refresh": "node --test scripts/query-refresh.test.mjs"
   },
   "dependencies": {
     "@expo/metro-runtime": "~57.0.15",

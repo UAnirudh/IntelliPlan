@@ -51,15 +51,17 @@ export default function GradesScreen() {
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<"current" | "forecast" | "learning">("current");
 
-  const grades = useQuery<GradeRow[]>("grades", getGrades);
+  const refreshWhenVisible = { refreshOnFocus: true, refreshOnForeground: true };
+  const grades = useQuery<GradeRow[]>("grades", getGrades, refreshWhenVisible);
   // Predictions are an AI call, so they are only made once the student
   // actually opens the forecast tab rather than on every visit to Grades.
   const preds = useQuery<{ predictions: Prediction[]; message?: string }>(
     "predictions",
     getPredictions,
-    { enabled: tab === "forecast" },
+    { ...refreshWhenVisible, enabled: tab === "forecast" },
   );
   const learning = useQuery<LearningDashboard>("learning", getLearningDashboard, {
+    ...refreshWhenVisible,
     enabled: tab === "learning",
   });
 
