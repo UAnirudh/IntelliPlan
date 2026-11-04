@@ -53,12 +53,12 @@
       row.appendChild(ic);
       row.appendChild(txt);
 
-      var badge = src.querySelector('.side-streak-badge:not([hidden]), .side-pet-badge:not([hidden])');
-      if (badge && badge.textContent.trim()) {
-        var b = document.createElement('span');
-        b.className = 'ip-menu-badge';
-        b.textContent = badge.textContent.trim();
-        row.appendChild(b);
+      var meta = src.querySelector('.side-link-meta:not([hidden])');
+      if (meta && meta.textContent.trim()) {
+        var m = document.createElement('span');
+        m.className = 'ip-menu-meta';
+        m.textContent = meta.textContent.trim();
+        row.appendChild(m);
       }
       host.appendChild(row);
     }

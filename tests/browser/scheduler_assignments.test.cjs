@@ -10,6 +10,16 @@ const end = template.indexOf('\ndocument.getElementById(', start);
 assert.ok(start > 0 && end > start);
 const loader = template.slice(start, end);
 
+test('schedule generation sends the browser timezone for local-day planning', () => {
+  assert.match(template, /timezone: Intl\.DateTimeFormat\(\)\.resolvedOptions\(\)\.timeZone/);
+});
+
+test('interactive summary never calls the first upcoming day today', () => {
+  assert.match(template, /const todayDay = sched\.find\(d => \(d\.date \|\| ''\)\.slice\(0, 10\) === todayIso\);/);
+  assert.match(template, /Next planned day \(\$\{schedFmtDate\(nextDay\.date\)\}/);
+  assert.doesNotMatch(template, /todayDay = sched\.find\([^\n]+\) \|\| sched\[0\]/);
+});
+
 function fixture() {
   const pending = [];
   const ctx = {

@@ -298,9 +298,9 @@
   .ip-menu-row.is-danger .ip-menu-ic { background: var(--danger-soft); color: var(--danger-text); }
   .ip-menu-ic svg { width: 18px; height: 18px; }
   .ip-menu-txt { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .ip-menu-badge {
+  .ip-menu-meta {
     font-size: 12px;
-    font-weight: 700;
+    font-weight: 450;
     color: var(--text-muted);
   }
 

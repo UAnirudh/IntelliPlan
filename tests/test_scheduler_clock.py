@@ -45,6 +45,16 @@ def test_request_clock_is_captured_once(student, monkeypatch):
     assert ticks.call_count == 1
 
 
+def test_browser_timezone_keeps_scheduler_on_the_students_local_date(student, monkeypatch):
+    # At 23:30 on Nov 1 in Los Angeles it is already Nov 2 in UTC. The
+    # scheduler request must use the browser's zone so the local date stays Sunday.
+    monkeypatch.setattr(clock, 'utcnow', lambda: datetime(2026, 11, 2, 7, 30))
+    with App.app.test_request_context(json={'timezone': 'America/Los_Angeles'}):
+        login_user(App.db.session.get(App.User, student))
+        now = clock.now_for(student)
+    assert now == datetime(2026, 11, 1, 23, 30)
+
+
 @pytest.mark.parametrize(('header', 'expected'), [
     ('Asia/Kolkata', 'Asia/Kolkata'), ('Not/AZone', 'America/Los_Angeles'),
 ])

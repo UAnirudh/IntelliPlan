@@ -957,30 +957,10 @@
     .dropdown-item:hover  { background:var(--accent-soft); color:var(--accent); transform:translateX(3px); }
     .dropdown-item.active { background:var(--accent-soft); color:var(--accent); font-weight:600; }
 
-    /* A full-radius pill only reads as a pill while its label stays on one
-       line. Let "Fri, Aug 21" wrap to three lines and the 9999px radius
-       renders it as a circle instead. So: never wrap, and never let a flex
-       sibling squeeze it below its content width. Sizing is em-based off a
-       fluid font size, so the padding, gap, and dot keep their proportions
-       to the text at every viewport rather than drifting apart — the pill
-       looks identical on a 13" laptop and a 4K monitor. */
-    .date-badge {
-      font-family:var(--font-ui); font-size:var(--fs-micro, 0.74rem); font-weight:600;
-      color:var(--accent); background:var(--accent-soft);
-      padding:0.34em 0.92em; border-radius:var(--r-full);
-      display:inline-flex; align-items:center; gap:0.46em;
-      border:1px solid var(--border-accent);
-      white-space:nowrap; flex-shrink:0;
-    }
-    .date-badge::before {
-      content:''; width:0.46em; height:0.46em; border-radius:50%;
-      background:var(--accent); flex-shrink:0;
-      box-shadow:0 0 0 0.23em var(--accent-soft);
-      animation:datePulse 2.4s ease-in-out infinite;
-    }
-    @keyframes datePulse {
-      0%, 100% { box-shadow:0 0 0 0.23em var(--accent-soft); }
-      50%      { box-shadow:0 0 0 0.38em transparent; }
+    .nav-date {
+      color:var(--text-muted); font-family:var(--font-ui);
+      font-size:var(--fs-micro, 0.74rem); font-weight:500;
+      white-space:nowrap; flex-shrink:0; font-variant-numeric:tabular-nums;
     }
     .toggle-wrap { display:flex; align-items:center; gap:7px; font-size:0.75rem; color:var(--text-muted); font-weight:500; }
     .toggle { position:relative; width:46px; height:24px; cursor:pointer; flex-shrink:0; }
@@ -1070,19 +1050,18 @@
     .app-side::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 2px; }
     .side-logo {
       display: flex; align-items: center; gap: 10px;
-      padding: 4px 8px 12px; text-decoration: none; border-bottom: 1px solid var(--border);
-      margin-bottom: 8px;
+      padding: 4px 8px 10px; text-decoration: none;
+      margin-bottom: 6px;
     }
     .side-logo .logo-icon { width: 28px; height: 28px; border-radius: var(--r-sm); }
     .side-logo .logo-text { font-family: var(--font-ui); font-size: 0.95rem; font-weight: 600; color: var(--text-primary); letter-spacing: -0.015em; }
     .side-logo .logo-text span { color: var(--accent); }
     .side-section-label {
-      font-family: var(--font-ui); font-size: 0.62rem; font-weight: 600;
-      text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted);
-      padding: 14px 12px 2px;
-      opacity: 0.7;
+      margin: 12px 0 3px; padding: 0 11px;
+      font-family: var(--font-ui); font-size: 0.69rem; font-weight: 600;
+      letter-spacing: 0.01em; line-height: 1.4; color: var(--text-muted);
     }
-    .side-section-label:first-child { padding-top: 4px; }
+    .side-section-label:first-child { margin-top: 4px; }
     /* Tighter, less cluttered sidebar links */
     .app-side .side-link {
       padding: 7px 11px;
@@ -1098,14 +1077,14 @@
       padding: 7px 11px; margin: 10px 0 4px;
       border-radius: var(--r-sm);
       background: transparent;
-      border: 1px dashed var(--border);
+      border: 0;
       color: var(--text-muted);
       font-family: var(--font-body); font-size: 0.78rem; font-weight: 500;
       cursor: pointer;
-      transition: color 0.13s, border-color 0.13s, background 0.13s;
+      transition: color 0.13s, background 0.13s;
       width: 100%; text-align: left;
     }
-    .side-customize-btn:hover { color: var(--accent); border-color: var(--border-accent); background: var(--accent-soft); }
+    .side-customize-btn:hover { color: var(--text-primary); background: var(--bg-elevated); }
     .side-customize-btn .side-icon { width: 14px; height: 14px; }
 
     /* ── Customizer modal ───────────────────────────────── */
@@ -1229,9 +1208,9 @@
     .side-group-body {
       display: flex; flex-direction: column; gap: 2px;
       max-height: 0; overflow: hidden;
-      padding-left: 8px;
-      margin-left: 12px;
-      border-left: 1px solid var(--border);
+      padding-left: 0;
+      margin-left: 0;
+      border-left: 0;
     }
     .side-group.is-open .side-group-body { max-height: 900px; }
     .side-link.side-sub {
@@ -1246,20 +1225,20 @@
       display: flex; align-items: center; gap: 11px;
       padding: 8px 12px; border-radius: var(--r-sm);
       color: var(--text-muted);
-      background: var(--bg-elevated);
-      border: 1px solid var(--border);
+      background: color-mix(in srgb, var(--text-primary) 5%, transparent);
+      border: 0;
       font-family: var(--font-body); font-size: 0.84rem; font-weight: 500;
       cursor: pointer;
-      transition: background 0.13s, color 0.13s, border-color 0.13s;
+      transition: background 0.13s, color 0.13s;
       margin: 4px 0 10px;
       width: 100%; text-align: left;
     }
-    .side-search:hover { background: var(--accent-soft); color: var(--accent); border-color: var(--border-accent); }
+    .side-search:hover { background: color-mix(in srgb, var(--text-primary) 9%, transparent); color: var(--text-primary); }
     .side-search .kbd-hint {
       font-family: var(--font-ui); font-size: 0.68rem; font-weight: 700;
       padding: 2px 7px; border-radius: var(--r-xs);
-      background: var(--bg-card); color: var(--text-muted);
-      border: 1px solid var(--border);
+      background: transparent; color: var(--text-muted);
+      border: 0;
     }
 
     /* ── Command palette (Cmd/Ctrl + K) ── */
@@ -1363,7 +1342,7 @@
 
     .side-spacer { flex: 1; }
     .side-foot {
-      border-top: 1px solid var(--border); padding-top: 10px; margin-top: 6px;
+      border-top: 0; padding-top: 8px; margin-top: 8px;
       display: flex; flex-direction: column; gap: 4px;
     }
     .side-foot-row {
@@ -1374,7 +1353,7 @@
     .side-foot-row .toggle { width: 38px; height: 20px; }
     .side-foot-row .toggle-knob { width: 14px; height: 14px; top: 3px; left: 3px; }
     .side-foot-row .toggle input:checked ~ .toggle-knob { transform: translateX(18px); }
-    .side-foot-row .date-badge { font-size: calc(var(--fs-micro, 0.74rem) * 0.92); }
+    .side-foot-row .nav-date { font-size: calc(var(--fs-micro, 0.74rem) * 0.92); }
     .side-logout {
       background: none; border: none; cursor: pointer;
       width: 100%; text-align: left;
@@ -1416,18 +1395,20 @@
     /* Seamless, minimal sidebar: blends into the canvas behind a hairline
        divider so the white content surfaces carry the visual hierarchy. */
     body.has-side .app-side {
-      background: transparent;
-      border-right: 1px solid var(--border);
+      background: color-mix(in srgb, var(--bg-card) 34%, var(--bg));
+      border-right: 0;
+      box-shadow: 8px 0 28px -26px rgba(0,0,0,0.55);
       padding: 18px 14px 14px;
       gap: 2px;
     }
-    body.has-side .side-logo { border-bottom: none; padding-bottom: 6px; margin-bottom: 4px; }
+    body.has-side .side-logo { border-bottom: 0; padding-bottom: 8px; margin-bottom: 4px; }
     body.has-side .side-search {
-      background: var(--bg-card);
-      border-radius: 11px;
+      background: color-mix(in srgb, var(--text-primary) 5%, transparent);
+      border: 0;
+      border-radius: 9px;
       padding: 9px 12px;
       margin-bottom: 10px;
-      box-shadow: var(--shadow-sm);
+      box-shadow: none;
     }
     /* Roomier, quieter nav rows — soft neutral hover, clean accent-tinted
        selected state in the spirit of macOS System Settings. */
@@ -1436,12 +1417,33 @@
       border-radius: 9px;
       font-size: 0.855rem;
       font-weight: 450;
-      color: var(--text-secondary);
+      color: var(--text-muted);
     }
-    body.has-side .app-side .side-link:hover { background: var(--bg-elevated); color: var(--text-primary); transform: none; }
-    body.has-side .app-side .side-link.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
-    body.has-side .side-customize-btn { margin-top: 8px; }
-    body.has-side .side-foot { border-top: 1px solid var(--border); }
+    body.has-side .app-side .side-link:hover {
+      background: color-mix(in srgb, var(--text-primary) 6%, transparent);
+      color: var(--text-primary); transform: none;
+    }
+    body.has-side .app-side .side-link.active {
+      background: color-mix(in srgb, var(--text-primary) 8%, transparent);
+      color: var(--text-primary); font-weight: 600;
+    }
+    body.has-side .app-side .side-link.active .side-icon { color: var(--text-primary); }
+    body.has-side .side-customize-btn {
+      margin-top: 8px; border: 0; background: transparent;
+      color: var(--text-muted);
+    }
+    body.has-side .side-customize-btn:hover {
+      background: color-mix(in srgb, var(--text-primary) 6%, transparent);
+      color: var(--text-primary);
+    }
+    body.has-side .side-foot { border-top: 0; }
+    body.has-side .side-link-meta,
+    body.has-side .nav-link-meta {
+      margin-left: auto; color: var(--text-muted); font-size: 0.72rem;
+      font-weight: 450; font-variant-numeric: tabular-nums; white-space: nowrap;
+    }
+    body.has-side .nav-link-meta[hidden],
+    body.has-side .side-link-meta[hidden] { display: none; }
 
     /* Remove in-product marketing chrome for a distraction-free workspace.
        The install banner is shown via an inline style from JS, so the hide
@@ -2604,7 +2606,7 @@
          for. Unscoped, it also blanked the sidebar's copy on any 769-1100px
          screen, where the sidebar row has room to spare — the badge simply
          disappeared on a common laptop width. */
-      .header-actions .date-badge { display:none; }
+      .header-actions .nav-date { display:none; }
       #themeLabel { display:none; }
     }
 

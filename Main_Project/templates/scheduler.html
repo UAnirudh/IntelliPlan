@@ -11,7 +11,7 @@
     gap: 2px;
     padding: 3px;
     background: var(--bg);
-    border: 1px solid var(--border);
+    border: 0;
     border-radius: var(--ipd-radius-sm);
     margin-bottom: 1.75rem;
   }
@@ -26,21 +26,18 @@
   }
   .sched-tab:hover:not(.active) { color: var(--text-secondary); }
   .sched-tab.active {
-    background: var(--glass-btn-bg);
-    -webkit-backdrop-filter: blur(10px) saturate(1.5); backdrop-filter: blur(10px) saturate(1.5);
+    background: color-mix(in srgb, var(--bg-elevated) 76%, transparent);
     color: var(--text-primary);
-    border: 1px solid var(--glass-border);
-    box-shadow: var(--glass-btn-shadow);
+    border: 0;
+    box-shadow: none;
   }
   .sched-tab svg { width: 14px; height: 14px; }
-  .sched-tab .badge {
-    font-family: var(--ipd-font-mono);
-    font-size: 0.62rem; padding: 1px 7px; border-radius: 999px;
-    font-weight: 700;
-    background: var(--text-primary); color: var(--bg);
-  }
-  .sched-tab:not(.active) .badge {
-    background: var(--border); color: var(--text-secondary);
+  .sched-tab .tab-count {
+    color: var(--text-muted);
+    font-family: var(--ipd-font-body);
+    font-size: 0.76rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
   }
 
   .sched-pane { display: none; animation: ipd-fadeUp 0.4s var(--ipd-ease-out) both; }
@@ -48,8 +45,9 @@
 
   /* ── Creator panel ─────────────────────────────── */
   .scheduler-panel {
-    background:var(--glass-bg); -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6);
-    border: 1px solid var(--border);
+    background: color-mix(in srgb, var(--bg-card) 48%, var(--bg));
+    -webkit-backdrop-filter: none; backdrop-filter: none;
+    border: 0;
     border-radius: var(--ipd-radius-lg);
     padding: 1.5rem;
   }
@@ -84,7 +82,7 @@
 
   /* ── Overview + day cards ──────────────────────── */
   .overview-card {
-    background:var(--glass-bg); -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6); border: 1px solid var(--border);
+    background: color-mix(in srgb, var(--bg-card) 54%, var(--bg)); -webkit-backdrop-filter:none; backdrop-filter:none; border: 0;
     border-radius: var(--ipd-radius-lg); padding: 1.25rem;
     margin-bottom: 1.25rem;
   }
@@ -98,7 +96,7 @@
     display: flex; align-items: center; gap: 6px;
   }
   .day-card {
-    background:var(--glass-bg); -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6); border: 1px solid var(--border);
+    background: color-mix(in srgb, var(--bg-card) 68%, var(--bg)); -webkit-backdrop-filter:none; backdrop-filter:none; border: 0;
     border-radius: var(--ipd-radius-lg); padding: 1.25rem;
     margin-bottom: 1rem;
     animation: ipd-fadeUp 0.5s var(--ipd-ease-out) both;
@@ -106,7 +104,7 @@
   .day-header {
     display: flex; align-items: center; justify-content: space-between;
     margin-bottom: 1rem; padding-bottom: 0.7rem;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 0;
   }
   .day-name {
     font-family: var(--ipd-font-display); font-size: 1.05rem;
@@ -122,10 +120,10 @@
     gap: 12px; align-items: flex-start;
     padding: 12px; margin-bottom: 6px;
     border-radius: var(--ipd-radius-md);
-    background: var(--bg); border: 1px solid var(--border);
-    transition: border-color 0.15s;
+    background: color-mix(in srgb, var(--bg-elevated) 48%, var(--bg-card)); border: 0;
+    transition: background-color 0.15s;
   }
-  .time-block:hover { border-color: var(--text-muted); }
+  .time-block:hover { background: color-mix(in srgb, var(--bg-elevated) 74%, var(--bg-card)); }
   .time-block.break-block { opacity: 0.65; }
   /* A full range ("12:00 PM - 12:45 PM") measures ~128px, so nowrap in a
      100px column ran the text straight under the title. Wrap at the dash
@@ -162,8 +160,8 @@
   .block-duration {
     font-family: var(--ipd-font-mono); font-size: 0.72rem;
     color: var(--text-secondary); font-weight: 700;
-    background:var(--glass-bg); -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6); border: 1px solid var(--border);
-    padding: 2px 10px; border-radius: 999px;
+    background: transparent; border: 0;
+    padding: 0; border-radius: 0;
   }
   .daily-tip {
     font-family: var(--ipd-font-body); font-size: 0.82rem;
@@ -178,7 +176,7 @@
      no goal. Deliberately looks like a conversation, not an error. */
   .clarify-card {
     margin-top: 1rem; padding: 1.15rem 1.25rem;
-    background: var(--glass-bg); border: 1px solid var(--border-strong);
+    background: color-mix(in srgb, var(--bg-card) 68%, var(--bg)); border: 0;
     border-radius: var(--ipd-radius-lg);
     animation: ipd-fadeUp 0.35s var(--ipd-ease-out) both;
   }
@@ -348,7 +346,7 @@
   /* Mono time/data labels line up column-perfect. */
   .time-slot, .iv-time, .day-hours, .iv-day-meta,
   .block-duration, .iv-duration, .ck-progress-text,
-  .sched-tab .badge, .overview-stat {
+    .sched-tab .tab-count, .overview-stat {
     font-variant-numeric: tabular-nums;
   }
   .iv-empty {
@@ -365,14 +363,14 @@
   }
 
   .iv-day-card {
-    background:var(--glass-bg); -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6); border: 1px solid var(--border);
+    background: color-mix(in srgb, var(--bg-card) 68%, var(--bg)); -webkit-backdrop-filter:none; backdrop-filter:none; border: 0;
     border-radius: var(--ipd-radius-lg); padding: 1.4rem;
     margin-bottom: 1rem;
   }
   .iv-day-head {
     display: flex; align-items: center; justify-content: space-between;
     margin-bottom: 0.9rem; padding-bottom: 0.6rem;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 0;
   }
   .iv-day-name { font-family: var(--ipd-font-display); font-size: 1.05rem; font-weight:600; }
   .iv-day-meta {
@@ -520,27 +518,27 @@
     display: flex; gap: 6px; flex-wrap: wrap;
     font-size: 0.72rem; color: var(--text-muted);
   }
-  .iv-pill {
-    display: inline-flex; align-items: center; gap: 3px;
-    padding: 2px 8px; border-radius: 999px;
-    background:var(--glass-bg); -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6); border: 1px solid var(--border);
-    font-family: var(--ipd-font-mono); font-size: 0.68rem;
-    font-weight: 500; letter-spacing: 0.02em;
+  .iv-meta {
+    display: inline; padding: 0; border: 0; border-radius: 0;
+    background: transparent;
+    font-family: var(--ipd-font-body); font-size: 0.72rem;
+    font-weight: 450; letter-spacing: 0;
   }
+  .iv-meta + .iv-meta::before { content: "·"; margin-right: 6px; color: var(--text-muted); }
   /* Which sitting of a split assignment this block is. Sits beside the title
      rather than in the pill row below it, because "2 of 3" answers a question
      about the title itself — the row underneath is for course and due date. */
-  .part-pill {
-    display: inline-flex; align-items: center;
+  .part-meta {
+    display: inline; align-items: center;
     margin-left: 7px;
-    padding: 1px 7px; border-radius: 999px;
-    background: var(--accent-soft);
-    color: var(--accent);
-    border: 1px solid var(--border-accent);
+    padding: 0; border-radius: 0;
+    background: transparent;
+    color: var(--text-muted);
+    border: 0;
     font-family: var(--ipd-font-mono);
     font-size: 0.66rem; font-weight: 500;
     font-variant-numeric: tabular-nums;
-    vertical-align: 1px;
+    vertical-align: baseline;
     white-space: nowrap;
   }
   .iv-block-right {
@@ -549,10 +547,9 @@
   .iv-duration {
     font-family: var(--ipd-font-mono); font-size: 0.72rem; font-weight: 700;
     color: var(--text-secondary);
-    background: var(--glass-btn-bg); border: 1px solid var(--glass-border);
-    -webkit-backdrop-filter: blur(8px) saturate(1.4); backdrop-filter: blur(8px) saturate(1.4);
-    box-shadow: var(--glass-btn-shadow);
-    padding: 2px 10px; border-radius: 999px;
+    background: transparent; border: 0;
+    box-shadow: none;
+    padding: 0; border-radius: 0;
   }
   .iv-move {
     width: 24px; height: 24px; border-radius: 6px;
@@ -807,8 +804,8 @@
   /* ── Saved-plan notice ────────────────────────── */
   .saved-notice {
     display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-    background: var(--accent-soft);
-    border: 1px solid var(--border);
+    background: color-mix(in srgb, var(--accent-soft) 56%, var(--bg-card));
+    border: 0;
     color: var(--text-secondary);
     border-radius: var(--ipd-radius-md); padding: 10px 14px; margin: 0 0 1rem;
     font-family: var(--ipd-font-body); font-size: 0.84rem;
@@ -842,18 +839,37 @@
   }
   .gen-error .ge-retry:hover { opacity: 0.88; }
 
+  /* Quiet, borderless plan surfaces. Primary controls remain distinct and
+     focused controls keep their browser-visible focus ring. */
+  .scheduler-panel, .overview-card, .day-card, .iv-day-card,
+  .assignment-queue, .assignment-queue-row, .saved-notice, .daily-tip {
+    border: 0;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    box-shadow: none;
+  }
+  .scheduler-panel { background: color-mix(in srgb, var(--bg-card) 48%, var(--bg)); }
+  .overview-card, .day-card, .iv-day-card { background: color-mix(in srgb, var(--bg-card) 68%, var(--bg)); }
+  .day-header, .iv-day-head { border-bottom: 0; }
+  .time-block, .iv-block { border: 0; background: color-mix(in srgb, var(--bg-elevated) 44%, var(--bg-card)); }
+  .time-block:hover, .iv-block:hover { background: color-mix(in srgb, var(--bg-elevated) 72%, var(--bg-card)); }
+  .daily-tip { background: color-mix(in srgb, var(--bg-elevated) 44%, var(--bg-card)); }
+  .saved-notice { background: color-mix(in srgb, var(--accent-soft) 56%, var(--bg-card)); }
+  .saved-notice button { border: 0; background: color-mix(in srgb, var(--bg-elevated) 55%, transparent); }
+  #savePanel > button { border: 0 !important; border-radius: 10px !important; box-shadow: none !important; }
+  .sched-tabs { background: color-mix(in srgb, var(--bg-card) 58%, var(--bg)); }
+  :is(.scheduler-panel, #scheduleResults, #scheduleOverview, #scheduleDays, .saved-notice) :focus-visible {
+    outline: 2px solid var(--focus-ring, var(--accent)); outline-offset: 2px;
+  }
+
   /* ── Today highlighting ───────────────────────── */
-  .today-pill {
-    display: inline-flex; align-items: center;
-    font-family: var(--ipd-font-mono); font-size: 0.6rem; font-weight: 700;
-    letter-spacing: 0.07em; text-transform: uppercase;
-    padding: 2px 8px; border-radius: 999px;
-    background: var(--accent); color: #fff;
-    vertical-align: 2px; margin-left: 8px;
+  .today-label {
+    display: inline; font-family: var(--ipd-font-body);
+    font-size: 0.72rem; font-weight: 550; letter-spacing: 0;
+    color: var(--text-muted); vertical-align: baseline; margin-left: 8px;
   }
   .day-card.is-today, .iv-day-card.is-today {
-    border-color: var(--accent);
-    background: var(--accent-soft);
+    background: color-mix(in srgb, var(--accent-soft) 34%, var(--bg-card));
   }
 
   @media (max-width: 600px) {
@@ -869,19 +885,20 @@
      generated. A day is now one surface with hairline rows, the time and
      duration are plain aligned text, and notes are secondary copy. */
   #scheduleDays .day-card {
-    background: var(--bg-card);
+    background: color-mix(in srgb, var(--bg-card) 68%, var(--bg));
     -webkit-backdrop-filter: none; backdrop-filter: none;
+    border: 0;
     padding: 18px 20px 12px;
     border-radius: 14px;
   }
-  #scheduleDays .day-card.is-today { background: var(--bg-card); border-color: var(--accent-mid, var(--accent)); }
+  #scheduleDays .day-card.is-today { background: color-mix(in srgb, var(--accent-soft) 32%, var(--bg-card)); }
   #scheduleDays .day-header { align-items: flex-end; margin-bottom: 4px; padding-bottom: 12px; }
   #scheduleDays .day-name {
     margin: 0; font-size: 1.12rem; font-weight: 650; letter-spacing: -0.012em;
     display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 8px;
   }
   #scheduleDays .day-date { color: var(--text-muted); font-weight: 500; font-size: 0.95rem; }
-  #scheduleDays .day-name .today-pill { align-self: center; }
+  #scheduleDays .day-name .today-label { align-self: center; }
   #scheduleDays .day-load {
     display: flex; align-items: center; gap: 6px; margin-top: 4px;
     font-size: 0.78rem; color: var(--text-muted);
@@ -1078,7 +1095,7 @@
     <svg><use href="#i-pencil"/></svg> Creator
   </button>
   <button type="button" class="sched-tab" data-tab="interactive" role="tab" aria-selected="false">
-    <svg><use href="#i-check-circle"/></svg> Interactive view <span class="badge" id="ivBlockCount" style="display:none;">0</span>
+    <svg><use href="#i-check-circle"/></svg> Interactive view <span class="tab-count" id="ivBlockCount" style="display:none;">0</span>
   </button>
 </div>
 
@@ -1799,10 +1816,9 @@ function blockTitle(b) {
     : raw;
 }
 
-function partPill(b) {
+function taskPartMeta(b) {
   if (!(b.part_total > 1)) return '';
-  return `<span class="part-pill" title="Sitting ${escapeText(String(b.part_index))} of ${escapeText(String(b.part_total))} for this assignment">`
-       + `${escapeText(String(b.part_index))}/${escapeText(String(b.part_total))}</span>`;
+  return `<span class="part-meta">Part ${escapeText(String(b.part_index))} of ${escapeText(String(b.part_total))}</span>`;
 }
 
 // Local YYYY-MM-DD (toISOString() is UTC and flips the date late at night).
@@ -2045,6 +2061,7 @@ function generateSchedule(extra) {
       assignments: allAssignments, hours_per_day: hours, preferred_time: time,
       custom_tasks: customTasks, clarifications: _clarifyAnswers,
       study_start_time: studyStartTime, study_end_time: studyEndTime,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
     }, extra || {}))
   })
   .then(async r => {
@@ -2384,7 +2401,7 @@ function renderSchedule(data) {
     <section class="day-card ${isToday ? 'is-today' : ''}" style="animation-delay:${di * 0.07}s" aria-label="${escapeText(day.day_name || '')} ${escapeText(schedFmtDate(day.date))}">
       <div class="day-header">
         <div>
-          <h3 class="day-name">${escapeText(day.day_name || '')}<span class="day-date">${escapeText(schedFmtDate(day.date))}</span>${isToday ? '<span class="today-pill">Today</span>' : ''}</h3>
+          <h3 class="day-name">${escapeText(day.day_name || '')}<span class="day-date">${escapeText(schedFmtDate(day.date))}</span>${isToday ? '<span class="today-label">Today</span>' : ''}</h3>
           ${load ? `<div class="day-load" data-load="${escapeText(load)}">${escapeText(load.charAt(0).toUpperCase() + load.slice(1))} day</div>` : ''}
         </div>
         <div class="day-hours">${escapeText(schedFmtHours(day.total_hours))} planned</div>
@@ -2407,7 +2424,7 @@ function renderSchedule(data) {
                aria-label="Open details for ${escapeText(blockTitle(block))}">
             <div class="time-slot">${escapeTimeSlot(block.time_slot || '')}</div>
             <div class="block-content">
-              <div class="block-title">${color ? `<span class="block-swatch" style="background:${color}"></span>` : ''}${escapeText(blockTitle(block))}${partPill(block)}</div>
+              <div class="block-title">${color ? `<span class="block-swatch" style="background:${color}"></span>` : ''}${escapeText(blockTitle(block))}${taskPartMeta(block)}</div>
               ${block.course ? `<div class="block-course">${escapeText(block.course)}</div>` : ''}
               ${block.notes ? `<div class="block-notes">${escapeText(block.notes)}</div>` : ''}
             </div>
@@ -2451,7 +2468,7 @@ function updateBadge() {
   let n = 0;
   (_lastScheduleData.schedule || []).forEach(d => (d.blocks || []).forEach(b => { if (!b.is_break) n++; }));
   badge.textContent = String(n);
-  badge.style.display = n > 0 ? 'inline-flex' : 'none';
+  badge.style.display = n > 0 ? 'inline' : 'none';
 }
 
 function renderInteractive() {
@@ -2469,7 +2486,8 @@ function renderInteractive() {
 
   const todayIso = localToday();
   const sched = _lastScheduleData.schedule;
-  const todayDay = sched.find(d => (d.date || '').slice(0, 10) === todayIso) || sched[0];
+  const todayDay = sched.find(d => (d.date || '').slice(0, 10) === todayIso);
+  const nextDay = sched.find(d => (d.date || '').slice(0, 10) > todayIso);
   let allWork = 0, allDone = 0;
   sched.forEach(d => (d.blocks || []).forEach(b => {
     if (b.is_break) return;
@@ -2477,9 +2495,16 @@ function renderInteractive() {
     if (stateFor(b.block_id).done) allDone++;
   }));
   const overall = allWork ? ` · ${allDone}/${allWork} done overall` : '';
-  const ctxBody = todayDay
-    ? `Today (${todayDay.day_name || ''}): ${(todayDay.blocks || []).filter(b => !b.is_break).length} work blocks · ${todayDay.total_hours || 0}h planned${overall}${todayDay.daily_tip ? ' — ' + todayDay.daily_tip : ''}`
-    : 'Pick a block to open its interactive checklist.';
+  const contextDay = todayDay || nextDay;
+  const contextLabel = todayDay
+    ? `Today (${schedFmtDate(todayDay.date)})`
+    : nextDay ? `Next planned day (${schedFmtDate(nextDay.date)})` : '';
+  document.getElementById('ivContextTitle').textContent = todayDay
+    ? "Today's session"
+    : nextDay ? 'Next planned session' : 'Session summary';
+  const ctxBody = contextDay
+    ? `${contextLabel}: ${(contextDay.blocks || []).filter(b => !b.is_break).length} work blocks · ${contextDay.total_hours || 0}h planned${overall}${contextDay.daily_tip ? ' — ' + contextDay.daily_tip : ''}`
+    : 'No work is scheduled for today or a later date. Pick a block below to open its interactive checklist.';
   document.getElementById('ivContextBody').textContent = ctxBody;
 
   host.innerHTML = sched.filter(day => (day.blocks || []).length).map(day => {
@@ -2491,7 +2516,7 @@ function renderInteractive() {
       <div class="iv-day-card ${isToday ? 'is-today' : ''}">
         <div class="iv-day-head">
           <div>
-            <div class="iv-day-name">${escapeText(day.day_name || '')}, ${escapeText(day.date || '')}${isToday ? '<span class="today-pill">Today</span>' : ''}</div>
+            <div class="iv-day-name">${escapeText(day.day_name || '')}, ${escapeText(day.date || '')}${isToday ? '<span class="today-label">Today</span>' : ''}</div>
             <div style="font-size:0.74rem;color:var(--text-muted);margin-top:2px;">${doneCount}/${work.length} blocks done · ${escapeText(String(day.total_hours || 0))}h</div>
           </div>
           <div class="iv-day-meta"><svg><use href="#i-clock"/></svg> ${escapeText(String(day.total_hours || 0))}h</div>
@@ -3074,14 +3099,14 @@ function renderIvBlock(b) {
           <div class="iv-block-title"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px"><use href="#i-coffee"/></svg> Break</div>
           ${b.notes ? `<div class="iv-block-sub">${escapeText(b.notes)}</div>` : ''}
         </div>
-        <div class="iv-block-right"><div class="iv-duration">${escapeText(String(b.duration_minutes || 0))}m</div></div>
+        <div class="iv-block-right"><div class="iv-duration">${escapeText(schedFmtMinutes(b.duration_minutes || 0))}</div></div>
       </div>`;
   }
   const s = stateFor(b.block_id);
   const pills = [];
-  if (b.course) pills.push(escapeText(b.course));
-  if (b.kind && b.kind !== 'general') pills.push(escapeText(b.kind));
-  if (b.priority) pills.push(escapeText(b.priority));
+  if (b.course) pills.push('Course: ' + escapeText(b.course));
+  if (b.kind && b.kind !== 'general') pills.push('Type: ' + escapeText(b.kind));
+  if (b.priority) pills.push('Priority: ' + escapeText(b.priority));
   const conflict = b.conflict
     ? (b.conflict === 'unplaceable'
         ? "This doesn't fit anywhere in your available hours."
@@ -3091,11 +3116,11 @@ function renderIvBlock(b) {
     <div class="iv-block ${s.done ? 'done' : ''}${b.conflict ? ' has-conflict' : ''}${b.unplaced ? ' unplaced' : ''}" data-block-id="${escapeText(b.block_id)}" tabindex="0" role="button" aria-label="Open checklist for ${escapeText(b.assignment || 'task')}">
       <div class="iv-time">${escapeTimeSlot(b.time_slot || '')}</div>
       <div class="iv-block-body">
-        <div class="iv-block-title">${escapeText(blockTitle(b))}${partPill(b)}</div>
-        <div class="iv-block-sub">${pills.map(p => `<span class="iv-pill">${p}</span>`).join('')}</div>
+        <div class="iv-block-title">${escapeText(blockTitle(b))}${taskPartMeta(b)}</div>
+        <div class="iv-block-sub">${pills.map(p => `<span class="iv-meta">${p}</span>`).join('')}</div>
       </div>
       <div class="iv-block-right">
-        <div class="iv-duration">${escapeText(String(b.duration_minutes || 0))}m</div>
+        <div class="iv-duration">${escapeText(schedFmtMinutes(b.duration_minutes || 0))}</div>
         <div style="display:flex;gap:4px;align-items:center;">
           <button type="button" class="iv-grip" data-block-id="${escapeText(b.block_id)}" tabindex="-1" aria-hidden="true" title="Drag to reschedule">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>
@@ -3133,10 +3158,10 @@ function openChecklist(blockId) {
 
   document.getElementById('ckTitle').textContent = block.assignment || 'Task';
   const meta = [];
-  if (block.course) meta.push(`<span class="iv-pill">${escapeText(block.course)}</span>`);
-  if (block.time_slot) meta.push(`<span class="iv-pill">${escapeText(block.time_slot)}</span>`);
-  if (block.duration_minutes) meta.push(`<span class="iv-pill">${block.duration_minutes}m</span>`);
-  if (block.difficulty) meta.push(`<span class="iv-pill">${escapeText(block.difficulty)}</span>`);
+  if (block.course) meta.push(`<span class="iv-meta">Course: ${escapeText(block.course)}</span>`);
+  if (block.time_slot) meta.push(`<span class="iv-meta">Time: ${escapeText(block.time_slot)}</span>`);
+  if (block.duration_minutes) meta.push(`<span class="iv-meta">Duration: ${block.duration_minutes} min</span>`);
+  if (block.difficulty) meta.push(`<span class="iv-meta">Difficulty: ${escapeText(block.difficulty)}</span>`);
   document.getElementById('ckMeta').innerHTML = meta.join('');
 
   // Mode buttons

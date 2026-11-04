@@ -197,7 +197,7 @@ button, .btn, [role="button"], .nav-tab, .sched-tab, .ipui-tab, .chip {
     font-size: 0.75rem;   /* was 10.2px / 9.6px */
   }
 
-  body .date-badge,
+  body .nav-date,
   body .ipd-featured-label,
   body .ds-eyebrow,
   body .ds-drop-types,

@@ -48,18 +48,14 @@ body.has-side .side-logo { padding-right: 40px; }
     overflow-x: hidden;
     border-right: 0;
     clip-path: inset(0 calc(var(--side-peek-w) - var(--side-rail-w)) 0 0);
-    background-image: linear-gradient(to right,
-      transparent calc(var(--side-rail-w) - 1px),
-      var(--border) calc(var(--side-rail-w) - 1px),
-      var(--border) var(--side-rail-w),
-      transparent var(--side-rail-w));
+    background: color-mix(in srgb, var(--bg-card) 34%, var(--bg));
     transition: clip-path 0.2s cubic-bezier(0.2, 0.7, 0.2, 1);
     z-index: 120;
   }
   html[data-side-rail] body.has-side .app-side.is-peek {
     clip-path: inset(0 -60px 0 0);
     background: var(--bg-card);
-    border-right: 1px solid var(--border);
+    border-right: 0;
     box-shadow: 18px 0 40px -18px rgba(0, 0, 0, 0.35);
   }
 
@@ -83,18 +79,10 @@ body.has-side .side-logo { padding-right: 40px; }
   html[data-side-rail] body.has-side .app-side:not(.is-peek) .logo-text,
   html[data-side-rail] body.has-side .app-side:not(.is-peek) .side-foot-row,
   html[data-side-rail] body.has-side .app-side:not(.is-peek) .side-collapse-btn { display: none; }
+  html[data-side-rail] body.has-side .app-side:not(.is-peek) .side-section-label,
+  html[data-side-rail] body.has-side .app-side:not(.is-peek) .side-link-meta { display: none !important; }
   html[data-side-rail] body.has-side .app-side:not(.is-peek) .side-customize-btn { border-color: transparent; }
   html[data-side-rail] body.has-side .app-side:not(.is-peek) .side-search { box-shadow: none; background: transparent; }
-
-  /* Streak / pet counts become a dot on the icon instead of vanishing. */
-  html[data-side-rail] body.has-side .app-side:not(.is-peek) .side-link { position: relative; }
-  html[data-side-rail] body.has-side .app-side:not(.is-peek) :is(.side-streak-badge, .side-pet-badge):not([hidden]) {
-    position: absolute; top: 6px; left: 27px;
-    width: 7px; height: 7px; min-width: 0; padding: 0;
-    border-radius: 50%; font-size: 0; overflow: hidden;
-    background: var(--accent);
-    box-shadow: 0 0 0 2px var(--bg);
-  }
 
   /* The active row stays legible as an icon: a short accent bar. */
   html[data-side-rail] body.has-side .app-side:not(.is-peek) .side-link.active::before {
