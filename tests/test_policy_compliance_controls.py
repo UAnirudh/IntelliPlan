@@ -139,7 +139,11 @@ def test_same_day_account_without_version_evidence_gets_current_notice(client):
         uid = user.id
     sign_in(client, uid)
     pending = client.get("/api/policy/pending").get_json()["pending"]
-    assert {(p["doc"], p["version"]) for p in pending} == {("privacy", 4), ("terms", 2)}
+    expected = {
+        (doc, App.policy_versions.current_version(doc))
+        for doc in App.policy_versions.all_docs()
+    }
+    assert {(p["doc"], p["version"]) for p in pending} == expected
     # It never saw either document, so it is shown them, not a change log.
     assert all(p["first_time"] and p["tldr"] and not p["clauses"] for p in pending)
 
