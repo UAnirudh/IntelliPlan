@@ -1,4 +1,4 @@
-"""Unified AI provider — Google Gemini primary, Groq fallback.
+"""Unified AI provider — Groq by default, approved Gemini Vertex optionally.
 
 All IntelliPlan AI features route through this module so we can swap
 providers without touching every endpoint.
