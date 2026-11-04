@@ -285,6 +285,7 @@
         <a href="/login" class="btn-primary hero-btn u-sheen" data-magnetic="0.24">Build my week, free</a>
         <a href="/demo/planner" class="btn-secondary hero-btn">See it sort a sample week</a>
       </div>
+      <p class="hero-price-note">$0 to plan your week. {% if billing_enabled %}Optional Pro: ${{ pro_prices['month'] }}/month or ${{ pro_prices['year'] }}/year.{% else %}No subscription required.{% endif %} <a href="#plans">See what is included</a></p>
 
       <div class="hero-mini-actions">
         {# Desktop first: it is the only one of the three that is a real
@@ -427,7 +428,7 @@
     <div class="step-card" data-ipm-reveal="up" data-lift>
       <div class="step-num">1</div>
       <h3>Import assignments</h3>
-      <p>Pull work from your school tools so everything is in one place.</p>
+      <p>Connect one supported school portal, then review the imported assignments and due dates. You can also add tasks manually.</p>
     </div>
     <div class="step-card" data-ipm-reveal="up" data-lift>
       <div class="step-num">2</div>
@@ -437,7 +438,7 @@
     <div class="step-card" data-ipm-reveal="up" data-lift>
       <div class="step-num">3</div>
       <h3>Follow the plan</h3>
-      <p>Get a schedule you can actually use, not a pile of random assignments pretending to be organized.</p>
+      <p>Set your available study time and review the suggested sessions. Time estimates are a starting point: adjust the plan to fit your week.</p>
     </div>
   </div>
 
@@ -752,7 +753,7 @@
 
     <details class="faq-item">
       <summary>Is IntelliPlan free for students?</summary>
-      <p>Yes. IntelliPlan is free to start, so students can begin organizing assignments and study time with no extra hurdles.</p>
+      <p>Yes. Assignment imports, prioritization, study planning, and grade modeling are included in Free. {% if billing_enabled %}Free includes {{ free_ai_allowance }} AI generations a month across tutoring, schedules, and study sets. Optional Pro costs ${{ pro_prices['month'] }}/month or ${{ pro_prices['year'] }}/year and removes that monthly limit.{% else %}No subscription is required.{% endif %} <a href="/pricing">See pricing and plan details</a>.</p>
     </details>
 
     <details class="faq-item">
@@ -762,7 +763,7 @@
 
     <details class="faq-item">
       <summary>Do I have to connect everything right away?</summary>
-      <p>No. Start with <a href="/demo">the demo week</a>, see how it sorts a sample week, then connect the one portal your school actually uses.</p>
+      <p>No. Start with <a href="/demo/planner">the sample week</a> without connecting a school account, then connect the one portal your school actually uses. The demo uses fictional assignments so you can inspect the plan before importing your own work.</p>
     </details>
 
     <details class="faq-item">
@@ -777,7 +778,7 @@
 
     <details class="faq-item">
       <summary>How does IntelliPlan compare to Notion, Todoist, or My Study Life?</summary>
-      <p>Those tools require you to type every assignment in by hand. IntelliPlan reads them directly from Canvas, StudentVue, and Schoology, ranks them, and builds the schedule for you.</p>
+      <p>If your current calendar or task list works for you, start by comparing <a href="/demo/planner">the sample plan</a> with your usual workflow. IntelliPlan brings supported school imports, priority sorting, and suggested study sessions together; review whether that reduces the planning you do by hand.</p>
     </details>
 
     <details class="faq-item">
@@ -1065,6 +1066,26 @@
   }
 </script>
 
+<section id="plans" class="section-block" aria-labelledby="plans-title">
+  <div class="section-heading">
+    <h2 id="plans-title" class="section-title">What is free, and what would I pay for?</h2>
+    <p class="section-subtitle">Try the planner before deciding whether you need more AI help.</p>
+  </div>
+  <div class="landing-plan-summary">
+    <h3>Free · $0</h3>
+    <p>Import assignments from supported school portals, sort priorities, build study schedules, model grades, and use study tools.</p>
+    {% if billing_enabled %}
+    <p>Includes <strong>{{ free_ai_allowance }} AI generations each month</strong>, shared across the tutor, schedules, and study sets.</p>
+    <h3>Optional Pro · ${{ pro_prices['month'] }}/month</h3>
+    <p>Or ${{ pro_prices['year'] }} billed yearly. Pro includes the free planner and removes the monthly AI generation limit. Cancel any time; your account returns to Free after the paid period.</p>
+    {% else %}
+    <p><strong>No subscription required.</strong> Start with the free planner and built-in AI tutor.</p>
+    {% endif %}
+    <p><a href="/pricing">Full plan details</a> · <a href="/demo/planner">Try the sample week</a></p>
+    <p>To evaluate the tutor, bring a topic you know and ask for a step-by-step explanation in the free plan. Check the reasoning against your class materials; AI can make mistakes.</p>
+  </div>
+</section>
+
 <div class="cta-outer">
 <section class="section-block" aria-labelledby="free-tools-title" style="padding-top:1rem;padding-bottom:1.5rem;">
   <style>
@@ -1103,6 +1124,9 @@
   <a href="https://www.foundrlist.com/product/intelliplan?utm_source=badge&amp;utm_medium=embed" target="_blank" rel="noopener noreferrer" aria-label="Featured on FoundrList">
     <img src="https://www.foundrlist.com/api/badge/intelliplan" alt="Featured on FoundrList" width="150" height="48" loading="lazy" decoding="async" referrerpolicy="no-referrer">
   </a>
+  <a href="https://semilaunch.com" target="_blank" rel="noopener noreferrer" aria-label="Featured on SemiLaunch">
+    <img src="https://semilaunch.com/assets/badge.png" alt="Featured on SemiLaunch" width="220" height="77" loading="lazy" decoding="async" referrerpolicy="no-referrer" style="max-width:100%;height:auto">
+  </a>
 </div>
 <section class="cta-section">
   <h2 class="cta-title">Ready to stop winging it?</h2>
@@ -1128,11 +1152,20 @@
   </button>
   <div class="mobile-cta-buttons" id="mobileCTAButtons">
     <a href="/login" class="mobile-cta-primary">Get Started Free</a>
-    <a href="#how-it-works" class="mobile-cta-secondary">Demo</a>
+    <a href="/demo/planner" class="mobile-cta-secondary">Demo</a>
   </div>
 </div>
 
 <style>
+  .hero-price-note, .landing-plan-summary {
+    font-family: var(--font-body);
+    color: var(--text-secondary);
+    line-height: 1.7;
+  }
+  .hero-price-note { font-size: 0.9rem; margin: 1rem 0; }
+  .hero-price-note a, .landing-plan-summary a { color: var(--accent); text-decoration: underline; }
+  .landing-plan-summary { max-width: 65ch; margin: 0 auto; }
+  .landing-plan-summary h3 { color: var(--text-primary); font-family: var(--font-display); margin: 1.5rem 0 0.5rem; }
   :root {
     --page-max: 1180px;
   }
