@@ -149,6 +149,9 @@ jobs:
       # main, since PRs don't trigger a Railway deploy.
       - name: Wait for production to be healthy
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: python scripts/wait_for_deployment.py --revision "$GITHUB_SHA"
 
       - run: pytest test_intelliplan.py -v
