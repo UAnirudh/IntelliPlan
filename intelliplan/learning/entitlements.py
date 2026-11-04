@@ -45,8 +45,8 @@ def _models():
 
 
 def _require_owner():
-    from App import is_owner
-    if not is_owner(current_user):
+    from App import founder_mode_active, is_owner
+    if not is_owner(current_user) or not founder_mode_active(current_user):
         abort(404)
 
 

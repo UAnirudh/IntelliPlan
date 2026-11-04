@@ -40,6 +40,7 @@ def signed_in(account, host=None):
     client = App.app.test_client()
     with client.session_transaction(base_url=host) as session:
         session.update(_user_id=str(account['id']), _fresh=True, session_epoch=0)
+        session['ip_founder_mode'] = True
     return client
 
 
@@ -106,7 +107,10 @@ def test_family_hostname_account_and_configured_hostname(accounts, monkeypatch):
     # rather than redirect these adult-navigation links to a student page.
     assert client.get('/admin/accounts', base_url=host).status_code == 403
     assert client.get('/api/admin/accounts', base_url=host).status_code == 403
-    monkeypatch.setattr(App, 'ADMIN_EMAILS', App.ADMIN_EMAILS | {accounts['parent']['email']})
+    with App.app.app_context():
+        App.db.session.get(App.User, accounts['parent']['id']).email_verified = True
+        App.db.session.commit()
+    monkeypatch.setattr(App, 'FOUNDER_EMAIL', accounts['parent']['email'])
     page = client.get('/admin/accounts', base_url=host)
     assert page.status_code == 200 and b'adult-workspace' in page.data
 

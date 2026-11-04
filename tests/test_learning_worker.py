@@ -23,10 +23,15 @@ def queued_course(monkeypatch):
             flag = App.FeatureFlag(key='school_course_generator')
             App.db.session.add(flag)
         flag.enabled = True
-        owner = App.User(email=f'worker-{uuid4().hex}@example.test', password_hash='x')
+        owner = App.User(email=f'worker-{uuid4().hex}@example.test', password_hash='x',
+                         email_verified=True)
         App.db.session.add(owner)
         App.db.session.flush()
-        uid, email = owner.id, owner.email
+        uid = owner.id
+        # Course generation is admin-only; this synthetic user needs an
+        # explicit delegated-admin grant rather than an implicit Founder role.
+        Grant = App.app.extensions['account_admin_grant_model']
+        App.db.session.add(Grant(user_id=uid, granted_by_id=uid))
         course = policy.models()['Course'](user_id=uid, mode='curated', state='generating',
             goal='Python foundations', blueprint=courses.create_blueprint('Python foundations', 'curated'))
         App.db.session.add(course)
@@ -34,9 +39,9 @@ def queued_course(monkeypatch):
         cid = course.id
         App.db.session.add(policy.models()['Job'](course_id=cid))
         App.db.session.commit()
-    monkeypatch.setattr(App, 'ADMIN_EMAILS', App.ADMIN_EMAILS | {email})
     yield cid
     with App.app.app_context():
+        App.app.extensions['account_admin_grant_model'].query.filter_by(user_id=uid).delete()
         for name in ('Lesson', 'Job'):
             policy.models()[name].query.filter_by(course_id=cid).delete()
         policy.models()['Course'].query.filter_by(id=cid).delete()

@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block page_title %}Founder console · IntelliPlan{% endblock %}
+{% block content %}
+<section class="founder-console" aria-labelledby="founder-title">
+  <header class="founder-header">
+    <div>
+      <p class="founder-eyebrow">FOUNDER WORKSPACE</p>
+      <h1 id="founder-title">Growth and engagement</h1>
+      <p>Account growth, repeat use, and product areas that need attention.</p>
+    </div>
+    <time datetime="{{ report.as_of }}">Updated {{ report.as_of }}</time>
+  </header>
+
+  <section class="founder-panel" aria-labelledby="growth-title">
+    <div class="founder-section-heading">
+      <div><h2 id="growth-title">Growth over time</h2><p>UTC windows compared with the immediately preceding window of the same length.</p></div>
+      <div class="founder-paid"><span>Paid customers now</span><strong>{% if report.billing_status == 'tracked' %}{{ report.paid_customers_now }}{% else %}Not configured{% endif %}</strong></div>
+    </div>
+    <div class="founder-table-wrap">
+      <table class="founder-table">
+        <thead><tr><th scope="col">Window</th><th scope="col">New accounts</th><th scope="col">Verified</th><th scope="col">Active¹</th><th scope="col">Repeat active²</th><th scope="col">New accounts vs prior</th></tr></thead>
+        <tbody>
+          {% for key, label in [('day','Daily'),('week','Weekly'),('month','Monthly')] %}
+          {% set period = report.periods[key] %}
+          <tr>
+            <th scope="row">{{ label }}</th>
+            <td>{{ period.new_accounts }}</td>
+            <td>{{ period.verified_new_accounts }}</td>
+            <td>{{ period.active_accounts }}</td>
+            <td>{% if period.repeat_active_rate is not none %}{{ period.repeat_active_accounts }} · {{ (period.repeat_active_rate * 100)|round|int }}%{% else %}Fewer than 5{% endif %}</td>
+            <td>{% if period.new_accounts_change > 0 %}+{% endif %}{{ period.new_accounts_change }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="founder-footnote">¹ Active means a signed-in account with consented product activity in the selected window. ² Repeat active means the same account was active in both adjacent windows; counts are suppressed below five. This is a directional return-use measure, not a mature signup-cohort retention rate.</p>
+  </section>
+
+  <section class="founder-panel" aria-labelledby="adoption-title">
+    <div class="founder-section-heading">
+      <div><h2 id="adoption-title">Feature adoption</h2><p>Distinct consented accounts that opened each product area in each window.</p></div>
+    </div>
+    <div class="founder-table-wrap">
+      <table class="founder-table founder-feature-table">
+        <thead><tr><th scope="col">Product area</th><th scope="col">Daily</th><th scope="col">Weekly</th><th scope="col">Monthly</th></tr></thead>
+        <tbody>
+      {% for feature in report.features.month %}
+      {% set daily = report.features.day[loop.index0] %}
+      {% set weekly = report.features.week[loop.index0] %}
+      <tr><th scope="row">{{ feature.feature }}</th>
+        {% for usage in [daily,weekly,feature] %}
+        <td>{% if usage.status == 'measured' %}{{ usage.accounts }}{% else %}Fewer than 5{% endif %}</td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="founder-footnote">Low counts are grouped to reduce the chance of identifying individual students. “Fewer than 5” may mean low or no opt-in activity; it is not proof that the feature is unused.</p>
+  </section>
+
+  <p class="founder-scope">{{ report.scope_note }} New accounts are not paid customers. The current paid total counts active Stripe-paid windows only; paid customer gains and churn need subscription lifecycle events before they can be reported accurately. When billing is off, the paid total says “Not configured.”</p>
+</section>
+<style>
+  .founder-console { max-width: 1120px; margin: 0 auto; padding: clamp(18px,3vw,32px); color: var(--text-primary); }
+  .founder-header { display:flex; justify-content:space-between; align-items:flex-end; gap:20px; margin-bottom:24px; }
+  .founder-header h1 { margin:0; font-size:clamp(1.55rem,3vw,2.15rem); letter-spacing:-.035em; }
+  .founder-header p { margin:6px 0 0; color:var(--text-muted); }
+  .founder-header time,.founder-eyebrow,.founder-period-label { color:var(--text-muted); font-size:.76rem; font-variant-numeric:tabular-nums; }
+  .founder-eyebrow { margin:0 0 9px; letter-spacing:.08em; }
+  .founder-panel { background:color-mix(in srgb,var(--bg-card) 76%,var(--bg)); border-radius:14px; padding:clamp(16px,2.4vw,24px); margin:14px 0; box-shadow:inset 0 1px 0 color-mix(in srgb,var(--text-primary) 5%,transparent); }
+  .founder-section-heading { display:flex; justify-content:space-between; align-items:flex-start; gap:18px; margin-bottom:16px; }
+  .founder-section-heading h2 { margin:0; font-size:1.04rem; letter-spacing:-.015em; }
+  .founder-section-heading p { margin:5px 0 0; color:var(--text-muted); font-size:.82rem; }
+  .founder-paid { display:flex; align-items:baseline; gap:12px; color:var(--text-muted); font-size:.78rem; white-space:nowrap; }
+  .founder-paid strong { color:var(--text-primary); font-size:1.2rem; font-variant-numeric:tabular-nums; }
+  .founder-table-wrap { overflow:auto; }
+  .founder-table { width:100%; min-width:700px; border-collapse:collapse; text-align:left; font-size:.85rem; }
+  .founder-table th,.founder-table td { padding:11px 10px; font-variant-numeric:tabular-nums; }
+  .founder-table thead { color:var(--text-muted); font-size:.7rem; text-transform:uppercase; letter-spacing:.045em; }
+  .founder-table tbody tr+tr { box-shadow:inset 0 1px color-mix(in srgb,var(--text-primary) 6%,transparent); }
+  .founder-table tbody th { font-weight:600; }
+  .founder-footnote,.founder-scope { color:var(--text-muted); font-size:.76rem; line-height:1.55; }
+  .founder-footnote { margin:12px 0 0; }
+  .founder-scope { margin:16px 2px; }
+  @media(max-width:680px) { .founder-header,.founder-section-heading { align-items:flex-start; flex-direction:column; } .founder-paid { justify-content:space-between; width:100%; } }
+</style>
+{% endblock %}

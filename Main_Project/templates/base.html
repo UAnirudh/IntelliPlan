@@ -187,6 +187,7 @@
      Linked so the browser fetches it once; the position is unchanged so
      the cascade is identical. #}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/ip-base.css') }}?v={{ asset_v }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/founder-mode.css') }}?v={{ asset_v }}">
 
   <link rel="manifest" href="/static/manifest.json">
   {# Single theme-color tag, updated live by JS to match the active theme/
@@ -489,7 +490,7 @@ body {
 
 {# Active uses the same desktop sidebar as the rest of the workspace. Keeping
    the navigation anchored prevents a disruptive top-bar swap on entry. #}
-{% set _app_pages = ['dashboard','scheduler','active','study','learn','streak','tutor','priority','classes','grades','grademodel','gradebook','dismissed','tests','profiles','settings','lessons','groups','writing','math','extractor','focus','library','meetings','themes','study_hub','olympiad','memories','pet','command_center','primer','balance','features','accessibility','text_dissector','my_stats','school_admin','courses','flashcards'] %}
+{% set _app_pages = ['dashboard','scheduler','active','study','learn','streak','tutor','priority','classes','grades','grademodel','gradebook','dismissed','tests','profiles','settings','lessons','groups','writing','math','extractor','focus','library','meetings','themes','study_hub','olympiad','memories','pet','command_center','primer','balance','features','accessibility','text_dissector','my_stats','school_admin','courses','flashcards','founder'] %}
 {# Reading progress belongs on long-form pages only. On an app screen the
    scroll length is the size of a list, not the length of an argument, so a
    progress bar there measures nothing the reader cares about. #}
@@ -661,6 +662,11 @@ body {
     <a href="/dashboard" data-nav-item="dashboard" class="side-link {% if active_page == 'dashboard' %}active{% endif %}">
       <span class="side-icon"><svg><use href="#i-dashboard"/></svg></span>Dashboard
     </a>
+    {% if is_founder and founder_mode %}
+    <a href="/founder" data-nav-item="founder" class="side-link {% if active_page == 'founder' %}active{% endif %}">
+      <span class="side-icon"><svg><use href="#i-chart-bar"/></svg></span>Founder console
+    </a>
+    {% endif %}
     <a href="/scheduler" data-nav-item="scheduler" class="side-link {% if active_page == 'scheduler' %}active{% endif %}">
       <span class="side-icon"><svg><use href="#i-scheduler"/></svg></span>Scheduler
     </a>
@@ -733,6 +739,15 @@ body {
       </form>
     {% else %}
       <a href="/login" class="side-link {% if active_page == 'login' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-login"/></svg></span>Login</a>
+    {% endif %}
+    {% if is_founder %}
+    <form action="/api/founder/mode" method="POST" class="founder-mode-form">
+      <input type="hidden" name="mode" value="{{ 'normal' if founder_mode else 'founder' }}">
+      <button type="submit" class="founder-mode-button" aria-label="{{ 'Return to normal mode' if founder_mode else 'Switch to Founder mode' }}">
+        <span class="side-icon"><svg><use href="#i-{{ 'dashboard' if founder_mode else 'chart-bar' }}"/></svg></span>
+        {{ 'Return to normal mode' if founder_mode else 'Switch to Founder mode' }}
+      </button>
+    </form>
     {% endif %}
     <div class="side-foot-row">
       <time class="nav-date" id="dateBadgeSide"></time>

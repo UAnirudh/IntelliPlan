@@ -63,15 +63,18 @@ def user(client, monkeypatch, admin=False):
             email=f"learning-{uuid4().hex}@example.test",
             password_hash="x",
             birth_year=2000,
+            email_verified=admin,
         )
         App.db.session.add(row)
         App.db.session.commit()
         uid, email = row.id, row.email
     if admin:
-        monkeypatch.setattr(App, "ADMIN_EMAILS", App.ADMIN_EMAILS | {email})
+        monkeypatch.setattr(App, "FOUNDER_EMAIL", email)
     with client.session_transaction() as session:
         session["_user_id"] = str(uid)
         session["_fresh"] = True
+        if admin:
+            session["ip_founder_mode"] = True
     return uid
 
 
@@ -944,6 +947,35 @@ def test_school_admin_cannot_grant_administrative_authority(client, monkeypatch)
         json={"user_id": uid, "role": "admin"},
     )
     assert r.status_code == 403
+
+
+def test_founder_must_be_in_founder_mode_to_grant_school_admin(client, monkeypatch):
+    founder_id = user(client, monkeypatch, admin=True)
+    oid = org(founder_id, role="admin")
+    with App.app.app_context():
+        target = App.User(email=f"target-{uuid4().hex}@example.test",
+                          password_hash="x", birth_year=2000)
+        App.db.session.add(target)
+        App.db.session.commit()
+        target_id = target.id
+    assert client.post(
+        f"/api/school-admin/organizations/{oid}/members",
+        json={"user_id": target_id, "role": "admin"},
+    ).status_code == 200
+
+    with client.session_transaction() as session:
+        session["ip_founder_mode"] = False
+    members = client.get(f"/api/school-admin/organizations/{oid}/members")
+    assert members.status_code == 200
+    assert members.json["can_manage_admin"] is False
+    assert client.post(
+        f"/api/school-admin/organizations/{oid}/members",
+        json={"user_id": target_id, "role": "teacher"},
+    ).status_code == 403
+    assert client.delete(
+        f"/api/school-admin/organizations/{oid}/members",
+        json={"user_id": target_id},
+    ).status_code == 403
 
 
 def test_school_admin_can_manage_teacher_access_by_email_and_revoke_it(client, monkeypatch):
