@@ -26,7 +26,8 @@ with App.app.app_context():
     for name, role in [('Rivera', 'teacher'), ('Unassigned', 'teacher'), ('Student', 'student'),
                        ('Schooladmin', 'teacher'), ('Owner', 'student')]:
         row = App.User(email=name.lower() + '@example.test', name=name, role=role,
-                       birth_year=1980, parent_consent_granted=True, password_hash='x')
+                       birth_year=1980, parent_consent_granted=True,
+                       email_verified=(name == 'Owner'), password_hash='x')
         App.db.session.add(row)
         App.db.session.flush()
         users[name] = row.id
@@ -51,7 +52,9 @@ with App.app.app_context():
         M['Membership'](user_id=users['Schooladmin'], organization_id=school.id, role='admin'),
     ])
     school_id = school.id
-    App.ADMIN_EMAILS = App.ADMIN_EMAILS | {'owner@example.test'}
+    # The isolated owner account models the sole configured, verified Founder.
+    # The email delivery allowlist is not an authorization grant.
+    App.FOUNDER_EMAIL = 'owner@example.test'
     App.db.session.commit()
 clients = {}
 for name, uid in users.items():
@@ -88,6 +91,9 @@ with sync_playwright() as playwright:
     # classroom through real UI controls; a teacher cannot self-enroll.
     for actor in ('Owner', 'Schooladmin'):
         active_client = clients[actor]
+        if actor == 'Owner':
+            mode = active_client.post('/api/founder/mode', data={'mode': 'founder'})
+            assert mode.status_code == 302
         page.goto('https://terms.test/school-admin')
         essential = page.get_by_role('button', name='Essential only', exact=True)
         if essential.is_visible():

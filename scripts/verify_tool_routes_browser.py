@@ -26,11 +26,12 @@ OUT = ROOT / 'output/playwright/tool-audit'
 OUT.mkdir(parents=True, exist_ok=True)
 with App.app.app_context():
     App.db.create_all()
-    user = App.User(email='workspace-fixture@example.test', password_hash='x', birth_year=2000)
+    user = App.User(email='workspace-fixture@example.test', password_hash='x', birth_year=2000,
+                    email_verified=True)
     App.db.session.add(user)
     App.db.session.commit()
     uid = user.id
-    App.ADMIN_EMAILS = App.ADMIN_EMAILS | {user.email}
+    App.FOUNDER_EMAIL = user.email.lower()
     App._get_or_create_identity(uid).completed = True
     for doc in App.policy_versions.all_docs():
         App.db.session.add(App.PolicyAcknowledgement(user_id=uid, doc=doc,
@@ -52,6 +53,8 @@ active_client = client
 with client.session_transaction() as session:
     session['_user_id'] = str(uid)
     session['_fresh'] = True
+mode = client.post('/api/founder/mode', data={'mode': 'founder'})
+assert mode.status_code == 302
 
 report = []
 with sync_playwright() as playwright:
