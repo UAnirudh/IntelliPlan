@@ -18770,6 +18770,11 @@ def error_403(e):
 # ── ADMIN / FEATURE FLAGS ───────────────────────────────────────────
 # Hidden admin surface for the project owner. Email-gated so even if
 # someone discovers the URL, only the configured account can use it.
+# Exactly one configured account receives Founder-level controls. This is
+# intentionally separate from ADMIN_EMAILS, which is a delivery/test allowlist
+# and may contain other operators who should remain delegated admins.
+FOUNDER_EMAIL = (os.getenv("FOUNDER_EMAIL") or "uanirudh0811@gmail.com").strip().lower()
+
 ADMIN_EMAILS = {
     e.strip().lower()
     for e in (os.getenv("ADMIN_EMAILS") or "uanirudh0811@gmail.com").split(",")
@@ -18780,16 +18785,45 @@ ADMIN_PATH = os.getenv("ADMIN_PATH", "/admin-x9k2p7")  # not linked anywhere
 
 def is_owner(user):
     return bool(user and getattr(user, "is_authenticated", False)
-                and (user.email or "").lower() in ADMIN_EMAILS)
+                and getattr(user, "email_verified", False) is True
+                and (user.email or "").strip().lower() == FOUNDER_EMAIL)
 
 
-app.extensions['admin_owner_checker'] = is_owner
+def founder_mode_active(user=None):
+    """Founder tools are available only to a verified configured owner who
+    explicitly switched this browser session into Founder mode."""
+    if user is None:
+        user = current_user
+    if not is_owner(user) or not has_request_context():
+        return False
+    try:
+        return session.get("ip_founder_mode") is True
+    except Exception:
+        return False
+
+
+@app.route("/api/founder/mode", methods=["POST"])
+def founder_mode_toggle():
+    if not current_user.is_authenticated:
+        return jsonify(error="login_required"), 401
+    if not is_owner(current_user):
+        return jsonify(error="not_found"), 404
+    body = request.get_json(silent=True) or request.form
+    mode = str(body.get("mode", "")).strip().lower()
+    if mode not in {"founder", "normal"}:
+        return jsonify(error="invalid_mode"), 400
+    session["ip_founder_mode"] = mode == "founder"
+    session.modified = True
+    return redirect(url_for("founder_dashboard" if mode == "founder" else "dashboard"))
+
+
+app.extensions['admin_owner_checker'] = lambda user: is_owner(user) and founder_mode_active(user)
 
 
 def is_admin(user):
     try:
         from intelliplan.admin_access import has_grant
-        return is_owner(user) or has_grant(user)
+        return (is_owner(user) and founder_mode_active(user)) or has_grant(user)
     except Exception:
         return False
 
@@ -18872,13 +18906,18 @@ def feature_enabled_for_user(key, user_id):
 @app.context_processor
 def inject_admin():
     try:
+        founder = is_owner(current_user) if current_user.is_authenticated else False
+        founder_mode = founder_mode_active(current_user)
         return {
             "is_admin": is_admin(current_user) if current_user.is_authenticated else False,
+            "is_founder": founder,
+            "founder_mode": founder_mode,
             "feature_enabled": feature_enabled,
             "admin_path": ADMIN_PATH,
         }
     except Exception:
-        return {"is_admin": False, "feature_enabled": lambda k: True, "admin_path": ADMIN_PATH}
+        return {"is_admin": False, "is_founder": False, "founder_mode": False,
+                "feature_enabled": lambda k: True, "admin_path": ADMIN_PATH}
 
 
 _FLAG_OVERRIDES = {
@@ -18978,6 +19017,103 @@ def _admin_daily_active_users(now=None):
         ProductEvent.created_at >= day_start,
         ProductEvent.created_at < day_end,
     ).scalar()
+
+
+def _founder_growth_report(now=None):
+    """Return aggregate account and consented-usage measures for 1/7/30 days.
+
+    No email, message, camera, or per-student information leaves the query.
+    Product activity comes only from ProductEvent, whose recorder requires
+    current analytics consent and deletes rows when that consent is withdrawn.
+    """
+    from datetime import timedelta as _timedelta
+    from intelliplan.founder_metrics import feature_adoption
+
+    now = now or datetime.utcnow()
+    periods = (("day", 1), ("week", 7), ("month", 30))
+    output = {}
+    feature_periods = {}
+    for label, days in periods:
+        start = now - _timedelta(days=days)
+        previous_start = start - _timedelta(days=days)
+        accounts = User.query.filter(User.created_at >= start, User.created_at < now)
+        new_accounts = accounts.count()
+        verified_accounts = accounts.filter(User.email_verified.is_(True)).count()
+        prior_accounts = User.query.filter(
+            User.created_at >= previous_start, User.created_at < start
+        ).count()
+
+        active_ids = {
+            row[0] for row in db.session.query(ProductEvent.user_id).filter(
+                ProductEvent.user_id.isnot(None),
+                ProductEvent.created_at >= start,
+                ProductEvent.created_at < now,
+            ).distinct().all()
+        }
+        prior_active_ids = {
+            row[0] for row in db.session.query(ProductEvent.user_id).filter(
+                ProductEvent.user_id.isnot(None),
+                ProductEvent.created_at >= previous_start,
+                ProductEvent.created_at < start,
+            ).distinct().all()
+        }
+        repeat_accounts = len(active_ids & prior_active_ids)
+        retention_reportable = (
+            len(active_ids) >= 5 and len(prior_active_ids) >= 5 and repeat_accounts >= 5
+        )
+        output[label] = {
+            "days": days,
+            "new_accounts": new_accounts,
+            "verified_new_accounts": verified_accounts,
+            "new_accounts_change": (new_accounts - prior_accounts),
+            "active_accounts": len(active_ids),
+            "repeat_active_accounts": repeat_accounts if retention_reportable else None,
+            "repeat_active_rate": round(repeat_accounts / len(active_ids), 3) if retention_reportable else None,
+            "retention_status": "measured" if retention_reportable else "below_threshold",
+        }
+        feature_rows = db.session.query(ProductEvent.rule, ProductEvent.actor).filter(
+            ProductEvent.user_id.isnot(None),
+            ProductEvent.created_at >= start,
+            ProductEvent.created_at < now,
+        ).all()
+        feature_periods[label] = feature_adoption(feature_rows)
+    from growth_glue import billing_enabled
+    billing_is_enabled = bool(billing_enabled())
+    paid_customers = (User.query.filter(
+        User.stripe_customer_id.isnot(None),
+        User.stripe_paid_until.isnot(None),
+        User.stripe_paid_until >= now,
+    ).count() if billing_is_enabled else None)
+    return {
+        "as_of": now.isoformat(timespec="minutes") + "Z",
+        "periods": output,
+        "features": feature_periods,
+        "paid_customers_now": paid_customers,
+        "billing_status": "tracked" if billing_is_enabled else "not_configured",
+        "scope_note": (
+            "Usage and repeat activity include only signed-in accounts that consented to analytics. "
+            "Feature adoption counts below five are suppressed."
+        ),
+    }
+
+
+@app.route("/founder")
+def founder_dashboard():
+    if not current_user.is_authenticated:
+        return redirect(url_for("login"))
+    if not is_owner(current_user) or not founder_mode_active(current_user):
+        return render_template("error.html", error_code=404, error_id="FOUNDER-404"), 404
+    report = _founder_growth_report()
+    return render_template("founder.html", active_page="founder", report=report)
+
+
+@app.route("/api/founder/growth")
+def founder_growth_api():
+    if not current_user.is_authenticated:
+        return jsonify(error="login_required"), 401
+    if not is_owner(current_user) or not founder_mode_active(current_user):
+        return jsonify(error="not_found"), 404
+    return _no_store(jsonify(_founder_growth_report()))
 
 
 @app.route(ADMIN_PATH, methods=["GET"])

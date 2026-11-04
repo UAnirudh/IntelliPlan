@@ -209,7 +209,8 @@ def organization_policy(oid):
 
 @bp.route('/api/school-admin/organizations/<int:oid>/members', methods=['GET', 'POST', 'DELETE'])
 def organization_members(oid):
-    from App import db, User, is_owner
+    from App import db, User, is_owner, founder_mode_active
+    owner_controls = is_owner(current_user) and founder_mode_active(current_user)
     M = policy.models()
     if not policy.administers(current_user, oid):
         abort(403)
@@ -236,7 +237,7 @@ def organization_members(oid):
                 .offset(offset).limit(limit).all())
         users = {u.id: u for u in User.query.filter(
             User.id.in_({r.user_id for r in rows})).all()} if rows else {}
-        return jsonify(can_manage_admin=is_owner(current_user), members=[dict(user_id=r.user_id, role=r.role,
+        return jsonify(can_manage_admin=owner_controls, members=[dict(user_id=r.user_id, role=r.role,
             email=users[r.user_id].email, name=users[r.user_id].name or '') for r in rows
             if r.user_id in users], total=total, role_counts=role_counts,
             offset=offset, limit=limit, has_more=offset + len(rows) < total)
@@ -251,7 +252,7 @@ def organization_members(oid):
         # School administrators may manage classroom and member access but
         # cannot revoke an administrator's delegated authority. The platform
         # owner remains the only person who can change admin memberships.
-        if row.role == 'admin' and not is_owner(current_user):
+        if row.role == 'admin' and not owner_controls:
             abort(403)
         db.session.add(M['Audit'](organization_id=oid, actor_id=current_user.id,
             action='membership_removed', changes=dict(user_id=uid, role=row.role)))
@@ -270,12 +271,12 @@ def organization_members(oid):
     elif type(uid) is not int:
         raise ValueError('Enter the email or ID of an existing account.')
     # Delegation of administrative authority is a platform-owner action.
-    if role == 'admin' and not is_owner(current_user):
+    if role == 'admin' and not owner_controls:
         abort(403)
     if not db.session.get(User, uid):
         abort(404)
     row = M['Membership'].query.filter_by(user_id=uid, organization_id=oid).first()
-    if row and row.role == 'admin' and not is_owner(current_user):
+    if row and row.role == 'admin' and not owner_controls:
         abort(403)
     if not row:
         row = M['Membership'](user_id=uid, organization_id=oid, role=role)

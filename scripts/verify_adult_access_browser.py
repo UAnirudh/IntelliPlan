@@ -33,6 +33,7 @@ with App.app.app_context():
                               ('Sibling', 'student', 2011)]:
         user = App.User(email=name.lower() + '@example.test', name=name, role=role,
             birth_year=year, parent_consent_granted=True,
+            email_verified=(name == 'Owner'),
             password_hash=App.bcrypt.generate_password_hash('fixture-password-2026').decode())
         App.db.session.add(user); App.db.session.flush()
         users[name.lower()] = user.id
@@ -40,7 +41,9 @@ with App.app.app_context():
         for doc in App.policy_versions.all_docs():
             App.db.session.add(App.PolicyAcknowledgement(user_id=user.id, doc=doc,
                 version=App.policy_versions.current_version(doc)))
-    App.ADMIN_EMAILS = App.ADMIN_EMAILS | {'owner@example.test'}
+    # This isolated acceptance app models the one configured Founder account.
+    # ADMIN_EMAILS is not an authorization source.
+    App.FOUNDER_EMAIL = 'owner@example.test'
     App.db.session.add(App.ManualTask(user_id=users['student'], title='Prepare the climate project',
         course='Science', due_date=(date.today() + timedelta(days=2)).isoformat(), estimated_time=30, done=False))
     App.db.session.add(App.ManualTask(user_id=users['student'], title='Read the climate notes',
@@ -155,6 +158,8 @@ with sync_playwright() as playwright:
                 capture(role + ('-signin' if 'login' in kind else '-signup'))
 
     page.set_viewport_size({'width':1440,'height':1000})
+    mode = clients['owner'].post('/api/founder/mode', data={'mode':'founder'})
+    assert mode.status_code == 302
     open_page('owner','/admin/accounts')
     page.locator('#adminAccountEmail').fill('teacher@example.test')
     page.get_by_role('button', name='Find account', exact=True).click()
@@ -169,6 +174,9 @@ with sync_playwright() as playwright:
     page.get_by_role('button',name='Grant admin access',exact=True).wait_for()
     with App.app.app_context():
         assert not App.is_admin(App.db.session.get(App.User,users['teacher']))
+    normal = clients['owner'].post('/api/founder/mode', data={'mode':'normal'})
+    assert normal.status_code == 302
+    assert clients['owner'].get('/admin/accounts').status_code == 403
     report.append({'flow':'owner searches account then grants and revokes via buttons','passed':True})
 
     page.set_viewport_size({'width':1440,'height':1000})
