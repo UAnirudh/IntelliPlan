@@ -408,6 +408,16 @@
     <h2>Common questions</h2>
 
     <details class="pricing-faq-item">
+      <summary>Can I see the value before signing up or paying?</summary>
+      <p><a href="/demo/planner">Try the sample week</a> without connecting a school account. It uses fictional assignments so you can inspect how priorities become study sessions. Then use the free plan with your own tasks and compare the result with your current workflow before considering an upgrade.</p>
+    </details>
+
+    <details class="pricing-faq-item">
+      <summary>Do I need to pay to try the AI tutor?</summary>
+      <p>No. Start in the free plan and ask for a step-by-step explanation of a topic from class. {% if billing_enabled %}Tutoring shares the {{ free_ai_allowance }} monthly AI generations with schedules and study sets; Pro removes that monthly limit.{% endif %} Check the explanation against your class materials, because AI can make mistakes.</p>
+    </details>
+
+    <details class="pricing-faq-item">
       <summary>Is IntelliPlan really free forever?</summary>
       <p>{% if billing_enabled %}The planner is, yes. Connecting Canvas, StudentVue or Schoology, building study schedules, modeling grades and getting reminders cost nothing and have no time limit. The only thing Pro changes is the monthly limit on AI generations.{% else %}Yes. IntelliPlan is free forever with no sign-up barriers. You can connect Canvas, StudentVue, or Schoology, build AI study schedules, model your grades, and use the built-in study tools without any feature gates.{% endif %}</p>
     </details>
