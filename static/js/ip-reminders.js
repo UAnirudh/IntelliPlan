@@ -43,6 +43,16 @@
     return Uint8Array.from(raw, (ch) => ch.charCodeAt(0));
   }
 
+  function subscriptionUsesKey(subscription, expectedKey) {
+    const key = subscription && subscription.options
+      ? subscription.options.applicationServerKey
+      : null;
+    if (!key) return false;
+    const actualKey = new Uint8Array(key);
+    return actualKey.length === expectedKey.length
+      && actualKey.every((value, index) => value === expectedKey[index]);
+  }
+
   function workerReady() {
     return Promise.race([
       navigator.serviceWorker.ready,
@@ -107,10 +117,23 @@
       const key = ((await keyResponse.json()) || {}).key;
       if (!key) return { ok: false, reason: 'not-configured' };
 
-      const subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: keyBytes(key),
-      });
+      const applicationServerKey = keyBytes(key);
+      // Browsers reject a second subscribe() call while this registration
+      // already owns a subscription. Reuse a matching subscription and sync
+      // it to the signed-in account so re-enabling reminders is safe. A stale
+      // VAPID key must be replaced or the push service will reject delivery.
+      let subscription = await registration.pushManager.getSubscription();
+      if (subscription && !subscriptionUsesKey(subscription, applicationServerKey)) {
+        const removed = await subscription.unsubscribe();
+        if (!removed) return { ok: false, reason: 'failed' };
+        subscription = null;
+      }
+      if (!subscription) {
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey,
+        });
+      }
       const saved = await fetch('/push/subscribe', {
         method: 'POST',
         credentials: 'same-origin',

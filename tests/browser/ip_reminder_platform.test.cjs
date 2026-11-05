@@ -111,3 +111,104 @@ test('a prior reminder opt-in is restored on this account after the next sign-in
   assert.equal(storage.has('ip_push_restore_user_42'), false);
   assert.deepEqual(calls, ['/api/notifications/preferences', '/push/vapid-public', '/push/subscribe']);
 });
+
+test('re-enabling reminders reuses the existing browser subscription', async () => {
+  let subscribeCalls = 0;
+  let savedSubscription;
+  let savedPreferences;
+  const applicationServerKey = Uint8Array.from([0]).buffer;
+  const subscription = {
+    endpoint: 'https://push.example.test/device-existing',
+    options: {applicationServerKey},
+    toJSON() { return {endpoint: this.endpoint, keys: {auth: 'a', p256dh: 'p'}}; },
+  };
+  const registration = {pushManager: {
+    async getSubscription() { return subscription; },
+    async subscribe() { subscribeCalls += 1; throw new Error('already subscribed'); },
+  }};
+  const navigator = {
+    userAgent: 'Desktop browser', platform: 'Win32', maxTouchPoints: 0,
+    serviceWorker: {ready: Promise.resolve(registration)},
+  };
+  const window = {PushManager: function PushManager() {}, Notification: {permission: 'granted'}};
+  const fetch = async (url, options) => {
+    if (url === '/api/notifications/preferences' && !options.method) {
+      return {ok: true, async json() { return {channels: []}; }};
+    }
+    if (url === '/push/vapid-public') return {ok: true, async json() { return {key: 'AA'}; }};
+    if (url === '/push/subscribe') {
+      savedSubscription = JSON.parse(options.body).subscription;
+      return {ok: true};
+    }
+    if (url === '/api/notifications/preferences' && options.method === 'POST') {
+      savedPreferences = JSON.parse(options.body);
+      return {ok: true};
+    }
+    throw new Error(`Unexpected request ${url}`);
+  };
+  vm.runInNewContext(reminderScript, {window, navigator, Notification: window.Notification,
+    fetch, atob, setTimeout, console, Uint8Array, Promise});
+
+  const result = await window.IPReminders.enable({push: true, email: false});
+
+  assert.equal(result.push, true);
+  assert.equal(result.saved, true);
+  assert.equal(subscribeCalls, 0);
+  assert.equal(savedSubscription.endpoint, subscription.endpoint);
+  assert.deepEqual(savedPreferences.channels, ['push']);
+});
+
+test('a stale VAPID subscription is replaced with the current server key', async () => {
+  const order = [];
+  let savedSubscription;
+  let savedPreferences;
+  const oldSubscription = {
+    endpoint: 'https://push.example.test/device-old',
+    options: {applicationServerKey: Uint8Array.from([9]).buffer},
+    async unsubscribe() { order.push('unsubscribe'); return true; },
+  };
+  const currentSubscription = {
+    endpoint: 'https://push.example.test/device-current',
+    options: {applicationServerKey: Uint8Array.from([0]).buffer},
+    toJSON() { return {endpoint: this.endpoint, keys: {auth: 'a', p256dh: 'p'}}; },
+  };
+  const registration = {pushManager: {
+    async getSubscription() { return oldSubscription; },
+    async subscribe(options) {
+      order.push('subscribe');
+      assert.equal(options.userVisibleOnly, true);
+      assert.deepEqual(Array.from(options.applicationServerKey), [0]);
+      return currentSubscription;
+    },
+  }};
+  const navigator = {
+    userAgent: 'Desktop browser', platform: 'Win32', maxTouchPoints: 0,
+    serviceWorker: {ready: Promise.resolve(registration)},
+  };
+  const window = {PushManager: function PushManager() {}, Notification: {permission: 'granted'}};
+  const fetch = async (url, options) => {
+    if (url === '/api/notifications/preferences' && !options.method) {
+      return {ok: true, async json() { return {channels: []}; }};
+    }
+    if (url === '/push/vapid-public') return {ok: true, async json() { return {key: 'AA'}; }};
+    if (url === '/push/subscribe') {
+      savedSubscription = JSON.parse(options.body).subscription;
+      return {ok: true};
+    }
+    if (url === '/api/notifications/preferences' && options.method === 'POST') {
+      savedPreferences = JSON.parse(options.body);
+      return {ok: true};
+    }
+    throw new Error(`Unexpected request ${url}`);
+  };
+  vm.runInNewContext(reminderScript, {window, navigator, Notification: window.Notification,
+    fetch, atob, setTimeout, console, Uint8Array, Promise});
+
+  const result = await window.IPReminders.enable({push: true, email: false});
+
+  assert.equal(result.push, true);
+  assert.equal(result.saved, true);
+  assert.deepEqual(order, ['unsubscribe', 'subscribe']);
+  assert.equal(savedSubscription.endpoint, currentSubscription.endpoint);
+  assert.deepEqual(savedPreferences.channels, ['push']);
+});
