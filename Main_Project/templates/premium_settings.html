@@ -140,7 +140,11 @@
       <code id="paiOpenAIRedirect">https://intelliplan.tech/auth/openai/callback</code>
       <button type="button" class="pai-btn" id="paiCopyOpenAIRedirect" aria-describedby="paiOpenAIRedirectStatus">Copy redirect URI</button>
     </div>
-    <p class="pai-note" id="paiOpenAIRedirectStatus" role="status" aria-live="polite">Submit this exact URI with your application. OpenAI requires the registered callback URL to match exactly. The route is not live yet, so account linking cannot start until OpenAI approves the hosted integration and IntelliPlan completes its configuration.</p>
+      <p class="pai-note" id="paiOpenAIRedirectStatus" role="status" aria-live="polite">Submit this exact URI with your application. OpenAI requires the registered callback URL to match exactly. Identity linking stays hidden until the hosted integration is approved and configured. An identity link alone does not enable ChatGPT plan use.</p>
+      {% if siwc_identity_link_enabled %}
+      <a class="pai-btn" href="/auth/openai" data-oai-siwc-button data-oai-siwc-button-client="{{ openai_client_id|e }}">Continue with ChatGPT</a>
+      <p class="pai-note">This links your verified OpenAI identity to this account. ChatGPT plan use is not enabled by identity sign-in.</p>
+      {% endif %}
     <p class="pai-note"><a href="https://openai.com/form/sign-in-with-chatgpt-interest/" target="_blank" rel="noopener">Request OpenAI partner access</a> · <a href="https://developers.openai.com/siwc/website" target="_blank" rel="noopener">Website integration requirements</a> · <a href="https://help.openai.com/en/articles/20001542-using-your-chatgpt-plan-in-other-apps-and-sites" target="_blank" rel="noopener">How ChatGPT plan sharing works</a></p>
   </section>
 
@@ -199,7 +203,7 @@
     const status = document.getElementById('paiOpenAIRedirectStatus');
     try {
       await navigator.clipboard.writeText(uri);
-      status.textContent = 'Copied. This proposed callback is not active yet.';
+      status.textContent = 'Copied. The registered callback must match exactly.';
     } catch (_) {
       const range = document.createRange();
       range.selectNodeContents(document.getElementById('paiOpenAIRedirect'));

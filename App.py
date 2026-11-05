@@ -2967,6 +2967,12 @@ learning_models = _register_learning_models(db)
 from intelliplan.admin_access import register_model as _register_admin_grant_model
 with app.app_context():
     app.extensions['account_admin_grant_model'] = _register_admin_grant_model(db)
+# Hosted Sign in with ChatGPT identity linking is separately gated by
+# OPENAI_SIWC_ENABLED and an owner-provisioned client ID. The module requests
+# identity scopes only; plan-use authorization is not implemented here.
+from intelliplan.premium import openai_siwc as _openai_siwc
+OpenAISignInTransaction, OpenAIIdentityLink = _openai_siwc.register_models(db)
+_openai_siwc.install(app, db, OpenAISignInTransaction, OpenAIIdentityLink)
 
 
 # Every gunicorn worker runs this at once; the lock makes them take turns so
@@ -10758,6 +10764,8 @@ def _account_delete_impl():
         ("ai_spend_events", "DELETE FROM ai_spend_events WHERE user_id = :uid"),
         ("ai_credit_grants", "DELETE FROM ai_credit_grants WHERE user_id = :uid"),
         ("linked_ai_accounts", "DELETE FROM linked_ai_accounts WHERE user_id = :uid"),
+        ("openai_identity_links", "DELETE FROM openai_identity_links WHERE user_id = :uid"),
+        ("openai_siwc_transactions", "DELETE FROM openai_siwc_transactions WHERE user_id = :uid"),
         ("product_events", "DELETE FROM product_events WHERE user_id = :uid"),
         ("insight_answers", "DELETE FROM insight_answers WHERE user_id = :uid"),
         ("client_error_logs", "DELETE FROM client_error_logs WHERE user_id = :uid"),

@@ -48,7 +48,7 @@ body.has-side .side-logo { padding-right: 40px; }
     overflow-x: hidden;
     border-right: 0;
     clip-path: inset(0 calc(var(--side-peek-w) - var(--side-rail-w)) 0 0);
-    background: color-mix(in srgb, var(--bg-card) 34%, var(--bg));
+    background: var(--bg);
     transition: clip-path 0.2s cubic-bezier(0.2, 0.7, 0.2, 1);
     z-index: 120;
   }

@@ -10,6 +10,7 @@ import { useQuery } from "../../lib/useQuery";
 import { useTheme } from "../../theme/ThemeProvider";
 import { space } from "../../theme/tokens";
 import { daysAway } from "../../lib/format";
+import { shouldShowCourseFilter, taskListSummary } from "../../lib/task-summary";
 import { Button, EmptyState, ErrorState, Label, Loading, Notice, Screen, SegmentedRow, T } from "../../components/ui";
 import { Header, IconButton } from "../../components/Header";
 import { TaskRow } from "../../components/TaskRow";
@@ -223,19 +224,24 @@ export default function TasksScreen() {
     );
   }
 
-  const openCount = tasks.filter((t) => !isDone(t)).length;
+  const visibleCount = sections.reduce((count, section) => count + section.data.length, 0);
+  const subtitle = taskListSummary(
+    visibleCount,
+    filter,
+    course === "__all" ? undefined : selectedCourseLabel,
+  );
 
   return (
     <Screen>
       <Header
         title="Due"
-        subtitle={`${openCount} open item${openCount === 1 ? "" : "s"}`}
+        subtitle={subtitle}
         right={<IconButton icon="add-circle-outline" label="Add a task" onPress={() => router.push("/new-task")} />}
       />
 
       <View style={{ paddingLeft: space.lg, paddingVertical: space.md, gap: space.sm }}>
         <SegmentedRow options={FILTERS} value={filter} onChange={setFilter} />
-        {courses.length > 2 ? (
+        {shouldShowCourseFilter(courses.length, course) ? (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={`Filter by course, currently ${selectedCourseLabel}`}

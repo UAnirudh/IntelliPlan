@@ -146,25 +146,33 @@ application's OAuth client registration.
 
 | Hosted website value | Current IntelliPlan state |
 |---|---|
-| Application callback URI: `https://intelliplan.tech/auth/openai/callback` | Displayed on `/settings/ai` so the owner can include the exact URL in the OpenAI application/client request; no callback route is implemented. |
-| Sign-in start route: `GET /auth/openai` | Not implemented. |
-| Callback route: `GET /auth/openai/callback` | Not implemented. |
-| OAuth client ID, registered redirect URI, and client authentication method | Must come from OpenAI after the hosted application is accepted. |
+| Application callback URI: `https://intelliplan.tech/auth/openai/callback` | Displayed on `/settings/ai`; the implemented callback uses this exact URI. |
+| Sign-in start route: `GET /auth/openai` | Implemented, but returns 404 unless `OPENAI_SIWC_ENABLED=true` and `OPENAI_CLIENT_ID` is configured. Requires an authenticated IntelliPlan user and `DATA_ENCRYPTION_KEY`. |
+| Callback route: `GET /auth/openai/callback` | Implements identity-only linking with Authorization Code + PKCE and verified OIDC ID tokens. |
+| OAuth client ID, registered redirect URI, and client authentication method | Must come from OpenAI after the hosted application is accepted. Configure `OPENAI_CLIENT_ID`; set `OPENAI_TOKEN_AUTH_METHOD=none` for a public client or `client_secret_basic` plus `OPENAI_CLIENT_SECRET` for an explicitly provisioned confidential client. |
 
 The owner may submit this exact callback URI with the application/client request;
 OpenAI's website guide says an exact registered callback URL is required for each
-environment. The URI is not a working integration: IntelliPlan has not implemented
-the start or callback routes, and users cannot connect. After OpenAI approves the
-hosted application and issues its client configuration, implement the routes and
-confirm the deployed callback is registered exactly. The requested `redirect_uri`
-and the registered URL must match byte-for-byte. OpenAI's
+environment. The routes remain hidden unless the owner enables the feature and
+configures the client ID after approval. The requested `redirect_uri` and the
+registered URL must match byte-for-byte. OpenAI's
 local/open-source plan-use guide shows a loopback callback such as
 `http://127.0.0.1:1455/auth/callback`; that URL belongs to a locally hosted client
 and must not be substituted for IntelliPlan's hosted callback.
 
-The AI settings page distinguishes developer API keys (which bill separately)
-from eligible ChatGPT plan usage and does not offer a connection that has not been
-configured and approved.
+The implemented flow links a verified OpenAI identity to the signed-in IntelliPlan
+account. It requests only `openid profile email`, ignores any access or refresh
+tokens returned, and stores only the verified issuer, configured client ID, and
+subject. This identity link does **not** connect ChatGPT plan usage. No plan-use
+scopes or tokens are requested or used. The plan adapter remains gated until
+OpenAI approves that use and a separate explicit plan-use configuration and
+provider adapter are implemented.
+
+OAuth state is stored in the database with an encrypted PKCE verifier and nonce,
+bound to the existing server-side session, and consumed with a single-use database
+compare-and-swap. The flow fails closed when `DATA_ENCRYPTION_KEY` is unavailable.
+It never reads ChatGPT cookies or session data. No live OpenAI request is made by
+the test suite.
 
 - [Open-source/local plan usage and its client flow](https://developers.openai.com/siwc/token-sharing-open-source)
 - [Hosted website integration and limited partner availability](https://developers.openai.com/siwc/website)

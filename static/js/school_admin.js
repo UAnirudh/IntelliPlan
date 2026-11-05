@@ -3,6 +3,7 @@
   const $ = id => document.getElementById(id);
   const status = message => { $('admin-status').textContent = message; };
   let organizations = [], selected, dirty = false, saving = false;
+  let memberSearchGeneration = 0, memberSearchTimer;
   const policyViewport = window.matchMedia('(max-width: 520px)');
   const policyGroups = Array.from(document.querySelectorAll('.admin-policy-group[data-mobile-collapse]'));
   function syncPolicyDisclosure() {
@@ -77,10 +78,19 @@
     $('admin-monthly-budget').value = selected.policy.monthly_generation_tokens || 100000;
     $('admin-retention').value = selected.policy.retention_days || 0;
     $('admin-assessment-windows').value = (selected.policy.assessment_windows || []).map(w => `${w.start} / ${w.end}`).join('\n');
-    const [members, audit] = await Promise.all([api(`/api/school-admin/organizations/${selected.id}/members`), api(`/api/school-admin/organizations/${selected.id}/audit`)]);
+    const memberGeneration = ++memberSearchGeneration;
+    const memberQuery = $('admin-member-filter').value.trim();
+    const memberParams = new URLSearchParams({limit:'50'});
+    if (memberQuery) memberParams.set('q', memberQuery);
+    const [members, audit] = await Promise.all([
+      api(`/api/school-admin/organizations/${selected.id}/members?${memberParams}`),
+      api(`/api/school-admin/organizations/${selected.id}/audit`),
+    ]);
     if (selected !== renderedOrganization) return;
-    $('admin-stat-members').textContent = String(members.total);
-    $('admin-stat-teachers').textContent = String(members.role_counts.teacher || 0);
+    if (memberGeneration === memberSearchGeneration) {
+      updateMemberSummary(members);
+      renderMembers(members);
+    }
     $('admin-stat-children').textContent = String(organizations.filter(o => o.parent_id === selected.id).length);
     const planNames = {free:'Free', pro:'Pro', premium:'Premium', premium_byok:'Premium with your AI key'};
     $('admin-stat-plan').textContent = planNames[selected.plan_tier] || selected.plan_tier || 'Free';
@@ -94,7 +104,6 @@
       const option = document.createElement('option'); option.value = 'admin'; option.textContent = 'School administrator';
       $('admin-role').append(option);
     } else if (!members.can_manage_admin && addAdminRole) addAdminRole.remove();
-    renderMembers(members);
     renderAudit(audit.events);
     const [beta, operations] = await Promise.all([api(`/api/school-admin/organizations/${renderedOrganization.id}/beta`), api(`/api/school-admin/organizations/${renderedOrganization.id}/operations`)]);
     if (selected !== renderedOrganization) return;
@@ -106,6 +115,40 @@
     for (const row of operations.feedback) { const p = document.createElement('p'); p.textContent = `${row.feature} · ${row.category}: ${row.message}`; $('admin-operations').append(p); }
     if (!operations.budgets.length && !operations.feedback.length) $('admin-operations').textContent = 'Generation reservations and participant feedback will appear here.';
   }
+  function updateMemberSummary(data) {
+    $('admin-stat-members').textContent = String(data.total);
+    $('admin-stat-teachers').textContent = String(data.role_counts.teacher || 0);
+  }
+  $('admin-member-filter').addEventListener('input', () => {
+    clearTimeout(memberSearchTimer);
+    const scope = selected;
+    const query = $('admin-member-filter').value.trim().slice(0, 128);
+    const generation = ++memberSearchGeneration;
+    renderMembers.generation = (renderMembers.generation || 0) + 1;
+    memberSearchTimer = setTimeout(async () => {
+      if (!scope || selected !== scope || generation !== memberSearchGeneration) return;
+      const container = $('admin-members');
+      container.setAttribute('aria-busy', 'true');
+      const loading = document.createElement('p'); loading.className = 'admin-empty';
+      loading.textContent = query ? 'Searching people…' : 'Loading people…';
+      container.replaceChildren(loading);
+      const params = new URLSearchParams({limit:'50'});
+      if (query) params.set('q', query);
+      try {
+        const data = await api(`/api/school-admin/organizations/${scope.id}/members?${params}`);
+        if (selected !== scope || generation !== memberSearchGeneration) return;
+        updateMemberSummary(data);
+        renderMembers(data);
+      } catch (error) {
+        if (selected === scope && generation === memberSearchGeneration) {
+          status(error.message);
+          container.textContent = 'Could not load people. Change the search or reload this workspace to try again.';
+        }
+      } finally {
+        if (selected === scope && generation === memberSearchGeneration) container.setAttribute('aria-busy', 'false');
+      }
+    }, 250);
+  });
   function renderMembers(data) {
     const scope = selected;
     const container = $('admin-members');
@@ -114,6 +157,8 @@
     container.replaceChildren();
     let loaded = 0;
     let loadButton = null;
+    const filteredTotal = Number.isInteger(data.filtered_total) ? data.filtered_total : data.total;
+    const search = typeof data.search === 'string' ? data.search : '';
     const appendMember = member => {
       const row = document.createElement('article'); row.className = 'admin-person-row';
       const identity = document.createElement('div'); identity.className = 'admin-person-identity';
@@ -176,16 +221,20 @@
       const empty = document.createElement('p'); empty.className = 'admin-empty';
       empty.textContent = 'No people have access to this workspace yet. Add a teacher by their school email to get started.';
       container.append(empty);
+    } else if (!filteredTotal) {
+      const empty = document.createElement('p'); empty.className = 'admin-empty';
+      empty.textContent = 'No people match this search. Try a different name or school email.';
+      container.append(empty);
     }
-    if (data.has_more) {
+    if (filteredTotal && data.has_more) {
       loadButton = document.createElement('button');
       loadButton.type = 'button';
       loadButton.className = 'learning-secondary';
       loadButton.dataset.memberLoadMore = '';
       container.append(loadButton);
       const refreshLoadButton = () => {
-        loadButton.textContent = `Load more people (${loaded} of ${data.total})`;
-        loadButton.setAttribute('aria-label', `Load more people. ${loaded} of ${data.total} shown.`);
+        loadButton.textContent = `Load more people (${loaded} of ${filteredTotal})`;
+        loadButton.setAttribute('aria-label', `Load more people. ${loaded} of ${filteredTotal} shown.`);
       };
       refreshLoadButton();
       loadButton.addEventListener('click', async () => {
@@ -193,7 +242,8 @@
         loadButton.disabled = true;
         loadButton.textContent = 'Loading people…';
         try {
-          const next = await api(`/api/school-admin/organizations/${scope.id}/members?offset=${loaded}&limit=${data.limit}`);
+          const searchParam = search ? `&q=${encodeURIComponent(search)}` : '';
+          const next = await api(`/api/school-admin/organizations/${scope.id}/members?offset=${loaded}&limit=${data.limit}${searchParam}`);
           if (selected !== scope || renderMembers.generation !== generation) return;
           for (const member of next.members) appendMember(member);
           loaded += next.members.length;
