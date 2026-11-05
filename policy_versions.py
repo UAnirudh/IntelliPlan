@@ -801,6 +801,46 @@ PRIVACY_VERSIONS.append({
 })
 
 
+# Active Study can respond with more than a reminder. The response is user-
+# selected and only runs when the optional camera check-in is enabled and
+# allowed by account settings. This version names the actual options and the
+# session-only limit on Sparks forfeiture.
+_ACTIVE_STUDY_USE_V6_BEFORE = _ACTIVE_STUDY_USE_AFTER
+_ACTIVE_STUDY_USE_V6_AFTER = (
+    "Use optional Active Study focus check-ins to provide rough, on-device camera "
+    "estimates and related study-session nudges when you choose to turn them on "
+    "and your account settings allow them. The estimates can be wrong and do not "
+    "establish whether you studied. If a check-in is enabled, the response follows "
+    "your selected setting: a dismissible text prompt, an alarm, a screen takeover "
+    "that clears when you return, or forfeiture only of Sparks earned during that "
+    "study session. This response does not deduct from your existing Sparks "
+    "balance. Personalize study and practice suggestions from your learning and "
+    "activity records. These suggestions are not official grades, diagnoses, or "
+    "decisions about school admission or eligibility."
+)
+
+PRIVACY_VERSIONS.append({
+    "version": 6,
+    "effective": "2026-11-04",
+    "tldr": [
+        "Check-ins stay off until enabled and allowed by account settings; estimates cannot prove that you studied.",
+        "Browsers use face detection or motion; motion cannot distinguish an empty chair from a still reader.",
+        "You choose the response: a dismissible nudge, alarm, screen takeover or forfeiture of Sparks earned in that session.",
+        "Your existing Sparks balance is not reduced by this response.",
+        "Camera frames are processed on your selected study browser.",
+    ],
+    "summary": [
+        "The Settings description implied that every browser can tell when someone has left. Browsers without face detection use movement checks, which cannot distinguish an empty chair from a still reader.",
+        "Privacy v5 described camera responses only as study-session nudges. The policy now names the optional user-selected nudge, alarm, screen takeover and session-only Sparks forfeiture modes.",
+        "Sparks forfeiture applies only to Sparks earned during that study session; it never deducts from the existing Sparks balance.",
+        "The check-in and its selected response remain off unless you enable them and your account settings allow them. Estimates can be wrong and do not prove that you studied.",
+    ],
+    "clauses": [
+        {"heading": "2. How we use information — Active Study focus responses",
+         "before": _ACTIVE_STUDY_USE_V6_BEFORE, "after": _ACTIVE_STUDY_USE_V6_AFTER},
+    ],
+})
+
 #: The short version of each whole document, not of one change.
 #:
 #: Shown to someone accepting a document for the first time (a Google
@@ -821,13 +861,14 @@ DOC_TLDR: dict[str, list[str]] = {
         "account in Settings at any time.",
     ],
     PRIVACY: [
-        "We collect your account, connected schoolwork and study activity; "
-        "optional camera check-ins save rough session counts.",
-        "We never sell your data or use it for ads.",
+        "We collect account, schoolwork and study activity; optional camera "
+        "check-ins save rough session counts.",
+        "Check-ins stay off until enabled and allowed; choose a nudge, alarm, "
+        "screen takeover or forfeiture of Sparks earned in that session.",
+        "We never sell data or use it for ads; hosting and AI providers process "
+        "data to run these features.",
         "Reminders by push, desktop app, email or text only reach you if you "
         "turn them on.",
-        "Services you connect, and the providers that host IntelliPlan and run "
-        "its AI, process data to make those features work.",
         "You can export your data, disconnect services or delete your account "
         "from Settings.",
     ],

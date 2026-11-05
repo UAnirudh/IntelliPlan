@@ -87,7 +87,7 @@ def test_an_existing_account_gets_the_changes_with_a_tldr(client):
     privacy = next(d for d in pending(client)["pending"] if d["doc"] == "privacy")
 
     assert privacy["first_time"] is False
-    assert privacy["version"] == 5
+    assert privacy["version"] == 6
     assert privacy["tldr"], "the change notice leads with a TL;DR"
     # The short version of the whole document rides along for after they accept.
     assert privacy["doc_tldr"] == policy_versions.DOC_TLDR["privacy"]
@@ -106,11 +106,12 @@ def test_someone_who_accepted_v3_is_shown_each_later_privacy_change(client):
 
     docs = pending(client)["pending"]
 
-    assert [(d["doc"], d["from_version"], d["version"]) for d in docs] == [("privacy", 3, 5)]
+    assert [(d["doc"], d["from_version"], d["version"]) for d in docs] == [("privacy", 3, 6)]
     privacy = docs[0]
     headings = [clause["heading"] for clause in privacy["clauses"]]
     assert any("Optional reminders data" in heading for heading in headings)
     assert any("Study and learning records" in heading for heading in headings)
+    assert any("Active Study focus responses" in heading for heading in headings)
 
 
 def test_accepting_both_clears_the_prompt(client):
@@ -168,6 +169,10 @@ def privacy_v5():
     return next(v for v in policy_versions.PRIVACY_VERSIONS if v["version"] == 5)
 
 
+def privacy_v6():
+    return next(v for v in policy_versions.PRIVACY_VERSIONS if v["version"] == 6)
+
+
 def test_the_new_reminder_wording_is_on_the_legal_page(client):
     html = client.get("/legal").get_data(as_text=True)
     for clause in privacy_v4()["clauses"]:
@@ -200,12 +205,20 @@ def test_active_study_camera_disclosure_matches_the_legal_page(client):
         assert phrase in html
 
 
-def test_active_study_use_does_not_claim_that_camera_proves_studying(client):
+def test_active_study_use_discloses_the_selected_responses_and_spark_limit(client):
     html = client.get("/legal").get_data(as_text=True)
-    clause = next(c for c in privacy_v5()["clauses"]
+    clause = next(c for c in privacy_v6()["clauses"]
                   if c["heading"].startswith("2."))
-    assert "do not establish whether you studied" in clause["after"]
-    assert "do not establish whether you studied" in html
+    for phrase in (
+        "a dismissible text prompt",
+        "an alarm",
+        "a screen takeover that clears when you return",
+        "forfeiture only of Sparks earned during that study session",
+        "does not deduct from your existing Sparks balance",
+        "do not establish whether you studied",
+    ):
+        assert phrase in clause["after"]
+        assert phrase in html
 
 
 def test_the_legal_page_leads_with_each_tldr(client):
