@@ -5,7 +5,7 @@ This is the owner-facing checklist for releasing the native Expo app in
 but Play Console declarations, account credentials, legal decisions, device
 testing, and publication need the owner or an authorized reviewer.
 
-Reviewed against the checked-in configuration on 2026-10-27. Recheck Google
+Reviewed against the checked-in configuration on 2026-11-05. Recheck Google
 Play requirements and the production build before every submission; store
 policies and target API deadlines can change.
 

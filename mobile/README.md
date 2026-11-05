@@ -265,7 +265,8 @@ Before the first store submission:
    uses Expo SDK 58 and React Native 0.88. The removed top-level `splash`,
    `newArchEnabled` and `android.edgeToEdgeEnabled` keys are not used; the
    splash lives in the `expo-splash-screen` plugin entry in `app.json`. The
-   production EAS profile uses the Expo 58 build image for iOS 27.
+   production profile does not pin an EAS build image, so verify the actual
+   image in the build details against the store's submission-date SDK rules.
 
 Run both static store preflights from `mobile/` before building:
 
