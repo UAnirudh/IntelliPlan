@@ -580,10 +580,10 @@ export default function TodayScreen() {
                         {!checked && index === focusedBlockIndex && !block.is_break ? (
                           <T variant="micro" tone="accent" weight="700">NEXT UP</T>
                         ) : null}
-                        <T variant="base" weight="600" numberOfLines={1} style={checked ? { textDecorationLine: "line-through" } : undefined}>
+                        <T variant="base" weight="600" style={checked ? { textDecorationLine: "line-through" } : undefined}>
                           {title}
                         </T>
-                        <T variant="xs" tone="muted" numberOfLines={1}>
+                        <T variant="xs" tone="muted">
                           {[block.course, blockMinutes(block) ? minutes(blockMinutes(block)) : null, block.is_break ? "Break" : null]
                             .filter(Boolean)
                             .join(" · ") || "Study block"}
