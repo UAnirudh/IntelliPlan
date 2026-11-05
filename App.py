@@ -23452,15 +23452,13 @@ def health_check():
         "status": "ok" if healthy else "error",
         "revision": revision if re.fullmatch(r'[0-9a-f]{40}', revision) else None,
         "migration_done": bool(_MIGRATION_DONE),
-        "users_columns": columns['users'],
-        "notion_columns": columns['notion_integrations'],
     }
     expected = {"id", "email", "password_hash", "referral_code", "referred_by_id",
                 "email_verified", "email_verification_hash", "email_verification_email_hash",
                 "email_verification_expires_at", "email_verification_sent_at",
                 "parent_consent_token", "parent_consent_expires_at",
                 "trial_started_at", "stripe_paid_until", "stripe_event_created"}
-    out["users_schema_ok"] = expected.issubset(set(out["users_columns"]))
+    out["users_schema_ok"] = expected.issubset(set(columns['users']))
     response = flask.jsonify(out)
     response.headers['Cache-Control'] = 'no-store'
     if not healthy:
