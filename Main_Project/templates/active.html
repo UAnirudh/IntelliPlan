@@ -515,6 +515,7 @@
           </span>
           <p class="ipa-focus-note" id="ipaFocusNote" role="status">
             {% if focus_allowed %}Optional check-ins. Video stays within your chosen devices; summary counts are saved to your account.
+            {% elif focus_requires_sign_in %}Sign in to enable camera check-ins. Your guest study timer still works. <a href="/login?next=%2Factive">Sign in</a>.
             {% else %}Camera check-ins are unavailable under your current school settings.{% endif %}
           </p>
         </div>
@@ -558,11 +559,14 @@
         What leaves my device?
       </button>
       <p class="ipa-focus-note" id="ipaFocusPrivacyText" hidden>
+        {% if focus_requires_sign_in %}Camera check-ins stay off for guest sessions. Sign in before turning them on.
+        {% else %}
         Summary counts reach your account. With a paired phone, encrypted connection details also pass through IntelliPlan
         temporarily so the devices can connect. Video is never recorded or uploaded to IntelliPlan; frames
         are examined in your study browser and discarded. Summary counts record:
         how many checks saw someone, how many didn't. No images, no face data. It's a rough
         signal, not a measurement, so treat it as a nudge rather than a verdict.
+        {% endif %}
       </p>
 
       <p class="ipa-focus-state" id="ipaFocusState" data-state="unknown" hidden>

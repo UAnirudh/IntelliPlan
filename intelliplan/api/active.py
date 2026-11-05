@@ -92,6 +92,11 @@ def create_active_blueprint(deps: ActiveDeps) -> Blueprint:
         data = request.get_json(silent=True)
         return data if isinstance(data, dict) else {}
 
+    def _focus_reason(allowed: bool) -> str | None:
+        if allowed:
+            return None
+        return 'sign_in_required' if deps.current_user_id() is None else 'restricted'
+
     def _session_or_404(session_id: int) -> Any:
         uid, gid = _identity()
         row = deps.get_repository().get(session_id, user_id=uid, guest_id=gid)
@@ -143,6 +148,7 @@ def create_active_blueprint(deps: ActiveDeps) -> Blueprint:
             "active_mobile.html" if _wants_phone_layout() else "active.html",
             active_page="active",
             focus_allowed=deps.focus_allowed(),
+            focus_requires_sign_in=deps.current_user_id() is None,
             camera_pairing_allowed=deps.current_user_id() is not None,
         )
 
@@ -165,6 +171,7 @@ def create_active_blueprint(deps: ActiveDeps) -> Blueprint:
             return jsonify({"error": "planned_minutes must be between 1 and 300."}), 400
 
         due = _parse_date(body.get("due_date"))
+        focus_allowed = deps.focus_allowed()
         row = deps.get_repository().start(
             user_id=uid,
             guest_id=gid,
@@ -176,10 +183,11 @@ def create_active_blueprint(deps: ActiveDeps) -> Blueprint:
             kind=_short(body.get("kind"), 32) or "homework",
             difficulty=_short(body.get("difficulty"), 16) or "medium",
             due_date=due,
-            focus_enabled=bool(body.get("focus_enabled")) and deps.focus_allowed(),
+            focus_enabled=bool(body.get("focus_enabled")) and focus_allowed,
         )
         deps.emit_signal(kind="active_session_started", subject_ref=str(row.id))
-        return jsonify({"session": row.to_dict()}), 201
+        return jsonify({"session": row.to_dict(), "focus_allowed": focus_allowed,
+                        "focus_reason": _focus_reason(focus_allowed)}), 201
 
     @bp.route("/api/active/current", methods=["GET"])
     def current_session():
@@ -195,7 +203,8 @@ def create_active_blueprint(deps: ActiveDeps) -> Blueprint:
     @bp.route('/api/active/focus-permission', methods=['GET'])
     def focus_permission():
         _require_flag()
-        return jsonify({'allowed': deps.focus_allowed()}), 200, {'Cache-Control': 'no-store'}
+        allowed = deps.focus_allowed()
+        return jsonify({'allowed': allowed, 'reason': _focus_reason(allowed)}), 200, {'Cache-Control': 'no-store'}
 
     @bp.route("/api/active/<int:session_id>/heartbeat", methods=["POST"])
     def heartbeat(session_id: int):
@@ -228,7 +237,8 @@ def create_active_blueprint(deps: ActiveDeps) -> Blueprint:
         if isinstance(focus, dict) and row.focus_enabled and focus_allowed:
             _record_focus(repo, row, focus)
 
-        return jsonify({"session": row.to_dict(), 'focus_allowed': focus_allowed})
+        return jsonify({"session": row.to_dict(), 'focus_allowed': focus_allowed,
+                        'focus_reason': _focus_reason(focus_allowed)})
 
     @bp.route("/api/active/<int:session_id>/forfeit", methods=["POST"])
     def forfeit(session_id: int):

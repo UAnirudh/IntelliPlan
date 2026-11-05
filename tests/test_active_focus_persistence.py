@@ -42,6 +42,30 @@ def study():
     App.limiter.enabled = previous
 
 
+@pytest.fixture
+def guest_study():
+    previous = App.limiter.enabled
+    App.limiter.enabled = False
+    guest_id = f'guest-{uuid4().hex}'
+    with App.app.app_context():
+        App.db.create_all()
+    client = App.app.test_client()
+    with client.session_transaction() as session:
+        session['guest_id'] = guest_id
+    response = client.post('/api/active/start', json={'title': 'Practice', 'planned_minutes': 25})
+    assert response.status_code == 201
+    sid = response.get_json()['session']['id']
+    yield client, sid, guest_id
+    with App.app.app_context():
+        session_ids = [row.id for row in App.ActiveSession.query.filter_by(guest_session_id=guest_id).all()]
+        if session_ids:
+            App.ActiveFocusSample.query.filter(App.ActiveFocusSample.session_id.in_(session_ids)).delete(
+                synchronize_session=False)
+            App.ActiveSession.query.filter(App.ActiveSession.id.in_(session_ids)).delete(synchronize_session=False)
+        App.db.session.commit()
+    App.limiter.enabled = previous
+
+
 def summary(samples, present, away=0):
     return {'samples': samples, 'present': present, 'away': away, 'absent': 0,
             'distraction_events': 1, 'longest_streak_seconds': 20}
@@ -65,6 +89,53 @@ def test_late_opt_in_pause_resume_and_delayed_packets_preserve_saved_counts(stud
     assert delayed.get_json()['session']['focus']['samples'] == 35
     restored = client.get('/api/active/current').get_json()['session']['focus']
     assert (restored['samples'], restored['present'], restored['away']) == (35, 30, 5)
+
+
+def test_signed_in_student_can_use_focus_check_ins(study):
+    client, sid = study
+    permission = client.get('/api/active/focus-permission').get_json()
+    assert permission == {'allowed': True, 'reason': None}
+    response = client.post(f'/api/active/{sid}/heartbeat', json={
+        'enable_focus': True, 'focus': {'summary': summary(4, 3, 1)}})
+    assert response.get_json()['focus_allowed'] is True
+    assert response.get_json()['session']['focus']['samples'] == 4
+
+
+def test_guest_timer_works_but_focus_check_ins_require_sign_in(guest_study):
+    client, sid, guest_id = guest_study
+    with App.app.app_context():
+        guest_session = App.db.session.get(App.ActiveSession, sid)
+        assert guest_session.guest_session_id == guest_id
+        assert guest_session.focus_enabled is False
+    assert client.get('/api/active/focus-permission').get_json() == {
+        'allowed': False, 'reason': 'sign_in_required'}
+
+    for view in ('desktop', 'phone'):
+        html = client.get(f'/active?view={view}').get_data(as_text=True)
+        checkbox = html[html.index('id="ipaFocusToggle"'):].split('>', 1)[0]
+        assert 'disabled' in checkbox
+        assert 'Sign in to enable camera check-ins' in html
+        assert 'href="/login?next=%2Factive"' in html
+        assert 'id="ipaCameraSource"' not in html
+        assert 'id="ipaStart"' in html
+
+    started = client.post('/api/active/start', json={
+        'title': 'Another session', 'planned_minutes': 25, 'focus_enabled': True})
+    assert started.status_code == 201
+    assert started.get_json()['focus_allowed'] is False
+    assert started.get_json()['focus_reason'] == 'sign_in_required'
+    assert started.get_json()['session']['focus']['enabled'] is False
+    sid = started.get_json()['session']['id']
+
+    response = client.post(f'/api/active/{sid}/heartbeat', json={
+        'enable_focus': True, 'state': 'paused',
+        'focus': {'summary': summary(30, 25, 5)}})
+    data = response.get_json()
+    assert data['session']['state'] == 'paused'
+    assert data['focus_allowed'] is False
+    assert data['focus_reason'] == 'sign_in_required'
+    assert data['session']['focus']['enabled'] is False
+    assert data['session']['focus']['samples'] == 0
 
 
 def test_database_update_uses_current_counts_instead_of_stale_loaded_row(study):
@@ -100,7 +171,8 @@ def deny_focus(study):
 def test_school_focus_denial_disables_camera_but_keeps_timer_usable(study):
     client, sid = study
     deny_focus(study)
-    assert client.get('/api/active/focus-permission').get_json() == {'allowed': False}
+    assert client.get('/api/active/focus-permission').get_json() == {
+        'allowed': False, 'reason': 'restricted'}
     for view in ('desktop', 'phone'):
         html = client.get(f'/active?view={view}').get_data(as_text=True)
         checkbox = html[html.index('id="ipaFocusToggle"'):].split('>', 1)[0]
