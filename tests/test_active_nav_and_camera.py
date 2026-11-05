@@ -175,3 +175,13 @@ def test_the_privacy_claim_still_holds():
     # The capture element is never attached, so nothing else can read it.
     assert "document.createElement('video')" in source
     assert "appendChild" not in source
+
+
+
+def test_settings_explains_the_camera_check_in_limitations():
+    source = " ".join(read("Main_Project/templates/settings.html").split())
+    assert "Depending on browser support" in source
+    assert "face detection or look for movement" in source
+    assert "cannot tell an empty chair from a still reader" in source
+    assert "no check-in proves that you are studying" in source
+    assert "notice when you have actually left" not in source
