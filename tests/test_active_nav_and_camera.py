@@ -146,6 +146,38 @@ def test_a_refused_camera_turns_the_switch_off():
     assert "$('ipaFocusToggle').checked = false" in handler
 
 
+def test_an_in_session_camera_stop_control_never_stops_the_study_timer():
+    source = read(ACTIVE_JS)
+    desktop = " ".join(read("Main_Project/templates/active.html").split())
+    mobile = " ".join(read("Main_Project/templates/active_mobile.html").split())
+    assert desktop.count('id="ipaFocusStop"') == 1
+    assert mobile.count('id="ipaFocusStop"') == 1
+    assert "focusStop.addEventListener('click', stopCameraCheckIn)" in source
+    stop = source[source.find("function stopCameraCheckIn()"):]
+    stop = stop[:stop.find("\n  }")]
+    assert "$('ipaFocusToggle').checked = false" in stop
+    assert "stopTracker()" in stop
+    assert "IPA.running" not in stop and "pause()" not in stop and "openFinish" not in stop
+
+
+def test_camera_status_is_announced_politely_on_both_active_pages():
+    desktop = " ".join(read("Main_Project/templates/active.html").split())
+    mobile = " ".join(read("Main_Project/templates/active_mobile.html").split())
+    status = '<span id="ipaFocusStateText" role="status" aria-live="polite" aria-atomic="true">Not tracking</span>'
+    assert status in desktop
+    assert status in mobile
+
+
+def test_camera_stop_is_hidden_even_if_permission_check_is_cancelled_before_tracker_exists():
+    source = read(ACTIVE_JS)
+    stop = source[source.find("function stopTracker()"):]
+    stop = stop[:stop.find("\n  }")]
+    assert stop.find("stopButton.hidden = true") < stop.find("if (!IPA.tracker) return")
+    start = source[source.find("function startTracker()"):]
+    start = start[:start.find("\n  }")]
+    assert start.find("focusState.hidden = false") < start.find("api('/api/active/focus-permission')")
+
+
 # ── Saying which method is running ───────────────────────────
 
 def test_the_page_has_somewhere_to_name_the_method(client, student):

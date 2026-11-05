@@ -39,6 +39,43 @@ test('structured summaries accompany validated flashcards', () => {
   assert.equal(plain[1].type, 'flashcards');
 });
 
+test('study JSON surrounded by provider prose keeps prose and renders artifacts', () => {
+  const result = context.parse(`Here are the cards you requested.\n${JSON.stringify({
+    title: 'Cell structure',
+    summary: 'The nucleus stores DNA.',
+    cards: [{ question: 'What does the nucleus store?', answer: 'DNA.' }],
+  })}\nAsk me if you want a harder set.`);
+  const plain = JSON.parse(JSON.stringify(result));
+  assert.equal(plain[0].text, 'Here are the cards you requested.');
+  assert.match(plain[1].text, /The nucleus stores DNA/);
+  assert.equal(plain[2].kind, 'artifact');
+  assert.equal(plain[2].type, 'flashcards');
+  assert.equal(plain[3].text, 'Ask me if you want a harder set.');
+});
+
+test('fenced study JSON between prose retains both surrounding sentences', () => {
+  const result = context.parse('Start here.\n```json\n{"summary":"Mitosis creates two cells.","cards":[{"question":"What does it create?","answer":"Two cells."}]}\n```\nKeep practicing.');
+  const plain = JSON.parse(JSON.stringify(result));
+  assert.equal(plain[0].text, 'Start here.');
+  assert.equal(plain[1].text, 'Mitosis creates two cells.');
+  assert.equal(plain[2].type, 'flashcards');
+  assert.equal(plain[3].text, 'Keep practicing.');
+});
+
+test('balanced extraction respects braces and escaped quotes inside JSON strings', () => {
+  const result = context.parse(`Cards: ${JSON.stringify({ cards: [
+    { question: 'What does "{cell}" mean?', answer: 'A cell.' },
+  ] })}`);
+  const plain = JSON.parse(JSON.stringify(result));
+  assert.equal(plain[0].text, 'Cards:');
+  assert.equal(plain[1].type, 'flashcards');
+  assert.match(plain[1].content, /cell/);
+});
+
+test('unrecognized JSON after prose is not mistaken for a study artifact', () => {
+  assert.equal(context.parse('Result: {"status":"ok"}'), null);
+});
+
 test('unknown structured JSON still uses the safe plain-text fallback', () => {
   assert.equal(context.parse('{"status":"ok"}'), null);
 });
