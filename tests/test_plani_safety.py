@@ -54,6 +54,7 @@ def test_full_latest_message_and_history_reach_dedicated_model(judge):
     assert safety.MAX_COMPLETION_TOKENS <= 1024
     payload = json.loads(kwargs['json']['messages'][1]['content'])
     assert payload['target'] == question
+    assert all(turn['content'] != question for turn in payload['conversation'])
     assert 'Sean Combs' in payload['conversation'][0]['content']
     assert payload['teacher_terms'] == ['penis']
     assert 'name alone' in safety.POLICY.lower()
@@ -64,7 +65,7 @@ def test_prior_turn_suffix_and_generation_window_are_identical(judge):
     messages = turns(prior, 'Explain that process.')
     safety.classify(messages, http=judge)
     payload = json.loads(judge.post.call_args.kwargs['json']['messages'][1]['content'])
-    assert payload['conversation'] == safety.context_window(messages)
+    assert payload['conversation'] == safety.context_window(messages)[:-1]
     assert payload['conversation'][0]['content'] == prior
     assert 'HIDDEN RELEVANT INTENT AT THE END' in payload['conversation'][0]['content']
 
@@ -247,7 +248,8 @@ def test_capacity_failure_uses_same_policy_and_complete_context_on_fallback(judg
     assert second['json']['model'] == safety.FALLBACK_MODEL
     assert first['json']['messages'] == second['json']['messages']
     payload = json.loads(second['json']['messages'][1]['content'])
-    assert payload['conversation'] == messages
+    assert payload['conversation'] == messages[:-1]
+    assert payload['target'] == messages[-1]['content']
     assert payload['target'] == messages[-1]['content']
     assert payload['teacher_terms'] == ['puberty']
     assert first['headers'] == second['headers']

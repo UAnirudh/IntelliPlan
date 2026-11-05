@@ -13,9 +13,11 @@ verdicts and authentication/policy failures still withhold the response.
 Provider limits vary by model, plan and account. Safety verdicts are short JSON,
 so the classifier caps completion at 1,024 tokens while retaining medium
 reasoning. This avoids reserving an unnecessarily large output allowance for a
-small verdict. A 413/429 or other temporary provider error still advances to the
-next approved classifier; if the full chain is unavailable, the response is
-withheld. Recheck the live account limits when diagnosing future incidents.
+small verdict. For input checks, the target is sent once as a separate field;
+the same full user message is not duplicated in the context array. A 413/429 or
+other temporary provider error still advances to the next approved classifier;
+if the full chain is unavailable, the response is withheld. Recheck the live
+account limits when diagnosing future incidents.
 
 Set `GROQ_SAFETY_API_KEY`, or use the existing `GROQ_API_KEY`. The institution
 must permit Groq processing. Missing credentials or failure to obtain a valid

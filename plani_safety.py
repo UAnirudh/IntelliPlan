@@ -134,6 +134,17 @@ def classify(messages, *, output=None, allowed_terms=(), http=None):
     # Include full latest input, plus bounded surrounding turns. Never truncate
     # the latest message at a point where a harmful suffix can disappear.
     context = context_window(messages)
+    if output is None:
+        # The input target is already carried as a separate field below.
+        # Keeping another full copy in `conversation` doubled the largest
+        # student message in the provider payload and caused avoidable 413s.
+        # Remove only that exact latest user turn; retain every other whole
+        # turn and the complete target string.
+        for index in range(len(context) - 1, -1, -1):
+            turn = context[index]
+            if turn['role'] == 'user' and turn['content'] == target:
+                context = context[:index] + context[index + 1:]
+                break
     payload = {'mode': 'output' if output is not None else 'input',
                'conversation': context, 'target': target,
                'teacher_terms': list(allowed_terms)[:32]}
