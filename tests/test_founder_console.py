@@ -73,6 +73,14 @@ def test_unverified_matching_email_cannot_claim_owner_privileges(client, monkeyp
     assert client.get("/api/founder/growth").status_code == 404
 
 
+def test_owner_privileges_fail_closed_when_founder_email_is_not_configured(monkeypatch):
+    with App.app.app_context():
+        user = _user(verified=True)
+        monkeypatch.setattr(App, "FOUNDER_EMAIL", "")
+        assert not App.is_owner(user)
+        assert not App.is_admin(user)
+
+
 def test_founder_mode_unlocks_aggregate_growth_console_only_for_verified_owner(client, monkeypatch):
     now = datetime.utcnow()
     monkeypatch.delenv("BILLING_ENABLED", raising=False)
