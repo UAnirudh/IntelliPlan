@@ -46,6 +46,13 @@ def _sign_in(client, user_id):
         session["_fresh"] = True
 
 
+def _event(user_id, created_at):
+    App.db.session.add(App.ProductEvent(
+        actor=f"u:{user_id}", user_id=user_id, kind="view",
+        rule="/dashboard", created_at=created_at,
+    ))
+
+
 def test_feature_adoption_suppresses_small_counts_and_groups_unique_accounts():
     rows = [("/dashboard", f"u:{i}") for i in range(1, 5)]
     rows.extend([("/scheduler", "u:1"), ("/scheduler", "u:1")])
@@ -104,12 +111,15 @@ def test_founder_mode_unlocks_aggregate_growth_console_only_for_verified_owner(c
     response = client.post("/api/founder/mode", data={"mode": "founder"})
     assert response.status_code == 302
     assert response.headers["Location"].endswith("/founder")
-    assert b"Growth and engagement" in client.get("/founder").data
+    dashboard = client.get("/founder").data
+    assert b"Growth and engagement" in dashboard
+    assert b"Signup cohort retention" in dashboard
     assert client.get("/api/owner/schools").status_code == 200
     assert client.get("/admin/accounts").status_code == 200
 
     report = client.get("/api/founder/growth").get_json()
     assert set(report["periods"]) == {"day", "week", "month"}
+    assert set(report["signup_cohort_retention"]["horizons"]) == {"d1", "d7", "d30"}
     assert report["periods"]["week"]["active_accounts"] == 1
     assert report["periods"]["week"]["repeat_active_accounts"] is None
     assert report["periods"]["week"]["retention_status"] == "below_threshold"
@@ -122,6 +132,127 @@ def test_founder_mode_unlocks_aggregate_growth_console_only_for_verified_owner(c
     assert response.status_code == 302
     assert response.headers["Location"].endswith("/dashboard")
     assert client.get("/founder").status_code == 404
+
+
+def test_signup_cohort_retention_uses_exact_utc_day_windows_and_consent_events(client):
+    now = datetime(2026, 11, 4, 12)
+    signup = datetime(2026, 9, 5, 10)
+    with App.app.app_context():
+        user_ids = []
+        for index in range(7):
+            user = _user(created_at=signup + timedelta(minutes=index))
+            user_ids.append(user.id)
+            # The signup-day event makes the account eligible. With no event,
+            # the seventh account represents an account with no recorded
+            # analytics consent and must not enter the denominator.
+            if index < 6:
+                _event(user.id, user.created_at + timedelta(hours=1))
+            if index < 5:
+                _event(user.id, user.created_at + timedelta(days=1, hours=2))
+                _event(user.id, user.created_at + timedelta(days=7, hours=2))
+                _event(user.id, user.created_at + timedelta(days=30, hours=2))
+            else:
+                # Adjacent days do not qualify for the exact D1/D7/D30 days.
+                _event(user.id, user.created_at + timedelta(days=2, hours=2))
+                _event(user.id, user.created_at + timedelta(days=8, hours=2))
+                _event(user.id, user.created_at + timedelta(days=31, hours=2))
+        App.db.session.commit()
+
+        report = App._founder_signup_cohort_retention(now)
+
+    assert report["cohort_window_end_exclusive"] == "2026-10-05"
+    assert report["horizons"]["d1"] == {
+        "cohort_accounts": 6, "returned_accounts": 5, "rate": 0.833,
+        "status": "measured",
+    }
+    assert report["horizons"]["d7"] == report["horizons"]["d1"]
+    assert report["horizons"]["d30"] == report["horizons"]["d1"]
+    assert set(report) == {
+        "cohort_window_start", "cohort_window_end_exclusive", "cohort_days",
+        "minimum_accounts", "basis", "horizons",
+    }
+    assert set(report["horizons"]) == {"d1", "d7", "d30"}
+    assert all("user_id" not in metric and "email" not in metric
+               for metric in report["horizons"].values())
+
+
+def test_signup_cohort_retention_suppresses_small_cohort_and_return_cells(client):
+    now = datetime(2026, 11, 4, 12)
+    signup = datetime(2026, 9, 5, 10)
+    with App.app.app_context():
+        for index in range(4):
+            user = _user(created_at=signup + timedelta(minutes=index))
+            _event(user.id, user.created_at + timedelta(hours=1))
+            _event(user.id, user.created_at + timedelta(days=1, hours=2))
+        App.db.session.commit()
+
+        small_cohort = App._founder_signup_cohort_retention(now)
+        metric = small_cohort["horizons"]["d1"]
+        assert metric == {
+            "cohort_accounts": None, "returned_accounts": None,
+            "rate": None, "status": "below_threshold",
+        }
+
+        # Add one more eligible account, but only four D1 returns. The cohort
+        # size is reportable while the small returned cell remains suppressed.
+        user = _user(created_at=signup + timedelta(minutes=10))
+        _event(user.id, user.created_at + timedelta(hours=1))
+        App.db.session.commit()
+        metric = App._founder_signup_cohort_retention(now)["horizons"]["d1"]
+
+    assert metric == {
+        "cohort_accounts": 5, "returned_accounts": None,
+        "rate": None, "status": "small_cell_suppressed",
+    }
+
+
+def test_signup_cohort_retention_excludes_under_14_and_pending_parent_accounts(client):
+    now = datetime(2026, 11, 4, 12)
+    signup = datetime(2026, 9, 5, 10)
+    with App.app.app_context():
+        # Four eligible users are not enough to report. These two accounts
+        # must not lift the cohort above the threshold despite stale events.
+        for index in range(4):
+            user = _user(created_at=signup + timedelta(minutes=index))
+            _event(user.id, user.created_at + timedelta(hours=1))
+
+        minor = _user(created_at=signup + timedelta(minutes=5))
+        minor.birth_year = 2014  # Conservative age is below 13 in 2026.
+        _event(minor.id, minor.created_at + timedelta(hours=1))
+
+        pending = _user(created_at=signup + timedelta(minutes=6))
+        pending.parent_email = "parent@example.test"
+        pending.parent_consent_granted = False
+        _event(pending.id, pending.created_at + timedelta(hours=1))
+        App.db.session.commit()
+
+        metric = App._founder_signup_cohort_retention(now)["horizons"]["d1"]
+
+    assert metric == {
+        "cohort_accounts": None, "returned_accounts": None,
+        "rate": None, "status": "below_threshold",
+    }
+
+
+def test_signup_cohort_retention_handles_empty_and_no_mature_history(client, monkeypatch):
+    now = datetime(2026, 11, 4, 12)
+    with App.app.app_context():
+        empty = App._founder_signup_cohort_retention(now)
+        assert all(
+            metric["status"] == "below_threshold"
+            and metric["cohort_accounts"] is None
+            for metric in empty["horizons"].values()
+        )
+
+        monkeypatch.setenv("INSIGHT_RETENTION_DAYS", "30")
+        no_mature = App._founder_signup_cohort_retention(now)
+
+    assert no_mature["cohort_days"] == 0
+    assert all(
+        metric["status"] == "no_mature_cohorts"
+        and metric["returned_accounts"] is None
+        for metric in no_mature["horizons"].values()
+    )
 
 
 def test_verified_admin_allowlist_email_does_not_receive_founder_privileges(monkeypatch):

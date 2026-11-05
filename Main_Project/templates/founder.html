@@ -16,7 +16,7 @@
       <div><h2 id="growth-title">Growth over time</h2><p>UTC windows compared with the immediately preceding window of the same length.</p></div>
       <div class="founder-paid"><span>Paid customers now</span><strong>{% if report.billing_status == 'tracked' %}{{ report.paid_customers_now }}{% else %}Not configured{% endif %}</strong></div>
     </div>
-    <div class="founder-table-wrap">
+    <div class="founder-table-wrap" role="region" aria-labelledby="growth-title" tabindex="0">
       <table class="founder-table">
         <thead><tr><th scope="col">Window</th><th scope="col">New accounts</th><th scope="col">Verified</th><th scope="col">Active¹</th><th scope="col">Repeat active²</th><th scope="col">New accounts vs prior</th></tr></thead>
         <tbody>
@@ -37,11 +37,35 @@
     <p class="founder-footnote">¹ Active means a signed-in account with consented product activity in the selected window. ² Repeat active means the same account was active in both adjacent windows; counts are suppressed below five. This is a directional return-use measure, not a mature signup-cohort retention rate.</p>
   </section>
 
+  <section class="founder-panel" aria-labelledby="cohort-title">
+    <div class="founder-section-heading">
+      <div><h2 id="cohort-title">Signup cohort retention</h2><p>Return activity on the exact UTC day after signup, across the same mature signup-date window.</p></div>
+    </div>
+    <p class="founder-cohort-window">Signup dates {{ report.signup_cohort_retention.cohort_window_start }} to {{ report.signup_cohort_retention.cohort_window_end_exclusive }} (end date excluded) · consented activity only</p>
+    <div class="founder-table-wrap" role="region" aria-labelledby="cohort-title" tabindex="0">
+      <table class="founder-table founder-cohort-table">
+        <thead><tr><th scope="col">Return day</th><th scope="col">Eligible signup cohort</th><th scope="col">Returned accounts</th><th scope="col">Return rate</th></tr></thead>
+        <tbody>
+          {% for key, label in [('d1','Day 1'),('d7','Day 7'),('d30','Day 30')] %}
+          {% set metric = report.signup_cohort_retention.horizons[key] %}
+          <tr>
+            <th scope="row">{{ label }}</th>
+            <td>{% if metric.cohort_accounts is not none %}{{ metric.cohort_accounts }}{% else %}Fewer than {{ report.signup_cohort_retention.minimum_accounts }}{% endif %}</td>
+            <td>{% if metric.returned_accounts is not none %}{{ metric.returned_accounts }}{% elif metric.status == 'small_cell_suppressed' %}Fewer than {{ report.signup_cohort_retention.minimum_accounts }}{% else %}—{% endif %}</td>
+            <td>{% if metric.rate is not none %}{{ (metric.rate * 100)|round|int }}%{% elif metric.status == 'no_mature_cohorts' %}Not enough history{% else %}Suppressed{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="founder-footnote">The cohort contains accounts with at least one consented product event on their UTC signup date. Each rate uses that eligible cohort as its denominator and counts activity only on the named UTC calendar day. Cohorts younger than 31 days are excluded; counts and rates are hidden below five to protect small groups.</p>
+  </section>
+
   <section class="founder-panel" aria-labelledby="adoption-title">
     <div class="founder-section-heading">
       <div><h2 id="adoption-title">Feature adoption</h2><p>Distinct consented accounts that opened each product area in each window.</p></div>
     </div>
-    <div class="founder-table-wrap">
+    <div class="founder-table-wrap" role="region" aria-labelledby="adoption-title" tabindex="0">
       <table class="founder-table founder-feature-table">
         <thead><tr><th scope="col">Product area</th><th scope="col">Daily</th><th scope="col">Weekly</th><th scope="col">Monthly</th></tr></thead>
         <tbody>
@@ -76,12 +100,14 @@
   .founder-paid { display:flex; align-items:baseline; gap:12px; color:var(--text-muted); font-size:.78rem; white-space:nowrap; }
   .founder-paid strong { color:var(--text-primary); font-size:1.2rem; font-variant-numeric:tabular-nums; }
   .founder-table-wrap { overflow:auto; }
+  .founder-table-wrap:focus-visible { outline:2px solid var(--focus-ring); outline-offset:2px; }
   .founder-table { width:100%; min-width:700px; border-collapse:collapse; text-align:left; font-size:.85rem; }
   .founder-table th,.founder-table td { padding:11px 10px; font-variant-numeric:tabular-nums; }
   .founder-table thead { color:var(--text-muted); font-size:.7rem; text-transform:uppercase; letter-spacing:.045em; }
   .founder-table tbody tr+tr { box-shadow:inset 0 1px color-mix(in srgb,var(--text-primary) 6%,transparent); }
   .founder-table tbody th { font-weight:600; }
-  .founder-footnote,.founder-scope { color:var(--text-muted); font-size:.76rem; line-height:1.55; }
+  .founder-footnote,.founder-scope,.founder-cohort-window { color:var(--text-muted); font-size:.76rem; line-height:1.55; }
+  .founder-cohort-window { margin:-6px 0 12px; font-variant-numeric:tabular-nums; }
   .founder-footnote { margin:12px 0 0; }
   .founder-scope { margin:16px 2px; }
   @media(max-width:680px) { .founder-header,.founder-section-heading { align-items:flex-start; flex-direction:column; } .founder-paid { justify-content:space-between; width:100%; } }

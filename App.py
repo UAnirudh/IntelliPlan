@@ -19019,6 +19019,112 @@ def _admin_daily_active_users(now=None):
     ).scalar()
 
 
+def _founder_signup_cohort_retention(now=None, *, cohort_days=90, minimum_accounts=5):
+    """Aggregate opt-in D1/D7/D30 returns for mature UTC signup cohorts.
+
+    The denominator includes only accounts with at least one consented product
+    event on their UTC signup date. ProductEvent is written only while
+    analytics consent is active and rows are deleted on withdrawal. All SQL
+    results are aggregate counts; no account identifiers are returned.
+    """
+    from datetime import timedelta as _timedelta
+    from sqlalchemy import and_, case, or_, text
+    from sqlalchemy.orm import aliased
+
+    now = now or datetime.utcnow()
+    today = now.date()
+    # D30 is a full UTC calendar-day window, so only include signup dates
+    # whose day-30 window ended before today.
+    mature_before = datetime.combine(today - _timedelta(days=30), datetime.min.time())
+    retention_days = max(1, int(os.getenv("INSIGHT_RETENTION_DAYS", "180") or 180))
+    available_signup_days = max(0, retention_days - 31)
+    observed_days = min(max(0, int(cohort_days)), available_signup_days)
+    cohort_start = mature_before - _timedelta(days=observed_days)
+
+    output = {
+        "cohort_window_start": cohort_start.date().isoformat(),
+        "cohort_window_end_exclusive": mature_before.date().isoformat(),
+        "cohort_days": observed_days,
+        "minimum_accounts": minimum_accounts,
+        "basis": "Accounts with a consented product event on their UTC signup date; return activity on the exact UTC day after signup.",
+        "horizons": {},
+    }
+    horizons = (("d1", 1), ("d7", 7), ("d30", 30))
+    if observed_days <= 0:
+        for key, _days in horizons:
+            output["horizons"][key] = {
+                "cohort_accounts": None, "returned_accounts": None,
+                "rate": None, "status": "no_mature_cohorts",
+            }
+        return output
+
+    signup_event = aliased(ProductEvent)
+    return_event = aliased(ProductEvent)
+    signup_day = db.func.date(User.created_at)
+    dialect = db.session.get_bind().dialect.name
+
+    def day_after(expression, days):
+        # SQLite and PostgreSQL are the supported production/test dialects.
+        if dialect == "sqlite":
+            return db.func.date(expression, f"+{days} days")
+        if dialect == "postgresql":
+            return expression + days
+        if dialect in {"mysql", "mariadb"}:
+            return db.func.date_add(expression, text(f"INTERVAL {days} DAY"))
+        return expression + days
+
+    # This is a conservative additional privacy guard. It mirrors the app's
+    # year-only age calculation and excludes any currently known under-13 or
+    # pending-parent account, even if stale/malformed event rows exist.
+    age_is_eligible = or_(User.birth_year.is_(None), User.birth_year <= now.year - 14)
+    parent_is_eligible = or_(User.parent_email.is_(None), User.parent_email == "",
+                             User.parent_consent_granted.is_(True))
+
+    for key, days in horizons:
+        return_day = day_after(signup_day, days)
+        query = db.session.query(
+            db.func.count(db.func.distinct(User.id)),
+            db.func.count(db.func.distinct(case(
+                (return_event.id.isnot(None), User.id), else_=None
+            ))),
+        ).join(signup_event, and_(
+            signup_event.user_id == User.id,
+            signup_event.created_at >= User.created_at,
+            db.func.date(signup_event.created_at) == signup_day,
+        )).outerjoin(return_event, and_(
+            return_event.user_id == User.id,
+            db.func.date(return_event.created_at) == return_day,
+        )).filter(
+            User.created_at >= cohort_start,
+            User.created_at < mature_before,
+            age_is_eligible,
+            parent_is_eligible,
+        )
+        cohort_accounts, returned_accounts = query.one()
+        cohort_accounts = int(cohort_accounts or 0)
+        returned_accounts = int(returned_accounts or 0)
+
+        if cohort_accounts < minimum_accounts:
+            metric = {
+                "cohort_accounts": None, "returned_accounts": None,
+                "rate": None, "status": "below_threshold",
+            }
+        elif returned_accounts < minimum_accounts:
+            metric = {
+                "cohort_accounts": cohort_accounts, "returned_accounts": None,
+                "rate": None, "status": "small_cell_suppressed",
+            }
+        else:
+            metric = {
+                "cohort_accounts": cohort_accounts,
+                "returned_accounts": returned_accounts,
+                "rate": round(returned_accounts / cohort_accounts, 3),
+                "status": "measured",
+            }
+        output["horizons"][key] = metric
+    return output
+
+
 def _founder_growth_report(now=None):
     """Return aggregate account and consented-usage measures for 1/7/30 days.
 
@@ -19087,6 +19193,7 @@ def _founder_growth_report(now=None):
     return {
         "as_of": now.isoformat(timespec="minutes") + "Z",
         "periods": output,
+        "signup_cohort_retention": _founder_signup_cohort_retention(now),
         "features": feature_periods,
         "paid_customers_now": paid_customers,
         "billing_status": "tracked" if billing_is_enabled else "not_configured",

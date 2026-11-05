@@ -151,8 +151,12 @@ export default function SettingsScreen() {
       ],
     });
     if (choice !== 0) return;
-    await signOut();
-    router.replace("/login");
+    try {
+      await signOut();
+      router.replace("/login");
+    } catch (e: any) {
+      setProfileNote(e?.message || "Couldn't safely sign out. Please try again.");
+    }
   }, [signOut, router, confirm]);
 
   const confirmDeleteAccount = useCallback(async () => {
@@ -166,8 +170,9 @@ export default function SettingsScreen() {
     });
     if (choice !== 0) return;
     try {
-      await deleteAccount();
-      await signOut();
+      // signOut keeps authentication and reminder scheduling locked until
+      // local cleanup, server deletion, and local credential clearing finish.
+      await signOut(deleteAccount);
       router.replace("/login");
     } catch (e: any) {
       setProfileNote(e?.message || "Couldn't delete your account. Try again.");
