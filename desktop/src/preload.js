@@ -43,6 +43,14 @@ contextBridge.exposeInMainWorld('intelliplan', {
     return ipcRenderer.invoke('app:info');
   },
 
+  /** Read or update the student's opt-in for launching into the tray at sign-in. */
+  loginStartup() {
+    return ipcRenderer.invoke('app:login-startup');
+  },
+  setLoginStartup(enabled) {
+    return ipcRenderer.invoke('app:set-login-startup', enabled === true);
+  },
+
   /** Used by the offline page's retry button. */
   retry() {
     return ipcRenderer.invoke('app:retry');
