@@ -62,7 +62,7 @@ export function Header({
       <View style={{ minHeight: 42, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: space.xs }}>
           {showBack ? <IconButton icon="chevron-back" size={22} label="Back to previous screen" onPress={goBack} /> : null}
-          <View accessibilityLabel="IntelliPlan" accessibilityRole="header" style={{ flexDirection: "row", alignItems: "baseline" }}>
+          <View accessible accessibilityLabel="IntelliPlan" accessibilityRole="image" style={{ flexDirection: "row", alignItems: "baseline" }}>
             <T variant="md" weight="800">Intelli</T>
             <T variant="md" weight="800" tone="accent">Plan</T>
           </View>
@@ -91,11 +91,11 @@ export function Header({
       </View>
 
       <View style={{ gap: 1 }}>
-        <T variant="xl" weight="700" numberOfLines={1}>
+        <T variant="xl" weight="700" accessibilityRole="header">
           {title}
         </T>
         {subtitle ? (
-          <T variant="sm" tone="secondary" numberOfLines={1}>
+          <T variant="sm" tone="secondary">
             {subtitle}
           </T>
         ) : null}

@@ -39,3 +39,12 @@ test("task detail rows expose a concise screen-reader action", () => {
   assert.match(source, /accessibilityLabel=\{onPress \? `Open \$\{task\.title\} details` : undefined\}/);
   assert.match(source, /accessibilityHint=\{onPress \? "View assignment details" : undefined\}/);
 });
+
+
+test("screen titles remain accessible and do not truncate on narrow displays", () => {
+  const source = fs.readFileSync(path.join(root, "components", "Header.tsx"), "utf8");
+  assert.ok(source.includes('<T variant="xl" weight="700" accessibilityRole="header">'));
+  assert.ok(source.includes('<T variant="sm" tone="secondary">'));
+  assert.doesNotMatch(source, /numberOfLines/);
+  assert.ok(source.includes('accessibilityRole="image"'));
+});
