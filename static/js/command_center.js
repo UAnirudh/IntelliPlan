@@ -62,6 +62,7 @@
     el.className = 'command-chat__message command-chat__message--' + role;
     el.innerHTML = role === 'assistant' ? format(text) : esc(text).replace(/\n/g, '<br>');
     inner.appendChild(el);
+    return el;
   }
 
   function renderAction(text) {
@@ -111,10 +112,23 @@
 
   function push(item) {
     log.push(item);
-    if (item.t === 'msg') renderMsg(item.role, item.text);
+    if (item.t === 'msg') return renderMsg(item.role, item.text);
     else if (item.t === 'action') renderAction(item.text);
     else if (item.t === 'schedule') renderSchedule(item.schedule);
     else if (item.t === 'links') renderLinks(item.links);
+  }
+
+  function removePendingUser(content, element) {
+    var lastHistory = history[history.length - 1];
+    if (lastHistory && lastHistory.role === 'user' && lastHistory.content === content) history.pop();
+    var lastLog = log[log.length - 1];
+    if (lastLog && lastLog.t === 'msg' && lastLog.role === 'user' && lastLog.text === content) log.pop();
+    if (element && element.remove) element.remove();
+  }
+
+  function restoreDraft(content) {
+    if (!input.value.trim()) input.value = content;
+    input.style.height = 'auto';
   }
 
   function typing(show) {
@@ -141,7 +155,7 @@
     var requestId = ++requestSerial;
     update();
     dropIntro();
-    push({ t: 'msg', role: 'user', text: content });
+    var userMessage = push({ t: 'msg', role: 'user', text: content });
     history.push({ role: 'user', content: content });
     save();
     typing(true);
@@ -168,7 +182,28 @@
           return;
         }
         if (res.status === 401) {
+          removePendingUser(content, userMessage);
+          restoreDraft(content);
           push({ t: 'msg', role: 'assistant', text: 'Sign in so I can work with your tasks and calendar: /login' });
+          save();
+          return;
+        }
+        if (res.status >= 400 || data.status === 'error') {
+          var reply = data.reply || data.message || 'Plani could not complete that. Please try again.';
+          var actions = data.actions || [];
+          actions.forEach(function (a) { push({ t: 'action', text: a }); });
+          if (actions.length) {
+            // A tool may have completed before the model/provider failed.
+            // Close that turn in history so the next request does not repeat
+            // the original action without the user asking again.
+            history.push({ role: 'assistant', content: reply });
+            push({ t: 'msg', role: 'assistant', text: reply });
+          } else {
+            removePendingUser(content, userMessage);
+            restoreDraft(content);
+            push({ t: 'msg', role: 'assistant', text: reply + ' You can retry from the composer.' });
+          }
+          save();
           return;
         }
         (data.actions || []).forEach(function (a) { push({ t: 'action', text: a }); });
@@ -189,6 +224,8 @@
       .catch(function () {
         if (requestId !== requestSerial) return;
         typing(false);
+        removePendingUser(content, userMessage);
+        restoreDraft(content);
         push({ t: 'msg', role: 'assistant', text: 'I could not reach IntelliPlan. Check your connection and try again.' });
         save();
       })

@@ -36,6 +36,26 @@ const HORIZON_DAYS = 7;
 /** Evening before, local time — late enough to be actionable tonight. */
 const EVENING_HOUR = 18;
 
+/** LMS and manual-task APIs often return a calendar date without a time or
+ * timezone. JavaScript parses `YYYY-MM-DD` as UTC, which moves that deadline
+ * to the previous local evening for most users west of UTC and can schedule
+ * its reminder a full day early. Interpret date-only values on the student's
+ * local calendar; keep explicit timestamps on their actual instant. */
+function reminderDueDate(raw?: string): Date | null {
+  const match = typeof raw === "string" ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw.trim()) : null;
+  if (match) {
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    const local = new Date(year, month - 1, day);
+    if (local.getFullYear() !== year || local.getMonth() !== month - 1 || local.getDate() !== day) {
+      return null;
+    }
+    return local;
+  }
+  return parseDate(raw);
+}
+
 let reminderOperation = 0;
 let reminderWriteQueue: Promise<void> = Promise.resolve();
 let activeSignOuts = 0;
@@ -168,7 +188,7 @@ export function syncReminders(tasks: Task[], operation = reminderOperation): Pro
 
     const upcoming = tasks
       .filter((t) => !t.dismissed)
-      .map((t) => ({ task: t, due: parseDate(t.due_date) }))
+      .map((t) => ({ task: t, due: reminderDueDate(t.due_date) }))
       .filter((x): x is { task: Task; due: Date } => !!x.due && x.due > now && x.due <= horizon)
       .sort((a, b) => a.due.getTime() - b.due.getTime())
       .slice(0, MAX_SCHEDULED);

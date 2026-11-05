@@ -113,6 +113,9 @@ export function ReminderOptInPrompt({ userId }: { userId?: number | string }) {
           <T tone="secondary" style={styles.body}>
             Get one gentle reminder on your phone the evening before work is due. It is scheduled on this device, so it still works offline and when IntelliPlan is closed.
           </T>
+          <T variant="xs" tone="muted" style={styles.serverNote}>
+            Reminder previews may include course names and task titles. Your phone may show them on its lock screen, depending on your notification-preview settings.
+          </T>
           <View style={[styles.detail, { backgroundColor: colors.bgElevated }]}>
             <Ionicons name="lock-closed-outline" size={16} color={colors.textMuted} />
             <T variant="xs" tone="muted" style={styles.detailText}>

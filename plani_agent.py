@@ -1653,6 +1653,7 @@ def plani_agent():
             logger.error("Plani agent has no AI backend: %s", e)
             return jsonify({"status": "error", "error": "ai_unavailable",
                 "reply": "Plani's AI is not reachable right now. This is on our side, not yours.",
+                "retryable": True,
                 "actions": actions, "tool_log": tool_log}), 503
         except Exception as e:
             logger.error("Plani LLM call failed: %s", e)

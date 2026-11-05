@@ -10,10 +10,12 @@ function harness(owner, initial = {}) {
   const location = { reload() { reloads++; } };
   let boot, reloads = 0;
   function element() {
-    return { children: [], style: { setProperty() {} }, value: '', events: {},
+    return { children: [], style: { setProperty() {} }, value: '', events: {}, parentNode: null,
       addEventListener(name, handler) { this.events[name] = handler; },
-      appendChild(child) { this.children.push(child); },
-      setAttribute() {}, focus() {}, remove() {} };
+      appendChild(child) { child.parentNode = this; this.children.push(child); },
+      setAttribute() {}, focus() {}, remove() {
+        if (this.parentNode) this.parentNode.children = this.parentNode.children.filter(child => child !== this);
+      } };
   }
   const ids = Object.fromEntries(['chatThread', 'chatInner', 'chatInput', 'sendMessage', 'chatComposer', 'newConversation'].map(id => [id, element()]));
   const host = { getAttribute: name => name === 'data-chat-owner' ? owner : 'Plani' };
@@ -27,7 +29,7 @@ function harness(owner, initial = {}) {
     location, setTimeout: callback => timers.push(callback),
     fetch: (url, options) => url === '/calendar/connections'
       ? Promise.resolve({ json: async () => ({}) })
-      : new Promise(resolve => requests.push({ options, resolve })),
+      : new Promise((resolve, reject) => requests.push({ options, resolve, reject })),
   });
   vm.runInContext(source, context); boot();
   return { storage, requests, ids, timers, location, reloads: () => reloads,
@@ -76,6 +78,51 @@ test('account change response clears conversation and reloads without applying a
   await flush();
   assert.equal(h.storage.has(STORE), false); assert.equal(h.reloads(), 1);
   assert.equal(h.ids.chatInner.children.some(el => el.textContent === 'Must not render'), false);
+});
+test('provider outage restores draft and excludes failed turn from later requests', async () => {
+  const h = harness('17'); h.submit('Make a study plan');
+  h.requests[0].resolve({ status: 503, json: async () => ({
+    status: 'error', error: 'ai_unavailable', reply: 'Plani is temporarily unavailable.',
+  }) });
+  await flush();
+
+  assert.equal(h.ids.chatInput.value, 'Make a study plan');
+  assert.deepEqual(JSON.parse(h.storage.get(STORE)).history, []);
+  assert.equal(JSON.parse(h.storage.get(STORE)).log.some(item => item.role === 'user'), false);
+  assert.equal(h.ids.chatInner.children.some(el => /temporarily unavailable/.test(el.innerHTML)), true);
+
+  h.submit('Try again');
+  assert.deepEqual(JSON.parse(h.requests[1].options.body).messages,
+    [{ role: 'user', content: 'Try again' }]);
+});
+test('provider failure after a completed tool action closes the turn in history', async () => {
+  const h = harness('17'); h.submit('Create a review task');
+  h.requests[0].resolve({ status: 503, json: async () => ({
+    status: 'error', error: 'ai_unavailable', reply: 'The final reply could not be generated.',
+    actions: ['Created review task'],
+  }) });
+  await flush();
+
+  assert.equal(h.ids.chatInput.value, '');
+  assert.deepEqual(JSON.parse(h.storage.get(STORE)).history, [
+    { role: 'user', content: 'Create a review task' },
+    { role: 'assistant', content: 'The final reply could not be generated.' },
+  ]);
+  h.submit('What happened?');
+  assert.deepEqual(JSON.parse(h.requests[1].options.body).messages, [
+    { role: 'user', content: 'Create a review task' },
+    { role: 'assistant', content: 'The final reply could not be generated.' },
+    { role: 'user', content: 'What happened?' },
+  ]);
+});
+test('transport failure restores the draft and removes the unprocessed turn', async () => {
+  const h = harness('17'); h.submit('Help me plan');
+  h.requests[0].reject(new Error('offline'));
+  await flush();
+
+  assert.equal(h.ids.chatInput.value, 'Help me plan');
+  assert.deepEqual(JSON.parse(h.storage.get(STORE)).history, []);
+  assert.match(h.ids.chatInner.children.at(-1).innerHTML, /Check your connection/);
 });
 test('New chat also suppresses navigation queued by the old reply', async () => {
   const h = harness('17'); h.submit();
