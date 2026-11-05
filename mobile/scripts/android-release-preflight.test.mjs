@@ -38,7 +38,7 @@ test("missing EAS project linkage and auth are blocking", () => {
   delete appConfig.expo.extra.eas.projectId;
   const checks = inspectReleaseConfig({ appConfig, easConfig: validEas });
   assert.ok(checks.some(({ status, message }) => status === "BLOCKED" && message.includes("npx eas init")));
-  assert.ok(checks.some(({ status, message }) => status === "BLOCKED" && message.includes("No active EAS account")));
+  assert.ok(checks.some(({ status, message }) => status === "BLOCKED" && message.includes("npx eas-cli login")));
 });
 
 test("an internal testing track cannot pass as the production submit target", () => {
@@ -56,7 +56,7 @@ test("a closed-test submit profile targets the alpha track for its opt-in tester
 
 test("a stale auth state file does not count as a verified EAS login", () => {
   const checks = inspectReleaseConfig({ appConfig: validApp, easConfig: validEas, authStateExists: true });
-  assert.ok(checks.some(({ status, message }) => status === "BLOCKED" && message.includes("could not be validated")));
+  assert.ok(checks.some(({ status, message }) => status === "BLOCKED" && message.includes("did not confirm an account")));
 });
 
 test("bad identity, versions, production API, and build settings are blocking", () => {

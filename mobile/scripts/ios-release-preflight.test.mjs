@@ -58,7 +58,7 @@ test("configured iOS release passes static checks without claiming a store-ready
 
 test("a stale auth state file does not count as a verified EAS login", () => {
   const checks = inspectIOSReleaseConfig({ appConfig: validApp, easConfig: validEas, authStateExists: true });
-  assert.ok(checks.some(({ status, message }) => status === "BLOCKED" && message.includes("could not be validated")));
+  assert.ok(checks.some(({ status, message }) => status === "BLOCKED" && message.includes("did not confirm an account")));
 });
 
 test("missing project linkage and EAS auth are blocked without inventing identifiers", () => {
@@ -66,7 +66,7 @@ test("missing project linkage and EAS auth are blocked without inventing identif
   delete appConfig.expo.extra.eas.projectId;
   const checks = inspectIOSReleaseConfig({ appConfig, easConfig: validEas });
   assert.ok(checks.some(({ status, message }) => status === "BLOCKED" && message.includes("npx eas init")));
-  assert.ok(checks.some(({ status, message }) => status === "BLOCKED" && message.includes("EXPO_TOKEN")));
+  assert.ok(checks.some(({ status, message }) => status === "BLOCKED" && message.includes("npx eas-cli login")));
 });
 
 test("invalid identity, production API, platform build settings and permission strings block release", () => {
