@@ -58,3 +58,8 @@ test('already-granted permission does not trigger a redundant browser prompt', a
   await h.context.save();
   assert.deepEqual(h.calls, ['enable', 'show:plan']);
 });
+
+test('onboarding explains that reminder previews may show course and task titles', () => {
+  assert.match(source, /Reminder previews may include course names and task titles/);
+  assert.match(source, /lock screen, depending on your notification-preview settings/);
+});

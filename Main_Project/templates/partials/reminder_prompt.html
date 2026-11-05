@@ -3,6 +3,7 @@
 <details class="command-remind" id="commandRemind" data-user-id="{{ current_user.id if current_user.is_authenticated else 'guest' }}" hidden>
   <summary>Set up helpful reminders</summary>
   <p><strong>Want a heads-up before work is due?</strong> <span id="commandRemindText">Get email and browser notifications before sessions and deadlines. Browser notifications can arrive when IntelliPlan is closed.</span></p>
+  <p>Reminder previews may include course names and task titles. Your device may show them on its lock screen, depending on your notification-preview settings.</p>
   <div class="command-remind__actions">
     <button type="button" class="command-remind__on" id="commandRemindOn">Enable reminders</button>
     <button type="button" class="command-remind__dismiss" id="commandRemindDismiss">Not now</button>

@@ -138,6 +138,29 @@ def test_chat_reports_unconfigured_free_provider_without_calling_ai(account, mon
     generate.assert_not_called()
 
 
+def test_agent_reports_selected_provider_outage_as_retryable(account, monkeypatch):
+    from ai_provider import AIUnavailable
+
+    monkeypatch.setattr(plani, 'ai_available', lambda **kwargs: True)
+    monkeypatch.setattr(plani, 'build_agent_context', lambda uid: '')
+    monkeypatch.setattr('intelliplan.retrieval.retrieve_context', lambda *a: '')
+    monkeypatch.setattr(plani.ai_firewall, 'guard', lambda *a, **kw: SimpleNamespace(
+        max_output_tokens=1400, plan='free'))
+    monkeypatch.setattr(plani.ai_firewall, 'record_tokens', lambda *a: None)
+
+    def unavailable(*args, **kwargs):
+        raise AIUnavailable('provider/model: private provider diagnostic')
+
+    monkeypatch.setattr(plani, 'ai_chat', unavailable)
+    response = signed_client(account).post('/api/plani/agent', json={'message': 'Help me plan'})
+
+    assert response.status_code == 503
+    assert response.json['error'] == 'ai_unavailable'
+    assert response.json['retryable'] is True
+    assert 'on our side' in response.json['reply']
+    assert 'private provider diagnostic' not in response.get_data(as_text=True)
+
+
 @pytest.mark.parametrize('include_owner', [True, False])
 def test_chat_current_owner_and_legacy_clients_keep_normal_gates(account, monkeypatch, include_owner):
     provider = Mock(return_value=False)

@@ -5,6 +5,10 @@ import path from "node:path";
 import test from "node:test";
 import ts from "typescript";
 
+// Date-only assignment due dates are local calendar dates. Keep this suite in
+// a non-UTC zone so a UTC parsing regression cannot pass by coincidence.
+process.env.TZ = "America/Los_Angeles";
+
 const root = path.resolve(import.meta.dirname, "..");
 const remindersPath = path.join(root, "lib", "reminders.ts");
 const remindersSource = fs.readFileSync(remindersPath, "utf8");
@@ -91,6 +95,27 @@ test("refresh after a successful create schedules the new task", async () => {
   assert.equal(await reminders.refreshAndSyncReminders(), 1);
   assert.equal(scheduled.length, 1);
   assert.equal(scheduled[0].content.body, "Read chapter");
+});
+
+test("a date-only deadline schedules on the evening before its local calendar day", async () => {
+  reset();
+  const due = new Date();
+  due.setDate(due.getDate() + 4);
+  const dueDate = `${due.getFullYear()}-${String(due.getMonth() + 1).padStart(2, "0")}-${String(due.getDate()).padStart(2, "0")}`;
+  tasks = [task({ due_date: dueDate })];
+
+  assert.equal(await reminders.refreshAndSyncReminders(), 1);
+  const fireAt = scheduled[0].trigger.date;
+  const expectedEvening = new Date(due);
+  expectedEvening.setDate(expectedEvening.getDate() - 1);
+  expectedEvening.setHours(18, 0, 0, 0);
+  assert.equal(fireAt.getTime(), expectedEvening.getTime());
+});
+
+test("the reminder opt-in discloses lock-screen title previews", () => {
+  const prompt = fs.readFileSync(path.join(root, "components", "ReminderOptInPrompt.tsx"), "utf8");
+  assert.match(prompt, /Reminder previews may include course names and task titles/);
+  assert.match(prompt, /lock screen, depending on your notification-preview settings/);
 });
 
 test("refresh after an edit cancels the old reminder and schedules the updated task", async () => {
