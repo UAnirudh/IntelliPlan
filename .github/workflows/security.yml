@@ -29,11 +29,12 @@ jobs:
           cache-dependency-path: |
             mobile/package-lock.json
             desktop/package-lock.json
-      # Known upstream high/moderate findings remain tracked in the acceptance
-      # ledger. This gate prevents new critical findings; it is not an all-clear.
-      - name: Audit mobile critical dependencies
+      # The exact temporary Expo SDK 58 toolchain findings are documented in
+      # mobile/security-audit-allowlist.json. Unknown advisories and any
+      # non-moderate findings fail this gate.
+      - name: Audit mobile dependencies against the reviewed allowlist
         working-directory: mobile
-        run: npm audit --package-lock-only --audit-level=critical
+        run: node scripts/audit-mobile-dependencies.mjs
       - name: Audit desktop critical dependencies
         working-directory: desktop
         run: npm audit --package-lock-only --audit-level=critical

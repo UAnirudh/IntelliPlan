@@ -23,7 +23,8 @@ type AuthState = {
   signIn: (email: string, password: string) => Promise<Me>;
   signUp: (email: string, password: string, name?: string) => Promise<Me>;
   refreshUser: () => Promise<Me>;
-  signOut: () => Promise<void>;
+  /** Clean up this install, optionally run an authenticated action, then sign out. */
+  signOut: (beforeLogout?: () => Promise<void>) => Promise<void>;
 };
 
 /** Last profile the server confirmed, so an offline launch still knows
@@ -61,7 +62,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<Me | null>(null);
   const [booting, setBooting] = useState(true);
 
-  const signOut = useCallback(async () => {
+  const signOut = useCallback(async (beforeLogout?: () => Promise<void>) => {
     // Invalidate an opt-in that might still be waiting on the OS permission
     // prompt before any cleanup starts, and prevent settings or a stale task
     // fetch from re-enabling/scheduling them until sign-out finishes.
@@ -70,14 +71,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Local notifications contain task details and are scheduled by the OS
       // even while the app is closed. Cancel them before another account can
       // use this device.
-      await setRemindersEnabled(false, reminderOperation).catch(() => {});
+      try {
+        await setRemindersEnabled(false, reminderOperation);
+      } catch {
+        throw new Error("Couldn't cancel this device's study reminders, so you weren't signed out. Please try again.");
+      }
       // The device-level reminder switch was reset above. Do not let a saved
       // enabled answer hide the opt-in prompt when this student signs back in.
       await clearEnabledReminderPromptAnswer(user?.id).catch(() => {});
       // Tell the server to stop pushing to this device *before* dropping the
       // token — the unregister call needs it. On a shared phone, skipping
       // this would keep sending one student's deadlines to the next one.
-      await disablePush().catch(() => {});
+      try {
+        await disablePush();
+      } catch {
+        throw new Error("Couldn't disconnect this device from reminder delivery, so you weren't signed out. Check your connection and try again.");
+      }
+      // Account deletion must run after notification cleanup (so the server
+      // can still authenticate token removal) and before local credentials
+      // are cleared. Keep the reminder lock held for the entire sequence.
+      if (beforeLogout) await beforeLogout();
       await apiLogout();
       await cacheUser(null);
       await clearQueryCache().catch(() => {});

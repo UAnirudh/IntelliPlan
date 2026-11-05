@@ -69,8 +69,12 @@ export default function MoreScreen() {
       ],
     });
     if (choice !== 0) return;
-    await signOut();
-    router.replace("/login");
+    try {
+      await signOut();
+      router.replace("/login");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Couldn't safely sign out. Please try again.");
+    }
   }, [confirm, signOut, router]);
 
   return (
