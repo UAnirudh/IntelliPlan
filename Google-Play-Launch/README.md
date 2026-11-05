@@ -5,7 +5,7 @@ This is the owner-facing checklist for releasing the native Expo app in
 but Play Console declarations, account credentials, legal decisions, device
 testing, and publication need the owner or an authorized reviewer.
 
-Reviewed against the checked-in configuration on 2026-10-27. Recheck Google
+Reviewed against the checked-in configuration on 2026-11-05. Recheck Google
 Play requirements and the production build before every submission; store
 policies and target API deadlines can change.
 
@@ -19,10 +19,11 @@ policies and target API deadlines can change.
 | Local Android version code | `1` | Production builds use EAS remote versioning and auto-increment; verify the generated bundle has a new version code. |
 | Production artifact | Android App Bundle (`.aab`) | `mobile/eas.json` production profile sets `android.buildType` to `app-bundle`. |
 | Production API | `https://intelliplan.tech` | Set in the EAS production profile as `EXPO_PUBLIC_API_BASE`. |
-| EAS submit destination | Internal track, draft | The checked-in submit profile does not publish a production release. Choose the intended test/production track in Play Console or update submission configuration deliberately. |
+| EAS submit destination | Production track, draft | EAS Submit uploads to the production track as a draft; it does not publish or roll out automatically. Use the separate `closed-test` profile to upload to the alpha track. Review the draft and start rollout from Play Console when ready. |
 | EAS project link | Not set in `mobile/app.json` (`extra.eas` is empty) | The owner must create/link the EAS project and authenticate before remote builds. |
 
-The Expo SDK is 57 (`mobile/package.json`). `mobile/app.json` declares
+The app uses Expo SDK 58 and React Native 0.88 (`mobile/package.json`).
+`mobile/app.json` declares
 `POST_NOTIFICATIONS` and `CAMERA` and blocks several unused audio/video and
 legacy storage permissions. Expo plugins can contribute manifest entries, so
 review the permissions in the generated AAB/Play Console before submitting;
