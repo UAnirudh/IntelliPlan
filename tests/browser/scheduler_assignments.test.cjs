@@ -20,6 +20,38 @@ test('interactive summary never calls the first upcoming day today', () => {
   assert.doesNotMatch(template, /todayDay = sched\.find\([^\n]+\) \|\| sched\[0\]/);
 });
 
+test('checklist drawer exposes escaped per-session planner reasons and stage labels', () => {
+  assert.match(template, /id="ckReasonPanel" aria-labelledby="ckReasonTitle" hidden/);
+  assert.match(template, /if \(block\.stage_title\) meta\.push\(.*Stage:/);
+  const start = template.indexOf('function renderBlockReasons(');
+  const end = template.indexOf('\n}', start) + 2;
+  assert.ok(start > 0 && end > start, 'reason renderer should stay a standalone function');
+  const document = {
+    createElement(tag) { return { tag, textContent: '' }; },
+  };
+  const context = { document };
+  vm.createContext(context);
+  vm.runInContext(template.slice(start, end), context);
+  const list = {
+    children: [],
+    set textContent(value) { this.children = []; this.value = value; },
+    appendChild(item) { this.children.push(item); },
+  };
+  const panel = { hidden: true };
+  context.renderBlockReasons({
+    reasons: ['Due tomorrow.', '<img src=x onerror=alert(1)>'],
+  }, panel, list);
+  assert.equal(panel.hidden, false);
+  assert.deepEqual(list.children.map(item => item.textContent), [
+    'Due tomorrow.', '<img src=x onerror=alert(1)>',
+  ]);
+  assert.ok(list.children.every(item => item.tag === 'li'));
+
+  context.renderBlockReasons({ reasons: [] }, panel, list);
+  assert.equal(panel.hidden, true);
+  assert.equal(list.children.length, 0);
+});
+
 function fixture() {
   const pending = [];
   const ctx = {

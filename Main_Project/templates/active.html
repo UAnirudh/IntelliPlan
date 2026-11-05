@@ -353,6 +353,13 @@
 .ipa-focus-state[data-state="present"] .ipa-focus-pip { background: var(--low, #0a7558); }
 .ipa-focus-state[data-state="away"]    .ipa-focus-pip { background: var(--medium, #c27a06); }
 .ipa-focus-state[data-state="absent"]  .ipa-focus-pip { background: var(--high, #c62828); }
+.ipa-focus-stop {
+  min-height: 44px; padding: .3rem .55rem; margin-inline-start: .35rem;
+  border: 1px solid currentColor; border-radius: .45rem; color: var(--text-primary);
+  background: transparent; font: inherit; text-transform: none; letter-spacing: normal;
+  cursor: pointer;
+}
+.ipa-focus-stop:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
 
 /* Native-looking switch, keyboard operable because it *is* a checkbox. */
 .ipa-switch { position: relative; display: inline-flex; align-items: center; cursor: pointer; }
@@ -569,10 +576,11 @@
         {% endif %}
       </p>
 
-      <p class="ipa-focus-state" id="ipaFocusState" data-state="unknown" hidden>
+      <div class="ipa-focus-state" id="ipaFocusState" data-state="unknown" hidden>
         <span class="ipa-focus-pip" aria-hidden="true"></span>
-        <span id="ipaFocusStateText">Not tracking</span>
-      </p>
+        <span id="ipaFocusStateText" role="status" aria-live="polite" aria-atomic="true">Not tracking</span>
+        <button type="button" class="ipa-focus-stop" id="ipaFocusStop" hidden>Stop camera check-in</button>
+      </div>
     </div>
 
     <div class="ipa-timer-wrap">

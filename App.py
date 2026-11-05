@@ -2226,6 +2226,20 @@ class ProductEvent(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
 
 
+class BillingLifecycleEvent(db.Model):
+    """Minimal daily Stripe entitlement-transition ledger for founder trends.
+
+    This deliberately stores no user, email, Stripe customer, amount, or raw
+    provider payload. The digest is used only to deduplicate webhook retries.
+    """
+    __tablename__ = "billing_lifecycle_events"
+    __table_args__ = (db.Index("ix_billing_lifecycle_day_kind", "event_day", "event_kind"),)
+    event_digest = db.Column(db.String(64), primary_key=True)
+    event_day = db.Column(db.Date, nullable=False)
+    event_kind = db.Column(db.String(24), nullable=False)
+    plan_tier = db.Column(db.String(16), nullable=True)
+
+
 class InsightAnswer(db.Model):
     """One student's answer to one in-app question. One row per question.
 
@@ -19141,6 +19155,7 @@ def _founder_growth_report(now=None):
     current analytics consent and deletes rows when that consent is withdrawn.
     """
     from datetime import timedelta as _timedelta
+    from growth_glue import billing_enabled, purge_paid_access_transitions
     from intelliplan.founder_metrics import (
         MINIMUM_REPORTABLE_ACCOUNTS,
         feature_adoption,
@@ -19148,6 +19163,9 @@ def _founder_growth_report(now=None):
     )
 
     now = now or datetime.utcnow()
+    billing_is_enabled = bool(billing_enabled())
+    if billing_is_enabled:
+        purge_paid_access_transitions(now)
     periods = (("day", 1), ("week", 7), ("month", 30))
     output = {}
     feature_periods = {}
@@ -19190,6 +19208,23 @@ def _founder_growth_report(now=None):
             and prior_accounts >= MINIMUM_REPORTABLE_ACCOUNTS
             and abs(growth_change) >= MINIMUM_REPORTABLE_ACCOUNTS
         )
+        lifecycle_counts = {"paid_access_started": None, "paid_access_ended": None}
+        if billing_is_enabled:
+            # These use UTC calendar-day buckets (today plus the preceding
+            # N-1 days), unlike the rolling timestamp windows above.
+            lifecycle_start = (now.date() - _timedelta(days=days - 1))
+            for event_kind, output_key in (
+                ("paid_access_started", "paid_access_started"),
+                ("paid_access_ended", "paid_access_ended"),
+            ):
+                transition_count = BillingLifecycleEvent.query.filter(
+                    BillingLifecycleEvent.event_day >= lifecycle_start,
+                    BillingLifecycleEvent.event_day <= now.date(),
+                    BillingLifecycleEvent.event_kind == event_kind,
+                ).count()
+                lifecycle_counts[output_key] = (
+                    transition_count if transition_count >= MINIMUM_REPORTABLE_ACCOUNTS else None
+                )
         output[label] = {
             "days": days,
             "new_accounts": new_accounts if new_accounts >= MINIMUM_REPORTABLE_ACCOUNTS else None,
@@ -19201,6 +19236,7 @@ def _founder_growth_report(now=None):
             ),
             "new_accounts_change": growth_change if growth_change_reportable else None,
             "new_accounts_change_status": "measured" if growth_change_reportable else "suppressed",
+            **lifecycle_counts,
             "active_accounts": (
                 len(active_ids) if len(active_ids) >= MINIMUM_REPORTABLE_ACCOUNTS else None
             ),
@@ -19216,8 +19252,6 @@ def _founder_growth_report(now=None):
         feature_periods[label] = feature_adoption(
             feature_rows, total_accounts=len(active_ids),
         )
-    from growth_glue import billing_enabled
-    billing_is_enabled = bool(billing_enabled())
     paid_customer_count = (User.query.filter(
         User.stripe_customer_id.isnot(None),
         User.stripe_paid_until.isnot(None),
@@ -19246,7 +19280,8 @@ def _founder_growth_report(now=None):
         "scope_note": (
             "Usage and repeat activity include only signed-in accounts that consented to analytics. "
             "A count is suppressed when it or its complementary group has fewer than five accounts. "
-            "Small paid-customer counts are also withheld."
+            "Small paid-customer counts are also withheld. Paid access transitions are aggregate counts "
+            "of verified Stripe events, not unique customer or churn counts."
         ),
     }
 

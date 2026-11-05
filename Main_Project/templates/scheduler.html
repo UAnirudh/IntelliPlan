@@ -634,6 +634,13 @@
     display: flex; flex-wrap: wrap; gap: 6px;
     font-size: 0.72rem; color: var(--text-muted);
   }
+  .ck-reasons {
+    margin-top: 8px; padding: 10px 12px; border-radius: var(--ipd-radius-sm);
+    background: var(--bg);
+  }
+  .ck-reasons h3 { margin: 0 0 4px; font-size: 0.78rem; font-weight: 650; }
+  .ck-reasons ul { margin: 0; padding-left: 1.1rem; color: var(--text-muted); font-size: 0.78rem; line-height: 1.5; }
+  .ck-stage { flex-basis: 100%; }
 
   .ck-mode {
     display: inline-flex; padding: 3px; gap: 2px;
@@ -1306,6 +1313,10 @@
       </button>
     </div>
     <div class="ck-meta" id="ckMeta"></div>
+    <section class="ck-reasons" id="ckReasonPanel" aria-labelledby="ckReasonTitle" hidden>
+      <h3 id="ckReasonTitle">Why this block is here</h3>
+      <ul id="ckReasonList"></ul>
+    </section>
   </div>
   <div class="ck-mode" role="group" aria-label="Checklist mode">
     <button type="button" data-mode="summary"  class="active">Summary</button>
@@ -3150,6 +3161,19 @@ function findBlock(blockId) {
   return null;
 }
 
+function renderBlockReasons(block, panel, list) {
+  const reasons = Array.isArray(block && block.reasons)
+    ? block.reasons.map(reason => String(reason || '').trim()).filter(Boolean).slice(0, 6)
+    : [];
+  list.textContent = '';
+  reasons.forEach(reason => {
+    const item = document.createElement('li');
+    item.textContent = reason;
+    list.appendChild(item);
+  });
+  panel.hidden = reasons.length === 0;
+}
+
 function openChecklist(blockId) {
   const block = findBlock(blockId);
   if (!block) return;
@@ -3162,7 +3186,13 @@ function openChecklist(blockId) {
   if (block.time_slot) meta.push(`<span class="iv-meta">Time: ${escapeText(block.time_slot)}</span>`);
   if (block.duration_minutes) meta.push(`<span class="iv-meta">Duration: ${block.duration_minutes} min</span>`);
   if (block.difficulty) meta.push(`<span class="iv-meta">Difficulty: ${escapeText(block.difficulty)}</span>`);
+  if (block.stage_title) meta.push(`<span class="iv-meta ck-stage">Stage: ${escapeText(block.stage_title)}</span>`);
   document.getElementById('ckMeta').innerHTML = meta.join('');
+  renderBlockReasons(
+    block,
+    document.getElementById('ckReasonPanel'),
+    document.getElementById('ckReasonList'),
+  );
 
   // Mode buttons
   document.querySelectorAll('.ck-mode button').forEach(b => {

@@ -155,6 +155,7 @@ def test_founder_mode_unlocks_aggregate_growth_console_only_for_verified_owner(c
     assert b"Growth and engagement" in dashboard
     assert b"Signup cohort retention" in dashboard
     assert b"Product improvement opportunities" in dashboard
+    assert b"Paid access started" in dashboard and b"Paid access ended" in dashboard
     assert b"Fewer than 5" in dashboard
     assert client.get("/api/owner/schools").status_code == 200
     assert client.get("/admin/accounts").status_code == 200
@@ -168,6 +169,8 @@ def test_founder_mode_unlocks_aggregate_growth_console_only_for_verified_owner(c
     assert report["periods"]["week"]["new_accounts"] is None
     assert report["billing_status"] == "not_configured"
     assert report["paid_customers_now"] is None
+    assert report["periods"]["day"]["paid_access_started"] is None
+    assert report["periods"]["day"]["paid_access_ended"] is None
     assert "email" not in str(report).lower()
     response = client.post("/api/founder/mode", data={"mode": "normal"})
     assert response.status_code == 302
@@ -216,6 +219,42 @@ def test_growth_report_hides_small_unverified_complement_and_growth_delta(client
     assert day["verified_new_accounts"] is None  # only four new accounts remain unverified
     assert day["new_accounts_change"] is None  # both windows are reportable, but delta is under five
     assert day["new_accounts_change_status"] == "suppressed"
+
+
+def test_founder_paid_transition_metrics_use_calendar_buckets_and_suppress_small_cells(monkeypatch):
+    now = datetime(2040, 6, 1, 12)
+    monkeypatch.setenv("BILLING_ENABLED", "1")
+    digests = []
+    with App.app.app_context():
+        App.db.create_all()
+        rows = []
+        for kind, day, count in (
+            ("paid_access_started", now.date(), 5),
+            ("paid_access_ended", now.date(), 4),
+            ("paid_access_ended", (now - timedelta(days=1)).date(), 6),
+        ):
+            for _ in range(count):
+                digest = uuid4().hex * 2
+                digests.append(digest)
+                rows.append(App.BillingLifecycleEvent(
+                    event_digest=digest,
+                    event_day=day,
+                    event_kind=kind,
+                    plan_tier="pro",
+                ))
+        App.db.session.add_all(rows)
+        App.db.session.commit()
+        report = App._founder_growth_report(now)
+        App.BillingLifecycleEvent.query.filter(
+            App.BillingLifecycleEvent.event_digest.in_(digests)
+        ).delete(synchronize_session=False)
+        App.db.session.commit()
+
+    assert report["billing_status"] == "tracked"
+    assert report["periods"]["day"]["paid_access_started"] == 5
+    assert report["periods"]["day"]["paid_access_ended"] is None
+    assert report["periods"]["week"]["paid_access_ended"] == 10
+    assert report["periods"]["month"]["paid_access_ended"] == 10
 
 
 def test_signup_cohort_retention_uses_exact_utc_day_windows_and_consent_events(client):

@@ -6,7 +6,7 @@
     <div>
       <p class="founder-eyebrow">FOUNDER WORKSPACE</p>
       <h1 id="founder-title">Growth and engagement</h1>
-      <p>Account growth, repeat use, and product areas that need attention.</p>
+      <p>Account growth, repeat use, paid access transitions, and product areas that need attention.</p>
     </div>
     <time datetime="{{ report.as_of }}">Updated {{ report.as_of }}</time>
   </header>
@@ -18,7 +18,7 @@
     </div>
     <div class="founder-table-wrap" role="region" aria-labelledby="growth-title" tabindex="0">
       <table class="founder-table">
-        <thead><tr><th scope="col">Window</th><th scope="col">New accounts</th><th scope="col">Verified</th><th scope="col">Active¹</th><th scope="col">Repeat active²</th><th scope="col">New accounts vs prior</th></tr></thead>
+        <thead><tr><th scope="col">Window</th><th scope="col">New accounts</th><th scope="col">Verified</th><th scope="col">Active¹</th><th scope="col">Repeat active²</th><th scope="col">New accounts vs prior</th><th scope="col">Paid access started³</th><th scope="col">Paid access ended³</th></tr></thead>
         <tbody>
           {% for key, label in [('day','Daily'),('week','Weekly'),('month','Monthly')] %}
           {% set period = report.periods[key] %}
@@ -29,12 +29,14 @@
             <td>{% if period.active_accounts is not none %}{{ period.active_accounts }}{% else %}Fewer than 5{% endif %}</td>
             <td>{% if period.repeat_active_rate is not none %}{{ period.repeat_active_accounts }} · {{ (period.repeat_active_rate * 100)|round|int }}%{% else %}Suppressed{% endif %}</td>
             <td>{% if period.new_accounts_change_status == 'measured' %}{% if period.new_accounts_change > 0 %}+{% endif %}{{ period.new_accounts_change }}{% else %}Suppressed{% endif %}</td>
+            <td>{% if report.billing_status != 'tracked' %}Not configured{% elif period.paid_access_started is not none %}{{ period.paid_access_started }}{% else %}Suppressed{% endif %}</td>
+            <td>{% if report.billing_status != 'tracked' %}Not configured{% elif period.paid_access_ended is not none %}{{ period.paid_access_ended }}{% else %}Suppressed{% endif %}</td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
-    <p class="founder-footnote">¹ Active means a signed-in account with consented product activity in the selected window. ² Repeat active means the same account was active in both adjacent windows; repeat and non-repeat groups must each contain at least five accounts. This is a directional return-use measure, not a mature signup-cohort retention rate.</p>
+    <p class="founder-footnote">¹ Active means a signed-in account with consented product activity in the selected window. ² Repeat active means the same account was active in both adjacent windows; repeat and non-repeat groups must each contain at least five accounts. This is a directional return-use measure, not a mature signup-cohort retention rate. ³ Paid access starts and ends are UTC calendar-day counts of verified Stripe transitions, shown only at five or more events. They are not unique customer acquisition or cancellation counts: one account can have multiple transitions, and an end records an actual IntelliPlan entitlement change (including a payment failure, refund or dispute action), not a scheduled cancellation by itself.</p>
   </section>
 
   <section class="founder-panel" aria-labelledby="cohort-title">
@@ -102,7 +104,7 @@
     <p class="founder-footnote">These are discovery experiments based only on feature areas with reportable counts; they are not proof that another feature has no value.</p>
   </section>
 
-  <p class="founder-scope">{{ report.scope_note }} New accounts are not paid customers. The current paid total counts active Stripe-paid windows only; paid customer gains and churn need subscription lifecycle events before they can be reported accurately. When billing is off, the paid total says “Not configured.”</p>
+  <p class="founder-scope">{{ report.scope_note }} New accounts are not paid customers. The current paid total counts active Stripe-paid windows only. Paid transition metrics are unavailable while billing is off.</p>
 </section>
 <style>
   .founder-console { max-width: 1120px; margin: 0 auto; padding: clamp(18px,3vw,32px); color: var(--text-primary); }
@@ -119,7 +121,7 @@
   .founder-paid strong { color:var(--text-primary); font-size:1.2rem; font-variant-numeric:tabular-nums; }
   .founder-table-wrap { overflow:auto; }
   .founder-table-wrap:focus-visible { outline:2px solid var(--focus-ring); outline-offset:2px; }
-  .founder-table { width:100%; min-width:700px; border-collapse:collapse; text-align:left; font-size:.85rem; }
+  .founder-table { width:100%; min-width:940px; border-collapse:collapse; text-align:left; font-size:.85rem; }
   .founder-table th,.founder-table td { padding:11px 10px; font-variant-numeric:tabular-nums; }
   .founder-table thead { color:var(--text-muted); font-size:.7rem; text-transform:uppercase; letter-spacing:.045em; }
   .founder-table tbody tr+tr { box-shadow:inset 0 1px color-mix(in srgb,var(--text-primary) 6%,transparent); }

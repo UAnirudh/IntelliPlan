@@ -95,12 +95,19 @@ def owner(monkeypatch):
     monkeypatch.setenv('STRIPE_PRICE_ID_PREMIUM_YEARLY', 'price_premium_year_test')
     with App.app.app_context():
         App.db.create_all()
+        prior_digests = {row[0] for row in App.db.session.query(App.BillingLifecycleEvent.event_digest).all()}
         user = App.User(email=f'billing-{uuid4().hex}@example.test', password_hash='x', birth_year=2000)
         App.db.session.add(user)
         App.db.session.commit()
         uid = user.id
         yield uid
         App.db.session.rollback()
+        lifecycle = App.BillingLifecycleEvent.query
+        if prior_digests:
+            lifecycle.filter(~App.BillingLifecycleEvent.event_digest.in_(prior_digests)).delete(
+                synchronize_session=False)
+        else:
+            lifecycle.delete(synchronize_session=False)
         App.AICreditGrant.query.filter_by(user_id=uid).delete()
         App.User.query.filter_by(id=uid).delete()
         App.db.session.commit()
@@ -118,7 +125,7 @@ def invoice(uid, modern=False):
     else:
         obj['subscription_details'] = meta
         line.update(type='subscription', price={'id': 'price_premium_test'}, proration=False)
-    return {'id': 'evt_synthetic_invoice', 'type': 'invoice.paid', 'data': {'object': obj}}
+    return {'id': f'evt_synthetic_invoice_{uuid4().hex}', 'type': 'invoice.paid', 'data': {'object': obj}}
 
 
 def topup(uid, status='paid', kind='checkout.session.completed'):
@@ -153,6 +160,128 @@ def test_paid_invoice_uses_actual_period_and_duplicate_never_adds_time(owner, mo
     assert user.paid_until == datetime(2026, 11, 19, 12)
     assert user.plan_tier == 'premium'
     assert user.stripe_customer_id == 'cus_synthetic'
+
+
+def test_paid_access_transition_ledger_is_daily_minimized_and_retry_safe(owner, monkeypatch):
+    monkeypatch.setenv('BILLING_ENABLED', '1')
+    event = invoice(owner)
+    event['created'] = int(NOW.replace(tzinfo=timezone.utc).timestamp())
+    assert growth_glue.apply_billing_event(event, now=NOW)
+    assert growth_glue.apply_billing_event(event, now=NOW)
+
+    digest = hashlib.sha256(event['id'].encode('utf-8')).hexdigest()
+    row = App.db.session.get(App.BillingLifecycleEvent, digest)
+    assert row is not None
+    assert (row.event_kind, row.plan_tier, row.event_day) == (
+        'paid_access_started', 'premium', NOW.date())
+    assert set(App.BillingLifecycleEvent.__table__.columns.keys()) == {
+        'event_digest', 'event_day', 'event_kind', 'plan_tier',
+    }
+    assert App.BillingLifecycleEvent.query.count() == 1
+
+
+def test_paid_transition_duplicate_insert_race_does_not_rollback_entitlement(owner, monkeypatch):
+    monkeypatch.setenv('BILLING_ENABLED', '1')
+    event = invoice(owner)
+    event['created'] = int(NOW.replace(tzinfo=timezone.utc).timestamp())
+    digest = hashlib.sha256(event['id'].encode('utf-8')).hexdigest()
+    App.db.session.add(App.BillingLifecycleEvent(
+        event_digest=digest,
+        event_day=NOW.date(),
+        event_kind='paid_access_started',
+        plan_tier='premium',
+    ))
+    App.db.session.commit()
+
+    # Model the concurrent worker that passed the initial SELECT before this
+    # row was inserted. The savepoint insert must absorb the unique collision
+    # while allowing the surrounding subscription update to commit.
+    original_get = App.db.session.get
+    initial_lookup = {'pending': True}
+    def miss_once(model, ident, **kwargs):
+        if model is App.BillingLifecycleEvent and ident == digest and initial_lookup['pending']:
+            initial_lookup['pending'] = False
+            return None
+        return original_get(model, ident, **kwargs)
+
+    monkeypatch.setattr(
+        App.db.session,
+        'get',
+        miss_once,
+    )
+    assert growth_glue.apply_billing_event(event, now=NOW)
+    monkeypatch.setattr(App.db.session, 'get', original_get)
+
+    user = App.db.session.get(App.User, owner)
+    assert user.paid_until == datetime.fromtimestamp(END, timezone.utc).replace(tzinfo=None)
+    assert App.BillingLifecycleEvent.query.filter_by(event_digest=digest).count() == 1
+
+
+def test_paid_access_end_is_recorded_only_when_entitlement_is_removed(owner, monkeypatch):
+    monkeypatch.setenv('BILLING_ENABLED', '1')
+    started = invoice(owner)
+    started['created'] = int(NOW.replace(tzinfo=timezone.utc).timestamp())
+    assert growth_glue.apply_billing_event(started, now=NOW)
+
+    ended_at = NOW + timedelta(days=2)
+    ended = {'id': f'evt_subscription_deleted_{uuid4().hex}',
+             'type': 'customer.subscription.deleted',
+             'created': int(ended_at.replace(tzinfo=timezone.utc).timestamp()),
+             'data': {'object': {
+                 'customer': 'cus_synthetic',
+                 'current_period_end': END,
+                 'metadata': {'user_id': str(owner), 'plan': 'premium'},
+             }}}
+    assert growth_glue.apply_billing_event(ended, now=ended_at)
+    assert growth_glue.apply_billing_event(ended, now=ended_at)
+    rows = App.BillingLifecycleEvent.query.order_by(App.BillingLifecycleEvent.event_day).all()
+    assert [(row.event_kind, row.event_day) for row in rows] == [
+        ('paid_access_started', NOW.date()), ('paid_access_ended', ended_at.date()),
+    ]
+
+
+def test_school_plan_means_stripe_revocation_does_not_count_as_access_ending(owner, monkeypatch):
+    monkeypatch.setenv('BILLING_ENABLED', '1')
+    from intelliplan.learning import entitlements
+    monkeypatch.setattr(entitlements, 'school_plan_for', lambda _user: 'pro')
+    started = invoice(owner)
+    started['created'] = int(NOW.replace(tzinfo=timezone.utc).timestamp())
+    assert growth_glue.apply_billing_event(started, now=NOW)
+    ended_at = NOW + timedelta(days=2)
+    ended = {'id': f'evt_school_subscription_deleted_{uuid4().hex}',
+             'type': 'customer.subscription.deleted',
+             'created': int(ended_at.replace(tzinfo=timezone.utc).timestamp()),
+             'data': {'object': {
+                 'customer': 'cus_synthetic',
+                 'current_period_end': END,
+                 'metadata': {'user_id': str(owner), 'plan': 'premium'},
+             }}}
+    assert growth_glue.apply_billing_event(ended, now=ended_at)
+    assert App.BillingLifecycleEvent.query.count() == 0
+
+
+def test_billing_off_does_not_retain_transition_analytics(owner, monkeypatch):
+    monkeypatch.delenv('BILLING_ENABLED', raising=False)
+    event = invoice(owner)
+    event['created'] = int(NOW.replace(tzinfo=timezone.utc).timestamp())
+    assert growth_glue.apply_billing_event(event, now=NOW)
+    assert App.BillingLifecycleEvent.query.count() == 0
+
+
+def test_old_transition_digests_are_purged_after_retention_window(monkeypatch):
+    monkeypatch.setenv('BILLING_ENABLED', '1')
+    digest = hashlib.sha256(uuid4().hex.encode('utf-8')).hexdigest()
+    with App.app.app_context():
+        App.db.session.add(App.BillingLifecycleEvent(
+            event_digest=digest,
+            event_day=datetime(2024, 1, 1).date(),
+            event_kind='paid_access_started',
+            plan_tier='pro',
+        ))
+        App.db.session.commit()
+        removed = growth_glue.purge_paid_access_transitions(datetime(2026, 11, 5))
+        assert removed == 1
+        assert App.db.session.get(App.BillingLifecycleEvent, digest) is None
 
 
 def test_async_paid_topup_credits_once_across_both_event_types(owner):

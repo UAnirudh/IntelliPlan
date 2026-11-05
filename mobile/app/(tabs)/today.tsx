@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, AppState, Pressable, RefreshControl, ScrollView, View } from "react-native";
+import { ActivityIndicator, AppState, Pressable, RefreshControl, ScrollView, useWindowDimensions, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
@@ -23,6 +23,7 @@ import {
   TodayPayload,
 } from "../../lib/api";
 import { dueLabel, minutes } from "../../lib/format";
+import { agendaTimeColumnWidth } from "../../lib/today-layout";
 import { refreshAndSyncReminders } from "../../lib/reminders";
 import { useQuery } from "../../lib/useQuery";
 import { useAuth } from "../../lib/auth";
@@ -167,6 +168,7 @@ function taskEstimate(task: Task | PlannedTask): number {
 export default function TodayScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const { width: viewportWidth } = useWindowDimensions();
   const router = useRouter();
   const { user } = useAuth();
 
@@ -242,6 +244,9 @@ export default function TodayScreen() {
     month: "long",
     day: "numeric",
   });
+  // Keep the time readable while preserving room for long block titles on
+  // compact phones. The agenda stays a single, predictable column.
+  const timeColumnWidth = agendaTimeColumnWidth(viewportWidth);
   const todayKey = localDateKey(now);
   const todayBlocks = useMemo(() => blocksForToday(schedule.data, now), [schedule.data, todayKey]);
   const scheduleProgress = schedule.data?.progress || (schedule.data as any)?.data?.progress || {};
@@ -473,6 +478,8 @@ export default function TodayScreen() {
             <Button
               title="Start focus"
               icon="play"
+              accessibilityLabel={`Start focused study: ${featuredTask.title}`}
+              accessibilityHint="Opens a focus session for this task"
               onPress={() => startTask(featuredTask)}
             />
             {actionError?.title === featuredTask.title ? (
@@ -483,7 +490,13 @@ export default function TodayScreen() {
           <Card style={{ gap: space.md, backgroundColor: colors.accentSoft, borderColor: colors.borderAccent }}>
             <Label style={{ color: colors.accent }}>Do this first</Label>
             <T variant="md" weight="700">{blockTitle(focusedBlock)}</T>
-            <Button title="Start focus" icon="play" onPress={() => startBlock(focusedBlock)} />
+            <Button
+              title="Start focus"
+              icon="play"
+              accessibilityLabel={`Start focused study: ${blockTitle(focusedBlock)}`}
+              accessibilityHint="Opens a focus session for this study block"
+              onPress={() => startBlock(focusedBlock)}
+            />
           </Card>
         ) : (
           <EmptyState
@@ -523,7 +536,7 @@ export default function TodayScreen() {
 
         <View style={{ gap: space.sm }}>
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-            <T variant="lg" weight="700">Your day</T>
+            <T variant="lg" weight="700" accessibilityRole="header">Your day</T>
             {blockProgress.total ? <T variant="xs" tone="muted">In time order</T> : null}
           </View>
 
@@ -535,7 +548,7 @@ export default function TodayScreen() {
                 const isLast = index === todayBlocks.length - 1;
                 return (
                   <View key={block.block_id || `${title}-${index}`} style={{ flexDirection: "row", gap: space.md }}>
-                    <View style={{ width: 68, alignItems: "flex-end", paddingTop: 13 }}>
+                    <View style={{ width: timeColumnWidth, alignItems: "flex-end", paddingTop: 13 }}>
                       <T variant="xs" tone={checked ? "muted" : "secondary"} numberOfLines={1}>
                         {timeForBlock(block)}
                       </T>
@@ -560,9 +573,14 @@ export default function TodayScreen() {
                       disabled={!!block.is_break}
                       onPress={() => startBlock(block)}
                       accessibilityRole={block.is_break ? undefined : "button"}
-                      accessibilityLabel={block.is_break ? title : `Start focus for ${title}`}
+                      accessibilityLabel={block.is_break
+                        ? `${title}, break, ${timeForBlock(block)}`
+                        : `${checked ? "Completed study block" : index === focusedBlockIndex ? "Next study block" : "Study block"}: ${title}, ${timeForBlock(block)}, ${blockMinutes(block) ? minutes(blockMinutes(block)) : "duration not set"}`}
+                      accessibilityHint={block.is_break ? undefined : "Starts a focus session for this study block"}
+                      accessibilityState={{ disabled: !!block.is_break, selected: !block.is_break && index === focusedBlockIndex }}
                       style={({ pressed }) => ({
                         flex: 1,
+                        minHeight: 56,
                         paddingVertical: space.md,
                         paddingHorizontal: space.md,
                         marginBottom: space.sm,
@@ -656,8 +674,13 @@ export default function TodayScreen() {
         {laterTasks.length ? (
           <View style={{ gap: space.sm }}>
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-              <T variant="lg" weight="700">Up next</T>
-              <Pressable onPress={() => router.push("/(tabs)/tasks")} accessibilityRole="link">
+              <T variant="lg" weight="700" accessibilityRole="header">Up next</T>
+              <Pressable
+                onPress={() => router.push("/(tabs)/tasks")}
+                accessibilityRole="link"
+                accessibilityLabel="See all due tasks"
+                hitSlop={12}
+              >
                 <T variant="sm" tone="accent" weight="600">See all</T>
               </Pressable>
             </View>

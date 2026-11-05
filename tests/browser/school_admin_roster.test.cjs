@@ -117,3 +117,29 @@ test('school admin roster search is labelled and limited to the selected workspa
   assert.match(source, /value\.trim\(\)\.slice\(0, 128\)/);
   assert.match(source, /URLSearchParams\(\{limit:'50'\}\)/);
 });
+
+test('teacher and student access guidance names its workspace and admin boundary', () => {
+  const template = fs.readFileSync(path.join(__dirname, '../../Main_Project/templates/school_admin.html'), 'utf8');
+  assert.match(template, /id="admin-role" aria-describedby="admin-role-help"/);
+  const start = source.indexOf('function updateMemberRoleHelp() {');
+  const end = source.indexOf('\n  }', start) + 4;
+  assert.ok(start >= 0 && end > start, 'role guidance should remain a standalone function');
+  const role = new Element('select');
+  const help = new Element('p');
+  const context = {
+    selected: {name: 'North School'},
+    $: id => id === 'admin-role' ? role : help,
+  };
+  vm.createContext(context);
+  vm.runInContext(source.slice(start, end), context);
+
+  role.value = 'teacher';
+  vm.runInContext('updateMemberRoleHelp()', context);
+  assert.match(help.textContent, /North School only/);
+  assert.match(help.textContent, /Assign the teacher to a classroom separately/);
+  assert.match(help.textContent, /does not grant school administrator access/);
+
+  role.value = 'student';
+  vm.runInContext('updateMemberRoleHelp()', context);
+  assert.match(help.textContent, /does not grant teacher or school administrator controls/);
+});

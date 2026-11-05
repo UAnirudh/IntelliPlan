@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import { Pressable, RefreshControl, ScrollView, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -22,6 +22,7 @@ import { useQuery } from "../../lib/useQuery";
 import { useTheme } from "../../theme/ThemeProvider";
 import { radius, space } from "../../theme/tokens";
 import { minutes, shortDate } from "../../lib/format";
+import { canApplyServerProgress, createProgressSaveQueue, toggleScheduleBlockProgress } from "../../lib/schedule-progress";
 import {
   Button,
   Card,
@@ -106,7 +107,17 @@ export default function PlanScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
-  const q = useQuery<SavedSchedule>("schedule", getSchedule, {
+  const progressRef = useRef<ScheduleProgress>({});
+  const progressRevision = useRef(0);
+  const scheduleRequestRevision = useRef(0);
+  const pendingProgressWrites = useRef(0);
+  const fetchSchedule = useCallback(async () => {
+    // Capture which local progress version this request is allowed to seed.
+    // A delayed focus/foreground response must not undo later checkbox taps.
+    scheduleRequestRevision.current = progressRevision.current;
+    return getSchedule();
+  }, []);
+  const q = useQuery<SavedSchedule>("schedule", fetchSchedule, {
     refreshOnFocus: true,
     refreshOnForeground: true,
   });
@@ -129,9 +140,19 @@ export default function PlanScreen() {
    * below explains why, which is better than a checkbox that springs back.
    */
   const [progress, setProgress] = useState<ScheduleProgress>({});
+  const saveProgress = useMemo(() => createProgressSaveQueue(saveScheduleProgress), []);
   const serverProgress = q.data?.progress;
   React.useEffect(() => {
-    setProgress(serverProgress || {});
+    // Ignore reads that began before a local tap, even if their response
+    // arrives after the serialized writes have drained.
+    if (!canApplyServerProgress(
+      scheduleRequestRevision.current,
+      progressRevision.current,
+      pendingProgressWrites.current,
+    )) return;
+    const next = serverProgress || {};
+    progressRef.current = next;
+    setProgress(next);
   }, [serverProgress]);
 
   const [progressNote, setProgressNote] = useState<string | null>(null);
@@ -147,20 +168,24 @@ export default function PlanScreen() {
         setProgressNote("This block is too old to tick off. Rebuild the plan to fix it.");
         return;
       }
-      const next: ScheduleProgress = {
-        ...progress,
-        [key]: { ...(progress[key] || {}), done: !progress[key]?.done },
-      };
+      const next = toggleScheduleBlockProgress(progressRef.current, key);
+      progressRevision.current += 1;
+      progressRef.current = next;
+      pendingProgressWrites.current += 1;
       setProgress(next);
       Haptics.selectionAsync().catch(() => {});
       try {
-        await saveScheduleProgress(next);
-        setProgressNote(null);
+        await saveProgress(next);
+        if (progressRef.current === next) setProgressNote(null);
       } catch (e: any) {
-        setProgressNote("Ticked here, but not saved to your account yet.");
+        if (progressRef.current === next) {
+          setProgressNote("Ticked here, but not saved to your account yet.");
+        }
+      } finally {
+        pendingProgressWrites.current = Math.max(0, pendingProgressWrites.current - 1);
       }
     },
-    [progress],
+    [saveProgress],
   );
 
   /** Blocks done and minutes done, against the whole plan. */
@@ -205,7 +230,8 @@ export default function PlanScreen() {
       });
       setRecovery(r);
       if (r.changed && r.data) {
-        q.setData(() => ({ status: "ok", data: r.data, progress }) as SavedSchedule);
+        scheduleRequestRevision.current = progressRevision.current;
+        q.setData(() => ({ status: "ok", data: r.data, progress: progressRef.current }) as SavedSchedule);
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     } catch (e: any) {
@@ -221,6 +247,7 @@ export default function PlanScreen() {
     setGenError(null);
     try {
       const fresh = await generateSchedule(hours, when);
+      scheduleRequestRevision.current = progressRevision.current;
       q.setData(() => fresh);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     } catch (e: any) {

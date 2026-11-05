@@ -576,6 +576,11 @@
 
   function startTracker() {
     var generation = ++cameraPolicyGeneration;
+    var focusState = $('ipaFocusState');
+    if (focusState) focusState.hidden = false;
+    $('ipaFocusStateText').textContent = 'Checking camera access';
+    var stopButton = $('ipaFocusStop');
+    if (stopButton) stopButton.hidden = false;
     return api('/api/active/focus-permission').then(function (permission) {
       if (generation !== cameraPolicyGeneration || !$('ipaFocusToggle').checked || !IPA.running) return;
       if (permission.allowed !== true) { denyCameraCheckIn(permission.reason); return; }
@@ -714,10 +719,21 @@
     hideSelfView();
     var selfWrap = $('ipaSelfViewWrap');
     if (selfWrap) selfWrap.hidden = true;
+    var state = $('ipaFocusState');
+    if (state) state.hidden = true;
+    var stopButton = $('ipaFocusStop');
+    if (stopButton) stopButton.hidden = true;
+    $('ipaNudge').hidden = true;
     if (!IPA.tracker) return;
     IPA.tracker.stop();
-    $('ipaFocusState').hidden = true;
-    $('ipaNudge').hidden = true;
+  }
+
+  function stopCameraCheckIn() {
+    $('ipaFocusToggle').checked = false;
+    stopTracker();
+    $('ipaFocusNote').textContent = 'Camera check-in is off. The study timer still works.';
+    var method = $('ipaFocusMethod');
+    if (method) method.hidden = true;
   }
 
   function paintFocus(state) {
@@ -774,15 +790,15 @@
       });
     }
 
+    var focusStop = $('ipaFocusStop');
+    if (focusStop) focusStop.addEventListener('click', stopCameraCheckIn);
+
     $('ipaFocusToggle').addEventListener('change', function () {
       if (this.checked) {
         if (IPA.session && IPA.running) startTracker();
         else $('ipaFocusNote').textContent = 'Camera check-in will start when you start or resume your session.';
       } else {
-        stopTracker();
-        $('ipaFocusNote').textContent = 'Camera check-in is off. The study timer still works.';
-        var method = $('ipaFocusMethod');
-        if (method) method.hidden = true;
+        stopCameraCheckIn();
       }
     });
 

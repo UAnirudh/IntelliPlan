@@ -23,9 +23,10 @@ already earned are real.
 from __future__ import annotations
 
 import json
+import hashlib
 import logging
 import os
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Iterable
 
 from flask import Blueprint, g, has_request_context, jsonify, redirect, render_template, request
@@ -47,10 +48,90 @@ PAY_LINK_SALT = "growth-pay-link"
 #: already published.
 ACTIVATION_DAYS = 7
 PAYWALL_HEADER = "X-IntelliPlan-Paywall"
+BILLING_LIFECYCLE_RETENTION_DAYS = 400
 
 
 def billing_enabled() -> bool:
     return os.getenv("BILLING_ENABLED", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _record_paid_access_transition(event: dict, event_kind: str, plan_tier: str | None) -> bool:
+    """Stage one privacy-minimized daily transition row in the current transaction.
+
+    Stripe event IDs are stored only as SHA-256 digests for retry dedupe. The
+    aggregate ledger contains no account/customer identifier or raw payload.
+    Billing-off environments intentionally retain no transition metrics.
+    """
+    if not billing_enabled():
+        return False
+    event_id = event.get("id")
+    created = event.get("created")
+    if not isinstance(event_id, str) or not event_id or len(event_id) > 255:
+        return False
+    if isinstance(created, bool) or not isinstance(created, int) or created < 0:
+        return False
+
+    from App import BillingLifecycleEvent, db
+
+    digest = hashlib.sha256(event_id.encode("utf-8")).hexdigest()
+    if db.session.get(BillingLifecycleEvent, digest) is not None:
+        return False
+    try:
+        day = datetime.fromtimestamp(created, timezone.utc).date()
+    except (OverflowError, OSError, ValueError):
+        return False
+    # The initial lookup avoids needless savepoints for ordinary retries, but
+    # two workers can both miss it. Isolate the unique-key insert in a
+    # savepoint so a duplicate delivery cannot roll back the entitlement
+    # update in the surrounding webhook transaction.
+    from sqlalchemy.exc import IntegrityError
+
+    try:
+        with db.session.begin_nested():
+            db.session.add(BillingLifecycleEvent(
+                event_digest=digest,
+                event_day=day,
+                event_kind=event_kind,
+                plan_tier=plan_tier if plan_tier in {"pro", "premium", "premium_byok"} else None,
+            ))
+            db.session.flush()
+    except IntegrityError:
+        # Treat only an actual duplicate digest as an idempotent race. Other
+        # constraint failures still fail the webhook and remain retryable.
+        if db.session.get(BillingLifecycleEvent, digest) is not None:
+            return False
+        raise
+    return True
+
+
+def purge_paid_access_transitions(now: datetime | None = None) -> int:
+    """Remove old digest rows while retaining one year of trend history."""
+    if not billing_enabled():
+        return 0
+    from App import BillingLifecycleEvent, db
+
+    today = (now or utcnow()).date()
+    cutoff = today - timedelta(days=BILLING_LIFECYCLE_RETENTION_DAYS)
+    removed = BillingLifecycleEvent.query.filter(BillingLifecycleEvent.event_day < cutoff).delete(
+        synchronize_session=False,
+    )
+    if removed:
+        db.session.commit()
+    return int(removed or 0)
+
+
+def _has_paid_access(user: Any, now: datetime) -> bool:
+    if getattr(user, "paid_until", None) is not None and user.paid_until > now:
+        return True
+    try:
+        from intelliplan.learning.entitlements import school_plan_for
+
+        return school_plan_for(user) in {"pro", "premium", "premium_byok"}
+    except Exception as exc:
+        # An uncertain school entitlement must not create a false access-loss
+        # metric or imply that a partnered learner's plan ended.
+        logger.warning("school entitlement lookup failed for billing metric: %s", exc)
+        return True
 
 
 # ── Measurement ─────────────────────────────────────────────────────────
@@ -910,6 +991,8 @@ def apply_billing_event(event: Any, now: datetime | None = None) -> bool:
         ):
             db.session.rollback()
             return False
+        had_paid_access = _has_paid_access(user, now)
+        previous_plan = user.plan_tier
         current_stripe_end = user.stripe_paid_until
         current_created = user.stripe_event_created or 0
         if current_stripe_end is None:
@@ -926,6 +1009,9 @@ def apply_billing_event(event: Any, now: datetime | None = None) -> bool:
         user.plan_tier = None
         if created > current_created:
             user.stripe_event_created = created
+        still_has_paid_access = _has_paid_access(user, now)
+        if had_paid_access and not still_has_paid_access:
+            _record_paid_access_transition(event, "paid_access_ended", previous_plan)
         db.session.commit()
         return True
     # Checkout completion is not payment/period evidence. Delayed methods can
@@ -956,6 +1042,7 @@ def apply_billing_event(event: Any, now: datetime | None = None) -> bool:
             return True  # Acknowledge an older retry without changing access.
         if incoming == current and user.plan_tier != period.plan:
             raise ValueError('Paid invoice conflicts with an existing entitlement timestamp.')
+    had_paid_access = _has_paid_access(user, now)
     # Never shorten a window: referral months already earned stay earned.
     if user.paid_until is None or period_end > user.paid_until:
         user.paid_until = period_end
@@ -964,6 +1051,8 @@ def apply_billing_event(event: Any, now: datetime | None = None) -> bool:
     user.stripe_event_created = created
     if period.customer:
         user.stripe_customer_id = str(period.customer)[:64]
+    if not had_paid_access and _has_paid_access(user, now):
+        _record_paid_access_transition(event, "paid_access_started", period.plan)
     db.session.commit()
     return True
 

@@ -104,6 +104,7 @@
       const option = document.createElement('option'); option.value = 'admin'; option.textContent = 'School administrator';
       $('admin-role').append(option);
     } else if (!members.can_manage_admin && addAdminRole) addAdminRole.remove();
+    updateMemberRoleHelp();
     renderAudit(audit.events);
     const [beta, operations] = await Promise.all([api(`/api/school-admin/organizations/${renderedOrganization.id}/beta`), api(`/api/school-admin/organizations/${renderedOrganization.id}/operations`)]);
     if (selected !== renderedOrganization) return;
@@ -119,6 +120,17 @@
     $('admin-stat-members').textContent = String(data.total);
     $('admin-stat-teachers').textContent = String(data.role_counts.teacher || 0);
   }
+  function updateMemberRoleHelp() {
+    const role = $('admin-role').value;
+    const workspace = selected?.name || 'selected workspace';
+    const copy = role === 'teacher'
+      ? `Teacher access applies to ${workspace} only. Assign the teacher to a classroom separately; this does not grant school administrator access.`
+      : role === 'admin'
+        ? `School administrator access applies to ${workspace}. It cannot change the platform-wide school plan.`
+        : `Student access applies to ${workspace} only. It does not grant teacher or school administrator controls.`;
+    $('admin-role-help').textContent = copy;
+  }
+  $('admin-role').addEventListener('change', updateMemberRoleHelp);
   $('admin-member-filter').addEventListener('input', () => {
     clearTimeout(memberSearchTimer);
     const scope = selected;
