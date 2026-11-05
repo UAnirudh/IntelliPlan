@@ -83,7 +83,12 @@ def test_real_health_route_keeps_liveness_uncached_without_repeated_catalog_read
                 response = client.get('/health')
                 assert response.status_code == 200
                 assert response.headers['Cache-Control'] == 'no-store'
-                assert response.get_json()['users_schema_ok'] is True
+                payload = response.get_json()
+                assert payload['users_schema_ok'] is True
+                assert 'users_columns' not in payload
+                assert 'notion_columns' not in payload
+                assert b'password_hash' not in response.data
+                assert b'refresh_token' not in response.data
             assert sum(sql.strip() == 'SELECT 1' for sql in statements) == 3
             assert not any('PRAGMA' in sql or 'pg_catalog' in sql for sql in statements)
         finally:
@@ -104,4 +109,8 @@ def test_cached_schema_cannot_hide_a_failed_database_liveness_check(monkeypatch)
         assert response.status_code == 503
         assert response.get_json()['status'] == 'error'
         assert response.get_json()['users_schema_ok'] is False
+        assert 'users_columns' not in response.get_json()
+        assert 'notion_columns' not in response.get_json()
+        assert b'password_hash' not in response.data
+        assert b'refresh_token' not in response.data
         assert b'private provider diagnostic' not in response.data
