@@ -22,7 +22,8 @@ policies and target API deadlines can change.
 | EAS submit destination | Internal track, draft | The checked-in submit profile does not publish a production release. Choose the intended test/production track in Play Console or update submission configuration deliberately. |
 | EAS project link | Not set in `mobile/app.json` (`extra.eas` is empty) | The owner must create/link the EAS project and authenticate before remote builds. |
 
-The Expo SDK is 57 (`mobile/package.json`). `mobile/app.json` declares
+The app uses Expo SDK 58 and React Native 0.88 (`mobile/package.json`).
+`mobile/app.json` declares
 `POST_NOTIFICATIONS` and `CAMERA` and blocks several unused audio/video and
 legacy storage permissions. Expo plugins can contribute manifest entries, so
 review the permissions in the generated AAB/Play Console before submitting;

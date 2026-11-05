@@ -261,11 +261,11 @@ Before the first store submission:
 4. Android remote push needs FCM: create a Firebase project, then
    `npx eas credentials` → Android → *Google Service Account / FCM V1*.
    iOS push credentials are created by `eas build` on first run.
-5. Run `npx expo-doctor` — it should report every check passing. SDK 57
-   dropped the top-level `splash`, `newArchEnabled` and
-   `android.edgeToEdgeEnabled` keys; the splash now lives in the
-   `expo-splash-screen` plugin entry in `app.json`. This app uses SDK 58,
-   React Native 0.88, and the current Expo 58 build image for iOS 27.
+5. Run `npx expo-doctor` — it should report every check passing. This app
+   uses Expo SDK 58 and React Native 0.88. The removed top-level `splash`,
+   `newArchEnabled` and `android.edgeToEdgeEnabled` keys are not used; the
+   splash lives in the `expo-splash-screen` plugin entry in `app.json`. The
+   production EAS profile uses the Expo 58 build image for iOS 27.
 
 Run both static store preflights from `mobile/` before building:
 
