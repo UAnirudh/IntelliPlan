@@ -746,6 +746,13 @@
       <input type="checkbox" id="pushOptIn" style="margin-top:3px;accent-color:var(--accent);width:16px;height:16px;flex-shrink:0;">
       <span>Send me <strong>browser push notifications</strong> for due assignments and study sessions.</span>
     </label>
+    <div id="desktopLoginStartup" hidden style="margin:0.85rem 0 1rem;padding:0.9rem 1rem;background:var(--bg-secondary);border-radius:12px;">
+      <label for="desktopLoginStartupEnabled" style="display:flex;align-items:flex-start;gap:10px;font-size:0.88rem;color:var(--text-secondary);cursor:pointer;">
+        <input type="checkbox" id="desktopLoginStartupEnabled" style="margin-top:3px;accent-color:var(--accent);width:16px;height:16px;flex-shrink:0;">
+        <span><strong>Start IntelliPlan at sign-in</strong><br>Keep reminders available by starting the app minimized to the tray when you log in.</span>
+      </label>
+      <p id="desktopLoginStartupHelp" class="form-hint" aria-live="polite" style="margin:0.55rem 0 0 26px;">Reminders continue while IntelliPlan is running in the tray. Choosing Quit stops reminders until the app is opened again.</p>
+    </div>
     <div class="form-group" style="margin-bottom:0.75rem;">
       <label class="form-label" for="leadSelect">Remind me how far in advance?</label>
       <select id="leadSelect" class="form-input" style="max-width:240px;">
@@ -1858,6 +1865,62 @@ function _phoneStatus(msg, ok) {
   el.style.color = ok ? 'var(--low)' : (ok === false ? 'var(--high)' : 'var(--text-muted)');
   if (msg) setTimeout(() => { if (el.textContent === msg) el.textContent = ''; }, 3200);
 }
+async function initDesktopLoginStartup() {
+  const bridge = window.intelliplan;
+  const card = document.getElementById('desktopLoginStartup');
+  const checkbox = document.getElementById('desktopLoginStartupEnabled');
+  const help = document.getElementById('desktopLoginStartupHelp');
+  if (!bridge || !bridge.isDesktop || !card || !checkbox || !help) return;
+
+  card.hidden = false;
+  checkbox.disabled = true;
+  try {
+    const state = await bridge.loginStartup();
+    if (!state || !state.supported) {
+      card.hidden = true;
+      return;
+    }
+    checkbox.checked = state.configured === true;
+    if (state.approvalRequired) {
+      help.textContent = 'Your Mac needs approval in System Settings → General → Login Items. Reliable automatic launch also requires the signed, notarized desktop release.';
+    } else if (state.osDisabled) {
+      help.textContent = 'IntelliPlan is selected, but your operating system has disabled it in startup settings. Re-enable it there to start reminders after login.';
+    } else if (state.unavailable) {
+      help.textContent = 'Automatic launch could not be read on this device. Reminders continue while IntelliPlan is open or minimized to the tray.';
+    }
+    checkbox.disabled = false;
+  } catch (error) {
+    help.textContent = 'Automatic launch settings are unavailable right now. Reminders continue while IntelliPlan is open or minimized to the tray.';
+    checkbox.disabled = true;
+  }
+
+  checkbox.addEventListener('change', async () => {
+    const wanted = checkbox.checked;
+    checkbox.disabled = true;
+    help.textContent = 'Saving sign-in setting…';
+    try {
+      const state = await bridge.setLoginStartup(wanted);
+      if (!state || !state.supported) throw new Error('unsupported');
+      checkbox.checked = state.configured === true;
+      if (state.approvalRequired) {
+        help.textContent = 'Your Mac needs approval in System Settings → General → Login Items. Reliable automatic launch also requires the signed, notarized desktop release.';
+      } else if (state.osDisabled) {
+        help.textContent = 'IntelliPlan is selected, but your operating system has disabled it in startup settings. Re-enable it there to start reminders after login.';
+      } else if (state.unavailable) {
+        help.textContent = 'Automatic launch could not be confirmed on this device. Reminders continue while IntelliPlan is open or minimized to the tray.';
+      } else {
+        help.textContent = wanted
+          ? 'Enabled. IntelliPlan will start in the tray at sign-in. Choosing Quit stops reminders until the app is opened again.'
+          : 'Disabled. Reminders continue while IntelliPlan is open or minimized to the tray; choosing Quit stops them.';
+      }
+    } catch (error) {
+      checkbox.checked = !wanted;
+      help.textContent = 'Could not save the sign-in setting. Reminders continue while IntelliPlan is open or minimized to the tray.';
+    } finally {
+      checkbox.disabled = false;
+    }
+  });
+}
 function refreshPhone() {
   fetch('/api/profile/phone').then(r => r.json()).then(d => {
     if (d.status !== 'ok') return;
@@ -2180,6 +2243,7 @@ async function testBrowserPush() {
 }
 
 refreshPhone();
+initDesktopLoginStartup();
 
 /* ── Notion connection (OAuth + token-paste fallback) ──── */
 function renderNotionStatus(s) {

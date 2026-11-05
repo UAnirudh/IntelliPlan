@@ -10,7 +10,7 @@ The web app is rendered in the window, but these only exist here:
 
 | Capability | Why it needs a native app |
 | --- | --- |
-| **OS notifications** | Fire whether or not a window is open. The browser's Notification API only works while the page is alive, so a closed tab means a missed session reminder. |
+| **OS notifications** | The desktop app checks upcoming reminders while its process is running, even when its window is hidden in the tray. Explicitly quitting the app stops those checks. |
 | **Tray "up next"** | The next scheduled session is visible without opening anything. Refreshes every minute and on wake from sleep. |
 | **Global shortcuts** | `Ctrl/Cmd+Shift+S` starts a study session from any application; `Ctrl/Cmd+Shift+A` opens quick add ("chem quiz fri") and says where the task landed in your plan. Both are also in the tray menu. |
 | **Persistent session** | Sign in once. The session survives quitting and restarting. |
@@ -30,6 +30,20 @@ Point it at a local server instead of production:
 ```bash
 IP_TARGET=http://127.0.0.1:3000 npm start
 ```
+
+## Reminders and sign-in startup
+
+Desktop reminders are checked by the running IntelliPlan process. Closing the
+window hides it in the tray; choosing **Quit** exits the process and stops
+reminder checks until IntelliPlan is opened again. In Settings, Windows and
+macOS users can opt in to **Start IntelliPlan at sign-in**. This setting is off
+by default and starts the app hidden to the tray. Linux sign-in startup is not
+currently supported by this setting.
+
+On macOS, automatic launch may require approval in System Settings → General →
+Login Items. Reliable operation also requires the distributed app to be signed
+and notarized; running an unsigned development build may not be permitted to
+start automatically by macOS.
 
 ## Building installers
 
