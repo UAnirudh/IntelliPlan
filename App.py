@@ -23435,8 +23435,7 @@ except Exception as _boot_e:
 
 @app.route("/health")
 def health_check():
-    """Diagnostic endpoint. Returns DB-schema state so we can see in
-    production whether the migration ran. Public, no secrets exposed."""
+    """Public readiness check. Keep schema catalog details server-side."""
     revision = os.environ.get('RAILWAY_GIT_COMMIT_SHA', '')
     from intelliplan.services.health_schema import schema_columns
     try:
