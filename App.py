@@ -19117,7 +19117,7 @@ def _founder_signup_cohort_retention(now=None, *, cohort_days=90, minimum_accoun
                 "cohort_accounts": None, "returned_accounts": None,
                 "rate": None, "status": "below_threshold",
             }
-        elif returned_accounts < minimum_accounts:
+        elif returned_accounts < minimum_accounts or cohort_accounts - returned_accounts < minimum_accounts:
             metric = {
                 "cohort_accounts": cohort_accounts, "returned_accounts": None,
                 "rate": None, "status": "small_cell_suppressed",
@@ -19141,12 +19141,17 @@ def _founder_growth_report(now=None):
     current analytics consent and deletes rows when that consent is withdrawn.
     """
     from datetime import timedelta as _timedelta
-    from intelliplan.founder_metrics import feature_adoption
+    from intelliplan.founder_metrics import (
+        MINIMUM_REPORTABLE_ACCOUNTS,
+        feature_adoption,
+        feature_optimization_actions,
+    )
 
     now = now or datetime.utcnow()
     periods = (("day", 1), ("week", 7), ("month", 30))
     output = {}
     feature_periods = {}
+    monthly_active_count = 0
     for label, days in periods:
         start = now - _timedelta(days=days)
         previous_start = start - _timedelta(days=days)
@@ -19164,6 +19169,8 @@ def _founder_growth_report(now=None):
                 ProductEvent.created_at < now,
             ).distinct().all()
         }
+        if label == "month":
+            monthly_active_count = len(active_ids)
         prior_active_ids = {
             row[0] for row in db.session.query(ProductEvent.user_id).filter(
                 ProductEvent.user_id.isnot(None),
@@ -19173,14 +19180,30 @@ def _founder_growth_report(now=None):
         }
         repeat_accounts = len(active_ids & prior_active_ids)
         retention_reportable = (
-            len(active_ids) >= 5 and len(prior_active_ids) >= 5 and repeat_accounts >= 5
+            len(active_ids) >= 5 and len(prior_active_ids) >= 5
+            and repeat_accounts >= 5 and len(active_ids) - repeat_accounts >= 5
+        )
+        unverified_accounts = new_accounts - verified_accounts
+        growth_change = new_accounts - prior_accounts
+        growth_change_reportable = (
+            new_accounts >= MINIMUM_REPORTABLE_ACCOUNTS
+            and prior_accounts >= MINIMUM_REPORTABLE_ACCOUNTS
+            and abs(growth_change) >= MINIMUM_REPORTABLE_ACCOUNTS
         )
         output[label] = {
             "days": days,
-            "new_accounts": new_accounts,
-            "verified_new_accounts": verified_accounts,
-            "new_accounts_change": (new_accounts - prior_accounts),
-            "active_accounts": len(active_ids),
+            "new_accounts": new_accounts if new_accounts >= MINIMUM_REPORTABLE_ACCOUNTS else None,
+            "verified_new_accounts": (
+                verified_accounts
+                if verified_accounts >= MINIMUM_REPORTABLE_ACCOUNTS
+                and unverified_accounts >= MINIMUM_REPORTABLE_ACCOUNTS
+                else None
+            ),
+            "new_accounts_change": growth_change if growth_change_reportable else None,
+            "new_accounts_change_status": "measured" if growth_change_reportable else "suppressed",
+            "active_accounts": (
+                len(active_ids) if len(active_ids) >= MINIMUM_REPORTABLE_ACCOUNTS else None
+            ),
             "repeat_active_accounts": repeat_accounts if retention_reportable else None,
             "repeat_active_rate": round(repeat_accounts / len(active_ids), 3) if retention_reportable else None,
             "retention_status": "measured" if retention_reportable else "below_threshold",
@@ -19190,24 +19213,40 @@ def _founder_growth_report(now=None):
             ProductEvent.created_at >= start,
             ProductEvent.created_at < now,
         ).all()
-        feature_periods[label] = feature_adoption(feature_rows)
+        feature_periods[label] = feature_adoption(
+            feature_rows, total_accounts=len(active_ids),
+        )
     from growth_glue import billing_enabled
     billing_is_enabled = bool(billing_enabled())
-    paid_customers = (User.query.filter(
+    paid_customer_count = (User.query.filter(
         User.stripe_customer_id.isnot(None),
         User.stripe_paid_until.isnot(None),
         User.stripe_paid_until >= now,
     ).count() if billing_is_enabled else None)
+    paid_customers = (
+        paid_customer_count
+        if paid_customer_count is None or paid_customer_count >= MINIMUM_REPORTABLE_ACCOUNTS
+        else None
+    )
+    optimization_actions = feature_optimization_actions(
+        feature_periods["month"], active_accounts=monthly_active_count,
+    )
     return {
         "as_of": now.isoformat(timespec="minutes") + "Z",
         "periods": output,
         "signup_cohort_retention": _founder_signup_cohort_retention(now),
         "features": feature_periods,
+        "optimization_actions": optimization_actions,
         "paid_customers_now": paid_customers,
+        "paid_customers_suppressed": (
+            billing_is_enabled and paid_customer_count is not None
+            and paid_customer_count < MINIMUM_REPORTABLE_ACCOUNTS
+        ),
         "billing_status": "tracked" if billing_is_enabled else "not_configured",
         "scope_note": (
             "Usage and repeat activity include only signed-in accounts that consented to analytics. "
-            "Feature adoption counts below five are suppressed."
+            "A count is suppressed when it or its complementary group has fewer than five accounts. "
+            "Small paid-customer counts are also withheld."
         ),
     }
 

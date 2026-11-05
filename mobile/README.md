@@ -276,6 +276,43 @@ npm run release:preflight:ios
 npm run test:release-preflight
 ```
 
+The npm audit allowlist covers two temporary moderate advisories in Expo's
+glob/minimatch tooling dependency paths. The Android bundle preflight above
+checks the native manifest only; it does **not** inspect JavaScript bundle
+contents. Before treating these advisories as absent from a store build, export
+the production Metro bundles with external source maps into a **new temporary
+directory** and scan their module paths. Do not use `mobile/dist` for this
+check, since Expo export can clear its output directory:
+
+PowerShell:
+
+```powershell
+$auditDir = Join-Path $env:TEMP ("intelliplan-metro-audit-" + [guid]::NewGuid().ToString("N"))
+npx expo export --platform all --output-dir $auditDir --source-maps external
+if ($LASTEXITCODE -ne 0) { throw "Expo production export failed" }
+node scripts/audit-mobile-bundle-content.mjs $auditDir
+```
+
+macOS/Linux:
+
+```sh
+set -e
+audit_dir="$(mktemp -d "${TMPDIR:-/tmp}/intelliplan-metro-audit.XXXXXX")"
+npx expo export --platform all --output-dir "$audit_dir" --source-maps external
+node scripts/audit-mobile-bundle-content.mjs "$audit_dir"
+```
+
+The content scan fails closed if external maps are missing, malformed,
+oversized, incomplete, or do not pair with every JavaScript/Hermes bundle,
+and blocks if any source map names `glob` or `minimatch` under `node_modules`.
+It checks the vulnerable libraries
+themselves; Expo packages are dependency parents/tooling and may contribute
+unrelated safe runtime helpers to the app bundle. A pass
+means those package source paths were not present in the exported Metro
+JavaScript; it does not replace native artifact review, dependency auditing,
+or the store preflights. Re-run the dependency audit and review/remove the
+temporary allowlist when Expo publishes SDK-compatible fixes.
+
 The production Android submit profile selects the Play production track but
 leaves the release in draft. After upload, complete the store listing and
 review checklist in Play Console before manually sending the release for

@@ -7,7 +7,9 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          # Match the production Docker image to catch runtime-version
+          # incompatibilities before Railway deploys the same application.
+          python-version: '3.13'
 
       # ── Pre-deploy guard: catch import-time bugs before they reach Railway.
       # The duplicate-route outage on 2026-06-09 (two `def uk_landing` blocks

@@ -163,6 +163,24 @@ def test_state_mismatch_consumes_the_transaction_and_cannot_be_replayed(client, 
     secret_box.reset_cache()
 
 
+def test_provider_cancellation_returns_to_settings_without_reflecting_error(client, monkeypatch):
+    user_id = _login(client, "siwc+cancelled@example.com")
+    _configure_routes(client, monkeypatch)
+    started = client.get("/auth/openai", base_url="https://intelliplan.tech")
+    from urllib.parse import parse_qs, urlsplit
+    state = parse_qs(urlsplit(started.headers["Location"]).query)["state"][0]
+    response = client.get(
+        f"/auth/openai/callback?state={state}&error=access_denied&error_description=do-not-reflect",
+        base_url="https://intelliplan.tech",
+    )
+    assert response.status_code == 302
+    assert response.headers["Location"] == "/settings/ai?openai_identity=cancelled"
+    with App.app.app_context():
+        assert App.OpenAISignInTransaction.query.filter_by(user_id=user_id).count() == 0
+        assert App.OpenAIIdentityLink.query.filter_by(user_id=user_id).count() == 0
+    secret_box.reset_cache()
+
+
 def test_new_sign_in_purges_abandoned_expired_transactions(client, monkeypatch):
     user_id = _login(client, "siwc+purge@example.com")
     _configure_routes(client, monkeypatch)
@@ -193,8 +211,10 @@ def test_successful_identity_link_is_single_use_and_stores_no_tokens(client, mon
     auth_params = parse_qs(urlsplit(started.headers["Location"]).query)
     assert auth_params["scope"] == ["openid profile email"]
     assert auth_params["redirect_uri"] == [siwc.CALLBACK_URI]
-    assert client.get(f"/auth/openai/callback?state={state}&code=synthetic",
-                      base_url="https://intelliplan.tech").status_code == 302
+    linked = client.get(f"/auth/openai/callback?state={state}&code=synthetic",
+                        base_url="https://intelliplan.tech", follow_redirects=True)
+    assert linked.status_code == 200
+    assert b"ChatGPT identity linked. Plan use remains unavailable" in linked.data
     assert client.get(f"/auth/openai/callback?state={state}&code=synthetic",
                       base_url="https://intelliplan.tech").status_code == 400
     with App.app.app_context():

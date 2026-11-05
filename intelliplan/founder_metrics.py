@@ -20,13 +20,20 @@ FEATURES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("Grades", ("/gradebook", "/grades")),
 )
 
+MINIMUM_REPORTABLE_ACCOUNTS = 5
+MINIMUM_ACTIVE_ACCOUNTS_FOR_ACTIONS = 20
 
-def feature_adoption(rows: Iterable[tuple[str, str]], *, minimum_accounts: int = 5) -> list[dict]:
+
+def feature_adoption(
+    rows: Iterable[tuple[str, str]],
+    *, minimum_accounts: int = MINIMUM_REPORTABLE_ACCOUNTS,
+    total_accounts: int | None = None,
+) -> list[dict]:
     """Aggregate ``(route_rule, actor)`` rows into feature adoption counts.
 
-    Values below the disclosure floor are deliberately grouped as
-    ``suppressed``. An absent/low count is not enough evidence to label a
-    feature unused, especially for a product with school-age users.
+    Either tail below the disclosure floor is grouped as ``suppressed``.
+    The public status does not reveal whether usage or non-usage is the small
+    group. Low counts also are not enough evidence to label a feature unused.
     """
     actors_by_rule: dict[str, set[str]] = defaultdict(set)
     for rule, actor in rows:
@@ -39,9 +46,46 @@ def feature_adoption(rows: Iterable[tuple[str, str]], *, minimum_accounts: int =
         for rule in rules:
             accounts.update(actors_by_rule.get(rule, ()))
         count = len(accounts)
-        output.append({
-            "feature": name,
-            "accounts": count if count >= minimum_accounts else None,
-            "status": "measured" if count >= minimum_accounts else "below_threshold",
-        })
+        if (count < minimum_accounts or
+                total_accounts is not None and total_accounts - count < minimum_accounts):
+            # Keep one public status for either small tail. Distinguishing low
+            # use from near-universal use would disclose the complementary
+            # suppressed cell through the founder API.
+            accounts, status = None, "suppressed"
+        else:
+            accounts, status = count, "measured"
+        output.append({"feature": name, "accounts": accounts, "status": status})
     return output
+
+
+def feature_optimization_actions(
+    features: Iterable[dict],
+    *, active_accounts: int,
+    minimum_active_accounts: int = MINIMUM_ACTIVE_ACCOUNTS_FOR_ACTIONS,
+    low_adoption_share: float = 0.2,
+) -> dict:
+    """Suggest aggregate feature discovery experiments without exposing users.
+
+    Recommendations are withheld until the monthly active denominator is large
+    enough to make a feature comparison useful. Feature counts remain subject
+    to the same small-cell floor as the adoption table.
+    """
+    if active_accounts < minimum_active_accounts:
+        return {"status": "insufficient_data", "items": []}
+
+    items = []
+    for feature in features:
+        if feature.get("status") != "measured":
+            continue
+        count = feature.get("accounts")
+        if isinstance(count, int) and count / active_accounts < low_adoption_share:
+            items.append({
+                "feature": feature["feature"],
+                "signal": "low_share_of_active_accounts",
+                "action": "Test a clearer entry point or onboarding example, then compare adoption next month.",
+            })
+    return {
+        "status": "measured",
+        "minimum_active_accounts": minimum_active_accounts,
+        "items": items,
+    }

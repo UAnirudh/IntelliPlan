@@ -1,4 +1,8 @@
-# Deterministic container build for Railway.
+# Containerized runtime for Railway.
+#
+# Python is kept in sync with .github/workflows/main.yml. Dependencies are
+# currently range-based in requirements.txt; this image therefore does not
+# yet guarantee byte-for-byte reproducible dependency resolution.
 #
 # Why this exists: Nixpacks was intermittently producing a broken virtualenv
 # whose Python symlink was dead, so the container crashed at start with

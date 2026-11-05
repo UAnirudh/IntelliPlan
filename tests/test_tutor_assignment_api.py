@@ -470,6 +470,9 @@ def test_exam_note_retrieval_stops_when_school_blocks_uploads(client, monkeypatc
 def test_note_retrieval_intent_requires_an_explicit_study_request():
     assert chatbot_api._STUDY_MATERIAL_INTENT.search('Make note cards to prepare for my physics final.')
     assert chatbot_api._STUDY_MATERIAL_INTENT.search('Quiz me on the notes for my biology test.')
+    assert chatbot_api._STUDY_MATERIAL_INTENT.search('I am studying for the chemistry test.')
+    assert chatbot_api._STUDY_MATERIAL_INTENT.search('I am preparing for my AP Biology final.')
+    assert chatbot_api._STUDY_MATERIAL_INTENT.search('Help me prepare for this midterm.')
     assert not chatbot_api._STUDY_MATERIAL_INTENT.search('How do I use this Python test fixture?')
 
 

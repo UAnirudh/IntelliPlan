@@ -112,6 +112,32 @@ test('a prior reminder opt-in is restored on this account after the next sign-in
   assert.deepEqual(calls, ['/api/notifications/preferences', '/push/vapid-public', '/push/subscribe']);
 });
 
+test('a failed preference read never writes a partial channel list', async () => {
+  const failures = [
+    async () => ({ok: false, status: 503}),
+    async () => { throw new Error('offline'); },
+    async () => ({ok: true, async json() { return {}; }}),
+  ];
+
+  for (const failRead of failures) {
+    const calls = [];
+    const window = {};
+    const navigator = {};
+    const fetch = async (url) => {
+      calls.push(url);
+      return failRead();
+    };
+    vm.runInNewContext(reminderScript, {window, navigator, fetch, setTimeout, console});
+
+    const result = await window.IPReminders.enable({email: true, push: false});
+
+    assert.equal(result.saved, false);
+    assert.equal(result.email, false);
+    assert.match(result.pushMessage, /saved reminder settings/);
+    assert.deepEqual(calls, ['/api/notifications/preferences']);
+  }
+});
+
 test('re-enabling reminders reuses the existing browser subscription', async () => {
   let subscribeCalls = 0;
   let savedSubscription;
