@@ -61,7 +61,10 @@ def _feature_enabled(key: str) -> bool:
 
 def _focus_allowed() -> bool:
     if not current_user.is_authenticated:
-        return True
+        # Camera summaries are linked to a learner's account and its privacy
+        # settings. Guest timer sessions remain available, but must not collect
+        # focus data without an authenticated account and its policy checks.
+        return False
     try:
         from intelliplan.learning import policy
         policy.invalidate_cache()

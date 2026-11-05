@@ -376,6 +376,7 @@
       beginTicking();
       setControls('running');
       status('Session started. The timer keeps running if the tab sleeps.');
+      if (data.focus_allowed === false) denyCameraCheckIn(data.focus_reason);
       if ($('ipaFocusToggle').checked) startTracker();
     }).catch(function (err) {
       status(err.message, true);
@@ -435,7 +436,7 @@
     return api('/api/active/' + IPA.session.id + '/heartbeat', {
       method: 'POST', body: JSON.stringify(body)
     }).then(function (data) {
-      if (data.focus_allowed === false) denyCameraCheckIn();
+      if (data.focus_allowed === false) denyCameraCheckIn(data.focus_reason);
       return data;
     }).catch(function () {
       // A dropped heartbeat is not worth interrupting anyone over; the next
@@ -554,11 +555,21 @@
   }
 
   var cameraPolicyGeneration = 0;
-  function denyCameraCheckIn() {
+  function denyCameraCheckIn(reason) {
     stopTracker();
     $('ipaFocusToggle').checked = false;
     $('ipaFocusToggle').disabled = true;
-    $('ipaFocusNote').textContent = 'Camera check-ins are unavailable under your current school settings.';
+    var note = $('ipaFocusNote');
+    note.textContent = reason === 'sign_in_required'
+      ? 'Sign in to enable camera check-ins. Your guest study timer still works. '
+      : 'Camera check-ins are unavailable under your current school settings.';
+    if (reason === 'sign_in_required') {
+      var signIn = document.createElement('a');
+      signIn.href = '/login?next=%2Factive';
+      signIn.textContent = 'Sign in';
+      note.appendChild(signIn);
+      note.appendChild(document.createTextNode('.'));
+    }
     var method = $('ipaFocusMethod');
     if (method) method.hidden = true;
   }
@@ -567,7 +578,7 @@
     var generation = ++cameraPolicyGeneration;
     return api('/api/active/focus-permission').then(function (permission) {
       if (generation !== cameraPolicyGeneration || !$('ipaFocusToggle').checked || !IPA.running) return;
-      if (permission.allowed !== true) { denyCameraCheckIn(); return; }
+      if (permission.allowed !== true) { denyCameraCheckIn(permission.reason); return; }
       startTrackerAllowed();
     }).catch(function () {
       if (generation !== cameraPolicyGeneration) return;
@@ -610,7 +621,7 @@
           method: 'POST',
           body: JSON.stringify({ active_seconds: elapsedSeconds(), focus: bucket })
         }).then(function (data) {
-          if (data.focus_allowed === false) denyCameraCheckIn();
+          if (data.focus_allowed === false) denyCameraCheckIn(data.focus_reason);
         }).catch(function () {});
       },
       onDistraction: function () {
