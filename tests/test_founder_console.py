@@ -157,6 +157,10 @@ def test_founder_mode_unlocks_aggregate_growth_console_only_for_verified_owner(c
     assert b"Product improvement opportunities" in dashboard
     assert b"Paid access started" in dashboard and b"Paid access ended" in dashboard
     assert b"Fewer than 5" in dashboard
+    assert b'data-label="New accounts"' in dashboard
+    assert b'data-label="Eligible signup cohort"' in dashboard
+    assert b'data-label="Monthly"' in dashboard
+    assert b'@media(max-width:680px)' in dashboard
     assert client.get("/api/owner/schools").status_code == 200
     assert client.get("/admin/accounts").status_code == 200
 

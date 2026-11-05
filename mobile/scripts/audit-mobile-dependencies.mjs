@@ -143,6 +143,19 @@ export function evaluateMobileAudit({ audit, lock, allowlist, now = new Date() }
   };
 }
 
+export function formatMobileAuditSuccess(verdict, reviewBy) {
+  if (verdict.vulnerablePackages.length === 0) {
+    return [
+      "Mobile dependency audit passed: npm audit found no vulnerabilities.",
+      `Review by ${reviewBy}.`,
+    ];
+  }
+  return [
+    `Mobile audit passed with reviewed moderate advisories only: ${verdict.advisoryIds.join(", ")}.`,
+    `Review by ${reviewBy}; vulnerable toolchain packages: ${verdict.vulnerablePackages.join(", ")}.`,
+  ];
+}
+
 function run() {
   const allowlist = JSON.parse(fs.readFileSync(allowlistPath, "utf8"));
   const lock = JSON.parse(fs.readFileSync(lockPath, "utf8"));
@@ -180,8 +193,7 @@ function run() {
     process.exitCode = 1;
     return;
   }
-  console.log(`Mobile audit passed with reviewed moderate advisories only: ${verdict.advisoryIds.join(", ")}.`);
-  console.log(`Review by ${allowlist.reviewBy}; vulnerable toolchain packages: ${verdict.vulnerablePackages.join(", ")}.`);
+  for (const message of formatMobileAuditSuccess(verdict, allowlist.reviewBy)) console.log(message);
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) run();

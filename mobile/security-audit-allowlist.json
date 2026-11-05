@@ -1,42 +1,8 @@
 {
   "reviewedAt": "2026-11-05",
   "reviewBy": "2026-12-05",
-  "upstreamAssessment": "Expo SDK 58 maintainers state these affected glob/minimatch paths are build and development tooling, not bundled application code. IntelliPlan has not yet inspected a store-bound native artifact for these modules; re-check the bundle during EAS release preflight.",
+  "upstreamAssessment": "The Expo build-tool dependency overrides now resolve glob and minimatch to patched versions, and npm audit reports no current findings. Keep the dependency audit in CI and re-check the store-bound native artifact during EAS release preflight.",
   "upstreamIssue": "https://github.com/expo/expo/issues/52735",
-  "packages": {
-    "@expo/cli": {
-      "nodes": ["node_modules/expo/node_modules/@expo/cli"],
-      "versions": ["58.1.19"]
-    },
-    "@expo/fingerprint": {
-      "nodes": ["node_modules/@expo/fingerprint"],
-      "versions": ["0.21.9"]
-    },
-    "expo": {
-      "nodes": ["node_modules/expo"],
-      "versions": ["58.0.23"]
-    },
-    "glob": {
-      "nodes": ["node_modules/glob"],
-      "versions": ["13.0.6"]
-    },
-    "minimatch": {
-      "nodes": ["node_modules/minimatch"],
-      "versions": ["10.2.6"]
-    }
-  },
-  "acceptedAdvisories": {
-    "GHSA-3G3M-2FJR-6PW4": {
-      "severity": "moderate",
-      "packages": ["@expo/cli", "@expo/fingerprint", "expo", "glob"],
-      "rationale": "Expo SDK 58 pins glob 13 in CLI, configuration, and fingerprint build tooling. The glob maintainer's advisory fixes the issue in 14.0.2; forcing a major transitive override risks breaking Expo's tooling API. Keep this temporary and remove it when the SDK lock no longer resolves the affected package.",
-      "advisory": "https://github.com/advisories/GHSA-3g3m-2fjr-6pw4"
-    },
-    "GHSA-G3HV-75WG-M249": {
-      "severity": "moderate",
-      "packages": ["@expo/cli", "@expo/fingerprint", "expo", "glob", "minimatch"],
-      "rationale": "Expo SDK 58 pins minimatch 10 in build tooling. The minimatch maintainer's advisory fixes the issue in 11.0.1; forcing a major transitive override risks breaking tooling that relies on APIs removed in minimatch 11. Keep this temporary and remove it when the SDK lock no longer resolves the affected package.",
-      "advisory": "https://github.com/advisories/GHSA-g3hv-75wg-m249"
-    }
-  }
+  "packages": {},
+  "acceptedAdvisories": {}
 }
