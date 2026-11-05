@@ -29,6 +29,7 @@ const path = require('node:path');
 const fs = require('node:fs');
 const crypto = require('node:crypto');
 const updater = require('./updater');
+const { getLoginStartupStatus, isBackgroundLoginLaunch, setLoginStartup } = require('./login-startup');
 
 // ── Configuration ───────────────────────────────────────────────────
 
@@ -45,6 +46,7 @@ function targetOrigin() {
 }
 
 const POLL_INTERVAL_MS = 60_000;      // how often the tray refreshes "what's next"
+let backgroundLoginLaunch = false;
 const SHORTCUT_START_SESSION = 'CommandOrControl+Shift+S';
 // Capture a task from any application: "chem quiz fri" and back to work.
 const SHORTCUT_QUICK_ADD = 'CommandOrControl+Shift+A';
@@ -142,7 +144,9 @@ function createWindow() {
 
   // Show only once painted. Electron's default is a white flash while the
   // page loads, which on a dark theme looks like a bug.
-  mainWindow.once('ready-to-show', () => mainWindow.show());
+  mainWindow.once('ready-to-show', () => {
+    if (!backgroundLoginLaunch) mainWindow.show();
+  });
 
   mainWindow.loadURL(targetOrigin(), { userAgent: userAgent() });
 
@@ -659,6 +663,10 @@ ipcMain.handle('app:info', () => ({
   isDesktop: true,
 }));
 
+ipcMain.handle('app:login-startup', () => getLoginStartupStatus(app, process.platform));
+ipcMain.handle('app:set-login-startup', (_event, enabled) =>
+  setLoginStartup(app, process.platform, enabled === true));
+
 ipcMain.handle('app:setTarget', (_event, url) => {
   try {
     const origin = new URL(url).origin;
@@ -737,6 +745,8 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   app.whenReady().then(() => {
+    backgroundLoginLaunch = isBackgroundLoginLaunch(process.argv, app, process.platform);
+
     // Claim intelliplan:// ourselves rather than trusting the installer to
     // have done it. Google sign-in now depends on this handler existing —
     // the browser finishes the round-trip and hands the result back through
