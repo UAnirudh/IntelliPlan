@@ -18773,7 +18773,7 @@ def error_403(e):
 # Exactly one configured account receives Founder-level controls. This is
 # intentionally separate from ADMIN_EMAILS, which is a delivery/test allowlist
 # and may contain other operators who should remain delegated admins.
-FOUNDER_EMAIL = (os.getenv("FOUNDER_EMAIL") or "uanirudh0811@gmail.com").strip().lower()
+FOUNDER_EMAIL = os.getenv("FOUNDER_EMAIL", "").strip().lower()
 
 ADMIN_EMAILS = {
     e.strip().lower()
@@ -18784,7 +18784,7 @@ ADMIN_PATH = os.getenv("ADMIN_PATH", "/admin-x9k2p7")  # not linked anywhere
 
 
 def is_owner(user):
-    return bool(user and getattr(user, "is_authenticated", False)
+    return bool(FOUNDER_EMAIL and user and getattr(user, "is_authenticated", False)
                 and getattr(user, "email_verified", False) is True
                 and (user.email or "").strip().lower() == FOUNDER_EMAIL)
 
