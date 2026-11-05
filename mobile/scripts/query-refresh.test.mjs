@@ -103,3 +103,15 @@ test("Today updates its local date on foreground and schedules the next midnight
   assert.match(source, /nextMidnight\.setHours\(24, 0, 0, 25\)/);
   assert.match(source, /\[schedule\.data, todayKey\]/);
 });
+
+test("Today study block titles and metadata wrap instead of truncating", () => {
+  const source = fs.readFileSync(path.join(root, "app/(tabs)/today.tsx"), "utf8");
+  const start = source.indexOf("onPress={() => startBlock(block)}");
+  assert.notEqual(start, -1, "study block action should be present");
+  const end = source.indexOf("</Pressable>", start);
+  assert.notEqual(end, -1, "study block row should be closed");
+  const row = source.slice(start, end);
+  assert.match(row, /<T variant="base" weight="600"/);
+  assert.match(row, /<T variant="xs" tone="muted"/);
+  assert.doesNotMatch(row, /numberOfLines=\{1\}/);
+});
