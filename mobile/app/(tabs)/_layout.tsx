@@ -84,7 +84,7 @@ export default function TabsLayout() {
         name="today"
         options={{
           title: "Today",
-          tabBarIcon: ({ color, size }) => <Ionicons name="sunny-outline" size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <Ionicons name="sunny-outline" size={size} color={typeof color === "string" ? color : colors.textMuted} />,
         }}
       />
       <Tabs.Screen
@@ -92,7 +92,7 @@ export default function TabsLayout() {
         options={{
           title: "Due",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="checkbox-outline" size={size} color={color} />
+            <Ionicons name="checkbox-outline" size={size} color={typeof color === "string" ? color : colors.textMuted} />
           ),
         }}
       />
@@ -101,7 +101,7 @@ export default function TabsLayout() {
         options={{
           title: "Plan",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="calendar-outline" size={size} color={color} />
+            <Ionicons name="calendar-outline" size={size} color={typeof color === "string" ? color : colors.textMuted} />
           ),
         }}
       />
@@ -110,7 +110,7 @@ export default function TabsLayout() {
         options={{
           title: "Grades",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="stats-chart-outline" size={size} color={color} />
+            <Ionicons name="stats-chart-outline" size={size} color={typeof color === "string" ? color : colors.textMuted} />
           ),
         }}
       />
@@ -119,7 +119,7 @@ export default function TabsLayout() {
         options={{
           title: "Plani",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="chatbubble-ellipses-outline" size={size} color={color} />
+            <Ionicons name="chatbubble-ellipses-outline" size={size} color={typeof color === "string" ? color : colors.textMuted} />
           ),
         }}
       />
