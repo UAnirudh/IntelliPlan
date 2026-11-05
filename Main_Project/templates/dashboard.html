@@ -1139,7 +1139,6 @@
 // ── Namespace guard (per base.html collision rule) ────────────
 var _ipdState = {
   unifiedTasks: { today: [], upcoming: [], overdue: [] },
-  gcalConnected: false,
   savedSchedule: null,
   editingTask: null,
   feedbackTask: null,
@@ -1362,10 +1361,9 @@ function ipdRead(url, fallback) {
 async function loadDashboard() {
   _ipdCacheAge = null;
   try {
-    var [tasksRes, schedRes, calRes] = await Promise.all([
+    var [tasksRes, schedRes] = await Promise.all([
       ipdRead('/tasks/unified', null),
-      ipdRead('/schedule/saved', {}),
-      ipdRead('/calendar/events', { connected: false })
+      ipdRead('/schedule/saved', {})
     ]);
     if (!tasksRes) throw new Error('no tasks available, online or cached');
 
@@ -1374,7 +1372,6 @@ async function loadDashboard() {
       upcoming: tasksRes.upcoming || [],
       overdue: tasksRes.overdue || []
     };
-    _ipdState.gcalConnected = !!(calRes && calRes.connected);
     _ipdState.savedSchedule = schedRes;
 
     autoDashMarkTests(_ipdState.unifiedTasks.today);
