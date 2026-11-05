@@ -10,11 +10,14 @@ verdict validation. They do not use the tutor generation chain or another data
 processor. A completed unsafe verdict is never retried; malformed or truncated
 verdicts and authentication/policy failures still withhold the response.
 
-The production safeguard quota was 2,000 tokens/minute when this recovery was
-added, versus 8,000 for each GPT OSS fallback. A long study prompt could therefore fail
-with 413 even when the safeguard model's context window had room. Retrying the
-same oversized request could not fix it. Exact quotas depend on the Groq account;
-if all classifiers are unavailable, the response is still withheld.
+Provider limits vary by model, plan and account. Safety verdicts are short JSON,
+so the classifier caps completion at 1,024 tokens while retaining medium
+reasoning. This avoids reserving an unnecessarily large output allowance for a
+small verdict. For input checks, the target is sent once as a separate field;
+the same full user message is not duplicated in the context array. A 413/429 or
+other temporary provider error still advances to the next approved classifier;
+if the full chain is unavailable, the response is withheld. Recheck the live
+account limits when diagnosing future incidents.
 
 Set `GROQ_SAFETY_API_KEY`, or use the existing `GROQ_API_KEY`. The institution
 must permit Groq processing. Missing credentials or failure to obtain a valid

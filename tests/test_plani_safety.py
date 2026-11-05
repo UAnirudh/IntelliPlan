@@ -50,8 +50,11 @@ def test_full_latest_message_and_history_reach_dedicated_model(judge):
     kwargs = judge.post.call_args.kwargs
     assert kwargs['json']['model'] == 'openai/gpt-oss-safeguard-20b'
     assert kwargs['json']['stream'] is False
+    assert kwargs['json']['max_completion_tokens'] == safety.MAX_COMPLETION_TOKENS
+    assert safety.MAX_COMPLETION_TOKENS <= 1024
     payload = json.loads(kwargs['json']['messages'][1]['content'])
     assert payload['target'] == question
+    assert all(turn['content'] != question for turn in payload['conversation'])
     assert 'Sean Combs' in payload['conversation'][0]['content']
     assert payload['teacher_terms'] == ['penis']
     assert 'name alone' in safety.POLICY.lower()
@@ -62,7 +65,7 @@ def test_prior_turn_suffix_and_generation_window_are_identical(judge):
     messages = turns(prior, 'Explain that process.')
     safety.classify(messages, http=judge)
     payload = json.loads(judge.post.call_args.kwargs['json']['messages'][1]['content'])
-    assert payload['conversation'] == safety.context_window(messages)
+    assert payload['conversation'] == safety.context_window(messages)[:-1]
     assert payload['conversation'][0]['content'] == prior
     assert 'HIDDEN RELEVANT INTENT AT THE END' in payload['conversation'][0]['content']
 
@@ -245,7 +248,8 @@ def test_capacity_failure_uses_same_policy_and_complete_context_on_fallback(judg
     assert second['json']['model'] == safety.FALLBACK_MODEL
     assert first['json']['messages'] == second['json']['messages']
     payload = json.loads(second['json']['messages'][1]['content'])
-    assert payload['conversation'] == messages
+    assert payload['conversation'] == messages[:-1]
+    assert payload['target'] == messages[-1]['content']
     assert payload['target'] == messages[-1]['content']
     assert payload['teacher_terms'] == ['puberty']
     assert first['headers'] == second['headers']
@@ -299,6 +303,8 @@ def test_second_capacity_failure_uses_final_classifier_with_full_policy(judge):
     calls = [call.kwargs['json'] for call in judge.post.call_args_list]
     assert [call['model'] for call in calls] == list(safety.CLASSIFIERS)
     assert calls[0]['messages'] == calls[1]['messages'] == calls[2]['messages']
+    assert all(call['max_completion_tokens'] == safety.MAX_COMPLETION_TOKENS
+               for call in calls)
     assert calls[2]['response_format'] == {'type': 'json_object'}
     assert calls[2]['reasoning_effort'] == 'medium'
 
