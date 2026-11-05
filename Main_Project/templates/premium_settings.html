@@ -197,6 +197,16 @@
     el.classList.toggle('is-err', !!bad);
   }
 
+  const identityResult = new URLSearchParams(location.search).get('openai_identity');
+  const identityMessages = {
+    linked: ['ChatGPT identity linked. Plan use remains unavailable until OpenAI approves and enables it.', false],
+    cancelled: ['ChatGPT sign-in was cancelled. No account was linked.', false],
+    failed: ['ChatGPT sign-in could not be completed. Try again later.', true]
+  };
+  if (identityMessages[identityResult]) {
+    say('paiAcctMsg', identityMessages[identityResult][0], identityMessages[identityResult][1]);
+  }
+
   const openAIRedirectButton = document.getElementById('paiCopyOpenAIRedirect');
   if (openAIRedirectButton) openAIRedirectButton.addEventListener('click', async () => {
     const uri = document.getElementById('paiOpenAIRedirect').textContent.trim();

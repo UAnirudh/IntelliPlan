@@ -14,7 +14,7 @@
   <section class="founder-panel" aria-labelledby="growth-title">
     <div class="founder-section-heading">
       <div><h2 id="growth-title">Growth over time</h2><p>UTC windows compared with the immediately preceding window of the same length.</p></div>
-      <div class="founder-paid"><span>Paid customers now</span><strong>{% if report.billing_status == 'tracked' %}{{ report.paid_customers_now }}{% else %}Not configured{% endif %}</strong></div>
+      <div class="founder-paid"><span>Paid customers now</span><strong>{% if report.billing_status != 'tracked' %}Not configured{% elif report.paid_customers_suppressed %}Fewer than 5{% else %}{{ report.paid_customers_now }}{% endif %}</strong></div>
     </div>
     <div class="founder-table-wrap" role="region" aria-labelledby="growth-title" tabindex="0">
       <table class="founder-table">
@@ -24,17 +24,17 @@
           {% set period = report.periods[key] %}
           <tr>
             <th scope="row">{{ label }}</th>
-            <td>{{ period.new_accounts }}</td>
-            <td>{{ period.verified_new_accounts }}</td>
-            <td>{{ period.active_accounts }}</td>
-            <td>{% if period.repeat_active_rate is not none %}{{ period.repeat_active_accounts }} · {{ (period.repeat_active_rate * 100)|round|int }}%{% else %}Fewer than 5{% endif %}</td>
-            <td>{% if period.new_accounts_change > 0 %}+{% endif %}{{ period.new_accounts_change }}</td>
+            <td>{% if period.new_accounts is not none %}{{ period.new_accounts }}{% else %}Fewer than 5{% endif %}</td>
+            <td>{% if period.verified_new_accounts is not none %}{{ period.verified_new_accounts }}{% else %}Suppressed{% endif %}</td>
+            <td>{% if period.active_accounts is not none %}{{ period.active_accounts }}{% else %}Fewer than 5{% endif %}</td>
+            <td>{% if period.repeat_active_rate is not none %}{{ period.repeat_active_accounts }} · {{ (period.repeat_active_rate * 100)|round|int }}%{% else %}Suppressed{% endif %}</td>
+            <td>{% if period.new_accounts_change_status == 'measured' %}{% if period.new_accounts_change > 0 %}+{% endif %}{{ period.new_accounts_change }}{% else %}Suppressed{% endif %}</td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
-    <p class="founder-footnote">¹ Active means a signed-in account with consented product activity in the selected window. ² Repeat active means the same account was active in both adjacent windows; counts are suppressed below five. This is a directional return-use measure, not a mature signup-cohort retention rate.</p>
+    <p class="founder-footnote">¹ Active means a signed-in account with consented product activity in the selected window. ² Repeat active means the same account was active in both adjacent windows; repeat and non-repeat groups must each contain at least five accounts. This is a directional return-use measure, not a mature signup-cohort retention rate.</p>
   </section>
 
   <section class="founder-panel" aria-labelledby="cohort-title">
@@ -51,14 +51,14 @@
           <tr>
             <th scope="row">{{ label }}</th>
             <td>{% if metric.cohort_accounts is not none %}{{ metric.cohort_accounts }}{% else %}Fewer than {{ report.signup_cohort_retention.minimum_accounts }}{% endif %}</td>
-            <td>{% if metric.returned_accounts is not none %}{{ metric.returned_accounts }}{% elif metric.status == 'small_cell_suppressed' %}Fewer than {{ report.signup_cohort_retention.minimum_accounts }}{% else %}—{% endif %}</td>
+            <td>{% if metric.returned_accounts is not none %}{{ metric.returned_accounts }}{% elif metric.status == 'small_cell_suppressed' %}Suppressed{% else %}—{% endif %}</td>
             <td>{% if metric.rate is not none %}{{ (metric.rate * 100)|round|int }}%{% elif metric.status == 'no_mature_cohorts' %}Not enough history{% else %}Suppressed{% endif %}</td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
-    <p class="founder-footnote">The cohort contains accounts with at least one consented product event on their UTC signup date. Each rate uses that eligible cohort as its denominator and counts activity only on the named UTC calendar day. Cohorts younger than 31 days are excluded; counts and rates are hidden below five to protect small groups.</p>
+    <p class="founder-footnote">The cohort contains accounts with at least one consented product event on their UTC signup date. Each rate uses that eligible cohort as its denominator and counts activity only on the named UTC calendar day. Cohorts younger than 31 days are excluded; small return and non-return groups are suppressed.</p>
   </section>
 
   <section class="founder-panel" aria-labelledby="adoption-title">
@@ -74,14 +74,32 @@
       {% set weekly = report.features.week[loop.index0] %}
       <tr><th scope="row">{{ feature.feature }}</th>
         {% for usage in [daily,weekly,feature] %}
-        <td>{% if usage.status == 'measured' %}{{ usage.accounts }}{% else %}Fewer than 5{% endif %}</td>
+        <td>{% if usage.status == 'measured' %}{{ usage.accounts }}{% else %}Suppressed{% endif %}</td>
         {% endfor %}
       </tr>
       {% endfor %}
         </tbody>
       </table>
     </div>
-    <p class="founder-footnote">Low counts are grouped to reduce the chance of identifying individual students. “Fewer than 5” may mean low or no opt-in activity; it is not proof that the feature is unused.</p>
+    <p class="founder-footnote">Feature counts are hidden when either the users or non-users fall below five. This protects both sides of the comparison; suppressed activity is not proof that a feature is unused.</p>
+  </section>
+
+  <section class="founder-panel" aria-labelledby="actions-title">
+    <div class="founder-section-heading">
+      <div><h2 id="actions-title">Product improvement opportunities</h2><p>Monthly, consent-based signals to guide small product experiments.</p></div>
+    </div>
+    {% if report.optimization_actions.status != 'measured' %}
+      <p>More opted-in monthly activity is needed before comparing feature adoption.</p>
+    {% elif report.optimization_actions.items %}
+      <ul class="founder-actions">
+      {% for item in report.optimization_actions.items %}
+        <li><strong>{{ item.feature }}</strong> — {{ item.action }}</li>
+      {% endfor %}
+      </ul>
+    {% else %}
+      <p>No feature area currently meets the low-adoption signal. Keep monitoring the monthly trend.</p>
+    {% endif %}
+    <p class="founder-footnote">These are discovery experiments based only on feature areas with reportable counts; they are not proof that another feature has no value.</p>
   </section>
 
   <p class="founder-scope">{{ report.scope_note }} New accounts are not paid customers. The current paid total counts active Stripe-paid windows only; paid customer gains and churn need subscription lifecycle events before they can be reported accurately. When billing is off, the paid total says “Not configured.”</p>

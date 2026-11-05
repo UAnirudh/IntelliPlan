@@ -1165,9 +1165,10 @@ def _schoolwork_policy_error():
 
 _STUDY_MATERIAL_INTENT = re.compile(
     r"\b(?:flash\s*cards?|note\s*cards?|quiz\s+me|make\s+(?:me\s+)?a\s+quiz|"
-    r"test\s+prep|exam\s+prep|prepare\s+for\s+(?:my\s+)?(?:an?\s+)?(?:exam|test|final|midterm)|"
-    r"study\s+for\s+(?:my\s+)?(?:an?\s+)?(?:exam|test|final|midterm)|"
-    r"review\s+(?:my\s+)?(?:exam|test|final|midterm))\b",
+    r"test\s+prep|exam\s+prep|"
+    r"(?:prepar(?:e|ing)\s+for|stud(?:y|ying)\s+for)\s+(?:(?:my|the|this|an?)\s+)?"
+    r"(?:[\w'-]+\s+){0,2}(?:exam|test|final|midterm)|"
+    r"review\s+(?:(?:my|the|this|an?)\s+)?(?:[\w'-]+\s+){0,2}(?:exam|test|final|midterm))\b",
     re.IGNORECASE,
 )
 

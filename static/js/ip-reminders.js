@@ -165,8 +165,23 @@
 
     try {
       const current = await fetch('/api/notifications/preferences', { credentials: 'same-origin' });
-      if (current.ok) ((await current.json()).channels || []).forEach((c) => channels.add(c));
-    } catch (error) { /* start from an empty set */ }
+      if (!current.ok) {
+        result.pushMessage = 'Could not load your saved reminder settings. Try again.';
+        return result;
+      }
+      const preferences = await current.json();
+      if (!preferences || !Array.isArray(preferences.channels)) {
+        result.pushMessage = 'Could not load your saved reminder settings. Try again.';
+        return result;
+      }
+      preferences.channels.forEach((channel) => channels.add(channel));
+    } catch (error) {
+      // The POST replaces the full channel list. Never write a partial list
+      // when the read fails, or enabling one channel silently disables the
+      // student's existing SMS/email preferences.
+      result.pushMessage = 'Could not load your saved reminder settings. Try again.';
+      return result;
+    }
 
     if (wanted && wanted.push) {
       const push = await subscribePush(options && options.permissionRequest);

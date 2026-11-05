@@ -280,7 +280,11 @@ def install(app: Any, db: Any, transaction_model: type, identity_model: type) ->
             if not state_matches:
                 abort(400)
             if request.args.get("error"):
-                abort(400)
+                # Do not reflect provider-controlled error text into a URL or
+                # page. Keep consent cancellation distinct from a provider
+                # failure while returning the user to the normal settings UI.
+                result = "cancelled" if request.args.get("error") == "access_denied" else "failed"
+                return redirect(f"/settings/ai?openai_identity={result}")
             code = request.args.get("code", "")
             if not code or len(code) > 4096 or not nonce or not verifier:
                 abort(400)

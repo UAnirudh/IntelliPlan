@@ -5,7 +5,7 @@ from uuid import uuid4
 
 import App
 import pytest
-from intelliplan.founder_metrics import feature_adoption
+from intelliplan.founder_metrics import feature_adoption, feature_optimization_actions
 
 
 @pytest.fixture
@@ -53,18 +53,54 @@ def _event(user_id, created_at):
     ))
 
 
+def _freeze_app_clock(monkeypatch, now):
+    class FrozenDateTime(datetime):
+        @classmethod
+        def utcnow(cls):
+            return now
+
+    monkeypatch.setattr(App, "datetime", FrozenDateTime)
+
+
 def test_feature_adoption_suppresses_small_counts_and_groups_unique_accounts():
     rows = [("/dashboard", f"u:{i}") for i in range(1, 5)]
     rows.extend([("/scheduler", "u:1"), ("/scheduler", "u:1")])
     features = {row["feature"]: row for row in feature_adoption(rows)}
 
-    assert features["Today and command center"]["status"] == "below_threshold"
+    assert features["Today and command center"]["status"] == "suppressed"
     assert features["Today and command center"]["accounts"] is None
-    assert features["Calendar and planning"]["status"] == "below_threshold"
+    assert features["Calendar and planning"]["status"] == "suppressed"
 
     rows.extend(("/dashboard", f"u:{i}") for i in range(5, 7))
     features = {row["feature"]: row for row in feature_adoption(rows)}
     assert features["Today and command center"]["accounts"] == 6
+
+
+def test_feature_actions_wait_for_safe_denominator_and_suggest_discovery_experiments():
+    features = [
+        {"feature": "Calendar and planning", "accounts": 5, "status": "measured"},
+        {"feature": "Tutor and Plani", "accounts": None, "status": "suppressed"},
+        {"feature": "Grades", "accounts": 12, "status": "measured"},
+    ]
+    assert feature_optimization_actions(features, active_accounts=19) == {
+        "status": "insufficient_data", "items": [],
+    }
+
+    report = feature_optimization_actions(features, active_accounts=40)
+    assert report["status"] == "measured"
+    assert [item["feature"] for item in report["items"]] == ["Calendar and planning"]
+
+
+def test_feature_adoption_suppresses_a_small_nonuse_complement():
+    rows = [("/scheduler", f"u:{index}") for index in range(1, 17)]
+    feature = next(row for row in feature_adoption(rows, total_accounts=18)
+                   if row["feature"] == "Calendar and planning")
+    assert feature == {
+        "feature": "Calendar and planning",
+        "accounts": None,
+        "status": "suppressed",
+    }
+    assert feature_optimization_actions([feature], active_accounts=40)["items"] == []
 
 
 def test_unverified_matching_email_cannot_claim_owner_privileges(client, monkeypatch):
@@ -89,7 +125,10 @@ def test_owner_privileges_fail_closed_when_founder_email_is_not_configured(monke
 
 
 def test_founder_mode_unlocks_aggregate_growth_console_only_for_verified_owner(client, monkeypatch):
-    now = datetime.utcnow()
+    # Keep this API integration assertion independent of account fixtures
+    # created by other modules during the full test suite.
+    now = datetime(2040, 6, 1, 12)
+    _freeze_app_clock(monkeypatch, now)
     monkeypatch.delenv("BILLING_ENABLED", raising=False)
     with App.app.app_context():
         owner = _user(verified=True)
@@ -108,30 +147,75 @@ def test_founder_mode_unlocks_aggregate_growth_console_only_for_verified_owner(c
     assert client.get("/founder").status_code == 404
     assert client.get("/api/owner/schools").status_code == 404
     assert client.get("/admin/accounts").status_code == 403
+    assert client.get("/api/founder/growth").status_code == 404
     response = client.post("/api/founder/mode", data={"mode": "founder"})
     assert response.status_code == 302
     assert response.headers["Location"].endswith("/founder")
     dashboard = client.get("/founder").data
     assert b"Growth and engagement" in dashboard
     assert b"Signup cohort retention" in dashboard
+    assert b"Product improvement opportunities" in dashboard
+    assert b"Fewer than 5" in dashboard
     assert client.get("/api/owner/schools").status_code == 200
     assert client.get("/admin/accounts").status_code == 200
 
     report = client.get("/api/founder/growth").get_json()
     assert set(report["periods"]) == {"day", "week", "month"}
     assert set(report["signup_cohort_retention"]["horizons"]) == {"d1", "d7", "d30"}
-    assert report["periods"]["week"]["active_accounts"] == 1
+    assert report["periods"]["week"]["active_accounts"] is None
     assert report["periods"]["week"]["repeat_active_accounts"] is None
     assert report["periods"]["week"]["retention_status"] == "below_threshold"
-    assert report["periods"]["week"]["new_accounts"] >= 1
+    assert report["periods"]["week"]["new_accounts"] is None
     assert report["billing_status"] == "not_configured"
     assert report["paid_customers_now"] is None
     assert "email" not in str(report).lower()
-
     response = client.post("/api/founder/mode", data={"mode": "normal"})
     assert response.status_code == 302
     assert response.headers["Location"].endswith("/dashboard")
     assert client.get("/founder").status_code == 404
+    assert client.get("/api/founder/growth").status_code == 404
+
+
+def test_founder_growth_report_suppresses_small_signup_active_and_paid_cells(client, monkeypatch):
+    now = datetime(2040, 6, 1, 12)
+    monkeypatch.setenv("BILLING_ENABLED", "1")
+    with App.app.app_context():
+        owner = _user(verified=True, created_at=now - timedelta(days=1))
+        members = [_user(verified=index < 2, created_at=now - timedelta(days=2)) for index in range(4)]
+        for user in members[:2]:
+            user.stripe_customer_id = f"cus_{user.id}"
+            user.stripe_paid_until = now + timedelta(days=30)
+            _event(user.id, now - timedelta(hours=2))
+        _event(owner.id, now - timedelta(hours=1))
+        App.db.session.commit()
+        monkeypatch.setattr(App, "FOUNDER_EMAIL", owner.email.lower())
+        report = App._founder_growth_report(now)
+
+    assert report["periods"]["day"]["new_accounts"] is None
+    assert report["periods"]["day"]["verified_new_accounts"] is None
+    assert report["periods"]["day"]["active_accounts"] is None
+    assert report["periods"]["day"]["new_accounts_change"] is None
+    assert report["periods"]["day"]["new_accounts_change_status"] == "suppressed"
+    assert report["paid_customers_now"] is None
+    assert report["paid_customers_suppressed"] is True
+    assert report["optimization_actions"]["status"] == "insufficient_data"
+
+
+def test_growth_report_hides_small_unverified_complement_and_growth_delta(client):
+    now = datetime(2040, 6, 1, 12)
+    with App.app.app_context():
+        for index in range(10):
+            _user(verified=index < 6, created_at=now - timedelta(hours=2, minutes=index))
+        for index in range(6):
+            _user(verified=True, created_at=now - timedelta(days=1, hours=12, minutes=index))
+        App.db.session.commit()
+        report = App._founder_growth_report(now)
+
+    day = report["periods"]["day"]
+    assert day["new_accounts"] == 10
+    assert day["verified_new_accounts"] is None  # only four new accounts remain unverified
+    assert day["new_accounts_change"] is None  # both windows are reportable, but delta is under five
+    assert day["new_accounts_change_status"] == "suppressed"
 
 
 def test_signup_cohort_retention_uses_exact_utc_day_windows_and_consent_events(client):
@@ -139,15 +223,15 @@ def test_signup_cohort_retention_uses_exact_utc_day_windows_and_consent_events(c
     signup = datetime(2026, 9, 5, 10)
     with App.app.app_context():
         user_ids = []
-        for index in range(7):
+        for index in range(13):
             user = _user(created_at=signup + timedelta(minutes=index))
             user_ids.append(user.id)
             # The signup-day event makes the account eligible. With no event,
-            # the seventh account represents an account with no recorded
+            # the thirteenth account represents an account with no recorded
             # analytics consent and must not enter the denominator.
-            if index < 6:
+            if index < 12:
                 _event(user.id, user.created_at + timedelta(hours=1))
-            if index < 5:
+            if index < 7:
                 _event(user.id, user.created_at + timedelta(days=1, hours=2))
                 _event(user.id, user.created_at + timedelta(days=7, hours=2))
                 _event(user.id, user.created_at + timedelta(days=30, hours=2))
@@ -162,7 +246,7 @@ def test_signup_cohort_retention_uses_exact_utc_day_windows_and_consent_events(c
 
     assert report["cohort_window_end_exclusive"] == "2026-10-05"
     assert report["horizons"]["d1"] == {
-        "cohort_accounts": 6, "returned_accounts": 5, "rate": 0.833,
+        "cohort_accounts": 12, "returned_accounts": 7, "rate": 0.583,
         "status": "measured",
     }
     assert report["horizons"]["d7"] == report["horizons"]["d1"]
@@ -202,6 +286,24 @@ def test_signup_cohort_retention_suppresses_small_cohort_and_return_cells(client
 
     assert metric == {
         "cohort_accounts": 5, "returned_accounts": None,
+        "rate": None, "status": "small_cell_suppressed",
+    }
+
+
+def test_signup_cohort_retention_hides_a_small_nonreturn_complement(client):
+    now = datetime(2026, 11, 4, 12)
+    signup = datetime(2026, 9, 5, 10)
+    with App.app.app_context():
+        for index in range(10):
+            user = _user(created_at=signup + timedelta(minutes=index))
+            _event(user.id, user.created_at + timedelta(hours=1))
+            if index < 9:
+                _event(user.id, user.created_at + timedelta(days=1, hours=2))
+        App.db.session.commit()
+        metric = App._founder_signup_cohort_retention(now)["horizons"]["d1"]
+
+    assert metric == {
+        "cohort_accounts": 10, "returned_accounts": None,
         "rate": None, "status": "small_cell_suppressed",
     }
 
