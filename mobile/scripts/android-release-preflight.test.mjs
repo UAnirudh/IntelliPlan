@@ -59,6 +59,18 @@ test("a stale auth state file does not count as a verified EAS login", () => {
   assert.ok(checks.some(({ status, message }) => status === "BLOCKED" && message.includes("did not confirm an account")));
 });
 
+test("a configured token must be accepted by eas whoami before auth passes", () => {
+  const checks = inspectReleaseConfig({
+    appConfig: validApp,
+    easConfig: validEas,
+    env: { EXPO_TOKEN: "do-not-print-this-token" },
+    easAuthenticated: false,
+  });
+  assert.ok(checks.some(({ status, message }) =>
+    status === "BLOCKED" && message.includes("did not confirm an account")));
+  assert.ok(checks.every(({ message }) => !message.includes("do-not-print-this-token")));
+});
+
 test("bad identity, versions, production API, and build settings are blocking", () => {
   const appConfig = structuredClone(validApp);
   const easConfig = structuredClone(validEas);

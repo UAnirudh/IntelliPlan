@@ -288,11 +288,14 @@ EAS project linkage, login, Play credentials, and a signed app bundle are
 still required before submission.
 
 The preflight checks app identity and version fields, EAS project linkage,
-production API URL, Android app-bundle/versioning settings, and whether an
-`EXPO_TOKEN` or local EAS CLI auth state is present. It never prints token or
-API URL values. A passing auth check only confirms that auth material exists;
-it does not validate access to the Expo project or Play Console. The script
-does not build or submit the app.
+production API URL, Android app-bundle/versioning settings, and whether the
+EAS CLI can confirm the active account with `eas whoami`. A cached auth file or
+`EXPO_TOKEN` alone is not enough. It never prints token or API URL values. A
+passing auth check confirms the EAS account only; it does not verify that this
+account can access the linked project or that Play, App Store Connect, signing,
+or push credentials are valid. Check those in EAS and the relevant store
+console before building and submitting. The scripts do not build or submit the
+app.
 
 App icons in `assets/` are generated from `static/icons/icon-512.png`, so
 the phone app carries the same mark as the website. Regenerate them with
