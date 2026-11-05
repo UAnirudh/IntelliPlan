@@ -2624,9 +2624,23 @@ function parseStructuredStudyJson(content) {
     typeof item.answer === 'string' && item.answer.trim() && item.answer.length <= 2000
   ).map((item) => ({ question: item.question.trim(), answer: item.answer.trim() })) : [];
   const cards = validCards(value.cards);
-  const quizCards = validCards(value.quiz);
+  // Some providers honor the interactive quiz contract as a top-level JSON
+  // object instead of wrapping it in :::artifact. Keep that structured quiz
+  // inline in the conversation instead of showing the raw JSON as prose.
+  const validQuiz = (item) => item && typeof item === 'object' && !Array.isArray(item) &&
+    typeof item.question === 'string' && item.question.trim() && item.question.length <= 1500 &&
+    Array.isArray(item.options) && item.options.length >= 2 && item.options.length <= 6 &&
+    item.options.every((option) => typeof option === 'string' && option.trim() && option.length <= 300) &&
+    Number.isInteger(item.correct) && item.correct >= 0 && item.correct < item.options.length
+      ? { question: item.question.trim(), options: item.options.map((option) => option.trim()), correct: item.correct }
+      : null;
+  const quizItems = (Array.isArray(value.quiz) ? value.quiz : [value.quiz]).map(validQuiz).filter(Boolean).slice(0, 30);
   if (cards.length) segments.push({ kind: 'artifact', type: 'flashcards', title: title || 'Study flashcards', content: JSON.stringify({ cards }) });
-  if (quizCards.length) segments.push({ kind: 'artifact', type: 'flashcards', title: 'Quiz yourself', content: JSON.stringify({ cards: quizCards }) });
+  quizItems.forEach((quiz, index) => segments.push({
+    kind: 'artifact', type: 'quiz',
+    title: quizItems.length > 1 ? `Quiz question ${index + 1} of ${quizItems.length}` : 'Check your understanding',
+    content: JSON.stringify(quiz),
+  }));
   if (!segments.length) return null;
   if (before) segments.unshift({ kind: 'text', text: before });
   if (after) segments.push({ kind: 'text', text: after });
@@ -2655,6 +2669,9 @@ function readableTutorResponseText(text) {
     if (segment.kind === 'text') return segment.text;
     if (segment.type === 'flashcards' || segment.type === 'quiz') {
       const data = readableTutorArtifactData(segment);
+      if (segment.type === 'quiz' && data && typeof data.question === 'string' && Array.isArray(data.options)) {
+        return `${segment.title}. ${data.question.trim()} Options: ${data.options.filter((option) => typeof option === 'string').join('; ')}. Choose an option and explain your reasoning.`;
+      }
       const cards = data && Array.isArray(data.cards) ? data.cards.slice(0, 30) : [];
       const cardText = cards.filter((card) => card && typeof card.question === 'string' && card.question.trim() &&
         card.question.length <= 1500 && typeof card.answer === 'string' && card.answer.trim() && card.answer.length <= 2000)

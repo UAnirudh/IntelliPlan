@@ -39,6 +39,44 @@ test('structured summaries accompany validated flashcards', () => {
   assert.equal(plain[1].type, 'flashcards');
 });
 
+test('structured multiple-choice quiz renders as an interactive quiz artifact', () => {
+  const result = context.parse(JSON.stringify({
+    title: 'Cell structure',
+    summary: 'Use the clues to identify the organelle.',
+    quiz: { question: 'Which organelle makes most ATP?', options: ['Mitochondrion', 'Ribosome'], correct: 0 },
+  }));
+  const plain = JSON.parse(JSON.stringify(result));
+  assert.equal(plain[0].text.includes('Use the clues'), true);
+  assert.equal(plain[1].kind, 'artifact');
+  assert.equal(plain[1].type, 'quiz');
+  assert.equal(plain[1].title, 'Check your understanding');
+  assert.deepEqual(JSON.parse(plain[1].content), {
+    question: 'Which organelle makes most ATP?', options: ['Mitochondrion', 'Ribosome'], correct: 0,
+  });
+});
+
+test('quiz arrays render one inline check per validated question', () => {
+  const result = context.parse(JSON.stringify({ quiz: [
+    { question: 'First?', options: ['A', 'B'], correct: 0 },
+    { question: 'Malformed question', options: ['A'], correct: 0 },
+    { question: 'Second?', options: ['C', 'D'], correct: 1 },
+  ] }));
+  const plain = JSON.parse(JSON.stringify(result));
+  assert.equal(plain.length, 2);
+  assert.equal(plain[0].title, 'Quiz question 1 of 2');
+  assert.equal(plain[1].title, 'Quiz question 2 of 2');
+  assert.ok(plain.every((segment) => segment.type === 'quiz'));
+});
+
+test('structured quiz speech reads the prompt and choices without disclosing the answer', () => {
+  const readable = context.readable(JSON.stringify({ quiz: {
+    question: 'Which organelle makes most ATP?', options: ['Mitochondrion', 'Ribosome'], correct: 0,
+  } }));
+  assert.match(readable, /Which organelle makes most ATP\?/);
+  assert.match(readable, /Mitochondrion; Ribosome/);
+  assert.match(readable, /Choose an option and explain your reasoning/);
+});
+
 test('study JSON surrounded by provider prose keeps prose and renders artifacts', () => {
   const result = context.parse(`Here are the cards you requested.\n${JSON.stringify({
     title: 'Cell structure',

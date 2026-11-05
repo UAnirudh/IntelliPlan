@@ -24,13 +24,13 @@
           {% set period = report.periods[key] %}
           <tr>
             <th scope="row">{{ label }}</th>
-            <td>{% if period.new_accounts is not none %}{{ period.new_accounts }}{% else %}Fewer than 5{% endif %}</td>
-            <td>{% if period.verified_new_accounts is not none %}{{ period.verified_new_accounts }}{% else %}Suppressed{% endif %}</td>
-            <td>{% if period.active_accounts is not none %}{{ period.active_accounts }}{% else %}Fewer than 5{% endif %}</td>
-            <td>{% if period.repeat_active_rate is not none %}{{ period.repeat_active_accounts }} · {{ (period.repeat_active_rate * 100)|round|int }}%{% else %}Suppressed{% endif %}</td>
-            <td>{% if period.new_accounts_change_status == 'measured' %}{% if period.new_accounts_change > 0 %}+{% endif %}{{ period.new_accounts_change }}{% else %}Suppressed{% endif %}</td>
-            <td>{% if report.billing_status != 'tracked' %}Not configured{% elif period.paid_access_started is not none %}{{ period.paid_access_started }}{% else %}Suppressed{% endif %}</td>
-            <td>{% if report.billing_status != 'tracked' %}Not configured{% elif period.paid_access_ended is not none %}{{ period.paid_access_ended }}{% else %}Suppressed{% endif %}</td>
+            <td data-label="New accounts">{% if period.new_accounts is not none %}{{ period.new_accounts }}{% else %}Fewer than 5{% endif %}</td>
+            <td data-label="Verified">{% if period.verified_new_accounts is not none %}{{ period.verified_new_accounts }}{% else %}Suppressed{% endif %}</td>
+            <td data-label="Active">{% if period.active_accounts is not none %}{{ period.active_accounts }}{% else %}Fewer than 5{% endif %}</td>
+            <td data-label="Repeat active">{% if period.repeat_active_rate is not none %}{{ period.repeat_active_accounts }} · {{ (period.repeat_active_rate * 100)|round|int }}%{% else %}Suppressed{% endif %}</td>
+            <td data-label="New accounts vs prior">{% if period.new_accounts_change_status == 'measured' %}{% if period.new_accounts_change > 0 %}+{% endif %}{{ period.new_accounts_change }}{% else %}Suppressed{% endif %}</td>
+            <td data-label="Paid access started">{% if report.billing_status != 'tracked' %}Not configured{% elif period.paid_access_started is not none %}{{ period.paid_access_started }}{% else %}Suppressed{% endif %}</td>
+            <td data-label="Paid access ended">{% if report.billing_status != 'tracked' %}Not configured{% elif period.paid_access_ended is not none %}{{ period.paid_access_ended }}{% else %}Suppressed{% endif %}</td>
           </tr>
           {% endfor %}
         </tbody>
@@ -52,9 +52,9 @@
           {% set metric = report.signup_cohort_retention.horizons[key] %}
           <tr>
             <th scope="row">{{ label }}</th>
-            <td>{% if metric.cohort_accounts is not none %}{{ metric.cohort_accounts }}{% else %}Fewer than {{ report.signup_cohort_retention.minimum_accounts }}{% endif %}</td>
-            <td>{% if metric.returned_accounts is not none %}{{ metric.returned_accounts }}{% elif metric.status == 'small_cell_suppressed' %}Suppressed{% else %}—{% endif %}</td>
-            <td>{% if metric.rate is not none %}{{ (metric.rate * 100)|round|int }}%{% elif metric.status == 'no_mature_cohorts' %}Not enough history{% else %}Suppressed{% endif %}</td>
+            <td data-label="Eligible signup cohort">{% if metric.cohort_accounts is not none %}{{ metric.cohort_accounts }}{% else %}Fewer than {{ report.signup_cohort_retention.minimum_accounts }}{% endif %}</td>
+            <td data-label="Returned accounts">{% if metric.returned_accounts is not none %}{{ metric.returned_accounts }}{% elif metric.status == 'small_cell_suppressed' %}Suppressed{% else %}—{% endif %}</td>
+            <td data-label="Return rate">{% if metric.rate is not none %}{{ (metric.rate * 100)|round|int }}%{% elif metric.status == 'no_mature_cohorts' %}Not enough history{% else %}Suppressed{% endif %}</td>
           </tr>
           {% endfor %}
         </tbody>
@@ -76,7 +76,7 @@
       {% set weekly = report.features.week[loop.index0] %}
       <tr><th scope="row">{{ feature.feature }}</th>
         {% for usage in [daily,weekly,feature] %}
-        <td>{% if usage.status == 'measured' %}{{ usage.accounts }}{% else %}Suppressed{% endif %}</td>
+        <td data-label="{{ ['Daily', 'Weekly', 'Monthly'][loop.index0] }}">{% if usage.status == 'measured' %}{{ usage.accounts }}{% else %}Suppressed{% endif %}</td>
         {% endfor %}
       </tr>
       {% endfor %}
@@ -130,6 +130,16 @@
   .founder-cohort-window { margin:-6px 0 12px; font-variant-numeric:tabular-nums; }
   .founder-footnote { margin:12px 0 0; }
   .founder-scope { margin:16px 2px; }
-  @media(max-width:680px) { .founder-header,.founder-section-heading { align-items:flex-start; flex-direction:column; } .founder-paid { justify-content:space-between; width:100%; } }
+  @media(max-width:680px) {
+    .founder-header,.founder-section-heading { align-items:flex-start; flex-direction:column; }
+    .founder-paid { justify-content:space-between; width:100%; }
+    .founder-table { min-width:0; width:100%; border-collapse:separate; border-spacing:0; }
+    .founder-table thead { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; }
+    .founder-table tbody tr { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0 12px; padding:8px 12px; margin:0 0 10px; border-radius:10px; background:color-mix(in srgb,var(--text-primary) 4%,var(--bg)); }
+    .founder-table tbody tr+tr { box-shadow:none; }
+    .founder-table tbody th[scope="row"] { grid-column:1/-1; padding:6px 0 9px; }
+    .founder-table tbody td { display:flex; min-width:0; flex-direction:column; align-items:flex-start; gap:2px; padding:7px 0; overflow-wrap:anywhere; }
+    .founder-table tbody td::before { content:attr(data-label); color:var(--text-muted); font-size:.68rem; line-height:1.25; }
+  }
 </style>
 {% endblock %}
