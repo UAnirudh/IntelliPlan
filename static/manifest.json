@@ -104,20 +104,5 @@
       "update": 900
     }
   ],
-  "screenshots": [
-    {
-      "src": "/static/screenshots/mobile-dashboard.png",
-      "sizes": "768x1376",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "label": "IntelliPlan Dashboard — prioritized assignments with study stats"
-    },
-    {
-      "src": "/static/screenshots/desktop-scheduler.png",
-      "sizes": "1376x768",
-      "type": "image/png",
-      "form_factor": "wide",
-      "label": "IntelliPlan Scheduler — AI-generated weekly study plan"
-    }
-  ]
+  "screenshots": []
 }
