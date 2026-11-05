@@ -384,7 +384,7 @@ export default function TasksScreen() {
                 />
               ) : null}
             </View>
-          ) : null
+          ) : undefined
         }
         renderSectionHeader={({ section }) => (
           <View style={{ paddingTop: space.md, paddingBottom: space.xs, flexDirection: "row", justifyContent: "space-between" }}>

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Keyboard, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, TextInput, View } from "react-native";
+import { Keyboard, KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, TextInput, View, type ScrollViewInstance, type TextInputInstance } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -43,8 +43,8 @@ export default function CommandCenterScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const today = useQuery<TodayPayload>("command-center-today", getToday);
-  const scrollRef = useRef<ScrollView>(null);
-  const inputRef = useRef<TextInput>(null);
+  const scrollRef = useRef<ScrollViewInstance>(null);
+  const inputRef = useRef<TextInputInstance>(null);
   const [items, setItems] = useState<ChatItem[]>([]);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);

@@ -5,6 +5,7 @@ import {
   Pressable,
   PressableProps,
   ScrollView,
+  type ScrollViewInstance,
   StyleProp,
   StyleSheet,
   Text,
@@ -268,7 +269,7 @@ export function SegmentedRow<V extends string | number>({
   const { colors } = useTheme();
   const glass = useGlass();
   const edge = useGlassEdge();
-  const scroller = React.useRef<ScrollView>(null);
+  const scroller = React.useRef<ScrollViewInstance>(null);
   // Each chip's x-offset and width, filled in as they lay out. Needed
   // because a row can open with a selection that is already off-screen —
   // a task estimated at 90 minutes preselects the last chip — and a

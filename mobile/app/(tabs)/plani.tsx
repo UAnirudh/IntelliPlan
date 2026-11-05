@@ -368,7 +368,7 @@ export default function PlaniScreen() {
                   <T variant="sm" weight="700" tone="accent">Try opening again</T>
                 </Pressable>
               </View>
-            ) : null
+            ) : undefined
           }
           ListEmptyComponent={
             <View style={{ flex: 1, justifyContent: "center", gap: space.xl, paddingVertical: space.lg }}>

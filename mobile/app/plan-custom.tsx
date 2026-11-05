@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { Pressable, ScrollView, View } from "react-native";
+import { Pressable, ScrollView, View, type ScrollViewInstance } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -453,7 +453,7 @@ function TimeRow({
   onChange: (v: string) => void;
 }) {
   const { colors } = useTheme();
-  const scroller = React.useRef<ScrollView>(null);
+  const scroller = React.useRef<ScrollViewInstance>(null);
   const spans = React.useRef<Record<string, number>>({});
   const revealed = React.useRef(false);
 

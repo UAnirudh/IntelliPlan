@@ -5,12 +5,14 @@ API the website runs on. One codebase for iOS, Android and web.
 
 ```bash
 cd mobile
-npm install
-npx expo start
+npm ci
+npx expo start --dev-client
 ```
 
-Scan the QR code with **Expo Go**, or press `i` / `a` / `w` for the iOS
-simulator, Android emulator, or a browser.
+Install a matching development build on the device first. Expo Go must match
+the project's SDK, and the iOS App Store build may lag behind new SDK releases;
+use the development build for native feature checks. Press `w` to open the
+browser version.
 
 ## What's in it
 
@@ -262,12 +264,14 @@ Before the first store submission:
 5. Run `npx expo-doctor` — it should report every check passing. SDK 57
    dropped the top-level `splash`, `newArchEnabled` and
    `android.edgeToEdgeEnabled` keys; the splash now lives in the
-   `expo-splash-screen` plugin entry in `app.json`.
+   `expo-splash-screen` plugin entry in `app.json`. This app uses SDK 58,
+   React Native 0.88, and the current Expo 58 build image for iOS 27.
 
-Run the Android/EAS static release preflight from `mobile/` before building:
+Run both static store preflights from `mobile/` before building:
 
 ```bash
 npm run release:preflight
+npm run release:preflight:ios
 npm run test:release-preflight
 ```
 
