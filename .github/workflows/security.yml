@@ -43,6 +43,9 @@ jobs:
       - name: Check mobile types
         working-directory: mobile
         run: npm run typecheck
+      - name: Run mobile release and behavior regressions
+        working-directory: mobile
+        run: node --test scripts/*.test.mjs
 
   dependencies:
     name: Vulnerable dependencies
