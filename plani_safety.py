@@ -15,6 +15,11 @@ MODEL = 'openai/gpt-oss-safeguard-20b'
 FALLBACK_MODEL = 'openai/gpt-oss-120b'
 CAPACITY_MODEL = 'openai/gpt-oss-20b'
 CLASSIFIERS = (MODEL, FALLBACK_MODEL, CAPACITY_MODEL)
+# A safety verdict is a short JSON object. A large completion allowance lets
+# hidden reasoning consume scarce provider output capacity even though the
+# visible answer is tiny; keep enough room for reasoning and the strict verdict
+# without reserving thousands of unnecessary tokens on every moderation call.
+MAX_COMPLETION_TOKENS = 1024
 _RECOVERABLE_STATUS = frozenset({413, 429, 500, 502, 503, 504})
 CATEGORIES = frozenset({'safe', 'sexual', 'drugs', 'alcohol', 'violence',
                         'self_harm', 'profanity', 'jailbreak'})
@@ -137,7 +142,7 @@ def classify(messages, *, output=None, allowed_terms=(), http=None):
             request_body = {'model': model, 'messages': [
                 {'role': 'system', 'content': POLICY},
                 {'role': 'user', 'content': json.dumps(payload, ensure_ascii=False)}],
-                'temperature': 0, 'max_completion_tokens': 2048,
+                'temperature': 0, 'max_completion_tokens': MAX_COMPLETION_TOKENS,
                 'stream': False}
             request_body['reasoning_effort'] = 'medium'
             if model != MODEL:
