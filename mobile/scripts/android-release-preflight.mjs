@@ -73,8 +73,8 @@ export function inspectReleaseConfig({ appConfig, easConfig, env = {}, authState
   add(checks, easAuthenticated,
     "EAS CLI confirmed an active account.",
     authStateExists || isNonEmptyString(env.EXPO_TOKEN)
-      ? "EAS credentials are present but could not be validated; run npx eas-cli whoami, then sign in again if needed."
-      : "No active EAS account detected; set EXPO_TOKEN or sign in with eas login.");
+      ? "EAS auth state or EXPO_TOKEN is present, but eas whoami did not confirm an account. Refresh EAS credentials in this terminal and rerun the preflight."
+      : "No active EAS account detected; sign in with npx eas-cli login in this terminal or set EXPO_TOKEN.");
 
   add(checks, easConfig?.submit?.production?.android?.track === "production",
     "Android production submissions target the Google Play production track.",
@@ -120,12 +120,19 @@ export function main({ env = process.env, statePath = join(homedir(), ".expo", "
 
 /** A cached CLI state file can outlive its token; ask EAS before reporting ready. */
 function checkEasAuthentication() {
-  const result = spawnSync("npx", ["eas-cli", "whoami"], {
+  const windowsNpxCli = join(dirname(process.execPath), "node_modules", "npm", "bin", "npx-cli.js");
+  const useNpxCli = process.platform === "win32" && existsSync(windowsNpxCli);
+  const command = useNpxCli
+    ? process.execPath
+    : process.platform === "win32" ? (process.env.ComSpec || "cmd.exe") : "npx";
+  const args = useNpxCli
+    ? [windowsNpxCli, "eas-cli", "whoami"]
+    : process.platform === "win32" ? ["/d", "/s", "/c", "npx eas-cli whoami"] : ["eas-cli", "whoami"];
+  const result = spawnSync(command, args, {
     cwd: mobileDir,
     encoding: "utf8",
     timeout: 20_000,
     windowsHide: true,
-    shell: process.platform === "win32",
     stdio: ["ignore", "pipe", "pipe"],
   });
   return result.status === 0 && isNonEmptyString(result.stdout);
