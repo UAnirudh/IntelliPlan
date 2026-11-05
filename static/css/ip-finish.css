@@ -148,3 +148,16 @@ body.has-side :is(.u-rule, .ip-rule) { background: var(--border-strong); }
   --glass-primary-hover: #ffffff;
   --glass-primary-text: #0e0f12;
 }
+
+/* Sidebar navigation: keep the rail on the app canvas and make the current
+   destination easy to spot without adding another outlined surface. */
+body.has-side .app-side { background: var(--bg); box-shadow: none; }
+body.has-side .app-side .side-link.active {
+  background: color-mix(in srgb, var(--accent) 11%, transparent);
+  color: var(--text-primary);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+body.has-side .app-side :is(.side-link, .side-customize-btn, .side-search):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}

@@ -94,3 +94,26 @@ test('a roster page fetched for an old school is discarded after switching organ
   assert.equal(f.container.children.length, 2);
   assert.equal(f.container.children[1].dataset.memberLoadMore, '');
 });
+
+test('filtered roster pagination uses the match count and preserves the encoded search', async () => {
+  const f = fixture(async () => ({
+    members: [{user_id: 9, role: 'teacher', email: 'jordan@example.test', name: 'Jordan'}],
+    total: 240, filtered_total: 2, search: 'Jordan + teacher@example.test',
+    role_counts: {student: 200, teacher: 40}, offset: 1, limit: 1, has_more: false,
+  }));
+  f.context.$ = id => id === 'admin-members' ? f.container : new Element(id);
+  vm.runInContext(`renderMembers({members:[{user_id:8,role:'teacher',email:'teacher@example.test',name:'Jordan'}], total:240, filtered_total:2, search:'Jordan + teacher@example.test', role_counts:{student:200,teacher:40}, offset:0, limit:1, has_more:true})`, f.context);
+
+  const button = f.container.children.at(-1);
+  assert.match(button.textContent, /1 of 2/);
+  await button.listeners.click();
+  assert.deepEqual(f.requests, ['/api/school-admin/organizations/19/members?offset=1&limit=1&q=Jordan%20%2B%20teacher%40example.test']);
+});
+
+test('school admin roster search is labelled and limited to the selected workspace', () => {
+  const template = fs.readFileSync(path.join(__dirname, '../../Main_Project/templates/school_admin.html'), 'utf8');
+  assert.match(template, /id="admin-member-filter" type="search" maxlength="128"/);
+  assert.match(template, /id="admin-members" role="region" aria-label="Workspace members"/);
+  assert.match(source, /value\.trim\(\)\.slice\(0, 128\)/);
+  assert.match(source, /URLSearchParams\(\{limit:'50'\}\)/);
+});

@@ -501,7 +501,8 @@ def test_chatgpt_plan_callback_is_application_ready_but_not_claimed_live(client)
     assert "https://intelliplan.tech/auth/openai/callback" in page
     assert "include in your OpenAI application" in page
     assert "registered callback URL to match exactly" in page
-    assert "The route is not live yet" in page
+    assert "Identity linking stays hidden" in page
+    assert "does not enable ChatGPT plan use" in page
     assert "register it only after" not in page
 
 

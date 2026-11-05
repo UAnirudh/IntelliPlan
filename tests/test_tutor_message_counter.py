@@ -209,3 +209,21 @@ def test_provider_failure_releases_the_reserved_message(tutor_client, user_id, m
     assert response.status_code == 503
     assert response.get_json()["error"] == "ai_unavailable"
     assert _used(user_id) == 0
+
+
+def test_unconfigured_provider_is_reported_as_retryable_and_refunds_message(
+        tutor_client, user_id, monkeypatch):
+    real_llm_chat = chatbot_api._llm_chat
+    _stub_tutor_turn(monkeypatch)
+    monkeypatch.setattr(chatbot_api, "_llm_chat", real_llm_chat)
+    monkeypatch.setattr(chatbot_api, "_use_ollama", lambda: False)
+    monkeypatch.setattr(chatbot_api, "ai_available", lambda **_kwargs: False)
+
+    response = tutor_client.post("/api/tutor", json={
+        "messages": [{"role": "user", "content": "Help me study fractions."}],
+    })
+
+    assert response.status_code == 503
+    assert response.get_json()["error"] == "ai_unavailable"
+    assert "not reachable right now" in response.get_json()["reply"]
+    assert _used(user_id) == 0

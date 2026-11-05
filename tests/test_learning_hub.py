@@ -1050,6 +1050,48 @@ def test_school_roster_pagination_is_bounded_ordered_and_counts_all_members(clie
     assert client.get(f'/api/school-admin/organizations/{oid}/members?offset=-1').status_code == 400
 
 
+def test_school_roster_search_is_literal_org_scoped_and_preserves_workspace_totals(client, monkeypatch):
+    admin_id = user(client, monkeypatch)
+    oid = org(admin_id, role='admin')
+    matching_id = user(client, monkeypatch)
+    other_member_id = user(client, monkeypatch)
+    outside_id = user(client, monkeypatch)
+    outside_oid = org(outside_id, role='admin')
+    with App.app.app_context():
+        M = policy.models()
+        matching = App.db.session.get(App.User, matching_id)
+        matching.name = 'A%lice Example'
+        other_member = App.db.session.get(App.User, other_member_id)
+        other_member.name = 'Alice Example'
+        outside = App.db.session.get(App.User, outside_id)
+        outside.name = 'B%ob Outside'
+        App.db.session.add_all([
+            M['Membership'](user_id=matching_id, organization_id=oid, role='teacher'),
+            M['Membership'](user_id=other_member_id, organization_id=oid, role='student'),
+        ])
+        App.db.session.commit()
+        admin_email = App.db.session.get(App.User, admin_id).email
+    with client.session_transaction() as session:
+        session['_user_id'] = str(admin_id)
+        session['_fresh'] = True
+
+    response = client.get(f'/api/school-admin/organizations/{oid}/members?q=%25&limit=10')
+    assert response.status_code == 200
+    data = response.get_json()
+    assert [member['user_id'] for member in data['members']] == [matching_id]
+    assert data['filtered_total'] == 1
+    assert data['search'] == '%'
+    assert data['total'] == 3  # Workspace total is unchanged by the filter.
+    assert data['role_counts'] == {'admin': 1, 'student': 1, 'teacher': 1}
+    assert admin_email not in {member['email'] for member in data['members']}
+    assert outside_oid != oid and outside_id not in {member['user_id'] for member in data['members']}
+
+    name_search = client.get(f'/api/school-admin/organizations/{oid}/members?q=Alice')
+    assert name_search.status_code == 200
+    assert [member['user_id'] for member in name_search.get_json()['members']] == [other_member_id]
+    assert client.get(f'/api/school-admin/organizations/{oid}/members?q=' + ('x' * 129)).status_code == 400
+
+
 def test_school_admin_cannot_remove_admin_or_change_outside_school_members(client, monkeypatch):
     admin_id = user(client, monkeypatch)
     school_id = org(admin_id, role='admin')

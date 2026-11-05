@@ -220,6 +220,9 @@ def organization_members(oid):
             limit = int(request.args.get('limit', '50'))
         except (TypeError, ValueError):
             raise ValueError('Member paging needs a numeric offset and limit.') from None
+        search = request.args.get('q', '').strip()
+        if len(search) > 128:
+            raise ValueError('Member search must be 128 characters or fewer.')
         if offset < 0 or offset > 1_000_000:
             raise ValueError('Member offset must be between 0 and 1000000.')
         if limit < 1 or limit > 100:
@@ -233,14 +236,25 @@ def organization_members(oid):
             .join(User, User.id == M['Membership'].user_id)
             .filter(M['Membership'].organization_id == oid)
             .group_by(M['Membership'].role).all())
-        rows = (roster.order_by(M['Membership'].role, User.email, M['Membership'].id)
+        filtered_roster = roster
+        if search:
+            from sqlalchemy import or_
+            literal_search = search.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+            pattern = f'%{literal_search}%'
+            filtered_roster = roster.filter(or_(
+                User.email.ilike(pattern, escape='\\'),
+                User.name.ilike(pattern, escape='\\'),
+            ))
+        filtered_total = filtered_roster.count()
+        rows = (filtered_roster.order_by(M['Membership'].role, User.email, M['Membership'].id)
                 .offset(offset).limit(limit).all())
         users = {u.id: u for u in User.query.filter(
             User.id.in_({r.user_id for r in rows})).all()} if rows else {}
         return jsonify(can_manage_admin=owner_controls, members=[dict(user_id=r.user_id, role=r.role,
             email=users[r.user_id].email, name=users[r.user_id].name or '') for r in rows
             if r.user_id in users], total=total, role_counts=role_counts,
-            offset=offset, limit=limit, has_more=offset + len(rows) < total)
+            filtered_total=filtered_total, search=search,
+            offset=offset, limit=limit, has_more=offset + len(rows) < filtered_total)
     if request.method == 'DELETE':
         data = body()
         uid = data.get('user_id')

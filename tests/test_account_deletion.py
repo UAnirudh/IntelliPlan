@@ -328,6 +328,15 @@ def test_deleting_an_account_removes_the_user_and_their_rows(ctx):
             app_module.ActiveSession(user_id=user_id, title="Session", state="paused"),
         ]
     )
+    app_module.db.session.add(app_module.OpenAIIdentityLink(
+        user_id=user_id, issuer="https://auth.openai.com", client_id="oaiapp_test",
+        subject=f"delete-{uuid.uuid4().hex}",
+    ))
+    app_module.db.session.add(app_module.OpenAISignInTransaction(
+        user_id=user_id, state_hash=uuid.uuid4().hex, browser_hash=uuid.uuid4().hex,
+        nonce="temporary-nonce", code_verifier="temporary-verifier",
+        expires_at=datetime.utcnow(),
+    ))
     app_module.db.session.commit()
 
     with app_module.app.test_request_context():
@@ -341,6 +350,8 @@ def test_deleting_an_account_removes_the_user_and_their_rows(ctx):
 
     app_module.db.session.expire_all()
     assert app_module.User.query.filter_by(id=user_id).first() is None
+    assert app_module.OpenAIIdentityLink.query.filter_by(user_id=user_id).count() == 0
+    assert app_module.OpenAISignInTransaction.query.filter_by(user_id=user_id).count() == 0
     for model in (
         app_module.ManualTask,
         app_module.SavedSchedule,

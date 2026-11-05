@@ -29,6 +29,7 @@ import logging
 import os
 import re
 import threading
+import secret_box
 from datetime import datetime
 from contextvars import ContextVar
 from typing import Any
@@ -41,6 +42,7 @@ from time_utils import utcnow
 
 from intelliplan.growth import plans as growth_plans
 from intelliplan.premium import byok, catalog, claude_tutor, pricing, router
+from intelliplan.premium import openai_siwc
 
 _turn_policy = ContextVar('premium_turn_policy', default=None)
 
@@ -558,6 +560,8 @@ def premium_settings_page():
         model_pref=getattr(current_user, "premium_model_pref", None) or router.AUTO,
         clarify=bool(getattr(current_user, "premium_clarify", True)),
         paid=request.args.get("paid") == "1",
+        siwc_identity_link_enabled=(openai_siwc.enabled_config()[0] and secret_box.is_enabled()),
+        openai_client_id=openai_siwc.enabled_config()[1],
     )
 
 

@@ -114,7 +114,7 @@ def _llm_chat(model, messages, temperature=0.7, max_tokens=512, response_format=
     # valid for eligible paid requests, but it must not make free requests
     # look ready when their actual model chain is empty (or vice versa).
     if not ai_available(plan=plan, tier=_model_tier(model)):
-        raise RuntimeError('No LLM backend available: set GEMINI_API_KEY, GROQ_API_KEY, or OLLAMA_BASE_URL.')
+        raise AIUnavailable('No LLM backend available: set GEMINI_API_KEY, GROQ_API_KEY, or OLLAMA_BASE_URL.')
     return ai_chat(
         messages,
         tier=_model_tier(model),

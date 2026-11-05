@@ -174,6 +174,8 @@ html[data-theme] body:has(.learning-hub) { background: var(--bg); }
 .learning-admin #admin-beta-section { grid-area: beta; }
 .learning-admin #admin-operations-section { grid-area: operations; }
 .learning-admin-secondary > .learning-panel { border-radius: 16px; }
+.admin-roster-filter { display: grid; gap: 7px; max-width: 520px; margin: 18px 0 8px; color: var(--text-secondary); font-size: .82rem; }
+.admin-roster-filter input:focus-visible { outline: 2px solid var(--focus-ring, var(--accent)); outline-offset: 2px; }
 .admin-person-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--border-strong); }
 .learning-admin #admin-members [data-member-load-more] { display: block; margin: 16px auto 0; }
 .admin-person-identity { display: grid; gap: 3px; min-width: 0; }
