@@ -92,9 +92,9 @@
     </div>
     {% if report.optimization_actions.status != 'measured' %}
       <p>More opted-in monthly activity is needed before comparing feature adoption.</p>
-    {% elif report.optimization_actions.items %}
+    {% elif report.optimization_actions['items'] %}
       <ul class="founder-actions">
-      {% for item in report.optimization_actions.items %}
+      {% for item in report.optimization_actions['items'] %}
         <li><strong>{{ item.feature }}</strong> — {{ item.action }}</li>
       {% endfor %}
       </ul>
