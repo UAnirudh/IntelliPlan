@@ -23,6 +23,7 @@ import os
 import time
 from collections import OrderedDict
 from contextvars import ContextVar
+from dataclasses import replace
 from datetime import date, datetime, timedelta
 from threading import RLock
 from typing import Any
@@ -314,7 +315,95 @@ def _senders() -> dict[Channel, Any]:
 def get_dispatcher() -> Dispatcher:
     from App import NotificationOutbox, db
 
-    return Dispatcher(NotificationOutbox, db.session, _senders())
+    return Dispatcher(NotificationOutbox, db.session, _senders(),
+                      row_is_current=_reminder_row_is_current)
+
+
+_ASSIGNMENT_REMINDER_KINDS = frozenset({
+    EventKind.SESSION_UPCOMING.value,
+    EventKind.SESSION_MISSED.value,
+    EventKind.DEADLINE_APPROACHING.value,
+})
+
+
+def _completed_assignment_keys(user_id: int) -> set[str]:
+    """Titles which make an assignment reminder no longer useful."""
+    from App import DismissedAssignment, ManualTask, _norm_title
+
+    completed = {
+        _norm_title(row.title) for row in DismissedAssignment.query.filter_by(user_id=user_id).all()
+        if row.title
+    }
+    completed.update(
+        _norm_title(row.title) for row in ManualTask.query.filter_by(user_id=user_id, done=True).all()
+        if row.title
+    )
+    return completed
+
+
+def _row_references_title(row: Any, title_key: str) -> bool:
+    """Compatibility path for outbox rows written before ``entity_key``."""
+    from App import _norm_title
+
+    entity_key = _norm_title(getattr(row, "entity_key", "") or "")
+    if entity_key:
+        return entity_key == title_key
+    # Legacy queued rows have only rendered copy. This is deliberately a
+    # fallback; all new assignment reminders carry an exact entity key.
+    return bool(title_key and title_key in _norm_title(getattr(row, "body", "") or ""))
+
+
+def _reminder_row_is_current(row: Any) -> bool:
+    """Delivery-time guard against reminders for work now marked complete."""
+    if getattr(row, "kind", "") not in _ASSIGNMENT_REMINDER_KINDS:
+        return True
+    try:
+        return not any(
+            _row_references_title(row, title_key)
+            for title_key in _completed_assignment_keys(row.user_id)
+        )
+    except Exception as exc:
+        # A temporary validation problem must not discard a reminder. The
+        # next retry will validate again, and normal expiry still applies.
+        logger.warning("completion check failed for notification %s (%s)",
+                       getattr(row, "id", "?"), type(exc).__name__)
+        return True
+
+
+def cancel_assignment_reminders(user_id: int, title: str) -> int:
+    """Cancel queued/sending reminders for an assignment just completed.
+
+    The dispatcher also checks this at delivery time, closing the race where
+    a worker claimed a row at exactly the moment a student finished it.
+    """
+    from App import NotificationOutbox, _norm_title, db
+
+    if not user_id or not title:
+        return 0
+    title_key = _norm_title(title)
+    if not title_key:
+        return 0
+    try:
+        rows = NotificationOutbox.query.filter(
+            NotificationOutbox.user_id == user_id,
+            NotificationOutbox.kind.in_(_ASSIGNMENT_REMINDER_KINDS),
+            NotificationOutbox.state.in_(("pending", "sending")),
+        ).all()
+        cancelled = 0
+        for row in rows:
+            if _row_references_title(row, title_key):
+                row.state = "cancelled"
+                row.claimed_at = None
+                row.last_error = "cancelled: assignment completed"
+                cancelled += 1
+        if cancelled:
+            db.session.commit()
+        return cancelled
+    except Exception as exc:
+        db.session.rollback()
+        logger.warning("completion cancellation failed for user %s (%s)",
+                       user_id, type(exc).__name__)
+        return 0
 
 
 def _timezone_for(user_id: int) -> str:
@@ -656,6 +745,75 @@ def _cron_authorised() -> bool:
 #: minute of granularity is the most precision that can matter.
 TICK_SECONDS = int(os.getenv("NOTIFICATIONS_TICK_SECONDS", "60"))
 
+# Four full days gives a student breathing room through a long weekend while
+# still making the check-in timely. It is deliberately a product nudge, not
+# an email campaign: only an opted-in, currently subscribed push channel is
+# eligible below.
+INACTIVE_CHECK_IN_AFTER = timedelta(days=4)
+
+
+def sweep_inactive_check_ins(limit: int = 200, now: datetime | None = None) -> dict[str, int]:
+    """Queue one optional push check-in after a verified four-day absence.
+
+    Eligibility is intentionally narrow: student role, a persisted activity
+    heartbeat, an active plan, normal notification policy approval, an
+    opted-in push subscription, and the student's enabled notification kinds.
+    No email or SMS channel is ever constructed here, so reminder consent is
+    never repurposed as marketing or outreach consent. The event key includes
+    the last active date, yielding exactly one notification per absence.
+    """
+    from sqlalchemy.orm import load_only
+    from intelliplan.learning import policy
+    from App import PushSubscription, User, db
+
+    now = now or utcnow()
+    cutoff = now - INACTIVE_CHECK_IN_AFTER
+    try:
+        users = (
+            User.query.filter(
+                User.role == "student",
+                User.last_active_at.isnot(None),
+                User.last_active_at <= cutoff,
+                User.push_reminders_opt_in.is_(True),
+            )
+            .options(load_only(
+                User.id, User.role, User.last_active_at, User.push_reminders_opt_in,
+                User.notification_kinds, User.quiet_hours_start, User.quiet_hours_end,
+                User.quiet_hours_enabled, User.utc_offset_minutes, User.reminder_lead_minutes,
+            ))
+            .order_by(User.last_active_at.asc())
+            .limit(max(1, limit))
+            .all()
+        )
+    except Exception as exc:
+        logger.warning("inactive check-in query failed: %s", exc)
+        return {"checked": 0, "queued": 0}
+
+    checked = queued = 0
+    for user in users:
+        checked += 1
+        try:
+            if not policy.decision(user, "notifications")[0]:
+                continue
+            subscribed = PushSubscription.query.filter_by(user_id=user.id).first() is not None
+            prefs = preferences_from_user(user, push_subscribed=subscribed,
+                                          tz_name=_timezone_for(user.id))
+            if Channel.PUSH not in prefs.channels or EventKind.INACTIVE_CHECK_IN not in prefs.kinds:
+                continue
+            # A generic "come back" is not useful without something to come
+            # back to, and a student who removed their plan should not get it.
+            if not _plan_for(user.id):
+                continue
+            event = sources.inactive_check_in_event(user.id, user.last_active_at)
+            # Product-use consent applies to the push channel the student
+            # selected, not to email or SMS. ``replace`` retains quiet hours
+            # and kind choices while making that channel boundary explicit.
+            push_only = replace(prefs, channels=frozenset({Channel.PUSH}))
+            queued += len(get_dispatcher().enqueue(event, push_only))
+        except Exception as exc:
+            logger.warning("inactive check-in sweep failed for user %s: %s", user.id, exc)
+    return {"checked": checked, "queued": queued}
+
 #: How long a tick may hold the lease. Comfortably longer than a tick
 #: takes, comfortably shorter than the gap between ticks is unimportant —
 #: what matters is that a dead holder's lease expires promptly enough that
@@ -721,6 +879,7 @@ def _tick_once(app: Any) -> dict | None:
     cameras_removed = _cleanup_expired_cameras()
     swept = sweep_all()
     streaks = sweep_streaks()
+    check_ins = sweep_inactive_check_ins()
     # Grade Pulse's background pull rides this tick and its lease rather
     # than running a timer of its own: one worker, a few students per tick,
     # and whatever it raises lands in the outbox flushed just below.
@@ -733,7 +892,7 @@ def _tick_once(app: Any) -> dict | None:
         pulse = {"pulled": 0}
     delivered = get_dispatcher().flush()
     _shorten_lease(CronLease, holder, now)
-    return {"swept": swept, "streaks": streaks, "grade_pulse": pulse, "camera_pairs_removed": cameras_removed,
+    return {"swept": swept, "streaks": streaks, "check_ins": check_ins, "grade_pulse": pulse, "camera_pairs_removed": cameras_removed,
             "delivered": delivered.as_dict()}
 
 
@@ -833,8 +992,9 @@ def cron_notifications():
     cameras_removed = _cleanup_expired_cameras()
     swept = sweep_all()
     streaks = sweep_streaks()
+    check_ins = sweep_inactive_check_ins()
     delivered = get_dispatcher().flush()
-    return jsonify({"status": "ok", "swept": swept, "streaks": streaks, "camera_pairs_removed": cameras_removed,
+    return jsonify({"status": "ok", "swept": swept, "streaks": streaks, "check_ins": check_ins, "camera_pairs_removed": cameras_removed,
                     "delivered": delivered.as_dict()})
 
 

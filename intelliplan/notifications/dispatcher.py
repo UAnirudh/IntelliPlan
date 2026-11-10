@@ -100,11 +100,13 @@ class Dispatcher:
         db_session: Any,
         senders: dict[Channel, Callable[[Any], bool]] | None = None,
         now: Callable[[], datetime] = utcnow,
+        row_is_current: Callable[[Any], bool] | None = None,
     ) -> None:
         self._model = outbox_model
         self._session = db_session
         self._senders = senders or {}
         self._now = now
+        self._row_is_current = row_is_current
 
     # ── Enqueue ───────────────────────────────────────────────────────
 
@@ -140,6 +142,7 @@ class Dispatcher:
                 kind=event.kind.value,
                 channel=channel.value,
                 dedupe_key=event.key_for(channel),
+                entity_key=(event.entity_key or "")[:512],
                 title=message.title[:256],
                 body=body,
                 url=message.url[:512],
@@ -177,6 +180,16 @@ class Dispatcher:
 
         now = self._now()
         for row in rows:
+            # A queued assignment reminder can become wrong after the sweep
+            # (for example, the student finishes it from another device).
+            # Check immediately before delivery, not only while enqueuing.
+            if self._row_is_current is not None and not self._row_is_current(row):
+                row.state = "cancelled"
+                row.last_error = "cancelled: assignment completed"
+                row.claimed_at = None
+                self._commit()
+                result = result.merged(skipped=1)
+                continue
             # Expiry is judged against the dispatcher's clock, not the wall
             # clock. The model exposes an `is_expired` convenience for the
             # admin views, but using it here would make one step of the

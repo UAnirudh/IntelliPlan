@@ -677,6 +677,10 @@ class User(UserMixin, db.Model):
     google_id = db.Column(db.String(255), unique=True, nullable=True)
     name = db.Column(db.String(255), nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    # Updated at a deliberately low resolution while an authenticated student
+    # uses the product. This supports one respectful, push-only check-in after
+    # a real absence; it is not used for marketing or behavioral profiling.
+    last_active_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=True, index=True)
     # ── Referral columns ──
     referral_code = db.Column(db.String(16), unique=True, nullable=True)
     referred_by_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True)
@@ -3587,6 +3591,18 @@ def save_dismissed(title, data_dict):
         if not any(_norm_title(r.title) == key for r in rows):
             db.session.add(DismissedAssignment(guest_session_id=gid, title=title, data=json.dumps(data_dict)))
     db.session.commit()
+    # A completion must win over already queued reminders. Guest sessions do
+    # not receive notifications, so only an authenticated owner has rows to
+    # cancel. The delivery worker repeats this check immediately before send
+    # to close races with an in-flight claim.
+    if current_user.is_authenticated:
+        try:
+            import notifications_glue
+            notifications_glue.cancel_assignment_reminders(current_user.id, title)
+        except Exception:
+            # Completion is the primary action; a best-effort queue cleanup
+            # must never make the task look unfinished.
+            pass
 
 def delete_dismissed(title):
     # Match on the normalized key so un-completing works even when the
@@ -14290,6 +14306,15 @@ def manual_update_task():
     was_done_before = task.done
     if "done" in data: task.done = data["done"]
     db.session.commit()
+    # A manual task can also be represented by a scheduled plan block. If it
+    # is completed, remove any pending reminder that names that same work.
+    # The dispatcher repeats the check at send time for a concurrent claim.
+    if task.done and not was_done_before and current_user.is_authenticated:
+        try:
+            import notifications_glue
+            notifications_glue.cancel_assignment_reminders(current_user.id, task.title)
+        except Exception:
+            pass
     if NOTION_AVAILABLE and task.notion_page_id:
         notion_token, _ = get_notion_token_and_db()
         if notion_token:
@@ -17690,6 +17715,11 @@ def extension_dismiss():
             if not existing:
                 db.session.add(DismissedAssignment(user_id=user.id, title=title, data=json.dumps(data)))
                 db.session.commit()
+            try:
+                import notifications_glue
+                notifications_glue.cancel_assignment_reminders(user.id, title)
+            except Exception:
+                pass
         return ext_response({"status": "ok"})
     except Exception as e:
         return ext_response({"status": "error"}, 500)
@@ -23384,6 +23414,10 @@ def _migrate_user_columns():
         ("users", "quiet_hours_start", "INTEGER DEFAULT 22"),
         ("users", "quiet_hours_end", "INTEGER DEFAULT 7"),
         ("users", "notification_kinds", "VARCHAR(512)"),
+        ("users", "last_active_at", "TIMESTAMP"),
+        # Existing outbox rows predate assignment-aware cancellation. Empty
+        # keys remain safe: the delivery guard has a conservative fallback.
+        ("notification_outbox", "entity_key", "VARCHAR(512) DEFAULT ''"),
         # manual_tasks provenance for CSV importer / extension scraper
         ("manual_tasks", "import_source", "VARCHAR(32) DEFAULT ''"),
         ("manual_tasks", "import_batch_id", "VARCHAR(64) DEFAULT ''"),
@@ -23523,6 +23557,7 @@ def _ensure_indexes():
         "CREATE INDEX IF NOT EXISTS ix_sessions_user ON study_sessions (user_id)",
         "CREATE INDEX IF NOT EXISTS ix_points_user ON study_points (user_id)",
         "CREATE INDEX IF NOT EXISTS ix_pushsub_user ON push_subscriptions (user_id)",
+        "CREATE INDEX IF NOT EXISTS ix_users_last_active ON users (last_active_at)",
         # The subscribe upsert matches on endpoint; without this it scans
         # every subscription on the site on each notification opt-in.
         "CREATE INDEX IF NOT EXISTS ix_pushsub_endpoint ON push_subscriptions (endpoint)",
@@ -23818,6 +23853,30 @@ def _ensure_migration_ran():
         _run_boot_migration_once()
     except Exception:
         pass
+
+
+@app.before_request
+def _touch_authenticated_activity():
+    """Persist a coarse activity heartbeat for opt-in product check-ins.
+
+    The timestamp is updated at most every six hours, never on static or
+    machine-only routes, and is not used for marketing. A coarse heartbeat
+    is enough to distinguish a real 4-day absence without turning ordinary
+    page navigation into a high-frequency behavior log.
+    """
+    if not current_user.is_authenticated or request.path.startswith("/static/"):
+        return None
+    if request.path in {"/cron/notifications", "/logout"}:
+        return None
+    try:
+        now = utcnow()
+        previous = getattr(current_user, "last_active_at", None)
+        if previous is None or now - previous >= timedelta(hours=6):
+            current_user.last_active_at = now
+            db.session.commit()
+    except Exception:
+        db.session.rollback()
+    return None
 
 
 @app.before_request

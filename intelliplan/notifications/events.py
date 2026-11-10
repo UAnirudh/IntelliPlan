@@ -82,6 +82,10 @@ class EventKind(str, Enum):
     GRADE_POSTED = "grade_posted"
     #: A teacher published new work. Carries where the plan put it.
     ASSIGNMENT_POSTED = "assignment_posted"
+    #: A gentle, one-time nudge after a student has been away for several
+    #: days. This is product use, never marketing, and the sweep restricts
+    #: it to opted-in push subscribers.
+    INACTIVE_CHECK_IN = "inactive_check_in"
     #: A study buddy tapped "nudge". Only ever sent between two students who
     #: both opted in and confirmed each other, and rate-limited at the source
     #: (buddies_glue.py) to one per buddy per day.
@@ -104,6 +108,7 @@ DEFAULT_ENABLED_KINDS: frozenset[EventKind] = frozenset(
         # threshold, or a letter change), never for every score entered.
         EventKind.GRADE_POSTED,
         EventKind.ASSIGNMENT_POSTED,
+        EventKind.INACTIVE_CHECK_IN,
         EventKind.BUDDY_NUDGE,
     }
 )
@@ -131,6 +136,10 @@ class NotificationEvent:
     deliver_at: datetime | None = None
     #: Where tapping the notification should land.
     url: str = "/active"
+    #: The assignment or task this event concerns. Stored with the outbox
+    #: row so completing an item can cancel already queued reminders without
+    #: guessing from human-readable notification copy.
+    entity_key: str = ""
 
     def key_for(self, channel: Channel) -> str:
         return f"{self.kind.value}:{self.dedupe_key}:{channel.value}"
@@ -264,6 +273,13 @@ def _streak_at_risk(ctx: Mapping[str, Any]) -> tuple[str, str]:
     when = f"in {hours}h" if hours else "at midnight"
     # One concrete, small action. "Keep studying!" is not an instruction.
     return (f"Your {streak} ends {when}", "Finish one task or open today's plan to keep it.")
+
+
+def _inactive_check_in(ctx: Mapping[str, Any]) -> tuple[str, str]:
+    return (
+        "Your plan is here when you need it",
+        "No pressure — open IntelliPlan when you are ready to see what is next.",
+    )
 
 
 # ── Grade Pulse ───────────────────────────────────────────────────────
@@ -400,6 +416,7 @@ _TEMPLATES = {
     EventKind.PLAN_OVERLOADED: _plan_overloaded,
     EventKind.PLAN_CHANGED: _plan_changed,
     EventKind.STREAK_AT_RISK: _streak_at_risk,
+    EventKind.INACTIVE_CHECK_IN: _inactive_check_in,
     EventKind.GRADE_POSTED: _grade_posted,
     EventKind.ASSIGNMENT_POSTED: _assignment_posted,
     EventKind.BUDDY_NUDGE: _buddy_nudge,

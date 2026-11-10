@@ -26,6 +26,7 @@ __all__ = [
     "overload_warning",
     "session_completed_event",
     "reschedule_event",
+    "inactive_check_in_event",
     "streak_at_risk",
     "STREAK_DEFENSE_HOURS",
 ]
@@ -98,6 +99,7 @@ def session_reminders(
                     "planned_minutes": block.get("duration_minutes"),
                 },
                 url="/active",
+                entity_key=str(block.get("parent_title") or block.get("assignment") or ""),
             )
         )
     return events
@@ -139,6 +141,7 @@ def missed_sessions(
                     "course": block.get("course"),
                 },
                 url="/active",
+                entity_key=str(block.get("parent_title") or block.get("assignment") or ""),
             )
         )
     return events
@@ -198,6 +201,7 @@ def deadline_reminders(
                     "remaining_minutes": entry["minutes"],
                 },
                 url="/scheduler",
+                entity_key=str(entry["title"] or ""),
             )
         )
     return events
@@ -264,6 +268,21 @@ def reschedule_event(
         dedupe_key=f"reschedule:{when.isoformat()}",
         context={"count": moved_count, "reason": reason},
         url="/scheduler",
+    )
+
+
+def inactive_check_in_event(user_id: int, last_active_at: datetime) -> NotificationEvent:
+    """A single low-pressure prompt for one inactive period.
+
+    ``last_active_at`` is part of the dedupe key. A student receives at most
+    one check-in until they return; a later absence after fresh activity is a
+    distinct, eligible period.
+    """
+    return NotificationEvent(
+        kind=EventKind.INACTIVE_CHECK_IN,
+        user_id=user_id,
+        dedupe_key=f"inactive:{last_active_at.date().isoformat()}",
+        url="/dashboard",
     )
 
 

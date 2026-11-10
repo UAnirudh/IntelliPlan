@@ -230,6 +230,15 @@ def test_enqueue_writes_one_row_per_enabled_channel(bus):
     assert {r.channel for r in rows_in(bus)} == {"push", "sms"}
 
 
+def test_enqueue_persists_the_assignment_key_for_later_cancellation(bus):
+    ev = NotificationEvent(
+        kind=EventKind.SESSION_UPCOMING, user_id=1, dedupe_key="session-1",
+        context={"title": "Essay", "minutes_until": 15}, entity_key="Essay",
+    )
+    make_dispatcher(bus).enqueue(ev, prefs())
+    assert rows_in(bus)[0].entity_key == "Essay"
+
+
 def test_enqueue_skips_channels_the_student_disabled(bus):
     make_dispatcher(bus).enqueue(upcoming(), prefs(channels=frozenset({Channel.PUSH})))
     assert {r.channel for r in rows_in(bus)} == {"push"}
@@ -290,6 +299,19 @@ def test_flush_delivers_and_marks_sent(bus):
     row = queued(bus)
     assert make_dispatcher(bus, {Channel.PUSH: lambda r: True}).flush().sent == 1
     assert row.state == "sent" and row.sent_at
+
+
+def test_delivery_validator_cancels_a_claimed_reminder_before_provider_send(bus):
+    row = queued(bus, entity_key="Essay")
+    sent = []
+    dispatcher = Dispatcher(
+        bus.model, bus.session, {Channel.PUSH: lambda r: sent.append(r) or True},
+        now=lambda: NOW, row_is_current=lambda _row: False,
+    )
+    result = dispatcher.flush()
+    assert result.skipped == 1 and result.sent == 0
+    assert row.state == "cancelled"
+    assert sent == []
 
 
 def test_messages_scheduled_in_the_future_are_left_alone(bus):
@@ -414,6 +436,7 @@ def test_session_reminder_fires_inside_the_lead_window():
     events = sources.session_reminders(plan(), 1, NOW, lead_minutes=30)
     assert len(events) == 1
     assert events[0].kind is EventKind.SESSION_UPCOMING
+    assert events[0].entity_key == "Essay"
 
 
 def test_session_reminder_does_not_fire_too_early():
@@ -495,3 +518,11 @@ def test_malformed_plan_does_not_raise():
 def test_reschedule_event_is_silent_when_nothing_moved():
     assert sources.reschedule_event(1, 0, "caught up", TODAY) is None
     assert sources.reschedule_event(1, 3, "caught up", TODAY) is not None
+
+
+def test_inactive_check_in_dedupes_one_absence_and_stays_low_pressure():
+    away_since = NOW - timedelta(days=4)
+    event = sources.inactive_check_in_event(1, away_since)
+    assert event.kind is EventKind.INACTIVE_CHECK_IN
+    assert away_since.date().isoformat() in event.dedupe_key
+    assert "no pressure" in render(event, Channel.PUSH).body.lower()

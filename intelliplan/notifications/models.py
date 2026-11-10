@@ -69,6 +69,9 @@ def register(db: Any) -> type:
         channel = db.Column(db.String(16), nullable=False)
         #: Unique per user — see the module docstring.
         dedupe_key = db.Column(db.String(256), nullable=False)
+        #: Stable assignment/task identifier when a reminder is about one.
+        #: It lets completion cancel queued work without parsing display copy.
+        entity_key = db.Column(db.String(512), default="")
 
         title = db.Column(db.String(256), default="")
         body = db.Column(db.Text, default="")
