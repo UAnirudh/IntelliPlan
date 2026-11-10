@@ -20,7 +20,7 @@ from typing import Any, Callable
 
 from flask_login import current_user
 
-from adaptive_tutor import analysis, checks, education, modality as modality_lib, store
+from adaptive_tutor import analysis, checks, education, modality as modality_lib, store, turn_signals
 from adaptive_tutor.prompt import build_adaptive_prompt
 
 logger = logging.getLogger(__name__)
@@ -85,6 +85,7 @@ def prepare_turn(mode_override: str | None = None, student_message: str = '') ->
     active = modality_lib.get_active_modalities(mode, weights)
 
     subject, body = split_subject(student_message)
+    signal = turn_signals.classify_turn(body)
 
     prompt = build_adaptive_prompt(
         context,
@@ -93,6 +94,10 @@ def prepare_turn(mode_override: str | None = None, student_message: str = '') ->
         focus_subject=subject,
         focus_text=body,
     )
+    # The raw message remains in the normal conversation.  The adaptive system
+    # prompt receives only a bounded, per-turn intent so a learner cannot turn
+    # their text into instructions or accidentally persist a transient state.
+    prompt = f'{prompt}\n\n## Current Learner Signal (ephemeral)\n- {signal.guidance}'
 
     return {
         'context': context,
@@ -100,6 +105,7 @@ def prepare_turn(mode_override: str | None = None, student_message: str = '') ->
         'mode': mode,
         'weights': weights,
         'active': active,
+        'turn_signal': signal.kind,
         'prompt': prompt,
     }
 
