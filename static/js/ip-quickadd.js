@@ -140,6 +140,10 @@
     } catch (e) {}
   });
 
+  document.getElementById('sideQuickAdd')?.addEventListener('click', function () {
+    if (window.openQuickAdd) window.openQuickAdd();
+  });
+
   window.IPQuickAdd = {
     preview: preview,
     submit: submit,

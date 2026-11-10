@@ -157,8 +157,8 @@ body.has-side .learning-policy-grid .learning-consent:has(input:checked) { backg
   body.has-side .side-nav-list .side-link { flex-shrink: 0; }
   body.has-side .side-spacer { display: none; }
   body.has-side .side-foot { flex-shrink: 0; }
-  body.has-side .side-logo, body.has-side .side-search { flex-shrink: 0; }
-  body.has-side .side-search { border-radius: 14px; box-shadow: none; min-height: 44px; }
+  body.has-side .side-logo, body.has-side .side-search, body.has-side .side-quick-add { flex-shrink: 0; }
+  body.has-side :is(.side-search, .side-quick-add) { border-radius: 14px; box-shadow: none; min-height: 44px; }
   body.has-side .side-collapse-btn { opacity: 1; width: 32px; height: 32px; top: 20px; right: 10px; border-radius: 10px; }
   html[data-side-rail] body.has-side .app-side {
     width: var(--side-peek-w);

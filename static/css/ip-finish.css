@@ -157,7 +157,7 @@ body.has-side .app-side .side-link.active {
   color: var(--text-primary);
   box-shadow: inset 2px 0 0 var(--accent);
 }
-body.has-side .app-side :is(.side-link, .side-customize-btn, .side-search):focus-visible {
+body.has-side .app-side :is(.side-link, .side-customize-btn, .side-search, .side-quick-add):focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }

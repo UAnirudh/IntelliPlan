@@ -67,6 +67,13 @@ def test_active_is_in_the_desktop_sidebar(client, student):
     assert 'href="/active" data-nav-item="active"' in html
 
 
+def test_quick_add_is_a_named_desktop_sidebar_action(client, student):
+    html = client.get("/dashboard").data.decode("utf-8", "ignore")
+    assert 'id="sideQuickAdd"' in html
+    assert 'aria-label="Quick add a task"' in html
+    assert 'Quick add</span>' in html
+
+
 def test_active_is_in_the_phone_tab_bar(client, student):
     """It was in the sidebar but absent from this bar, which is the whole
     navigation on a phone."""

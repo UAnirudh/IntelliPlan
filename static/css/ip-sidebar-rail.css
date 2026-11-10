@@ -63,6 +63,7 @@ body.has-side .side-logo { padding-right: 40px; }
      widens; the label is clipped rather than squeezed. */
   html[data-side-rail] body.has-side .app-side .side-link,
   html[data-side-rail] body.has-side .side-search,
+  html[data-side-rail] body.has-side .side-quick-add,
   html[data-side-rail] body.has-side .side-customize-btn {
     white-space: nowrap; overflow: hidden;
     padding-left: 13px; padding-right: 10px;
@@ -73,10 +74,11 @@ body.has-side .side-logo { padding-right: 40px; }
      labels are hidden by zeroing font-size on the row; icons are px-sized. */
   html[data-side-rail] body.has-side .app-side:not(.is-peek) .side-link,
   html[data-side-rail] body.has-side .app-side:not(.is-peek) .side-search,
+  html[data-side-rail] body.has-side .app-side:not(.is-peek) .side-quick-add,
   html[data-side-rail] body.has-side .app-side:not(.is-peek) .side-customize-btn { font-size: 0; gap: 0; }
   /* Keep icon controls fully inside the visible rail instead of letting
      the rail clip the right side of their full-width hit targets. */
-  html[data-side-rail] body.has-side .app-side:not(.is-peek) :is(.side-link, .side-search, .side-customize-btn, .founder-mode-button) {
+  html[data-side-rail] body.has-side .app-side:not(.is-peek) :is(.side-link, .side-search, .side-quick-add, .side-customize-btn, .founder-mode-button) {
     box-sizing: border-box;
     width: calc(var(--side-rail-w) - 20px);
     min-width: calc(var(--side-rail-w) - 20px);
@@ -87,6 +89,7 @@ body.has-side .side-logo { padding-right: 40px; }
     margin-right: auto;
   }
   html[data-side-rail] body.has-side .app-side:not(.is-peek) .side-search > span:not(.side-icon),
+  html[data-side-rail] body.has-side .app-side:not(.is-peek) .side-quick-add > span:not(.side-icon),
   html[data-side-rail] body.has-side .app-side:not(.is-peek) .side-customize-btn > span:not(.side-icon),
   html[data-side-rail] body.has-side .app-side:not(.is-peek) .logo-text,
   html[data-side-rail] body.has-side .app-side:not(.is-peek) .side-foot-row,

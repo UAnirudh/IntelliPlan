@@ -1220,8 +1220,9 @@
     .side-link.side-sub.active { background: var(--bg-elevated); color: var(--text-primary); }
     .side-link.nav-hidden, .side-group.nav-empty { display: none !important; }
 
-    /* Sidebar search trigger (opens command palette) */
-    .side-search {
+    /* Sidebar command-palette triggers. Quick add is the primary capture
+       action; search remains the neutral navigation affordance. */
+    .side-search, .side-quick-add {
       display: flex; align-items: center; gap: 11px;
       padding: 8px 12px; border-radius: var(--r-sm);
       color: var(--text-muted);
@@ -1234,12 +1235,18 @@
       width: 100%; text-align: left;
     }
     .side-search:hover { background: color-mix(in srgb, var(--text-primary) 9%, transparent); color: var(--text-primary); }
-    .side-search .kbd-hint {
+    .side-search .kbd-hint, .side-quick-add .kbd-hint {
       font-family: var(--font-ui); font-size: 0.68rem; font-weight: 700;
       padding: 2px 7px; border-radius: var(--r-xs);
       background: transparent; color: var(--text-muted);
       border: 0;
     }
+    .side-quick-add {
+      color: var(--on-accent, #fff); background: var(--accent);
+      margin-bottom: 4px;
+    }
+    .side-quick-add:hover { background: color-mix(in srgb, var(--accent) 86%, #000); color: var(--on-accent, #fff); }
+    .side-quick-add .kbd-hint { color: inherit; opacity: 0.8; }
 
     /* ── Command palette (Cmd/Ctrl + K) ── */
     #cmdPalette {
