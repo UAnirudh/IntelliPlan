@@ -104,6 +104,9 @@
 
   {% if _trust %}
   <div style="max-width:1180px; margin:1rem auto 0; padding-top:0.85rem; border-top:1px solid var(--footer-border); display:flex; align-items:center; gap:1.25rem; flex-wrap:wrap;">
+    {% if _p == '/' %}
+    <a href="https://builtbyindies.com/products/intelliplan?utm_source=badge&utm_medium=embed&utm_campaign=live" target="_blank"><img src="https://builtbyindies.com/badge/683e31b5-2237-427c-a037-ba7ed871a024.svg?theme=dark" alt="BuiltByIndies" height="60" /></a>
+    {% endif %}
     <a href="https://dang.ai/" target="_blank" rel="noopener" aria-label="IntelliPlan featured on Dang.ai">
       <img src="https://cdn.prod.website-files.com/63d8afd87da01fb58ea3fbcb/6487e2868c6c8f93b4828827_dang-badge.png" alt="Featured on Dang.ai" width="120" height="43" loading="lazy" style="display:block;opacity:0.85;"/>
     </a>
