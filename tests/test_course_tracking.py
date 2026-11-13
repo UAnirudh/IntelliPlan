@@ -159,7 +159,7 @@ def client():
 
 def _make_user() -> int:
     with App.app.app_context():
-        user = User(email=f"course-{uuid.uuid4().hex[:10]}@example.test", password_hash="")
+        user = User(email=f"course-{uuid.uuid4().hex[:10]}@example.test", password_hash="", birth_year=2000)
         db.session.add(user)
         db.session.commit()
         return user.id

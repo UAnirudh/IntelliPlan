@@ -58,6 +58,7 @@ def student():
     """A signed-up student holding an extension token, as the popup issues."""
     with App.app.app_context():
         user = User(email="ext+a@example.com",
+                    birth_year=2000,
                     password_hash=bcrypt.generate_password_hash(PASSWORD).decode())
         db.session.add(user)
         db.session.commit()
@@ -233,6 +234,7 @@ def test_grades_are_private_to_their_owner(client, student):
                 headers={"Authorization": f"Bearer {TOKEN}"})
     with App.app.app_context():
         other = User(email="ext+other@example.com",
+                     birth_year=2000,
                      password_hash=bcrypt.generate_password_hash(PASSWORD).decode())
         db.session.add(other)
         db.session.commit()

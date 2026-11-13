@@ -83,7 +83,7 @@ def test_a_child_with_educational_parental_consent_is_still_refused_marketing(ct
     )
     ok, reason = eligibility.is_marketing_eligible(child)
     assert ok is False
-    assert reason == "under_13_marketing_blocked"
+    assert reason == "under_13_verification_unavailable"
 
 
 def test_birth_year_boundary_uses_youngest_possible_age(ctx):

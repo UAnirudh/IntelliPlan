@@ -154,10 +154,10 @@ export async function login(email: string, password: string): Promise<Me> {
  * first one. This is the same endpoint the browser extension signs up
  * through, so an account made here is the same account on the website.
  */
-export async function register(email: string, password: string, name?: string): Promise<Me> {
+export async function register(email: string, password: string, name?: string, birthYear?: string): Promise<Me> {
   const data = await apiFetch<{ token: string; user: Me }>("/api/auth/register", {
     method: "POST",
-    body: JSON.stringify({ email, password, name }),
+    body: JSON.stringify({ email, password, name, birth_year: birthYear }),
   });
   await setToken(data.token);
   return getMe();

@@ -212,6 +212,14 @@ def require_auth(*required_scopes):
                     "Send a valid `X-API-Key` header, or a Bearer token from "
                     "POST /api/v1/auth/token. Apply for a key at /developers.",
                     401)
+            from child_privacy import hold_reason, CHILD_HOLD_MESSAGE
+            reason = hold_reason(user, require_known_age=True)
+            recovery = key_row is None and request.path in {
+                '/api/v1/me', '/api/v1/age', '/api/v1/push/unregister',
+                '/api/v1/age/parent-consent/resend',
+            }
+            if reason and not recovery:
+                return _fail(reason, CHILD_HOLD_MESSAGE, 403)
             missing = [s for s in required_scopes if s not in scopes]
             if missing:
                 return _fail(
@@ -263,13 +271,10 @@ def _gate_age_and_parental_consent():
         return _fail("age_required", "Enter your birth year to continue.", 403,
                      next_action="submit_age")
 
-    age = age_from_birth_year(user.birth_year, utcnow())
-    pending = (bool(getattr(user, "parent_email", None)) or (age is not None and age < 13)) \
-        and not bool(getattr(user, "parent_consent_granted", False))
-    if pending:
-        return _fail("parent_consent_required",
-                     "A parent or guardian must approve this account before you can use IntelliPlan.",
-                     403, next_action="check_parent_consent")
+    from child_privacy import hold_reason, CHILD_HOLD_MESSAGE
+    reason = hold_reason(user)
+    if reason:
+        return _fail(reason, CHILD_HOLD_MESSAGE, 403, next_action='check_parent_consent')
     return None
 
 
@@ -413,6 +418,10 @@ def auth_token():
         return _fail("unauthorized", "Invalid credentials.", 401)
     if not bcrypt.check_password_hash(user.password_hash, password):
         return _fail("unauthorized", "Invalid credentials.", 401)
+    from child_privacy import hold_reason, CHILD_HOLD_MESSAGE
+    reason = hold_reason(user, require_known_age=True)
+    if reason and reason != 'age_required':
+        return _fail(reason, CHILD_HOLD_MESSAGE, 403)
     return jsonify({
         "token": make_token(user),
         "token_type": "Bearer",
@@ -448,10 +457,8 @@ def _age_consent_status(user):
     birth_year = getattr(user, "birth_year", None)
     if birth_year is None:
         return "age_required"
-    age = age_from_birth_year(birth_year, utcnow())
-    pending = (bool(getattr(user, "parent_email", None)) or (age is not None and age < 13)) \
-        and not bool(getattr(user, "parent_consent_granted", False))
-    return "parent_consent_pending" if pending else "ready"
+    from child_privacy import hold_reason
+    return "parent_consent_pending" if hold_reason(user) else "ready"
 
 
 @api_bp.route("/age", methods=["POST"])
@@ -484,24 +491,16 @@ def submit_age():
                      age_consent_status=_age_consent_status(user))
 
     age = age_from_birth_year(birth_year, utcnow())
-    raw_parent_email = body.get("parent_email")
-    parent_email = raw_parent_email.strip().lower() if isinstance(raw_parent_email, str) else ""
     under_13 = age is not None and age < 13
-    if under_13:
-        if not parent_email or "@" not in parent_email:
-            return _err("Because you're under 13, a parent or guardian's email is required.", 400)
-        if parent_email == str(getattr(user, "email", "") or "").strip().lower():
-            return _err("Your parent or guardian's email must be different from your own.", 400)
 
     db, _User, _bcrypt = _models()
     user.birth_year = birth_year
     user.parent_consent_granted = not under_13
-    user.parent_email = parent_email if under_13 else None
+    user.parent_email = None
     user.parent_consent_token = None
     user.parent_consent_expires_at = None
     if under_13:
         import App as app_module
-        app_module._issue_parental_consent_token(user)
         user.parent_consent_at = None
         user.parent_consent_notice_version = None
         user.marketing_emails_opt_in = False
@@ -514,14 +513,13 @@ def submit_age():
 
     import App as app_module
     if under_13:
-        delivered = app_module._send_parental_consent_email(user)
+        from child_privacy import CHILD_HOLD_MESSAGE
         return jsonify({
             "status": "ok",
             "age_consent_status": "parent_consent_pending",
             "email_verified": bool(getattr(user, "email_verified", False)),
-            "consent_email_sent": bool(delivered),
-            "message": ("A parent or guardian must approve this account before you can use IntelliPlan."
-                        if delivered else "We couldn't send the consent email yet. Try sending it again."),
+            "consent_email_sent": False,
+            "message": CHILD_HOLD_MESSAGE,
         }), 201
 
     app_module._welcome_after_age_known(user)
@@ -560,29 +558,9 @@ def resend_email_verification():
 @api_bp.route("/age/parent-consent/resend", methods=["POST"])
 @require_auth("write:identity")
 def resend_parental_consent():
-    if getattr(g, "api_key_row", None) is not None:
-        return _fail("first_party_only", "Age setup requires the signed-in IntelliPlan app.", 403)
-    user = g.api_user
-    age = age_from_birth_year(getattr(user, "birth_year", None), utcnow())
-    if (age is None or age >= 13 or not getattr(user, "parent_email", None)
-            or getattr(user, "parent_consent_granted", False)):
-        return _fail("not_pending", "This account is not waiting for parent consent.", 409)
-    import App as app_module
-    app_module._issue_parental_consent_token(user)
-    db, _User, _bcrypt = _models()
-    try:
-        db.session.commit()
-    except Exception:
-        db.session.rollback()
-        return _fail("server_error", "Could not create a new consent link. Please try again.", 500)
-    delivered = app_module._send_parental_consent_email(user)
-    return jsonify({
-        "status": "ok",
-        "age_consent_status": "parent_consent_pending",
-        "consent_email_sent": bool(delivered),
-        "message": ("If the parent email is correct, another consent link has been sent."
-                    if delivered else "We couldn't send the consent email. Try again later."),
-    })
+    """Verification remains unavailable; email cannot activate a child account."""
+    from child_privacy import CHILD_HOLD_MESSAGE
+    return _fail('verification_unavailable', CHILD_HOLD_MESSAGE, 409)
 
 
 

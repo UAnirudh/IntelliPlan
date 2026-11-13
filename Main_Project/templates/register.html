@@ -116,12 +116,10 @@
       <div class="form-group">
         <label class="form-label" for="regBirthYear">Birth year</label>
         <input type="number" id="regBirthYear" name="birth_year" class="form-input" placeholder="e.g. 2010" min="1900" max="2026" onchange="_toggleParentField()" oninput="_toggleParentField()" />
-        <span class="form-hint">Used for age checks. If you're under 13, a parent or guardian needs to approve your account.</span>
+        <span class="form-hint">Used for age checks. Independent accounts for children under 13 are currently unavailable.</span>
       </div>
       <div class="form-group" id="regParentWrap" style="display:none;">
-        <label class="form-label" for="regParentEmail">Parent or guardian email <span style="color:var(--high);">*</span></label>
-        <input type="email" id="regParentEmail" name="parent_email" class="form-input" autocomplete="email" placeholder="parent@example.com" />
-        <span class="form-hint">An approval link will be sent to this address.</span>
+        <p class="form-hint">A parent or school may contact <a href="mailto:uanirudh0811@gmail.com">uanirudh0811@gmail.com</a> about verification requirements. An email approval link cannot activate an under-13 account.</p>
       </div>
       {# Marketing, kept visibly apart from the reminders above: those are the
          product doing its job, this is us writing to them. Unticked by

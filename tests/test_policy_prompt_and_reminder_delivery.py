@@ -87,7 +87,7 @@ def test_an_existing_account_gets_the_changes_with_a_tldr(client):
     privacy = next(d for d in pending(client)["pending"] if d["doc"] == "privacy")
 
     assert privacy["first_time"] is False
-    assert privacy["version"] == 6
+    assert privacy["version"] == 7
     assert privacy["tldr"], "the change notice leads with a TL;DR"
     # The short version of the whole document rides along for after they accept.
     assert privacy["doc_tldr"] == policy_versions.DOC_TLDR["privacy"]
@@ -106,7 +106,7 @@ def test_someone_who_accepted_v3_is_shown_each_later_privacy_change(client):
 
     docs = pending(client)["pending"]
 
-    assert [(d["doc"], d["from_version"], d["version"]) for d in docs] == [("privacy", 3, 6)]
+    assert [(d["doc"], d["from_version"], d["version"]) for d in docs] == [("privacy", 3, 7)]
     privacy = docs[0]
     headings = [clause["heading"] for clause in privacy["clauses"]]
     assert any("Optional reminders data" in heading for heading in headings)
@@ -259,7 +259,7 @@ def test_an_old_account_adding_its_age_is_not_welcomed(client, welcomed):
     assert welcomed == []
 
 
-def test_a_child_is_not_welcomed_until_a_parent_approves(client, welcomed):
+def test_email_acknowledgment_does_not_welcome_or_activate_a_child(client, welcomed):
     uid = make_user("welcome+child@example.com", google_id="g-welcome-3",
                     created_at=utcnow())
     sign_in(client, uid)
@@ -268,11 +268,14 @@ def test_a_child_is_not_welcomed_until_a_parent_approves(client, welcomed):
     assert welcomed == []
 
     with App.app.app_context():
-        token = db.session.get(User, uid).parent_consent_token
+        user = db.session.get(User, uid)
+        assert user.parent_consent_token is None
+        token = App._issue_parental_consent_token(user)  # Pre-release legacy-link fixture.
+        db.session.commit()
     with App.app.test_client() as parent:
         r = parent.post("/parent/consent", data={"token": token, "acknowledged": "yes"})
-    assert r.status_code == 200
-    assert welcomed == [uid]
+    assert r.status_code == 202
+    assert welcomed == []
 
 
 # ── Desktop installs that went away ──────────────────────────

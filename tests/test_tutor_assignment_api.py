@@ -228,6 +228,12 @@ def test_schoolwork_waits_for_age_and_under_13_parent_consent(client, monkeypatc
         user = User.query.filter_by(email='tam+student@example.com').first()
         user.parent_consent_granted = True
         db.session.commit()
+    assert client.get('/api/tutor/assignments').status_code == 403
+    assert calls == []
+    with App.app.app_context():
+        user = User.query.filter_by(email='tam+student@example.com').first()
+        user.birth_year = 2000
+        db.session.commit()
     assert client.get('/api/tutor/assignments').status_code == 200
     assert len(calls) == 1
 

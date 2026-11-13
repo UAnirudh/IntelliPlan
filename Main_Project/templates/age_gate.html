@@ -23,19 +23,16 @@
     <input type="number" id="birthYear" name="birth_year" required
            min="1900" max="{{ current_year }}" inputmode="numeric"
            placeholder="e.g. 2010" autocomplete="bday-year"
-           oninput="ageGateToggleParent(this.value)">
+           >
 
     {# Revealed by the year, not always shown: asking every student for a
        parent's email would collect an address we have no basis to hold. #}
-    <div id="parentBlock" class="age-gate-parent" hidden>
-      <label for="parentEmail">A parent or guardian's email</label>
+    <div id="parentBlock" class="age-gate-parent">
       <p class="age-gate-hint">
-        Because you're under 13, we need a parent or guardian to approve your
-        account before it's active. We'll email them a one-time link and use
-        the address for nothing else.
+        Independent accounts for children under 13 are currently unavailable.
+        An email approval link does not activate an account. A parent or school
+        may contact uanirudh0811@gmail.com about verification requirements.
       </p>
-      <input type="email" id="parentEmail" name="parent_email"
-             placeholder="parent@example.com" autocomplete="off">
     </div>
 
     <button type="submit" class="age-gate-submit">Continue</button>
@@ -123,16 +120,4 @@
   }
 </style>
 
-<script>
-  function ageGateToggleParent(value) {
-    const year = parseInt(value, 10);
-    const block = document.getElementById('parentBlock');
-    const input = document.getElementById('parentEmail');
-    if (!block || !input) return;
-    const under13 = Number.isFinite(year) && ({{ current_year }} - year - 1) < 13
-      && year > 1900;
-    block.hidden = !under13;
-    input.required = under13;
-  }
-</script>
 {% endblock %}

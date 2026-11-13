@@ -44,6 +44,7 @@ import secret_box
 from intelliplan.integrations.document_content import CloudDocumentError
 import policy_versions
 import parental_notice
+import child_privacy
 from intelliplan.email.eligibility import age_from_birth_year
 import assistant_name
 import desktop_auth
@@ -162,7 +163,15 @@ except Exception as e:
     print(f"Canvas OAuth not available: {e}")
     CANVAS_OAUTH_AVAILABLE = False
 
-if os.getenv("SENTRY_DSN"):
+load_dotenv()
+import school_pilot
+school_pilot.install()
+if school_pilot.enabled():
+    school_pilot.configuration()  # Refuse a misconfigured isolated pilot at boot.
+    if secret_box._cipher() is None:
+        raise RuntimeError('School pilot requires a valid DATA_ENCRYPTION_KEY.')
+
+if os.getenv("SENTRY_DSN") and not school_pilot.enabled():
     sentry_sdk.init(
         dsn=os.getenv("SENTRY_DSN"),
         integrations=[FlaskIntegration()],
@@ -170,8 +179,6 @@ if os.getenv("SENTRY_DSN"):
     )
 
 limiter = Limiter(key_func=get_remote_address)
-
-load_dotenv()
 
 app = flask.Flask(
     __name__,
@@ -7400,11 +7407,7 @@ def register():
         elif not error:
             error = "Please tell us your birth year so we can comply with COPPA."
         if not error and age is not None and age < 13:
-            if not parent_email_raw or "@" not in parent_email_raw:
-                error = ("Because you're under 13, a parent or guardian's email is required. "
-                         "We'll send them a one-time consent link before activating your account.")
-            elif parent_email_raw == email:
-                error = "Your parent or guardian's email must be different from your own."
+            error = child_privacy.CHILD_HOLD_MESSAGE
         if not error and _is_adult_auth_request() and age is not None and age < 18:
             error = "Parent and teacher accounts are for adults. Please use the student app."
 
@@ -17436,6 +17439,10 @@ def extension_login():
             # a client that only checks the status code was being told it
             # had signed in.
             return flask.jsonify({"status": "error", "message": "Invalid email or password"}), 401
+        reason = child_privacy.hold_reason(user, require_known_age=True)
+        if reason:
+            return flask.jsonify(status='error', reason=reason,
+                                 message=child_privacy.CHILD_HOLD_MESSAGE), 403
         token = secrets_module.token_hex(32)
         db.session.add(ExtensionToken(user_id=user.id, token=token))
         db.session.commit()
@@ -17465,10 +17472,15 @@ def extension_register():
             return flask.jsonify({"status": "error", "message": "Email and password required"})
         if len(password) < 8:
             return flask.jsonify({"status": "error", "message": "Password must be at least 8 characters"})
+        try:
+            birth_year = child_privacy.registration_birth_year(data.get('birth_year'))
+        except ValueError as exc:
+            return flask.jsonify(status='error', reason='age_eligibility_required', message=str(exc)), 400
         if User.query.filter_by(email=email).first():
             return flask.jsonify({"status": "error", "message": "Account already exists"})
         pw_hash = bcrypt.generate_password_hash(password).decode("utf-8")
-        user = User(email=email, password_hash=pw_hash)
+        user = User(email=email, password_hash=pw_hash, birth_year=birth_year,
+                    parent_consent_granted=True)
         db.session.add(user)
         db.session.flush()
         try:
@@ -17480,10 +17492,8 @@ def extension_register():
         token = secrets_module.token_hex(32)
         db.session.add(ExtensionToken(user_id=user.id, token=token))
         db.session.commit()
-        # Extension signups collect no birth year, so the eligibility gate
-        # holds this back as unknown_age until the account is completed on
-        # the web. Called anyway rather than special-cased: a signup path
-        # that quietly skips the welcome is how it gets forgotten.
+        # Registration has already established age eligibility. Delivery
+        # still applies suppression and the ordinary lifecycle-email gates.
         send_welcome_email_on_signup(user.id)
         resp = flask.jsonify({"status": "ok", "token": token, "email": user.email})
         resp.headers["Access-Control-Allow-Origin"] = "*"
@@ -17516,7 +17526,8 @@ def get_extension_user(token):
         row = ExtensionToken.query.filter_by(token=token).first()
         if not row:
             return None
-        return db.session.get(User, row.user_id)
+        user = db.session.get(User, row.user_id)
+        return None if child_privacy.hold_reason(user, require_known_age=True) else user
     except Exception:
         return None
 
@@ -20069,11 +20080,14 @@ def account_age_gate():
 
         under_13 = (age is not None and age < 13)
         if not error and under_13:
-            if not parent_email_raw or "@" not in parent_email_raw:
-                error = ("Because you're under 13, a parent or guardian's email is "
-                         "required. We'll send them a one-time consent link.")
-            elif parent_email_raw == (current_user.email or "").lower():
-                error = "Your parent or guardian's email must be different from your own."
+            # Preserve only the age fact needed to hold an existing OAuth account.
+            # Do not collect a new guardian address or send an unverified approval.
+            current_user.birth_year = birth_year_val
+            current_user.parent_consent_granted = False
+            current_user.marketing_emails_opt_in = False
+            current_user.marketing_opt_in_at = None
+            db.session.commit()
+            return redirect('/account/age/pending')
 
         if not error:
             current_user.birth_year = birth_year_val
@@ -20114,16 +20128,9 @@ def account_age_pending():
     if not current_user.is_authenticated:
         return redirect(url_for("login"))
     return _mini_page(
-        "Waiting for a parent",
-        "<h1>Almost there</h1>"
-        "<p>We've emailed your parent or guardian a link to approve your account. "
-        "Once they do, everything unlocks.</p>"
-        "<p>The link expires after 7 days. If it expires or the email did not arrive, "
-        "you can send a fresh request:</p>"
-        "<form method='post' action='/account/age/pending/resend'>"
-        "<button type='submit' style='min-height:44px;padding:0 18px;border:0;border-radius:999px;"
-        "background:#1a56db;color:#fff;font:600 15px system-ui;cursor:pointer'>"
-        "Resend parent approval email</button></form>"
+        "Account access restricted",
+        "<h1>Account access restricted</h1>"
+        f"<p>{child_privacy.CHILD_HOLD_MESSAGE}</p>"
         "<p><a href='/'>Back to IntelliPlan</a></p>"
     )
 
@@ -20131,31 +20138,9 @@ def account_age_pending():
 @app.route("/account/age/pending/resend", methods=["POST"])
 @limiter.limit("4 per hour")
 def account_age_pending_resend():
-    """Rotate and resend the logged-in child's pending parent-consent link."""
-    if not current_user.is_authenticated:
-        return redirect(url_for("login"))
-    age = age_from_birth_year(getattr(current_user, "birth_year", None), utcnow())
-    if (age is None or age >= 13 or not getattr(current_user, "parent_email", None)
-            or getattr(current_user, "parent_consent_granted", False)):
-        return redirect("/")
-    _issue_parental_consent_token(current_user)
-    try:
-        db.session.commit()
-    except Exception:
-        db.session.rollback()
-        return _mini_page("Request unavailable",
-                          "<h1>Could not resend the request</h1>"
-                          "<p>Please try again in a moment.</p>"), 500
-    delivered = _send_parental_consent_email(current_user)
-    message = ("A fresh approval link has been sent. It expires after 7 days."
-               if delivered else "The request is ready, but we could not deliver the email. "
-                                "Please try again later or contact support.")
-    return _mini_page(
-        "Parent approval request",
-        "<h1>Parent approval request</h1>"
-        f"<p>{message}</p>"
-        "<p><a href='/account/age/pending'>Back to waiting screen</a></p>",
-    )
+    """Verification remains unavailable; email cannot activate a child account."""
+    return _mini_page('Verification required', '<h1>Verification required</h1>'
+                      f'<p>{child_privacy.CHILD_HOLD_MESSAGE}</p>'), 202
 
 
 @app.route("/parent/consent", methods=["GET", "POST"])
@@ -20177,8 +20162,8 @@ def parent_consent():
             "<h1>Link not valid</h1>"
             "<p>This consent link no longer works. Either the account was already approved, "
             "or the link has expired.</p>"
-            "<p>If your child still needs approval, ask them to sign in and resend the request "
-            "from the parent-approval waiting screen.</p>"
+            "<p>For verification requirements or help with an existing account, contact "
+            "uanirudh0811@gmail.com.</p>"
             "<p><a href='/'>Back to IntelliPlan</a></p>"
         ), 404
     if request.method == "GET":
@@ -20187,28 +20172,11 @@ def parent_consent():
                                notice_paragraphs=parental_notice.NOTICE_PARAGRAPHS,
                                notice_version=parental_notice.NOTICE_VERSION)
     if request.form.get("acknowledged") != "yes":
-        return "Read the parental notice and explicitly choose to approve.", 400
-    if not user.parent_consent_granted:
-        user.parent_consent_at = utcnow()
-        user.parent_consent_notice_version = parental_notice.NOTICE_VERSION
-        user.parent_consent_granted = True
-        user.parent_consent_token = None  # one-shot
-        user.parent_consent_expires_at = None
-        db.session.commit()
-        _welcome_after_age_known(user)
-    # Render a tiny inline confirmation — no template needed.
-    return (
-        _mini_page(
-            "Consent granted",
-            "<h1>Consent granted</h1>"
-            f"<p>You have approved <strong>{user.email}</strong>'s IntelliPlan account. "
-            "They can sign in and start using the app now.</p>"
-            "<p>You can revoke consent at any time by emailing "
-            "<a href='mailto:uanirudh0811@gmail.com'>uanirudh0811@gmail.com</a>. We delete the "
-            "account and all associated data within 30 days.</p>"
-            "<p><a href='/'>Back to IntelliPlan</a></p>"
-        )
-    )
+        return "Read and acknowledge the verification requirements.", 400
+    # Possession of this email token is not independent verification of a
+    # guardian. Preserve the denial link and do not set any approval evidence.
+    return _mini_page('Verification required', '<h1>Verification required</h1>'
+                      f'<p>{child_privacy.CHILD_HOLD_MESSAGE}</p>'), 202
 
 
 @app.route("/parent/deny", methods=["GET", "POST"])
@@ -20256,24 +20224,25 @@ def parent_deny():
                                notice_version=parental_notice.NOTICE_VERSION)
     if request.form.get("acknowledged") != "yes":
         return "Explicitly confirm removal of this pending signup.", 400
-    child_email = user.email
+    child_email = _html_mod.escape(user.email or '')
     try:
         PolicyAcknowledgement.query.filter_by(user_id=user.id).delete(synchronize_session=False)
         db.session.delete(user)
         db.session.commit()
-        print(f"[coppa] denied + deleted pending account: {child_email}")
+        print("[coppa] pending account removed")
     except Exception as _e:
         db.session.rollback()
-        print(f"[coppa] deny delete failed for {child_email}: {_e}")
+        print(f"[coppa] pending account removal failed: {type(_e).__name__}")
         return "Could not remove the account right now. Please try again later.", 500
     return (
         _mini_page(
             "Account removed",
             "<h1>Account removed</h1>"
             f"<p>The pending IntelliPlan account for <strong>{child_email}</strong> has been "
-            "deleted. We keep no data from it.</p>"
-            "<p>If that was a mistake, your child can sign up again at any time and you will "
-            "get a new consent email.</p>"
+            "removed from the active account store. Operational logs and backups "
+            "follow their separate retention and deletion procedures.</p>"
+            "<p>New independent accounts for children under 13 remain unavailable while "
+            "the reviewed authorization process is completed.</p>"
             "<p><a href='/'>Back to IntelliPlan</a></p>"
         )
     )
@@ -23737,7 +23706,7 @@ def _enforce_pending_parental_consent():
         return None
     user = current_user._get_current_object()
     try:
-        facts = (user.birth_year, user.parent_email, user.parent_consent_granted)
+        reason = child_privacy.hold_reason(user, utcnow())
     except Exception:
         # The loaded user can be detached from the session (a hook above
         # closed it). Re-read the row rather than 500 every request or,
@@ -23746,15 +23715,12 @@ def _enforce_pending_parental_consent():
         user = db.session.get(User, int(uid)) if uid.isdigit() else None
         if user is None:
             return None
-        facts = (user.birth_year, user.parent_email, user.parent_consent_granted)
-    birth_year, parent_email, consent_granted = facts
-    age = age_from_birth_year(birth_year, utcnow())
-    pending = (bool(parent_email) or (age is not None and age < 13)) and not consent_granted
-    if not pending:
+        reason = child_privacy.hold_reason(user, utcnow())
+    if not reason:
         return None
     if request.path.startswith("/api/") or request.method != "GET":
-        return flask.jsonify({"status": "error", "reason": "parent_consent_required",
-                              "message": "A parent must approve your account before you can use this feature."}), 403
+        return flask.jsonify({"status": "error", "reason": reason,
+                              "message": child_privacy.CHILD_HOLD_MESSAGE}), 403
     return redirect("/account/age/pending")
 
 
@@ -23794,13 +23760,11 @@ def _enforce_bearer_age_gate():
             "message": "Enter your birth year to continue.",
             "next_action": "submit_age",
         }), 403
-    age = age_from_birth_year(user.birth_year, utcnow())
-    pending = (bool(user.parent_email) or (age is not None and age < 13)) \
-        and not bool(user.parent_consent_granted)
-    if pending:
+    reason = child_privacy.hold_reason(user)
+    if reason:
         return flask.jsonify({
-            "status": "error", "reason": "parent_consent_required",
-            "message": "A parent or guardian must approve this account before you can use IntelliPlan.",
+            "status": "error", "reason": reason,
+            "message": child_privacy.CHILD_HOLD_MESSAGE,
             "next_action": "check_parent_consent",
         }), 403
     return None

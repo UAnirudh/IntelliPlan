@@ -132,6 +132,8 @@ def _base_gates(user: Any, now: datetime | None = None) -> tuple[bool, str]:
     age = age_from_birth_year(birth_year, now)
     if age is not None and age < COPPA_AGE and not getattr(user, "parent_consent_granted", False):
         return False, "under_13_no_parental_consent"
+    if age is not None and age < COPPA_AGE:
+        return False, "under_13_verification_unavailable"
 
     if is_suppressed(address):
         return False, "suppressed"

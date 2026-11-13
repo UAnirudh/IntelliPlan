@@ -23,6 +23,6 @@ def test_sidebar_uses_canvas_surface_and_has_visible_keyboard_focus():
 
     assert "body.has-side .app-side { background: var(--bg); box-shadow: none; }" in finish
     assert "box-shadow: inset 2px 0 0 var(--accent);" in finish
-    assert "body.has-side .app-side :is(.side-link, .side-customize-btn, .side-search):focus-visible" in finish
+    assert "body.has-side .app-side :is(.side-link, .side-customize-btn, .side-search, .side-quick-add):focus-visible" in finish
     assert "outline: 2px solid var(--accent);" in finish
     assert "background: var(--bg);" in rail

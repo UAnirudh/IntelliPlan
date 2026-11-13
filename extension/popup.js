@@ -32,6 +32,13 @@ function showAuthMode(mode) {
   const loginBtn = document.getElementById("loginModeBtn");
   const signupBtn = document.getElementById("signupModeBtn");
   const nameField = document.getElementById("nameField");
+  const birthYearField = document.getElementById("birthYearField");
+  const birthYearInput = document.getElementById("birthYearInput");
+  if (birthYearField) birthYearField.classList.toggle("hidden", mode !== "signup");
+  if (birthYearInput) {
+    birthYearInput.required = mode === "signup";
+    birthYearInput.max = String(new Date().getFullYear());
+  }
   const submitBtn = document.getElementById("authSubmitBtn");
   const passwordInput = document.getElementById("passwordInput");
 
@@ -368,6 +375,11 @@ async function loadTab(tab) {
 async function handleAuthSubmit(event) {
   event.preventDefault();
   setStatus("");
+  const birthYear = document.getElementById("birthYearInput")?.value || "";
+  if (authMode === "signup" && (!/^\d{4}$/.test(birthYear) || new Date().getFullYear() - Number(birthYear) - 1 < 13)) {
+    setStatus("Enter a valid birth year. Independent accounts for children under 13 are currently unavailable.", "error");
+    return;
+  }
 
   const name = document.getElementById("nameInput").value.trim();
   const email = document.getElementById("emailInput").value.trim();
@@ -388,7 +400,7 @@ async function handleAuthSubmit(event) {
   try {
     const payload = authMode === "login"
       ? { email, password }
-      : { name, email, password };
+      : { name, email, password, birth_year: birthYear };
 
     const result = await authRequest(authMode === "login" ? "login" : "register", payload);
 

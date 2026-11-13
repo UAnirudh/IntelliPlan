@@ -6,14 +6,14 @@
   <h1>Review {{ 'parental approval' if decision == 'approve' else 'signup removal' }}</h1>
   <p>Pending account: <strong>{{ child_email }}</strong></p>
   {% for paragraph in notice_paragraphs %}<p>{{ paragraph }}</p>{% endfor %}
-  <p><a href="/legal#p-coppa">Read the full privacy policy</a>. Email approval is the current account gate; it does not independently verify adult identity.</p>
+  <p><a href="/legal#p-coppa">Read the full privacy policy</a>. This email link cannot activate an under-13 account. A reviewed verification process is required before access can be granted.</p>
   <form method="post">
     <input type="hidden" name="token" value="{{ token }}">
     <label><input type="checkbox" name="acknowledged" value="yes" required>
-      {% if decision == 'approve' %}I am this child's parent or authorized guardian, have read this notice, and approve the described account use.
+      {% if decision == 'approve' %}I have read these requirements and understand that this email link cannot activate the account.
       {% else %}I want to remove this pending signup.{% endif %}
     </label>
-    <p><button class="btn-primary" type="submit">{{ 'Approve account' if decision == 'approve' else 'Delete pending signup' }}</button></p>
+    <p><button class="btn-primary" type="submit">{{ 'Review verification requirements' if decision == 'approve' else 'Delete pending signup' }}</button></p>
   </form>
   <p>Opening this page has not changed the account. Notice: {{ notice_version }}.</p>
 </section>

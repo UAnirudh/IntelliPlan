@@ -841,6 +841,27 @@ PRIVACY_VERSIONS.append({
     ],
 })
 
+PRIVACY_VERSIONS.append({
+    'version': 7,
+    'effective': '2026-11-13',
+    'tldr': [
+        'New independent accounts for children under 13 are currently unavailable.',
+        'An email approval link cannot activate an under-13 account.',
+        'Known under-13 accounts remain restricted while a reviewed authorization process is completed.',
+    ],
+    'summary': [
+        'Email approval did not independently establish guardian identity. We have stopped '
+        'using it to activate accounts and paused new independent under-13 accounts.',
+        'The public privacy contact now includes a phone number. Parents can still contact '
+        'us about access, deletion and verification requirements.',
+    ],
+    'clauses': [{
+        'heading': '4. Students under 13 (COPPA)',
+        'before': 'Email approval is the current account gate; it is not a claim that an independent identity-verification provider has verified the adult.',
+        'after': 'New independent accounts for children under 13 are unavailable while we complete a reviewed parental or school authorization process. Existing known under-13 student accounts remain restricted, including accounts with a legacy email-approval flag. An email link does not verify adult identity or activate an account. Parents may contact us to review or remove an existing pending signup.',
+    }],
+})
+
 #: The short version of each whole document, not of one change.
 #:
 #: Shown to someone accepting a document for the first time (a Google

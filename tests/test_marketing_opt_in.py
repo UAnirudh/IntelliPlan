@@ -101,14 +101,11 @@ def test_a_child_is_never_opted_in_even_if_the_box_is_posted(client):
         parent_email="a-parent@example.test",
         marketing_emails_opt_in="1",
     )
-    assert user is not None, "the child account should still be created"
-    assert user.marketing_emails_opt_in is False
-    assert user.marketing_opt_in_at is None
+    assert user is None, 'An unavailable child account must not be stored or opted in.'
 
 
-def test_a_child_account_still_gets_its_parental_consent_gate(client):
-    """Guards against a future edit that 'fixes' the line above by
-    rejecting the signup outright."""
+def test_child_signup_cannot_store_an_unverified_guardian_address(client):
+    """A guardian email alone cannot authorize creation of a child account."""
     from datetime import datetime
     user = signup(
         client,
@@ -116,8 +113,7 @@ def test_a_child_account_still_gets_its_parental_consent_gate(client):
         parent_email="another-parent@example.test",
         marketing_emails_opt_in="1",
     )
-    assert user.parent_consent_granted is False
-    assert user.parent_email == "another-parent@example.test"
+    assert user is None
 
 
 # ── The form itself ─────────────────────────────────────────────────

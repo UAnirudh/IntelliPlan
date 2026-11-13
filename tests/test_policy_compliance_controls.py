@@ -40,37 +40,24 @@ def sign_in(client, uid):
         session["_fresh"] = True
 
 
-def test_web_pending_screen_can_resend_and_rotates_expired_link(client, monkeypatch):
-    uid, old_token = pending_user()
+def test_web_pending_resend_cannot_send_unverified_activation(client, monkeypatch):
+    uid, token = pending_user()
     sign_in(client, uid)
     delivered = []
-    monkeypatch.setattr(App, "_send_email", lambda *args, **kwargs: delivered.append(args) or True)
-    was_limiter_enabled = App.limiter.enabled
-    App.limiter.enabled = True
-    try:
-        page = client.get("/account/age/pending")
-        assert page.status_code == 200
-        assert b"expires after 7 days" in page.data
-        assert b"/account/age/pending/resend" in page.data
-        for _ in range(4):
-            response = client.post("/account/age/pending/resend", headers={"Origin": "http://localhost"})
-            assert response.status_code == 200
-        assert b"fresh approval link has been sent" in response.data
-        assert len(delivered) == 4
-        limited = client.post("/account/age/pending/resend", headers={"Origin": "http://localhost"})
-        assert limited.status_code == 429
-    finally:
-        App.limiter.enabled = was_limiter_enabled
-    new_token = delivered[-1][2].split("token=", 1)[1].split()[0]
-    assert new_token != old_token
-    assert client.get(f"/parent/consent?token={old_token}").status_code == 404
-    assert client.get(f"/parent/consent?token={new_token}").status_code == 200
+    monkeypatch.setattr(App, '_send_email', lambda *args, **kwargs: delivered.append(args) or True)
+    page = client.get('/account/age/pending')
+    assert page.status_code == 200
+    assert b'Account access restricted' in page.data
+    response = client.post('/account/age/pending/resend', headers={'Origin': 'http://localhost'})
+    assert response.status_code == 202
+    assert delivered == []
     with App.app.app_context():
         user = App.db.session.get(App.User, uid)
-        assert user.parent_consent_expires_at > App.utcnow()
+        assert user.parent_consent_token == token
+        assert not user.parent_consent_granted
 
 
-def test_parent_link_requires_informed_post_and_records_notice(client):
+def test_parent_link_cannot_supply_verified_authorization(client):
     uid, token = pending_user()
     page = client.get("/parent/consent", query_string={"token": token})
     assert page.status_code == 200
@@ -78,14 +65,14 @@ def test_parent_link_requires_informed_post_and_records_notice(client):
     with App.app.app_context():
         assert not App.db.session.get(App.User, uid).parent_consent_granted
     assert client.post("/parent/consent", data={"token": token}).status_code == 400
-    assert client.post("/parent/consent", data={"token": token, "acknowledged": "yes"}).status_code == 200
+    assert client.post("/parent/consent", data={"token": token, "acknowledged": "yes"}).status_code == 202
     with App.app.app_context():
         user = App.db.session.get(App.User, uid)
-        assert user.parent_consent_granted
-        assert user.parent_consent_at
-        assert user.parent_consent_notice_version == parental_notice.NOTICE_VERSION
-        assert user.parent_consent_token is None
-    assert client.get("/parent/consent", query_string={"token": token}).status_code == 404
+        assert not user.parent_consent_granted
+        assert user.parent_consent_at is None
+        assert user.parent_consent_notice_version is None
+        assert user.parent_consent_token == token  # denial stays available
+    assert client.get("/parent/deny", query_string={"token": token}).status_code == 200
 
 
 def test_parent_denial_get_does_not_delete_account(client):

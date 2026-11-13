@@ -29,6 +29,9 @@ def set_consent_gate(gate: Any) -> None:
 
 
 def _permitted() -> bool:
+    from school_pilot import enabled
+    if enabled():
+        return False
     if _gate is None:
         return False
     try:

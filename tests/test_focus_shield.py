@@ -66,6 +66,7 @@ def _wipe():
 def _user(tag: str, token: str, tz: str | None = None) -> int:
     with App.app.app_context():
         u = User(email=f"{PREFIX}{tag}@example.com",
+                 birth_year=2000,
                  password_hash=bcrypt.generate_password_hash("pw-12345678").decode())
         db.session.add(u)
         db.session.commit()

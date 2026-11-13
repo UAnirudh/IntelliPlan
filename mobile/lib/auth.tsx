@@ -21,7 +21,7 @@ type AuthState = {
   /** Still deciding whether there is a session — render nothing until false. */
   booting: boolean;
   signIn: (email: string, password: string) => Promise<Me>;
-  signUp: (email: string, password: string, name?: string) => Promise<Me>;
+  signUp: (email: string, password: string, name?: string, birthYear?: string) => Promise<Me>;
   refreshUser: () => Promise<Me>;
   /** Clean up this install, optionally run an authenticated action, then sign out. */
   signOut: (beforeLogout?: () => Promise<void>) => Promise<void>;
@@ -159,8 +159,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return me;
   }, []);
 
-  const signUp = useCallback(async (email: string, password: string, name?: string) => {
-    const me = await apiRegister(email.trim().toLowerCase(), password, name?.trim() || undefined);
+  const signUp = useCallback(async (email: string, password: string, name?: string, birthYear?: string) => {
+    const me = await apiRegister(email.trim().toLowerCase(), password, name?.trim() || undefined, birthYear);
     setUser(me);
     cacheUser(me);
     return me;

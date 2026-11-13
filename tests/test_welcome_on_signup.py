@@ -162,9 +162,7 @@ def test_an_under_13_signup_is_not_emailed_before_a_parent_consents(client, rese
 
     assert [p for p in resend if p["to"] == [email]] == []
     with app_module.app.app_context():
-        user = User.query.filter_by(email=email).one()
-        assert user.parent_consent_token
-        assert user.parent_consent_expires_at > utcnow()
+        assert User.query.filter_by(email=email).first() is None
 
 
 def test_a_failed_signup_creates_no_account_and_sends_nothing(client, resend):
@@ -199,17 +197,16 @@ def test_a_provider_outage_does_not_break_signup(client, resend, monkeypatch):
 
 
 def test_the_extension_signup_path_also_asks_for_a_welcome(client, resend):
-    """No birth year is collected there, so the gate defers it — but the
-    call is made, which is what stops the path from being forgotten."""
+    """An eligible extension signup records age and receives its welcome."""
     email = _fresh_email()
-    r = client.post("/extension/register", json={"email": email, "password": "hunter2ok"})
+    r = client.post("/extension/register", json={"email": email, "password": "hunter2ok", "birth_year": 2000})
     assert r.get_json()["status"] == "ok"
 
     with app_module.app.app_context():
         user = User.query.filter_by(email=email).one()
-        # Held back at the gate before a ledger row is ever claimed.
-        assert EmailSend.query.filter_by(user_id=user.id, email_key="welcome").count() == 0
-    assert [p for p in resend if p["to"] == [email]] == []
+        assert user.birth_year == 2000
+        assert EmailSend.query.filter_by(user_id=user.id, email_key="welcome").one().status == 'sent'
+    assert len([p for p in resend if p["to"] == [email]]) == 1
 
 
 def test_delivery_never_raises_into_the_caller(inline_threads, monkeypatch):

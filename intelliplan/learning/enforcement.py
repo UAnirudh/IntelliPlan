@@ -161,6 +161,8 @@ def install(app):
 
 
 def filter_providers(chain):
+    from school_pilot import provider_allowed
+    chain = [step for step in chain if provider_allowed(step[0])]
     from intelliplan.learning.courses import provider_user
     user = provider_user.get()
     if user is None and has_request_context():
@@ -176,6 +178,9 @@ def filter_providers(chain):
 
 def permitted_processing(provider):
     """Shared media gate; providers outside the text registry require unrestricted institutional processing."""
+    from school_pilot import provider_allowed
+    if not provider_allowed(provider):
+        return False
     from intelliplan.learning.courses import provider_user
     user = provider_user.get()
     if user is None and has_request_context():

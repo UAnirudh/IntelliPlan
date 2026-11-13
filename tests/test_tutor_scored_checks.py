@@ -65,6 +65,11 @@ def test_check_requires_signed_in_age_and_parent_consent(client):
         user = db.session.get(User, uid)
         user.parent_consent_granted = True
         db.session.commit()
+    assert client.post('/api/tutor/adaptive/check', json=request).status_code == 403
+    with App.app.app_context():
+        user = db.session.get(User, uid)
+        user.birth_year = 2000
+        db.session.commit()
     _grade(client, 'Grade 3')
     assert client.post('/api/tutor/adaptive/check', json=request).status_code == 200
 

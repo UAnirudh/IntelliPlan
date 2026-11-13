@@ -347,8 +347,9 @@ def test_an_under_13_cannot_turn_it_on_or_join(client):
     a = _user("a", opted_in=True)
     kid = _user("kid", age=11)
     _as(client, kid)
-    body = client.get("/api/buddies").get_json()
-    assert body["eligible"] is False and body["reason"] == "under_13"
+    response = client.get("/api/buddies")
+    assert response.status_code == 403
+    assert response.get_json()['reason'] == 'child_verification_required'
     assert client.post("/api/buddies/settings", json={"enabled": True}).status_code == 403
     assert client.post("/api/buddies/request", json={"code": _code(a)}).status_code == 403
     with App.app.app_context():

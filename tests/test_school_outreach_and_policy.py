@@ -238,10 +238,10 @@ def test_an_adult_passes_straight_through(client):
         assert user.parent_consent_granted is True
 
 
-def test_an_under_13_signup_needs_a_parent_email(client):
+def test_under_13_age_step_holds_without_collecting_parent_email(client):
     signed_in(client, email="outreach+j@example.com", google_id="g-age-4")
     r = client.post("/account/age", data={"birth_year": "2016"})
-    assert b"parent or guardian" in r.data
+    assert r.headers['Location'] == '/account/age/pending'
 
 
 def test_an_under_13_account_is_held_until_a_parent_approves(client):
@@ -252,8 +252,8 @@ def test_an_under_13_account_is_held_until_a_parent_approves(client):
     with App.app.app_context():
         user = db.session.get(User, uid)
         assert user.parent_consent_granted is False
-        assert user.parent_consent_token
-        assert user.parent_consent_expires_at > App.utcnow()
+        assert user.parent_consent_token is None
+        assert user.parent_email is None
         # COPPA: no marketing to a child without verified parental consent.
         assert user.marketing_emails_opt_in is False
 
@@ -262,7 +262,7 @@ def test_a_parent_cannot_be_the_child(client):
     signed_in(client, email="outreach+l@example.com", google_id="g-age-6")
     r = client.post("/account/age", data={"birth_year": "2016",
                                           "parent_email": "outreach+l@example.com"})
-    assert b"different from your own" in r.data
+    assert r.headers['Location'] == '/account/age/pending'
 
 
 @pytest.mark.parametrize("bad", ["abcd", "", "3025"])

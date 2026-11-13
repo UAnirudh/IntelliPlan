@@ -464,7 +464,9 @@ def get_token_user():
     if not payload:
         return None
     _, User, _ = _models()
-    return User.query.get(payload.get("user_id"))
+    user = User.query.get(payload.get("user_id"))
+    from child_privacy import hold_reason
+    return None if hold_reason(user, require_known_age=True) else user
 
 
 def user_to_dict(user):
@@ -554,14 +556,21 @@ def api_register():
     # made the phone app and extension the weaker way into an account.
     if len(password) < MIN_PASSWORD_LENGTH:
         return _err(f"Password must be at least {MIN_PASSWORD_LENGTH} characters.", 400)
+    import child_privacy
+    try:
+        birth_year = child_privacy.registration_birth_year(data.get('birth_year'))
+    except ValueError as exc:
+        return _err(str(exc), 400, reason='age_eligibility_required')
     if User.query.filter_by(email=email).first():
         return _err("An account with that email already exists.", 409)
 
     pw_hash = bcrypt.generate_password_hash(password).decode("utf-8")
     try:
-        user = User(email=email, password_hash=pw_hash, name=name)
+        user = User(email=email, password_hash=pw_hash, name=name, birth_year=birth_year,
+                    parent_consent_granted=True)
     except TypeError:
-        user = User(email=email, password_hash=pw_hash)
+        user = User(email=email, password_hash=pw_hash, birth_year=birth_year,
+                    parent_consent_granted=True)
     db.session.add(user)
     db.session.flush()
     try:
@@ -659,6 +668,11 @@ def api_login():
     if not user or not bcrypt.check_password_hash(user.password_hash, password):
         return _err("Invalid email or password.", 401)
 
+    import child_privacy
+    reason = child_privacy.hold_reason(user, require_known_age=True)
+    if reason and reason != 'age_required':
+        return _err('Complete age eligibility on the website. ' + child_privacy.CHILD_HOLD_MESSAGE,
+                    403, reason=reason)
     return _ok({"token": make_token(user), "user": user_to_dict(user)})
 
 
