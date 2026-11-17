@@ -23,6 +23,12 @@ node_modules
 *.sqlite3
 instance
 uploads
+private/
+**/private/
+*.keystore
+*.jks
+**/*.keystore
+**/*.jks
 
 # Bulky artifacts that don't belong in the runtime image.
 AppStore-Launch

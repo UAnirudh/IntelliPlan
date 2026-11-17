@@ -32,6 +32,27 @@ SURFACES = {
     'notifications': ('/push', '/notifications', '/api/notifications', '/api/v1/push', '/api/reminders'),
 }
 
+# Only provider-calling routes belong here. The policy surface map is broader
+# by design and includes deterministic updates, history, and persistence APIs.
+AI_REQUEST_PATHS = frozenset({
+    '/api/tutor', '/api/tutor/assignment-study-set', '/api/tutor/assignment-map',
+    '/api/tutor/voice', '/api/tutor/speak', '/api/tutor/vision', '/api/chatbot',
+    '/api/plani', '/api/plani/agent', '/api/onboarding/chat',
+    '/api/block/resources', '/generate_schedule', '/api/import/smart_paste',
+    '/study/evaluate', '/study/analyze-image', '/study/transcribe', '/study/generate',
+    '/analyze-image', '/api/grades/predict', '/api/syllabus/import',
+    '/api/writing/analyze', '/api/math/explain', '/api/math/similar',
+    '/api/tasks/extract', '/api/media/generate', '/api/flashcards/photo',
+    '/api/timetable/photo', '/api/groups',
+})
+
+
+def is_ai_request(path, method, generated_action=False):
+    """Whether this request can invoke a model/provider, independent of policy surface."""
+    if method in {'GET', 'HEAD', 'OPTIONS'}:
+        return False
+    return generated_action or path in AI_REQUEST_PATHS
+
 # Reading photos and creating practice are AI assistance, even when the result
 # is saved as an ordinary review deck. Alternate URLs inherit the same gates.
 for _capability in ('review', 'study', 'uploads', 'tutor'):
@@ -114,15 +135,24 @@ def install(app):
             request.path in {'/study/generate', '/study/evaluate', '/analyze-image', '/study/analyze-image',
                              '/study/transcribe', '/api/lessons'} or
             (request.path.startswith('/notes/') and request.path.rsplit('/', 1)[-1] in {'study', 'quiz', 'summarize'}))
-        if not keys and not live_data:
+        ai_request = is_ai_request(request.path, request.method, generated_action)
+        if not keys and not live_data and not ai_request:
             return None
         try:
             user = actor()
             g.learning_actor = user
             if not user:
-                if ('tutor' in keys or generated_action) and request.method not in {'GET', 'HEAD'}:
+                if ai_request:
                     return jsonify(error='authentication_required', message='Sign in to use AI assistance so your current policy can be checked.'), 401
                 return None
+            if ai_request:
+                from child_privacy import CHILD_HOLD_MESSAGE, hold_reason
+                age_reason = hold_reason(user, require_known_age=True)
+                if age_reason:
+                    result = {'error': age_reason, 'message': CHILD_HOLD_MESSAGE}
+                    if age_reason == 'age_required':
+                        result['age_check_url'] = '/account/age'
+                    return jsonify(result), 403
             if live_data:
                 from intelliplan.persistence.linked_accounts import linked_accounts
                 linked = linked_accounts().active(user.id)
@@ -167,7 +197,7 @@ def filter_providers(chain):
     if user is None and has_request_context():
         user = getattr(g, 'learning_actor', None) or current_user
     if user is None or not getattr(user, 'is_authenticated', False):
-        return chain
+        return [] if has_request_context() else chain
     try:
         permitted = policy.permitted_providers(user)
     except Exception:
@@ -185,7 +215,7 @@ def permitted_processing(provider):
     if user is None and has_request_context():
         user = getattr(g, 'learning_actor', None) or actor()
     if user is None or not getattr(user, 'is_authenticated', False):
-        return True
+        return not has_request_context()
     try:
         permitted = policy.permitted_providers(user)
         return provider in permitted if provider in policy.PROVIDERS else permitted == policy.PROVIDERS

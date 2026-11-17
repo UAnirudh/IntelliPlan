@@ -49,6 +49,16 @@ def connection(adapter):
     return client
 
 
+def approve_groq(monkeypatch):
+    monkeypatch.setenv('SCHOOL_PILOT_AI', 'groq')
+    monkeypatch.setenv('SCHOOL_PILOT_GROQ_ZDR_CONFIRMED', '1')
+    monkeypatch.setenv('SCHOOL_PILOT_CONTRACT_APPROVED', '1')
+
+
+def text_payload(content='Explain fractions.'):
+    return {'messages': [{'role': 'user', 'content': content}]}
+
+
 def test_course_enumeration_is_rewritten_before_network():
     adapter = Capture(headers={'Link': '<https://example.test/leak>; rel="next"'})
     response = connection(adapter).get(ORIGIN + '/api/v1/courses',
@@ -100,7 +110,8 @@ def test_pagination_cannot_escape_course():
         'Link': f'<{ORIGIN}/api/v1/courses/999/assignments?page=2>; rel="next"'})
     client = connection(adapter)
     from unittest.mock import patch
-    with patch.object(canvas_helper.requests, 'get', client.get):
+    with patch.object(canvas_helper.net_guard, 'pinned_https_request',
+                      lambda url, method, **kwargs: client.get(url, **kwargs)):
         rows = canvas_helper._get_list(ORIGIN + '/api/v1/courses/4716/assignments', {})
     assert rows == [{'id': 1}]
     assert len(adapter.calls) == 1
@@ -127,7 +138,7 @@ def test_missing_or_malformed_configuration_denies(monkeypatch):
             pilot.target('GET', ORIGIN + '/api/v1/courses')
 
 
-def test_groq_requires_both_attestations_and_only_text(monkeypatch):
+def test_groq_requires_both_attestations_and_text_body(monkeypatch):
     monkeypatch.setenv('SCHOOL_PILOT_AI', 'groq')
     assert not pilot.provider_allowed('groq')
     monkeypatch.setenv('SCHOOL_PILOT_GROQ_ZDR_CONFIRMED', '1')
@@ -138,7 +149,65 @@ def test_groq_requires_both_attestations_and_only_text(monkeypatch):
     for endpoint in ['batches', 'files', 'fine_tunings', 'audio/transcriptions']:
         with pytest.raises(pilot.PilotBlocked):
             pilot.target('POST', 'https://api.groq.com/openai/v1/' + endpoint)
-    assert pilot.target('POST', 'https://api.groq.com/openai/v1/chat/completions')[0].endswith('chat/completions')
+    endpoint = 'https://api.groq.com/openai/v1/chat/completions'
+    assert pilot.target('POST', endpoint, body=json.dumps(text_payload()).encode(),
+                        headers={'Content-Type': 'application/json'})[0].endswith('chat/completions')
+
+
+def test_requests_text_only_chat_passes_preflight(monkeypatch):
+    approve_groq(monkeypatch)
+    adapter = Capture(payload={'choices': []})
+    response = connection(adapter).post(
+        'https://api.groq.com/openai/v1/chat/completions', json=text_payload())
+    assert response.status_code == 200
+    assert len(adapter.calls) == 1
+
+
+def test_text_content_blocks_are_allowed(monkeypatch):
+    approve_groq(monkeypatch)
+    endpoint = 'https://api.groq.com/openai/v1/chat/completions'
+    body = json.dumps(text_payload([{'type': 'text', 'text': 'Explain fractions.'}])).encode()
+    assert pilot.target('POST', endpoint, body=body,
+                        headers={'Content-Type': 'application/json'})[0] == endpoint
+
+
+@pytest.mark.parametrize('payload', [
+    {'messages': [{'role': 'user', 'content': [
+        {'type': 'image_url', 'image_url': {'url': 'data:image/png;base64,AA=='}}]}]},
+    {'messages': [{'role': 'user', 'content': [
+        {'type': 'image_url', 'image_url': {'url': 'https://example.test/student.png'}}]}]},
+    {'messages': [{'role': 'user', 'content': [
+        {'type': 'input_audio', 'input_audio': {'data': 'AA==', 'format': 'wav'}}]}]},
+    {'messages': [{'role': 'user', 'content': [
+        {'type': 'video_frame', 'image_url': 'data:image/jpeg;base64,AA=='}]}]},
+    {'messages': [{'role': 'user', 'content': [
+        {'type': 'text', 'text': 'ok'}, {'type': 'unknown', 'data': 'AA=='}]}]},
+    {'messages': [{'role': 'user', 'content': None}]},
+    {'messages': [{'role': 'user', 'content': 'text'}], 'modalities': ['image']},
+    {'messages': [{'role': 'user', 'content': 'text', 'image': 'data:image/png;base64,AA=='}]},
+])
+def test_groq_multimodal_or_unknown_content_is_denied_before_transport(monkeypatch, payload):
+    approve_groq(monkeypatch)
+    adapter = Capture()
+    with pytest.raises(pilot.PilotBlocked):
+        connection(adapter).post('https://api.groq.com/openai/v1/chat/completions', json=payload)
+    assert adapter.calls == []
+
+
+@pytest.mark.parametrize('body,headers', [
+    (b'{not json', {'Content-Type': 'application/json'}),
+    (b'[]', {'Content-Type': 'application/json'}),
+    (b'{"messages":[]}', {'Content-Type': 'text/plain'}),
+    (b'', {'Content-Type': 'application/json'}),
+])
+def test_groq_unverifiable_body_is_denied_before_transport(monkeypatch, body, headers):
+    approve_groq(monkeypatch)
+    adapter = Capture()
+    request = requests.Request('POST', 'https://api.groq.com/openai/v1/chat/completions',
+                               data=body, headers=headers).prepare()
+    with pytest.raises(pilot.PilotBlocked):
+        requests.Session().send(request)
+    assert adapter.calls == []
 
 
 def test_httpx_sdk_denied_before_transport():
@@ -150,6 +219,34 @@ def test_httpx_sdk_denied_before_transport():
     with httpx.Client(transport=httpx.MockTransport(handler)) as client:
         with pytest.raises(pilot.PilotBlocked):
             client.post('https://api.groq.com/openai/v1/chat/completions', json={})
+    assert calls == []
+
+
+def test_httpx_sdk_text_only_body_passes_preflight(monkeypatch):
+    httpx = pytest.importorskip('httpx')
+    approve_groq(monkeypatch)
+    calls = []
+    def handler(request):
+        calls.append(request)
+        return httpx.Response(200, json={'choices': []})
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        response = client.post('https://api.groq.com/openai/v1/chat/completions', json=text_payload())
+    assert response.status_code == 200
+    assert len(calls) == 1
+
+
+def test_httpx_sdk_multimodal_body_is_denied_before_transport(monkeypatch):
+    httpx = pytest.importorskip('httpx')
+    approve_groq(monkeypatch)
+    calls = []
+    def handler(request):
+        calls.append(request)
+        return httpx.Response(200, json={})
+    payload = {'messages': [{'role': 'user', 'content': [
+        {'type': 'image_url', 'image_url': {'url': 'data:image/png;base64,AA=='}}]}]}
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        with pytest.raises(pilot.PilotBlocked):
+            client.post('https://api.groq.com/openai/v1/chat/completions', json=payload)
     assert calls == []
 
 
@@ -171,16 +268,14 @@ def test_method_override_denied():
 
 def test_approved_httpx_text_and_redirect_denial(monkeypatch):
     httpx = pytest.importorskip('httpx')
-    monkeypatch.setenv('SCHOOL_PILOT_AI', 'groq')
-    monkeypatch.setenv('SCHOOL_PILOT_GROQ_ZDR_CONFIRMED', '1')
-    monkeypatch.setenv('SCHOOL_PILOT_CONTRACT_APPROVED', '1')
+    approve_groq(monkeypatch)
     calls = []
     def handler(request):
         calls.append(request)
         return httpx.Response(302, headers={'Location': 'https://other.test/'})
     with httpx.Client(transport=httpx.MockTransport(handler), follow_redirects=True) as client:
         with pytest.raises(pilot.PilotBlocked):
-            client.post('https://api.groq.com/openai/v1/chat/completions', json={})
+            client.post('https://api.groq.com/openai/v1/chat/completions', json=text_payload())
     assert len(calls) == 1
 
 

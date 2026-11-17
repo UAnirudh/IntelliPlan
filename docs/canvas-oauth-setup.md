@@ -50,20 +50,20 @@ Trigger a redeploy. The "Continue with Canvas" button at
 
 For each additional Canvas (e.g. `canvas.school.edu`), the school's
 Canvas admin has to repeat the steps above on their own instance. Once
-they do, give IntelliPlan their ID/Key as per-host env vars:
+they do, give IntelliPlan their ID/Key as per-origin env vars. Encode the
+canonical origin (`scheme://hostname:effective-port`) as uppercase hex and
+append it to `CANVAS_CLIENT_ID_ORIGIN_` / `CANVAS_CLIENT_SECRET_ORIGIN_`:
 
 ```
-CANVAS_CLIENT_ID_CANVAS_SCHOOL_EDU=12345...
-CANVAS_CLIENT_SECRET_CANVAS_SCHOOL_EDU=long_secret...
+CANVAS_CLIENT_ID_ORIGIN_<HEX>=12345...
+CANVAS_CLIENT_SECRET_ORIGIN_<HEX>=long_secret...
 ```
 
-The convention is: take the Canvas host (`canvas.school.edu`), replace
-`.` and `-` with `_`, uppercase, and prefix with `CANVAS_CLIENT_ID_` /
-`CANVAS_CLIENT_SECRET_`.
-
-`canvas_oauth.py` looks up the per-host override first and falls back to
-the global `CANVAS_CLIENT_ID` / `CANVAS_CLIENT_SECRET` so the public free
-Canvas keeps working without extra config.
+This avoids host-name collisions and binds credentials to scheme and port.
+The global `CANVAS_CLIENT_ID` / `CANVAS_CLIENT_SECRET` pair is used only for
+the origin configured by `CANVAS_DEFAULT_BASE`; it is never a fallback for a
+different school. Existing per-host overrides must be migrated to the
+origin-bound names before deployment.
 
 ## Scoped Developer Keys
 
@@ -85,11 +85,11 @@ CANVAS_SCOPES=url:GET|/api/v1/courses url:GET|/api/v1/...   # or an exact list
 ```
 
 Enforcement is decided per Canvas instance, so a school that enforces
-while the public Canvas does not gets a per-host override, using the same
-host convention as the client ID:
+while the public Canvas does not gets a per-origin scope override, using the
+same origin encoding as the client ID:
 
 ```
-CANVAS_SCOPES_CANVAS_SCHOOL_EDU=default
+CANVAS_SCOPES_ORIGIN_<HEX>=default
 ```
 
 When you turn enforcement on in Canvas, tick the same endpoints listed in

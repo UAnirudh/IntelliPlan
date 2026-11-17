@@ -6,6 +6,7 @@ from types import SimpleNamespace
 import pytest
 
 import App
+import chatbot_api
 import child_privacy
 from auth_api import make_token
 
@@ -109,6 +110,66 @@ def test_old_cookie_approval_cannot_unlock_private_features(client):
         session['_fresh'] = True
     assert client.post('/api/syllabus/import', json={'text': 'synthetic'}).status_code == 403
     assert client.get('/legal').status_code == 200
+
+
+@pytest.mark.parametrize('path,payload', [
+    ('/api/tutor', {'message': 'synthetic question'}),
+    ('/api/chatbot', {'message': 'synthetic question'}),
+    ('/api/tutor/vision', {'question': 'synthetic question', 'image': 'AA=='}),
+    ('/api/tutor/voice', {'audio': 'AA=='}),
+])
+@pytest.mark.parametrize('birth_year', [None, datetime.utcnow().year - 10])
+def test_unknown_age_or_pending_child_is_blocked_before_ai_routes(
+        client, monkeypatch, path, payload, birth_year):
+    uid, _ = account(birth_year)
+    with client.session_transaction() as session:
+        session['_user_id'] = str(uid)
+        session['_fresh'] = True
+    provider_calls = []
+    monkeypatch.setattr(chatbot_api.ai_firewall, 'guard',
+                        lambda *args, **kwargs: provider_calls.append('firewall'))
+    response = client.post(path, json=payload)
+    assert response.status_code == 403
+    body = response.get_json()
+    assert body.get('error', body.get('reason')) in {'age_required', 'parent_consent_required'}
+    assert provider_calls == []
+
+
+@pytest.mark.parametrize('path,payload', [
+    ('/api/tutor', {'message': 'synthetic question'}),
+    ('/api/tutor/vision', {'question': 'synthetic question', 'image': 'AA=='}),
+    ('/api/import/smart_paste', {'text': 'synthetic assignment list'}),
+])
+def test_guest_cannot_reach_tutor_provider_routes(client, path, payload):
+    response = client.post(path, json=payload)
+    assert response.status_code == 401
+    assert response.get_json()['error'] == 'authentication_required'
+
+
+def test_unknown_age_provider_policy_fails_closed():
+    from intelliplan.learning import policy
+    user = SimpleNamespace(birth_year=None, parent_consent_granted=False, parent_email=None)
+    assert policy.permitted_providers(user) == set()
+
+
+def test_ai_request_gate_excludes_deterministic_study_and_group_updates():
+    from intelliplan.learning.enforcement import is_ai_request
+    assert not is_ai_request('/study/points/update', 'POST')
+    assert not is_ai_request('/study/shop/buy', 'POST')
+    assert not is_ai_request('/api/groups/12/join', 'POST')
+    assert is_ai_request('/api/groups', 'POST')
+    assert is_ai_request('/api/tutor', 'POST')
+    assert not is_ai_request('/api/tutor', 'GET')
+
+
+def test_unknown_age_can_still_use_deterministic_study_updates(client):
+    uid, _ = account(None)
+    with client.session_transaction() as session:
+        session['_user_id'] = str(uid)
+        session['_fresh'] = True
+    response = client.post('/study/points/update', json={'delta': 1})
+    assert response.status_code == 200
+    assert response.get_json()['status'] == 'ok'
 
 
 def test_existing_api_key_cannot_bypass_known_child_hold(client):

@@ -28,8 +28,6 @@ of which fail silently -- the page renders cleanly, just without the row.
 
 from __future__ import annotations
 
-import types
-
 import pytest
 
 import canvas_helper
@@ -102,7 +100,7 @@ def fake_canvas(monkeypatch, *, n_assignments, graded_index, grade_value,
             return _Resp([course])
         return _Resp([])
 
-    monkeypatch.setattr(canvas_helper, "requests", types.SimpleNamespace(get=fake_get))
+    monkeypatch.setattr(canvas_helper, "_canvas_get", fake_get)
 
 
 def history_rows():
@@ -192,14 +190,14 @@ def test_a_zero_score_reads_as_graded_not_blank(monkeypatch):
     def zero_sub(url, headers=None, timeout=None):
         return _Resp([{"assignment_id": 1002, "score": 0, "grade": None}])
 
-    original = canvas_helper.requests.get
+    original = canvas_helper._canvas_get
 
     def routed(url, headers=None, timeout=None):
         if "submissions" in url:
             return zero_sub(url)
         return original(url, headers=headers, timeout=timeout)
 
-    canvas_helper.requests = types.SimpleNamespace(get=routed)
+    monkeypatch.setattr(canvas_helper, "_canvas_get", routed)
     row = next(r for r in history_rows() if r["title"] == "History essay 2")
     assert row["points_earned"] == 0
     assert row["display_score"] == "0"
@@ -220,23 +218,23 @@ def test_a_genuinely_ungraded_assignment_still_says_not_graded(monkeypatch):
 
 def test_get_list_returns_empty_on_an_error_body(monkeypatch):
     """Canvas answers {"errors": [...]} rather than a list; callers expect []."""
-    monkeypatch.setattr(canvas_helper, "requests", types.SimpleNamespace(
-        get=lambda *a, **k: _Resp({"errors": [{"message": "nope"}]})))
+    monkeypatch.setattr(canvas_helper, "_canvas_get",
+        lambda *a, **k: _Resp({"errors": [{"message": "nope"}]}))
     assert canvas_helper._get_list("https://x/api/v1/courses", {}) == []
 
 
 def test_get_list_survives_a_transport_failure(monkeypatch):
     def boom(*a, **k):
         raise OSError("connection reset")
-    monkeypatch.setattr(canvas_helper, "requests", types.SimpleNamespace(get=boom))
+    monkeypatch.setattr(canvas_helper, "_canvas_get", boom)
     assert canvas_helper._get_list("https://x/api/v1/courses", {}) == []
 
 
 def test_get_list_stops_rather_than_looping_on_a_self_referential_link(monkeypatch):
     """A next link pointing at the page you just asked for would spin forever."""
     same = "https://x/api/v1/courses?per_page=100"
-    monkeypatch.setattr(canvas_helper, "requests", types.SimpleNamespace(
-        get=lambda *a, **k: _Resp([{"id": 1}], {"next": {"url": same}})))
+    monkeypatch.setattr(canvas_helper, "_canvas_get",
+        lambda *a, **k: _Resp([{"id": 1}], {"next": {"url": same}}))
     assert canvas_helper._get_list("https://x/api/v1/courses", {}) == [{"id": 1}]
 
 
@@ -249,7 +247,7 @@ def test_get_list_is_bounded_by_a_page_cap(monkeypatch):
         return _Resp([{"id": seen["n"]}], {
             "next": {"url": f"https://x/api/v1/courses?per_page=100&page={seen['n'] + 1}"}})
 
-    monkeypatch.setattr(canvas_helper, "requests", types.SimpleNamespace(get=endless))
+    monkeypatch.setattr(canvas_helper, "_canvas_get", endless)
     rows = canvas_helper._get_list("https://x/api/v1/courses", {})
     assert len(rows) == canvas_helper._MAX_PAGES
 
@@ -288,7 +286,7 @@ def scoped_canvas(monkeypatch, working_route):
             return _Resp([{"id": 1, "name": "Tests", "assignments": [dict(assignment, submission=submission)]}])
         return _Resp([dict(submission, assignment=assignment)])
 
-    monkeypatch.setattr(canvas_helper, "requests", types.SimpleNamespace(get=fake_get))
+    monkeypatch.setattr(canvas_helper, "_canvas_get", fake_get)
 
 
 @pytest.mark.parametrize("route", ["users_self", "groups", "submissions"])
@@ -333,7 +331,7 @@ def weighted_canvas(monkeypatch, *, apply_weights=True, groups_denied=False):
             return _Resp([{"assignment_id": 1, "score": 9}, {"assignment_id": 2, "score": None, "excused": True}])
         return _Resp([])
 
-    monkeypatch.setattr(canvas_helper, "requests", types.SimpleNamespace(get=fake_get))
+    monkeypatch.setattr(canvas_helper, "_canvas_get", fake_get)
     return canvas_helper.get_gradebook_detail("https://x", "tok")[0]
 
 
