@@ -67,3 +67,16 @@ protections. The unsent school email drafts are included as source documents;
 no email was sent. Historical `release-artifacts/` bundles and publishing
 instructions remain local and are ignored because their source release is
 already in Git history.
+
+## Remaining OneDrive metadata lock
+
+The original OneDrive checkout's `.git/ORIG_HEAD` recall timed out while Git
+was updating its undo reference. Windows Restart Manager identifies the Git
+process that attempted the recall, but Windows reports no running instance
+when asked to terminate it; the undo reference and its lock remain held.
+The checkout was safely fast-forwarded using a checked index/worktree update
+and a compare-and-set branch update, without deleting the held metadata.
+Both working trees are clean and match the published commit. Future merges
+in the OneDrive checkout may still wait on that undo-reference lock until
+Windows releases it, likely after a restart. No automatic reboot, OneDrive
+shutdown, forced unlock, or security-policy change was performed.
