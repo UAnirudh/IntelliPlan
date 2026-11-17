@@ -34,6 +34,6 @@ def test_short_password_is_refused(client):
 
 
 def test_password_at_the_floor_is_accepted(client):
-    r = client.post("/api/auth/register", json={"email": _email(), "password": "Abcdef12"})
+    r = client.post("/api/auth/register", json={"email": _email(), "password": "Abcdef12", "birth_year": 2000})
     assert r.status_code == 201, r.get_data(as_text=True)
     assert r.get_json()["token"]

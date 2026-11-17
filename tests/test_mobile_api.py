@@ -39,6 +39,7 @@ def auth(client):
         user = app_module.User(
             email=email,
             name="Mobile",
+            birth_year=2000,
             password_hash=app_module.bcrypt.generate_password_hash(password).decode(),
         )
         app_module.db.session.add(user)

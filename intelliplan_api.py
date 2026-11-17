@@ -211,6 +211,10 @@ def require_auth(*required_scopes):
                     "Send a valid `X-API-Key` header, or a Bearer token from "
                     "POST /api/v1/auth/token. Apply for a key at /developers.",
                     401)
+            from child_privacy import hold_reason, CHILD_HOLD_MESSAGE
+            reason = hold_reason(user, require_known_age=True)
+            if reason:
+                return _fail(reason, CHILD_HOLD_MESSAGE, 403)
             missing = [s for s in required_scopes if s not in scopes]
             if missing:
                 return _fail(
@@ -375,6 +379,10 @@ def auth_token():
         return _fail("unauthorized", "Invalid credentials.", 401)
     if not bcrypt.check_password_hash(user.password_hash, password):
         return _fail("unauthorized", "Invalid credentials.", 401)
+    from child_privacy import hold_reason, CHILD_HOLD_MESSAGE
+    reason = hold_reason(user, require_known_age=True)
+    if reason:
+        return _fail(reason, CHILD_HOLD_MESSAGE, 403)
     return jsonify({
         "token": make_token(user),
         "token_type": "Bearer",

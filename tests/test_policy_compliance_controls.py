@@ -39,7 +39,7 @@ def sign_in(client, uid):
         session["_fresh"] = True
 
 
-def test_parent_link_requires_informed_post_and_records_notice(client):
+def test_parent_link_cannot_supply_verified_authorization(client):
     uid, token = pending_user()
     page = client.get("/parent/consent", query_string={"token": token})
     assert page.status_code == 200
@@ -47,14 +47,14 @@ def test_parent_link_requires_informed_post_and_records_notice(client):
     with App.app.app_context():
         assert not App.db.session.get(App.User, uid).parent_consent_granted
     assert client.post("/parent/consent", data={"token": token}).status_code == 400
-    assert client.post("/parent/consent", data={"token": token, "acknowledged": "yes"}).status_code == 200
+    assert client.post("/parent/consent", data={"token": token, "acknowledged": "yes"}).status_code == 202
     with App.app.app_context():
         user = App.db.session.get(App.User, uid)
-        assert user.parent_consent_granted
-        assert user.parent_consent_at
-        assert user.parent_consent_notice_version == parental_notice.NOTICE_VERSION
-        assert user.parent_consent_token is None
-    assert client.get("/parent/consent", query_string={"token": token}).status_code == 404
+        assert not user.parent_consent_granted
+        assert user.parent_consent_at is None
+        assert user.parent_consent_notice_version is None
+        assert user.parent_consent_token == token  # denial stays available
+    assert client.get("/parent/deny", query_string={"token": token}).status_code == 200
 
 
 def test_parent_denial_get_does_not_delete_account(client):
@@ -90,7 +90,7 @@ def test_same_day_account_without_version_evidence_gets_current_notice(client):
         uid = user.id
     sign_in(client, uid)
     pending = client.get("/api/policy/pending").get_json()["pending"]
-    assert {(p["doc"], p["version"]) for p in pending} == {("privacy", 4), ("terms", 2)}
+    assert {(p["doc"], p["version"]) for p in pending} == {("privacy", 5), ("terms", 2)}
     # It never saw either document, so it is shown them, not a change log.
     assert all(p["first_time"] and p["tldr"] and not p["clauses"] for p in pending)
 

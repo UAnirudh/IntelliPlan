@@ -233,5 +233,8 @@ def decision(user, key):
 
 
 def permitted_providers(user):
+    from child_privacy import hold_reason
+    if hold_reason(user):
+        return set()
     policy = effective(user)
     return policy['providers'] if policy['third_party_processing'] and not policy['assessment_protection'] else set()

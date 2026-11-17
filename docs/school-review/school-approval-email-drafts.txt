@@ -1,0 +1,48 @@
+DRAFT 1
+To: Lombardi
+Cc: Whitney; Hans de Grys; other school reviewers as appropriate
+Subject: IntelliPlan Canvas pilot — request for a course-restricted test account
+
+Hello,
+
+I've spoken with Whitney and Hans de Grys about IntelliPlan, the study-planning and tutoring platform I'm developing, and I'd like to move forward with the school's review process.
+
+For the initial integration test, could you help arrange a dedicated Canvas test student enrolled only in course 4716?
+https://lakesideschool.instructure.com/courses/4716
+
+I'd like to confirm that this course is suitable for testing with synthetic assignments and grades, without real student records. If it isn't, a separate approved sandbox would work instead. The test account should have no teacher/admin privileges or access to other courses.
+
+I've prepared a separate pilot configuration that restricts server requests to the approved course, makes Canvas data access read-only, and keeps external AI disabled initially. This still needs to be deployed and tested with the school-authorized account. Could the Canvas administrator also advise on a scoped OAuth developer key and the approved way to share temporary test access?
+
+I don't need anyone's personal school password or a token from an account with access to other classes. I'm happy to demonstrate the setup and coordinate with the appropriate reviewers before any real student data is used.
+
+Thank you,
+Anirudh
+IntelliPlan
+uanirudh0811@gmail.com
+
+
+DRAFT 2
+To: Jaime Britto
+Cc: Whitney; Hans de Grys; Lombardi; other designated reviewers as appropriate
+Subject: IntelliPlan — cybersecurity review and school approval requirements
+
+Hi Jaime,
+
+I've spoken with Whitney and Hans de Grys about IntelliPlan, a study-planning and tutoring platform I'm developing. My CS teacher suggested that I send the cybersecurity and student-privacy materials to you. I'd like to understand the requirements for getting it approved for use at Lakeside.
+
+Could you please let me know the review process, required forms and documentation, and who needs to sign off? In particular, I'd appreciate guidance on:
+
+- The security/privacy questionnaire, vendor agreement or DPA, and required COPPA/FERPA documentation.
+- Expectations for AI providers, student-data use, retention/deletion, incident response, hosting, authentication and access controls.
+- Whether a penetration test, accessibility review, insurance or other independent evidence is required, and how to submit materials for review.
+
+I have prepared a course-restricted Canvas pilot using synthetic data, with a dedicated test identity and separate application/database proposed. External AI would remain disabled initially. Groq offers Zero Data Retention, but I am still verifying the actual organization settings and applicable contractual requirements; I am not claiming that IntelliPlan is already fully compliant or school-approved.
+
+I can provide the technical data-flow summary, scoped integration details, privacy policy, test results and a list of remaining items. Please let me know the preferred submission format and whether there is an initial meeting or review timeline I should follow.
+
+Thank you for your guidance,
+Anirudh
+IntelliPlan
+uanirudh0811@gmail.com
+425-286-3759

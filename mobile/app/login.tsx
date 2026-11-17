@@ -29,6 +29,7 @@ export default function LoginScreen() {
 
   const [mode, setMode] = useState<Mode>("signin");
   const [name, setName] = useState("");
+  const [birthYear, setBirthYear] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
@@ -50,6 +51,11 @@ export default function LoginScreen() {
       return;
     }
     setBusy(true);
+    if (signup && (!/^\d{4}$/.test(birthYear) || Number(birthYear) < 1900 || new Date().getFullYear() - Number(birthYear) - 1 < 13)) {
+      setError("Enter a valid birth year. Independent accounts for children under 13 are currently unavailable.");
+      setBusy(false);
+      return;
+    }
     try {
       if (signup) {
         // A brand-new account has nothing connected and nothing due, so
@@ -57,7 +63,7 @@ export default function LoginScreen() {
         // onboarded flag stays unset until they finish or skip, so
         // force-quitting mid-setup resumes there rather than dropping
         // them into an app they have not configured.
-        await signUp(email, password, name);
+        await signUp(email, password, name, birthYear);
         router.replace("/onboarding");
       } else {
         // Signing in means the account already exists, so the tour has
@@ -118,6 +124,8 @@ export default function LoginScreen() {
           </View>
 
           <View style={{ gap: space.md }}>
+            {signup ? <Field label="Birth year" placeholder="e.g. 2010" keyboardType="number-pad" maxLength={4} value={birthYear} onChangeText={setBirthYear} /> : null}
+            {signup ? <T variant="sm" tone="secondary">Independent accounts for children under 13 are currently unavailable.</T> : null}
             {signup ? (
               <Field
                 label="Name"
