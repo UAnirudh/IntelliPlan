@@ -38,10 +38,10 @@ def postgres(tmp_path_factory):
             result = subprocess.run([str(bin_path / name), *map(str, args)],
                                     stdout=output, stderr=output, timeout=90, creationflags=flags)
         if result.returncode:
-                for log in ('commands.log', 'server.log'):
-                    path = root / log
-                    if path.exists():
-                        print(path.read_text(errors='replace')[-4000:])
+            for log in ('commands.log', 'server.log'):
+                path = root / log
+                if path.exists():
+                    print(path.read_text(errors='replace')[-4000:])
             pytest.fail(f"Scratch PostgreSQL command failed: {name}")
 
     run("initdb", "-D", data, "--auth=trust", "--username=migration_test", "--encoding=UTF8", "--no-locale")
