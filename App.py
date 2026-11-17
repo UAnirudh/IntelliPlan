@@ -5664,18 +5664,6 @@ def blog_article(slug):
 def olympiad_page():
     return render_template("olympiad.html", active_page="olympiad")
 
-@app.route("/demo/planner")
-def demo_planner_alias():
-    """The landing page (five places) and the pricing page both link here.
-
-    The sample week lives at /demo, so every one of those links was a dead
-    end on the two pages that matter most for conversion. A permanent
-    redirect keeps the links working without serving the same page at two
-    URLs, which would split its search signals.
-    """
-    return redirect("/demo", code=301)
-
-
 @app.route("/demo")
 def demo_week():
     """A sample week ranked and scheduled by the real engines, no sign-up.

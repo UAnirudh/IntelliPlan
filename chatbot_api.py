@@ -1071,7 +1071,6 @@ def _reserve_tutor_message():
     """
     if not current_user.is_authenticated:
         return True, None, None, None
-    db = _get_db()
     now = datetime.utcnow()
     # Paid plans bypass. This read ``current_user.pro_active``, which no
     # model has ever defined: the AttributeError was swallowed, so every
@@ -1088,6 +1087,7 @@ def _reserve_tutor_message():
     repository = accounts()
     if hasattr(repository, 'reserve_tutor_message'):
         return repository.reserve_tutor_message(current_user.id, limit, now=now)
+    db = _get_db()
     from sqlalchemy import func, or_
     from App import User
 

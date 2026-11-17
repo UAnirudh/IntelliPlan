@@ -39,6 +39,7 @@ def make_user(password: str | None):
         user = app_module.User(
             email=email,
             name="Password Test",
+            birth_year=2000, parent_consent_granted=True,
             password_hash=(
                 app_module.bcrypt.generate_password_hash(password).decode()
                 if password else None

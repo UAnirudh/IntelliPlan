@@ -27,7 +27,7 @@ def environment():
     store.transaction = lambda work: work(store.database, None)
     created = (datetime.now(timezone.utc) - timedelta(days=2)).isoformat()
     store.database.users.insert_many([
-        {'id': 1, 'email': 'student@example.invalid', 'created_at': created},
+        {'id': 1, 'email': 'student@example.invalid', 'created_at': created, 'birth_year': 2000, 'parent_consent_granted': True},
         {'id': 2, 'email': 'admin@example.invalid', 'created_at': created},
     ])
     repo = MongoAPIKeys(store)
