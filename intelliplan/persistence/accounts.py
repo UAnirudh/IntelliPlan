@@ -64,6 +64,7 @@ def preference_fields(values):
 
 
 def initial_age_values(birth_year, parent_email, *, email, consent_token):
+    from child_privacy import parent_consent_token_hash
     from intelliplan.email.eligibility import age_from_birth_year
     birth_year = int(birth_year)
     now = utcnow()
@@ -75,7 +76,7 @@ def initial_age_values(birth_year, parent_email, *, email, consent_token):
         raise ValueError('A different parent or guardian email is required.')
     values = {'birth_year': birth_year, 'parent_consent_granted': not child,
               'parent_email': parent_email if child else None,
-              'parent_consent_token': consent_token if child else None,
+              'parent_consent_token': parent_consent_token_hash(consent_token) if child else None,
               'parent_consent_expires_at': now + timedelta(days=7) if child else None,
               'parent_consent_at': None, 'parent_consent_notice_version': None}
     if child:
@@ -84,9 +85,12 @@ def initial_age_values(birth_year, parent_email, *, email, consent_token):
 
 
 def registration_fields(attributes):
+    from child_privacy import parent_consent_token_hash
     values = dict(attributes or {})
     if values.keys() - REGISTRATION_FIELDS:
         raise ValueError('Unsupported account registration fields')
+    if values.get('parent_consent_token'):
+        values['parent_consent_token'] = parent_consent_token_hash(values['parent_consent_token'])
     return values
 
 
@@ -271,6 +275,7 @@ class SQLAccounts:
                                             email=user.email, consent_token=consent_token)
                 for field, value in values.items():
                     setattr(user, field, value)
+                user.parent_consent_delivery_token = consent_token if values['parent_consent_token'] else None
             self.db.session.commit()
             return user
         except Exception:
@@ -280,14 +285,17 @@ class SQLAccounts:
     def by_parent_token(self, token):
         if not token:
             return None
-        return self.model.query.populate_existing().filter_by(parent_consent_token=token).first()
+        from child_privacy import parent_consent_token_values
+        return self.model.query.populate_existing().filter(
+            self.model.parent_consent_token.in_(parent_consent_token_values(token))).first()
 
     def approve_parent(self, token, *, notice_version):
         if not token:
             return None
+        from child_privacy import parent_consent_token_values
         try:
             user_id = self.db.session.execute(update(self.model).where(
-                self.model.parent_consent_token == token,
+                self.model.parent_consent_token.in_(parent_consent_token_values(token)),
                 or_(self.model.parent_consent_granted.is_(False), self.model.parent_consent_granted.is_(None)),
             ).values(parent_consent_granted=True, parent_consent_token=None,
                      parent_consent_at=utcnow(), parent_consent_notice_version=notice_version).returning(

@@ -459,19 +459,21 @@ def test_account_preferences_preserve_other_fields_and_clear_sms_without_a_phone
 
 def test_initial_age_is_recorded_once_and_child_consent_is_single_use(account_app):
     _, repo, _ = account_app
+    from child_privacy import parent_consent_token_hash
     user = repo.create(email='child-age@example.test', password_hash='hash',
         attributes={'marketing_emails_opt_in': True, 'marketing_opt_in_at': datetime.utcnow()})
     child = repo.establish_age(user.id, birth_year=datetime.utcnow().year - 10,
                                parent_email='PARENT@example.test')
-    token = child.parent_consent_token
-    assert token
+    token = child.parent_consent_delivery_token
+    assert token and child.parent_consent_token == parent_consent_token_hash(token)
+    assert token != child.parent_consent_token
     assert child.parent_consent_granted is False
     assert child.marketing_emails_opt_in is False
     assert child.marketing_opt_in_at is None
     assert repo.by_parent_token(token).id == user.id
     unchanged = repo.establish_age(user.id, birth_year=2000)
     assert unchanged.birth_year == datetime.utcnow().year - 10
-    assert unchanged.parent_consent_token == token
+    assert unchanged.parent_consent_token == parent_consent_token_hash(token)
     approved = repo.approve_parent(token, notice_version='synthetic-v1')
     assert approved.parent_consent_granted is True
     assert approved.parent_consent_at is not None
@@ -480,6 +482,34 @@ def test_initial_age_is_recorded_once_and_child_consent_is_single_use(account_ap
     assert approved.marketing_emails_opt_in is False
     assert repo.approve_parent(token, notice_version='replayed') is None
     assert repo.by_parent_token(token) is None
+
+
+def test_registration_stores_consent_token_digest_and_preserves_legacy_lookup(account_app):
+    from child_privacy import parent_consent_token_hash
+    _, repo, _ = account_app
+    token = 'synthetic-registration-consent-token'
+    user = repo.create(email='child-register@example.test', password_hash='hash', attributes={
+        'birth_year': datetime.utcnow().year - 10,
+        'parent_email': 'parent@example.test',
+        'parent_consent_granted': False,
+        'parent_consent_token': token,
+        'parent_consent_expires_at': datetime.utcnow() + timedelta(days=7),
+    })
+    stored = repo.get(user.id).parent_consent_token
+    assert stored == parent_consent_token_hash(token)
+    assert stored != token
+    assert repo.by_parent_token(token).id == user.id
+
+    # Pre-upgrade rows contain raw tokens; keep their links usable until expiry.
+    if isinstance(repo, MongoAccounts):
+        repo.collection.insert_one({'id': 999999, 'email': 'legacy-consent@example.test',
+                                    'parent_consent_token': 'legacy-raw-token'})
+    else:
+        legacy = repo.model(id=999999, email='legacy-consent@example.test',
+                            password_hash='hash', parent_consent_token='legacy-raw-token')
+        repo.db.session.add(legacy)
+        repo.db.session.commit()
+    assert repo.by_parent_token('legacy-raw-token').id == 999999
 
 
 def test_initial_age_validation_and_adult_exemption(account_app):

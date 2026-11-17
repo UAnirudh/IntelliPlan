@@ -4,6 +4,7 @@ No environment switch or legacy email-approval flag supplies COPPA consent.
 Reopening under-13 use requires an implemented, reviewed authorization flow.
 """
 from datetime import datetime
+import hashlib
 
 CHILD_HOLD_MESSAGE = (
     'Independent accounts for children under 13 are unavailable while we complete '
@@ -11,6 +12,21 @@ CHILD_HOLD_MESSAGE = (
     'does not activate an account. A parent or school may contact '
     'uanirudh0811@gmail.com for review or deletion requests.'
 )
+
+
+def parent_consent_token_hash(token):
+    """Digest a raw consent-link token before it is stored."""
+    if not isinstance(token, str) or not token:
+        return None
+    return hashlib.sha256(token.encode('utf-8')).hexdigest()
+
+
+def parent_consent_token_values(token):
+    """Lookup a new token digest and a pre-upgrade plaintext token."""
+    if not isinstance(token, str) or not token:
+        return ()
+    digest = parent_consent_token_hash(token)
+    return (digest, token)
 
 
 def registration_birth_year(raw, now=None):

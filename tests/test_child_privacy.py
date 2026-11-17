@@ -1,5 +1,6 @@
 """Known-child and missing-age denials must apply to every credential family."""
 import uuid
+import hashlib
 from datetime import datetime
 from types import SimpleNamespace
 
@@ -46,6 +47,13 @@ def test_conservative_thirteenth_birthday_boundary():
     assert child_privacy.registration_birth_year(2012, now) == 2012
     assert child_privacy.hold_reason(SimpleNamespace(birth_year=2015,
         parent_consent_granted=True), now) == 'child_verification_required'
+
+
+def test_parent_consent_tokens_are_hashed_without_confusing_hex_tokens():
+    token = 'a' * 64
+    digest = hashlib.sha256(token.encode('utf-8')).hexdigest()
+    assert child_privacy.parent_consent_token_hash(token) == digest
+    assert child_privacy.parent_consent_token_values(token) == (digest, token)
 
 
 @pytest.mark.parametrize('path', ['/api/auth/register', '/api/ext/register', '/extension/register'])

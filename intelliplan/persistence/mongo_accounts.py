@@ -186,6 +186,9 @@ class MongoAccounts:
                                             email=row['email'], consent_token=consent_token)
                 row = db.users.find_one_and_update({'_id': row['_id']}, update_fields(values),
                     return_document=ReturnDocument.AFTER, session=active)
+                account = Account(row)
+                account.parent_consent_delivery_token = consent_token if values['parent_consent_token'] else None
+                return account
             return Account(row)
 
         return self.store.transaction(write)
@@ -193,13 +196,15 @@ class MongoAccounts:
     def by_parent_token(self, token):
         if not token:
             return None
-        row = self.collection.find_one({'parent_consent_token': token})
+        from child_privacy import parent_consent_token_values
+        row = self.collection.find_one({'parent_consent_token': {'$in': list(parent_consent_token_values(token))}})
         return Account(row) if row else None
 
     def approve_parent(self, token, *, notice_version):
         if not token:
             return None
-        row = self.collection.find_one_and_update({'parent_consent_token': token,
+        from child_privacy import parent_consent_token_values
+        row = self.collection.find_one_and_update({'parent_consent_token': {'$in': list(parent_consent_token_values(token))},
             'parent_consent_granted': {'$ne': True}}, update_fields({
                 'parent_consent_granted': True, 'parent_consent_token': None,
                 'parent_consent_at': utcnow().isoformat(), 'parent_consent_notice_version': notice_version,

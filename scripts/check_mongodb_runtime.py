@@ -464,7 +464,9 @@ def verify_erasure(store, run_id, user, tutor):
     pending = accounts.create(email=f'pending-race-{run_id}@example.invalid', password_hash='synthetic-hash')
     pending = accounts.establish_age(pending.id, birth_year=datetime.now(timezone.utc).year - 10,
                                      parent_email=f'parent-race-{run_id}@example.invalid')
-    pending_token = pending.parent_consent_token
+    pending_token = pending.parent_consent_delivery_token
+    if not pending_token:
+        raise AssertionError('Pending account did not return its one-time delivery token')
     gate = Barrier(2)
 
     def approve():
@@ -549,8 +551,9 @@ def verify(store, *, progress=False):
     with ThreadPoolExecutor(max_workers=4) as executor:
         children = list(executor.map(lambda _: accounts.establish_age(user.id,
             birth_year=datetime.now(timezone.utc).year - 10, parent_email=f'parent-{run_id}@example.invalid'), range(8)))
-    consent_tokens = {child.parent_consent_token for child in children}
-    if len(consent_tokens) != 1 or None in consent_tokens:
+    consent_tokens = {getattr(child, 'parent_consent_delivery_token', None) for child in children}
+    consent_tokens.discard(None)
+    if len(consent_tokens) != 1:
         raise AssertionError('Concurrent initial age writes replaced the consent token')
     consent_token = next(iter(consent_tokens))
     with ThreadPoolExecutor(max_workers=4) as executor:

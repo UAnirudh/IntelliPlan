@@ -102,6 +102,17 @@ def test_erasure_rechecks_staged_file_names_and_pending_approval(backend):
     assert backend.database.course_notes.find_one({'id': 1}) is not None
 
 
+def test_pending_erasure_matches_hashed_consent_token(backend):
+    from child_privacy import parent_consent_token_hash
+    token = 'pending-test'
+    backend.database.users.update_one({'id': 1}, {'$set': {
+        'parent_consent_token': parent_consent_token_hash(token),
+        'parent_consent_granted': False,
+    }})
+    assert MongoErasure(backend).erase(1, pending_token=token)
+    assert backend.database.users.find_one({'id': 1}) is None
+
+
 def test_erasure_refuses_a_globally_stored_file_shared_with_another_account(backend):
     backend.database.lessons.insert_many([
         {'id': 1, 'user_id': 1, 'stored_filename': 'shared.pdf'},

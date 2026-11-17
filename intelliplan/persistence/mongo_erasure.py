@@ -163,7 +163,9 @@ class MongoErasure:
         def write(db, active):
             owner = {'id': user_id}
             if pending_token is not None:
-                owner.update(parent_consent_token=pending_token, parent_consent_granted={'$ne': True})
+                from child_privacy import parent_consent_token_values
+                owner.update(parent_consent_token={'$in': list(parent_consent_token_values(pending_token))},
+                             parent_consent_granted={'$ne': True})
             if not db.users.update_one(owner, {'$inc': {'_erasure_revision': 1}},
                                        session=active).matched_count:
                 return False

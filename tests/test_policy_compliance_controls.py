@@ -27,11 +27,11 @@ def pending_user():
         user = App.User(email=f"privacy-{uuid.uuid4().hex}@example.test",
                         password_hash="x", birth_year=datetime.utcnow().year - 12,
                         parent_email="parent@example.test", parent_consent_granted=False,
-                        parent_consent_token=uuid.uuid4().hex,
-                        parent_consent_expires_at=App.utcnow() + timedelta(days=7))
+                        parent_consent_token=None)
+        token = App._issue_parental_consent_token(user)
         App.db.session.add(user)
         App.db.session.commit()
-        return user.id, user.parent_consent_token
+        return user.id, token
 
 
 def sign_in(client, uid):
@@ -53,7 +53,7 @@ def test_web_pending_resend_cannot_send_unverified_activation(client, monkeypatc
     assert delivered == []
     with App.app.app_context():
         user = App.db.session.get(App.User, uid)
-        assert user.parent_consent_token == token
+        assert user.parent_consent_token == App.child_privacy.parent_consent_token_hash(token)
         assert not user.parent_consent_granted
 
 
@@ -71,7 +71,7 @@ def test_parent_link_cannot_supply_verified_authorization(client):
         assert not user.parent_consent_granted
         assert user.parent_consent_at is None
         assert user.parent_consent_notice_version is None
-        assert user.parent_consent_token == token  # denial stays available
+        assert user.parent_consent_token == App.child_privacy.parent_consent_token_hash(token)  # denial stays available
     assert client.get("/parent/deny", query_string={"token": token}).status_code == 200
 
 

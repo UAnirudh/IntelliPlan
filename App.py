@@ -19742,9 +19742,10 @@ PARENT_CONSENT_TOKEN_TTL = timedelta(days=7)
 
 def _issue_parental_consent_token(user):
     """Rotate a pending parent's one-time link and set its short lifetime."""
-    user.parent_consent_token = secrets_module.token_urlsafe(24)
+    token = secrets_module.token_urlsafe(24)
+    user.parent_consent_token = child_privacy.parent_consent_token_hash(token)
     user.parent_consent_expires_at = utcnow() + PARENT_CONSENT_TOKEN_TTL
-    return user.parent_consent_token
+    return token
 
 
 def _parental_consent_token_is_active(user, now=None):
@@ -19799,14 +19800,15 @@ def _welcome_after_age_known(user):
 
 def _send_parental_consent_email(user):
     """Deliver the existing one-time parental notice for an account."""
+    token = getattr(user, "parent_consent_delivery_token", None)
     if (user is None or not getattr(user, "parent_email", None)
-            or not getattr(user, "parent_consent_token", None)):
+            or not token):
         return False
     try:
         consent_url = (f"{APP_BASE_URL}/parent/consent"
-                       f"?token={user.parent_consent_token}")
+                       f"?token={token}")
         deny_url = (f"{APP_BASE_URL}/parent/deny"
-                    f"?token={user.parent_consent_token}")
+                    f"?token={token}")
         body = parental_notice.email_body(
             user.email, consent_url, deny_url, APP_BASE_URL,
         )
@@ -19883,11 +19885,14 @@ def account_age_gate():
                         and not user.parent_consent_granted)
 
             if under_13:
+                consent_token = getattr(user, "parent_consent_delivery_token", None)
+                if not consent_token:
+                    return redirect("/account/age/pending")
                 try:
                     consent_url = (f"{APP_BASE_URL}/parent/consent"
-                                   f"?token={user.parent_consent_token}")
+                                   f"?token={consent_token}")
                     deny_url = (f"{APP_BASE_URL}/parent/deny"
-                                f"?token={user.parent_consent_token}")
+                                f"?token={consent_token}")
                     body = parental_notice.email_body(user.email, consent_url, deny_url, APP_BASE_URL)
                     _send_email(user.parent_email,
                                 "Consent needed: your child's IntelliPlan account", body)
@@ -19977,7 +19982,8 @@ def parent_deny():
     else:
         # Serialize legacy SQL denial with atomic approval before deciding
         # this is still pending. Native erasure rechecks inside its transaction.
-        user = User.query.populate_existing().filter_by(parent_consent_token=token).with_for_update().first()
+        token_values = child_privacy.parent_consent_token_values(token)
+        user = User.query.populate_existing().filter(User.parent_consent_token.in_(token_values)).with_for_update().first()
     if not user or not _parental_consent_token_is_active(user):
         if user:
             _expire_parental_consent_token(user)
