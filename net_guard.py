@@ -22,6 +22,7 @@ import ipaddress
 import ssl
 import socket
 import urllib.parse
+from contextlib import contextmanager
 
 import requests
 import urllib3
@@ -105,6 +106,14 @@ def require_public_url(url: str) -> str:
     return url
 
 
+def _request_timeout(timeout):
+    if isinstance(timeout, (tuple, list)):
+        connect_timeout, read_timeout = timeout
+    else:
+        connect_timeout = read_timeout = timeout
+    return urllib3.Timeout(connect=connect_timeout, read=read_timeout)
+
+
 def pinned_https_request(url: str, method: str, *, headers=None, data=None, timeout=15):
     """Make one HTTPS request to the exact public IPs validated in this call.
 
@@ -143,7 +152,7 @@ def pinned_https_request(url: str, method: str, *, headers=None, data=None, time
             server_hostname=host,
             assert_hostname=host,
             cert_reqs=ssl.CERT_REQUIRED,
-            timeout=urllib3.Timeout(connect=timeout, read=timeout),
+            timeout=_request_timeout(timeout),
         )
         try:
             raw = pool.request(
@@ -167,4 +176,77 @@ def pinned_https_request(url: str, method: str, *, headers=None, data=None, time
             last_error = exc
         finally:
             pool.close()
+    raise requests.ConnectionError("The integration host could not be reached securely.") from last_error
+
+
+@contextmanager
+def pinned_https_stream(url: str, method: str, *, headers=None, timeout=15):
+    """Stream one HTTPS response from the exact public IPs validated here.
+
+    This is the bounded-body counterpart to :func:`pinned_https_request` for
+    callers that must enforce a response-size limit while downloading. The
+    caller owns the response body only inside the context manager; redirects
+    are never followed and each redirect must be validated as a new request.
+    """
+    try:
+        parsed = urllib.parse.urlsplit(url)
+        port = parsed.port
+    except ValueError:
+        raise BlockedURL(url) from None
+    if (parsed.scheme.lower() != "https" or not parsed.hostname
+            or parsed.username is not None or parsed.password is not None
+            or port not in (None, 443)):
+        raise BlockedURL(url)
+    host = parsed.hostname
+    port = port or 443
+    try:
+        infos = socket.getaddrinfo(host, port, type=socket.SOCK_STREAM)
+    except OSError as exc:
+        raise requests.ConnectionError("The integration host could not be resolved.") from exc
+    addresses = list(dict.fromkeys(info[4][0] for info in infos))
+    if not addresses or not all(_address_is_public(address) for address in addresses):
+        raise BlockedURL(url)
+
+    target = urllib.parse.urlunsplit(("", "", parsed.path or "/", parsed.query, ""))
+    request_headers = dict(headers or {})
+    request_headers["Host"] = parsed.netloc
+    request_timeout = _request_timeout(timeout)
+    last_error = None
+    for address in addresses:
+        pool = urllib3.HTTPSConnectionPool(
+            host=address,
+            port=port,
+            server_hostname=host,
+            assert_hostname=host,
+            cert_reqs=ssl.CERT_REQUIRED,
+            timeout=request_timeout,
+        )
+        try:
+            raw = pool.request(
+                method,
+                target,
+                headers=request_headers,
+                redirect=False,
+                retries=False,
+                preload_content=False,
+            )
+        except (urllib3.exceptions.HTTPError, OSError) as exc:
+            last_error = exc
+            pool.close()
+            continue
+
+        response = requests.Response()
+        response.status_code = raw.status
+        response.raw = raw
+        response.headers = requests.structures.CaseInsensitiveDict(raw.headers)
+        response.url = url
+        response.reason = raw.reason
+        response.encoding = requests.utils.get_encoding_from_headers(response.headers)
+        response.request = requests.Request(method, url, headers=request_headers).prepare()
+        try:
+            yield response
+        finally:
+            response.close()
+            pool.close()
+        return
     raise requests.ConnectionError("The integration host could not be reached securely.") from last_error

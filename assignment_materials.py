@@ -10,8 +10,6 @@ from urllib.parse import urljoin, urlparse
 import re
 import zipfile
 
-import requests
-
 import net_guard
 
 
@@ -75,11 +73,16 @@ def _canvas_origin(canvas_url):
     return origin
 
 
+def _pinned_canvas_get(url, token):
+    try:
+        return net_guard.pinned_https_request(
+            url, 'GET', headers={'Authorization': f'Bearer {token}'}, timeout=(5, 12))
+    except net_guard.BlockedURL as exc:
+        raise MaterialError('The connected Canvas address is unavailable.') from exc
+
+
 def _canvas_json(origin, token, path):
-    response = requests.get(
-        origin + path, headers={'Authorization': f'Bearer {token}'},
-        timeout=(5, 12), allow_redirects=False,
-    )
+    response = _pinned_canvas_get(origin + path, token)
     if response.status_code in (401, 403):
         raise MaterialError('Reconnect Canvas in Settings to grant assignment file access.')
     if response.status_code != 200:
@@ -122,8 +125,7 @@ def _canvas_list(origin, token, path, max_pages):
         parsed = urlparse(url)
         if parsed.scheme != 'https' or parsed.netloc != urlparse(origin).netloc:
             raise MaterialError('Canvas returned a link outside the connected school.')
-        response = requests.get(url, headers={'Authorization': f'Bearer {token}'},
-                                timeout=(5, 12), allow_redirects=False)
+        response = _pinned_canvas_get(url, token)
         if response.status_code in (401, 403):
             raise MaterialError('Reconnect Canvas in Settings to grant assignment access.')
         if response.status_code != 200:
@@ -143,28 +145,31 @@ def _download_public_file(url):
     """Follow a Canvas signed download URL without credentials or private hops."""
     for _ in range(4):
         parsed = urlparse(url)
-        if parsed.scheme != 'https' or parsed.username or parsed.password or not net_guard.resolves_to_public_host(url):
+        if parsed.scheme != 'https' or parsed.username or parsed.password:
             raise MaterialError('Canvas supplied an unsafe file address.')
-        with requests.get(url, stream=True, allow_redirects=False, timeout=(5, 12)) as response:
-            if response.status_code in (301, 302, 303, 307, 308):
-                location = response.headers.get('Location')
-                if not location:
-                    raise MaterialError('Canvas file redirect was incomplete.')
-                url = urljoin(url, location)
-                continue
-            if response.status_code != 200:
-                raise MaterialError('The Canvas file could not be downloaded.')
-            try:
-                if int(response.headers.get('Content-Length', '0')) > MAX_FILE_BYTES:
-                    raise MaterialError('The Canvas file is too large.')
-            except ValueError:
-                pass
-            body = bytearray()
-            for chunk in response.iter_content(chunk_size=65536):
-                body.extend(chunk)
-                if len(body) > MAX_FILE_BYTES:
-                    raise MaterialError('The Canvas file is too large.')
-            return bytes(body)
+        try:
+            with net_guard.pinned_https_stream(url, 'GET', timeout=(5, 12)) as response:
+                if response.status_code in (301, 302, 303, 307, 308):
+                    location = response.headers.get('Location')
+                    if not location:
+                        raise MaterialError('Canvas file redirect was incomplete.')
+                    url = urljoin(url, location)
+                    continue
+                if response.status_code != 200:
+                    raise MaterialError('The Canvas file could not be downloaded.')
+                try:
+                    if int(response.headers.get('Content-Length', '0')) > MAX_FILE_BYTES:
+                        raise MaterialError('The Canvas file is too large.')
+                except ValueError:
+                    pass
+                body = bytearray()
+                for chunk in response.iter_content(chunk_size=65536):
+                    body.extend(chunk)
+                    if len(body) > MAX_FILE_BYTES:
+                        raise MaterialError('The Canvas file is too large.')
+                return bytes(body)
+        except net_guard.BlockedURL as exc:
+            raise MaterialError('Canvas supplied an unsafe file address.') from exc
     raise MaterialError('Canvas file redirected too many times.')
 
 

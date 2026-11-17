@@ -126,3 +126,62 @@ def test_require_public_url_returns_a_safe_url(monkeypatch):
 def test_require_public_url_raises_on_an_internal_one():
     with pytest.raises(net_guard.BlockedURL):
         net_guard.require_public_url("http://169.254.169.254/")
+
+
+def test_pinned_stream_connects_to_the_validated_address_and_streams(monkeypatch):
+    calls = []
+
+    def resolve(host, port, *args, **kwargs):
+        calls.append((host, port))
+        return [(2, 1, 6, "", ("93.184.216.34", port))]
+
+    class Raw:
+        status = 200
+        headers = {"Content-Length": "5"}
+        reason = "OK"
+
+        def stream(self, chunk_size, decode_content=True):
+            yield b"hello"
+
+        def close(self):
+            pass
+
+    pools = []
+
+    class Pool:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+            self.request_args = None
+            self.closed = False
+            pools.append(self)
+
+        def request(self, *args, **kwargs):
+            self.request_args = (args, kwargs)
+            return Raw()
+
+        def close(self):
+            self.closed = True
+
+    monkeypatch.setattr(net_guard.socket, "getaddrinfo", resolve)
+    monkeypatch.setattr(net_guard.urllib3, "HTTPSConnectionPool", Pool)
+
+    with net_guard.pinned_https_stream("https://school.test/files/1?ticket=x", "GET",
+                                      timeout=(5, 12)) as response:
+        assert response.status_code == 200
+        assert b"".join(response.iter_content(chunk_size=5)) == b"hello"
+
+    assert calls == [("school.test", 443)]
+    assert pools[0].kwargs["host"] == "93.184.216.34"
+    assert pools[0].kwargs["server_hostname"] == "school.test"
+    assert pools[0].request_args[1]["preload_content"] is False
+    assert pools[0].request_args[1]["redirect"] is False
+    assert pools[0].closed
+
+
+def test_pinned_stream_rejects_a_private_answer_before_connecting(monkeypatch):
+    resolving_to(monkeypatch, "93.184.216.34", "169.254.169.254")
+    monkeypatch.setattr(net_guard.urllib3, "HTTPSConnectionPool",
+                        lambda **kwargs: pytest.fail("must not connect"))
+    with pytest.raises(net_guard.BlockedURL):
+        with net_guard.pinned_https_stream("https://school.test/file", "GET"):
+            pytest.fail("must not return a response")

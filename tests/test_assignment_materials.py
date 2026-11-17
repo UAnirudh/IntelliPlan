@@ -1,5 +1,7 @@
 """Canvas schoolwork enters the tutor only by student choice and within bounds."""
 
+from contextlib import contextmanager
+
 import pytest
 
 import assignment_materials as materials
@@ -29,6 +31,25 @@ class Response:
         return False
 
 
+def _install_get(monkeypatch, get):
+    """Adapt the old requests-shaped fixture to the pinned transport boundary."""
+    def pinned(url, method, *, headers=None, timeout=15, data=None):
+        return get(url, headers=headers, timeout=timeout, allow_redirects=False)
+
+    @contextmanager
+    def pinned_stream(url, method, *, headers=None, timeout=15):
+        if not materials.net_guard.resolves_to_public_host(url):
+            raise materials.net_guard.BlockedURL(url)
+        kwargs = {'stream': True, 'allow_redirects': False, 'timeout': timeout}
+        if headers is not None:
+            kwargs['headers'] = headers
+        with get(url, **kwargs) as response:
+            yield response
+
+    monkeypatch.setattr(materials.net_guard, 'pinned_https_request', pinned)
+    monkeypatch.setattr(materials.net_guard, 'pinned_https_stream', pinned_stream)
+
+
 def test_assignment_extracts_only_canvas_file_links_and_does_not_leak_token(monkeypatch):
     monkeypatch.setattr(materials.net_guard, 'resolves_to_public_host', lambda url: True)
     seen = []
@@ -47,7 +68,7 @@ def test_assignment_extracts_only_canvas_file_links_and_does_not_leak_token(monk
             return Response(body=b'1/2 is greater than 1/3')
         raise AssertionError(url)
 
-    monkeypatch.setattr(materials.requests, 'get', get)
+    _install_get(monkeypatch, get)
     result = materials.load_assignment(ORIGIN, 'secret-token', '4', '8')
     assert result['title'] == 'Fractions'
     assert result['description'] == 'Compare fractions. Worksheet Ignore'
@@ -60,21 +81,21 @@ def test_assignment_extracts_only_canvas_file_links_and_does_not_leak_token(monk
 
 @pytest.mark.parametrize('course_id,assignment_id', [('4/other', '8'), ('4', '8?x'), ('-1', '8')])
 def test_rejects_non_numeric_assignment_ids_before_network(course_id, assignment_id, monkeypatch):
-    monkeypatch.setattr(materials.requests, 'get', lambda *a, **k: pytest.fail('unexpected network'))
+    _install_get(monkeypatch, lambda *a, **k: pytest.fail('unexpected network'))
     with pytest.raises(materials.MaterialError):
         materials.load_assignment(ORIGIN, 'token', course_id, assignment_id)
 
 
 def test_wrong_assignment_response_is_rejected(monkeypatch):
     monkeypatch.setattr(materials.net_guard, 'resolves_to_public_host', lambda url: True)
-    monkeypatch.setattr(materials.requests, 'get', lambda *a, **k: Response({'id': 9, 'course_id': 4}))
+    _install_get(monkeypatch, lambda *a, **k: Response({'id': 9, 'course_id': 4}))
     with pytest.raises(materials.MaterialError, match='different assignment'):
         materials.load_assignment(ORIGIN, 'token', '4', '8')
 
 
 def test_expired_file_scope_gives_reconnect_guidance(monkeypatch):
     monkeypatch.setattr(materials.net_guard, 'resolves_to_public_host', lambda url: True)
-    monkeypatch.setattr(materials.requests, 'get', lambda *a, **k: Response(status=403))
+    _install_get(monkeypatch, lambda *a, **k: Response(status=403))
     with pytest.raises(materials.MaterialError, match='Reconnect Canvas'):
         materials.load_assignment(ORIGIN, 'token', '4', '8')
 
@@ -88,16 +109,36 @@ def test_private_redirect_is_blocked_before_second_request(monkeypatch):
         urls.append(url)
         return Response(status=302, headers={'Location': 'https://127.0.0.1/private'})
 
-    monkeypatch.setattr(materials.requests, 'get', get)
+    _install_get(monkeypatch, get)
     with pytest.raises(materials.MaterialError, match='unsafe'):
         materials._download_public_file('https://cdn.example/file')
     assert urls == ['https://cdn.example/file']
 
 
+def test_canvas_dns_rebinding_between_check_and_request_is_blocked(monkeypatch):
+    answers = iter(("93.184.216.34", "169.254.169.254"))
+    lookups = []
+
+    def resolve(host, port, *args, **kwargs):
+        address = next(answers)
+        lookups.append((host, port, address))
+        return [(2, 1, 6, "", (address, port or 443))]
+
+    monkeypatch.setattr(materials.net_guard.socket, 'getaddrinfo', resolve)
+    monkeypatch.setattr(materials.net_guard.urllib3, 'HTTPSConnectionPool',
+                        lambda **kwargs: pytest.fail('must not connect to the rebound address'))
+
+    with pytest.raises(materials.MaterialError, match='unavailable'):
+        materials.load_assignment(ORIGIN, 'secret-token', '4', '8')
+    assert len(lookups) == 2
+    assert lookups[0][2] == '93.184.216.34'
+    assert lookups[1][2] == '169.254.169.254'
+
+
 def test_streaming_limit_stops_unadvertised_large_file(monkeypatch):
     monkeypatch.setattr(materials.net_guard, 'resolves_to_public_host', lambda url: True)
-    monkeypatch.setattr(materials.requests, 'get',
-                        lambda *a, **k: Response(body=b'x' * (materials.MAX_FILE_BYTES + 1)))
+    _install_get(monkeypatch,
+                 lambda *a, **k: Response(body=b'x' * (materials.MAX_FILE_BYTES + 1)))
     with pytest.raises(materials.MaterialError, match='too large'):
         materials._download_public_file('https://cdn.example/file')
 
@@ -112,7 +153,7 @@ def test_unreadable_attachment_is_reported_without_failing_directions(monkeypatc
         return Response({'id': 17, 'display_name': 'diagram.png', 'size': 20,
                          'content-type': 'image/png', 'url': 'https://cdn.example/image'})
 
-    monkeypatch.setattr(materials.requests, 'get', get)
+    _install_get(monkeypatch, get)
     result = materials.load_assignment(ORIGIN, 'token', '4', '8')
     assert result['description'].startswith('Explain your observation.')
     assert result['materials'] == []
@@ -142,13 +183,13 @@ def test_assignment_picker_includes_no_due_date_and_refuses_cross_origin_page(mo
         return Response([{'id': 8, 'name': 'Ongoing project', 'due_at': None}],
                         links={'next': {'url': 'https://evil.example/api/v1/other'}})
 
-    monkeypatch.setattr(materials.requests, 'get', get)
+    _install_get(monkeypatch, get)
     with pytest.raises(materials.MaterialError, match='outside'):
         materials.list_assignments(ORIGIN, 'token')
     assert len(seen) == 2
 
-    monkeypatch.setattr(materials.requests, 'get',
-                        lambda url, **kwargs: Response([{'id': 4, 'name': 'History'}])
-                        if '/courses?' in url else
-                        Response([{'id': 8, 'name': 'Ongoing project', 'due_at': None}]))
+    _install_get(monkeypatch,
+                 lambda url, **kwargs: Response([{'id': 4, 'name': 'History'}])
+                 if '/courses?' in url else
+                 Response([{'id': 8, 'name': 'Ongoing project', 'due_at': None}]))
     assert materials.list_assignments(ORIGIN, 'token')[0]['due_date'] == ''
