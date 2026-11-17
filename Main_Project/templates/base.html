@@ -2487,10 +2487,8 @@ window.addEventListener('load',()=>{
     content: ""; width: 6px; height: 6px; border-radius: 50%;
     background: var(--accent); display: inline-block;
   }
-  .blog-body > p:first-of-type::first-letter {
-    font-family: var(--font-display); font-size: 3rem; font-weight:600;
-    float: left; line-height: 0.8; margin: 0.06em 0.1em 0 0; color: var(--accent);
-  }
+  /* No drop cap: it split initialisms ("AP exams", "GPA…") across two lines
+     and read as a typo, and it indented the first line of every article. */
   @media (prefers-reduced-motion: reduce) {
     #readingProgress, #scrollTopBtn { transition: none; }
   }
@@ -2513,7 +2511,10 @@ window.addEventListener('load',()=>{
   // Insert an estimated reading time after the article title.
   var body = document.querySelector('.blog-body');
   var title = document.querySelector('.blog-title');
-  if (body && title && !document.querySelector('.read-time')) {
+  /* Registry articles already render "<date> · N min read" in .blog-meta.
+     Injecting a second, differently computed badge put two reading times on
+     one page (4 min above 6 min on the same article). */
+  if (body && title && !document.querySelector('.read-time') && !document.querySelector('.blog-meta')) {
     var words = (body.textContent || '').trim().split(/\s+/).filter(Boolean).length;
     var mins = Math.max(1, Math.round(words / 220));
     var badge = document.createElement('div');

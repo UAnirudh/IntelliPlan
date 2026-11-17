@@ -5625,7 +5625,7 @@ def blog_index():
 def blog_article(slug):
     """One guide, rendered from the registry by ``blog_article.html``.
 
-    Every article shares one template and one URL rule, so the nine older
+    Every article shares one template and one URL rule, so the eight older
     standalone pages and the registry-driven ones look and behave the same
     and there is no per-article HTML to keep in sync with the index.
     """
@@ -5650,7 +5650,7 @@ def blog_article(slug):
         "url": canonical,
         "mainEntityOfPage": {"@type": "WebPage", "@id": canonical},
         "datePublished": article["date"],
-        "dateModified": article.get("updated", article["date"]),
+        "dateModified": article["date"],
         "inLanguage": "en-US",
         "author": {"@type": "Organization", "name": "IntelliPlan", "url": APP_BASE_URL},
         "publisher": {"@type": "Organization", "name": "IntelliPlan", "url": APP_BASE_URL},
@@ -5658,6 +5658,8 @@ def blog_article(slug):
     return render_template("blog_article.html", article=article,
                            related_articles=related,
                            article_json_ld=article_json_ld,
+                           reading_time=blog_articles.reading_minutes(article),
+                           display_date=blog_articles.display_date(article["date"]),
                            active_page="blog")
 
 @app.route("/olympiad")

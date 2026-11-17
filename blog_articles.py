@@ -27,7 +27,6 @@ ARTICLES: list[dict] = [
         "meta_title": "How to Study for Finals in One Week | IntelliPlan",
         "description": "A realistic seven-day finals plan: what to study first, how long to spend, and how to walk in rested instead of wrecked.",
         "date": "2026-11-14",
-        "reading_time": 6,
         "sections": [
             {"paragraphs": [
                 "One week is not enough time to learn a semester from scratch, and pretending otherwise is how students end up awake at 3am with six half-read chapters and no confidence. It is, however, plenty of time to study well if you spend it on the right things in the right order.",
@@ -77,7 +76,6 @@ ARTICLES: list[dict] = [
         "meta_title": "How to Make a Study Schedule That Works | IntelliPlan",
         "description": "Most study schedules fail in the first week. Here is a simple way to build one around real hours, real deadlines, and real energy.",
         "date": "2026-11-10",
-        "reading_time": 6,
         "sections": [
             {"paragraphs": [
                 "Almost everyone has made a study schedule. Almost nobody has kept one for a month. The schedules that fail are usually not too ambitious — they are too abstract. A block that says \"study biology\" is a wish; a block that says \"redo questions 4 to 12 from the cell division worksheet, 7pm to 7:40\" is a plan.",
@@ -102,8 +100,9 @@ ARTICLES: list[dict] = [
             ]},
             {"h2": "Plan by deadline pressure, not by subject order",
             "paragraphs": [
-                "If you plan Monday for maths because Monday is maths day, you will spend the week reacting instead of preparing. Sort the work by when it is due and how much it counts, then place the highest-pressure items in your best hours. Everything else fills in around them.",
-                "This is the same logic a priority score uses: due date, point value, and how much of the course grade the item carries. You can do it on paper in two minutes. The advantage of doing it inside a planner is that it re-sorts itself when a due date moves, which on a normal week happens three or four times.",
+                "If you plan Monday for maths because Monday is maths day, you will spend the week reacting instead of preparing. Sort the work by when it is due and how much it counts — due date, points, and the share of the course grade the item carries. Ranking is this pass; placement is the next one.",
+                "Ranking is only half the job; placement is the other half. The highest-pressure item goes in your best hour, not your first free one. Most students have one or two genuinely sharp hours a day, usually mid-morning or early evening, and spending them on a low-value worksheet is the quiet way a week gets wasted.",
+                "The rest is a capacity question. Three substantial items in an evening is realistic; six is a list. When the ranked list is longer than the hours, the answer is not a tighter schedule — it is deciding what will not happen and saying so before the deadline says it for you.",
             ]},
             {"h2": "Protect one block from the week",
             "paragraphs": [
@@ -125,7 +124,6 @@ ARTICLES: list[dict] = [
         "meta_title": "Time Blocking for Students: A Practical Guide | IntelliPlan",
         "description": "How to time-block a school week around real deadlines, with a simple template and the mistakes that make blocking fail.",
         "date": "2026-11-06",
-        "reading_time": 5,
         "sections": [
             {"paragraphs": [
                 "Time blocking is the practice of giving every hour a job in advance. Not a to-do list that says what should happen eventually, but a calendar that says what happens at 7pm. For students it solves a specific problem: the free hour between practice and dinner is invisible until it is gone.",
@@ -169,7 +167,6 @@ ARTICLES: list[dict] = [
         "meta_title": "Does the Pomodoro Technique Work for Students? | IntelliPlan",
         "description": "What the 25/5 timer actually does, when it helps, when it hurts, and how to adapt it for homework, essays, and exam prep.",
         "date": "2026-11-02",
-        "reading_time": 5,
         "sections": [
             {"paragraphs": [
                 "The Pomodoro Technique is the best-known productivity method in the world and one of the least examined. Twenty-five minutes of work, five minutes of break, repeat. It is genuinely useful, but not for the reason most students think, and it fails in predictable ways.",
@@ -213,7 +210,6 @@ ARTICLES: list[dict] = [
         "meta_title": "How to Stop Procrastinating on Homework | IntelliPlan",
         "description": "Procrastination is an emotion problem, not a time problem. Five changes that make starting easier than avoiding.",
         "date": "2026-10-29",
-        "reading_time": 5,
         "sections": [
             {"paragraphs": [
                 "People who procrastinate are not lazy and they are not bad at planning. They are usually trying to avoid a feeling: the task is boring, or confusing, or the standard they are holding themselves to is high enough that starting feels like failing.",
@@ -258,7 +254,6 @@ ARTICLES: list[dict] = [
         "meta_title": "How to Catch Up When You Are Behind in School | IntelliPlan",
         "description": "A triage method for missing work: what to do first, what to ask your teacher, and how to rebuild a plan you can actually finish.",
         "date": "2026-10-25",
-        "reading_time": 6,
         "sections": [
             {"paragraphs": [
                 "Being behind is not one problem, it is three: missing work that still counts, material you did not learn, and a plan that no longer matches reality. Students usually attack the third by making a bigger plan, which fails within a week because the first two are still there.",
@@ -303,7 +298,6 @@ ARTICLES: list[dict] = [
         "meta_title": "How to Study With ADHD: Systems That Work | IntelliPlan",
         "description": "Practical study systems for ADHD brains: external memory, short starts, body doubling, and plans that survive a bad day.",
         "date": "2026-10-21",
-        "reading_time": 6,
         "sections": [
             {"paragraphs": [
                 "Most study advice assumes a brain that remembers intentions, notices time passing, and can hold a boring task in place. If yours does not reliably do those things, the advice is not wrong so much as unusable. The fix is not more discipline; it is systems that do the remembering, the noticing and the holding for you.",
@@ -336,11 +330,13 @@ ARTICLES: list[dict] = [
             {"h2": "Plan for the bad day in advance",
             "paragraphs": [
                 "A plan that only works on a good day is not a plan. Decide now what the minimum version looks like: ten minutes of flashcards, one problem, a single paragraph. Doing the minimum keeps the habit and the context alive, and the next day starts from somewhere rather than from zero.",
-                "When the whole week has gone sideways, rebuild rather than restart. That is a mechanical operation — see what is left, reorder it by what counts, and re-place it in the hours that remain. IntelliPlan's reschedule actions are built around that idea, so the repair costs a minute instead of an evening.",
+                "When the whole week has gone sideways, rebuild rather than restart. That is a mechanical operation — see what is left, reorder it by what counts, and re-place it in the hours that remain. IntelliPlan's reschedule does that repair in a minute instead of an evening.",
             ]},
             {"h2": "Use retrieval you can tolerate",
             "paragraphs": [
                 "Rereading feels productive and mostly is not. Flashcards, blank-page recall and practice questions work better, but they are also more uncomfortable, which is why they get skipped. Make them shorter: five cards, not fifty. One practice question, then stop. Small and repeated beats large and avoided.",
+                "Give each retrieval attempt a visible finish line, because an open-ended review is the version that never starts. Five cards is a session you can see the end of; a deck of two hundred is a decision you keep postponing. The same trick works for practice questions: one question, one diagram, one paragraph, then a real stop.",
+                "Changing the format also helps more than changing the subject. The same five cards said out loud, sketched from memory, and explained to a sibling are three different tasks to a brain that loses interest in repetition, and rotating them gets you three honest recall attempts instead of one and two half-attempts. Novelty is not a distraction here; it is what buys the repetition.",
             ]},
         ],
         "related": ["pomodoro-technique-for-students", "how-to-stop-procrastinating-on-homework", "active-recall-vs-rereading"],
@@ -352,7 +348,6 @@ ARTICLES: list[dict] = [
         "meta_title": "How to Take Better Notes in Class | IntelliPlan",
         "description": "Notes are only useful if they help you remember later. What to write, what to skip, and how to review notes in ten minutes.",
         "date": "2026-10-17",
-        "reading_time": 5,
         "sections": [
             {"paragraphs": [
                 "Most class notes are transcripts. They record what the teacher said in the order it was said, which is a good way to have a record and a poor way to learn. The notes that help are the ones written for the person who will read them two weeks later, half-remembering the topic.",
@@ -370,15 +365,19 @@ ARTICLES: list[dict] = [
             {"h2": "Do not copy what you can look up",
             "paragraphs": [
                 "Definitions, dates and formulas live in the book, the slides and the internet. Writing them down feels like studying and mostly is not. Spend the ink on connections, exceptions, and the teacher's emphasis — the parts that are not in the reading.",
+                "A practical test before you write a sentence: could you find this again in ten seconds? If the answer is yes, write the page number instead of the sentence. What you cannot look up is why the teacher spent eight minutes on one example, which case the rule does not cover, and the moment the class went quiet because something was about to be on the test.",
+                "If you photograph the board, write one line in your notes saying what the board was for. A camera roll of slides is an archive you will never read; a photograph with a sentence beside it is a note you might.",
             ]},
             {"h2": "Review in ten minutes, not two hours",
             "paragraphs": [
                 "The day after the lesson, spend ten minutes on the notes: cover the page, say the main idea out loud, then check. Add one line about what you got wrong. That single pass is worth more than rereading the notes four times before the test, because it is retrieval rather than recognition.",
-                "If you are using IntelliPlan's Study and Learn, you can upload the notes or paste them and get flashcards and practice questions from them. The useful part is not the generation; it is that reviewing becomes a question you can answer rather than a page you have to reread.",
+                "IntelliPlan's Study and Learn turns pasted notes into flashcards and practice questions, which is this same ten-minute pass with the page already covered.",
             ]},
             {"h2": "Keep one place for everything",
             "paragraphs": [
                 "Notes split across three apps and a paper notebook are notes you will not review. Pick one home for class notes and one for tasks. The class note is the archive; the planner holds the actions you extracted from it — the question to ask, the chapter to reread, the problem set to redo.",
+                "The split matters because the two collections have different jobs. The archive is written once and read many times; the task list is read daily and thrown away. Mixing them produces a notebook full of unfinished actions and a task app full of paragraphs, neither of which you can scan.",
+                "Once a week, spend five minutes moving anything actionable out of the notes and into the task list, with a date attached. Anything without a date is not a task yet, and a note you never extracted anything from is probably a note you did not need to take.",
             ]},
         ],
         "related": ["cornell-note-taking-method", "active-recall-vs-rereading", "how-to-study-for-finals-in-one-week"],
@@ -390,7 +389,6 @@ ARTICLES: list[dict] = [
         "meta_title": "Active Recall vs Rereading: What Works | IntelliPlan",
         "description": "Rereading feels effective and mostly is not. How retrieval practice works, how to do it in ten minutes, and what it changes.",
         "date": "2026-10-13",
-        "reading_time": 5,
         "sections": [
             {"paragraphs": [
                 "Ask a student how they study and most will describe reading: the chapter, the notes, the slides, again. It is the default because it is comfortable and because fluency — the feeling that the material is familiar — is easy to mistake for knowing it.",
@@ -435,7 +433,6 @@ ARTICLES: list[dict] = [
         "meta_title": "Spaced Repetition for Students, Explained | IntelliPlan",
         "description": "Why spacing beats cramming, what the forgetting curve means for your week, and how to run spaced review without a complex system.",
         "date": "2026-10-09",
-        "reading_time": 5,
         "sections": [
             {"paragraphs": [
                 "Spaced repetition is the practice of reviewing material at increasing intervals instead of all at once. It sounds like a small scheduling detail. It is one of the most reliable findings in learning research, and it is the difference between knowing something in June and knowing it next year.",
@@ -466,6 +463,8 @@ ARTICLES: list[dict] = [
             {"h2": "Spacing and cramming are not enemies",
             "paragraphs": [
                 "If a test is in three days, space what you can and cram the rest. The goal is not purity; it is that the material you will need again — next unit, next year, the final — got at least two spaced reviews rather than one long night.",
+                "Sort the material before you decide. Vocabulary, formulas and definitions that reappear in later units are worth spacing even under time pressure, because you will pay for them again. The one unit that ends with Friday's test and never returns is the material you can safely cram.",
+                "A missed review is not a failed system. If Tuesday's session did not happen, run it Wednesday and keep the rest of the schedule where it is rather than rebuilding the sequence. Two reviews that happened late still beat four that were planned and skipped.",
             ]},
         ],
         "related": ["active-recall-vs-rereading", "how-to-memorize-vocabulary-fast", "how-to-prepare-for-ap-exams"],
@@ -477,7 +476,6 @@ ARTICLES: list[dict] = [
         "meta_title": "The Cornell Note-Taking Method, Explained | IntelliPlan",
         "description": "How the Cornell system works, why the summary column matters, and a version that fits a fast lecture without slowing you down.",
         "date": "2026-10-05",
-        "reading_time": 4,
         "sections": [
             {"paragraphs": [
                 "Cornell notes divide a page into three parts: a narrow left column for cues and questions, a wide right column for notes, and a strip at the bottom for a summary. It has survived for decades because the layout forces two things students otherwise skip — turning notes into questions, and writing what the page was about.",
@@ -494,11 +492,14 @@ ARTICLES: list[dict] = [
             {"h2": "Why the left column is the point",
             "paragraphs": [
                 "A cue turns a note into a question, and a question can be answered with the page covered. That is retrieval practice built into the format. Without the cues, Cornell notes are ordinary notes with extra lines.",
-                "Write cues that start with why, how, or what happens if. Those force explanation instead of recognition.",
+                "Write cues that start with why, how, or what happens if. Those force explanation instead of recognition. A note saying \"mitochondria produce ATP by oxidative phosphorylation\" earns the cue \"why does a muscle cell with more mitochondria fatigue more slowly?\", not \"what do mitochondria do?\". The first question cannot be answered by recognising a word.",
+                "One cue per chunk, and a chunk should be about as much as you would say in one breath. If a cue needs three sub-questions to cover its section, the section was two chunks and should have been split while you were writing it.",
             ]},
             {"h2": "The summary is a comprehension test",
             "paragraphs": [
                 "If you cannot write three sentences about the page, you did not understand it well enough to take useful notes on it. That is uncomfortable and it is the value. Write the summary badly, then fix it after the reading or the next lesson.",
+                "A summary that works has three moves: what question the lesson was answering, the mechanism or argument in one sentence, and what is still unclear. \"Cell respiration\" is a label. \"Respiration converts glucose into ATP in three stages; the electron transport chain is where most of it comes from, and I still cannot explain why oxygen is the final acceptor\" is a summary you can study from.",
+                "The last of those three moves is the one students skip and the one that pays. A page whose summary ends in a question tells you exactly what to ask in the first five minutes of the next lesson, while the answer is still cheap.",
             ]},
             {"h2": "Common mistakes",
             "paragraphs": [
@@ -520,7 +521,6 @@ ARTICLES: list[dict] = [
         "meta_title": "How to Memorize Vocabulary Fast | IntelliPlan",
         "description": "A vocabulary routine that beats rereading a list: small batches, retrieval, spacing, and using the words in sentences.",
         "date": "2026-10-01",
-        "reading_time": 5,
         "sections": [
             {"paragraphs": [
                 "A vocabulary list is a test you have already seen the answers to, which is why reading it repeatedly feels like learning and produces almost nothing. The words that stick are the ones you have retrieved from memory, spaced out over days, and used in a sentence you made yourself.",
@@ -529,6 +529,8 @@ ARTICLES: list[dict] = [
             {"h2": "Work in batches of ten",
             "paragraphs": [
                 "Twenty new words at once is a list. Ten is a session. Learn ten to the point of recall — not recognition — before adding more. If you have forty words for Friday, that is four sessions across four days, not one long one on Thursday.",
+                "Ten is not a magic number; it is the largest batch most people can hold in one sitting without the last five pushing out the first five. If your list is thirty and the test is tomorrow, split it by what the test actually asks for: the ten words you need to produce in writing first, the ten you only need to recognise, and the ten you can meet in reading instead.",
+                "Stop adding new words when recall in the current batch drops below about two-thirds. Adding more at that point does not increase coverage; it just guarantees that two batches are half-learned instead of one being solid.",
             ]},
             {"h2": "Retrieve, do not reread",
             "paragraphs": [
@@ -538,15 +540,19 @@ ARTICLES: list[dict] = [
             {"h2": "Say it out loud",
             "paragraphs": [
                 "Pronunciation is part of the memory. A word you have only seen is stored more weakly than one you have said, and silently mouthing it does not count. Say it, even quietly. For gendered or tonal languages, say the article or the tone with the word every time — relearning it later costs more.",
+                "Say the whole phrase, not the isolated word. \"Je dois rendre\" sticks better than \"rendre\", and a word learned inside a phrase arrives at the exam already knowing how to be used. When a word has a tricky sound, record yourself saying the batch and listen back once; the mismatch between what you think you said and what you actually said is the correction.",
+                "If the language has minimal pairs — ship and sheep, perro and pero — practise them side by side rather than in separate batches. A pair learned together is a pair you can tell apart later; a pair learned weeks apart is a coin flip under pressure.",
             ]},
             {"h2": "Make one sentence per word",
             "paragraphs": [
                 "A short sentence about your own life is remembered far better than an abstract definition. It does not need to be clever. \"Je dois rendre le devoir demain\" is worth more than a conjugation table because it gives the word a context and a use.",
+                "Keep the sentence under about eight words and make it true. A sentence you have invented to show off the grammar is a sentence you will not remember, and it usually smuggles in a second unknown word that doubles the failure. One new word per sentence is the rule.",
+                "Include the small words the dictionary entry leaves out: the gender, the preposition it takes, the reflexive pronoun, the irregular past. Those are the parts that turn a recognised word into a usable one, and they are exactly the parts a flashcard made from a word list will drop.",
             ]},
             {"h2": "Space the reviews",
             "paragraphs": [
                 "Review the batch the next day, then in three days, then in a week. Each review should be a recall attempt with the list covered, not a reread. Words you miss go back into tomorrow's batch; words you get twice in a row move out.",
-                "This is exactly what a spaced repetition scheduler automates. IntelliPlan's flashcards track mastery per card, so the words you keep missing come back sooner and the ones you know stop wasting your time.",
+                "This is exactly what a spaced repetition scheduler automates: IntelliPlan's flashcards bring the words you keep missing back sooner and let the ones you know drop out of rotation.",
             ]},
             {"h2": "What to do with words that will not stick",
             "paragraphs": [
@@ -556,6 +562,8 @@ ARTICLES: list[dict] = [
             {"h2": "Read the words in the wild",
             "paragraphs": [
                 "Flashcards build the initial trace; reading builds the connections. Once a batch is at maybe 70 percent recall, find the words in a text — a graded reader, a news article, a subtitle track — and notice them. Meeting a word in context is what turns a card into vocabulary.",
+                "Choose a text where you already know roughly ninety-five percent of the words. Below that, you are translating rather than reading and the new words arrive attached to frustration instead of meaning. Above it, the batch words will not appear often enough to matter.",
+                "When you meet one, copy the whole sentence rather than the word. The sentence is the memory: it carries the preposition, the register and the situation, and the next time you need the word, that sentence is what comes back.",
             ]},
         ],
         "related": ["spaced-repetition-for-students", "active-recall-vs-rereading", "how-to-prepare-for-ap-exams"],
@@ -567,7 +575,6 @@ ARTICLES: list[dict] = [
         "meta_title": "How to Prepare for AP Exams | IntelliPlan",
         "description": "A realistic AP exam plan: when to start, how to use practice tests, and how to manage four exams in two weeks.",
         "date": "2026-09-27",
-        "reading_time": 6,
         "sections": [
             {"paragraphs": [
                 "AP exams have two features that make them different from a normal test: they cover a whole year, and they all arrive in the same two weeks. That combination is why students who study hard all year still walk into May feeling unprepared.",
@@ -581,10 +588,10 @@ ARTICLES: list[dict] = [
                 "Do one full practice section early — even badly — so the format stops being unknown.",
                 "Learn the point structure of the free-response section. Partial credit is where most students leave marks behind.",
             ]},
-            {"h2": "Back-plan from exam day",
+            {"h2": "Put the practice tests on the calendar first",
             "paragraphs": [
-                "Count backwards from the exam date and place one full practice test per course every two to three weeks, then weekly in the last month. Everything else fills in around those dates. Practice tests are the load-bearing part of the plan; content review is what you do between them.",
-                "If two exams fall on the same day, plan for it in March, not in May. The College Board publishes the schedule a year ahead, and late testing exists but has its own cost.",
+                "Content review expands to fill whatever time you give it; a practice test has a fixed date and produces a number. So book the tests first and let review fill the gaps. For a course with six weeks of runway, that is one full test this week, one in two weeks, then one a week for the last three — five data points before the real exam.",
+                "Each test needs a review session at least as long as the test itself. A practice test you score and file is four hours of fatigue; the same test with an error list is the only part of AP prep that reliably moves a score. Two exams on the same day is a March problem: check the published schedule, decide which exam gets your fresher morning, and if you need late testing, know that it costs a fee and is arranged through your school's AP coordinator rather than directly with the College Board.",
             ]},
             {"h2": "Review by weakness, not by chapter order",
             "paragraphs": [
@@ -594,16 +601,20 @@ ARTICLES: list[dict] = [
             {"h2": "Practise under the real clock",
             "paragraphs": [
                 "Most AP free-response disappointment is a pacing problem. Do timed sections with no notes and no pauses. If you cannot finish, practise the decision of which question to do first and when to abandon one.",
+                "Work out your pace before the test rather than during it. Divide the multiple-choice questions by the minutes allowed and write the result at the top of your scratch paper: if it is a minute a question, question twelve at twelve minutes is on schedule and question twelve at twenty is not. For free response, budget reading time separately from writing time — most students lose marks by writing immediately and then discovering the question had three parts.",
                 "Write full answers, including the parts you think are obvious. Scorers award points for what is on the page, not for what you meant.",
             ]},
-            {"h2": "Keep the other classes alive",
+            {"h2": "The exam score does not rescue the class grade",
             "paragraphs": [
-                "AP prep competes with regular homework, and the weeks before exams are also when projects are due. Put the practice tests in the calendar first, then let the planner fit the rest around them. Trying to hold both lists in your head is how the regular classes get neglected until it is expensive.",
+                "An AP score and an AP course grade are two separate things on your transcript. A 5 in May does not repair a C for the year, and colleges see both. The weeks of heaviest exam prep are also when fourth-quarter projects are due, and those are the points that decide the grade that stays on the record.",
+                "That does not mean splitting your time evenly. Decide per class: is the grade already locked, or still movable? A class where you sit at 89.4 with one essay left deserves an evening; a class already at a safe A deserves the minimum. Exam prep gets the hours that remain after the grades you can still change.",
                 "IntelliPlan's priority view is useful here for an unglamorous reason: it puts a 100-point project and an AP practice test on the same ranked list, so the week reflects what actually matters instead of whichever app you happened to open.",
             ]},
             {"h2": "The last week",
             "paragraphs": [
                 "No new material. Skim your own error lists, redo two or three free-response questions per subject, sleep. Students routinely lose more points to exhausted mistakes in the final week than they gain from one more chapter.",
+                "Give the week a shape rather than a vague intention. Three days out: one timed section per exam and a full read of the error list. Two days out: only the formulas, definitions and question types you keep missing. The day before: one light pass in the morning, then stop. Anything you have not learned by then is not going to be learned tonight, and the attempt costs you the recall you already had.",
+                "Check the logistics while it is still boring. Test centre and arrival time, photo ID, an approved calculator with working batteries, and whether two of your exams are back to back with a lunch break or without one. None of that is on the exam, and all of it has cost students points.",
             ]},
         ],
         "related": ["ap-study-planner", "how-to-study-for-finals-in-one-week", "spaced-repetition-for-students"],
@@ -615,11 +626,10 @@ ARTICLES: list[dict] = [
         "meta_title": "How to Study for a Math Test | IntelliPlan",
         "description": "Maths is not a reading subject. A problem-first routine that finds your real gaps before the test does.",
         "date": "2026-09-23",
-        "reading_time": 5,
         "sections": [
             {"paragraphs": [
                 "Maths is the subject where the gap between how students study and how they are tested is widest. You are tested on producing solutions to problems you have not seen, and most people study by reading worked solutions they have already seen. Those are different skills.",
-                "The routine below is built on one rule: the page stays closed until you have attempted the problem.",
+                "The routine below is built on one rule: the page stays closed until you have attempted the problem. It assumes about a week of runway and roughly an hour a day, which is enough for a unit test and not enough to relearn a semester — if you are further behind than that, start with the two units the test is actually weighted towards.",
             ]},
             {"h2": "Start from a blank page",
             "paragraphs": [
@@ -639,10 +649,13 @@ ARTICLES: list[dict] = [
             "paragraphs": [
                 "Textbook exercises group problems by type, which trains you to apply the method at the top of the page. Tests mix them, which is why students who can do every homework problem freeze on question three.",
                 "Once you can do a section, mix it with the previous two sections and do ten random problems. Choosing the method is the skill being tested.",
+                "Before solving each one, write a single line naming the method you are about to use and why. That line is the actual practice; the algebra afterwards is mostly execution. If you cannot name the method, you have found a gap before the test did, which is the cheapest possible time to find it.",
             ]},
             {"h2": "Write the solution as if it were graded",
             "paragraphs": [
                 "Maths teachers award method marks, and method marks disappear when the work is only in your head. Practise full written solutions: define variables, show the substitution, state the answer with units. It feels slow and it is what the exam wants.",
+                "A solution written for marks has a shape: state what you are given and what you are finding, name the method, show one line per step, then box the answer with its units. If a marker cannot follow the chain without guessing, the marks are gone even when the final number is right.",
+                "Practise this on problems you have already solved, not only on new ones. Rewriting a correct solution in exam form takes five minutes and exposes the steps you skipped because you were holding them in your head — which are exactly the steps you will skip under time pressure.",
             ]},
             {"h2": "Use one practice test as a diagnostic",
             "paragraphs": [
@@ -664,7 +677,6 @@ ARTICLES: list[dict] = [
         "meta_title": "How to Study for a Science Test | IntelliPlan",
         "description": "Science tests mix recall, diagrams and application. How to study each layer, in the order that actually raises your score.",
         "date": "2026-09-19",
-        "reading_time": 5,
         "sections": [
             {"paragraphs": [
                 "A science test usually contains three different exams stapled together: vocabulary you either know or do not, a diagram or process you have to reproduce accurately, and problems that apply the concept to a situation you have not seen. Studying only one of those is why a student can know the chapter and still get a C.",
@@ -674,6 +686,7 @@ ARTICLES: list[dict] = [
             "paragraphs": [
                 "This is the cheap layer, and it is where spaced repetition belongs. Terms, units, symbols, and one-line definitions. Twenty cards a day for the week before the test is enough for most units.",
                 "Do not memorise definitions word for word unless the teacher requires it. Aim for the ability to say what the term means and give an example.",
+                "Build the cards from the unit's objectives and the teacher's own vocabulary list, not from every bold word in the chapter. A chapter bolds forty terms and the test asks for fifteen; the objectives tell you which fifteen. If there is no list, the review sheet's wording is the next best guide.",
             ]},
             {"h2": "Layer two: the diagram or the process",
             "paragraphs": [
@@ -688,6 +701,8 @@ ARTICLES: list[dict] = [
             {"h2": "Make a one-page sheet",
             "paragraphs": [
                 "The day before, condense the unit onto one page: the five big ideas, the formulas with units, the diagram, and the three mistakes you keep making. The sheet is not for the test — making it is the review. If it takes more than one page, you have not decided what matters yet.",
+                "Then use the sheet actively rather than carrying it around. Cover it and say the five ideas out loud, redraw the diagram from memory, write the formulas without looking, then check. A sheet you have only read is a decoration; a sheet you have been tested on is a summary.",
+                "The three mistakes section is the part worth being honest about. Not 'careless errors', but 'I forget to convert to moles before using the ratio' or 'I label the axes the wrong way round'. A specific mistake can be watched for during the test; a general one cannot.",
             ]},
             {"h2": "Use the review sheet as a diagnostic",
             "paragraphs": [
@@ -704,16 +719,18 @@ ARTICLES: list[dict] = [
         "meta_title": "How to Write a Better Essay in Less Time | IntelliPlan",
         "description": "Most essay time is lost to staring at a blank page. A structure-first process that cuts drafting time without cutting quality.",
         "date": "2026-09-15",
-        "reading_time": 5,
         "sections": [
             {"paragraphs": [
                 "Students rarely lose essay marks because they write slowly. They lose them because they start writing before they know what they are arguing, then spend three hours producing a draft that has to be reorganised. The time goes into rewriting a structure that was never decided.",
-                "The process below front-loads the thinking so the drafting is fast. It works for a five-paragraph essay and for a ten-page paper.",
+                "The process below front-loads the thinking so the drafting is fast. It works for a five-paragraph essay and for a ten-page paper, and for a typical five-paragraph essay the split is roughly twenty minutes of thinking, forty minutes of drafting, and thirty of editing. Most students spend five minutes on the first and ninety on the last two.",
+                "That ratio is the whole argument of this guide. A decided structure makes drafting close to mechanical; an undecided one turns every paragraph into a small act of re-planning.",
             ]},
             {"h2": "Write the thesis as a sentence with a because",
             "paragraphs": [
                 "A thesis is a claim plus a reason. \"Social media harms teenagers\" is a topic. \"Social media harms teenagers because it replaces unstructured social practice with a metric-driven comparison\" is an argument you can defend and structure.",
                 "If you cannot finish the because, you do not have an essay yet — you have a subject. Keep going until the sentence is specific enough that someone could disagree with it.",
+                "Two quick tests. The 'so what' test: if a reader accepts your thesis, what changes about how they read the book, the data or the event? If the answer is nothing, the thesis is a summary. The 'someone disagrees' test: name the person who would argue the other way. If you cannot imagine the counter-argument, the claim is probably too vague to be worth proving.",
+                "Then let the because govern the outline. Every body paragraph should be a smaller version of that reason, not a tour of everything you noticed while reading.",
             ]},
             {"h2": "Outline in claims, not topics",
             "paragraphs": [
@@ -725,8 +742,9 @@ ARTICLES: list[dict] = [
             ]},
             {"h2": "Draft ugly, then edit separately",
             "paragraphs": [
-                "Drafting and editing use different parts of your attention, and doing them at the same time produces the slowest possible essay. Draft the whole thing without fixing sentences: brackets around the parts you will come back to, [CITATION], [BETTER WORD]. Then edit in one pass.",
-                "The first draft should take about half the total time. If it is taking eighty percent, you are editing while drafting.",
+                "Drafting and editing use different parts of your attention, and doing them at the same time produces the slowest possible essay. Draft the whole thing without fixing sentences: put a bracket wherever something is missing and keep going. Then edit in one pass.",
+                "The first draft should take about half the total time. If it is taking eighty percent, you are editing while drafting. Use one bracket type for each kind of gap so the editing pass is a checklist rather than a reread: [CITE], [SOURCE?], [SAY THIS BETTER], [CHECK NUMBERS].",
+                "Draft in order even when a middle paragraph is unclear. Skipping ahead to write the part you understand best fractures the argument, and the joins are where the editing time goes. Write the bad paragraph, leave the bracket, and keep moving.",
             ]},
             {"h2": "Edit for the four things teachers mark",
             "paragraphs": [
@@ -752,7 +770,6 @@ ARTICLES: list[dict] = [
         "meta_title": "Balancing AP Classes and Sports | IntelliPlan",
         "description": "A season-long plan for athletes in demanding classes: protect sleep, use the small gaps, and plan around game days.",
         "date": "2026-09-11",
-        "reading_time": 5,
         "sections": [
             {"paragraphs": [
                 "A sport takes ten to twenty hours a week, and AP classes take the rest. The students who survive the season are not the ones with more discipline; they are the ones who stopped pretending they had evening hours available on practice days and built the week around that fact.",
@@ -762,6 +779,8 @@ ARTICLES: list[dict] = [
             "paragraphs": [
                 "On a practice day you may have ninety usable minutes after dinner, and that is if you eat fast. Planning four hours is how students end up choosing between sleep and homework at midnight.",
                 "Put the ninety minutes where they belong: the one task that must happen today. Everything else goes to the weekend or to a study hall.",
+                "Name that task in the morning, not at nine at night. Deciding what matters is cheap at breakfast and expensive when you are tired, and the version you choose at nine is usually the shortest item rather than the one that is due.",
+                "Some practice days have no usable evening at all — an away game, a late bus, a double session. Treat those as zero rather than as a debt to repay at midnight, and move the work to a day that has room.",
             ]},
             {"h2": "Use the gaps that already exist",
             "paragraphs": [
@@ -785,6 +804,8 @@ ARTICLES: list[dict] = [
             {"h2": "Keep one list",
             "paragraphs": [
                 "Two lists — school and sport — become three when you forget one. Keep a single plan that shows practice, games, and deadlines together. IntelliPlan imports the school side and lets you add the rest, and the follow-through features assume days will get wrecked, which during a season they will.",
+                "Put the season in the same calendar as the schoolwork rather than in a separate team app. Practice is a fixed block, a game is a fixed block plus travel, and a deadline that lands on an away day needs to be visible next to the bus time — not discovered on the bus.",
+                "Ten minutes on Sunday is enough to keep it honest: the week's games, the week's due dates, and the one assignment that has to start early. A season is predictable enough that most collisions are visible a week out, and a week out is the only point at which they are cheap to fix.",
             ]},
         ],
         "related": ["time-blocking-for-students", "how-to-manage-homework-with-a-part-time-job", "how-to-make-a-study-schedule-that-works"],
@@ -796,7 +817,6 @@ ARTICLES: list[dict] = [
         "meta_title": "Homework With a Part-Time Job | IntelliPlan",
         "description": "Working students lose hours, not motivation. How to plan around shifts, protect the small blocks, and keep grades steady.",
         "date": "2026-09-07",
-        "reading_time": 5,
         "sections": [
             {"paragraphs": [
                 "A part-time job does not make you worse at school. It makes you time-poor in a way that most study advice ignores, because that advice assumes a free evening and a quiet house. Fifteen hours a week changes which techniques are available to you, not whether you can succeed.",
@@ -805,6 +825,8 @@ ARTICLES: list[dict] = [
             {"h2": "Put the shifts in first",
             "paragraphs": [
                 "Before you plan any studying, block the shifts, the commute, and the recovery time after a closing shift. Then look at what is left. Students who plan the other way round build a beautiful week that evaporates the first time they get scheduled on a Tuesday.",
+                "Count the real cost of a shift, not the hours on the rota. Four hours on the clock with a half-hour commute each way and an hour to decompress is six hours of your day, and a close can take the whole evening even when it ends at nine.",
+                "Then mark the genuinely unusable hours and stop scheduling into them. A plan that admits 'nothing after a close' is one you will keep; a plan that pretends ten at night is free is one you will abandon by the second week and feel bad about.",
             ]},
             {"h2": "Do the hard work before the shift, not after",
             "paragraphs": [
@@ -814,14 +836,20 @@ ARTICLES: list[dict] = [
             {"h2": "Use the fifteen-minute blocks",
             "paragraphs": [
                 "Working students get more small blocks than large ones: before a shift, on a break, on the bus. A fifteen-minute block is enough for one retrieval session, ten flashcards, or a paragraph of an essay. It is not enough for a lab report, so do not schedule one there.",
+                "Keep a running list of fifteen-minute tasks so the block is not spent deciding. Flashcard review, one practice question, one paragraph, checking tomorrow's schedule, emailing a teacher: each is a real task that fits, and together they replace an evening you do not have.",
+                "Decide before the shift whether the break is a break. Fifteen minutes of flashcards you chose to do is still rest; fifteen minutes of scrolling followed by guilt is neither work nor rest, and it makes the rest of the shift harder.",
             ]},
             {"h2": "Talk to your teachers early",
             "paragraphs": [
                 "Most teachers will work with a student who tells them in September that they close on Sundays. Almost none will work with a student who tells them in December that they missed six assignments. Tell them once, briefly, and ask what the policy is for a shift that conflicts with a deadline.",
+                "Lead with the useful part: the schedule, the specific conflict, and what you propose. 'I work until nine on Tuesdays and Thursdays. I can have the lab report to you Wednesday night instead of Thursday morning — does that work?' is a request a teacher can answer in one line.",
+                "Ask about the policy rather than for an exception. Late-work rules, dropped scores and redo options exist in most syllabi and are applied inconsistently; knowing them in September tells you which weeks are actually dangerous instead of which ones feel busy.",
             ]},
             {"h2": "Protect one day off",
             "paragraphs": [
                 "If you work five days and study seven, you will not last a semester. Pick one day a week with no shifts and no studying, and defend it. The rest of the plan is easier to keep when there is a visible end to the week.",
+                "Defending it means telling your manager before the schedule is written, not after. Most retail and food-service rotas go up a week or two ahead, which is enough notice to keep one day clear if you ask while it is still cheap to change.",
+                "A day off with a three-hour catch-up block inside it is not a day off. If the work cannot fit into the other six days, the honest problem is total hours, and the fix is fewer shifts rather than a smaller rest.",
             ]},
             {"h2": "Keep the job from eating the term",
             "paragraphs": [
@@ -830,7 +858,9 @@ ARTICLES: list[dict] = [
             ]},
             {"h2": "Let the plan absorb the chaos",
             "paragraphs": [
-                "Shift changes are the normal case, not the exception. A plan you have to rebuild by hand every time is a plan you will abandon. IntelliPlan's reschedule actions are designed for exactly this: tell it the day got shorter and it moves what has to move instead of asking you to redo the week.",
+                "Shift changes are the normal case, not the exception. A plan you have to rebuild by hand every time is a plan you will abandon. IntelliPlan's reschedule does exactly this: tell it the day got shorter and it moves what has to move instead of asking you to redo the week.",
+                "When a shift moves, make one decision instead of five: which task is non-negotiable today, and what moves to the next open block. Moving it immediately is cheap; leaving it on today's list to fail is what turns one bad shift into four late assignments.",
+                "Keep two or three hours a week planned as empty. A week with no slack is a week where a single extra shift breaks everything, and the buffer is what makes the plan survivable rather than impressive.",
             ]},
         ],
         "related": ["how-to-balance-ap-classes-and-sports", "time-blocking-for-students", "how-to-catch-up-when-behind-in-school"],
@@ -842,7 +872,6 @@ ARTICLES: list[dict] = [
         "meta_title": "Google Classroom With a Study Planner | IntelliPlan",
         "description": "Classroom shows coursework per class. A planner turns it into one ranked week. How to connect them and what to check after.",
         "date": "2026-09-03",
-        "reading_time": 5,
         "sections": [
             {"paragraphs": [
                 "Google Classroom is good at distributing work and bad at telling you what to do next. Each class has its own stream and its own due dates, and the to-do list only shows what is assigned to you — not how much it is worth, how long it will take, or which of the four things due Friday matters most.",
@@ -851,7 +880,8 @@ ARTICLES: list[dict] = [
             {"h2": "What gets imported",
             "paragraphs": [
                 "IntelliPlan connects through Google OAuth, the same sign-in you use for Classroom itself. It reads your active courses and the coursework in them: titles, due dates, and the course each item belongs to.",
-                "It does not post, comment, or change anything in Classroom. The connection is read-only, and you can disconnect it from Settings without touching your Google account.",
+                "It reads the courses where you are enrolled as a student, which is why a teacher's own classes will not appear if you sign in with a school staff account. Guardian accounts are not enrolled as students, so they see no courses — a parent who wants the family view needs the student's account connected instead.",
+                "It does not post, comment, or change anything in Classroom. The connection is read-only, and you can disconnect it from Settings without touching your Google account. If your school restricts third-party access for student accounts, Google will refuse the authorisation — that is a district setting, and the fallback is the manual weekly skim described below.",
             ]},
             {"h2": "Connecting it",
             "paragraphs": ["The whole flow is a normal Google consent screen, so the important part is reading it rather than clicking through."], "list": [
@@ -868,10 +898,10 @@ ARTICLES: list[dict] = [
                 "Assignments with no due date: Classroom allows them, and they will import without one. Give them a date yourself or they will never surface in a plan.",
                 "Time zone: a due time of 11:59pm can land on the next day if the course or the account is set to another zone. Check one assignment you know the real deadline for.",
             ]},
-            {"h2": "Turn the list into a week",
+            {"h2": "What does not come across, and the habit that covers it",
             "paragraphs": [
-                "Once the work is imported, the useful move is not to look at it but to schedule it. Give the planner your real available hours and your preferred study time, and it will place the work into blocks, breaking long assignments into sittings rather than leaving a 90-minute block that nobody starts.",
-                "Two things make the resulting schedule more realistic. First, keep your hours honest — most students overestimate by five to ten hours a week. Second, add your fixed commitments (practice, work, rehearsal) before generating, because the planner can only avoid what it can see.",
+                "Three things in Classroom have no equivalent in an imported list. Announcements are not coursework: a teacher who posts \"quiz Friday\" in the stream has not created an assignment, and no import will catch it. Material posted as a resource rather than as classwork may never become a task at all. And submission state does not transfer — imported work stays on your list until you mark it done, which is deliberate, because \"submitted\" and \"learned\" are different things.",
+                "One small habit covers all three. Once a week, skim the Classwork tab for each course with a single question: is anything here missing from my list? Add it by hand with a real time estimate. That is the entire manual workload for a well-run Classroom account, and it takes about two minutes per class.",
             ]},
             {"h2": "Keep Classroom open, but stop checking it",
             "paragraphs": [
@@ -881,6 +911,8 @@ ARTICLES: list[dict] = [
             {"h2": "If you also use Canvas",
             "paragraphs": [
                 "Many students have one teacher on Classroom and another on Canvas. IntelliPlan supports both at once, and the priority view merges them, which is the case where a single planner earns its keep most obviously.",
+                "Two rules keep the merged list trustworthy. Connect both platforms before you trust the ranking, because work that is missing from the list cannot be ranked against work that is on it. Second, do the weekly skims in both places, since each has its own blind spot — Classroom's stream announcements and Canvas's ungraded discussions.",
+                "If the same assignment appears twice, keep the copy with the earlier due date and delete the other. Two identical tasks on one list is how a student ends up doing the same worksheet twice and calling it a busy week.",
             ]},
         ],
         "related": ["how-to-use-canvas-with-a-study-planner", "how-to-use-schoology-assignments", "how-to-prioritize-assignments"],
@@ -892,7 +924,6 @@ ARTICLES: list[dict] = [
         "meta_title": "Keeping Track of Schoology Assignments | IntelliPlan",
         "description": "Schoology buries due dates inside courses. How to pull assignments into one list, and what to do when a course does not import.",
         "date": "2026-08-30",
-        "reading_time": 4,
         "sections": [
             {"paragraphs": [
                 "Schoology keeps a lot in the course stream and relatively little in a single place you can scan. There is a calendar and an upcoming panel, but both depend on teachers using the assignment tool consistently, and many do not.",
@@ -917,12 +948,13 @@ ARTICLES: list[dict] = [
             ]},
             {"h2": "Make the list useful",
             "paragraphs": [
-                "An imported list is still just a list. The value comes from ranking it: due date, points, and how much the item counts toward the course grade. That is what turns twenty items into an order you can act on tonight.",
+                "An imported list is still just a list, and ranking it is what turns twenty items into an order you can act on tonight.",
                 "IntelliPlan scores priority across every connected source, so a Schoology quiz and a Canvas essay compete on the same terms. If you are juggling two platforms — which is common when a district uses one and a magnet program uses another — that is the difference between one list and two competing ones.",
             ]},
             {"h2": "When a course will not import",
             "paragraphs": [
-                "Some districts restrict API access, and some courses are set up in ways the API does not expose. The fallback is manual entry, which is less convenient and still better than a second list you forget to check. Add the course's assignments by hand once a week in the same place as everything else.",
+                "Some districts restrict API access, and some courses are set up in ways the API does not expose. Before you assume that is your case, check the two usual causes: the key may be scoped to a building or role that does not include the course, or the course may be a section you reach through a different building. Your district's Schoology administrator can answer those in one email, including whether student API access is enabled at all.",
+                "If it is not enabled, the fallback is manual entry, which is less convenient and still better than a second list you forget to check. Do the pass on a fixed day and keep it short: open each course's upcoming panel, add anything missing with a due date and a time estimate, then close it. Ten minutes a week is the real cost, and it is still cheaper than finding out about a project the night before.",
             ]},
         ],
         "related": ["how-to-use-google-classroom-with-a-planner", "how-to-use-canvas-with-a-study-planner", "how-to-prioritize-assignments"],
@@ -934,7 +966,6 @@ ARTICLES: list[dict] = [
         "meta_title": "Track Grades Without Checking Constantly | IntelliPlan",
         "description": "Refreshing the grade portal is anxiety, not information. What to check weekly instead, and which numbers actually matter.",
         "date": "2026-08-26",
-        "reading_time": 5,
         "sections": [
             {"paragraphs": [
                 "Checking your grades five times a day feels like staying on top of things. It is usually the opposite: the portal updates when a teacher grades something, not when you do, so the refresh gives you no new information and a fresh dose of anxiety.",
@@ -966,7 +997,8 @@ ARTICLES: list[dict] = [
             {"h2": "Act on the next item, not the last one",
             "paragraphs": [
                 "Once you know which category matters, the only useful question is what the next graded item is and how to do it well. Everything else is commentary.",
-                "That is also the healthiest version of grade tracking: it converts a number you feel bad about into a task with a date, which is something you can actually do something about.",
+                "Write that item down with its date and what 'well' means for it: the rubric line it is marked against, the format the teacher wants, the step that usually costs you marks. A grade becomes actionable at the moment it turns into a specific piece of work with a deadline, and not a minute before.",
+                "That is also the healthiest version of grade tracking: it converts a number you feel bad about into a task with a date, which is something you can actually do something about. It also gives you a reason to close the tab — the plan either produces the work or it does not, and next week's pass is soon enough to find out.",
             ]},
         ],
         "related": ["how-to-calculate-what-you-need-on-a-final", "how-to-raise-a-b-in-a-class", "what-is-a-good-gpa"],
@@ -978,23 +1010,25 @@ ARTICLES: list[dict] = [
         "meta_title": "What You Need on a Final: The Formula | IntelliPlan",
         "description": "The exact arithmetic for a target grade, with worked examples, plus what to do when the number is impossible.",
         "date": "2026-08-22",
-        "reading_time": 5,
         "sections": [
             {"paragraphs": [
                 "The question is always the same: what do I need on the final to get the grade I want? The arithmetic is simple, the hard part is knowing which numbers to put in, and what to do when the answer is above 100.",
+                "It is one subtraction, one multiplication and one division. Two honest numbers and a target, and the answer tells you whether to study differently or stop worrying. The reason students get it wrong is almost never the algebra — it is using the grade they hope they have instead of the one the gradebook shows.",
                 "Here is the whole method, then the cases where it goes wrong.",
             ]},
             {"h2": "The formula",
             "paragraphs": [
                 "Your course grade is the weighted average of what you have so far and the final. If the final is worth F percent, then your current work is worth 100 minus F percent.",
                 "Required final score = (target grade − current grade × (1 − F)) ÷ F",
-                "Where all grades are decimals: 87 percent is 0.87, a final worth 20 percent is 0.20.",
+                "Where all grades are decimals: 87 percent is 0.87, a final worth 20 percent is 0.20. If the class uses weighted categories, use your current weighted course grade as the current grade rather than averaging the categories yourself — the weights are already inside that number.",
             ]},
             {"h2": "A worked example",
             "paragraphs": [
                 "You have an 84 in the class, the final is worth 25 percent, and you want a 90.",
                 "Required = (0.90 − 0.84 × 0.75) ÷ 0.25 = (0.90 − 0.63) ÷ 0.25 = 0.27 ÷ 0.25 = 1.08.",
                 "You need 108 percent, which means the target is not reachable on the final alone. Better to know that now than after the exam.",
+                "Now make it achievable. You are at 82, the final is worth 30 percent, and you want an 85: required = (0.85 − 0.82 × 0.70) ÷ 0.30 = (0.85 − 0.574) ÷ 0.30 = 0.92. You need 92 percent, which is hard but real, and it changes the plan from 'give up on this class' to 'protect the last three homework sets and drill the weak unit'.",
+                "Run the calculation for two or three targets at once. Knowing the score a B needs and the score an A needs tells you where the effort stops being worth it, which is more useful than a single number you either hit or miss.",
             ]},
             {"h2": "Where the numbers go wrong",
             "paragraphs": [
@@ -1029,7 +1063,6 @@ ARTICLES: list[dict] = [
         "meta_title": "How to Raise a Grade This Term | IntelliPlan",
         "description": "The realistic levers for moving a grade: category maths, the next two graded items, and the conversations worth having.",
         "date": "2026-08-18",
-        "reading_time": 5,
         "sections": [
             {"paragraphs": [
                 "Raising a grade is not about working more. It is about working on the items that are actually holding the grade down, which are usually fewer and more specific than they feel.",
@@ -1043,10 +1076,14 @@ ARTICLES: list[dict] = [
             {"h2": "Step two: ignore what is already closed",
             "paragraphs": [
                 "A finished test cannot be changed. An open category with three homework assignments left can. Direct your effort at the categories with the most remaining weight, not the ones with the most missing work.",
+                "The arithmetic is worth doing once. Lifting a 40-percent category from 78 to 85 moves your course grade by almost three points; lifting a 10-percent category from 70 to 90 moves it by two. The bigger lift in the small category is worth less than the smaller lift in the big one, and the answer is not the category that looks worst.",
+                "Check for dropped scores and redo policies before writing anything off. A category that drops its lowest score is not the emergency it appears to be, and a test the teacher allows you to correct is still an open lever even though it is in the past.",
             ]},
             {"h2": "Step three: win the next two graded items",
             "paragraphs": [
                 "Momentum matters for grades and for how teachers see you. Pick the next two graded items in the expensive category and do them properly: on time, complete, and checked against the rubric. Two good items in a row often move a grade more than a heroic effort on something worth five points.",
+                "Properly means three specific things: read the rubric before you start rather than after, hand the work in early enough that a submission problem is fixable, and ask for feedback on the first item so the second one is better. Most students do none of the three, which is why the same mistakes repeat all term.",
+                "Choose the pair by weight and by whether feedback can still reach you before the next one. A test followed by a project is a pair; two worksheets in the same week is not, however satisfying it feels to clear them.",
             ]},
             {"h2": "Step four: have one conversation",
             "paragraphs": [
@@ -1059,7 +1096,8 @@ ARTICLES: list[dict] = [
             ]},
             {"h2": "What does not work",
             "paragraphs": [
-                "Rereading the textbook, asking for extra credit you cannot finish, and emailing the teacher at the end of the term. Also: raising one grade while letting two others fall, which is a net loss.",
+                "Four moves feel like progress and are not. Rereading the textbook instead of doing the open work. Asking for extra credit before the missing assignments are in, which most teachers read as a request to skip the work. Emailing at the end of the term, when the grade is already computed. And raising one grade while letting two others fall, which is a net loss however good the single conversation feels.",
+                "The test for any move is whether it changes a category that is still open. If it does not, it is comfort rather than strategy, and the time belongs somewhere it can still move a number.",
             ]},
         ],
         "related": ["how-to-calculate-what-you-need-on-a-final", "how-to-track-grades-without-checking-the-portal", "what-is-a-good-gpa"],
@@ -1071,7 +1109,6 @@ ARTICLES: list[dict] = [
         "meta_title": "College Application Timeline | IntelliPlan",
         "description": "When to take tests, ask for recommendations, and write essays, laid out by month for junior and senior year.",
         "date": "2026-08-14",
-        "reading_time": 6,
         "sections": [
             {"paragraphs": [
                 "College applications are not hard because any one piece is difficult. They are hard because eight pieces have deadlines that are months apart and depend on each other, and nobody makes you a schedule until you build one.",
@@ -1119,7 +1156,6 @@ ARTICLES: list[dict] = [
         "meta_title": "6-Week SAT Study Schedule | IntelliPlan",
         "description": "A week-by-week SAT plan built around school, with practice-test timing, error review, and the score gains that come first.",
         "date": "2026-08-10",
-        "reading_time": 6,
         "sections": [
             {"paragraphs": [
                 "Six weeks is enough to move an SAT score meaningfully, and not enough to relearn high school maths. The plan below assumes about five hours a week, which is what a student with a full schedule can actually sustain, and it spends most of that time on the two things that move scores fastest: familiarity with the test and review of your own errors.",
@@ -1143,6 +1179,8 @@ ARTICLES: list[dict] = [
             {"h2": "Week six: light and sharp",
             "paragraphs": [
                 "No new material. Redo the questions you got wrong in weeks one and two, review your formula sheet, and take one short timed section two days before the test. The day before, do nothing academic and sleep.",
+                "The last week is also for logistics: test centre, arrival time, photo ID, an approved calculator, and the section timings so the breaks are not a surprise. Students lose more points to a wrong start time than to a missing grammar rule.",
+                "If one section still feels weak, give it twenty minutes and stop. A panic review on Thursday produces anxiety and very little recall, and it costs you the sleep that would have protected everything you already knew.",
             ]},
             {"h2": "Fitting it into a school week",
             "paragraphs": [
@@ -1163,11 +1201,10 @@ ARTICLES: list[dict] = [
         "meta_title": "How to Study in a Distracting Dorm | IntelliPlan",
         "description": "You cannot always get a quiet room. Practical ways to study in a dorm, a shared bedroom, or a loud house without losing the evening.",
         "date": "2026-08-06",
-        "reading_time": 4,
         "sections": [
             {"paragraphs": [
                 "Most study advice quietly assumes a door you can close. If you live in a dorm, share a bedroom, or study in a house where the TV is always on, the useful question is not how to find silence but how to work without it.",
-                "Four things help, roughly in order of how much difference they make.",
+                "A few things help, roughly in order of how much difference they make.",
             ]},
             {"h2": "Change the input, not the volume",
             "paragraphs": [
@@ -1185,6 +1222,8 @@ ARTICLES: list[dict] = [
             {"h2": "Work in shorter blocks and take real breaks",
             "paragraphs": [
                 "In a distracting environment, long blocks fail because one interruption ends them. Twenty-five minutes is short enough that an interruption costs one block instead of the evening. Take the break away from the desk, ideally outside the room.",
+                "Decide the task before the timer starts and write it on a sticky note, so the block does not open with a search for what to do. One task per block: a block with two tasks in a noisy room becomes a block with none.",
+                "Use the break to actually leave. Standing in a corridor for two minutes is a reset; staying at the desk with a phone is the same stimulation you were escaping, and it makes the next block start from a worse place than the last one ended.",
             ]},
             {"h2": "Leave when it matters",
             "paragraphs": [
@@ -1193,6 +1232,8 @@ ARTICLES: list[dict] = [
             {"h2": "Make the plan visible to the people you live with",
             "paragraphs": [
                 "Most interruptions are not malicious; they are people not knowing you are working. A visible schedule, a closed door, or a simple agreement about the hour before dinner reduces them more than headphones do.",
+                "Make the agreement specific and two-way: which hour, what is urgent enough to interrupt, and what you will do in return. Vague requests to keep it down get ignored within a week; a named hour written on the fridge does not, because everyone can point at it.",
+                "In a shared room, agree on a signal instead of a rule. Headphones on means do not start a conversation, a closed laptop means the opposite. Signals survive bad moods better than rules, and they cost nothing to change when the day is different.",
             ]},
             {"h2": "Use blocking that ends",
             "paragraphs": [
@@ -1208,19 +1249,22 @@ ARTICLES: list[dict] = [
         "meta_title": "How to Run a Study Group That Works | IntelliPlan",
         "description": "Most study groups become social hours. A simple format, the right size, and rules that keep the group useful.",
         "date": "2026-08-02",
-        "reading_time": 5,
         "sections": [
             {"paragraphs": [
                 "A study group is one of the few things that reliably improves understanding, and most of them turn into a conversation with textbooks open. The difference is not the people; it is whether the session has a format.",
-                "The format below works for two to four people and about ninety minutes.",
+                "The format below works for two to four people and about ninety minutes. It is not about being strict. It is about removing the two ways a session wastes itself: nobody prepared, and nobody knows what finished looks like.",
             ]},
             {"h2": "Pick the right size and the right people",
             "paragraphs": [
                 "Two to four is the useful range. A fifth person mostly adds coordination. The best group is not your closest friends — it is people taking the same course who will notice if you have not done the work.",
+                "Being in the same course, with the same teacher and the same test, matters more than raw ability. A group of strong students in three different sections spends half its time reconciling what each teacher emphasised, and the session turns into a syllabus comparison.",
+                "Give two jobs before you meet: one person owns the clock and one owns the shared list. Rotate them each session so nobody becomes the secretary, and so the person who usually talks the most has a turn at keeping time.",
             ]},
             {"h2": "Set the goal before you arrive",
             "paragraphs": [
                 "Each person brings one topic they can explain and one they cannot. The session is for the second list. \"Let's review for the test\" is not a goal; \"be able to explain how the Krebs cycle produces ATP without notes\" is.",
+                "Write the goal as the question you would have to answer on the test, and send both topics to the group the day before. Without that message, everyone arrives with the same comfortable topic and the same gap, and the comfortable ones win.",
+                "Bring the one you cannot do, not the one you find interesting. A group is most valuable exactly where you would otherwise stall alone for forty minutes, and that is usually the part you would rather not volunteer.",
             ]},
             {"h2": "Teach first, discuss second",
             "paragraphs": [
@@ -1230,10 +1274,14 @@ ARTICLES: list[dict] = [
             {"h2": "Protect a silent block",
             "paragraphs": [
                 "Twenty minutes at the start or middle with no talking, everyone working on their own hardest task, converts the group from a social event into a work session. It sounds awkward and it is the part people ask for again.",
+                "Make the silence easy to keep: phones in bags rather than on the table, a visible timer, and a shared sheet for questions instead of asking them aloud. Write the question down and keep working; half of them answer themselves by the end of the block.",
+                "Put the silent block where the group is most likely to drift — usually twenty minutes in, once the catching-up is done and the work has not started. Announcing it in advance stops it feeling like a rebuke.",
             ]},
             {"h2": "End with a shared list",
             "paragraphs": [
                 "In the last five minutes, each person says what they still cannot do and what they will do about it before the next session. Write it down. The group's memory is better than yours, and the next session starts from the real gaps rather than from the beginning.",
+                "A good exit ticket has three lines: one thing I can now explain, one thing I still cannot, and one task I will do before we meet again. Photograph the sheet. It becomes next session's agenda and your own study list for the days in between.",
+                "Do not let the list become a group to-do list with no owner. Every line belongs to a person, and a line that belongs to everyone is a line nobody does.",
             ]},
             {"h2": "Keep the logistics out of the chat",
             "paragraphs": [
@@ -1243,6 +1291,8 @@ ARTICLES: list[dict] = [
             {"h2": "Know when to leave",
             "paragraphs": [
                 "A group that has become a weekly social hour is fine as a social hour. It is not a study group, and pretending otherwise costs you the evening. Study with two people who work, and see your friends after.",
+                "Leaving is easier if you describe what you need rather than what they did: \"I need a session where we work silently for an hour, and I am not getting that here.\" Then invite the one person who works to a two-person session. Groups do not have to be ended; they just have to stop being your study plan.",
+                "Give it three sessions before deciding. One bad meeting is a bad week; three in a row with no exit ticket and no silent block is a pattern, and a pattern is worth acting on before the test rather than after.",
             ]},
         ],
         "related": ["active-recall-vs-rereading", "how-to-study-in-a-distracting-dorm", "how-to-make-a-study-schedule-that-works"],
@@ -1254,7 +1304,6 @@ ARTICLES: list[dict] = [
         "meta_title": "How Parents Can Help Without Taking Over | IntelliPlan",
         "description": "Support that builds independence instead of dependence: what to ask, what to stop checking, and how to help when a student is behind.",
         "date": "2026-07-29",
-        "reading_time": 5,
         "sections": [
             {"paragraphs": [
                 "Most parents who want to help end up doing one of two things: checking the portal every night, or backing off entirely because checking turned into arguing. Both are responses to the same problem — there is no shared picture of the week that is not an interrogation.",
@@ -1263,6 +1312,8 @@ ARTICLES: list[dict] = [
             {"h2": "Ask about the plan, not the grades",
             "paragraphs": [
                 "\"What is due this week?\" is a better question than \"did you check your grades?\" because it is answerable, actionable, and it puts the student in charge of the answer. If they cannot answer it, that is the thing to fix, and it is fixable in ten minutes with a calendar.",
+                "If the answer is a shrug, do not fill the silence with a plan of your own. Ask a smaller question instead: what is due tomorrow, and what is the one thing you are avoiding? Those two are answerable even in a bad week, and the second one usually explains the first.",
+                "Ask at a neutral moment rather than at the sight of a low grade. A question asked in the car, with nothing at stake, gets a real answer; the same question asked over an open portal gets a defence.",
             ]},
             {"h2": "Help build the system once",
             "paragraphs": [
@@ -1284,11 +1335,15 @@ ARTICLES: list[dict] = [
             ]},
             {"h2": "Respect the age curve",
             "paragraphs": [
-                "A seventh grader needs help building the habit. A senior needs the habit to be theirs, and help that looks like supervision will be rejected even when it is wanted. The same support looks different at 12 and 17, and asking which one they want is not abdication.",
+                "A seventh grader needs help building the habit. A senior needs the habit to be theirs, and help that looks like supervision will be rejected even when it is wanted. The same support looks different at 12 and 17, and asking which kind they want is not abdication.",
+                "At twelve, the help is usually concrete: a shared calendar on the fridge, a reminder at the same time each evening, and sitting nearby while the first ten minutes happen. At seventeen, it is mostly logistics and permission — a quiet hour, a lift to the library, and not asking about the portal in front of their friends.",
+                "The shift is not a loss of involvement. It is the difference between being the system and being the person who makes the system possible, and a senior who can run their own week is the outcome you were working towards.",
             ]},
             {"h2": "What to do about phones",
             "paragraphs": [
                 "Rules that apply to the whole household work better than rules that single out one person, and rules enforced only during study time work better than rules that last all day. The goal is a study environment, not a punishment.",
+                "A rule everyone follows looks like a household norm; a rule aimed at one person looks like a verdict, and it invites the argument about fairness instead of the one about homework. Phones in a bowl at dinner and no screens after ten cost the adults something too, which is exactly why they work.",
+                "Time-boxing matters as much as scope. \"No phone during your study block\" is enforceable and survives past Wednesday; \"no phone on school nights\" gets negotiated down by the second week. Agree on the block, put it in the shared calendar, and let the rest of the evening be theirs.",
             ]},
         ],
         "related": ["how-to-make-a-study-schedule-that-works", "how-to-catch-up-when-behind-in-school", "how-to-stop-procrastinating-on-homework"],
@@ -1300,7 +1355,6 @@ ARTICLES: list[dict] = [
         "meta_title": "How to Teach Yourself a Subject | IntelliPlan",
         "description": "A self-study method for a course you are failing, a subject your school does not offer, or a gap you need to close before next year.",
         "date": "2026-07-25",
-        "reading_time": 5,
         "sections": [
             {"paragraphs": [
                 "Teaching yourself something is mostly a sequencing problem. The material is usually available — a textbook, a course, a set of videos — and the failure is starting in the middle, working without feedback, or never testing whether it went in.",
@@ -1324,10 +1378,14 @@ ARTICLES: list[dict] = [
             {"h2": "Build retrieval into the schedule",
             "paragraphs": [
                 "Once a week, close everything and write what you know about the last three topics, then check. This is the same active recall that works in school, and it matters more when nobody is testing you, because otherwise the only feedback you get is the feeling of having read something.",
+                "Put it on the calendar as a recurring event rather than an intention. Forty minutes, same day, with the three topics chosen in advance — choosing them on the day is where the session usually dies.",
+                "Write the questions before you close the chapter: five per topic, phrased the way an exam would phrase them. A week later, answering your own questions is a fair test; rereading your own notes is not.",
             ]},
             {"h2": "Use a real deadline",
             "paragraphs": [
                 "Self-study with no deadline expands to fill the time available, which is to say it never finishes. Pick a date and a proof: a practice exam, a project, an essay, a conversation with someone who knows the subject. Then back-plan from it the way you would for a class.",
+                "Make the deadline public and slightly uncomfortable. Telling one person that you will sit a practice paper on the fourteenth is worth more than a private note, because a private deadline costs nothing to move.",
+                "Book the proof the way you would book an exam: a time, a place, no notes, and a result you have to write down. A practice paper taken in bed over four evenings with the book open is not evidence of anything.",
             ]},
             {"h2": "Where AI helps and where it hurts",
             "paragraphs": [
@@ -1344,7 +1402,6 @@ ARTICLES: list[dict] = [
         "meta_title": "PowerSchool Assignments in a Planner | IntelliPlan",
         "description": "District portals rarely offer student APIs. How PowerSchool, Aeries and similar portals get into a planner, and what to check.",
         "date": "2026-07-21",
-        "reading_time": 5,
         "sections": [
             {"paragraphs": [
                 "PowerSchool, Aeries, Infinite Campus, Skyward and eSchoolPlus have something in common: they are run by the district, and they do not issue API keys to students. There is no developer portal to sign up for and no OAuth flow to approve. That is why most planners support Canvas and Google Classroom and quietly do not support the portal your school actually uses.",
@@ -1378,15 +1435,210 @@ ARTICLES: list[dict] = [
             {"h2": "If your portal is not supported",
             "paragraphs": [
                 "The manual fallback is the same as it has always been: add the assignments yourself, once a week, in the same place. Slower, and still better than a second list you forget to check. Infinite Campus and Skyward are the most requested additions; the provider list in IntelliPlan's settings shows what is currently supported.",
+                "Make the manual pass cheap enough to keep doing. Sort the gradebook by due date and add only what falls in the next two weeks, plus anything worth more than a quiz. Older items are history: you cannot act on them, and importing them makes the week look worse than it is.",
+                "If a supported portal still will not import, check the small things before declaring it broken. The extension has to be on the assignments or grades view, not the dashboard, and a district that renames its columns can break a scraper until it is updated. Reporting the district and the page you were on is what makes a fix possible.",
             ]},
         ],
         "related": ["how-to-use-canvas-with-a-study-planner", "how-to-use-google-classroom-with-a-planner", "how-to-prioritize-assignments"],
+    },
+    {
+        "slug": "how-to-study-for-history-tests",
+        "kicker": "History",
+        "title": "How to Study for History Tests Without Memorising Everything",
+        "meta_title": "How to Study for History Tests | IntelliPlan",
+        "description": "Dates and names will not carry a history paper on their own. How to revise the explanations, sources and timed essays the marks actually sit in.",
+        "date": "2026-11-17",
+        "sections": [
+            {"paragraphs": [
+                "A history test is not a memory test with dates attached, though it is easy to revise as one. You can recite every date in the unit and still write a paragraph that earns half marks, because the marks are for explanation: why it happened, what changed because of it, and how far a source supports the claim.",
+                "That does not make facts optional. An argument with the wrong date is a weak argument. The point is the order of work: find out what the paper asks you to do with the facts, then practise doing it, rather than reading the chapter again and hoping the skill arrives on the day.",
+            ]},
+            {"h2": "Start from the question types on the paper",
+            "paragraphs": [
+                "Ask the teacher, or look at the last test, for the shape of the paper: source questions, short answers, a timed essay, or a mixture. Each format is marked differently and each needs its own rehearsal. Knowing the content is not the same as knowing how to spend forty minutes on one question.",
+            ], "list": [
+                "Source questions: what the source says, what it leaves out, and how useful it is for the question asked.",
+                "Short answers: a definition or a cause in two or three sentences, with no introduction and no conclusion.",
+                "Essays: one line of argument, three or four paragraphs, and evidence tied to the argument instead of listed after it.",
+                "If the paper offers a choice of essay questions, note which topics appear together. Choices are usually built from pairs.",
+            ]},
+            {"h2": "Build a timeline you can draw from memory",
+            "paragraphs": [
+                "A timeline is worth making because it forces sequence, and sequence is where most answers fall apart: the cause placed after the event it caused, the turning point missing entirely. Do not copy one from the textbook. Draw it from memory on a blank page, then check it against your notes and mark what you got wrong or out of order.",
+                "Keep it to one page and to what the unit is about. Fifteen events that explain the cause, the turning point and the consequence are more useful than eighty that show you read everything. Label each event with what changed, not just the year, because the year alone cannot be argued with.",
+            ]},
+            {"h2": "Turn each topic into a three-sentence argument",
+            "paragraphs": [
+                "For every topic on the list, write three sentences: the claim, the evidence, and the qualification. The qualification is the part students skip, and it is usually where the top band sits. The policy worked for some groups and not others; the source is useful but limited; the economic cause mattered less than the political one.",
+                "Three sentences is short enough to remember and long enough to become a paragraph under pressure. Write them by hand, from memory, then check them against your notes. If you cannot produce a claim with the book closed, you do not yet have one.",
+            ]},
+            {"h2": "Practise the essay under the clock",
+            "paragraphs": [
+                "Once a week, take one past question and write a full answer in the time the exam allows. Closed book, phone away. This is the only rehearsal that tells you whether you can plan, argue and finish in forty minutes, and it is the step most revision skips because it is uncomfortable.",
+                "Mark it against the mark scheme rather than against your feelings. Look for the errors that cost marks quietly: an argument that restates the question, evidence with no explanation, a conclusion that introduces a new point. Keep a list of those errors and read it before the next essay rather than after.",
+            ]},
+            {"h2": "What to do the night before",
+            "paragraphs": [
+                "Reread your one-page timeline and your three-sentence arguments. Do not start a new topic, and do not reread a chapter you have not touched all month: it will take two hours and displace what you do know.",
+                "If the paper has source questions, take two sources and ask the three questions out loud. What does it say, who wrote it and why, what would I need to check it against? That is a fifteen-minute exercise and worth more than another pass through the textbook.",
+            ]},
+            {"h2": "Splitting the week between reading and writing",
+            "paragraphs": [
+                "History revision is two kinds of work that need different blocks: learning the sequence, and practising the writing under time. They are easy to confuse, because both feel like studying, and only one of them is uncomfortable.",
+                "Put the past papers on the calendar before the reading. In IntelliPlan, add each essay as its own task with the time it actually takes, so the week shows the cost of four essays instead of a single line that says revise history. A weekly timed essay that is scheduled is a weekly timed essay that happens.",
+            ]},
+        ],
+        "related": ["how-to-prepare-for-ap-exams", "active-recall-vs-rereading", "how-to-write-a-better-essay-in-less-time"],
+    },
+    {
+        "slug": "how-to-plan-a-long-term-project",
+        "kicker": "Planning",
+        "title": "How to Plan a Long-Term Project So the Last Week Is Boring",
+        "meta_title": "How to Plan a Long-Term School Project | IntelliPlan",
+        "description": "A six-week project rarely fails in week six. Work backwards from the hand-in, give each week one deliverable, and keep the plan where you will see it.",
+        "date": "2026-11-16",
+        "sections": [
+            {"paragraphs": [
+                "A project with a deadline eight weeks away feels like it has no deadline at all, and that is the problem. No single day of the work is hard. It becomes hard in the last week, when the reading, the drafting and the formatting all arrive at once and there is no time left to fix any of them.",
+                "The fix is not motivation. It is a plan built backwards from the hand-in date, with one visible deliverable per week, so the project is either on schedule or visibly behind while there is still time to do something about it.",
+            ]},
+            {"h2": "Work backwards from the hand-in",
+            "paragraphs": [
+                "Write the hand-in date at the top of a page and work upwards in weeks. What has to be true seven days before? A complete draft. Before that, a full set of notes. Before that, the sources read and the question decided. Two or three passes like this usually reach today, and the distance tells you how much slack you have.",
+            ], "list": [
+                "Final week: proofread, check the brief against the draft, submit a day early.",
+                "Two weeks out: a complete draft, including the sections you are avoiding.",
+                "Three to four weeks out: reading finished, notes organised, argument chosen.",
+                "This week: one source, one page of notes, and a decision about the question.",
+            ]},
+            {"h2": "Make the first milestone small enough to hit tonight",
+            "paragraphs": [
+                "The first milestone on a backwards plan is usually decide the question, and students stall there for a fortnight. Shrink it until it is a twenty-minute task: write three possible questions, then ask the teacher which one can actually be answered in the word count.",
+                "Hitting a small milestone in the first week does something a large one cannot: it makes the rest of the plan believable. A project that is already one step along is a project you will come back to.",
+            ]},
+            {"h2": "One deliverable per week",
+            "paragraphs": [
+                "A weekly deliverable is something you could show someone: a page of notes, a source summary, an outline, a draft section. Work on the project is not a deliverable, because at the end of the week you cannot tell whether you did it.",
+                "Two hours a week, named and placed on a calendar, finishes most school projects. The alternative, no work for five weeks and twenty hours in the sixth, is not faster. It is the same twenty hours with five weeks of background dread attached.",
+            ]},
+            {"h2": "The weekly check that keeps it honest",
+            "paragraphs": [
+                "Fifteen minutes, same day each week: what was meant to be done, what was done, what moved. If the same deliverable moves twice, the plan is wrong rather than you. Split it, or move something else off the week to make room for it.",
+                "Keep the check short and written down. A project plan that lives only in your head survives right up until the week it matters, at which point it turns into a panic that feels a lot like work.",
+            ]},
+            {"h2": "When the project is bigger than the calendar",
+            "paragraphs": [
+                "Sometimes the backwards plan lands on a date that has already passed, and the honest conclusion is that the full version will not happen. Decide that deliberately: which sections get depth, which gets a summary, and what the minimum defensible version looks like.",
+                "Telling a teacher two weeks out that the scope is too large is a normal conversation. Telling them the night before is a request for an extension. Same information, different outcome.",
+            ]},
+            {"h2": "Keep it in the same list as everything else",
+            "paragraphs": [
+                "A project with its own notebook, its own folder and its own reminders is a second system, and second systems get checked last. Put the weekly milestone in the planner you already open for homework, so the project competes with the week instead of sitting outside it.",
+                "In IntelliPlan, a long project becomes a sequence of dated tasks rather than one entry due in six weeks. The weekly view then shows the real cost of the week, and if a milestone slips the plan can be rebuilt around it rather than abandoned.",
+            ]},
+        ],
+        "related": ["how-to-make-a-study-schedule-that-works", "time-blocking-for-students", "how-to-catch-up-when-behind-in-school"],
+    },
+    {
+        "slug": "how-to-use-ai-for-studying-without-cheating",
+        "kicker": "Study skills",
+        "title": "How to Use AI for Studying Without Cheating",
+        "meta_title": "How to Use AI for Studying Without Cheating | IntelliPlan",
+        "description": "AI can quiz you, explain a stuck step or quietly do the work for you. A practical line between studying with it and handing in something you did not do.",
+        "date": "2026-11-15",
+        "sections": [
+            {"paragraphs": [
+                "Most students now use AI somewhere in their schoolwork, and the interesting question is no longer whether. It is which uses leave you knowing more at the end, and which leave you holding a finished piece you could not reproduce.",
+                "School rules come first, and they vary more than the tools do. But even inside a permissive policy there is a difference between a tool that asks you questions about your notes and a tool that writes the essay you hand in. One is revision. The other is a transaction at the deadline.",
+            ]},
+            {"h2": "The question that sorts most uses",
+            "paragraphs": [
+                "Before you use it, ask whether you could do this yourself afterwards, unaided. If the answer is yes, the tool is saving time on something you can already do. If the answer is no, it is doing the learning for you, and the gap will show up in the exam, the next unit, or the question your teacher asks in class.",
+                "That test is generous to AI, which is the point. Reformatting notes, checking a citation, generating practice questions and asking for an explanation all pass it. Producing an answer you then copy does not, however fast it is.",
+            ]},
+            {"h2": "Uses that keep the work yours",
+            "paragraphs": [
+                "Each of these leaves the thinking with you and produces something rereading would not. They are also faster than rereading, which is why students keep doing them after the novelty wears off.",
+            ], "list": [
+                "Quiz me on this chapter, then mark my answers and tell me what I got wrong.",
+                "Explain this paragraph in simpler terms. I will rewrite it in my own words afterwards.",
+                "Here is my draft paragraph. Point out where the argument is unclear, without rewriting it.",
+                "Here are my notes on the topic. Write five exam-style questions and nothing else.",
+                "Here is my maths working. Find the first line that goes wrong and say which rule I broke.",
+            ]},
+            {"h2": "Uses that quietly take the skill",
+            "paragraphs": [
+                "The dangerous uses rarely feel like cheating. Reading a generated summary instead of the chapter, checking the answer before you have tried, letting a model rewrite your sentences until the voice is no longer yours: each feels like efficiency, and each removes a repetition you needed.",
+                "The most common is the first step. Students paste the question, read the solution, and tell themselves they understand it. Understanding arrives after the attempt, not before. If you cannot start a problem with the answer hidden, you have learned to read solutions.",
+            ]},
+            {"h2": "If your school bans it",
+            "paragraphs": [
+                "Follow the policy, including the parts you disagree with, and ask before assuming. A ban usually covers submitted work rather than all use, and teachers are often clearer in person than the handbook is about where the line sits.",
+                "If you do use a tool for something that is allowed, declare it. A sentence in a footnote or a short note to the teacher costs nothing and protects you if the style of the work is questioned later. Declaring use is also the quickest way to find out whether it was permitted.",
+            ]},
+            {"h2": "A rule that holds on a normal Tuesday",
+            "paragraphs": [
+                "Keep the AI out of the first attempt. Try the question, write the paragraph, sit the practice paper, then use the tool to check, explain or quiz. That order costs ten minutes and keeps the work yours.",
+                "A planner helps for a dull reason: it removes the deadline panic that makes the shortcut attractive. When the work is spread across the week, the night-before paste-the-question moment happens less often, and the decision is easier to make well.",
+                "In IntelliPlan, Study and Learn sits on the useful side of that line. It builds questions from the notes you upload and checks your answers, which is practice on material you have already read. It will not write the essay, and that limitation is the feature.",
+            ]},
+        ],
+        "related": ["active-recall-vs-rereading", "how-to-take-better-notes-in-class", "how-to-write-a-better-essay-in-less-time"],
+    },
+    {
+        "slug": "how-to-prepare-for-a-presentation-or-oral-exam",
+        "kicker": "Speaking",
+        "title": "How to Prepare for a Presentation or Oral Exam",
+        "meta_title": "How to Prepare for a Presentation or Oral Exam | IntelliPlan",
+        "description": "Rehearsing in your head does not count. How to write the talk before the slides, practise out loud, and handle the questions you dread.",
+        "date": "2026-11-13",
+        "sections": [
+            {"paragraphs": [
+                "Speaking assessments reward a different kind of preparation from written ones. You cannot reread a presentation the night before and expect it to be better. The work happens in saying it out loud, several times, until the words are yours and the pauses are deliberate.",
+                "Two things usually go wrong. The slides get built before the talk exists, so the presentation becomes a tour of bullet points. And the rehearsal happens silently, in your head, where nothing ever sounds wrong.",
+            ]},
+            {"h2": "Write the talk before the slides",
+            "paragraphs": [
+                "Write what you will say as prose, in the order you will say it, and cut it to the time. A five-minute talk is roughly 650 spoken words, which is far fewer than most students expect. Timing yourself reading it aloud is the only way to find that out before the day.",
+                "Only then build the slides, and give each one a job: a number, a map, one image, a short quote. If a slide needs a paragraph on it, the paragraph belongs in the talk and the slide is doing nothing.",
+            ]},
+            {"h2": "Rehearse out loud, to an audience",
+            "paragraphs": [
+                "Silent rehearsal checks whether you remember the words. Speaking checks whether you can deliver them, which is what is being marked: pace, eye contact, and the ability to keep going after a stumble.",
+            ], "list": [
+                "Once alone, standing up, recording on your phone. Listen back for pace and filler.",
+                "Once to one person who will tell you where they got lost.",
+                "Once to someone who knows nothing about the topic. That is the real test of whether the explanation works.",
+                "Once at the time limit, with the slides, in the room if you can get into it.",
+            ]},
+            {"h2": "Prepare for the questions you dread",
+            "paragraphs": [
+                "Write the five questions you hope nobody asks. For each, write a two-sentence answer. Most oral exams are decided in the questions rather than the talk, and the questions are more predictable than they feel.",
+                "For a question you cannot answer, have a sentence ready that buys time honestly: I did not look at that, but based on the earlier point I would expect the opposite. Reasoning out loud scores better than confident guessing, and examiners can hear the difference.",
+            ]},
+            {"h2": "The first thirty seconds",
+            "paragraphs": [
+                "The opening is the only part you can guarantee. Learn the first two sentences word for word, including the breath before them. After that the rest tends to follow, because the hardest moment is the silence at the start.",
+                "Do not open with an apology or with so, yeah. Open with the claim: what you are arguing, why it matters, and what you will cover. Thirty seconds of clarity buys attention for the next four minutes.",
+            ]},
+            {"h2": "On the day",
+            "paragraphs": [
+                "Arrive early enough to check the equipment and to stand where you will stand. Print your notes large enough to glance at, not as a script to read from. A script turns a talk into a recitation, and recitation loses the marks for delivery.",
+                "Take water and use it. A sip is a legitimate pause. If you lose your place, stop, look at the audience, and start the next sentence you remember. Audiences notice far less than speakers believe, and the mark scheme rewards recovery more than it rewards flawlessness.",
+            ]},
+            {"h2": "Put the rehearsals in the calendar",
+            "paragraphs": [
+                "Rehearsal is the item that gets dropped when a week fills up, because it feels optional in a way that writing does not. Give it four slots with times, treat the last one as the real deadline, and place each one earlier than you think you need.",
+                "In IntelliPlan, a presentation is a small project: one task for the script, one for the slides, and a separate task for each rehearsal. Splitting it that way makes the work visible in the week, and a rehearsal on the calendar is a rehearsal that happens.",
+            ]},
+        ],
+        "related": ["how-to-write-a-better-essay-in-less-time", "how-to-use-a-study-group-without-wasting-time", "active-recall-vs-rereading"],
     },
 ]
 
 BY_SLUG: dict[str, dict] = {article["slug"]: article for article in ARTICLES}
 
-#: The nine guides that predate this registry. They are still standalone
+#: The eight guides that predate this registry. They are still standalone
 #: templates with their own routes, but they are real articles and the newer
 #: ones link to them, so related links need to resolve against them too.
 LEGACY_TITLES: dict[str, str] = {
@@ -1421,3 +1673,36 @@ def resolve(slug: str) -> dict | None:
 def all_articles() -> list[dict]:
     """Newest first, which is the order the index and sitemap render."""
     return sorted(ARTICLES, key=lambda article: article["date"], reverse=True)
+
+
+#: Spelled out rather than left to strftime, whose month names follow the
+#: process locale and are not guaranteed to be English on every host.
+_MONTHS = (
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December",
+)
+
+
+def reading_minutes(article: dict, words_per_minute: int = 200) -> int:
+    """Reading time from the article's own words.
+
+    This used to be a ``reading_time`` key on every dict, which drifted: the
+    page rendered the hand-written value while a script in base.html computed
+    a different one from the body, so a single article showed two different
+    numbers. Counting here means the page cannot disagree with itself.
+    """
+    words = 0
+    for section in article["sections"]:
+        if section.get("h2"):
+            words += len(section["h2"].split())
+        for paragraph in section.get("paragraphs", ()):
+            words += len(paragraph.split())
+        for item in section.get("list", ()):
+            words += len(item.split())
+    return max(1, round(words / words_per_minute))
+
+
+def display_date(iso_date: str) -> str:
+    """``2026-11-14`` -> ``November 14, 2026`` for the article byline."""
+    year, month, day = (int(part) for part in iso_date.split("-"))
+    return f"{_MONTHS[month - 1]} {day}, {year}"
