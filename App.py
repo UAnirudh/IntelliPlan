@@ -7502,7 +7502,7 @@ def register():
                     'doc': doc, 'version': policy_versions.current_version(doc),
                     'user_agent': (request.headers.get('User-Agent') or '')[:256],
                 } for doc in policy_versions.all_docs()])
-                if app.extensions.get('mongo_store') is None:
+                if flask.current_app.extensions.get('mongo_store') is None:
                     try:
                         import growth_glue
                         growth_glue.grant_signup_trial(user)
@@ -9197,7 +9197,7 @@ def _handle_google_callback():
     except Exception:
         app.logger.exception('Google account identity could not be resolved')
         return redirect(url_for('login') + '?err=oauth_db')
-    if app.extensions.get('mongo_store') is None:
+    if flask.current_app.extensions.get('mongo_store') is None:
         # School memberships come only from Google userinfo's explicit verified
         # email claim, and only when it matches the account's canonical address.
         db.session.flush()
@@ -10407,7 +10407,7 @@ def _account_delete_impl():
     except Exception as _ce:
         print(f"[account_delete] could not read current_user.id: {_ce}")
         return flask.jsonify({"status": "error", "message": "Session error"}), 500
-    native_store = app.extensions.get('mongo_store')
+    native_store = flask.current_app.extensions.get('mongo_store')
     if native_store is not None:
         return _native_account_delete_impl(user_id, native_store)
     from account_uploads import owned_upload_paths, remove_uploads, quarantine_uploads, restore_uploads
@@ -19747,7 +19747,7 @@ def _parental_consent_token_is_active(user, now=None):
 
 def _expire_parental_consent_token(user):
     """Invalidate a stale token so only the authenticated resend path can rotate it."""
-    native_store = app.extensions.get('mongo_store')
+    native_store = flask.current_app.extensions.get('mongo_store')
     if native_store is not None:
         native_store.database.users.update_one(
             {'id': user.id, 'parent_consent_token': user.parent_consent_token},
@@ -19958,7 +19958,7 @@ def parent_deny():
     token = request.values.get("token", "").strip()
     if not token:
         return "Missing consent token.", 400
-    native_store = app.extensions.get('mongo_store')
+    native_store = flask.current_app.extensions.get('mongo_store')
     if native_store is not None:
         user = account_repository().by_parent_token(token)
     else:
@@ -23452,7 +23452,7 @@ def _check_session_stamp():
         # Earlier request work can expire/detach Flask-Login's cached User.
         # Read the authoritative generation without accessing that ORM object
         # or reusing an identity-map value from before the reset.
-        if app.extensions.get('mongo_store') is not None:
+        if flask.current_app.extensions.get('mongo_store') is not None:
             authoritative = account_repository().get(user_id)
             row = (authoritative.id, authoritative.session_epoch) if authoritative else None
         else:

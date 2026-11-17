@@ -1014,3 +1014,22 @@ def test_native_tutor_failed_turn_refund_stays_in_its_billing_period(account_app
     repo.refund_tutor_message(fresh)
     repo.refund_tutor_message(fresh)
     assert repo.get(user.id).monthly_tutor_messages == 0
+
+
+def test_native_expired_parent_link_clears_persisted_token(account_app, monkeypatch):
+    app, repo, _ = account_app
+    if not isinstance(repo, MongoAccounts):
+        pytest.skip('SQL parent expiry is covered by child privacy tests')
+    import App
+    monkeypatch.setitem(app.extensions, 'mongo_store', repo.store)
+    user = repo.create(email='expired-parent@example.test', password_hash='hash', attributes={
+        'birth_year': datetime.utcnow().year - 10,
+        'parent_consent_token': 'expired-synthetic-token',
+        'parent_consent_expires_at': datetime(2020, 1, 1),
+        'parent_consent_granted': False})
+    assert not App._parental_consent_token_is_active(user)
+    App._expire_parental_consent_token(user)
+    saved = repo.get(user.id)
+    assert saved.parent_consent_token is None
+    assert saved.parent_consent_expires_at is None
+    assert saved.parent_consent_granted is False
