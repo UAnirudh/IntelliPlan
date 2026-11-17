@@ -525,6 +525,7 @@ def unconfigured(monkeypatch):
 
 @pytest.fixture
 def configured(monkeypatch):
+    monkeypatch.setenv("APP_BASE_URL", "https://intelliplan.tech")
     monkeypatch.setenv("GOOGLE_CLIENT_ID", "gid")
     monkeypatch.setenv("GOOGLE_CLIENT_SECRET", "gsecret")
     monkeypatch.setenv("MICROSOFT_CLIENT_ID", "mid")
@@ -688,7 +689,7 @@ def _google_callback(client, monkeypatch, scopes):
     monkeypatch.setattr(App, "exchange_code_for_token", lambda code, code_verifier=None: {
         "token": "gtok", "refresh_token": "grefresh", "expires_at": time.time() + 3600, "scopes": scopes})
     monkeypatch.setattr(requests, "get", lambda url, **kw: FakeResponse(
-        {"sub": "g-1", "email": "student@gmail.com", "name": "Student"}))
+        {"sub": "g-1", "email": "student@gmail.com", "email_verified": True, "name": "Student"}))
     return client.get("/oauth2callback?state=st&code=c")
 
 

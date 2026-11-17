@@ -151,3 +151,40 @@ def test_failures_are_indistinguishable(client, user):
 
     assert unknown.status_code == mismatch.status_code
     assert unknown.get_json() == mismatch.get_json()
+
+
+def test_a_ticket_from_before_password_change_cannot_restore_a_session(client, user):
+    verifier = da.new_verifier()
+    code = mint(user, da.challenge_for(verifier))
+    with app_module.app.app_context():
+        account = app_module.account_repository().get(user)
+        app_module.account_repository().change_password(user,
+            expected_hash=account.password_hash, password_hash='synthetic-reset-hash')
+    assert client.post(EXCHANGE, json={'code': code, 'verifier': verifier}).status_code == 400
+
+
+def test_a_reset_during_redemption_cannot_upgrade_the_issued_session(client, monkeypatch):
+    with app_module.app.app_context():
+        account = app_module.account_repository().create(
+            email=f'desktop-race-{da.new_code()}@example.test', password_hash='original')
+        user_id = account.id
+        tickets = app_module.desktop_tickets()
+        verifier = da.new_verifier()
+        code = da.new_code()
+        tickets.issue(user_id, code_hash=da.hash_code(code), code_challenge=da.challenge_for(verifier))
+    redeem = tickets.redeem
+
+    def reset_after_claim(**values):
+        proof = redeem(**values)
+        app_module.account_repository().change_password(user_id,
+            expected_hash='original', password_hash='later-reset')
+        return proof
+
+    monkeypatch.setattr(tickets, 'redeem', reset_after_claim)
+    monkeypatch.setattr(app_module, 'desktop_tickets', lambda: tickets)
+    assert client.post(EXCHANGE, json={'code': code, 'verifier': verifier}).status_code == 200
+    with client.session_transaction() as cookie:
+        assert cookie['session_epoch'] == 0
+    assert client.get('/command-center').status_code == 302
+    with client.session_transaction() as cookie:
+        assert '_user_id' not in cookie

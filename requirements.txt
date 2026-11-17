@@ -13,6 +13,8 @@ werkzeug>=2.3.0
 # line production has never run. Lift the cap deliberately, not by rebuild.
 sqlalchemy>=2.0.0,<2.1
 psycopg2-binary>=2.9.0
+# Native MongoDB application port and migration utilities.
+pymongo==4.19.0
 
 # AI & ML — Gemini primary, Groq fallback
 google-genai>=2.8.0

@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 import uuid
+from functools import wraps
 from typing import Any
 
 from flask import current_app, session
@@ -149,7 +150,26 @@ def _db():
     return current_app.extensions['sqlalchemy']
 
 
+def _native(method):
+    @wraps(method)
+    def dispatch(*args, **kwargs):
+        backend = current_app.extensions.get('mongo_store')
+        if backend is not None:
+            from adaptive_tutor.mongo_store import MongoTutor
+            ensure_tables()
+            return getattr(MongoTutor(backend), method.__name__)(*args, **kwargs)
+        return method(*args, **kwargs)
+    return dispatch
+
+
 def ensure_tables() -> None:
+    backend = current_app.extensions.get('mongo_store')
+    if backend is not None:
+        if not current_app.extensions.get('mongo_tutor_indexes_ready'):
+            from adaptive_tutor.mongo_store import MongoTutor
+            MongoTutor(backend).ensure_indexes()
+            current_app.extensions['mongo_tutor_indexes_ready'] = True
+        return
     global _READY
     if _READY:
         return
@@ -222,6 +242,7 @@ def _profile_to_dict(row: dict) -> dict[str, Any]:
     }
 
 
+@_native
 def get_or_create_profile() -> dict[str, Any]:
     ensure_tables()
     db = _db()
@@ -268,10 +289,8 @@ def _clean_choice(value: Any, choices: set[str], fallback: str) -> str:
     return text if text in choices else fallback
 
 
-def update_profile(profile_id: int, payload: dict[str, Any]) -> dict[str, Any]:
-    """Apply an onboarding/settings patch. Unknown keys are ignored."""
-    ensure_tables()
-    db = _db()
+def profile_patch(payload: dict[str, Any]) -> dict[str, Any]:
+    """Shared onboarding validation for both persistence backends."""
     values: dict[str, Any] = {'updated_at': utcnow()}
 
     if 'grade_level' in payload:
@@ -302,6 +321,16 @@ def update_profile(profile_id: int, payload: dict[str, Any]) -> dict[str, Any]:
     if 'onboarding_completed' in payload:
         values['onboarding_completed'] = bool(payload.get('onboarding_completed'))
 
+    return values
+
+
+@_native
+def update_profile(profile_id: int, payload: dict[str, Any]) -> dict[str, Any]:
+    """Apply an onboarding/settings patch. Unknown keys are ignored."""
+    ensure_tables()
+    db = _db()
+    values = profile_patch(payload)
+
     db.session.execute(PROFILE.update().where(PROFILE.c.id == profile_id).values(**values))
     db.session.commit()
 
@@ -311,6 +340,7 @@ def update_profile(profile_id: int, payload: dict[str, Any]) -> dict[str, Any]:
 
 # -- Mastery ---------------------------------------------------------
 
+@_native
 def update_mastery(profile_id: int, subject: str, topic: str, correct: bool) -> None:
     """Weighted moving average: recent performance outweighs history."""
     ensure_tables()
@@ -354,6 +384,7 @@ def update_mastery(profile_id: int, subject: str, topic: str, correct: bool) -> 
     db.session.commit()
 
 
+@_native
 def list_mastery(profile_id: int, limit: int = 20) -> list[dict[str, Any]]:
     ensure_tables()
     rows = _db().session.execute(
@@ -367,6 +398,7 @@ def list_mastery(profile_id: int, limit: int = 20) -> list[dict[str, Any]]:
 
 # -- Mistakes --------------------------------------------------------
 
+@_native
 def record_mistake(profile_id: int, mistake: dict[str, Any]) -> None:
     ensure_tables()
     db = _db()
@@ -402,6 +434,7 @@ def record_mistake(profile_id: int, mistake: dict[str, Any]) -> None:
     db.session.commit()
 
 
+@_native
 def list_mistakes(profile_id: int, limit: int = 15,
                   include_resolved: bool = False) -> list[dict[str, Any]]:
     ensure_tables()
@@ -414,6 +447,7 @@ def list_mistakes(profile_id: int, limit: int = 15,
     return [dict(r) for r in rows]
 
 
+@_native
 def resolve_mistake(profile_id: int, mistake_id: int) -> bool:
     ensure_tables()
     db = _db()
@@ -429,6 +463,7 @@ def resolve_mistake(profile_id: int, mistake_id: int) -> bool:
 
 # -- Learner memory --------------------------------------------------
 
+@_native
 def get_learner_memory(profile_id: int) -> dict[str, Any] | None:
     ensure_tables()
     row = _db().session.execute(
@@ -437,7 +472,10 @@ def get_learner_memory(profile_id: int) -> dict[str, Any] | None:
     if not row:
         return None
 
-    row = dict(row)
+    return learner_memory_view(dict(row))
+
+
+def learner_memory_view(row: dict) -> dict[str, Any]:
     return {
         'learner_type': row['learner_type'],
         'confidence': float(row['confidence'] or 0),
@@ -454,11 +492,9 @@ def get_learner_memory(profile_id: int) -> dict[str, Any] | None:
     }
 
 
-def upsert_learner_memory(profile_id: int, analysis: dict[str, Any], source_count: int,
+def learner_memory_values(analysis: dict[str, Any], source_count: int,
                           blended_scores: dict[str, float] | None,
-                          detected_modality: str | None) -> None:
-    ensure_tables()
-    db = _db()
+                          detected_modality: str | None) -> dict[str, Any]:
     now = utcnow()
 
     values = {
@@ -476,6 +512,16 @@ def upsert_learner_memory(profile_id: int, analysis: dict[str, Any], source_coun
         'last_analyzed_at': now,
     }
 
+    return values
+
+
+@_native
+def upsert_learner_memory(profile_id: int, analysis: dict[str, Any], source_count: int,
+                          blended_scores: dict[str, float] | None,
+                          detected_modality: str | None) -> None:
+    ensure_tables()
+    db = _db()
+    values = learner_memory_values(analysis, source_count, blended_scores, detected_modality)
     existing = db.session.execute(
         select(LEARNER_MEMORY.c.id, LEARNER_MEMORY.c.evidence_count)
         .where(LEARNER_MEMORY.c.profile_id == profile_id)
@@ -495,6 +541,7 @@ def upsert_learner_memory(profile_id: int, analysis: dict[str, Any], source_coun
 
 # -- Memory imports --------------------------------------------------
 
+@_native
 def save_memory_import(profile_id: int, provider: str, raw_text: str,
                        source_label: str | None = None,
                        extracted_summary: str | None = None,
@@ -514,6 +561,7 @@ def save_memory_import(profile_id: int, provider: str, raw_text: str,
     return int(result.inserted_primary_key[0])
 
 
+@_native
 def list_memory_imports(profile_id: int, limit: int = 10) -> list[dict[str, Any]]:
     ensure_tables()
     rows = _db().session.execute(
@@ -525,6 +573,7 @@ def list_memory_imports(profile_id: int, limit: int = 10) -> list[dict[str, Any]
     return [dict(r) for r in rows]
 
 
+@_native
 def delete_memory_import(profile_id: int, import_id: int) -> bool:
     ensure_tables()
     db = _db()
@@ -539,10 +588,7 @@ def delete_memory_import(profile_id: int, import_id: int) -> bool:
 
 # -- Session summaries -----------------------------------------------
 
-def save_session_summary(profile_id: int, conversation_id: int | None,
-                         summary: dict[str, Any]) -> None:
-    ensure_tables()
-    db = _db()
+def session_summary_values(summary: dict[str, Any]) -> dict[str, Any]:
     now = utcnow()
     values = {
         'summary_text': str(summary.get('summaryText') or '')[:4000] or None,
@@ -553,6 +599,15 @@ def save_session_summary(profile_id: int, conversation_id: int | None,
         'ended_at': now,
     }
 
+    return values
+
+
+@_native
+def save_session_summary(profile_id: int, conversation_id: int | None,
+                         summary: dict[str, Any]) -> None:
+    ensure_tables()
+    db = _db()
+    values = session_summary_values(summary)
     existing = None
     if conversation_id is not None:
         existing = db.session.execute(
@@ -570,11 +625,12 @@ def save_session_summary(profile_id: int, conversation_id: int | None,
     else:
         values['profile_id'] = profile_id
         values['conversation_id'] = conversation_id
-        values['started_at'] = now
+        values['started_at'] = values['ended_at']
         db.session.execute(SESSION_SUMMARY.insert().values(**values))
     db.session.commit()
 
 
+@_native
 def list_session_summaries(profile_id: int, limit: int = 5) -> list[dict[str, Any]]:
     ensure_tables()
     rows = _db().session.execute(
@@ -587,7 +643,12 @@ def list_session_summaries(profile_id: int, limit: int = 5) -> list[dict[str, An
     out = []
     for row in rows:
         row = dict(row)
-        out.append({
+        out.append(session_summary_view(row))
+    return out
+
+
+def session_summary_view(row: dict) -> dict[str, Any]:
+    return {
             'id': row['id'],
             'conversation_id': row['conversation_id'],
             'summary_text': row['summary_text'],
@@ -597,8 +658,7 @@ def list_session_summaries(profile_id: int, limit: int = 5) -> list[dict[str, An
             'review_next': _json_load(row['review_next_json'], []),
             'started_at': row['started_at'],
             'ended_at': row['ended_at'],
-        })
-    return out
+        }
 
 
 # -- Aggregate context -----------------------------------------------

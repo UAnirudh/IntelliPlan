@@ -29,6 +29,15 @@ from __future__ import annotations
 import re
 from datetime import datetime
 from typing import Any
+from flask import current_app, has_app_context
+
+
+def _native_state():
+    store = current_app.extensions.get('mongo_store') if has_app_context() else None
+    if store is None:
+        return None
+    from intelliplan.persistence.mongo_email import MongoEmailState
+    return MongoEmailState(store)
 
 #: Deliberately permissive. This is not RFC 5322 — it exists to catch the
 #: empty string, the obvious typo, and the placeholder, not to adjudicate
@@ -59,6 +68,12 @@ def is_suppressed(address: str | None) -> bool:
     """
     if not address:
         return False
+    repository = _native_state()
+    if repository is not None:
+        try:
+            return repository.is_suppressed(address)
+        except Exception:
+            return True
     from App import EmailSuppression
 
     normalised = address.strip().lower()
@@ -81,6 +96,12 @@ def suppress(address: str | None, reason: str = "unsubscribe") -> bool:
     """
     if not address:
         return False
+    repository = _native_state()
+    if repository is not None:
+        try:
+            return repository.suppress(address, reason)
+        except Exception:
+            return False
     from App import EmailSuppression, db
 
     normalised = address.strip().lower()

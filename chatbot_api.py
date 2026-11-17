@@ -356,11 +356,30 @@ def _refusal_reply(category):
     }
 
 
+def _native_tutor_history():
+    explicit = current_app.extensions.get('tutor_history_repository')
+    if explicit is not None:
+        return explicit
+    store = current_app.extensions.get('mongo_store')
+    if store is None:
+        return None
+    repository = current_app.extensions.get('_mongo_tutor_history')
+    if repository is None or repository.store is not store:
+        from intelliplan.persistence.mongo_tutor_history import MongoTutorHistory
+        repository = MongoTutorHistory(store, _get_tutor_owner, _normalize_tutor_messages,
+                                       _merge_tutor_messages, _default_tutor_profile)
+        repository.ensure_indexes()
+        current_app.extensions['_mongo_tutor_history'] = repository
+    return repository
+
+
 def _get_db():
     return current_app.extensions['sqlalchemy']
 
 
 def _ensure_tutor_memory_table():
+    if _native_tutor_history() is not None:
+        return
     global _TUTOR_MEMORY_READY
     if _TUTOR_MEMORY_READY:
         return
@@ -478,13 +497,23 @@ def _merge_tutor_messages(stored, incoming):
         if [_message_key(m) for m in stored[-overlap:]] == [_message_key(m) for m in incoming[:overlap]]:
             return (stored + incoming[overlap:])[-_MAX_STORED_TUTOR_MESSAGES:]
 
-    if len(incoming) >= len(stored) and [_message_key(m) for m in incoming[:len(stored)]] == [_message_key(m) for m in stored]:
-        return incoming[-_MAX_STORED_TUTOR_MESSAGES:]
+    common = 0
+    for left, right in zip(stored, incoming):
+        if _message_key(left) != _message_key(right):
+            break
+        common += 1
+    if common:
+        # Two requests may have started from the same transcript. Append only
+        # the new branch, retaining both turns without duplicating their prefix.
+        return (stored + incoming[common:])[-_MAX_STORED_TUTOR_MESSAGES:]
 
     return (stored + incoming)[-_MAX_STORED_TUTOR_MESSAGES:]
 
 
 def _load_tutor_memory():
+    repository = _native_tutor_history()
+    if repository is not None:
+        return repository.load_memory()
     _ensure_tutor_memory_table()
     db = _get_db()
     user_id, guest_session_id = _get_tutor_owner()
@@ -513,6 +542,9 @@ def _load_tutor_memory():
 
 
 def _save_tutor_memory(memory_id, messages, profile):
+    repository = _native_tutor_history()
+    if repository is not None:
+        return repository.save_memory(memory_id, messages, profile)
     db = _get_db()
     db.session.execute(
         _TUTOR_MEMORY_TABLE.update()
@@ -527,6 +559,9 @@ def _save_tutor_memory(memory_id, messages, profile):
 
 
 def _save_tutor_profile(memory_id, profile):
+    repository = _native_tutor_history()
+    if repository is not None:
+        return repository.save_profile(memory_id, profile)
     db = _get_db()
     db.session.execute(
         _TUTOR_MEMORY_TABLE.update()
@@ -534,6 +569,15 @@ def _save_tutor_profile(memory_id, profile):
         .values(profile_json=json.dumps(profile), updated_at=utcnow())
     )
     db.session.commit()
+
+
+def _record_tutor_profile_turn(memory_id, profile, text, reply):
+    repository = _native_tutor_history()
+    if repository is not None:
+        saved = repository.record_profile_turn(memory_id, text, reply, _update_tutor_profile)
+        return _safe_json(saved['profile_json'], profile)
+    _save_tutor_profile(memory_id, profile)
+    return profile
 
 
 # ── Conversations (multi-chat history) ───────────────────────────
@@ -545,6 +589,9 @@ def _convo_owner_where():
 
 
 def _list_conversations():
+    repository = _native_tutor_history()
+    if repository is not None:
+        return repository.list_conversations()
     _ensure_tutor_memory_table()
     db = _get_db()
     where, _, _ = _convo_owner_where()
@@ -562,6 +609,9 @@ def _list_conversations():
 
 
 def _get_conversation(convo_id):
+    repository = _native_tutor_history()
+    if repository is not None:
+        return repository.get_conversation(convo_id)
     _ensure_tutor_memory_table()
     db = _get_db()
     where, _, _ = _convo_owner_where()
@@ -572,6 +622,9 @@ def _get_conversation(convo_id):
 
 
 def _create_conversation(title='New chat'):
+    repository = _native_tutor_history()
+    if repository is not None:
+        return repository.create_conversation(title)
     _ensure_tutor_memory_table()
     db = _get_db()
     _, user_id, guest_id = _convo_owner_where()
@@ -601,6 +654,9 @@ def _ensure_conversation(convo_row, messages):
 
 
 def _save_conversation(convo_id, messages, new_title=None):
+    repository = _native_tutor_history()
+    if repository is not None:
+        return repository.save_conversation(convo_id, messages, new_title)
     db = _get_db()
     values = {
         'messages_json': json.dumps(_normalize_tutor_messages(messages, include_study_sources=True)),
@@ -615,6 +671,9 @@ def _save_conversation(convo_id, messages, new_title=None):
 
 
 def _delete_conversation(convo_id):
+    repository = _native_tutor_history()
+    if repository is not None:
+        return repository.delete_conversation(convo_id)
     db = _get_db()
     where, _, _ = _convo_owner_where()
     db.session.execute(
@@ -624,6 +683,9 @@ def _delete_conversation(convo_id):
 
 
 def _rename_conversation(convo_id, title):
+    repository = _native_tutor_history()
+    if repository is not None:
+        return repository.rename_conversation(convo_id, title)
     db = _get_db()
     where, _, _ = _convo_owner_where()
     db.session.execute(
@@ -738,14 +800,14 @@ def _load_user_identity():
     """Load the logged-in user's identity profile (grade level, focus, goals).
 
     Returns a small dict or None for guests. The chatbot uses this to personalize
-    every reply. Reads through SQLAlchemy via the User model declared in App.py;
-    we import lazily to avoid a circular import at module load.
+    every reply. Reads through the selected identity repository without importing
+    App.py when an explicit native store is configured.
     """
     if not current_user.is_authenticated:
         return None
     try:
-        from App import UserIdentity  # local import: chatbot_api is registered after models
-        row = UserIdentity.query.filter_by(user_id=current_user.id).first()
+        from intelliplan.persistence.identity import identities
+        row = identities().get(current_user.id)
         if not row:
             return None
         return row.to_dict()
@@ -1022,6 +1084,10 @@ def _reserve_tutor_message():
     except Exception as exc:
         print(f'[tutor] plan check failed: {exc}')
     limit = int(current_app.config.get('FREE_TUTOR_MESSAGES_PER_MONTH', 50))
+    from intelliplan.persistence.accounts import accounts
+    repository = accounts()
+    if hasattr(repository, 'reserve_tutor_message'):
+        return repository.reserve_tutor_message(current_user.id, limit, now=now)
     from sqlalchemy import func, or_
     from App import User
 
@@ -1079,6 +1145,11 @@ def _check_and_increment_tutor_limit():
 def _refund_tutor_message(reservation):
     """Release a failed turn's reservation without touching a later period."""
     if not reservation:
+        return
+    from intelliplan.persistence.accounts import accounts
+    repository = accounts()
+    if hasattr(repository, 'refund_tutor_message'):
+        repository.refund_tutor_message(reservation)
         return
     try:
         user_id, reset_at = reservation
@@ -1704,7 +1775,7 @@ def tutor():
         messages.append(assistant_message)
         latest_user = next((m['content'] for m in reversed(messages) if m['role'] == 'user'), '')
         profile = _update_tutor_profile(profile, latest_user, reply)
-        _save_tutor_profile(memory_row['id'], profile)
+        profile = _record_tutor_profile_turn(memory_row['id'], profile, latest_user, reply)
 
         # Learning Graph: tutor interaction
         try:

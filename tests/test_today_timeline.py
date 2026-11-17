@@ -55,6 +55,21 @@ def make_user(email="tt+a@example.com"):
         return u.id
 
 
+def test_sql_import_at_capacity_preserves_retained_classes_and_allows_replacement(client):
+    from intelliplan.persistence.timetable import TimetableError, timetable_repository
+    uid = make_user()
+    rows = [{'course': f'Class {n}', 'external_id': f'source-{n}'} for n in range(30)]
+    with App.app.app_context():
+        repository = timetable_repository()
+        repository.import_classes(uid, rows, 'studentvue')
+        original_ids = {row.id for row in repository.list(uid)}
+        with pytest.raises(TimetableError):
+            repository.import_classes(uid, [{'course': 'New'}, *rows], 'studentvue')
+        assert {row.id for row in repository.list(uid)} == original_ids
+        assert repository.import_classes(uid, [{'course': 'Replacement'}, *rows[1:]], 'studentvue') == 30
+        assert {row.course for row in repository.list(uid)} == {'Replacement', *(f'Class {n}' for n in range(1, 30))}
+
+
 def login(client, uid):
     with client.session_transaction() as sess:
         sess["_user_id"] = str(uid)

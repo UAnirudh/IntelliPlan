@@ -35,7 +35,7 @@ from contextvars import ContextVar
 from typing import Any
 from ai_provider import AIUnavailable
 
-from flask import Blueprint, g, has_request_context, jsonify, redirect, render_template, request
+from flask import Blueprint, current_app, g, has_app_context, has_request_context, jsonify, redirect, render_template, request
 from flask_login import current_user
 
 from time_utils import utcnow
@@ -103,7 +103,28 @@ def _period(now: datetime | None = None) -> str:
     return growth_plans.period_key(now or utcnow())
 
 
+def _native_ledger():
+    if not has_app_context():
+        return None
+    store = current_app.extensions.get('mongo_store')
+    if store is None:
+        return None
+    from intelliplan.persistence.mongo_ai_ledger import MongoAILedger
+    return MongoAILedger(store)
+
+
+def _has_credit(user_id, reference):
+    ledger = _native_ledger()
+    if ledger is not None:
+        return ledger.has_credit(user_id, reference)
+    from App import AICreditGrant
+    return AICreditGrant.query.filter_by(stripe_ref=reference, user_id=user_id).first() is not None
+
+
 def spent_micro(user_id: int, period: str, source: str = SOURCE_PLATFORM) -> int:
+    ledger = _native_ledger()
+    if ledger is not None:
+        return ledger.spent(user_id, period, source)
     from sqlalchemy import func
 
     from App import AISpendEvent, db
@@ -115,6 +136,9 @@ def spent_micro(user_id: int, period: str, source: str = SOURCE_PLATFORM) -> int
 
 
 def granted_micro(user_id: int, period: str) -> int:
+    ledger = _native_ledger()
+    if ledger is not None:
+        return ledger.granted(user_id, period)
     from sqlalchemy import func
 
     from App import AICreditGrant, db
@@ -161,8 +185,6 @@ def record_spend(user_id: int, *, provider: str, model: str, usage: pricing.Usag
     Its own connection and transaction, like the AI allowance counter, so
     recording spend never commits or rolls back what the request has pending.
     """
-    from App import AISpendEvent, db
-
     now = now or utcnow()
     cost = pricing.cost_micro(model, usage) if source != SOURCE_BYOK else 0
     if source == SOURCE_BYOK:
@@ -170,6 +192,20 @@ def record_spend(user_id: int, *, provider: str, model: str, usage: pricing.Usag
         cost_shadow = pricing.cost_micro(model, usage) if pricing.known(model) else 0
     else:
         cost_shadow = cost
+    ledger = _native_ledger()
+    if ledger is not None:
+        try:
+            ledger.record(user_id, {
+                'period': _period(now), 'created_at': now.isoformat(), 'provider': provider[:16],
+                'model': model[:64], 'source': source, 'purpose': purpose[:16], 'tier': tier or None,
+                'input_tokens': usage.input_tokens, 'output_tokens': usage.output_tokens,
+                'cache_read_tokens': usage.cache_read_tokens, 'cache_write_tokens': usage.cache_write_tokens,
+                'cost_micro': cost_shadow,
+            })
+        except Exception as exc:
+            logger.error('Could not record AI spend: %s', type(exc).__name__)
+        return cost
+    from App import AISpendEvent, db
     try:
         with db.engine.begin() as conn:
             conn.execute(AISpendEvent.__table__.insert().values(
@@ -189,6 +225,12 @@ def record_spend(user_id: int, *, provider: str, model: str, usage: pricing.Usag
 def grant_credit(user_id: int, amount_micro: int, *, reason: str = "topup",
                  stripe_ref: str | None = None, now: datetime | None = None) -> bool:
     """Add budget to the current month. Idempotent on ``stripe_ref``."""
+    ledger = _native_ledger()
+    if ledger is not None:
+        if type(amount_micro) is not int or amount_micro <= 0:
+            return False
+        return ledger.credit(user_id, amount_micro, period=_period(now), reason=reason,
+                             stripe_ref=stripe_ref, now=now or utcnow())
     from App import AICreditGrant, db
 
     if amount_micro <= 0:
@@ -209,6 +251,35 @@ def grant_credit(user_id: int, amount_micro: int, *, reason: str = "topup",
 def _maybe_warn_low_budget(user: Any, state: dict) -> None:
     """Email once a month when the budget drops below the warning line."""
     if not state.get("low") or getattr(user, "ai_low_budget_notified", None) == state["period"]:
+        return
+    if _native_ledger() is not None:
+        sender = current_app.extensions.get('email_sender')
+        if not callable(sender):
+            return
+        from intelliplan.email.eligibility import is_transactional_eligible
+        from intelliplan.persistence.mongo_accounts import MongoAccounts
+        from intelliplan.persistence.mongo_email import MongoEmailState
+        store = current_app.extensions['mongo_store']
+        try:
+            # Claim once, then re-read consent/address/deletion before sending.
+            claimed = MongoEmailState(store).claim_budget_notice(user.id, state['period'])
+            if claimed is None:
+                return
+            row = MongoAccounts(store).get(user.id)
+            if not is_transactional_eligible(row)[0]:
+                return
+            base = (current_app.config.get('APP_BASE_URL') or '').rstrip('/')
+            body = (
+                f"You've used most of this month's AI budget on IntelliPlan "
+                f"(${state['remaining_usd']:.2f} of ${state['budget_usd']:.2f} left).\n\n"
+                "Plani will keep answering with the free models once it runs out. "
+                "You can add more, or link your own AI account, here:\n"
+                f"{base}/settings/ai\n\n— IntelliPlan"
+            )
+            if not sender(row.email, 'Your IntelliPlan AI budget is running low', body):
+                logger.warning('Low budget email sender did not confirm delivery')
+        except Exception as exc:
+            logger.warning('Low budget email failed: %s', type(exc).__name__)
         return
     from App import db
 
@@ -254,7 +325,20 @@ def _is_adult(user: Any, now: datetime | None = None) -> bool:
     return (now or utcnow()).year - int(year) - 1 >= 18
 
 
+def _native_ai_accounts():
+    if not has_app_context():
+        return None
+    store = current_app.extensions.get('mongo_store')
+    if store is None:
+        return None
+    from intelliplan.persistence.mongo_ai_accounts import MongoAIAccounts
+    return MongoAIAccounts(store)
+
+
 def linked_accounts(user_id: int, *, active_only: bool = False) -> list[Any]:
+    repository = _native_ai_accounts()
+    if repository is not None:
+        return repository.list(user_id, active_only=active_only)
     from App import LinkedAIAccount
 
     rows = LinkedAIAccount.query.filter_by(user_id=user_id).all()
@@ -278,6 +362,13 @@ def _account_view(row: Any) -> dict:
 
 
 def _mark_key(row: Any, *, ok: bool, error: str | None = None) -> None:
+    repository = _native_ai_accounts()
+    if repository is not None:
+        try:
+            repository.mark(row, ok=ok, error=error)
+        except Exception as exc:
+            logger.warning('Provider key status could not be saved: %s', type(exc).__name__)
+        return
     from App import db
 
     try:
@@ -367,11 +458,15 @@ def _provider_allowed(provider: str) -> bool:
 
 
 def _tutor_permission(user_id: int):
-    from App import User
     from intelliplan.learning import policy
 
     policy.invalidate_cache()
-    user = User.query.populate_existing().filter_by(id=user_id).first()
+    if _native_ledger() is not None:
+        from intelliplan.persistence.accounts import accounts
+        user = accounts().get(user_id)
+    else:
+        from App import User
+        user = User.query.populate_existing().filter_by(id=user_id).first()
     if user is None or not policy.decision(user, 'tutor')[0]:
         return user, frozenset()
     if not policy.permitted_providers(user):
@@ -589,23 +684,22 @@ def api_premium_preferences():
     denied = _login_required()
     if denied:
         return denied
-    from App import db
-
+    from intelliplan.persistence.accounts import accounts
     data = request.get_json(silent=True) or {}
+    changes = {}
     if "model_pref" in data:
         pref = str(data.get("model_pref") or "").strip().lower()
         if pref not in router.PREFERENCES:
             return jsonify({"status": "error", "message": "Unknown answer depth."}), 400
-        current_user.premium_model_pref = pref
+        changes['premium_model_pref'] = pref
     if "clarify" in data:
-        current_user.premium_clarify = bool(data.get("clarify"))
+        changes['premium_clarify'] = bool(data.get("clarify"))
     try:
-        db.session.commit()
+        saved = accounts().set_preferences(current_user.id, changes)
     except Exception:
-        db.session.rollback()
         return jsonify({"status": "error", "message": "Could not save that."}), 500
-    return jsonify({"status": "ok", "model_pref": current_user.premium_model_pref,
-                    "clarify": bool(current_user.premium_clarify)})
+    return jsonify({"status": "ok", "model_pref": saved.premium_model_pref,
+                    "clarify": bool(saved.premium_clarify)})
 
 
 @premium_bp.route("/api/premium/usage", methods=["GET"])
@@ -614,12 +708,15 @@ def api_premium_usage():
     denied = _login_required()
     if denied:
         return denied
-    from App import AISpendEvent
-
     period = _period()
-    rows = AISpendEvent.query.filter(AISpendEvent.user_id == current_user.id,
-                                     AISpendEvent.period == period,
-                                     AISpendEvent.source != SOURCE_ROUTER).all()
+    ledger = _native_ledger()
+    if ledger is not None:
+        rows = ledger.usage(current_user.id, period)
+    else:
+        from App import AISpendEvent
+        rows = AISpendEvent.query.filter(AISpendEvent.user_id == current_user.id,
+                                         AISpendEvent.period == period,
+                                         AISpendEvent.source != SOURCE_ROUTER).all()
     by_day: dict[str, int] = {}
     by_model: dict[str, dict] = {}
     for r in rows:
@@ -656,8 +753,6 @@ def api_ai_accounts_link():
         return denied
     import secret_box
 
-    from App import LinkedAIAccount, db
-
     if not byok_enabled():
         return jsonify({"status": "error", "message": "Linking AI accounts isn't available yet."}), 503
     if not _is_adult(current_user):
@@ -676,6 +771,16 @@ def api_ai_accounts_link():
     check = byok.verify(provider, key)
     if not check.ok:
         return jsonify({"status": "error", "message": check.message}), 400
+    repository = _native_ai_accounts()
+    if repository is not None:
+        try:
+            row = repository.link(current_user.id, provider, key)
+        except PermissionError:
+            return jsonify({'status': 'error', 'message': 'You need to be 18 or older to link an AI account.'}), 403
+        except Exception:
+            return jsonify({'status': 'error', 'message': 'Could not save that. Try again.'}), 500
+        return jsonify({'status': 'ok', 'message': check.message, 'account': _account_view(row)})
+    from App import LinkedAIAccount, db
     row = LinkedAIAccount.query.filter_by(user_id=current_user.id, provider=provider).first()
     if row is None:
         row = LinkedAIAccount(user_id=current_user.id, provider=provider)
@@ -697,6 +802,10 @@ def api_ai_accounts_unlink(provider):
     denied = _login_required()
     if denied:
         return denied
+    repository = _native_ai_accounts()
+    if repository is not None:
+        repository.unlink(current_user.id, str(provider).lower())
+        return jsonify({'status': 'ok'})
     from App import LinkedAIAccount, db
 
     LinkedAIAccount.query.filter_by(user_id=current_user.id,
@@ -756,6 +865,12 @@ def api_premium_topup():
 def revoke_credit(user_id: int, amount_micro: int, *, reason: str = "refund",
                   stripe_ref: str, now: datetime | None = None) -> bool:
     """Claw back top-up budget on full refund or dispute. Idempotent on ``stripe_ref``."""
+    ledger = _native_ledger()
+    if ledger is not None:
+        if type(amount_micro) is not int or amount_micro <= 0 or not stripe_ref:
+            return False
+        return ledger.credit(user_id, -amount_micro, period=_period(now), reason=reason,
+                             stripe_ref=stripe_ref, now=now or utcnow())
     from App import AICreditGrant, db
 
     if amount_micro <= 0 or not stripe_ref:
@@ -781,10 +896,9 @@ def apply_billing_event(user: Any, event: Any, now: datetime | None = None) -> s
     if kind in {'checkout.session.completed', 'checkout.session.async_payment_succeeded'} and meta.get('kind') == 'ai_topup':
         if obj.get('payment_status') != 'paid' or obj.get('mode') != 'payment' or not obj.get('id'):
             return ''
-        from App import AICreditGrant
         ref = f"cs:{obj['id']}"
         granted = grant_credit(user.id, catalog.topup().credit_micro, reason='topup', stripe_ref=ref, now=now)
-        if not granted and not AICreditGrant.query.filter_by(stripe_ref=ref, user_id=user.id).first():
+        if not granted and not _has_credit(user.id, ref):
             # A duplicate is successful; a storage failure must be retried.
             raise RuntimeError('Paid top-up credit could not be persisted.')
         return "topup"
@@ -797,11 +911,10 @@ def apply_billing_event(user: Any, event: Any, now: datetime | None = None) -> s
         ref_id = obj.get('payment_intent') or obj.get('charge') or obj.get('id')
         if not ref_id:
             raise ValueError('Top-up revocation event is missing a stable reference.')
-        from App import AICreditGrant
         ref = f"rev:{ref_id}"
         reason = 'refund' if kind == 'charge.refunded' else 'dispute'
         revoked = revoke_credit(user.id, catalog.topup().credit_micro, reason=reason, stripe_ref=ref, now=now)
-        if not revoked and not AICreditGrant.query.filter_by(stripe_ref=ref, user_id=user.id).first():
+        if not revoked and not _has_credit(user.id, ref):
             raise RuntimeError('Top-up credit revocation could not be persisted.')
         return "topup_revoked"
     return ""

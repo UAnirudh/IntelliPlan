@@ -18,7 +18,7 @@ import os
 import time
 from datetime import datetime, timedelta
 
-from .sender import send_lifecycle_email
+from .sender import _native_state, send_lifecycle_email
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +69,7 @@ def _tally(summary: dict, result) -> None:
     if result.sent:
         summary["sent"] += 1
         return
-    if result.reason in {"provider_failed", "render_failed"}:
+    if result.reason in {"provider_failed", "provider_unknown", "provider_unavailable", "render_failed"}:
         summary["failed"] += 1
     else:
         summary["skipped"] += 1
@@ -88,6 +88,9 @@ def has_real_activity(user_id: int) -> bool:
     and the rest each have their own — but it is the one row that the common
     school-login path writes, and two EXISTS probes beat seven.
     """
+    native = _native_state()
+    if native is not None:
+        return native.completed_session(user_id) or native.onboarding_exists('LinkedAccount', user_id)
     from App import ActiveSession, LinkedAccount, db
 
     session_exists = (
@@ -108,8 +111,6 @@ def has_real_activity(user_id: int) -> bool:
 
 def sweep_welcome(now: datetime | None = None, limit: int = 500) -> dict:
     """Welcome everyone who signed up recently and has not been welcomed."""
-    from App import EmailSend, User, db
-
     now = now or datetime.utcnow()
     cutoff = now - timedelta(hours=WELCOME_WINDOW_HOURS)
     summary = _blank_summary()
@@ -117,15 +118,14 @@ def sweep_welcome(now: datetime | None = None, limit: int = 500) -> dict:
     # Exclude only settled rows. A `failed` row is left in the candidate set
     # so a transient provider outage gets retried on the next run rather than
     # permanently costing that user their welcome — see sender._claim.
-    already = db.session.query(EmailSend.user_id).filter(
-        EmailSend.email_key == WELCOME_KEY, EmailSend.status != "failed"
-    )
-    candidates = (
-        User.query.filter(User.created_at >= cutoff)
-        .filter(~User.id.in_(already))
-        .limit(limit)
-        .all()
-    )
+    native = _native_state()
+    if native is not None:
+        candidates = native.campaign_candidates(oldest=cutoff, email_key=WELCOME_KEY, limit=limit)
+    else:
+        from App import EmailSend, User, db
+        already = db.session.query(EmailSend.user_id).filter(
+            EmailSend.email_key == WELCOME_KEY, EmailSend.status != 'failed')
+        candidates = User.query.filter(User.created_at >= cutoff).filter(~User.id.in_(already)).limit(limit).all()
 
     for user in candidates:
         result = send_lifecycle_email(
@@ -156,23 +156,21 @@ def sweep_welcome(now: datetime | None = None, limit: int = 500) -> dict:
 
 def sweep_feedback(now: datetime | None = None, limit: int = 500) -> dict:
     """Ask two-week-old accounts how it is going — if they actually used it."""
-    from App import EmailSend, User, db
-
     now = now or datetime.utcnow()
     newest = now - timedelta(days=FEEDBACK_MIN_DAYS)
     oldest = now - timedelta(days=FEEDBACK_MAX_DAYS)
     summary = _blank_summary()
     summary["skipped_inactive"] = 0
 
-    already = db.session.query(EmailSend.user_id).filter(
-        EmailSend.email_key == FEEDBACK_KEY, EmailSend.status != "failed"
-    )
-    candidates = (
-        User.query.filter(User.created_at <= newest, User.created_at >= oldest)
-        .filter(~User.id.in_(already))
-        .limit(limit)
-        .all()
-    )
+    native = _native_state()
+    if native is not None:
+        candidates = native.campaign_candidates(oldest=oldest, newest=newest, email_key=FEEDBACK_KEY, limit=limit)
+    else:
+        from App import EmailSend, User, db
+        already = db.session.query(EmailSend.user_id).filter(
+            EmailSend.email_key == FEEDBACK_KEY, EmailSend.status != 'failed')
+        candidates = (User.query.filter(User.created_at <= newest, User.created_at >= oldest)
+                      .filter(~User.id.in_(already)).limit(limit).all())
 
     for user in candidates:
         if not has_real_activity(user.id):
@@ -275,14 +273,15 @@ def newsletter_recipients(limit: int | None = None) -> list:
 
 def newsletter_audience() -> tuple[list, dict]:
     """Eligible subscribers and aggregate exclusions, without recipient data."""
-    from App import User
-
     from .eligibility import is_marketing_eligible
-
-    query = User.query.filter(User.marketing_emails_opt_in.is_(True))
     eligible = []
     reasons = {}
-    candidates = query.all()
+    native = _native_state()
+    if native is not None:
+        candidates = native.campaign_candidates(opted_in=True)
+    else:
+        from App import User
+        candidates = User.query.filter(User.marketing_emails_opt_in.is_(True)).all()
     for user in candidates:
         allowed, reason = is_marketing_eligible(user)
         if allowed:
@@ -300,16 +299,16 @@ def send_thank_you(dry_run: bool = True, batch_size: int = 25) -> dict:
     consent withdrawal takes effect before the next send. The send ledger
     prevents a retry or two admin tabs from duplicating a delivered note.
     """
-    from App import EmailSend
     from . import preflight, templates
 
     batch_size = max(1, min(int(batch_size), 25))
-    already = {
-        row.user_id for row in EmailSend.query.filter(
-            EmailSend.email_key == THANK_YOU_KEY,
-            EmailSend.status != "failed",
-        ).all()
-    }
+    native = _native_state()
+    if native is not None:
+        already = native.settled_send_users(THANK_YOU_KEY)
+    else:
+        from App import EmailSend
+        already = {row.user_id for row in EmailSend.query.filter(
+            EmailSend.email_key == THANK_YOU_KEY, EmailSend.status != 'failed').all()}
     candidates = [u for u in newsletter_recipients() if u.id not in already]
     summary = {
         "email_key": THANK_YOU_KEY,
@@ -365,18 +364,23 @@ def send_newsletter(
     it. Sending the full list is opt-in and explicit — the default must
     never be the irreversible one.
     """
-    from App import ADMIN_EMAILS, User
-
     from . import templates
 
     content = normalise_newsletter(payload, now)
 
     if test:
-        recipients = [
-            u
-            for u in User.query.filter(User.email.isnot(None)).all()
-            if (u.email or "").lower() in ADMIN_EMAILS
-        ]
+        native = _native_state()
+        if native is not None:
+            from flask import current_app
+            admins = current_app.config.get('ADMIN_EMAILS') or []
+            if isinstance(admins, str):
+                admins = admins.split(',')
+            admins = {email.strip().lower() for email in admins if isinstance(email, str)}
+            recipients = native.campaign_candidates(admins=admins)
+        else:
+            from App import ADMIN_EMAILS, User
+            recipients = [u for u in User.query.filter(User.email.isnot(None)).all()
+                          if (u.email or '').lower() in ADMIN_EMAILS]
         audience = None
     else:
         recipients, audience = newsletter_audience()

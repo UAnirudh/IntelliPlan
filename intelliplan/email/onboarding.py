@@ -38,7 +38,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
-from .sender import send_lifecycle_email
+from .sender import _native_state, send_lifecycle_email
 
 logger = logging.getLogger(__name__)
 
@@ -126,6 +126,13 @@ def onboarding_progress(user_id: int) -> dict[str, bool]:
 
 def _exists(model_name: str, user_id: int) -> bool:
     """True when at least one row of ``model_name`` belongs to this user."""
+    native = _native_state()
+    if native is not None:
+        try:
+            return native.onboarding_exists(model_name, user_id)
+        except Exception as exc:
+            logger.warning('Native onboarding goal could not be read: %s', type(exc).__name__)
+            return False
     from App import db
     import App
 
@@ -169,6 +176,13 @@ def _has_completed_session(user_id: int) -> bool:
     and walked away has not had the experience this step is selling, and is
     a better candidate for the nudge than for being skipped.
     """
+    native = _native_state()
+    if native is not None:
+        try:
+            return native.completed_session(user_id)
+        except Exception as exc:
+            logger.warning('Native onboarding session could not be read: %s', type(exc).__name__)
+            return False
     from App import ActiveSession, db
 
     try:
@@ -233,18 +247,22 @@ def sweep_onboarding(now: datetime | None = None, limit: int = 500) -> dict:
     loop would mail the same person twice in one run after the cron had been
     down for a few days, which is the exact moment they least deserve it.
     """
-    from App import EmailSend, User, db
-
     now = now or datetime.utcnow()
+    native = _native_state()
+    if native is not None:
+        now = native.utc_naive(now)
     youngest = now - timedelta(days=MIN_AGE_DAYS)
     oldest = now - timedelta(days=MAX_AGE_DAYS)
     summary = _blank_summary()
 
-    candidates = (
-        User.query.filter(User.created_at <= youngest, User.created_at >= oldest)
-        .limit(limit)
-        .all()
-    )
+    if native is not None:
+        candidates = native.onboarding_candidates(oldest, youngest, limit)
+    else:
+        from App import EmailSend, User, db
+        candidates = (
+            User.query.filter(User.created_at <= youngest, User.created_at >= oldest)
+            .limit(limit).all()
+        )
     if not candidates:
         logger.info("onboarding sweep: no accounts in the window")
         return summary
@@ -255,20 +273,21 @@ def sweep_onboarding(now: datetime | None = None, limit: int = 500) -> dict:
     step_keys = [step.key for step in STEPS]
     ids = [u.id for u in candidates]
     sent_by_user: dict[int, set[str]] = {}
-    rows = (
-        db.session.query(EmailSend.user_id, EmailSend.email_key)
-        .filter(
-            EmailSend.user_id.in_(ids),
-            EmailSend.email_key.in_(step_keys),
-            EmailSend.status != "failed",
+    if native is not None:
+        rows = native.onboarding_history(ids, step_keys)
+    else:
+        rows = (
+            db.session.query(EmailSend.user_id, EmailSend.email_key)
+            .filter(EmailSend.user_id.in_(ids), EmailSend.email_key.in_(step_keys),
+                    EmailSend.status != 'failed').all()
         )
-        .all()
-    )
     for user_id, email_key in rows:
         sent_by_user.setdefault(user_id, set()).add(email_key)
 
     for user in candidates:
         created = user.created_at or now
+        if native is not None:
+            created = native.utc_naive(created)
         age_days = (now - created).total_seconds() / 86400.0
         sent_keys = sent_by_user.get(user.id, set())
 
@@ -302,7 +321,7 @@ def sweep_onboarding(now: datetime | None = None, limit: int = 500) -> dict:
         if result.sent:
             summary["sent"] += 1
             bucket["sent"] += 1
-        elif result.reason in {"provider_failed", "render_failed"}:
+        elif result.reason in {"provider_failed", "provider_unknown", "provider_unavailable", "render_failed"}:
             summary["failed"] += 1
             bucket["failed"] += 1
         else:

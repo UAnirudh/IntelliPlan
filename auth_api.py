@@ -402,6 +402,7 @@ with App.py's web routes (/login, /register, /logout).
 import os
 import time
 import urllib.parse
+from intelliplan.persistence.accounts import AccountExists, PasswordConflict, SQLAccounts
 from flask import Blueprint, jsonify, request, current_app, session, render_template, make_response
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
@@ -429,6 +430,19 @@ LEGACY_ALLOWED_ORIGINS = [
 def _models():
     from App import db, User, bcrypt
     return db, User, bcrypt
+
+
+def _accounts():
+    repository = current_app.extensions.get("accounts_repository")
+    if repository is not None:
+        return repository
+    db, User, _ = _models()
+    return SQLAccounts(db, User)
+
+
+def _passwords():
+    provider = current_app.extensions.get("account_passwords")
+    return provider if provider is not None else _models()[2]
 
 
 # ── Token helpers ─────────────────────────────────────────────
@@ -463,8 +477,7 @@ def get_token_user():
     payload = verify_token(token)
     if not payload:
         return None
-    _, User, _ = _models()
-    user = User.query.get(payload.get("user_id"))
+    user = _accounts().get(payload.get("user_id"))
     from child_privacy import hold_reason
     return None if hold_reason(user, require_known_age=True) else user
 
@@ -544,7 +557,7 @@ def api_register():
     if request.method == "OPTIONS":
         return _options()
 
-    db, User, bcrypt = _models()
+    repository, bcrypt = _accounts(), _passwords()
     data = request.get_json(silent=True) or {}
     email    = (data.get("email") or "").lower().strip()
     password = data.get("password") or ""
@@ -561,25 +574,21 @@ def api_register():
         birth_year = child_privacy.registration_birth_year(data.get('birth_year'))
     except ValueError as exc:
         return _err(str(exc), 400, reason='age_eligibility_required')
-    if User.query.filter_by(email=email).first():
+    if repository.by_email(email):
         return _err("An account with that email already exists.", 409)
 
     pw_hash = bcrypt.generate_password_hash(password).decode("utf-8")
     try:
-        user = User(email=email, password_hash=pw_hash, name=name, birth_year=birth_year,
-                    parent_consent_granted=True)
-    except TypeError:
-        user = User(email=email, password_hash=pw_hash, birth_year=birth_year,
-                    parent_consent_granted=True)
-    db.session.add(user)
-    db.session.flush()
-    try:
-        import growth_glue
-        growth_glue.grant_signup_trial(user)
-    except Exception as exc:
-        # Billing must never prevent a new student from creating an account.
-        print(f"[trial] API signup grant skipped: {exc}")
-    db.session.commit()
+        user = repository.create(email=email, password_hash=pw_hash, name=name, attributes=dict(birth_year=birth_year, parent_consent_granted=True))
+    except AccountExists:
+        return _err("An account with that email already exists.", 409)
+    if current_app.extensions.get('mongo_store') is None:
+        try:
+            import growth_glue
+            growth_glue.grant_signup_trial(user)
+            _models()[0].session.commit()
+        except Exception as exc:
+            current_app.logger.warning('Signup trial grant skipped: %s', exc)
 
     # API and mobile password registrations use the same ownership proof as
     # the HTML signup. The sender applies age/parent-consent eligibility, so
@@ -656,7 +665,7 @@ def api_login():
     if request.method == "OPTIONS":
         return _options()
 
-    _, User, bcrypt = _models()
+    repository, bcrypt = _accounts(), _passwords()
     data = request.get_json(silent=True) or {}
     email    = (data.get("email") or "").lower().strip()
     password = data.get("password") or ""
@@ -664,8 +673,8 @@ def api_login():
     if not email or not password:
         return _err("Email and password are required.", 400)
 
-    user = User.query.filter_by(email=email).first()
-    if not user or not bcrypt.check_password_hash(user.password_hash, password):
+    user = repository.by_email(email)
+    if not user or not user.password_hash or not bcrypt.check_password_hash(user.password_hash, password):
         return _err("Invalid email or password.", 401)
 
     import child_privacy
@@ -697,8 +706,7 @@ def api_logout():
 
 @auth_bp.route("/api/auth/debug", methods=["GET"])
 def api_debug():
-    _, User, _ = _models()
-    return _ok({"total_users": User.query.count()})
+    return _ok({"total_users": _accounts().count()})
 
 
 # ── Password ──────────────────────────────────────────────────
@@ -742,7 +750,7 @@ def api_set_password():
     if not getattr(current_user, "is_authenticated", False):
         return _err("Sign in first.", 401)
 
-    db, User, bcrypt = _models()
+    repository, bcrypt = _accounts(), _passwords()
     data = request.get_json(silent=True) or {}
     current = (data.get("current_password") or "").strip()
     new = (data.get("new_password") or "").strip()
@@ -750,7 +758,7 @@ def api_set_password():
     if len(new) < _MIN_PASSWORD_LEN:
         return _err(f"Password must be at least {_MIN_PASSWORD_LEN} characters.", 400)
 
-    user = db.session.get(User, current_user.id)
+    user = repository.get(current_user.id)
     if user is None:
         return _err("Sign in first.", 401)
 
@@ -780,8 +788,14 @@ def api_set_password():
                 reason="reauth_required",
             )
 
-    user.password_hash = bcrypt.generate_password_hash(new).decode("utf-8")
-    db.session.commit()
+    try:
+        changed = repository.change_password(user.id, expected_hash=user.password_hash,
+                                            password_hash=bcrypt.generate_password_hash(new).decode("utf-8"))
+    except PasswordConflict:
+        return _err("Account credentials changed. Sign in again.", 409)
+    # Keep this authenticated browser usable; other cookie sessions carry the
+    # older epoch and are refused by App.py's existing session stamp check.
+    session["session_epoch"] = changed.session_epoch
     # Never log the password, and do not echo it back.
     print(f"[auth] password set for user id={user.id}")
     return _ok({"had_password": bool(current)})
@@ -800,8 +814,7 @@ def api_password_status():
     if not getattr(current_user, "is_authenticated", False):
         return _err("Sign in first.", 401)
 
-    db, User, _ = _models()
-    user = db.session.get(User, current_user.id)
+    user = _accounts().get(current_user.id)
     if user is None:
         return _err("Sign in first.", 401)
     return _ok({"has_password": bool(user.password_hash)})

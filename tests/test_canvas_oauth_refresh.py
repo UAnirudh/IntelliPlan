@@ -195,3 +195,39 @@ def test_status_distinguishes_never_connected_from_revoked(client, refreshes):
     assert body["connected"] is True
     assert body["canvas_base"] == "https://school.instructure.com"
     assert body["needs_reconnect"] is False
+
+
+@pytest.mark.parametrize('new_expiry', [30, 3000])
+@pytest.mark.parametrize('new_base', ['https://other.instructure.com', 'https://school.instructure.com'])
+def test_switching_to_older_school_never_uses_current_schools_oauth_token(client, refreshes, new_expiry, new_base):
+    uid = _connected_student(expires_in_seconds=10)
+    with App.app.app_context():
+        from intelliplan.persistence.canvas import canvas_integrations
+        from intelliplan.persistence.linked_accounts import linked_accounts
+        original = linked_accounts().active(uid)
+        canvas_integrations().connect(uid, canvas_base=new_base,
+            access_token='other-access', refresh_token='other-refresh',
+            expires_at=utcnow() + timedelta(seconds=new_expiry), canvas_user_id='other-student',
+            canvas_user_name='Other', profile_name='Other School',
+            credentials={'canvas_url': new_base,
+                         'canvas_token': 'other-access', 'canvas_refresh_token': 'other-refresh', 'canvas_oauth': True})
+        assert linked_accounts().switch(uid, original.profile_id)
+        with App.app.test_request_context('/'):
+            from flask_login import login_user
+            login_user(db.session.get(User, uid))
+            assert App.get_active_account() is None
+            assert App.session['canvas_needs_reconnect'] is True
+        assert refreshes == []
+        assert canvas_integrations().get(uid).access_token == 'other-access'
+
+
+def test_healthy_oauth_uses_current_token_for_matching_grant(client, refreshes):
+    uid = _connected_student(expires_in_seconds=3000)
+    with App.app.test_request_context('/'):
+        from flask_login import login_user
+        login_user(db.session.get(User, uid))
+        creds = {'login_type': 'canvas', 'canvas_oauth': True,
+                 'canvas_url': 'https://school.instructure.com',
+                 'canvas_token': 'stale-copy', 'canvas_refresh_token': 'refresh-abc'}
+        assert App._refresh_canvas_if_stale(creds)['canvas_token'] == 'old-token'
+    assert refreshes == []

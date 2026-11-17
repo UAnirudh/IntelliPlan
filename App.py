@@ -42,6 +42,12 @@ import net_guard
 import study_resources
 import request_guards
 import secret_box
+from intelliplan.persistence.accounts import AccountExists, IdentityConflict, PasswordConflict, accounts as account_repository
+from intelliplan.persistence.desktop import desktop_tickets, ensure_sql_ticket_epoch
+from intelliplan.persistence.app_links import app_link_tickets, ensure_sql_link_epoch
+from intelliplan.persistence.extensions import extension_tokens
+from intelliplan.persistence.identity import identities
+from intelliplan.persistence.login import EpochLoginManager
 from intelliplan.integrations.document_content import CloudDocumentError
 import policy_versions
 import parental_notice
@@ -90,7 +96,7 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import inspect, text
 from sqlalchemy.exc import IntegrityError
 from flask_login import (
-    LoginManager, UserMixin, login_user, logout_user,
+    UserMixin, login_user, logout_user,
     current_user, user_logged_in
 )
 from flask_bcrypt import Bcrypt
@@ -358,7 +364,7 @@ os.makedirs(app.config["NOTES_UPLOAD_FOLDER"], exist_ok=True)
 
 db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
-login_manager = LoginManager(app)
+login_manager = EpochLoginManager(app)
 login_manager.login_view = "login"
 
 
@@ -883,6 +889,15 @@ class UserIdentity(db.Model):
         }
 
 
+from intelliplan.persistence.linked_accounts import linked_accounts as linked_accounts_repository
+from intelliplan.persistence.canvas import canvas_integrations
+from intelliplan.persistence.outlook import outlook_accounts, onedrive_accounts
+from intelliplan.persistence.google import google_accounts
+from intelliplan.persistence.notion import notion_accounts
+from intelliplan.persistence.lms_grants import lms_grants
+from intelliplan.persistence.manual_tasks import tasks as task_repository
+
+
 class LinkedAccount(db.Model):
     __tablename__ = "linked_accounts"
     id = db.Column(db.Integer, primary_key=True)
@@ -992,6 +1007,7 @@ class DesktopAuthCode(db.Model):
     # makes a replay fail: the row has to stick around long enough to say
     # "already used" rather than "never existed".
     used_at = db.Column(db.DateTime, nullable=True)
+    session_epoch = db.Column(db.Integer, default=0)
 
 
 class AppLinkCode(db.Model):
@@ -1018,6 +1034,7 @@ class AppLinkCode(db.Model):
     # makes a replay fail: the row has to stick around long enough to say
     # "already used" rather than "never existed".
     used_at = db.Column(db.DateTime, nullable=True)
+    session_epoch = db.Column(db.Integer, default=0)
 
 
 class NotionIntegration(db.Model):
@@ -1397,40 +1414,14 @@ def issue_password_reset(user):
     Returns the raw token, which exists only in the email. Nothing anywhere
     else can reconstruct it.
     """
-    # An earlier link staying valid means a stolen inbox has more than one
-    # chance, and revoking by requesting again is behaviour people expect.
-    PasswordResetToken.query.filter_by(user_id=user.id, used_at=None).update(
-        {"used_at": datetime.utcnow()})
-
     raw = secrets_module.token_urlsafe(32)
-    db.session.add(PasswordResetToken(
-        user_id=user.id,
-        token_hash=_hash_reset_token(raw),
-        expires_at=datetime.utcnow() + timedelta(minutes=PASSWORD_RESET_TTL_MINUTES),
-        requested_ip=_client_ip(),
-    ))
-    db.session.commit()
+    account_repository().issue_reset(user.id, token_hash=_hash_reset_token(raw),
+        requested_ip=_client_ip(), ttl_minutes=PASSWORD_RESET_TTL_MINUTES)
     return raw
 
 
-def consume_password_reset(raw):
-    """Return the user for a valid token and burn it, else None."""
-    if not raw:
-        return None
-    row = PasswordResetToken.query.filter_by(
-        token_hash=_hash_reset_token(raw)).first()
-    if row is None or not row.is_usable():
-        return None
-    row.used_at = datetime.utcnow()
-    db.session.commit()
-    return db.session.get(User, row.user_id)
-
-
 def recent_reset_requests(user_id):
-    since = datetime.utcnow() - timedelta(hours=1)
-    return PasswordResetToken.query.filter(
-        PasswordResetToken.user_id == user_id,
-        PasswordResetToken.created_at >= since).count()
+    return account_repository().recent_resets(user_id)
 
 
 class SecurityEvent(db.Model):
@@ -1477,15 +1468,14 @@ def log_security_event(event, user=None, email=None, detail=""):
     system less safe, not more.
     """
     try:
-        db.session.add(SecurityEvent(
+        account_repository().record_event(
             user_id=getattr(user, "id", None),
             email=(email or getattr(user, "email", None) or "")[:255] or None,
             event=str(event)[:64],
             detail=str(detail or "")[:512],
             ip=_client_ip(),
             user_agent=(request.headers.get("User-Agent") or "")[:256],
-        ))
-        db.session.commit()
+        )
     except Exception as exc:
         try:
             db.session.rollback()
@@ -1544,17 +1534,15 @@ def register_failed_login(user, email):
         log_security_event("login_failed_unknown_account", email=email)
         return
     try:
-        count = int(getattr(user, "failed_login_count", 0) or 0) + 1
-        user.failed_login_count = count
-        if count >= LOGIN_LOCKOUT_THRESHOLD:
-            user.login_locked_until = datetime.utcnow() + timedelta(
-                minutes=LOGIN_LOCKOUT_MINUTES)
-            user.failed_login_count = 0
-            db.session.commit()
+        change = account_repository().failed_login(user.id,
+            threshold=LOGIN_LOCKOUT_THRESHOLD, lock_minutes=LOGIN_LOCKOUT_MINUTES)
+        if change is None:
+            return
+        count = change.attempts
+        if change.locked_until and change.locked_until > utcnow():
             log_security_event("account_locked", user=user,
                                detail=f"{count} consecutive failures")
             return
-        db.session.commit()
         log_security_event("login_failed", user=user, detail=f"attempt {count}")
     except Exception as exc:
         try:
@@ -1567,15 +1555,13 @@ def register_failed_login(user, email):
 def clear_failed_logins(user):
     """A correct password ends the streak."""
     try:
-        if getattr(user, "failed_login_count", 0) or getattr(user, "login_locked_until", None):
-            user.failed_login_count = 0
-            user.login_locked_until = None
-            db.session.commit()
+        return account_repository().clear_failures(user.id, expected_hash=user.password_hash)
     except Exception:
         try:
             db.session.rollback()
         except Exception:
             pass
+        return False
 
 
 class PolicyAcknowledgement(db.Model):
@@ -3007,6 +2993,8 @@ with app.app_context(), _db_boot.schema_lock(db.engine) as _schema_work_is_ours:
     # False when a sibling worker in this deployment already did it.
     if _schema_work_is_ours:
         db.create_all()
+        ensure_sql_ticket_epoch(db)
+        ensure_sql_link_epoch(db)
         apply_study_schema_migrations()
         apply_media_balance_migrations(db)
         apply_command_center_migrations(db)
@@ -3030,7 +3018,7 @@ def load_user(user_id):
     # which calls is_logged_in() → load_user → the same exception, so
     # users see only the raw "Server Error" fallback with no way out.
     try:
-        return db.session.get(User, int(user_id))
+        return account_repository().get(user_id)
     except Exception as _e:
         try:
             db.session.rollback()
@@ -3054,7 +3042,7 @@ def load_user_from_request(req):
     if not user_id:
         return None
     try:
-        return db.session.get(User, int(user_id))
+        return account_repository().get(user_id)
     except Exception:
         return None
 
@@ -3217,14 +3205,20 @@ def get_user_lms_prefs():
     if not current_user.is_authenticated:
         return _default_lms_prefs()
     raw = getattr(current_user, "lms_preferences", None) or "{}"
+    return _lms_preferences_payload(raw)
+
+
+def _lms_preferences_payload(raw, *, allow_empty=False):
     try:
         prefs = json.loads(raw) if isinstance(raw, str) else (raw or {})
     except Exception:
         prefs = {}
+    if not isinstance(prefs, dict):
+        prefs = {}
     out = _default_lms_prefs()
     if prefs.get("grade_source"):
         out["grade_source"] = prefs["grade_source"]
-    if isinstance(prefs.get("assignment_sources"), list) and prefs["assignment_sources"]:
+    if isinstance(prefs.get("assignment_sources"), list) and (prefs["assignment_sources"] or allow_empty):
         out["assignment_sources"] = prefs["assignment_sources"]
     return out
 
@@ -3232,9 +3226,7 @@ def get_user_lms_prefs():
 def _linked_account_by_type(login_type):
     if not current_user.is_authenticated or not login_type:
         return None
-    acct = LinkedAccount.query.filter_by(
-        user_id=current_user.id, login_type=login_type
-    ).order_by(LinkedAccount.is_active.desc(), LinkedAccount.id.desc()).first()
+    acct = linked_accounts_repository().by_type(current_user.id, login_type)
     if not acct:
         return None
     creds = acct.get_credentials()
@@ -3278,15 +3270,39 @@ def _refresh_canvas_if_stale(creds):
         return creds
     if not CANVAS_OAUTH_AVAILABLE or not current_user.is_authenticated:
         return creds
-    row = CanvasIntegration.query.filter_by(user_id=current_user.id).first()
-    if not row or not row.refresh_token:
-        return creds
+    row = canvas_integrations().get(current_user.id)
+    if not row:
+        try:
+            session['canvas_needs_reconnect'] = True
+        except RuntimeError:
+            pass
+        return None
+
+    same_grant = (creds.get('canvas_token') == row.access_token or
+                  (creds.get('canvas_refresh_token') and creds.get('canvas_refresh_token') == row.refresh_token))
+    if creds.get('canvas_url') != row.canvas_base or not same_grant:
+        # Only one OAuth grant is stored per user. An older linked profile
+        # must reconnect rather than send a different school's/account's token.
+        try:
+            session['canvas_needs_reconnect'] = True
+        except RuntimeError:
+            pass
+        return None
 
     now = utcnow()
     fresh_enough = (row.token_expires_at
                     and row.token_expires_at > now + timedelta(seconds=CANVAS_REFRESH_SKEW_SECONDS))
     if fresh_enough and creds.get("canvas_token"):
+        creds['canvas_token'] = row.access_token
+        creds['canvas_token_expires_at'] = row.token_expires_at.isoformat()
         return creds
+
+    if not row.refresh_token:
+        try:
+            session['canvas_needs_reconnect'] = True
+        except RuntimeError:
+            pass
+        return None
 
     try:
         tokens = refresh_canvas_token(row.refresh_token, row.canvas_base)
@@ -3310,26 +3326,21 @@ def _refresh_canvas_if_stale(creds):
     if not access_token:
         return creds
     ttl = tokens.get("expires_in")
-    row.access_token = access_token
-    row.token_expires_at = now + timedelta(seconds=int(ttl)) if ttl else None
-
-    # The linked account is what the fetch paths actually read, so the fresh
-    # token has to land there too or the refresh changes nothing.
-    acct = LinkedAccount.query.filter_by(
-        user_id=current_user.id, is_active=True, login_type="canvas").first()
-    if acct:
-        stored = acct.get_credentials()
-        stored["canvas_token"] = access_token
-        stored["canvas_token_expires_at"] = (
-            row.token_expires_at.isoformat() if row.token_expires_at else None)
-        acct.set_credentials(stored)
-    try:
-        db.session.commit()
-    except Exception:
-        db.session.rollback()
+    expires_at = now + timedelta(seconds=int(ttl)) if ttl else None
+    saved = canvas_integrations().refresh(
+        current_user.id, row, access_token=access_token,
+        refresh_token=tokens.get("refresh_token"), expires_at=expires_at)
+    if not saved:
+        # A disconnect, reconnect or competing refresh superseded this network request.
+        active = linked_accounts_repository().active(current_user.id)
+        if active is None:
+            return None
+        values = active.get_credentials()
+        values["login_type"] = active.login_type
+        return values
     try:
         session.pop("canvas_needs_reconnect", None)
-    except Exception:
+    except RuntimeError:
         pass
     creds["canvas_token"] = access_token
     return creds
@@ -3402,7 +3413,7 @@ def _refresh_guest_canvas_if_stale(creds):
 
 def get_active_account():
     if current_user.is_authenticated:
-        acct = LinkedAccount.query.filter_by(user_id=current_user.id, is_active=True).first()
+        acct = linked_accounts_repository().active(current_user.id)
         if acct:
             creds = acct.get_credentials()
             creds["login_type"] = acct.login_type
@@ -3692,48 +3703,43 @@ def get_google_token(user_id=None):
     uid = user_id if explicit_owner else (current_user.id if current_user.is_authenticated else None)
     if uid is not None:
         # Prefer the active row; fall back to the most recent if none flagged.
-        gi = (
-            GoogleIntegration.query
-            .filter_by(user_id=uid, is_active=True)
-            .first()
-            or GoogleIntegration.query
-            .filter_by(user_id=uid)
-            .order_by(GoogleIntegration.id.desc())
-            .first()
-        )
+        gi = google_accounts().get(uid)
         if gi:
             try:
-                return json.loads(gi.token_data)
-            except (TypeError, json.JSONDecodeError):
-                if explicit_owner:
-                    return None
-                db.session.delete(gi)
-                db.session.commit()
+                token = json.loads(gi.token_data)
+                if not isinstance(token, dict):
+                    raise ValueError('Invalid Google token')
+                flask.g._google_grant = (uid, gi)
+                return token
+            except (TypeError, ValueError):
+                if not explicit_owner:
+                    google_accounts().remove(uid, gi.id, expected=gi)
                 return None
+        # A disconnected authenticated account must not reuse stale cookie data.
+        return None
     return None if explicit_owner else session.get("google_token")
 
 
 def get_google_drive_token(account_email=None):
     if not current_user.is_authenticated:
         return None
-    query = GoogleDriveIntegration.query.filter_by(user_id=current_user.id)
-    if account_email:
-        query = query.filter_by(account_email=account_email)
-    row = query.order_by(GoogleDriveIntegration.id.desc()).first()
+    repository = google_accounts('drive')
+    row = repository.get(current_user.id, account_email=account_email)
     if not row:
         return None
     try:
         token = json.loads(row.token_data)
         if float(token.get("expires_at") or 0) <= time.time() + 90:
             token = refresh_access_token(token)
-            row.token_data = json.dumps(token)
-            db.session.commit()
+            if not repository.refresh(current_user.id, row, json.dumps(token)):
+                return None
         if not google_drive_helper.has_drive_scope(token):
             return None
         return token
     except Exception as e:
-        print(f"Google Drive token refresh failed: {e}")
+        print(f"Google Drive token refresh failed: {type(e).__name__}")
         return None
+
 
 def _refresh_notion_row(ni):
     """Renew ``ni``'s access token in place when it is close to expiring.
@@ -3756,33 +3762,39 @@ def _refresh_notion_row(ni):
     try:
         fresh = refresh_notion_token(ni.refresh_token)
     except Exception as e:
-        print(f"[notion] token refresh failed for user {ni.user_id}: {e}")
+        print(f"[notion] token refresh failed: {type(e).__name__}")
         return ni.token if _lms_policy_allowed('notion', ni.user_id) else None
     if not _lms_policy_allowed('notion', ni.user_id):
         return None
     if not fresh.get("access_token"):
         print(f"[notion] refresh returned no access token for user {ni.user_id}")
         return ni.token
-    ni.token = fresh["access_token"]
-    if fresh.get("refresh_token"):
-        ni.refresh_token = fresh["refresh_token"]
-    ni.token_expires_at = fresh.get("expires_at")
     try:
-        db.session.commit()
+        if not notion_accounts().refresh(ni.user_id, ni, fresh):
+            return None
     except Exception as e:
-        db.session.rollback()
-        print(f"[notion] could not persist refreshed token for user {ni.user_id}: {e}")
-    return ni.token
+        print(f"[notion] could not persist refreshed token: {type(e).__name__}")
+        return None
+    return fresh["access_token"]
 
 
 def get_notion_token_and_db():
     if current_user.is_authenticated:
         if not _lms_policy_allowed('notion'):
             return None, None
-        ni = NotionIntegration.query.filter_by(user_id=current_user.id).first()
+        repository = notion_accounts()
+        ni = repository.get(current_user.id)
         if ni and ni.token:
-            return _refresh_notion_row(ni), ni.database_id
+            token = _refresh_notion_row(ni)
+            current = repository.get(current_user.id)
+            if (token and current and current.id == ni.id and current.token == token
+                    and current.connected_at == ni.connected_at
+                    and _lms_policy_allowed('notion')):
+                flask.g._notion_grant = current
+                return token, current.database_id
+        return None, None
     return session.get("notion_token"), session.get("notion_database_id")
+
 
 def get_study_profile(user_id=None, guest_id=None):
     if user_id:
@@ -6334,7 +6346,7 @@ def _lms_policy_allowed(source, user_id=None):
         if flask.has_request_context() and (not current_user.is_authenticated or current_user.id != uid):
             return False
         from intelliplan.learning import policy as learning_policy
-        owner = db.session.get(User, uid)
+        owner = account_repository().get(uid)
         capability = learning_policy.source_capability(source)
         if not owner or not capability:
             return False
@@ -6350,7 +6362,7 @@ def _classroom_access_token_for(user_id):
     Returns None if no Classroom integration exists or refresh fails."""
     if not _lms_policy_allowed('google_classroom', user_id):
         return None, None
-    row = ClassroomIntegration.query.filter_by(user_id=user_id).order_by(ClassroomIntegration.id.desc()).first()
+    row = lms_grants('google_classroom').get(user_id)
     if not row:
         return None, None
     now = utcnow()
@@ -6361,12 +6373,16 @@ def _classroom_access_token_for(user_id):
             data = _classroom_refresh_token(row.refresh_token)
             if not _lms_policy_allowed('google_classroom', user_id):
                 return None, None
-            row.access_token = data.get("access_token", row.access_token)
             ttl = int(data.get("expires_in", 3600))
-            row.token_expires_at = now + timedelta(seconds=ttl)
-            db.session.commit()
+            values = {'access_token': data.get("access_token") or row.access_token,
+                'token_expires_at': now + timedelta(seconds=ttl)}
+            if data.get('refresh_token'):
+                values['refresh_token'] = data['refresh_token']
+            row = lms_grants('google_classroom').refresh(user_id, row, **values)
+            if not row:
+                return None, None
         except Exception as e:
-            print(f"[classroom] refresh failed for user {user_id}: {e}")
+            print(f"[classroom] refresh failed: {type(e).__name__}")
             return None, row
     return (row.access_token, row) if _lms_policy_allowed('google_classroom', user_id) else (None, None)
 
@@ -6697,7 +6713,7 @@ def _blackboard_refresh_token(institution_url, refresh_token):
 def _blackboard_access_token_for(user_id):
     if not _lms_policy_allowed('blackboard', user_id):
         return None, None
-    row = BlackboardIntegration.query.filter_by(user_id=user_id).order_by(BlackboardIntegration.id.desc()).first()
+    row = lms_grants('blackboard').get(user_id)
     if not row:
         return None, None
     now = utcnow()
@@ -6707,12 +6723,16 @@ def _blackboard_access_token_for(user_id):
             data = _blackboard_refresh_token(row.institution_url, row.refresh_token)
             if not _lms_policy_allowed('blackboard', user_id):
                 return None, None
-            row.access_token = data.get("access_token", row.access_token)
             ttl = int(data.get("expires_in", 3600))
-            row.token_expires_at = now + timedelta(seconds=ttl)
-            db.session.commit()
+            values = {'access_token': data.get("access_token") or row.access_token,
+                'token_expires_at': now + timedelta(seconds=ttl)}
+            if data.get('refresh_token'):
+                values['refresh_token'] = data['refresh_token']
+            row = lms_grants('blackboard').refresh(user_id, row, **values)
+            if not row:
+                return None, None
         except Exception as e:
-            print(f"[blackboard] refresh failed for user {user_id}: {e}")
+            print(f"[blackboard] refresh failed: {type(e).__name__}")
             return None, row
     return (row.access_token, row) if _lms_policy_allowed('blackboard', user_id) else (None, None)
 
@@ -6965,18 +6985,9 @@ def api_lms_connect_moodle_manual():
     except Exception as e:
         return jsonify({"status": "error",
                         "message": f"Could not verify with Moodle: {e}"}), 400
-    row = MoodleIntegration.query.filter_by(user_id=current_user.id).order_by(MoodleIntegration.id.desc()).first()
-    now = utcnow()
-    if not row:
-        row = MoodleIntegration(user_id=current_user.id, moodle_url=moodle_url, ws_token=ws_token)
-        db.session.add(row)
-    row.moodle_url = moodle_url
-    row.ws_token = ws_token
-    row.moodle_user_id = str(info.get("userid") or "") or None
-    row.moodle_username = info.get("username") or None
-    row.moodle_fullname = info.get("fullname") or None
-    row.connected_at = now
-    db.session.commit()
+    row = lms_grants('moodle').connect(current_user.id, moodle_url=moodle_url, ws_token=ws_token,
+        moodle_user_id=str(info.get("userid") or "") or None,
+        moodle_username=info.get("username") or None, moodle_fullname=info.get("fullname") or None)
     return jsonify({"status": "ok",
                     "fullname": row.moodle_fullname,
                     "username": row.moodle_username,
@@ -6988,18 +6999,16 @@ def api_blackboard_disconnect():
     if not current_user.is_authenticated:
         return jsonify({"status": "error", "message": "login required"}), 401
     try:
-        BlackboardIntegration.query.filter_by(user_id=current_user.id).delete()
-        db.session.commit()
+        lms_grants('blackboard').disconnect(current_user.id)
         return jsonify({"status": "ok"})
     except Exception as e:
-        db.session.rollback()
         return jsonify({"status": "error", "message": safe_error_message(e)}), 500
 
 @app.route("/api/lms/status/blackboard", methods=["GET"])
 def api_blackboard_status():
     if not current_user.is_authenticated:
         return jsonify({"status": "error", "message": "login required"}), 401
-    row = BlackboardIntegration.query.filter_by(user_id=current_user.id).order_by(BlackboardIntegration.id.desc()).first()
+    row = lms_grants('blackboard').get(current_user.id)
     if not row:
         return jsonify({"status": "ok", "connected": False})
     return jsonify({"status": "ok", "connected": True,
@@ -7012,18 +7021,16 @@ def api_moodle_disconnect():
     if not current_user.is_authenticated:
         return jsonify({"status": "error", "message": "login required"}), 401
     try:
-        MoodleIntegration.query.filter_by(user_id=current_user.id).delete()
-        db.session.commit()
+        lms_grants('moodle').disconnect(current_user.id)
         return jsonify({"status": "ok"})
     except Exception as e:
-        db.session.rollback()
         return jsonify({"status": "error", "message": safe_error_message(e)}), 500
 
 @app.route("/api/lms/status/moodle", methods=["GET"])
 def api_moodle_status():
     if not current_user.is_authenticated:
         return jsonify({"status": "error", "message": "login required"}), 401
-    row = MoodleIntegration.query.filter_by(user_id=current_user.id).order_by(MoodleIntegration.id.desc()).first()
+    row = lms_grants('moodle').get(current_user.id)
     if not row:
         return jsonify({"status": "ok", "connected": False})
     return jsonify({"status": "ok", "connected": True,
@@ -7074,20 +7081,15 @@ def api_lms_callback(provider):
             # a second call to /users/me, which some instances restrict.
             info = {"id": tok.get("user_id")} if tok.get("user_id") else {}
             info = {**_blackboard_get_userinfo(institution, access), **{k: v for k, v in info.items() if v}}
-            row = BlackboardIntegration.query.filter_by(user_id=current_user.id).order_by(BlackboardIntegration.id.desc()).first()
-            now = utcnow()
-            if not row:
-                row = BlackboardIntegration(user_id=current_user.id, institution_url=institution, access_token=access)
-                db.session.add(row)
-            row.institution_url = institution
-            row.access_token = access
+            values = {'institution_url': institution, 'access_token': access,
+                'token_expires_at': utcnow() + timedelta(seconds=ttl)}
+            if info.get('id') or info.get('userId'):
+                values['bb_user_id'] = info.get('id') or info.get('userId')
+            if info.get('userName') or info.get('username'):
+                values['bb_username'] = info.get('userName') or info.get('username')
             if refresh:
-                row.refresh_token = refresh
-            row.token_expires_at = now + timedelta(seconds=ttl)
-            row.bb_user_id = (info.get("id") or info.get("userId") or "") or row.bb_user_id
-            row.bb_username = info.get("userName") or info.get("username") or row.bb_username
-            row.connected_at = now
-            db.session.commit()
+                values['refresh_token'] = refresh
+            row = lms_grants('blackboard').connect(current_user.id, **values)
             print(f"[blackboard callback] connected {row.bb_username or current_user.email}")
         except Exception as e:
             print(f"[blackboard callback] FAILED: {e}")
@@ -7114,19 +7116,14 @@ def api_lms_callback(provider):
                 print(f"[classroom callback] no access_token, keys={sorted(tok.keys())}")
                 return redirect("/connect?lms_error=1")
             info = _classroom_get_userinfo(access)
-            row = ClassroomIntegration.query.filter_by(user_id=current_user.id).order_by(ClassroomIntegration.id.desc()).first()
-            now = utcnow()
-            if not row:
-                row = ClassroomIntegration(user_id=current_user.id, access_token=access)
-                db.session.add(row)
-            row.access_token = access
-            if refresh:  # Google only returns refresh on first consent
-                row.refresh_token = refresh
-            row.token_expires_at = now + timedelta(seconds=ttl)
-            row.account_email = info.get("email") or row.account_email
-            row.account_name = info.get("name") or row.account_name
-            row.connected_at = now
-            db.session.commit()
+            values = {'access_token': access, 'token_expires_at': utcnow() + timedelta(seconds=ttl)}
+            if info.get('email'):
+                values['account_email'] = info['email']
+            if info.get('name'):
+                values['account_name'] = info['name']
+            if refresh:
+                values['refresh_token'] = refresh
+            row = lms_grants('google_classroom').connect(current_user.id, **values)
             print(f"[classroom callback] connected {row.account_email or current_user.email}")
         except Exception as e:
             print(f"[classroom callback] FAILED: {e}")
@@ -7144,11 +7141,9 @@ def api_classroom_disconnect():
     if not current_user.is_authenticated:
         return jsonify({"status": "error", "message": "login required"}), 401
     try:
-        ClassroomIntegration.query.filter_by(user_id=current_user.id).delete()
-        db.session.commit()
+        lms_grants('google_classroom').disconnect(current_user.id)
         return jsonify({"status": "ok"})
     except Exception as e:
-        db.session.rollback()
         return jsonify({"status": "error", "message": safe_error_message(e)}), 500
 
 
@@ -7289,7 +7284,7 @@ def api_integrations_status():
 
     if current_user.is_authenticated:
         uid = current_user.id
-        for acct in LinkedAccount.query.filter_by(user_id=uid, is_active=True).all():
+        for acct in linked_accounts_repository().list(uid, active=True):
             if acct.login_type in integrations_catalog.BY_ID:
                 connected.add(acct.login_type)
                 if acct.name:
@@ -7307,7 +7302,10 @@ def api_integrations_status():
         )
         for key, model, detail_field in rows:
             try:
-                row = model.query.filter_by(user_id=uid).first()
+                row = (outlook_accounts().get(uid) if key == 'outlook_calendar' else
+                       onedrive_accounts().get(uid) if key == 'onedrive' else
+                       google_accounts().get(uid) if key == 'google_calendar' else
+                       google_accounts('drive').get(uid) if key == 'google_drive' else lms_grants(key).get(uid))
             except Exception:
                 # A table a migration has not reached yet must not take the
                 # whole list down -- the other nine are still useful.
@@ -7317,7 +7315,7 @@ def api_integrations_status():
                 details[key] = getattr(row, detail_field, "") or ""
 
         try:
-            ni = NotionIntegration.query.filter_by(user_id=uid).first()
+            ni = notion_accounts().get(uid)
             if ni:
                 connected.add("notion")
                 details["notion"] = ni.workspace_name or ""
@@ -7344,7 +7342,7 @@ def api_classroom_status():
     """Lightweight status check so the UI can render Connected / Not connected."""
     if not current_user.is_authenticated:
         return jsonify({"status": "error", "message": "login required"}), 401
-    row = ClassroomIntegration.query.filter_by(user_id=current_user.id).order_by(ClassroomIntegration.id.desc()).first()
+    row = lms_grants('google_classroom').get(current_user.id)
     if not row:
         return jsonify({"status": "ok", "connected": False})
     return jsonify({
@@ -7441,14 +7439,14 @@ def register():
             # Same defensive lookup as login — re-run the migration if
             # the SELECT trips on a missing column.
             try:
-                _existing = User.query.filter_by(email=email).first()
+                _existing = account_repository().by_email(email)
             except Exception as _e:
                 print(f"[register] User lookup failed: {_e}")
                 try: db.session.rollback()
                 except Exception: pass
                 try:
                     _run_boot_migration_once()
-                    _existing = User.query.filter_by(email=email).first()
+                    _existing = account_repository().by_email(email)
                 except Exception:
                     _existing = None
             if _existing:
@@ -7498,8 +7496,8 @@ def register():
                     # picked up by an export later. Same shape as sms_optin
                     # above: no prerequisite, no opt-in.
                     marketing_optin = False
-                user = User(
-                    email=email, password_hash=pw_hash,
+                user = account_repository().create(
+                    email=email, password_hash=pw_hash, attributes=dict(
                     role=("teacher" if _is_teacher_auth_request() else "parent") if _is_adult_auth_request() else "student",
                     phone=phone_norm, sms_reminders_opt_in=sms_optin,
                     birth_year=birth_year_val,
@@ -7512,22 +7510,17 @@ def register():
                     marketing_consent_version=(
                         "weekly_v1" if marketing_optin else None
                     ),
-                )
-                db.session.add(user)
-                db.session.flush()
-                # Trials are inert until billing, a Stripe secret/Price, and
-                # an explicit trial duration are configured in production.
-                try:
-                    import growth_glue
-                    growth_glue.grant_signup_trial(user)
-                except Exception as _trial_error:
-                    print(f"[trial] signup grant skipped: {_trial_error}")
-                for doc in policy_versions.all_docs():
-                    db.session.add(PolicyAcknowledgement(
-                        user_id=user.id, doc=doc, version=policy_versions.current_version(doc),
-                        user_agent=(request.headers.get("User-Agent") or "")[:256],
-                    ))
-                db.session.commit()
+                ), acknowledgements=[{
+                    'doc': doc, 'version': policy_versions.current_version(doc),
+                    'user_agent': (request.headers.get('User-Agent') or '')[:256],
+                } for doc in policy_versions.all_docs()])
+                if app.extensions.get('mongo_store') is None:
+                    try:
+                        import growth_glue
+                        growth_glue.grant_signup_trial(user)
+                        db.session.commit()
+                    except Exception as _trial_error:
+                        app.logger.warning('Signup trial grant skipped: %s', _trial_error)
                 # Fire the parental consent email out-of-band.
                 if under_13 and parent_email_raw:
                     try:
@@ -7600,12 +7593,7 @@ FOCUS_AREA_CHOICES = [
 
 
 def _get_or_create_identity(user_id):
-    identity = UserIdentity.query.filter_by(user_id=user_id).first()
-    if not identity:
-        identity = UserIdentity(user_id=user_id)
-        db.session.add(identity)
-        db.session.commit()
-    return identity
+    return identities().get_or_create(user_id)
 
 
 def _ai_personalization_enabled(user=None):
@@ -7672,7 +7660,7 @@ def build_student_context(user_id=None, grades_summary=None, depth="full"):
         uid = user_id if user_id is not None else (current_user.id if current_user.is_authenticated else None)
         if not uid:
             return ""
-        u = db.session.get(User, uid)
+        u = account_repository().get(uid)
         if not u or not _ai_personalization_enabled(u):
             return ""
         identity = _get_or_create_identity(uid)
@@ -7962,11 +7950,8 @@ def onboarding():
         focus = request.form.getlist("focus_areas")
         focus = [f.strip()[:48] for f in focus if f.strip()][:12]
         goals = (request.form.get("goals") or "").strip()[:1000]
-        identity.grade_level = grade or None
-        identity.focus_areas = json.dumps(focus)
-        identity.goals = goals
-        identity.completed = True
-        db.session.commit()
+        identities().save(current_user.id, {'grade_level': grade or None,
+            'focus_areas': json.dumps(focus), 'goals': goals, 'completed': True})
         # Clear the resume-state so we don't bounce them back into the chat
         # next time they hit /onboarding (a real bug in the prior flow).
         for k in ("onb_mode", "onb_step", "onb_messages"):
@@ -7996,37 +7981,37 @@ def update_identity():
     if not is_logged_in():
         return jsonify({"error": "auth required"}), 401
     payload = request.get_json(silent=True) or {}
-    identity = _get_or_create_identity(current_user.id)
+    changes = {}
     if "grade_level" in payload:
-        identity.grade_level = str(payload.get("grade_level") or "").strip()[:32] or None
+        changes['grade_level'] = str(payload.get("grade_level") or "").strip()[:32] or None
     if "focus_areas" in payload:
         raw = payload.get("focus_areas") or []
         if isinstance(raw, list):
-            identity.focus_areas = json.dumps([str(x).strip()[:48] for x in raw if str(x).strip()][:12])
+            changes['focus_areas'] = json.dumps([str(x).strip()[:48] for x in raw if str(x).strip()][:12])
     if "goals" in payload:
-        identity.goals = str(payload.get("goals") or "").strip()[:1000]
+        changes['goals'] = str(payload.get("goals") or "").strip()[:1000]
     if "availability" in payload:
         av = payload.get("availability") or {}
         if isinstance(av, dict):
-            identity.availability = json.dumps(av)
+            changes['availability'] = json.dumps(av)
     if "weekly_commitments" in payload:
-        identity.weekly_commitments = str(payload.get("weekly_commitments") or "").strip()[:500]
+        changes['weekly_commitments'] = str(payload.get("weekly_commitments") or "").strip()[:500]
     if "assistant_name" in payload:
         # Empty, or nothing usable left after cleaning, means the default.
         chosen = assistant_name.clean(payload.get("assistant_name"))
-        identity.assistant_name = (
+        changes['assistant_name'] = (
             chosen if chosen and chosen != assistant_name.DEFAULT_NAME else None
         )
     if "class_schedule" in payload:
         cs = payload.get("class_schedule") or []
         if isinstance(cs, list):
-            identity.class_schedule = json.dumps(cs[:50])
+            changes['class_schedule'] = json.dumps(cs[:50])
     # Any save finishes onboarding unless the caller says otherwise: Settings
     # posts here without the key. Onboarding sends completed=false for its
     # mid-flow saves so leaving to connect a school does not end setup.
     if payload.get("completed", True):
-        identity.completed = True
-    db.session.commit()
+        changes['completed'] = True
+    identity = identities().save(current_user.id, changes)
     # When the client signals completion, wipe the resume-state so a future
     # visit to /onboarding starts fresh at "Quick or Custom" rather than
     # silently dumping the user back into the chat they already finished.
@@ -8221,19 +8206,21 @@ def api_onboarding_chat():
         extracted = {}
     # Auto-persist any extracted fields immediately so refresh-mid-flow is safe.
     try:
+        changes = {}
         if extracted.get("grade_level"):
-            identity.grade_level = str(extracted["grade_level"])[:32]
+            changes['grade_level'] = str(extracted["grade_level"])[:32]
         if isinstance(extracted.get("focus_areas"), list) and extracted["focus_areas"]:
             cur = identity.focus_list()
             merged = list(dict.fromkeys(cur + [str(x)[:48] for x in extracted["focus_areas"] if str(x).strip()]))[:12]
-            identity.focus_areas = json.dumps(merged)
+            changes['focus_areas'] = json.dumps(merged)
         if extracted.get("goals"):
-            identity.goals = str(extracted["goals"])[:1000]
+            changes['goals'] = str(extracted["goals"])[:1000]
         if extracted.get("weekly_commitments"):
-            identity.weekly_commitments = str(extracted["weekly_commitments"])[:500]
+            changes['weekly_commitments'] = str(extracted["weekly_commitments"])[:500]
         if isinstance(extracted.get("availability"), dict) and extracted["availability"]:
-            identity.availability = json.dumps(extracted["availability"])
-        db.session.commit()
+            changes['availability'] = json.dumps(extracted["availability"])
+        if changes:
+            identity = identities().save(current_user.id, changes)
     except Exception as _pe:
         print(f"[onboarding-chat] persist failed: {_pe}")
         try: db.session.rollback()
@@ -8332,32 +8319,13 @@ def desktop_auth_exchange():
     if not code or not desktop_auth.is_valid_verifier(verifier):
         return refuse()
 
-    row = DesktopAuthCode.query.filter_by(
-        code_hash=desktop_auth.hash_code(code)
-    ).first()
-    if row is None or row.used_at is not None:
-        return refuse()
-    if desktop_auth.is_expired(row.created_at, datetime.utcnow()):
-        return refuse()
-    if not desktop_auth.verifier_matches(verifier, row.code_challenge):
-        # A valid code with the wrong verifier is the signature of a stolen
-        # deep link, so burn it rather than letting them try again.
-        row.used_at = datetime.utcnow()
-        db.session.commit()
-        print("[DESKTOP AUTH] verifier mismatch — code burned")
+    redemption = desktop_tickets().redeem(code_hash=desktop_auth.hash_code(code), verifier=verifier)
+    if redemption is None:
         return refuse()
 
-    user = User.query.get(row.user_id)
-    if user is None:
-        return refuse()
-
-    # Burn before issuing. If the commit below fails the student retries a
-    # sign-in; if it succeeded and we crashed after, the code must not still
-    # be live.
-    row.used_at = datetime.utcnow()
-    db.session.commit()
-
+    user = redemption.user
     login_user(user, remember=True)
+    session['session_epoch'] = redemption.session_epoch
     session.permanent = True
     session.modified = True
     print(f"[DESKTOP AUTH] exchanged code for session, user id={user.id}")
@@ -8369,12 +8337,13 @@ def desktop_auth_exchange():
 def login_account():
     if current_user.is_authenticated:
         return redirect(_adult_home_url() if _is_adult_auth_request() else "/command-center")
-    error = None
+    error = ("Sign in with your existing password before linking this Google account."
+             if request.method == 'GET' and request.args.get('reason') == 'google_link_required' else None)
     if request.method == "POST":
         email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "").strip()
         try:
-            user = User.query.filter_by(email=email).first()
+            user = account_repository().by_email(email)
         except Exception as _e:
             # If the SELECT itself blows up (e.g. a new column hasn't
             # been migrated yet on production), retry the migration and
@@ -8386,7 +8355,7 @@ def login_account():
                 pass
             try:
                 _run_boot_migration_once()
-                user = User.query.filter_by(email=email).first()
+                user = account_repository().by_email(email)
             except Exception as _e2:
                 print(f"[login] retry also failed: {_e2}")
                 user = None
@@ -8429,12 +8398,17 @@ def login_account():
                     if _is_adult_auth_request():
                         return render_template("parent_auth.html", mode="login", error=error)
                     return render_template("login_account.html", active_page="login", error=error)
-                clear_failed_logins(user)
+                authentication = clear_failed_logins(user)
+                if not authentication:
+                    template = "parent_auth.html" if _is_family_auth_request() else "login_account.html"
+                    return render_template(template, mode="login", active_page="login",
+                        error="Your account changed while signing in. Please try again.")
                 # Session fixation: an attacker who can plant a session id
                 # before sign-in would otherwise still hold a valid one after.
                 # Everything worth keeping across the boundary is re-derived.
                 _rotate_session_on_login()
                 login_user(user, remember=True)
+                session['session_epoch'] = authentication.session_epoch
                 log_security_event("login_success", user=user)
                 from intelliplan.api.roles import adult_home
                 if adult_home(user):
@@ -8446,7 +8420,7 @@ def login_account():
                 if joined_gid:
                     return redirect(url_for("groups_page") + f"?open={joined_gid}")
                 try:
-                    acct = LinkedAccount.query.filter_by(user_id=user.id, is_active=True).first()
+                    acct = linked_accounts_repository().active(user.id)
                 except Exception:
                     acct = None
                 if not acct:
@@ -8494,7 +8468,7 @@ def forgot_password():
         return render_template("forgot_password.html", active_page="login",
                                sent=True, message=sent_message)
 
-    user = User.query.filter_by(email=email).first()
+    user = account_repository().by_email(email)
     if user is None:
         log_security_event("password_reset_unknown_address", email=email)
         return render_template("forgot_password.html", active_page="login",
@@ -8551,9 +8525,7 @@ def reset_password():
                        "Request a new one below.")
 
     if request.method == "GET":
-        row = PasswordResetToken.query.filter_by(
-            token_hash=_hash_reset_token(token)).first() if token else None
-        if row is None or not row.is_usable():
+        if not token or not account_repository().reset_usable(_hash_reset_token(token)):
             return render_template("reset_password.html", active_page="login",
                                    invalid=True, error=expired_message)
         return render_template("reset_password.html", active_page="login",
@@ -8570,25 +8542,28 @@ def reset_password():
         return render_template("reset_password.html", active_page="login",
                                token=token, error="Those don't match.")
 
-    user = consume_password_reset(token)
-    if user is None:
+    repository = account_repository()
+    token_hash = _hash_reset_token(token)
+    if not token or not repository.reset_usable(token_hash):
+        log_security_event("password_reset_invalid_token")
+        return render_template("reset_password.html", active_page="login",
+                               invalid=True, error=expired_message)
+    changed = repository.complete_reset(token_hash,
+        password_hash=bcrypt.generate_password_hash(password).decode("utf-8"))
+    if changed is None:
         log_security_event("password_reset_invalid_token")
         return render_template("reset_password.html", active_page="login",
                                invalid=True, error=expired_message)
 
-    user.password_hash = bcrypt.generate_password_hash(password).decode("utf-8")
-    # A reset is how someone recovers an account that may be compromised, so
-    # it has to end whatever access the other party had. Clearing the lockout
-    # too: they have just proved control of the inbox.
-    user.failed_login_count = 0
-    user.login_locked_until = None
-    db.session.commit()
-
-    _invalidate_other_sessions(user)
+    user = repository.get(changed.user_id)
+    if user is None:
+        return render_template("reset_password.html", active_page="login",
+                               invalid=True, error=expired_message)
     log_security_event("password_reset_completed", user=user)
 
     _rotate_session_on_login()
     login_user(user, remember=True)
+    session["session_epoch"] = changed.session_epoch
     return redirect("/command-center")
 
 
@@ -8669,11 +8644,8 @@ def login_canvas():
                 if test is not None and test.status_code == 200:
                     creds = {"canvas_token": token, "canvas_url": canvas_url}
                     if current_user.is_authenticated:
-                        LinkedAccount.query.filter_by(user_id=current_user.id).update({"is_active": False})
-                        acct = LinkedAccount(user_id=current_user.id, name=profile_name, login_type="canvas", is_active=True)
-                        acct.set_credentials(creds)
-                        db.session.add(acct)
-                        db.session.commit()
+                        linked_accounts_repository().create_active(
+                            current_user.id, profile_name, "canvas", creds)
                     else:
                         session.permanent = True
                         session["canvas_token"] = token
@@ -8740,12 +8712,8 @@ def login_calendar_feed():
 
     creds = {"feed_url": stored_url}
     if current_user.is_authenticated:
-        LinkedAccount.query.filter_by(user_id=current_user.id).update({"is_active": False})
-        acct = LinkedAccount(user_id=current_user.id, name=profile_name,
-                             login_type="calendar_feed", is_active=True)
-        acct.set_credentials(creds)
-        db.session.add(acct)
-        db.session.commit()
+        linked_accounts_repository().create_active(
+            current_user.id, profile_name, "calendar_feed", creds)
     else:
         session.permanent = True
         session["feed_url"] = stored_url
@@ -8769,39 +8737,22 @@ def app_link_redeem(code):
     either valid or it is somebody probing, and the two deserve the same
     reply.
     """
-    now = datetime.utcnow()
-
-    if not app_link.is_valid_code(code):
+    redemption = app_link_tickets().redeem(code)
+    if redemption is None:
         return redirect(url_for("login"))
-
-    row = AppLinkCode.query.filter_by(code_hash=app_link.hash_code(code)).first()
-    if row is None or row.used_at is not None:
-        return redirect(url_for("login"))
-    if app_link.is_expired(row.created_at, now):
-        return redirect(url_for("login"))
-    # Constant-time even though the lookup was by hash: the row was found
-    # by an indexed equality match, and this is the comparison that
-    # actually authorises.
-    if not app_link.codes_match(code, row.code_hash):
-        return redirect(url_for("login"))
-
-    user = db.session.get(User, row.user_id)
-    if user is None:
-        return redirect(url_for("login"))
-
-    # Burned before the session is granted, so a crash between the two
-    # leaves a spent code rather than a live one.
-    row.used_at = now
-    db.session.commit()
-
-    login_user(user, remember=True)
+    session.clear()
+    login_user(redemption.user, remember=True)
+    session['session_epoch'] = redemption.session_epoch
+    regenerate = getattr(flask.current_app.session_interface, 'regenerate', None)
+    if regenerate is not None:
+        regenerate(session)
     session.permanent = True
     # Tells the OAuth callbacks to bounce back to the app instead of
     # rendering a web page the student cannot get out of.
     session["app_link_return"] = True
     session.modified = True
 
-    return redirect(row.next_path)
+    return redirect(redemption.next_path)
 
 
 @app.route("/oauth/canvas/check")
@@ -8896,35 +8847,11 @@ def oauth_canvas_callback():
         # Persist long-lived OAuth tokens in their own table for refresh,
         # AND mirror short-lived access_token onto LinkedAccount so the
         # existing /live, /grades, /classes paths keep working unchanged.
-        existing_oauth = CanvasIntegration.query.filter_by(user_id=current_user.id).first()
-        if existing_oauth:
-            existing_oauth.canvas_base = tokens.get("canvas_base") or canvas_base
-            existing_oauth.access_token = access_token
-            existing_oauth.refresh_token = refresh_token or existing_oauth.refresh_token
-            existing_oauth.token_expires_at = expires_at
-            existing_oauth.canvas_user_id = canvas_user_id or existing_oauth.canvas_user_id
-            existing_oauth.canvas_user_name = canvas_user_name or existing_oauth.canvas_user_name
-            existing_oauth.connected_at = utcnow()
-        else:
-            db.session.add(CanvasIntegration(
-                user_id=current_user.id,
-                canvas_base=tokens.get("canvas_base") or canvas_base,
-                access_token=access_token,
-                refresh_token=refresh_token,
-                token_expires_at=expires_at,
-                canvas_user_id=canvas_user_id,
-                canvas_user_name=canvas_user_name,
-            ))
-        LinkedAccount.query.filter_by(user_id=current_user.id).update({"is_active": False})
-        acct = LinkedAccount(
-            user_id=current_user.id,
-            name=canvas_user_name or profile_name,
-            login_type="canvas",
-            is_active=True,
-        )
-        acct.set_credentials(creds)
-        db.session.add(acct)
-        db.session.commit()
+        canvas_integrations().connect(
+            current_user.id, canvas_base=tokens.get("canvas_base") or canvas_base,
+            access_token=access_token, refresh_token=refresh_token, expires_at=expires_at,
+            canvas_user_id=canvas_user_id, canvas_user_name=canvas_user_name,
+            profile_name=profile_name, credentials=creds)
     else:
         session.permanent = True
         session["canvas_token"] = access_token
@@ -8955,7 +8882,7 @@ def oauth_canvas_status():
     """
     if not current_user.is_authenticated:
         return flask.jsonify({"connected": False, "reason": "signed_out"})
-    row = CanvasIntegration.query.filter_by(user_id=current_user.id).first()
+    row = canvas_integrations().get(current_user.id)
     if not row:
         return flask.jsonify({"connected": False, "oauth": False})
     return flask.jsonify({
@@ -8984,28 +8911,14 @@ def oauth_canvas_disconnect():
     per-account settings if they reconnect later.
     """
     if current_user.is_authenticated:
-        ci = CanvasIntegration.query.filter_by(user_id=current_user.id).first()
+        ci = canvas_integrations().get(current_user.id)
         if ci and ci.access_token:
             try:
                 revoke_canvas_token(ci.access_token, ci.canvas_base)
             except Exception:
                 pass
-        if ci:
-            db.session.delete(ci)
-        for acct in LinkedAccount.query.filter_by(
-                user_id=current_user.id, login_type="canvas").all():
-            stored = acct.get_credentials()
-            # The token is what makes this row dangerous; strip it even on
-            # rows that were already inactive.
-            for key in ("canvas_token", "canvas_refresh_token",
-                        "canvas_token_expires_at", "canvas_oauth"):
-                stored.pop(key, None)
-            acct.set_credentials(stored)
-            acct.is_active = False
-        try:
-            db.session.commit()
-        except Exception:
-            db.session.rollback()
+        if not canvas_integrations().disconnect(current_user.id, ci):
+            return flask.jsonify({"status": "error", "message": "The Canvas connection changed. Try again."}), 409
     session.pop("canvas_token", None)
     session.pop("canvas_url", None)
     session.pop("canvas_refresh_token", None)
@@ -9039,11 +8952,8 @@ def login_studentvue():
             if login_status == "ok":
                 creds = {"sv_username": username, "sv_password": password, "sv_district_url": district_url}
                 if current_user.is_authenticated:
-                    LinkedAccount.query.filter_by(user_id=current_user.id).update({"is_active": False})
-                    acct = LinkedAccount(user_id=current_user.id, name=profile_name, login_type="studentvue", is_active=True)
-                    acct.set_credentials(creds)
-                    db.session.add(acct)
-                    db.session.commit()
+                    linked_accounts_repository().create_active(
+                        current_user.id, profile_name, "studentvue", creds)
                 else:
                     session.permanent = True
                     session["sv_username"] = username
@@ -9114,11 +9024,8 @@ def login_hac():
             if login_status == "ok":
                 creds = {"hac_username": username, "hac_password": password, "hac_district_url": district_url}
                 if current_user.is_authenticated:
-                    LinkedAccount.query.filter_by(user_id=current_user.id).update({"is_active": False})
-                    acct = LinkedAccount(user_id=current_user.id, name=profile_name, login_type="hac", is_active=True)
-                    acct.set_credentials(creds)
-                    db.session.add(acct)
-                    db.session.commit()
+                    linked_accounts_repository().create_active(
+                        current_user.id, profile_name, "hac", creds)
                 else:
                     session.permanent = True
                     session["hac_username"] = username
@@ -9144,11 +9051,8 @@ def login_schoology():
                 if test_schoology_login(key, secret):
                     creds = {"schoology_key": key, "schoology_secret": secret}
                     if current_user.is_authenticated:
-                        LinkedAccount.query.filter_by(user_id=current_user.id).update({"is_active": False})
-                        acct = LinkedAccount(user_id=current_user.id, name=profile_name, login_type="schoology", is_active=True)
-                        acct.set_credentials(creds)
-                        db.session.add(acct)
-                        db.session.commit()
+                        linked_accounts_repository().create_active(
+                            current_user.id, profile_name, "schoology", creds)
                     else:
                         session["schoology_key"] = key
                         session["schoology_secret"] = secret
@@ -9259,27 +9163,17 @@ def _handle_google_callback():
         print("[GOOGLE CALLBACK] FATAL: missing sub or email in userinfo")
         return redirect(url_for("login"))
 
+    if userinfo.get('email_verified') is not True:
+        log_security_event('google_email_unverified', email=email)
+        return redirect(url_for('login'))
+
     if purpose == "drive":
         if not current_user.is_authenticated:
             return redirect(url_for("login", next="/study-files"))
         if not google_drive_helper.has_drive_scope(token_dict):
             return redirect("/study-files?drive_error=scope")
-        row = GoogleDriveIntegration.query.filter_by(
-            user_id=current_user.id, account_email=email
-        ).first()
-        existing = json.loads(row.token_data) if row else {}
-        token_dict = merge_token_data(existing, token_dict)
-        values = {
-            "token_data": json.dumps(token_dict),
-            "account_email": email,
-            "account_name": name,
-        }
-        if row:
-            for key, value in values.items():
-                setattr(row, key, value)
-        else:
-            db.session.add(GoogleDriveIntegration(user_id=current_user.id, **values))
-        db.session.commit()
+        google_accounts('drive').connect(current_user.id, token=token_dict,
+            account_email=email, account_name=name)
         _forget_document_matches()
         return redirect("/study-files?google_drive=connected")
 
@@ -9288,36 +9182,11 @@ def _handle_google_callback():
             print("[GOOGLE CALLBACK] calendar link attempted without an authenticated app user")
             return redirect(url_for("login"))
         user = current_user
-        if user.email.lower() == email and not user.google_id:
-            user.google_id = google_id
-        if not user.name:
-            user.name = name
-        db.session.commit()
+        google_accounts().capture_profile(user.id, email=email, subject=google_id, name=name)
         if has_calendar_scope(token_dict):
-            # Multi-account: match the row by account_email so a second
-            # Google sign-in adds a new row instead of overwriting the first.
-            gi = (
-                GoogleIntegration.query
-                .filter_by(user_id=user.id, account_email=email)
-                .first()
-            )
-            existing_token = json.loads(gi.token_data) if gi else {}
-            token_dict = merge_token_data(existing_token, token_dict)
-            # Newly-linked account becomes the active one.
-            GoogleIntegration.query.filter_by(user_id=user.id).update({"is_active": False})
-            if gi:
-                gi.token_data = json.dumps(token_dict)
-                gi.account_name = name or gi.account_name
-                gi.is_active = True
-            else:
-                db.session.add(GoogleIntegration(
-                    user_id=user.id,
-                    token_data=json.dumps(token_dict),
-                    account_email=email,
-                    account_name=name,
-                    is_active=True,
-                ))
-            db.session.commit()
+            grant = google_accounts().connect(user.id, token=token_dict,
+                account_email=email, account_name=name)
+            token_dict = json.loads(grant.token_data)
             session["google_token"] = token_dict
             session.permanent = True
             session.modified = True
@@ -9328,64 +9197,38 @@ def _handle_google_callback():
             return redirect(app_link.deep_link("connected", provider="google"))
         return redirect(url_for("settings") if session.pop("oauth_return_to_settings", False) else "/command-center")
 
-    # ── Find or create User (defensive — see login_account for rationale) ──
-    _is_new_signup = False
+    # Resolve the subject returned by Google's authenticated userinfo endpoint
+    # through one repository transaction before storing provider integrations.
     try:
-        user = User.query.filter_by(google_id=google_id).first()
-    except Exception as _e:
-        print(f"[GOOGLE CALLBACK] User.query failed, retrying after migration: {_e}")
-        try: db.session.rollback()
-        except Exception: pass
-        try:
-            _run_boot_migration_once()
-            user = User.query.filter_by(google_id=google_id).first()
-        except Exception as _e2:
-            print(f"[GOOGLE CALLBACK] User.query still failing after migration: {_e2}")
-            return redirect(url_for("login") + "?err=oauth_db")
-    if not user:
-        try:
-            user = User.query.filter_by(email=email).first()
-        except Exception:
-            user = None
-        if user:
-            # Existing email-based account — link the Google ID
-            user.google_id = google_id
-            if not user.name:
-                user.name = name
-            print(f"[GOOGLE CALLBACK] linked google_id to existing user id={user.id}")
-        else:
-            # Brand-new user — create the account
-            user = User(
-                email=email,
-                google_id=google_id,
-                name=name,
-                password_hash="",
-            )
-            db.session.add(user)
-            _is_new_signup = True
-            print("[GOOGLE CALLBACK] created new user")
-    else:
-        print(f"[GOOGLE CALLBACK] found existing google user id={user.id}")
-
-    # School memberships come only from Google userinfo's explicit verified
-    # email claim, and only when it matches the account's canonical address.
-    db.session.flush()
-    if str(getattr(user, "email", "") or "").strip().lower() == email:
-        user.email_verified = email_verified
-        if email_verified:
+        user, _is_new_signup = account_repository().resolve_google(
+            google_id=google_id, email=email, name=name,
+            allow_email_link=(email.endswith('@gmail.com') or bool(userinfo.get('hd'))))
+    except IdentityConflict:
+        log_security_event('google_identity_link_refused', email=email)
+        return redirect(url_for('login_account', reason='google_link_required'))
+    except Exception:
+        app.logger.exception('Google account identity could not be resolved')
+        return redirect(url_for('login') + '?err=oauth_db')
+    if app.extensions.get('mongo_store') is None:
+        # School memberships come only from Google userinfo's explicit verified
+        # email claim, and only when it matches the account's canonical address.
+        db.session.flush()
+        if str(getattr(user, "email", "") or "").strip().lower() == email:
+            user.email_verified = email_verified
+            if email_verified:
+                try:
+                    from intelliplan.learning.entitlements import add_verified_school_membership
+                    add_verified_school_membership(user, email)
+                except Exception as _school_error:
+                    print(f"[school] verified-domain enrollment skipped: {_school_error}")
+        if _is_new_signup:
             try:
-                from intelliplan.learning.entitlements import add_verified_school_membership
-                add_verified_school_membership(user, email)
-            except Exception as _school_error:
-                print(f"[school] verified-domain enrollment skipped: {_school_error}")
-    if _is_new_signup:
-        try:
-            import growth_glue
-            growth_glue.grant_signup_trial(user)
-        except Exception as _trial_error:
-            print(f"[trial] Google signup grant skipped: {_trial_error}")
+                import growth_glue
+                growth_glue.grant_signup_trial(user)
+            except Exception as _trial_error:
+                print(f"[trial] Google signup grant skipped: {_trial_error}")
 
-    db.session.commit()
+        db.session.commit()
 
     # Welcome only a genuinely new account. Linking Google to an existing
     # login is not a signup, and the returning user has had this email
@@ -9403,27 +9246,9 @@ def _handle_google_callback():
 
     # ── Persist the Google token for calendar use ──
     if has_calendar_scope(token_dict):
-        gi = (
-            GoogleIntegration.query
-            .filter_by(user_id=user.id, account_email=email)
-            .first()
-        )
-        existing_token = json.loads(gi.token_data) if gi else {}
-        token_dict = merge_token_data(existing_token, token_dict)
-        GoogleIntegration.query.filter_by(user_id=user.id).update({"is_active": False})
-        if gi:
-            gi.token_data = json.dumps(token_dict)
-            gi.account_name = name or gi.account_name
-            gi.is_active = True
-        else:
-            db.session.add(GoogleIntegration(
-                user_id=user.id,
-                token_data=json.dumps(token_dict),
-                account_email=email,
-                account_name=name,
-                is_active=True,
-            ))
-        db.session.commit()
+        grant = google_accounts().connect(user.id, token=token_dict,
+            account_email=email, account_name=name)
+        token_dict = json.loads(grant.token_data)
         session["google_token"] = token_dict
         session.permanent = True
         session.modified = True
@@ -9441,12 +9266,8 @@ def _handle_google_callback():
         desktop_challenge = session.pop("desktop_auth_challenge", None)
         if desktop_challenge and desktop_auth.is_valid_challenge(desktop_challenge):
             code = desktop_auth.new_code()
-            db.session.add(DesktopAuthCode(
-                code_hash=desktop_auth.hash_code(code),
-                code_challenge=desktop_challenge,
-                user_id=user.id,
-            ))
-            db.session.commit()
+            desktop_tickets().issue(user.id, code_hash=desktop_auth.hash_code(code),
+                code_challenge=desktop_challenge, expected_epoch=session.get('session_epoch', 0))
             # The code itself is deliberately not logged.
             print(f"[DESKTOP AUTH] minted code for user id={user.id}")
             return redirect(desktop_auth.deep_link_for(code))
@@ -9517,12 +9338,7 @@ def gcal_status():
     """List the user's connected Google accounts and which one is active."""
     if not current_user.is_authenticated:
         return flask.jsonify({"connected": False, "accounts": [], "active_id": None})
-    rows = (
-        GoogleIntegration.query
-        .filter_by(user_id=current_user.id)
-        .order_by(GoogleIntegration.id.asc())
-        .all()
-    )
+    rows = google_accounts().list(current_user.id)
     accounts = [{
         "id": r.id,
         "email": r.account_email or "",
@@ -9547,12 +9363,12 @@ def gcal_activate():
     row_id = body.get("id")
     if not row_id:
         return flask.jsonify({"status": "error", "message": "id required"}), 400
-    target = GoogleIntegration.query.filter_by(user_id=current_user.id, id=row_id).first()
+    try:
+        target = google_accounts().activate(current_user.id, row_id)
+    except (TypeError, ValueError):
+        target = None
     if not target:
         return flask.jsonify({"status": "error", "message": "not found"}), 404
-    GoogleIntegration.query.filter_by(user_id=current_user.id).update({"is_active": False})
-    target.is_active = True
-    db.session.commit()
     try:
         session["google_token"] = json.loads(target.token_data)
         session.modified = True
@@ -9570,20 +9386,16 @@ def gcal_remove():
     row_id = body.get("id")
     if not row_id:
         return flask.jsonify({"status": "error", "message": "id required"}), 400
-    target = GoogleIntegration.query.filter_by(user_id=current_user.id, id=row_id).first()
-    if not target:
+    try:
+        removed, was_active, nxt = google_accounts().remove(current_user.id, row_id)
+    except (TypeError, ValueError):
+        removed, was_active, nxt = False, False, None
+    if not removed:
         return flask.jsonify({"status": "error", "message": "not found"}), 404
-    was_active = bool(target.is_active)
-    db.session.delete(target)
-    db.session.commit()
     if was_active:
-        # Promote the next-most-recent account to active.
-        nxt = GoogleIntegration.query.filter_by(user_id=current_user.id).order_by(GoogleIntegration.id.desc()).first()
         if nxt:
-            nxt.is_active = True
-            db.session.commit()
             try: session["google_token"] = json.loads(nxt.token_data)
-            except Exception: pass
+            except Exception: session.pop("google_token", None)
         else:
             session.pop("google_token", None)
         session.modified = True
@@ -9603,10 +9415,8 @@ def google_oauth_callback():
 @app.route("/oauth/google/disconnect", methods=["POST"])
 def google_disconnect():
     if current_user.is_authenticated:
-        GoogleIntegration.query.filter_by(user_id=current_user.id).delete()
-        db.session.commit()
-    else:
-        session.pop("google_token", None)
+        google_accounts().disconnect(current_user.id)
+    session.pop("google_token", None)
     return flask.jsonify({"status": "ok"})
 
 
@@ -9614,8 +9424,7 @@ def google_disconnect():
 def google_drive_disconnect():
     if not current_user.is_authenticated:
         return jsonify({"status": "error", "message": "Sign in first."}), 401
-    GoogleDriveIntegration.query.filter_by(user_id=current_user.id).delete(synchronize_session=False)
-    db.session.commit()
+    google_accounts('drive').disconnect(current_user.id)
     _forget_document_matches()
     return jsonify({"status": "ok"})
 
@@ -9659,7 +9468,7 @@ def get_outlook_token(user_id=None):
         return None
     if explicit_owner and not _calendar_policy_allowed(uid):
         return None
-    row = OutlookIntegration.query.filter_by(user_id=uid).first()
+    row = outlook_accounts().get(uid)
     if not row:
         return None
     try:
@@ -9676,12 +9485,11 @@ def get_outlook_token(user_id=None):
             token["expires_at"] = time.time() + int(token.get("expires_in") or 3600)
             if explicit_owner and not _calendar_policy_allowed(uid):
                 return None
-            row.token_data = json.dumps(token)
-            db.session.commit()
+            if not outlook_accounts().refresh(uid, row, json.dumps(token)):
+                return None
         except Exception as e:
             # The type only: an HTTPError's text can include the request.
             print(f"Outlook token refresh failed: {type(e).__name__}")
-            db.session.rollback()
             return None
     return token
 
@@ -9710,7 +9518,7 @@ def _microsoft_back(purpose, outcome):
 def get_onedrive_token():
     if not current_user.is_authenticated or not ONEDRIVE_AVAILABLE:
         return None
-    row = OneDriveIntegration.query.filter_by(user_id=current_user.id).first()
+    row = onedrive_accounts().get(current_user.id)
     if not row:
         return None
     try:
@@ -9718,11 +9526,11 @@ def get_onedrive_token():
         if float(token.get("expires_at") or 0) <= time.time() + 90:
             token = onedrive_helper.refresh_token(token)
             token["expires_at"] = time.time() + int(token.get("expires_in") or 3600)
-            row.token_data = json.dumps(token)
-            db.session.commit()
+            if not onedrive_accounts().refresh(current_user.id, row, json.dumps(token)):
+                return None
         return token
     except Exception as e:
-        print(f"OneDrive token refresh failed: {e}")
+        print(f"OneDrive token refresh failed: {type(e).__name__}")
         return None
 
 
@@ -9782,39 +9590,21 @@ def outlook_oauth_callback():
             token = onedrive_helper.exchange_code(code, code_verifier)
             token["expires_at"] = time.time() + int(token.get("expires_in") or 3600)
             account = onedrive_helper.profile(token)
-            row = OneDriveIntegration.query.filter_by(user_id=current_user.id).first()
-            values = {
-                "token_data": json.dumps(token),
-                "account_email": account.get("mail") or account.get("userPrincipalName"),
-                "account_name": account.get("displayName"),
-            }
-            if row:
-                for key, value in values.items():
-                    setattr(row, key, value)
-            else:
-                db.session.add(OneDriveIntegration(user_id=current_user.id, **values))
-            db.session.commit()
+            onedrive_accounts().connect(current_user.id, token_data=json.dumps(token),
+                account_email=account.get('mail') or account.get('userPrincipalName'),
+                account_name=account.get('displayName'))
             _forget_document_matches()
             return _microsoft_back(purpose, "connected")
         token = outlook_calendar_helper.exchange_code(code)
         token["expires_at"] = time.time() + int(token.get("expires_in") or 3600)
         account = outlook_calendar_helper.profile(token)
         email = account.get("mail") or account.get("userPrincipalName")
-        row = OutlookIntegration.query.filter_by(user_id=current_user.id).first()
-        values = {
-            "token_data": json.dumps(token),
-            "account_email": email,
-            "account_name": account.get("displayName"),
-        }
-        if row:
-            for key, value in values.items():
-                setattr(row, key, value)
-        else:
-            db.session.add(OutlookIntegration(user_id=current_user.id, **values))
-        db.session.commit()
+        outlook_accounts().connect(current_user.id, token_data=json.dumps(token),
+            account_email=email, account_name=account.get('displayName'))
         return _microsoft_back(purpose, "connected")
     except Exception as e:
-        db.session.rollback()
+        if flask.current_app.extensions.get('mongo_store') is None:
+            db.session.rollback()
         print(f"Microsoft OAuth callback ({purpose}) failed: {type(e).__name__}")
         return _microsoft_back(purpose, "error")
 
@@ -9822,23 +9612,21 @@ def outlook_oauth_callback():
 @app.route("/oauth/outlook/disconnect", methods=["POST"])
 def outlook_disconnect():
     if current_user.is_authenticated:
-        OutlookIntegration.query.filter_by(user_id=current_user.id).delete()
-        db.session.commit()
+        outlook_accounts().disconnect(current_user.id)
     return flask.jsonify({"status": "ok"})
 
 
 @app.route("/oauth/onedrive/disconnect", methods=["POST"])
 def onedrive_disconnect():
     if current_user.is_authenticated:
-        OneDriveIntegration.query.filter_by(user_id=current_user.id).delete()
-        db.session.commit()
+        onedrive_accounts().disconnect(current_user.id)
         _forget_document_matches()
     return flask.jsonify({"status": "ok"})
 
 
 @app.route("/calendar/connections")
 def calendar_connections():
-    outlook = OutlookIntegration.query.filter_by(user_id=current_user.id).first() if current_user.is_authenticated else None
+    outlook = outlook_accounts().get(current_user.id) if current_user.is_authenticated else None
     return flask.jsonify({
         "google": bool(get_google_token()) if GCAL_AVAILABLE else False,
         "outlook": bool(outlook),
@@ -9862,8 +9650,8 @@ def study_files_page():
 def cloud_documents_status():
     if not current_user.is_authenticated:
         return jsonify({"status": "error", "message": "Sign in to connect study files."}), 401
-    google = GoogleDriveIntegration.query.filter_by(user_id=current_user.id).order_by(GoogleDriveIntegration.id.desc()).first()
-    one = OneDriveIntegration.query.filter_by(user_id=current_user.id).first()
+    google = google_accounts('drive').get(current_user.id)
+    one = onedrive_accounts().get(current_user.id)
     return jsonify({
         "status": "ok",
         "google_drive": bool(google),
@@ -9890,8 +9678,7 @@ def google_drive_picker_token():
     token = get_google_drive_token()
     if not token:
         return jsonify({"status": "error", "message": "Connect Google Drive first."}), 403
-    account = (GoogleDriveIntegration.query.filter_by(user_id=current_user.id)
-               .order_by(GoogleDriveIntegration.id.desc()).first())
+    account = google_accounts('drive').get(current_user.id)
     response = jsonify({
         "access_token": token.get("token") or token.get("access_token"),
         "account_email": account.account_email if account else "",
@@ -10009,13 +9796,8 @@ def import_cloud_document():
         return jsonify({"status": "ok", "id": existing.id, "already_imported": True})
     account_email = ""
     if provider == "google_drive":
-        drive_accounts = GoogleDriveIntegration.query.filter_by(user_id=current_user.id)
         requested_account = str(body.get("account_email") or "").strip().lower()
-        if requested_account:
-            drive_accounts = drive_accounts.filter_by(account_email=requested_account)
-        else:
-            drive_accounts = drive_accounts.order_by(GoogleDriveIntegration.id.desc())
-        drive_account = drive_accounts.first()
+        drive_account = google_accounts('drive').get(current_user.id, account_email=requested_account or None)
         if not drive_account:
             return jsonify({"status": "error", "message": "Connect this Google account first."}), 403
         account_email = drive_account.account_email
@@ -10037,9 +9819,7 @@ def import_cloud_document():
         link = CloudDocumentLink(
             user_id=current_user.id, note_id=note.id, provider=provider,
             external_file_id=external_id,
-            account_email=(GoogleDriveIntegration.query.filter_by(
-                user_id=current_user.id, account_email=account_email
-            ).first().account_email if provider == "google_drive" else ""),
+            account_email=account_email if provider == "google_drive" else "",
             mime_type=mime,
             web_url=(info.get("webViewLink") or info.get("webUrl") or "")[:2048], etag=str(etag or "")[:512],
         )
@@ -10206,14 +9986,14 @@ def _cloud_doc_row(user_id, provider):
         if provider == "google_drive":
             # Several Google accounts may be linked; the newest is the one
             # the student most recently chose, matching get_google_drive_token.
-            return (GoogleDriveIntegration.query.filter_by(user_id=user_id)
-                    .order_by(GoogleDriveIntegration.id.desc()).first())
+            return google_accounts('drive').get(user_id)
         if provider == "onedrive":
-            return OneDriveIntegration.query.filter_by(user_id=user_id).first()
+            return onedrive_accounts().get(user_id)
     except Exception as e:
         # A table a migration has not reached yet reads as "not connected".
         print(f"[cloud-docs] lookup failed: {type(e).__name__}")
-        db.session.rollback()
+        if flask.current_app.extensions.get('mongo_store') is None:
+            db.session.rollback()
     return None
 
 
@@ -10236,14 +10016,17 @@ def _cloud_doc_client(user_id, provider):
         return None
     if not isinstance(token, dict):
         return None
-    model = GoogleDriveIntegration if provider == "google_drive" else OneDriveIntegration
-    row_id = row.id
+    expected_grant = row
 
     def persist(fresh):
-        target = db.session.get(model, row_id)
-        if target:
-            target.token_data = json.dumps(fresh)
-            db.session.commit()
+        nonlocal expected_grant
+        from cloud_token_client import TokenExpired
+        serialized = json.dumps(fresh)
+        repository = onedrive_accounts() if provider == 'onedrive' else google_accounts('drive')
+        if not repository.refresh(user_id, expected_grant, serialized):
+            raise TokenExpired('Cloud document connection changed. Reconnect before continuing.')
+        from types import SimpleNamespace
+        expected_grant = SimpleNamespace(**{**vars(expected_grant), 'token_data': serialized})
 
     if provider == "google_drive":
         return google_drive_helper.DriveClient(token, on_refresh=persist)
@@ -10485,6 +10268,7 @@ def calendar_export():
     response says which.
     """
     google_token = get_google_token() if GCAL_AVAILABLE else None
+    google_proof = getattr(flask.g, '_google_grant', None)
     outlook_token = get_outlook_token()
     if not google_token and not outlook_token:
         if not GCAL_AVAILABLE and not (OUTLOOK_AVAILABLE and outlook_calendar_helper.configured()):
@@ -10515,12 +10299,12 @@ def calendar_export():
                 session["google_token"] = {**token, "token": new_token}
                 session.modified = True
                 if current_user.is_authenticated:
-                    gi = GoogleIntegration.query.filter_by(user_id=current_user.id).first()
-                    if gi:
-                        td = json.loads(gi.token_data)
+                    if google_proof and google_proof[0] == current_user.id:
+                        from intelliplan.persistence.json_values import dumps_exact, loads_exact
+                        gi = google_proof[1]
+                        td = loads_exact(gi.token_data)
                         td["token"] = new_token
-                        gi.token_data = json.dumps(td)
-                        db.session.commit()
+                        google_accounts().refresh(current_user.id, gi, dumps_exact(td))
             providers["google"] = {"created": len(ids), "skipped": skipped}
         except Exception as e:
             print(f"Calendar export error: {e}")
@@ -10557,7 +10341,7 @@ def profiles_list():
         if login_type:
             return flask.jsonify({"is_guest": True, "profiles": [{"id": "guest", "name": "Guest Session", "login_type": login_type, "is_active": True}], "active": "guest"})
         return flask.jsonify({"is_guest": True, "profiles": [], "active": None})
-    accounts = LinkedAccount.query.filter_by(user_id=current_user.id).all()
+    accounts = linked_accounts_repository().list(current_user.id)
     active = next((a for a in accounts if a.is_active), None)
     return flask.jsonify({
         "is_guest": False,
@@ -10571,12 +10355,8 @@ def profiles_switch():
     if not current_user.is_authenticated:
         return flask.jsonify({"status": "error"})
     profile_id = (request.json or {}).get("id")
-    acct = LinkedAccount.query.filter_by(user_id=current_user.id, profile_id=profile_id).first()
-    if not acct:
+    if not linked_accounts_repository().switch(current_user.id, profile_id):
         return flask.jsonify({"status": "error"})
-    LinkedAccount.query.filter_by(user_id=current_user.id).update({"is_active": False})
-    acct.is_active = True
-    db.session.commit()
     return flask.jsonify({"status": "ok"})
 
 @app.route("/profiles/delete", methods=["POST"])
@@ -10584,10 +10364,7 @@ def profiles_delete():
     if not current_user.is_authenticated:
         return flask.jsonify({"status": "error"})
     profile_id = (request.json or {}).get("id")
-    acct = LinkedAccount.query.filter_by(user_id=current_user.id, profile_id=profile_id).first()
-    if acct:
-        db.session.delete(acct)
-        db.session.commit()
+    linked_accounts_repository().delete(current_user.id, profile_id)
     return flask.jsonify({"status": "ok"})
 
 @app.route("/profiles/rename", methods=["POST"])
@@ -10596,10 +10373,8 @@ def profiles_rename():
         return flask.jsonify({"status": "error"})
     profile_id = (request.json or {}).get("id")
     name = (request.json or {}).get("name", "").strip()
-    acct = LinkedAccount.query.filter_by(user_id=current_user.id, profile_id=profile_id).first()
-    if acct and name:
-        acct.name = name
-        db.session.commit()
+    if name:
+        linked_accounts_repository().rename(current_user.id, profile_id, name)
     return flask.jsonify({"status": "ok"})
 
 @app.route("/account/delete", methods=["POST"])
@@ -10644,6 +10419,9 @@ def _account_delete_impl():
     except Exception as _ce:
         print(f"[account_delete] could not read current_user.id: {_ce}")
         return flask.jsonify({"status": "error", "message": "Session error"}), 500
+    native_store = app.extensions.get('mongo_store')
+    if native_store is not None:
+        return _native_account_delete_impl(user_id, native_store)
     from account_uploads import owned_upload_paths, remove_uploads, quarantine_uploads, restore_uploads
     try:
         uploads = owned_upload_paths(
@@ -10931,6 +10709,51 @@ def _account_delete_impl():
     logout_user()
     session.clear()
     return flask.jsonify({"status": "ok"})
+
+
+def _native_account_delete_impl(user_id, store, *, pending_token=None):
+    from account_uploads import owned_upload_paths, quarantine_uploads, remove_uploads, restore_uploads
+    from intelliplan.persistence.mongo_erasure import MongoErasure
+
+    decoder = getattr(getattr(app.session_interface, 'serializer', None), 'decode', None)
+    erasure = MongoErasure(store, session_decoder=decoder)
+    try:
+        expected = erasure.upload_names(user_id)
+        uploads = owned_upload_paths(user_id, app.config['NOTES_UPLOAD_FOLDER'], LESSON_UPLOAD_FOLDER,
+                                     expected['course_notes'], expected['lessons'])
+        staged = quarantine_uploads(uploads)
+    except Exception:
+        app.logger.exception('Native account upload staging failed for user id=%s', user_id)
+        return flask.jsonify({'status': 'error', 'message': 'Could not remove uploaded files. Please retry.'}), 500
+    try:
+        deleted = erasure.erase(user_id, expected_uploads=expected, pending_token=pending_token)
+    except Exception as exc:
+        if getattr(exc, 'has_error_label', lambda label: False)('UnknownTransactionCommitResult'):
+            # Restoring files could resurrect data after a commit whose reply
+            # was lost. Retain quarantined originals for outcome verification.
+            app.logger.exception('Native erasure outcome uncertain for user id=%s', user_id)
+            return flask.jsonify({'status': 'error',
+                'message': 'Deletion outcome needs verification. Your files are quarantined; please contact support.'}), 500
+        restore_uploads(staged)
+        app.logger.exception('Native account deletion failed for user id=%s', user_id)
+        return flask.jsonify({'status': 'error', 'message': 'Could not delete the account. Please retry.'}), 500
+    if not deleted:
+        restore_uploads(staged)
+        return flask.jsonify({'status': 'error', 'message': 'Account or approval link no longer valid.'}), 404
+
+    def clear_own_session():
+        if current_user.is_authenticated and int(current_user.id) == int(user_id):
+            logout_user()
+            session.clear()
+
+    try:
+        remove_uploads(quarantine for _, quarantine in staged)
+    except OSError:
+        app.logger.exception('Native account removed; quarantined upload cleanup requires support for user id=%s', user_id)
+        clear_own_session()
+        return flask.jsonify({'status': 'error', 'message': 'Account removed; file cleanup needs support.'}), 500
+    clear_own_session()
+    return flask.jsonify({'status': 'ok'}), 200
 
 # ── DATA ROUTES ───────────────────────────────────────────────
 @app.route("/live")
@@ -11227,13 +11050,9 @@ def cookies_page():
 # ── Policy change acknowledgement ─────────────────────────────
 
 def _policy_ack_row(doc):
-    query = PolicyAcknowledgement.query.filter(PolicyAcknowledgement.doc == doc)
-    if current_user.is_authenticated:
-        query = query.filter(PolicyAcknowledgement.user_id == current_user.id)
-    else:
-        query = query.filter(
-            PolicyAcknowledgement.guest_session_id == get_guest_session_id())
-    return query.order_by(PolicyAcknowledgement.version.desc()).first()
+    owner = ({'user_id': current_user.id} if current_user.is_authenticated
+             else {'guest_session_id': get_guest_session_id()})
+    return account_repository().latest_policy(doc, **owner)
 
 
 def _policy_accepted_version(doc):
@@ -11285,8 +11104,7 @@ def _never_accepted_any_policy():
     created = getattr(current_user, "created_at", None)
     if created is None or utcnow() - created > FIRST_TIME_POLICY_WINDOW:
         return False
-    return PolicyAcknowledgement.query.filter(
-        PolicyAcknowledgement.user_id == current_user.id).first() is None
+    return not account_repository().has_policy(user_id=current_user.id)
 
 
 @app.route("/api/policy/pending", methods=["GET"])
@@ -11344,22 +11162,12 @@ def api_policy_acknowledge():
         return flask.jsonify({"status": "error",
                               "message": "That version does not exist."}), 400
 
-    row = _policy_ack_row(doc)
-    if row and int(row.version or 0) >= version:
-        return flask.jsonify({"status": "ok", "version": row.version})
-
     owner = ({"user_id": current_user.id} if current_user.is_authenticated
              else {"guest_session_id": get_guest_session_id()})
-    db.session.add(PolicyAcknowledgement(
-        doc=doc,
-        version=version,
-        user_agent=(request.headers.get("User-Agent") or "")[:256],
-        **owner,
-    ))
     try:
-        db.session.commit()
+        version = account_repository().acknowledge_policy(doc, version,
+            user_agent=request.headers.get('User-Agent') or '', **owner)
     except Exception as e:
-        db.session.rollback()
         print(f"[policy] acknowledge failed: {e}")
         return flask.jsonify({"status": "error",
                               "message": "Could not record that. Please try again."}), 500
@@ -12087,8 +11895,11 @@ def api_save_assignment_due_date():
 
 def _calendar_policy_allowed(user_id=None):
     """Calendar helpers run under scheduler and agent routes as well as OAuth."""
-    user = (User.query.populate_existing().filter_by(id=user_id).first()
-            if user_id is not None else current_user)
+    if user_id is not None and flask.current_app.extensions.get('mongo_store') is not None:
+        user = account_repository().get(user_id)
+    else:
+        user = (User.query.populate_existing().filter_by(id=user_id).first()
+                if user_id is not None else current_user)
     if user is None or not user.is_authenticated:
         return False
     try:
@@ -12170,8 +11981,7 @@ def _calendar_busy_by_date(horizon_days=14, start=None, *, user_id=None, require
     combined = {}
     failed = []
     try:
-        stored_google = (GoogleIntegration.query.filter_by(user_id=uid).first()
-                         if require_complete else None)
+        stored_google = google_accounts().get(uid) if require_complete else None
         token = (get_google_token(user_id=uid) if explicit_owner or stored_google
                  else get_google_token())
         if require_complete and stored_google and allowed() and (not token or not has_calendar_scope(token)):
@@ -12189,7 +11999,7 @@ def _calendar_busy_by_date(horizon_days=14, start=None, *, user_id=None, require
     try:
         outlook_token = ((get_outlook_token(user_id=uid) if explicit_owner else get_outlook_token())
                          if allowed() else None)
-        if require_complete and not outlook_token and allowed() and OutlookIntegration.query.filter_by(user_id=uid).first():
+        if require_complete and not outlook_token and allowed() and outlook_accounts().get(uid):
             failed.append('outlook')
         if outlook_token and allowed():
             for day, intervals in outlook_calendar_helper.busy_minutes_by_date(
@@ -12224,26 +12034,19 @@ def _class_busy_by_date(user_id, start, horizon_days=14):
     Never raises: a timetable we cannot read leaves the plan exactly as it
     was before timetables existed.
     """
-    if not user_id or not feature_enabled("timetable"):
+    native = flask.current_app.extensions.get('mongo_store') is not None
+    if not user_id or (not native and not feature_enabled("timetable")):
         return {}
     try:
-        from intelliplan.domain.timetable import busy_by_date as _timetable_busy
-
-        rows = ClassMeeting.query.filter_by(user_id=user_id).all()
-        if not rows:
-            return {}
-        settings = TimetableSettings.query.filter_by(user_id=user_id).first()
-        rotation = settings.rotation() if settings else _timetable_rotation_default()
-        bell = settings.bell() if settings else {}
-        return _timetable_busy(
-            start, horizon_days, [r.to_meeting() for r in rows], rotation, bell,
-        )
+        from intelliplan.persistence.timetable import class_busy
+        return class_busy(user_id, start, horizon_days)
     except Exception as e:
-        print(f"[planner] timetable busy lookup failed: {e}")
-        try:
-            db.session.rollback()
-        except Exception:
-            pass
+        print(f"[planner] timetable busy lookup failed: {type(e).__name__}")
+        if not native:
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
         return {}
 
 
@@ -13444,40 +13247,7 @@ def oauth_notion_callback():
     session["notion_token"] = access_token
     session.modified = True
     if current_user.is_authenticated:
-        existing = NotionIntegration.query.filter_by(user_id=current_user.id).first()
-        template_id = tokens.get("duplicated_template_id")
-        if existing:
-            existing.token = access_token
-            existing.auth_type = "oauth"
-            existing.workspace_id = tokens.get("workspace_id")
-            existing.workspace_name = tokens.get("workspace_name")
-            existing.workspace_icon = tokens.get("workspace_icon")
-            existing.bot_id = tokens.get("bot_id")
-            existing.refresh_token = tokens.get("refresh_token") or existing.refresh_token
-            existing.token_expires_at = tokens.get("expires_at")
-            existing.duplicated_template_id = template_id or existing.duplicated_template_id
-            existing.connected_at = utcnow()
-            # Don't clobber database_id if the user already chose one.
-            if template_id and not existing.database_id:
-                existing.database_id = template_id
-        else:
-            db.session.add(NotionIntegration(
-                user_id=current_user.id,
-                token=access_token,
-                auth_type="oauth",
-                workspace_id=tokens.get("workspace_id"),
-                workspace_name=tokens.get("workspace_name"),
-                workspace_icon=tokens.get("workspace_icon"),
-                bot_id=tokens.get("bot_id"),
-                refresh_token=tokens.get("refresh_token"),
-                token_expires_at=tokens.get("expires_at"),
-                duplicated_template_id=template_id,
-                # Duplicating the template is the user saying "use this one".
-                # Making them pick it from a list afterwards would be asking a
-                # question they just answered.
-                database_id=template_id,
-            ))
-        db.session.commit()
+        notion_accounts().connect(current_user.id, token=access_token, oauth=tokens)
     return redirect(url_for("settings") + "?notion=connected")
 
 
@@ -13495,7 +13265,7 @@ def notion_status():
         })
     workspace = None
     if current_user.is_authenticated:
-        ni = NotionIntegration.query.filter_by(user_id=current_user.id).first()
+        ni = notion_accounts().get(current_user.id)
         if ni and ni.workspace_name:
             workspace = {
                 "id": ni.workspace_id,
@@ -13568,25 +13338,8 @@ def notion_connect():
     session["notion_token"] = token
     session.modified = True
     if current_user.is_authenticated:
-        existing = NotionIntegration.query.filter_by(user_id=current_user.id).first()
-        if existing:
-            existing.token = token
-            # Keep the previously-selected database so re-pasting the token to
-            # refresh the connection doesn't silently stop the task sync. The
-            # user can still change it from "Pick a database".
-            existing.auth_type = "manual"
-            existing.workspace_name = workspace_name
-            existing.bot_id = bot_id
-            existing.connected_at = utcnow()
-        else:
-            db.session.add(NotionIntegration(
-                user_id=current_user.id,
-                token=token,
-                auth_type="manual",
-                workspace_name=workspace_name,
-                bot_id=bot_id,
-            ))
-        db.session.commit()
+        notion_accounts().connect(current_user.id, token=token,
+            workspace_name=workspace_name, bot_id=bot_id)
     try:
         dbs = get_notion_databases(token)
     except Exception as e:
@@ -13600,11 +13353,9 @@ def notion_connect():
 @app.route("/notion/disconnect", methods=["POST"])
 def notion_disconnect():
     if current_user.is_authenticated:
-        NotionIntegration.query.filter_by(user_id=current_user.id).delete()
-        db.session.commit()
-    else:
-        session.pop("notion_token", None)
-        session.pop("notion_database_id", None)
+        notion_accounts().disconnect(current_user.id)
+    session.pop("notion_token", None)
+    session.pop("notion_database_id", None)
     return flask.jsonify({"status": "ok"})
 
 @app.route("/notion/set-database", methods=["POST"])
@@ -13613,15 +13364,8 @@ def notion_set_database():
     if not db_id:
         return flask.jsonify({"status": "error"})
     if current_user.is_authenticated:
-        ni = NotionIntegration.query.filter_by(user_id=current_user.id).first()
-        if ni:
-            ni.database_id = db_id
-            db.session.commit()
-        else:
-            token = session.get("notion_token")
-            if token:
-                db.session.add(NotionIntegration(user_id=current_user.id, token=token, database_id=db_id))
-                db.session.commit()
+        if not notion_accounts().select_database(current_user.id, db_id):
+            return flask.jsonify({"status": "error", "message": "Connect Notion first."}), 409
     session["notion_database_id"] = db_id
     session.modified = True
     return flask.jsonify({"status": "ok"})
@@ -13678,10 +13422,10 @@ def notion_create_database_route():
         return flask.jsonify({"status": "error", "message": safe_error_message(e)}), 500
     # Auto-select the new database as the active target.
     if current_user.is_authenticated:
-        ni = NotionIntegration.query.filter_by(user_id=current_user.id).first()
-        if ni:
-            ni.database_id = new_id
-            db.session.commit()
+        proof = getattr(flask.g, '_notion_grant', None)
+        if proof is None or not notion_accounts().select_database(current_user.id, new_id, expected=proof):
+            return flask.jsonify({"status": "error", "message": "The Notion connection changed. Reconnect before selecting the new database.",
+                "database_id": new_id}), 409
     session["notion_database_id"] = new_id
     session.modified = True
     return flask.jsonify({"status": "ok", "database_id": new_id, "name": name})
@@ -13835,7 +13579,7 @@ def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True, in
     # Active LMS account (resolves through the LinkedAccount table)
     acct_dict = None
     try:
-        acct = LinkedAccount.query.filter_by(user_id=user_id, is_active=True).first()
+        acct = linked_accounts_repository().active(user_id)
         capability = learning_policy.source_capability(acct.login_type) if acct else None
         if acct and permissions.get(capability, True):
             creds = acct.get_credentials() or {}
@@ -13981,7 +13725,7 @@ def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True, in
 
     # Moodle
     try:
-        mrow = MoodleIntegration.query.filter_by(user_id=user_id).order_by(MoodleIntegration.id.desc()).first() if permissions['moodle'] else None
+        mrow = lms_grants('moodle').get(user_id) if permissions['moodle'] else None
         if mrow and mrow.moodle_url and mrow.ws_token:
             for a in _moodle_fetch_assignments(mrow.moodle_url, mrow.ws_token, mrow.moodle_user_id):
                 if a.get("title") and a["title"] not in dismissed:
@@ -14195,7 +13939,7 @@ def unified_tasks():
     # ── Moodle (independent of active LMS account) ──
     try:
         if current_user.is_authenticated and "moodle" in assignment_sources and _lms_policy_allowed('moodle'):
-            mrow = MoodleIntegration.query.filter_by(user_id=current_user.id).order_by(MoodleIntegration.id.desc()).first()
+            mrow = lms_grants('moodle').get(current_user.id)
             if mrow and mrow.moodle_url and mrow.ws_token:
                 for a in _moodle_fetch_assignments(mrow.moodle_url, mrow.ws_token, mrow.moodle_user_id):
                     if a.get("title") in dismissed:
@@ -14219,10 +13963,10 @@ def unified_tasks():
     try:
         if "manual" in assignment_sources:
             if current_user.is_authenticated:
-                manual = ManualTask.query.filter_by(user_id=current_user.id, done=False).all()
+                manual = task_repository(current_user.id).list(done=False)
             else:
                 gid = get_guest_session_id()
-                manual = ManualTask.query.filter_by(guest_session_id=gid, done=False).all()
+                manual = task_repository(guest_id=gid).list(done=False)
         else:
             manual = []
         for t in manual:
@@ -14312,29 +14056,26 @@ def missing_data():
 # ── MANUAL TASKS ──────────────────────────────────────────────
 @app.route("/tasks/manual/create", methods=["POST"])
 def manual_create_task():
-    data = request.json or {}
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict) or not isinstance(data.get('title', ''), str):
+        return flask.jsonify({'status': 'error', 'message': 'Invalid task fields'}), 400
     title = data.get("title", "").strip()
     if not title:
         return flask.jsonify({"status": "error", "message": "Title required"})
-    task = ManualTask(
-        user_id=current_user.id if current_user.is_authenticated else None,
-        guest_session_id=None if current_user.is_authenticated else get_guest_session_id(),
-        title=title,
-        due_date=data.get("due_date", ""),
-        priority=data.get("priority", "Medium"),
-        course=data.get("course", "Personal"),
-        estimated_time=int(data.get("estimated_time", 60)),
-        notes=data.get("notes", "")
-    )
-    db.session.add(task)
-    db.session.commit()
+    repository = task_repository(current_user.id if current_user.is_authenticated else None,
+        None if current_user.is_authenticated else get_guest_session_id())
+    try:
+        task = repository.create({'title': title, 'due_date': data.get('due_date', ''),
+            'priority': data.get('priority', 'Medium'), 'course': data.get('course', 'Personal'),
+            'estimated_time': data.get('estimated_time', 60), 'notes': data.get('notes', '')})
+    except (TypeError, ValueError):
+        return flask.jsonify({'status': 'error', 'message': 'Invalid task fields'}), 400
     if NOTION_AVAILABLE and data.get("sync_notion"):
         notion_token, notion_db_id = get_notion_token_and_db()
         if notion_token and notion_db_id:
             try:
                 page_id = create_notion_task(notion_token, notion_db_id, title, data.get("due_date"), data.get("priority", "Medium"))
-                task.notion_page_id = page_id
-                db.session.commit()
+                repository.update(task.id, {'notion_page_id': page_id})
             except Exception:
                 pass
     if current_user.is_authenticated:
@@ -14359,24 +14100,23 @@ def _owns_manual_task(task) -> bool:
 
 @app.route("/tasks/manual/update", methods=["POST"])
 def manual_update_task():
-    data = request.json or {}
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return flask.jsonify({'status': 'error', 'message': 'Invalid task fields'}), 400
     task_id = data.get("id")
-    task = db.session.get(ManualTask, task_id)
-    if not _owns_manual_task(task):
-        return flask.jsonify({"status": "error", "message": "Not found"}), 404
-    if "title" in data: task.title = data["title"]
-    if "due_date" in data: task.due_date = data["due_date"]
-    if "priority" in data: task.priority = data["priority"]
-    if "course" in data: task.course = data["course"]
-    if "estimated_time" in data: task.estimated_time = int(data["estimated_time"])
-    if "notes" in data: task.notes = data["notes"]
-    was_done_before = task.done
-    if "done" in data: task.done = data["done"]
-    db.session.commit()
+    repository = task_repository(current_user.id if current_user.is_authenticated else None,
+        None if current_user.is_authenticated else get_guest_session_id())
+    fields = {key: data[key] for key in ('title', 'due_date', 'priority', 'course', 'estimated_time', 'notes', 'done') if key in data}
+    try:
+        task, completed = repository.update(task_id, fields)
+    except (TypeError, ValueError):
+        return flask.jsonify({'status': 'error', 'message': 'Invalid task fields'}), 400
+    if task is None:
+        return flask.jsonify({'status': 'error', 'message': 'Not found'}), 404
     # A manual task can also be represented by a scheduled plan block. If it
     # is completed, remove any pending reminder that names that same work.
     # The dispatcher repeats the check at send time for a concurrent claim.
-    if task.done and not was_done_before and current_user.is_authenticated:
+    if completed and current_user.is_authenticated:
         try:
             import notifications_glue
             notifications_glue.cancel_assignment_reminders(current_user.id, task.title)
@@ -14390,7 +14130,7 @@ def manual_update_task():
             except Exception:
                 pass
     # Streak: trigger on task completion (done flipped False → True)
-    if data.get("done") and not was_done_before and current_user.is_authenticated:
+    if completed and current_user.is_authenticated:
         try:
             _record_streak_qualifying_action(current_user.id, data.get("timezone"))
         except Exception as e:
@@ -14406,13 +14146,18 @@ def manual_update_task():
 
 @app.route("/tasks/manual/delete", methods=["POST"])
 def manual_delete_task():
-    task_id = (request.json or {}).get("id")
-    task = db.session.get(ManualTask, task_id)
-    if task and not _owns_manual_task(task):
-        return flask.jsonify({"status": "error", "message": "Not found"}), 404
-    if task:
-        db.session.delete(task)
-        db.session.commit()
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return flask.jsonify({'status': 'error', 'message': 'Invalid task fields'}), 400
+    task_id = data.get('id')
+    repository = task_repository(current_user.id if current_user.is_authenticated else None,
+        None if current_user.is_authenticated else get_guest_session_id())
+    try:
+        removed = repository.delete(task_id)
+    except (TypeError, ValueError):
+        return flask.jsonify({'status': 'error', 'message': 'Not found'}), 404
+    if removed is False:
+        return flask.jsonify({'status': 'error', 'message': 'Not found'}), 404
     if current_user.is_authenticated:
         try: invalidate_lms_cache_for_user(current_user.id)
         except Exception: pass
@@ -15487,10 +15232,10 @@ def api_my_stats():
 @app.route("/tasks/manual/list")
 def manual_list_tasks():
     if current_user.is_authenticated:
-        tasks = ManualTask.query.filter_by(user_id=current_user.id, done=False).all()
+        tasks = task_repository(current_user.id).list(done=False)
     else:
         gid = get_guest_session_id()
-        tasks = ManualTask.query.filter_by(guest_session_id=gid, done=False).all()
+        tasks = task_repository(guest_id=gid).list(done=False)
     return flask.jsonify([{
         "id": t.id, "title": t.title, "due_date": t.due_date,
         "priority": t.priority, "course": t.course,
@@ -17404,8 +17149,8 @@ def debug_auth():
         "session_keys": list(session.keys()),
         "has_google_session": "google_token" in session,
         "has_notion_session": "notion_token" in session,
-        "google_db_row": GoogleIntegration.query.filter_by(user_id=current_user.id).first() is not None if current_user.is_authenticated else False,
-        "notion_db_row": NotionIntegration.query.filter_by(user_id=current_user.id).first() is not None if current_user.is_authenticated else False,
+        "google_db_row": google_accounts().get(current_user.id) is not None if current_user.is_authenticated else False,
+        "notion_db_row": notion_accounts().get(current_user.id) is not None if current_user.is_authenticated else False,
     })
 
 # ── NOTES HELPERS ─────────────────────────────────────────────
@@ -17485,18 +17230,7 @@ def extension_login():
         password = data.get("password", "").strip()
         if not email or not password:
             return flask.jsonify({"status": "error", "message": "Email and password required"}), 400
-        try:
-            user = User.query.filter_by(email=email).first()
-        except Exception as lookup_error:
-            # A failing User SELECT here is almost always a schema that is
-            # behind the code — a column the model knows about and the
-            # database does not. Retry the migration once and look again,
-            # rather than returning 500 to every extension user until
-            # somebody notices.
-            print(f"[extension-login] user lookup failed, retrying migration: {lookup_error}")
-            db.session.rollback()
-            _run_boot_migration_once()
-            user = User.query.filter_by(email=email).first()
+        user = account_repository().by_email(email)
 
         if not user or not user.password_hash or not bcrypt.check_password_hash(user.password_hash, password):
             # 401, not 200. A failed login is not a successful request, and
@@ -17507,12 +17241,12 @@ def extension_login():
         if reason:
             return flask.jsonify(status='error', reason=reason,
                                  message=child_privacy.CHILD_HOLD_MESSAGE), 403
-        token = secrets_module.token_hex(32)
-        db.session.add(ExtensionToken(user_id=user.id, token=token))
-        db.session.commit()
+        token = extension_tokens().issue(user.id, expected_hash=user.password_hash)
         resp = flask.jsonify({"status": "ok", "token": token, "email": user.email})
         resp.headers["Access-Control-Allow-Origin"] = "*"
         return resp
+    except PasswordConflict:
+        return flask.jsonify({"status": "error", "message": "Invalid email or password"}), 401
     except Exception as e:
         # Never return the exception text. This endpoint is unauthenticated,
         # and str(e) on a SQLAlchemy error contains the failing SQL and the
@@ -17540,28 +17274,17 @@ def extension_register():
             birth_year = child_privacy.registration_birth_year(data.get('birth_year'))
         except ValueError as exc:
             return flask.jsonify(status='error', reason='age_eligibility_required', message=str(exc)), 400
-        if User.query.filter_by(email=email).first():
+        if account_repository().by_email(email):
             return flask.jsonify({"status": "error", "message": "Account already exists"})
         pw_hash = bcrypt.generate_password_hash(password).decode("utf-8")
-        user = User(email=email, password_hash=pw_hash, birth_year=birth_year,
-                    parent_consent_granted=True)
-        db.session.add(user)
-        db.session.flush()
-        try:
-            import growth_glue
-            growth_glue.grant_signup_trial(user)
-        except Exception as _trial_error:
-            print(f"[trial] extension signup grant skipped: {_trial_error}")
-        db.session.commit()
-        token = secrets_module.token_hex(32)
-        db.session.add(ExtensionToken(user_id=user.id, token=token))
-        db.session.commit()
-        # Registration has already established age eligibility. Delivery
-        # still applies suppression and the ordinary lifecycle-email gates.
+        user = account_repository().create(email=email, password_hash=pw_hash, attributes=dict(birth_year=birth_year, parent_consent_granted=True))
+        token = extension_tokens().issue(user.id, expected_hash=user.password_hash)
         send_welcome_email_on_signup(user.id)
         resp = flask.jsonify({"status": "ok", "token": token, "email": user.email})
         resp.headers["Access-Control-Allow-Origin"] = "*"
         return resp
+    except AccountExists:
+        return flask.jsonify({"status": "error", "message": "Account already exists"})
     except Exception as e:
         # Same reasoning as extension_login: no exception text to an
         # unauthenticated caller.
@@ -17577,8 +17300,7 @@ def extension_logout():
         return response
     token = request.headers.get("X-Extension-Token")
     if token:
-        ExtensionToken.query.filter_by(token=token).delete()
-        db.session.commit()
+        extension_tokens().revoke(token)
     resp = flask.jsonify({"status": "ok"})
     resp.headers["Access-Control-Allow-Origin"] = "*"
     return resp
@@ -17587,10 +17309,7 @@ def get_extension_user(token):
     if not token:
         return None
     try:
-        row = ExtensionToken.query.filter_by(token=token).first()
-        if not row:
-            return None
-        user = db.session.get(User, row.user_id)
+        user = extension_tokens().user_for(token)
         return None if child_privacy.hold_reason(user, require_known_age=True) else user
     except Exception:
         return None
@@ -17615,7 +17334,7 @@ def extension_tasks():
         tasks = []
         dismissed_rows = DismissedAssignment.query.filter_by(user_id=user.id).all()
         dismissed = _DismissedSet(r.title for r in dismissed_rows)
-        acct = LinkedAccount.query.filter_by(user_id=user.id, is_active=True).first()
+        acct = linked_accounts_repository().active(user.id)
         if acct:
             creds = acct.get_credentials()
             login_type = acct.login_type
@@ -17726,7 +17445,7 @@ def extension_grades():
         return ext_response([], 401)
     try:
         live = []
-        acct = LinkedAccount.query.filter_by(user_id=user.id, is_active=True).first()
+        acct = linked_accounts_repository().active(user.id)
         if acct and acct.login_type == "studentvue":
             creds = acct.get_credentials()
             try:
@@ -17885,14 +17604,11 @@ def extension_session_token():
         r = flask.jsonify({"status": "error", "message": "Not logged in"})
         return _cors(r), 401
 
-    import secrets as _secrets
-    existing = ExtensionToken.query.filter_by(user_id=current_user.id).first()
-    if existing:
-        token = existing.token
-    else:
-        token = _secrets.token_hex(32)
-        db.session.add(ExtensionToken(user_id=current_user.id, token=token))
-        db.session.commit()
+    expected_epoch = session.get('session_epoch', 0) if session.get('_user_id') is not None else None
+    try:
+        token = extension_tokens().issue(current_user.id, reuse=True, expected_epoch=expected_epoch)
+    except PasswordConflict:
+        return _cors(flask.jsonify({'status': 'error', 'message': 'Please sign in again.'})), 401
 
     r = flask.jsonify({"status": "ok", "token": token, "email": current_user.email})
     return _cors(r), 200
@@ -20043,9 +19759,15 @@ def _parental_consent_token_is_active(user, now=None):
 
 def _expire_parental_consent_token(user):
     """Invalidate a stale token so only the authenticated resend path can rotate it."""
+    native_store = app.extensions.get('mongo_store')
+    if native_store is not None:
+        native_store.database.users.update_one(
+            {'id': user.id, 'parent_consent_token': user.parent_consent_token},
+            {'$set': {'parent_consent_token': None, 'parent_consent_expires_at': None}})
     user.parent_consent_token = None
     user.parent_consent_expires_at = None
-    db.session.commit()
+    if native_store is None:
+        db.session.commit()
 
 
 def _welcome_after_age_known(user):
@@ -20154,24 +19876,19 @@ def account_age_gate():
             return redirect('/account/age/pending')
 
         if not error:
-            current_user.birth_year = birth_year_val
-            current_user.parent_consent_granted = not under_13
-            if under_13:
-                current_user.parent_email = parent_email_raw
-                _issue_parental_consent_token(current_user)
-                # COPPA: no marketing to a child without verified consent.
-                current_user.marketing_emails_opt_in = False
-                current_user.marketing_opt_in_at = None
-            db.session.commit()
+            user = account_repository().establish_age(current_user.id,
+                birth_year=birth_year_val, parent_email=parent_email_raw)
+            under_13 = (age_from_birth_year(user.birth_year, utcnow()) < 13
+                        and not user.parent_consent_granted)
 
             if under_13:
                 try:
                     consent_url = (f"{APP_BASE_URL}/parent/consent"
-                                   f"?token={current_user.parent_consent_token}")
+                                   f"?token={user.parent_consent_token}")
                     deny_url = (f"{APP_BASE_URL}/parent/deny"
-                                f"?token={current_user.parent_consent_token}")
-                    body = parental_notice.email_body(current_user.email, consent_url, deny_url, APP_BASE_URL)
-                    _send_email(current_user.parent_email,
+                                f"?token={user.parent_consent_token}")
+                    body = parental_notice.email_body(user.email, consent_url, deny_url, APP_BASE_URL)
+                    _send_email(user.parent_email,
                                 "Consent needed: your child's IntelliPlan account", body)
                     print("[coppa] parental notice delivery attempted")
                 except Exception as _e:
@@ -20179,7 +19896,7 @@ def account_age_gate():
                 return redirect("/account/age/pending")
 
             print(f"[coppa] birth year recorded for user id={current_user.id}")
-            _welcome_after_age_known(current_user)
+            _welcome_after_age_known(user)
             return redirect(next_path)
 
     return render_template("age_gate.html", error=error, next_path=next_path,
@@ -20213,7 +19930,7 @@ def parent_consent():
     token = request.values.get("token", "").strip()
     if not token:
         return "Missing consent token.", 400
-    user = User.query.filter_by(parent_consent_token=token).first()
+    user = account_repository().by_parent_token(token)
     if not user or not _parental_consent_token_is_active(user):
         if user:
             _expire_parental_consent_token(user)
@@ -20253,7 +19970,13 @@ def parent_deny():
     token = request.values.get("token", "").strip()
     if not token:
         return "Missing consent token.", 400
-    user = User.query.filter_by(parent_consent_token=token).first()
+    native_store = app.extensions.get('mongo_store')
+    if native_store is not None:
+        user = account_repository().by_parent_token(token)
+    else:
+        # Serialize legacy SQL denial with atomic approval before deciding
+        # this is still pending. Native erasure rechecks inside its transaction.
+        user = User.query.populate_existing().filter_by(parent_consent_token=token).with_for_update().first()
     if not user or not _parental_consent_token_is_active(user):
         if user:
             _expire_parental_consent_token(user)
@@ -20290,12 +20013,18 @@ def parent_deny():
         return "Explicitly confirm removal of this pending signup.", 400
     child_email = _html_mod.escape(user.email or '')
     try:
-        PolicyAcknowledgement.query.filter_by(user_id=user.id).delete(synchronize_session=False)
-        db.session.delete(user)
-        db.session.commit()
+        if native_store is not None:
+            response = app.make_response(_native_account_delete_impl(user.id, native_store, pending_token=token))
+            if response.status_code != 200:
+                return response
+        else:
+            PolicyAcknowledgement.query.filter_by(user_id=user.id).delete(synchronize_session=False)
+            db.session.delete(user)
+            db.session.commit()
         print("[coppa] pending account removed")
     except Exception as _e:
-        db.session.rollback()
+        if native_store is None:
+            db.session.rollback()
         print(f"[coppa] pending account removal failed: {type(_e).__name__}")
         return "Could not remove the account right now. Please try again later.", 500
     return (
@@ -20591,8 +20320,10 @@ def api_focus_enforcement():
     if not current_user.is_authenticated:
         return flask.jsonify({"status": "error", "error": "login required"}), 401
 
+    saved = current_user
     if request.method == "POST":
         body = request.get_json(silent=True) or {}
+        changes = {}
 
         mode = str(body.get("mode") or "").strip().lower()
         if mode:
@@ -20601,21 +20332,21 @@ def api_focus_enforcement():
                     "status": "error",
                     "message": "Unknown enforcement mode.",
                 }), 400
-            current_user.focus_enforcement = mode
+            changes['focus_enforcement'] = mode
 
         if "grace_seconds" in body:
             try:
                 lo, hi = FOCUS_GRACE_BOUNDS
-                current_user.focus_grace_seconds = max(lo, min(hi, int(body["grace_seconds"])))
+                changes['focus_grace_seconds'] = max(lo, min(hi, int(body["grace_seconds"])))
             except (TypeError, ValueError):
                 return flask.jsonify({
                     "status": "error",
                     "message": "Grace period must be a number of seconds.",
                 }), 400
 
-        db.session.commit()
+        saved = account_repository().set_preferences(current_user.id, changes)
 
-    return flask.jsonify(_focus_settings_payload(current_user))
+    return flask.jsonify(_focus_settings_payload(saved))
 
 
 @app.route("/api/focus/alarm", methods=["POST", "DELETE"])
@@ -20637,9 +20368,8 @@ def api_focus_alarm():
                 os.remove(path)
             except OSError:
                 pass
-        current_user.focus_alarm_file = None
-        db.session.commit()
-        return flask.jsonify(_focus_settings_payload(current_user))
+        saved = account_repository().set_preferences(current_user.id, {'focus_alarm_file': None})
+        return flask.jsonify(_focus_settings_payload(saved))
 
     upload = request.files.get("sound")
     if not upload or not upload.filename:
@@ -20677,9 +20407,8 @@ def api_focus_alarm():
 
     with open(os.path.join(ALARM_UPLOAD_FOLDER, stored_name + ext), "wb") as fh:
         fh.write(blob)
-    current_user.focus_alarm_file = stored_name + ext
-    db.session.commit()
-    return flask.jsonify(_focus_settings_payload(current_user))
+    saved = account_repository().set_preferences(current_user.id, {'focus_alarm_file': stored_name + ext})
+    return flask.jsonify(_focus_settings_payload(saved))
 
 
 @app.route("/uploads/focus-alarm/<int:user_id>")
@@ -20714,11 +20443,11 @@ def api_profile_ai_personalization():
     if not current_user.is_authenticated:
         return flask.jsonify({"status": "error"}), 401
     body = request.get_json(silent=True) or {}
-    current_user.ai_personalization_opt_in = bool(body.get("enabled"))
-    db.session.commit()
+    user = account_repository().set_preferences(current_user.id,
+        {'ai_personalization_opt_in': bool(body.get('enabled'))})
     return flask.jsonify({
         "status": "ok",
-        "ai_personalization_opt_in": current_user.ai_personalization_opt_in,
+        "ai_personalization_opt_in": user.ai_personalization_opt_in,
     })
 
 
@@ -20729,21 +20458,19 @@ def api_profile_phone():
     if request.method == "GET":
         return flask.jsonify(_profile_payload(current_user))
     body = request.get_json(silent=True) or {}
+    changes = {}
     if "phone" in body:
         normalised = _normalise_phone(body.get("phone") or "")
-        current_user.phone = normalised or None
+        changes['phone'] = normalised or None
     if "sms_reminders_opt_in" in body:
-        current_user.sms_reminders_opt_in = bool(body.get("sms_reminders_opt_in"))
-        # Clearing the phone means you can't be reminded — also clear the flag.
-        if not current_user.phone:
-            current_user.sms_reminders_opt_in = False
+        changes['sms_reminders_opt_in'] = bool(body.get('sms_reminders_opt_in'))
     if "push_reminders_opt_in" in body:
-        current_user.push_reminders_opt_in = bool(body.get("push_reminders_opt_in"))
+        changes['push_reminders_opt_in'] = bool(body.get('push_reminders_opt_in'))
     if "reminder_lead_minutes" in body:
         try:
             lead = int(body.get("reminder_lead_minutes") or 60)
             # Clamp to 5 minutes .. 7 days
-            current_user.reminder_lead_minutes = max(5, min(lead, 10080))
+            changes['reminder_lead_minutes'] = max(5, min(lead, 10080))
         except (TypeError, ValueError):
             pass
     if "sms_carrier" in body:
@@ -20751,9 +20478,9 @@ def api_profile_phone():
         # Silently fall back to T-Mobile for unknown values.
         if carrier not in SMS_CARRIER_GATEWAYS:
             carrier = "tmobile"
-        current_user.sms_carrier = carrier
-    db.session.commit()
-    return flask.jsonify(_profile_payload(current_user))
+        changes['sms_carrier'] = carrier
+    user = account_repository().set_preferences(current_user.id, changes)
+    return flask.jsonify(_profile_payload(user))
 
 
 @app.route("/api/profile/phone/test", methods=["POST"])
@@ -20991,7 +20718,7 @@ def api_snapshot():
     }
 
     try:
-        acct = LinkedAccount.query.filter_by(user_id=u.id, is_active=True).first()
+        acct = linked_accounts_repository().active(u.id)
         if acct:
             snapshot["linked_account"] = {
                 "provider": acct.provider,
@@ -21724,6 +21451,9 @@ def email_unsubscribe(token):
     "sign in first" as an unsubscribe mechanism. POST is accepted because
     List-Unsubscribe-Post one-click sends one.
     """
+    if flask.current_app.extensions.get('mongo_store') is not None:
+        from intelliplan.email.unsubscribe import native_unsubscribe
+        return native_unsubscribe(token, _mini_page)
     from intelliplan.email.eligibility import suppress
     from intelliplan.email.sender import parse_unsubscribe_token
 
@@ -23734,8 +23464,12 @@ def _check_session_stamp():
         # Earlier request work can expire/detach Flask-Login's cached User.
         # Read the authoritative generation without accessing that ORM object
         # or reusing an identity-map value from before the reset.
-        row = db.session.execute(db.select(User.id, User.session_epoch).where(
-            User.id == int(user_id))).one_or_none()
+        if app.extensions.get('mongo_store') is not None:
+            authoritative = account_repository().get(user_id)
+            row = (authoritative.id, authoritative.session_epoch) if authoritative else None
+        else:
+            row = db.session.execute(db.select(User.id, User.session_epoch).where(
+                User.id == int(user_id))).one_or_none()
         if row is not None:
             current = int(row[1] or 0)
             seen = session.get("session_epoch")
@@ -24099,7 +23833,7 @@ def api_lms_sources():
         return jsonify({"status": "error", "message": "login required"}), 401
     if request.method == "GET":
         prefs = get_user_lms_prefs()
-        accounts = LinkedAccount.query.filter_by(user_id=current_user.id).all()
+        accounts = linked_accounts_repository().list(current_user.id)
         return jsonify({
             "status": "ok",
             "preferences": prefs,
@@ -24107,20 +23841,16 @@ def api_lms_sources():
                 {"login_type": a.login_type, "name": a.name, "is_active": bool(a.is_active)}
                 for a in accounts
             ],
-            "integrations": {
-                "google_classroom": bool(ClassroomIntegration.query.filter_by(user_id=current_user.id).first()),
-                "blackboard": bool(BlackboardIntegration.query.filter_by(user_id=current_user.id).first()),
-                "moodle": bool(MoodleIntegration.query.filter_by(user_id=current_user.id).first()),
-            },
+            "integrations": linked_accounts_repository().integration_presence(current_user.id),
         })
     body = request.get_json(silent=True) or {}
-    prefs = get_user_lms_prefs()
+    changes = {}
     if body.get("grade_source"):
-        prefs["grade_source"] = str(body["grade_source"])[:32]
+        changes["grade_source"] = str(body["grade_source"])[:32]
     if isinstance(body.get("assignment_sources"), list):
-        prefs["assignment_sources"] = [str(s)[:32] for s in body["assignment_sources"]][:12]
-    current_user.lms_preferences = json.dumps(prefs)
-    db.session.commit()
+        changes["assignment_sources"] = [str(s)[:32] for s in body["assignment_sources"]][:12]
+    saved = account_repository().set_lms_sources(current_user.id, changes)
+    prefs = _lms_preferences_payload(saved.lms_preferences, allow_empty=True)
     return jsonify({"status": "ok", "preferences": prefs})
 
 

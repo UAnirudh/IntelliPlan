@@ -159,6 +159,23 @@ def test_status_reports_whether_a_password_exists(client):
     assert client.get(STATUS).get_json()["has_password"] is True
 
 
+def test_fresh_bearer_authentication_still_works_after_password_change(client):
+    user_id, email = make_user('theoldpassword1')
+    sign_in(client, user_id)
+    changed = client.post(ENDPOINT, json={
+        'current_password': 'theoldpassword1', 'new_password': GOOD})
+    assert changed.status_code == 200
+    with app_module.app.test_client() as mobile:
+        token = mobile.post('/api/v1/auth/token', json={'email': email, 'password': GOOD})
+        assert token.status_code == 200
+        response = mobile.get('/api/ext/me', headers={
+            'Authorization': f"Bearer {token.get_json()['token']}"})
+        assert response.status_code == 200
+        assert response.get_json()['user']['id'] == user_id
+        with mobile.session_transaction() as cookie:
+            assert '_user_id' not in cookie
+
+
 # ── Changing one that already exists ────────────────────────────────
 
 
