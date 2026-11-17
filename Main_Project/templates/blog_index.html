@@ -97,6 +97,22 @@
     </a>
   </div>
 
+  {# Study-skills guides. The registry in blog_articles.py is the only place
+     an article is declared: this grid, /blog/<slug> and sitemap.xml all read
+     it, so a new article cannot appear in one and be missing from another. #}
+  {% if articles %}
+  <h2 class="hub-section-title" data-reveal><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px"><use href="#i-book"/></svg> Study skills &amp; how-to</h2>
+  <div class="hub-grid">
+    {% for article in articles %}
+    <a class="hub-card" data-reveal href="/blog/{{ article.slug }}">
+      <span class="tag">{{ article.kicker }}</span><h3>{{ article.title }}</h3>
+      <p>{{ article.description | truncate(105, true, '…') }}</p>
+      <span class="go">Read →</span>
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+
   <h2 class="hub-section-title" data-reveal><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px"><use href="#i-chart-bar"/></svg> Comparisons</h2>
   <div class="hub-grid">
     <a class="hub-card" data-reveal href="/compare/intelliplan-vs-turbo-ai">
