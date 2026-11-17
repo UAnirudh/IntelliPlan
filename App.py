@@ -32,6 +32,7 @@ from dotenv import load_dotenv
 from datetime import datetime, timezone, timedelta
 import time
 from time_utils import utcnow
+import blog_articles
 import bot_protection
 import cookie_policy
 import fallback_scheduler
@@ -5116,6 +5117,16 @@ _SITEMAP_ENTRIES = [
     ("/library",                         "library.html",                  "2026-06-22", "weekly",  "0.7"),
 ]
 
+# Guides live in blog_articles.py, and the sitemap is generated from that same
+# list: an article cannot be published without also getting a URL for a
+# crawler, and none of the three places that render articles can disagree.
+# ``None`` for the template means "use the article's own date" rather than a
+# file mtime, which is the date the page shows the reader.
+_SITEMAP_ENTRIES.extend(
+    (f"/blog/{article['slug']}", None, article["date"], "monthly", "0.7")
+    for article in blog_articles.all_articles()
+)
+
 
 def _indexable_sitemap_entries():
     """``_SITEMAP_ENTRIES`` minus anything that serves noindex.
@@ -5594,11 +5605,64 @@ def blog_ap_study_planner():
 
 @app.route("/blog")
 def blog_index():
-    return render_template("blog_index.html", active_page="blog")
+    return render_template("blog_index.html", active_page="blog",
+                           articles=blog_articles.all_articles())
+
+
+@app.route("/blog/<slug>")
+def blog_article(slug):
+    """One guide, rendered from the registry by ``blog_article.html``.
+
+    Every article shares one template and one URL rule, so the nine older
+    standalone pages and the registry-driven ones look and behave the same
+    and there is no per-article HTML to keep in sync with the index.
+    """
+    article = blog_articles.get(slug)
+    if article is None:
+        # A real 404, not the app-wide soft redirect to /dashboard: a missing
+        # guide is a dead URL, and telling a crawler it moved to a signed-in
+        # page spends crawl budget on a page it will be told not to index.
+        return render_template("error.html", error_code=404,
+                               error_id="BLOG-NOT-FOUND",
+                               message="That guide does not exist. Browse all guides instead."), 404
+    related = [
+        candidate for related_slug in article.get("related", ())
+        if (candidate := blog_articles.resolve(related_slug))
+    ]
+    canonical = f"{APP_BASE_URL}/blog/{article['slug']}"
+    article_json_ld = json.dumps({
+        "@context": "https://schema.org",
+        "@type": "Article",
+        "headline": article["title"],
+        "description": article["description"],
+        "url": canonical,
+        "mainEntityOfPage": {"@type": "WebPage", "@id": canonical},
+        "datePublished": article["date"],
+        "dateModified": article.get("updated", article["date"]),
+        "inLanguage": "en-US",
+        "author": {"@type": "Organization", "name": "IntelliPlan", "url": APP_BASE_URL},
+        "publisher": {"@type": "Organization", "name": "IntelliPlan", "url": APP_BASE_URL},
+    }, ensure_ascii=False)
+    return render_template("blog_article.html", article=article,
+                           related_articles=related,
+                           article_json_ld=article_json_ld,
+                           active_page="blog")
 
 @app.route("/olympiad")
 def olympiad_page():
     return render_template("olympiad.html", active_page="olympiad")
+
+@app.route("/demo/planner")
+def demo_planner_alias():
+    """The landing page (five places) and the pricing page both link here.
+
+    The sample week lives at /demo, so every one of those links was a dead
+    end on the two pages that matter most for conversion. A permanent
+    redirect keeps the links working without serving the same page at two
+    URLs, which would split its search signals.
+    """
+    return redirect("/demo", code=301)
+
 
 @app.route("/demo")
 def demo_week():
