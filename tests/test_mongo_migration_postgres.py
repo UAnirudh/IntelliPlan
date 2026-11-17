@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+import shlex
 import socket
 import subprocess
 
@@ -37,13 +38,21 @@ def postgres(tmp_path_factory):
             result = subprocess.run([str(bin_path / name), *map(str, args)],
                                     stdout=output, stderr=output, timeout=90, creationflags=flags)
         if result.returncode:
+                for log in ('commands.log', 'server.log'):
+                    path = root / log
+                    if path.exists():
+                        print(path.read_text(errors='replace')[-4000:])
             pytest.fail(f"Scratch PostgreSQL command failed: {name}")
 
     run("initdb", "-D", data, "--auth=trust", "--username=migration_test", "--encoding=UTF8", "--no-locale")
     with socket.socket() as binding:
         binding.bind(("127.0.0.1", 0))
         port = binding.getsockname()[1]
-    run("pg_ctl", "-D", data, "-l", root / "server.log", "-o", f"-h 127.0.0.1 -p {port}", "-w", "start")
+    options = f"-h 127.0.0.1 -p {port}"
+    if os.name != 'nt':
+        # The runner cannot write PostgreSQL's system socket directory.
+        options += f" -k {shlex.quote(str(root))}"
+    run("pg_ctl", "-D", data, "-l", root / "server.log", "-o", options, "-w", "start")
     try:
         yield f"host=127.0.0.1 port={port} user=migration_test dbname=postgres", root
     finally:

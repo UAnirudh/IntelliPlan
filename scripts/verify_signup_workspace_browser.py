@@ -87,11 +87,11 @@ with sync_playwright() as playwright:
         assert page.locator('#installBanner').count() == 0
         assert page.evaluate("() => { const event = new Event('beforeinstallprompt',{cancelable:true}); window.dispatchEvent(event); return !event.defaultPrevented; }")
         page.locator('#regBirthYear').fill('2020')
-        assert page.locator('#regParentEmail').is_visible()
-        assert page.locator('#regParentEmail').get_attribute('required') is not None
+        assert page.locator('#regParentEmail').count() == 0
+        assert page.locator('#regParentWrap').is_visible()
+        assert 'cannot activate an under-13 account' in page.locator('#regParentWrap').inner_text()
         page.locator('#regBirthYear').fill('')
-        assert page.locator('#regParentEmail').is_hidden()
-        assert page.locator('#regParentEmail').get_attribute('required') is None
+        assert page.locator('#regParentWrap').is_hidden()
         page.get_by_text('Optional email preferences',exact=True).click()
         page.locator('input[name=marketing_emails_opt_in]').check()
         assert page.locator('input[name=marketing_emails_opt_in]').is_checked()
