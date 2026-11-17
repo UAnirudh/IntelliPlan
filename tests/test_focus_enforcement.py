@@ -8,6 +8,7 @@ an invitation to try someone else's.
 """
 
 import io
+import uuid
 
 import pytest
 
@@ -15,18 +16,26 @@ import App
 
 
 @pytest.fixture()
-def client():
-    App.app.config["WTF_CSRF_ENABLED"] = False
+def client(monkeypatch):
+    monkeypatch.setitem(App.app.config, "WTF_CSRF_ENABLED", False)
+    monkeypatch.setattr(App.limiter, "enabled", False)
     return App.app.test_client()
 
 
 @pytest.fixture()
-def user_id():
+def user_id(tmp_path, monkeypatch):
+    monkeypatch.setattr(App, 'ALARM_UPLOAD_FOLDER', str(tmp_path))
     with App.app.app_context():
-        u = App.User.query.first()
-        if u is None:
-            pytest.skip("no user in the development database")
-        return u.id
+        user = App.User(email=f'focus-{uuid.uuid4().hex}@example.test',
+                        password_hash='synthetic', birth_year=2000,
+                        parent_consent_granted=True)
+        App.db.session.add(user)
+        App.db.session.commit()
+        identity = user.id
+    yield identity
+    with App.app.app_context():
+        App.db.session.delete(App.db.session.get(App.User, identity))
+        App.db.session.commit()
 
 
 def _login(client, user_id):

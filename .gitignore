@@ -41,3 +41,8 @@ export_hubspot_contacts.py
 
 # Disposable browser evidence and verification-only dependencies.
 output/playwright/
+
+# Historical local release handoffs; source changes are preserved in Git.
+release-artifacts/
+.venv/
+.verification-tests/

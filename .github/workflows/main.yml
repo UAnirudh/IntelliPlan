@@ -28,6 +28,12 @@ jobs:
         run: |
           python -c "import App; import sys; n = len(list(App.app.url_map.iter_rules())); print(f'OK: {n} routes registered'); sys.exit(0 if n > 0 else 1)"
 
+      # Install before pytest so the scraper regressions run instead of skip.
+      - name: Install Playwright test dependencies
+        run: pip install playwright pytest-playwright
+      - name: Install Chromium
+        run: playwright install --with-deps chromium
+
       # ── The unit suite. This ran nowhere until now: the only pytest
       # invocation in this workflow was the Playwright file at the bottom,
       # which drives *live* intelliplan.tech and so tests whatever is
@@ -57,10 +63,6 @@ jobs:
           node-version: '22'
       - name: Camera selection and cancellation regressions
         run: node --test tests/browser/*.test.cjs
-
-      # ── Playwright deps
-      - run: pip install playwright pytest-playwright
-      - run: playwright install chromium
 
       - name: Hypothetical assignments in Grade Modeler
         run: python scripts/verify_hypothetical_assignments_browser.py
@@ -157,3 +159,37 @@ jobs:
         run: python scripts/wait_for_deployment.py --revision "$GITHUB_SHA"
 
       - run: pytest test_intelliplan.py -v
+
+  postgres-verification:
+    name: Disposable PostgreSQL concurrency and migration checks
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: fixture
+          POSTGRES_PASSWORD: disposable-ci-only
+          POSTGRES_DB: intelliplan_fixture_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U fixture -d intelliplan_fixture_ci"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      DATABASE_URL: postgresql://fixture:disposable-ci-only@127.0.0.1:5432/intelliplan_fixture_ci
+      SECRET_KEY: disposable-postgres-verification-only
+      INTELLIPLAN_POSTGRES_VERIFICATION: "1"
+      MIGRATION_TEST_PG_BIN: /usr/lib/postgresql/16/bin
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.13'
+      - name: Install native backup tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-16 postgresql-client-16
+      - name: Install test dependencies
+        run: pip install -r requirements.txt -r requirements-mongodb.txt pytest
+      - name: Verify transactions, retention, and native backup round trips
+        run: python -m pytest tests/test_learning_postgres.py tests/test_mongo_migration_postgres.py -q -rs

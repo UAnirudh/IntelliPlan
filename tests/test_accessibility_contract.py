@@ -52,6 +52,8 @@ def client():
         App.db.session.add(user)
         App.db.session.commit()
         uid = user.id
+        App.db.session.add(App.UserIdentity(user_id=uid, completed=True))
+        App.db.session.commit()
     with c.session_transaction() as sess:
         sess["_user_id"] = str(uid)
         sess["_fresh"] = True
@@ -95,8 +97,7 @@ def _robots(html: str) -> str:
 @pytest.mark.parametrize("path", APP_PAGES + PUBLIC_PAGES)
 def test_every_form_control_has_an_accessible_name(client, path):
     response = client.get(path)
-    if response.status_code != 200:
-        pytest.skip(f"{path} returned {response.status_code}")
+    assert response.status_code == 200, (path, response.status_code, response.headers.get('Location'))
     unnamed = _unnamed_inputs(response.get_data(as_text=True))
     assert not unnamed, f"{path} has unnamed input(s): {unnamed[:3]}"
 
@@ -104,8 +105,7 @@ def test_every_form_control_has_an_accessible_name(client, path):
 @pytest.mark.parametrize("path", APP_PAGES)
 def test_signed_in_pages_are_not_indexable(client, path):
     response = client.get(path)
-    if response.status_code != 200:
-        pytest.skip(f"{path} returned {response.status_code}")
+    assert response.status_code == 200, (path, response.status_code, response.headers.get('Location'))
     assert "noindex" in _robots(response.get_data(as_text=True)), (
         f"{path} is advertising itself as indexable"
     )
@@ -114,8 +114,7 @@ def test_signed_in_pages_are_not_indexable(client, path):
 @pytest.mark.parametrize("path", PUBLIC_PAGES)
 def test_marketing_pages_stay_indexable(client, path):
     response = client.get(path)
-    if response.status_code != 200:
-        pytest.skip(f"{path} returned {response.status_code}")
+    assert response.status_code == 200, (path, response.status_code, response.headers.get('Location'))
     assert "noindex" not in _robots(response.get_data(as_text=True)), (
         f"{path} is a marketing page and must not be noindex"
     )
@@ -214,8 +213,7 @@ def test_every_button_has_an_accessible_name(client, path):
     which is where icon buttons live.
     """
     response = client.get(path)
-    if response.status_code != 200:
-        pytest.skip(f"{path} returned {response.status_code}")
+    assert response.status_code == 200, (path, response.status_code, response.headers.get('Location'))
     unnamed = _unnamed_buttons(response.get_data(as_text=True))
     assert not unnamed, f"{path} has unnamed button(s): {unnamed[:3]}"
 
@@ -229,8 +227,7 @@ def test_live_regions_do_not_contain_interactive_controls(client, path):
     is the live region, the controls are siblings outside it.
     """
     response = client.get(path)
-    if response.status_code != 200:
-        pytest.skip(f"{path} returned {response.status_code}")
+    assert response.status_code == 200, (path, response.status_code, response.headers.get('Location'))
     html = response.get_data(as_text=True)
 
     offenders = []
@@ -249,8 +246,7 @@ def test_aria_controls_point_at_real_elements(client, path):
     """A dangling aria-controls tells assistive tech about a relationship
     that does not exist, which is worse than declaring none."""
     response = client.get(path)
-    if response.status_code != 200:
-        pytest.skip(f"{path} returned {response.status_code}")
+    assert response.status_code == 200, (path, response.status_code, response.headers.get('Location'))
     html = response.get_data(as_text=True)
 
     dangling = []
@@ -269,8 +265,7 @@ def test_toggle_buttons_declare_their_expanded_state(client, path):
     starting aria-expanded for a screen reader to announce.
     """
     response = client.get(path)
-    if response.status_code != 200:
-        pytest.skip(f"{path} returned {response.status_code}")
+    assert response.status_code == 200, (path, response.status_code, response.headers.get('Location'))
     html = response.get_data(as_text=True)
 
     silent = []

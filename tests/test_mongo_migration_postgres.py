@@ -83,11 +83,31 @@ def test_real_postgres_snapshot_is_lossless(postgres):
 
 def test_native_backup_can_be_restored_and_reexported(postgres):
     dump = os.environ.get("MIGRATION_TEST_NATIVE_DUMP")
-    if not dump:
-        pytest.skip("MIGRATION_TEST_NATIVE_DUMP is not configured")
+    synthetic = not dump
     dsn, root = postgres
     bin_path = Path(os.environ["MIGRATION_TEST_PG_BIN"])
     flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+    if not dump:
+        # Generate a native backup from synthetic data on this isolated server.
+        # No production snapshot is needed to exercise pg_dump/pg_restore.
+        connection = psycopg2.connect(dsn)
+        try:
+            connection.autocommit = True
+            with connection.cursor() as cursor:
+                cursor.execute('CREATE DATABASE native_backup_fixture')
+        finally:
+            connection.close()
+        source = psycopg2.extensions.make_dsn(dsn, dbname='native_backup_fixture')
+        with psycopg2.connect(source) as connection, connection.cursor() as cursor:
+            cursor.execute('CREATE TABLE native_roundtrip (id SERIAL PRIMARY KEY, label text, payload bytea, exact numeric(34,25))')
+            cursor.execute("INSERT INTO native_roundtrip (label,payload,exact) VALUES (%s,%s,0.1234567890123456789012345)",
+                           ('Synthetic backup row', psycopg2.Binary(b'\x00\xff')))
+            cursor.execute("SELECT setval('native_roundtrip_id_seq', 1000)")
+        dump = root / 'synthetic-native.dump'
+        result = subprocess.run([str(bin_path / 'pg_dump'), '--format=custom',
+            '--schema=public', '--file', str(dump), '--dbname', source],
+            capture_output=True, timeout=120, creationflags=flags)
+        assert result.returncode == 0, 'Synthetic pg_dump failed'
     # This connection is exclusively the isolated server created by the fixture.
     with psycopg2.connect(dsn) as connection, connection.cursor() as cursor:
         cursor.execute("SELECT count(*) FROM information_schema.tables WHERE table_schema='public'")
@@ -102,11 +122,17 @@ def test_native_backup_can_be_restored_and_reexported(postgres):
         pytest.fail(f"Native restore failed; diagnostics: {root / 'restore-errors.log'}")
     path = root / "native-restored-snapshot"
     manifest = migration.snapshot(dsn, path)
-    assert len(manifest["tables"]) == 132
+    assert manifest["tables"], "Restored backup must contain public tables"
     db = mongomock.MongoClient().intelliplan_native_restored
     counts = migration.restore(db, path)
     assert counts["rows"] > 0
     assert migration.verify(db, path) == counts
+    if synthetic:
+        assert {table['name'] for table in manifest['tables']} == {'native_roundtrip'}
+        row = db.native_roundtrip.find_one({'label': 'Synthetic backup row'})
+        assert row['payload'] == b'\x00\xff'
+        assert str(row['exact']) == '0.1234567890123456789012345'
+        assert db['_sequences'].find_one({'_id': 'native_roundtrip'})['value'] >= 1000
 
 
 def test_rls_cannot_silently_hide_rows_in_a_snapshot(postgres):
