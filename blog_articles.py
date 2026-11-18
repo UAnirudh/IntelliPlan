@@ -67,7 +67,7 @@ ARTICLES: list[dict] = [
                 "If you use IntelliPlan, connect your classes first so the finals and assignments already on your list are in the same place as the study blocks you add. The scheduler can lay out the week from your available hours, and the reschedule actions let you push a block without rebuilding the whole plan when something goes wrong.",
             ]},
         ],
-        "related": ["how-to-make-a-study-schedule-that-works", "active-recall-vs-rereading", "how-to-stop-procrastinating-on-homework"],
+        "related": ["how-to-make-a-study-schedule-that-works", "active-recall-vs-rereading", "how-to-stop-procrastinating-on-homework", "how-to-study-for-a-test-you-forgot-about"],
     },
     {
         "slug": "how-to-make-a-study-schedule-that-works",
@@ -115,7 +115,7 @@ ARTICLES: list[dict] = [
                 "A schedule is a hypothesis about your week. The point is not to follow it perfectly; it is to notice quickly when it is wrong and change the plan rather than abandoning it.",
             ]},
         ],
-        "related": ["time-blocking-for-students", "how-to-study-for-finals-in-one-week", "how-to-prioritize-assignments"],
+        "related": ["time-blocking-for-students", "how-to-study-for-finals-in-one-week", "how-to-prioritize-assignments", "how-to-get-organized-for-a-new-semester"],
     },
     {
         "slug": "time-blocking-for-students",
@@ -158,7 +158,7 @@ ARTICLES: list[dict] = [
                 "The repair matters more than the plan. A blocked week that gets rebuilt once is normal; a blocked week that gets abandoned after two missed blocks is the failure mode to design against. IntelliPlan's scheduler does the rebuilding for you when a day changes, which is the part most paper systems make you do by hand at the worst possible moment.",
             ]},
         ],
-        "related": ["how-to-make-a-study-schedule-that-works", "pomodoro-technique-for-students", "how-to-stop-procrastinating-on-homework"],
+        "related": ["how-to-make-a-study-schedule-that-works", "pomodoro-technique-for-students", "how-to-stop-procrastinating-on-homework", "how-to-plan-your-week-in-20-minutes"],
     },
     {
         "slug": "pomodoro-technique-for-students",
@@ -201,7 +201,7 @@ ARTICLES: list[dict] = [
                 "IntelliPlan's focus sessions and the Focus Shield extension use the same shape: a planned block, a timer, and a distractor list that is blocked only while the block is running. That last part matters because it removes the decision to resist at the moment you are least able to make it.",
             ]},
         ],
-        "related": ["time-blocking-for-students", "how-to-study-with-adhd", "how-to-stop-procrastinating-on-homework"],
+        "related": ["time-blocking-for-students", "how-to-study-with-adhd", "how-to-stop-procrastinating-on-homework", "how-to-study-on-your-phone-without-getting-distracted"],
     },
     {
         "slug": "how-to-stop-procrastinating-on-homework",
@@ -245,7 +245,7 @@ ARTICLES: list[dict] = [
                 "If you are behind across several classes, the useful move is not to work harder on the same plan — it is to rebuild the plan around what is actually left. IntelliPlan's \"I am behind\" reschedule does exactly that, moving only what has to move and showing you the consequence before you accept it.",
             ]},
         ],
-        "related": ["pomodoro-technique-for-students", "how-to-make-a-study-schedule-that-works", "how-to-catch-up-when-behind-in-school"],
+        "related": ["pomodoro-technique-for-students", "how-to-make-a-study-schedule-that-works", "how-to-catch-up-when-behind-in-school", "how-to-keep-a-study-streak-going"],
     },
     {
         "slug": "how-to-catch-up-when-behind-in-school",
@@ -289,7 +289,7 @@ ARTICLES: list[dict] = [
                 "If the deficit is bigger than two weeks, the honest answer is that something has to be dropped or renegotiated — an extracurricular, a shift, a class. That conversation is uncomfortable and cheaper than failing quietly.",
             ]},
         ],
-        "related": ["how-to-prioritize-assignments", "how-to-stop-procrastinating-on-homework", "how-to-make-a-study-schedule-that-works"],
+        "related": ["how-to-prioritize-assignments", "how-to-stop-procrastinating-on-homework", "how-to-make-a-study-schedule-that-works", "how-parents-can-help-without-taking-over"],
     },
     {
         "slug": "how-to-study-with-adhd",
@@ -380,7 +380,7 @@ ARTICLES: list[dict] = [
                 "Once a week, spend five minutes moving anything actionable out of the notes and into the task list, with a date attached. Anything without a date is not a task yet, and a note you never extracted anything from is probably a note you did not need to take.",
             ]},
         ],
-        "related": ["cornell-note-taking-method", "active-recall-vs-rereading", "how-to-study-for-finals-in-one-week"],
+        "related": ["cornell-note-taking-method", "active-recall-vs-rereading", "how-to-study-for-finals-in-one-week", "how-to-study-for-history-tests"],
     },
     {
         "slug": "active-recall-vs-rereading",
@@ -424,7 +424,7 @@ ARTICLES: list[dict] = [
                 "The caveat is the usual one: generated questions are a starting point. Delete the ones that are trivial, and rewrite the ones that do not match how your teacher asks.",
             ]},
         ],
-        "related": ["spaced-repetition-for-students", "how-to-take-better-notes-in-class", "how-to-study-for-finals-in-one-week"],
+        "related": ["spaced-repetition-for-students", "how-to-take-better-notes-in-class", "how-to-study-for-finals-in-one-week", "how-to-study-smarter-not-longer"],
     },
     {
         "slug": "spaced-repetition-for-students",
@@ -617,7 +617,7 @@ ARTICLES: list[dict] = [
                 "Check the logistics while it is still boring. Test centre and arrival time, photo ID, an approved calculator with working batteries, and whether two of your exams are back to back with a lunch break or without one. None of that is on the exam, and all of it has cost students points.",
             ]},
         ],
-        "related": ["ap-study-planner", "how-to-study-for-finals-in-one-week", "spaced-repetition-for-students"],
+        "related": ["ap-study-planner", "how-to-study-for-finals-in-one-week", "spaced-repetition-for-students", "how-to-teach-yourself-a-subject"],
     },
     {
         "slug": "how-to-study-for-math-tests",
@@ -808,7 +808,7 @@ ARTICLES: list[dict] = [
                 "Ten minutes on Sunday is enough to keep it honest: the week's games, the week's due dates, and the one assignment that has to start early. A season is predictable enough that most collisions are visible a week out, and a week out is the only point at which they are cheap to fix.",
             ]},
         ],
-        "related": ["time-blocking-for-students", "how-to-manage-homework-with-a-part-time-job", "how-to-make-a-study-schedule-that-works"],
+        "related": ["time-blocking-for-students", "how-to-manage-homework-with-a-part-time-job", "how-to-make-a-study-schedule-that-works", "how-to-balance-schoolwork-and-a-social-life"],
     },
     {
         "slug": "how-to-manage-homework-with-a-part-time-job",
@@ -915,7 +915,7 @@ ARTICLES: list[dict] = [
                 "If the same assignment appears twice, keep the copy with the earlier due date and delete the other. Two identical tasks on one list is how a student ends up doing the same worksheet twice and calling it a busy week.",
             ]},
         ],
-        "related": ["how-to-use-canvas-with-a-study-planner", "how-to-use-schoology-assignments", "how-to-prioritize-assignments"],
+        "related": ["how-to-use-canvas-with-a-study-planner", "how-to-use-schoology-assignments", "how-to-prioritize-assignments", "how-to-connect-powerschool-to-a-study-planner"],
     },
     {
         "slug": "how-to-use-schoology-assignments",
@@ -1295,7 +1295,7 @@ ARTICLES: list[dict] = [
                 "Give it three sessions before deciding. One bad meeting is a bad week; three in a row with no exit ticket and no silent block is a pattern, and a pattern is worth acting on before the test rather than after.",
             ]},
         ],
-        "related": ["active-recall-vs-rereading", "how-to-study-in-a-distracting-dorm", "how-to-make-a-study-schedule-that-works"],
+        "related": ["active-recall-vs-rereading", "how-to-study-in-a-distracting-dorm", "how-to-make-a-study-schedule-that-works", "how-to-prepare-for-a-presentation-or-oral-exam"],
     },
     {
         "slug": "how-parents-can-help-without-taking-over",
@@ -1583,7 +1583,7 @@ ARTICLES: list[dict] = [
                 "In IntelliPlan, Study and Learn sits on the useful side of that line. It builds questions from the notes you upload and checks your answers, which is practice on material you have already read. It will not write the essay, and that limitation is the feature.",
             ]},
         ],
-        "related": ["active-recall-vs-rereading", "how-to-take-better-notes-in-class", "how-to-write-a-better-essay-in-less-time"],
+        "related": ["active-recall-vs-rereading", "how-to-take-better-notes-in-class", "how-to-write-a-better-essay-in-less-time", "how-to-use-ai-to-plan-your-week"],
     },
     {
         "slug": "how-to-prepare-for-a-presentation-or-oral-exam",
