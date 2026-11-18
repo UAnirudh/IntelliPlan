@@ -18,9 +18,58 @@ body.has-side :is(button, .btn-primary, .btn-secondary, .ipui-btn, .ipa-btn, .ip
 body.has-side :is(.ipui-btn--shimmer, .ipd-anim)::before,
 body.has-side .ipui-btn--shimmer::after { animation: none; background-image: none; }
 body.has-side .ip-bug-shortcut { display: none; }
-.scheduler-options { margin-top: 16px; border-top: 1px solid var(--border); padding-top: 12px; }
-.scheduler-options > summary { cursor: pointer; color: var(--text-secondary); font-size: .88rem; padding: 8px 0; }
-.scheduler-options[open] > summary { margin-bottom: 12px; }
+body.has-side .app-side :is(.side-quick-add, .side-search) {
+  background: transparent;
+  color: var(--text-secondary);
+  border-color: transparent;
+  border-radius: 5px;
+}
+body.has-side .app-side :is(.side-quick-add, .side-search):hover {
+  background: color-mix(in srgb, var(--text-primary) 8%, transparent);
+  color: var(--text-primary);
+}
+.scheduler-study-link { align-self: center; color: var(--text-primary); text-underline-offset: 3px; }
+body.has-side .sched-tabs {
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--border-strong);
+  border-radius: 0;
+  padding: 0;
+}
+body.has-side .sched-tabs .sched-tab {
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  margin-bottom: -1px;
+  min-height: 44px;
+  padding: 8px 12px;
+}
+body.has-side .sched-tabs .sched-tab[aria-selected="true"] {
+  color: var(--text-primary);
+  border-bottom-color: var(--accent);
+}
+body.has-side .sched-tabs .sched-tab:active { transform: none; }
+body.has-side .sched-pane #inputPanel {
+  border: 0;
+  background: transparent;
+  padding-inline: 0;
+}
+#inputPanel > .scheduler-inputs { display: grid; gap: 12px; }
+.scheduler-options > summary {
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: .88rem;
+  padding-block: 10px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.scheduler-options[open] > :not(summary) { border-inline-start: 2px solid var(--border-strong); padding-inline-start: 14px; }
+body.has-side .sched-pane #generateBtn {
+  padding: 10px 16px;
+  min-height: 44px;
+  transform: none;
+}
 .ipa-assignment-picker { padding: 16px 0; margin-bottom: 16px; border-bottom: 1px solid var(--border); }
 .ipa-assignment-picker label { display: block; font-size: .85rem; margin-bottom: 8px; color: var(--text-secondary); }
 .ipa-assignment-picker select { width: 100%; min-height: 44px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-card); color: var(--text-primary); font: inherit; padding: 9px 12px; }
