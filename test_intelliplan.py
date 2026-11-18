@@ -649,7 +649,15 @@ class TestAccessibility:
             const txt = (a.innerText || a.textContent || '').trim();
             const al  = (a.getAttribute('aria-label') || '').trim();
             const tt  = (a.getAttribute('title') || '').trim();
-            return !txt && !al && !tt;
+            // An image-only link takes its name from the image's alt text,
+            // which is exactly what a screen reader announces. Ignoring it
+            // reported the alt-named BuiltByIndies badge as a nameless link,
+            // failing this check on every run against the live site.
+            const alt = Array.from(a.querySelectorAll('img[alt]'))
+              .map(img => (img.getAttribute('alt') || '').trim())
+              .join(' ')
+              .trim();
+            return !txt && !al && !tt && !alt;
           }).length;
         }""")
         assert bad_links == 0, f"{bad_links} link(s) lack accessible text"
