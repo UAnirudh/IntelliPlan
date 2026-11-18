@@ -1634,6 +1634,402 @@ ARTICLES: list[dict] = [
         ],
         "related": ["how-to-write-a-better-essay-in-less-time", "how-to-use-a-study-group-without-wasting-time", "active-recall-vs-rereading"],
     },
+    {
+        "slug": "how-to-get-organized-for-a-new-semester",
+        "kicker": "Semesters",
+        "title": "How to Get Organized for a New Semester in One Afternoon",
+        "meta_title": "Get Organized for a New Semester | IntelliPlan",
+        "description": "A two-hour setup for the first week of a semester: syllabi, deadlines, real free hours, and a review you will still be doing in October.",
+        "date": "2026-11-18",
+        "sections": [
+            {"paragraphs": [
+                "The first week of a semester is the cheapest time to get organized and the easiest time to skip it. Nothing is due yet, so it feels like there is nothing to plan, and that is exactly why October goes the way it does: four syllabi discovered in a backpack, two projects already a week old, and a calendar that has never heard of any of it.",
+                "One afternoon of setup is enough, and it pays for itself by the second week. The goal is not a beautiful system. It is that every deadline for the next four months lives in one place before the first one arrives.",
+            ]},
+            {"h2": "Start with every syllabus, all at once",
+            "paragraphs": [
+                "Collect all of them before you touch a calendar. Reading them one at a time is how you miss the class whose syllabus says the final is 40 percent of the grade and the essay is due in week three.",
+            ], "list": [
+                "Open every syllabus and find three numbers: the final's weight, the biggest single assignment, and the late-work policy.",
+                "Write the fixed dates down first. Exams, papers, presentations and labs are the skeleton; everything else gets scheduled around them.",
+                "Note the policies you will actually rely on: how many absences are allowed, whether revisions are accepted, and what happens to late work.",
+            ]},
+            {"h2": "Put the fixed dates in before the flexible ones",
+            "paragraphs": [
+                "A calendar full of study blocks with no exam on it is a wish list. Enter the immovable dates first, then work backwards from each one: a paper due on the twelfth needs an outline on the fifth, a draft on the ninth, and a proofread on the eleventh.",
+                "Back-planning is the step students skip because it turns one date into four tasks, and four tasks is the honest size of a paper. A deadline you have not broken down is a deadline you will meet badly.",
+            ]},
+            {"h2": "Find the hours you actually have",
+            "paragraphs": [
+                "Count the free hours in a normal week, a real one, with practice, a shift and the evenings you never study. Take 20 percent off for the week that goes wrong. What is left is your study budget, and it is smaller than you think.",
+            ], "list": [
+                "Two hours on a weekday evening is a good week, not an average one.",
+                "Weekends hold more hours and less focus; plan the hardest work for the morning.",
+                "Leave one evening completely unplanned. It is the pressure valve that keeps the rest of the schedule believable.",
+            ]},
+            {"h2": "One inbox for everything that arrives",
+            "paragraphs": [
+                "Assignments come from a portal, a learning management system, a teacher's email, and someone saying there is a quiz on Friday. If those live in four places, your list is always missing something, and a list you cannot trust is a list you stop opening.",
+                "Pick one place as the inbox and make everything land there: imported from Canvas or Google Classroom, copied from the portal, or added by hand in ten seconds. The test is not whether it is tidy; it is whether you would believe the list if it told you the week was empty.",
+                "IntelliPlan imports from the systems that offer an API and from the district portals that do not, so most of the first week's list arrives without typing. What it misses, you add once and it stays.",
+            ]},
+            {"h2": "Decide the weekly review before you need it",
+            "paragraphs": [
+                "A schedule without a review decays in about three weeks. Put a twenty-minute review on the calendar now, on a day that is already calm, and treat it as part of the system rather than a sign that the system failed.",
+                "The review is three questions: what did not happen, what is due next, and what is one thing I am avoiding. The last question is the one that earns the twenty minutes.",
+            ]},
+            {"h2": "Fix the study space in ten minutes",
+            "paragraphs": [
+                "You do not need a desk setup; you need a surface that holds a laptop, a notebook and nothing else, and a place for the phone that is not within reach. Ten minutes of clearing beats an hour of buying organisers.",
+                "Do it once at the start of the semester and take a photograph. Restoring a space is much faster than creating one, and the photo makes the difference obvious before a bad week starts.",
+            ]},
+            {"h2": "What to skip in week one",
+            "paragraphs": [
+                "Do not colour-code six subjects, do not buy a new notebook for each class, and do not write a study plan for the whole semester in hourly detail. All three feel productive and none of them survive the first surprise.",
+                "The setup that lasts is small: dates on a calendar, one list, one weekly review, and a place to work. Everything else is decoration, and decoration is what you do instead of the reading.",
+            ]},
+        ],
+        "related": ["how-to-make-a-study-schedule-that-works", "how-to-plan-a-long-term-project", "how-to-calculate-what-you-need-on-a-final"],
+    },
+    {
+        "slug": "how-to-plan-your-week-in-20-minutes",
+        "kicker": "Planning",
+        "title": "How to Plan Your Week in 20 Minutes",
+        "meta_title": "How to Plan Your Week in 20 Minutes | IntelliPlan",
+        "description": "A twenty-minute weekly routine that survives a bad Wednesday: empty the list, rank by consequence, place three anchors.",
+        "date": "2026-11-11",
+        "sections": [
+            {"paragraphs": [
+                "Most weekly planning fails for a boring reason: it takes an hour, so it gets moved to Sunday evening, then to Monday, then to never. A plan you rebuild every week has to be cheap enough that you will actually do it when the week is already busy.",
+                "Twenty minutes is enough for four steps, and doing them in the same order every week is most of the value. The output is not a perfect schedule; it is a week where you know what matters and what you have decided to let go.",
+            ]},
+            {"h2": "Minutes 0 to 10: empty the list",
+            "paragraphs": [
+                "Open every source of work, the portal, the learning management system, the group chat, your own notes, and get it into one list. Do not organise while you collect; that is how ten minutes becomes forty.",
+                "If the list lives in a planner that imports assignments, this part is mostly checking that the import ran and adding what it could not see: the quiz announced in class, the shift you picked up, the thing your group agreed to.",
+            ], "list": [
+                "Anything with a date goes on the list with that date, even if the date is vague, like end of month.",
+                "Anything you have been avoiding gets written down as it is, not as a nicer version of itself.",
+                "Anything that is not yours to do comes off. A list with other people's tasks on it is a source of guilt, not information.",
+            ]},
+            {"h2": "Minutes 10 to 15: rank by consequence",
+            "paragraphs": [
+                "Sort by what happens if the item is late, not by when it is due. A worksheet due Friday that is worth nothing is less urgent than a draft due Monday that a teacher will comment on. The ranking is the actual planning; the calendar is just where the ranking gets stored.",
+            ], "list": [
+                "High: late means a grade drop, a missed requirement, or a person waiting on you.",
+                "Medium: late means more work later, such as a revision, a resit or a catch-up session.",
+                "Low: late means nothing except that it sits on the list.",
+            ]},
+            {"h2": "Minutes 15 to 18: place three anchors",
+            "paragraphs": [
+                "Choose three items and give each one a day and a time. Three, not twelve. Anchors are the things that will happen even if the week goes sideways, and everything else gets placed around them as the week reveals itself.",
+                "Put the hardest anchor in your best hour rather than your first free one. For most people that is mid-morning or early evening; for almost nobody is it the twenty minutes after dinner.",
+            ]},
+            {"h2": "Minutes 18 to 20: name the failure mode",
+            "paragraphs": [
+                "Finish by writing one sentence: what is most likely to derail this week. A shift gets added, a friend's birthday, a paper that always takes longer than planned. Naming it in advance makes the repair a decision rather than a collapse.",
+                "This is where a planner that can reschedule earns its place. Telling it that today got shorter and getting a repaired week back is the difference between a system you keep and a list you abandon on Wednesday.",
+            ]},
+            {"h2": "What to do when the week is already full",
+            "paragraphs": [
+                "If the ranked list is longer than the hours, the plan is not to work more efficiently. It is to decide what will not happen this week and to tell whoever needs to know, the teacher, the group, the friend, before the deadline says it for you.",
+                "One honest email on Monday is worth more than a heroic Thursday. The work you drop deliberately costs a little; the work you drop by running out of time costs a lot more.",
+            ]},
+            {"h2": "Why twenty minutes beats an hour",
+            "paragraphs": [
+                "A long planning session optimises a week that will not survive Tuesday. A short one gets repeated, and repetition is what makes a plan real: by the fourth week you know which blocks you actually keep and which ones are fiction.",
+                "Keep the routine at the same time each week and it stops being a decision. Sunday evening, a cup of something, twenty minutes, done.",
+            ]},
+        ],
+        "related": ["how-to-make-a-study-schedule-that-works", "time-blocking-for-students", "how-to-prioritize-assignments"],
+    },
+    {
+        "slug": "how-to-study-smarter-not-longer",
+        "kicker": "Study habits",
+        "title": "How to Study Smarter, Not Longer",
+        "meta_title": "How to Study Smarter, Not Longer | IntelliPlan",
+        "description": "Four changes that cut study time without cutting grades, and the uncomfortable first week where the new method feels worse.",
+        "date": "2026-11-04",
+        "sections": [
+            {"paragraphs": [
+                "The advice to study smarter rather than longer is usually offered as encouragement and received as a rebuke, because it never says what to do differently. The differences are not mysterious. They are four specific changes, and every one of them makes studying feel harder in the short term.",
+                "None of them require more discipline than the way you study now. They require less time at the desk and more honesty about whether anything went in.",
+            ]},
+            {"h2": "Swap rereading for retrieval",
+            "paragraphs": [
+                "Rereading a chapter produces a feeling of familiarity that is easily mistaken for knowing it. Retrieval, which means closing the book and writing what you remember, produces the opposite feeling and much better results. The gap between the two is the whole trick.",
+                "Start every study block with a blank page. Write the topic at the top, spend five minutes putting down everything you can, then open the book and mark what you missed. The marks are your study list; the rest is already yours.",
+            ]},
+            {"h2": "Space it out, even badly",
+            "paragraphs": [
+                "Three sessions of twenty minutes across a week beat one hour the night before, and they beat it by a wider margin than students expect. The spacing does not have to be elegant. Monday, Wednesday and Saturday is fine; so is tonight, in two days, and next week.",
+                "If you keep a planner, this is the one place where putting something on the calendar genuinely changes the outcome: the second and third sessions are the ones that get lost, because the first one makes you feel finished.",
+            ]},
+            {"h2": "One subject per block",
+            "paragraphs": [
+                "Switching subjects feels efficient and mostly is not. Each switch costs a few minutes of reloading context, and a block of forty minutes with three subjects in it has spent a quarter of its time on that reload.",
+                "Pick one subject per block, and put the one you are avoiding first. The order matters less than the fact that the avoiding does not get a whole day to build.",
+            ]},
+            {"h2": "Set a stopping rule before you start",
+            "paragraphs": [
+                "Without a stopping rule, a study block ends when you get bored, which teaches you that studying ends with discomfort. With one, it ends when the defined work is done, which is a much better thing to learn.",
+                "A stopping rule is concrete: ten retrieval questions, two past-paper sections, one essay outline. When it is met, stop, even if there is time left, and especially if the session is going well. Ending on a good note is what makes tomorrow's session easy to start.",
+            ]},
+            {"h2": "Measure output, not hours",
+            "paragraphs": [
+                "Hours at a desk are the easiest thing to count and the least informative. Questions answered, pages written from memory, past papers scored: those tell you whether the time did anything.",
+                "Keep a one-line log per session: what you did, and what you still cannot do. After two weeks you will know more about your own studying than a semester of timetables could tell you.",
+            ]},
+            {"h2": "The first week will feel slower",
+            "paragraphs": [
+                "Retrieval is slower than rereading, spacing means revisiting things you thought were finished, and stopping while you still have momentum feels wrong. Expect the first week to be less comfortable and slightly less productive.",
+                "The payoff shows up in the test, not in the session. Give the method three weeks before deciding it does not work, and judge it by what you can do with the book closed.",
+            ]},
+        ],
+        "related": ["active-recall-vs-rereading", "spaced-repetition-for-students", "pomodoro-technique-for-students"],
+    },
+    {
+        "slug": "how-to-study-for-a-test-you-forgot-about",
+        "kicker": "Exams",
+        "title": "How to Study for a Test You Forgot About",
+        "meta_title": "How to Study for a Test You Forgot About | IntelliPlan",
+        "description": "A triage plan for the night before: what to learn, what to skip, and how to earn partial credit on material you have never seen.",
+        "date": "2026-10-28",
+        "sections": [
+            {"paragraphs": [
+                "It happens to good students too: a test appears on the calendar that you have no memory of, and it is tomorrow. The instinct is to read everything and retain nothing. Triage is better.",
+                "The goal for a night like this is not mastery. It is damage control with a clear head: the few things worth the hours you have, and a plan for the parts you will not reach.",
+            ]},
+            {"h2": "Confirm what the test actually covers",
+            "paragraphs": [
+                "Before you study, find out what is on it. Ask a classmate for a photo of the review sheet, check the syllabus, look at the last unit's homework. Ten minutes of confirmation can remove half the material you were about to panic-read.",
+                "If you cannot confirm, assume the most recent unit is the heaviest and that the earlier units appear as one or two questions. That is the usual shape, and it is a better bet than studying the whole course evenly.",
+            ]},
+            {"h2": "Rank by marks per minute",
+            "paragraphs": [
+                "List the topics and estimate two things: how many marks each is likely to carry, and how long it would take to get from nothing to partial credit. The ratio is your order. A formula you can memorise in ten minutes and that is worth eight marks beats a chapter you could not finish in four hours.",
+            ], "list": [
+                "Definitions, formulas, dates and labelled diagrams are fast wins. Learn them first.",
+                "Worked examples in maths and science are worth more than the theory behind them on a night like this.",
+                "Names and dates in history or literature help only if you also know what to say about them.",
+            ]},
+            {"h2": "Learn the shape of the answer",
+            "paragraphs": [
+                "For essay subjects you cannot read the book tonight, but you can learn the shape of a good paragraph and the two or three themes the unit keeps returning to. A structured answer about a text you skimmed scores better than an unstructured one about a text you read in September.",
+                "For problem subjects, learn the first step of each question type. Starting correctly earns method marks even when the arithmetic collapses, and it stops the blank-page freeze.",
+            ]},
+            {"h2": "The night-before plan",
+            "paragraphs": ["Two hours, in this order, with the phone in another room."], "list": [
+                "Twenty minutes: write the topic list and note how many marks each topic is likely to carry.",
+                "Forty minutes: the highest marks-per-minute topics, retrieval first, covering the page and reproducing it.",
+                "Thirty minutes: one past paper or review sheet, timed and closed book. Score it honestly.",
+                "Twenty minutes: redo only what you got wrong, and write down the three things you still cannot do.",
+                "Ten minutes: pack what you need and set two alarms.",
+            ]},
+            {"h2": "What to skip, deliberately",
+            "paragraphs": [
+                "Skip the chapter you have not read if it is a small part of the test. Skip the perfect set of notes; you are not going to read them tomorrow. Skip the group chat that is spiralling, because it will make everyone more anxious and nobody more prepared.",
+                "Skipping is a decision, not a failure. Write down what you skipped so you can tell yourself in the exam that you chose it.",
+            ]},
+            {"h2": "In the exam, partial credit is a strategy",
+            "paragraphs": [
+                "Read the whole paper first and start with the question you can do most of. Show working even when the answer is wrong, define the term even when you are not sure, and attempt every question: an unanswered question scores zero with certainty.",
+                "If you blank, write the question in your own words and the first step you would take. Starting is usually enough to find the second step. Then sleep properly if there is any night left; memory consolidation is not on the side of the all-nighter.",
+            ]},
+        ],
+        "related": ["how-to-study-for-finals-in-one-week", "how-to-catch-up-when-behind-in-school", "how-to-study-for-math-tests"],
+    },
+    {
+        "slug": "how-to-balance-schoolwork-and-a-social-life",
+        "kicker": "Balance",
+        "title": "How to Balance Schoolwork and a Social Life",
+        "meta_title": "Balance Schoolwork and a Social Life | IntelliPlan",
+        "description": "A week where both fit: fixed commitments first, free time that is actually planned, and a rule for saying yes without wrecking the week.",
+        "date": "2026-10-20",
+        "sections": [
+            {"paragraphs": [
+                "Balance is usually framed as a budgeting problem, less of this and more of that, and that framing is why it fails. The students who seem balanced are not splitting their hours evenly. They have a week where the important things are already placed, so the fun does not have to be negotiated every time it appears.",
+                "The problem with the other approach is that unplanned free time does not feel like free time. It feels like borrowed time, and you spend it waiting for the guilt to arrive.",
+            ]},
+            {"h2": "Put free time on the calendar",
+            "paragraphs": [
+                "An evening with nothing planned is not rest; it is a slot that anything can claim. An evening labelled nothing, on purpose is rest, and the label defends it. This is not a productivity trick. It is how the time becomes yours.",
+                "Schedule the things you would not give up, practice, a friend's birthday, the show you watch with your family, with the same seriousness as a paper. If they only happen once the work is finished, they will not happen.",
+            ]},
+            {"h2": "Protect the fixed commitments first",
+            "paragraphs": [
+                "Most weeks have more structure than they feel like: school, practice, a shift, a rehearsal. Put those in before anything else, then look at what is left. The remaining hours are the real budget, and they are usually fewer than the ones you were planning against.",
+            ], "list": [
+                "Mark the immovable hours first, the ones where someone else is expecting you.",
+                "Add travel and the twenty minutes of decompression after each one. Both are real and both get forgotten.",
+                "What is left is study time plus free time. If there is not enough for both, the week is over-committed, not badly organised.",
+            ]},
+            {"h2": "Say yes to the event, no to the week",
+            "paragraphs": [
+                "The useful social skill is not turning everything down; it is being specific. Saying you can do Saturday but not Thursday keeps the friendship and the deadline. Saying you are too busy sounds like a rejection and is also untrue, because you are busy on one night.",
+                "Decide before the invitation arrives, not during it. When you already know which nights are protected, the answer takes a second and needs no justification.",
+            ]},
+            {"h2": "Batch the social plan",
+            "paragraphs": [
+                "Deciding what to do every Friday costs more than the doing. Put one recurring thing in the week, a run, a call, dinner with the same people, and let it be the default. Defaults survive a busy month; elaborate plans are what you cancel.",
+                "The same applies to studying. A standing two-hour block with the same person is easier to keep than a calendar full of one-off sessions, because neither of you has to renegotiate it.",
+            ]},
+            {"h2": "The guilt tax",
+            "paragraphs": [
+                "Most students who feel they have no social life are not short of free hours; they are short of free hours they allow themselves to enjoy. Guilt makes an evening of rest cost the same as an evening of work and gives you none of the benefit.",
+                "The way out is to be explicit: this evening is free, the work is on tomorrow's list, and both are decisions I made. If the work is genuinely not getting done, the fix is the plan, not the guilt.",
+            ]},
+            {"h2": "When balance is a lie",
+            "paragraphs": [
+                "Exam weeks and production weeks are not balanced, and pretending otherwise adds a second failure to the first. For two weeks, cut everything that is not essential, say so out loud to the people affected, and put an end date on it.",
+                "A temporary imbalance with an end date is sustainable. A permanent one described as balance is how students burn out in November and blame themselves for it in December.",
+            ]},
+        ],
+        "related": ["time-blocking-for-students", "how-to-manage-homework-with-a-part-time-job", "how-to-study-in-a-distracting-dorm"],
+    },
+    {
+        "slug": "how-to-keep-a-study-streak-going",
+        "kicker": "Motivation",
+        "title": "How to Keep a Study Streak Going Without Burning Out",
+        "meta_title": "Keep a Study Streak Going | IntelliPlan",
+        "description": "Streaks help until the day you miss one. Set a minimum that survives a bad day, and make the repair the habit.",
+        "date": "2026-10-12",
+        "sections": [
+            {"paragraphs": [
+                "A streak is a simple idea with a specific failure: the day you break it, the motivation it was providing disappears, and you lose the habit and the number in the same evening. The students who keep streaks for months are not more disciplined. They set the bar low enough that a bad day cannot break it.",
+                "That is the whole design. Everything else is maintenance.",
+            ]},
+            {"h2": "Make the minimum embarrassingly small",
+            "paragraphs": [
+                "A streak should be measured against a minimum you could hit on your worst day: ten minutes of retrieval, one page, five questions. The minimum is not the goal for a good day; it is the floor that keeps the habit alive on a bad one.",
+                "This feels like cheating if you are used to measuring study in hours. It is not. The hard part of a streak is the decision to start, and a ten-minute minimum keeps that decision cheap enough to make daily.",
+            ]},
+            {"h2": "Count a start, not a finish",
+            "paragraphs": [
+                "Tie the streak to opening the book rather than to completing the session. If the streak depends on finishing, a long day costs you the streak and the work. If it depends on starting, a long day costs you nothing: you start, do ten minutes, and go to bed.",
+                "The version that works is the smallest honest unit. Honest means real work on the thing you are behind on, not reorganising your notes so the number goes up.",
+            ]},
+            {"h2": "The two-day rule",
+            "paragraphs": [
+                "Missing one day is normal. Missing two in a row is where habits die, because the second day requires starting again rather than continuing. So the rule is simple: never miss twice. The streak can absorb a missed day; it cannot absorb a missed pattern.",
+                "If you do miss two, do not restart from a heroic plan. Do the ten-minute minimum today and take the number back to one without ceremony. The number is a tool, not a verdict.",
+            ]},
+            {"h2": "Do not let the streak pick the subject",
+            "paragraphs": [
+                "The easiest way to keep a streak is to study the thing you like, which produces a long number and a bad grade in the subject you are avoiding. Rotate deliberately: if the minimum was chemistry yesterday, it is the essay today.",
+                "Write tomorrow's subject down before you stop. Choosing it in the moment is how the streak becomes a way of avoiding the hard subject.",
+            ]},
+            {"h2": "Streaks are a floor, not a plan",
+            "paragraphs": [
+                "A streak proves you showed up. It does not prove the week was planned, the deadlines were met, or the right topics were studied. Keep the streak and keep the weekly plan, and do not let the first substitute for the second.",
+                "This is where a planner that tracks both helps: the streak covers the days and the week covers the work. IntelliPlan counts a session rather than hours at a desk, which is the version that survives a bad Wednesday.",
+            ]},
+            {"h2": "When to let it reset",
+            "paragraphs": [
+                "If keeping the streak has become the reason you are studying, and the studying has stopped being useful, let it go. A streak that has you doing ten minutes of flashcards at midnight on a holiday is not a habit; it is a hostage situation.",
+                "Take the break deliberately, write down the date you will restart, and start again at one. The confidence that you can restart is worth more than any number.",
+            ]},
+        ],
+        "related": ["how-to-stop-procrastinating-on-homework", "pomodoro-technique-for-students", "how-to-study-with-adhd"],
+    },
+    {
+        "slug": "how-to-use-ai-to-plan-your-week",
+        "kicker": "AI",
+        "title": "How to Use AI to Plan Your Week Without Handing It Your Brain",
+        "meta_title": "Use AI to Plan Your Week | IntelliPlan",
+        "description": "What an AI planner is genuinely good at, where it quietly makes things worse, and the constraints that produce a usable week.",
+        "date": "2026-10-03",
+        "sections": [
+            {"paragraphs": [
+                "An AI planner is useful for exactly one job: turning a pile of tasks and constraints into a draft you can react to. It is bad at knowing what matters to you, and worse at noticing when the draft is unrealistic. Both of those are still your job.",
+                "Used that way, it saves the hour that planning usually costs. Used the other way, it produces a confident schedule that ignores your energy, your commute and your tendency to avoid the essay.",
+            ]},
+            {"h2": "Give it constraints, not goals",
+            "paragraphs": [
+                "Asking it to plan your week produces a generic timetable. Telling it that you have six free hours before Thursday, a paper due Friday, a quiz on Thursday and cannot work after 9pm produces something you can use.",
+                "The constraints are the input that matters: the hours, the deadlines, the things that cannot move, and the things you know about yourself. A planner without them is guessing, and it guesses in your favour, which is the problem.",
+            ]},
+            {"h2": "Check the draft against your energy",
+            "paragraphs": [
+                "A schedule can be mathematically possible and practically impossible: three hours of chemistry after a shift, a paper outline at 11pm, six tasks in an evening. Read the draft and ask where it has assumed a version of you that does not exist.",
+                "Then move one thing. Usually the hardest task goes to the best hour and the rest gets spread thinner. If the plan needs you to be sharp at a time you are never sharp, the plan is wrong, not you.",
+            ]},
+            {"h2": "Keep the decision yours",
+            "paragraphs": [
+                "The value of a draft is that reacting to it is much faster than creating it. Look at the week it produced and answer three questions: what is missing, what is too much, and what would I refuse to do. Then change it.",
+                "A plan you did not decide is a plan you will not follow, and the failure will look like a discipline problem when it was an authorship problem.",
+            ]},
+            {"h2": "Never delegate the choice of what matters",
+            "paragraphs": [
+                "An AI can rank assignments by due date and points. It cannot know that the physics grade matters because of a scholarship, or that the essay is the one your teacher will write a reference about. Those are the inputs that make a ranking correct, and they are yours.",
+                "Give it the ranking if you already know it; ask for suggestions if you do not. Do not accept a ranking you have not checked, because the whole week inherits it.",
+            ]},
+            {"h2": "A prompt that works",
+            "paragraphs": ["The wording matters less than the four kinds of information in it."], "list": [
+                "Here are my tasks, with due dates and point values: [list].",
+                "Here are my free hours: Tuesday 4 to 6, Wednesday 7 to 9, Saturday morning.",
+                "I cannot do focused work after 9pm, and I have a shift on Thursday.",
+                "Build a draft week with no more than two substantial tasks per evening, and mark anything you had to drop.",
+            ]},
+            {"h2": "Where IntelliPlan fits",
+            "paragraphs": [
+                "IntelliPlan does this from your imported assignments rather than a pasted list: it ranks by what is actually urgent, fits blocks around the hours you have, and repairs the plan when a day changes. Plani, the built-in tutor, is a different tool, and it teaches a topic step by step instead of scheduling your week.",
+                "Use the scheduler for the shape of the week and keep the judgement: which subject matters most, which evening is not available, which task you are avoiding. The tool is fastest at the part you were dreading and least reliable at the part that is actually yours.",
+            ]},
+        ],
+        "related": ["how-to-use-ai-for-studying-without-cheating", "best-ai-study-planner", "how-to-prioritize-assignments"],
+    },
+    {
+        "slug": "how-to-study-on-your-phone-without-getting-distracted",
+        "kicker": "Focus",
+        "title": "How to Study on Your Phone Without Getting Distracted",
+        "meta_title": "Study on Your Phone Without Distractions | IntelliPlan",
+        "description": "The phone is a study tool or a slot machine, and the difference is setup: what is on the first screen and what opens when you unlock it.",
+        "date": "2026-09-26",
+        "sections": [
+            {"paragraphs": [
+                "Studying on a phone is not automatically worse than studying on a laptop, since both are connected to the same internet, but the phone is designed to be picked up and the laptop is not. That difference is worth taking seriously rather than fighting with willpower.",
+                "The fix is setup, not discipline. Ten minutes of configuration beats an hour of promising yourself you will not check it.",
+            ]},
+            {"h2": "Decide which phone you are picking up",
+            "paragraphs": [
+                "There are two phones in this conversation: the tool phone that reads a PDF, plays a lecture or runs flashcards, and the slot machine phone that opens a feed. The same device is both, and the difference is what happens in the first three seconds after you unlock it.",
+                "So decide before the block: this is a tool session and the feed is not part of it. Then make the phone reflect the decision, because a decision that lives only in your head loses to a red badge.",
+            ]},
+            {"h2": "Remove the feed from the first screen",
+            "paragraphs": [
+                "You do not have to delete anything. Move the three apps you open without thinking to a folder on the second screen, and replace them with the ones you actually use for school. The extra two seconds is enough for the intention to catch up.",
+                "Do this once. Rearranging your home screen during a study block is the most productive-feeling form of procrastination available, and it does not count as setup.",
+            ]},
+            {"h2": "One app, one job",
+            "paragraphs": [
+                "A phone study session should have one app open: notes for notes, a reader for reading, a timer for timing. Switching between four apps for one task is the phone version of studying at a desk covered in six half-open books.",
+                "If the task needs more than one app, that is fine, but decide the order in advance: read, close the reader, write. The close is the part that matters.",
+            ]},
+            {"h2": "Use the phone for capture, not for reading",
+            "paragraphs": [
+                "The phone is excellent at small things: photographing a whiteboard, recording a question for later, adding a task in ten seconds, listening to a lecture on a walk. It is a poor place to read a chapter, because reading is the task most easily interrupted.",
+                "Keep long reading on a bigger screen and use the phone for the gaps. A five-minute wait becomes a retrieval session instead of a scroll, and that is where the device earns its place.",
+            ]},
+            {"h2": "The five-minute rule for notifications",
+            "paragraphs": [
+                "When a notification arrives mid-block, write down what it was about and keep working. If it is still important five minutes later, deal with it then. Most of them are not important; the writing is what stops the loop of wondering.",
+                "Turn off badges for everything that is not a person. A number on an icon is not information; it is a small instruction to open the app.",
+            ]},
+            {"h2": "Set it up once",
+            "paragraphs": ["Grayscale, Do Not Disturb and a visible timer cover almost all of it."], "list": [
+                "Grayscale on for study blocks; it is easier to keep than it sounds.",
+                "Do Not Disturb with favourites allowed, so the people who matter can still reach you.",
+                "A timer you can see, set to the length of the block rather than to the task.",
+            ]},
+            {"h2": "Make the end visible",
+            "paragraphs": [
+                "None of this is a daily practice. It is a ten-minute setup that makes the next hundred sessions easier, and the only maintenance is putting the home screen back when you notice it drifting.",
+                "IntelliPlan's Focus Shield follows the same logic on the browser side: it blocks your distractor list only while a planned block is running, so the restriction has a visible end. A block with an end is one you will start again tomorrow.",
+            ]},
+        ],
+        "related": ["how-to-study-with-adhd", "how-to-study-in-a-distracting-dorm", "pomodoro-technique-for-students"],
+    },
 ]
 
 BY_SLUG: dict[str, dict] = {article["slug"]: article for article in ARTICLES}
