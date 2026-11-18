@@ -9,6 +9,7 @@ else's, and that a stored link cannot be a javascript: URL.
 from __future__ import annotations
 
 import json
+from datetime import datetime
 
 import pytest
 
@@ -43,42 +44,49 @@ def ask(client, block=None):
                        json={"block": block if block is not None else CALC_BLOCK})
 
 
+@pytest.fixture
+def age_eligible_client(client, student):
+    """AI route tests use a signed-in student with a known age."""
+    login(client, student)
+    return client
+
+
 # ── The panel always opens ───────────────────────────────────────────
 
 
-def test_a_block_with_nothing_to_suggest_still_answers(client):
-    r = ask(client)
+def test_a_block_with_nothing_to_suggest_still_answers(age_eligible_client):
+    r = ask(age_eligible_client)
     assert r.status_code == 200
     assert r.get_json() == {"status": "ok", "resources": []}
 
 
-def test_a_break_gets_no_resources(client):
-    r = ask(client, {"assignment": "Break", "is_break": True})
+def test_a_break_gets_no_resources(age_eligible_client):
+    r = ask(age_eligible_client, {"assignment": "Break", "is_break": True})
     assert r.get_json()["resources"] == []
 
 
-def test_a_missing_block_does_not_500(client):
-    assert client.post("/api/block/resources", json={}).status_code == 200
+def test_a_missing_block_does_not_500(age_eligible_client):
+    assert age_eligible_client.post("/api/block/resources", json={}).status_code == 200
 
 
-def test_a_junk_block_is_rejected_cleanly(client):
-    r = client.post("/api/block/resources", json={"block": "not a dict"})
+def test_a_junk_block_is_rejected_cleanly(age_eligible_client):
+    r = age_eligible_client.post("/api/block/resources", json={"block": "not a dict"})
     assert r.status_code == 400
 
 
-def test_an_exception_inside_the_engine_yields_an_empty_panel(client, monkeypatch):
+def test_an_exception_inside_the_engine_yields_an_empty_panel(age_eligible_client, monkeypatch):
     """A modal that fails to render is the feature not existing. An empty
     one is a small loss."""
     def boom(*a, **k):
         raise RuntimeError("engine exploded")
     monkeypatch.setattr(App.study_resources, "resources_for_block", boom)
-    r = ask(client)
+    r = ask(age_eligible_client)
     assert r.status_code == 200
     assert r.get_json()["resources"] == []
 
 
-def test_links_in_the_assignment_come_back(client):
-    r = ask(client, dict(CALC_BLOCK, description="Read https://example.edu/ch4.pdf"))
+def test_links_in_the_assignment_come_back(age_eligible_client):
+    r = ask(age_eligible_client, dict(CALC_BLOCK, description="Read https://example.edu/ch4.pdf"))
     rows = r.get_json()["resources"]
     assert [x["url"] for x in rows] == ["https://example.edu/ch4.pdf"]
 
@@ -86,58 +94,58 @@ def test_links_in_the_assignment_come_back(client):
 # ── With a model answering ───────────────────────────────────────────
 
 
-def test_a_models_pick_becomes_a_real_url(client, monkeypatch):
+def test_a_models_pick_becomes_a_real_url(age_eligible_client, monkeypatch):
     monkeypatch.setattr(App, "_resource_chat", lambda: (lambda m: json.dumps(
         {"resources": [{"provider": "khan", "query": "implicit differentiation",
                         "title": "Implicit differentiation", "why": "Practice."}]})))
-    rows = ask(client).get_json()["resources"]
+    rows = ask(age_eligible_client).get_json()["resources"]
     assert len(rows) == 1
     assert rows[0]["url"].startswith("https://www.khanacademy.org/search?")
 
 
-def test_a_model_that_invents_a_provider_yields_nothing(client, monkeypatch):
+def test_a_model_that_invents_a_provider_yields_nothing(age_eligible_client, monkeypatch):
     """The endpoint must not be the place a hallucinated link escapes."""
     monkeypatch.setattr(App, "_resource_chat", lambda: (lambda m: json.dumps(
         {"resources": [{"provider": "mathsite.invalid", "query": "x",
                         "title": "T", "why": ""}]})))
-    assert ask(client).get_json()["resources"] == []
+    assert ask(age_eligible_client).get_json()["resources"] == []
 
 
-def test_an_ai_failure_still_returns_the_students_own_links(client, monkeypatch):
+def test_an_ai_failure_still_returns_the_students_own_links(age_eligible_client, monkeypatch):
     def boom(m):
         raise RuntimeError("quota")
     monkeypatch.setattr(App, "_resource_chat", lambda: boom)
-    rows = ask(client, dict(CALC_BLOCK,
-                            description="Read https://example.edu/ch4.pdf")).get_json()["resources"]
+    rows = ask(age_eligible_client, dict(CALC_BLOCK,
+                                         description="Read https://example.edu/ch4.pdf")).get_json()["resources"]
     assert [x["url"] for x in rows] == ["https://example.edu/ch4.pdf"]
 
 
 # ── Linked material ──────────────────────────────────────────────────
 
 
-def test_a_guest_can_link_material_and_see_it_on_a_block(client):
+def test_a_guest_can_link_material_but_cannot_use_the_ai_block_route(client):
     r = client.post("/api/resource-accounts", json={
         "provider": "quizlet", "label": "Unit 4 vocab",
         "url": "https://quizlet.com/123/unit-4", "course": "AP Calculus"})
     assert r.status_code == 200
 
-    rows = ask(client).get_json()["resources"]
-    assert rows[0]["title"] == "Unit 4 vocab"
-    assert rows[0]["source"] == "linked_account"
+    response = ask(client)
+    assert response.status_code == 401
+    assert response.get_json()["error"] == "authentication_required"
 
 
-def test_linked_material_for_another_course_does_not_surface(client):
-    client.post("/api/resource-accounts", json={
+def test_linked_material_for_another_course_does_not_surface(age_eligible_client):
+    age_eligible_client.post("/api/resource-accounts", json={
         "provider": "quizlet", "label": "Cells",
         "url": "https://quizlet.com/1/cells", "course": "Biology"})
-    assert ask(client).get_json()["resources"] == []
+    assert ask(age_eligible_client).get_json()["resources"] == []
 
 
-def test_material_linked_to_no_course_surfaces_everywhere(client):
-    client.post("/api/resource-accounts", json={
+def test_material_linked_to_no_course_surfaces_everywhere(age_eligible_client):
+    age_eligible_client.post("/api/resource-accounts", json={
         "provider": "khan", "label": "My Khan",
         "url": "https://khanacademy.org/profile/me"})
-    assert len(ask(client).get_json()["resources"]) == 1
+    assert len(ask(age_eligible_client).get_json()["resources"]) == 1
 
 
 def test_a_bare_host_gets_a_scheme(client):
@@ -205,7 +213,8 @@ def student(request):
         User.query.filter(User.email.like("restest+%")).delete(synchronize_session=False)
         db.session.commit()
         u = User(email="restest+a@example.com", name="Resource Tester",
-                 password_hash=App.bcrypt.generate_password_hash("hunter2ok").decode())
+                 password_hash=App.bcrypt.generate_password_hash("hunter2ok").decode(),
+                 birth_year=datetime.utcnow().year - 16)
         db.session.add(u)
         db.session.commit()
         uid = u.id

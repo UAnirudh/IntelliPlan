@@ -35,7 +35,7 @@ def account():
     with App.app.app_context():
         App.db.create_all()
         user = App.User(email=f'plani-{uuid4().hex}@example.test', password_hash='x',
-                        ai_personalization_opt_in=True)
+                        birth_year=2006, ai_personalization_opt_in=True)
         school = policy.models()['Organization'](name='Plani policy test', kind='school', policy={})
         App.db.session.add_all([user, school])
         App.db.session.flush()

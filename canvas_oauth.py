@@ -18,8 +18,8 @@ instance and set:
 
 Multi-tenant Canvas note: a single developer key only works against the
 Canvas instance that issued it. For schools running their own Canvas, the
-admin would register an additional dev key and set CANVAS_CLIENT_ID_<HOST>
-overrides — kept simple for now with a single global key.
+admin must register an additional dev key and set a complete
+CANVAS_CLIENT_ID_ORIGIN_<HEX> / CANVAS_CLIENT_SECRET_ORIGIN_<HEX> pair.
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ from __future__ import annotations
 import os
 import urllib.parse
 
-import requests as http_requests
+import net_guard
 
 DEFAULT_CANVAS_BASE = os.getenv("CANVAS_DEFAULT_BASE", "https://canvas.instructure.com")
 DEFAULT_REDIRECT_URI = "https://intelliplan.tech/oauth/canvas/callback"
@@ -72,8 +72,8 @@ def configured_scopes():
         CANVAS_SCOPES=default    -> the DEFAULT_SCOPES list above
         CANVAS_SCOPES=<list>     -> exactly that list, space- or comma-separated
 
-    Anything set on a per-host basis (``CANVAS_SCOPES_CANVAS_SCHOOL_EDU``)
-    wins for that host, because enforcement is a per-instance decision: one
+    Anything set on a per-origin basis (``CANVAS_SCOPES_ORIGIN_<HEX>``)
+    wins for that origin, because enforcement is a per-instance decision: one
     school can enforce scopes while the public Canvas does not.
     """
     return _scopes_for(None)
@@ -83,7 +83,7 @@ def _scopes_for(canvas_base):
     suffix = _host_key_suffix(canvas_base) if canvas_base else None
     raw = None
     if suffix:
-        raw = os.getenv(f"CANVAS_SCOPES_{suffix}")
+        raw = os.getenv(f"CANVAS_SCOPES_ORIGIN_{suffix}")
     if raw is None:
         raw = os.getenv("CANVAS_SCOPES")
     if raw is None:
@@ -95,37 +95,48 @@ def _scopes_for(canvas_base):
 
 
 def _host_key_suffix(canvas_base):
-    """Build the env-var suffix used to look up per-instance Developer Keys.
-
-    e.g. https://canvas.school.edu -> "CANVAS_SCHOOL_EDU"
-         https://canvas.instructure.com -> "CANVAS_INSTRUCTURE_COM"
-
-    Multi-tenant deploys can set:
-        CANVAS_CLIENT_ID_CANVAS_INSTRUCTURE_COM
-        CANVAS_CLIENT_SECRET_CANVAS_INSTRUCTURE_COM
-        CANVAS_CLIENT_ID_CANVAS_SCHOOL_EDU
-        CANVAS_CLIENT_SECRET_CANVAS_SCHOOL_EDU
-    to register one Developer Key per Canvas instance. Falls back to the
-    global CANVAS_CLIENT_ID / CANVAS_CLIENT_SECRET when no override exists.
-    """
+    """Return a collision-resistant suffix for one normalized Canvas origin."""
     base = _normalize_base(canvas_base)
-    host = base.split("://", 1)[-1].split("/", 1)[0]
-    return host.replace(".", "_").replace("-", "_").upper()
+    try:
+        parsed = urllib.parse.urlsplit(base)
+        if not parsed.hostname:
+            return ""
+        scheme = parsed.scheme.lower()
+        port = parsed.port or (443 if scheme == "https" else 80)
+    except ValueError:
+        return ""
+    origin = f"{scheme}://{parsed.hostname.lower()}:{port}"
+    return origin.encode("utf-8").hex().upper()
 
 
 def _client_credentials(canvas_base):
-    """Return (client_id, client_secret) for this Canvas base, preferring
-    a per-instance override before the global key."""
-    suffix = _host_key_suffix(canvas_base) if canvas_base else None
-    client_id = (
-        (os.getenv(f"CANVAS_CLIENT_ID_{suffix}") if suffix else None)
-        or os.getenv("CANVAS_CLIENT_ID")
-    )
-    client_secret = (
-        (os.getenv(f"CANVAS_CLIENT_SECRET_{suffix}") if suffix else None)
-        or os.getenv("CANVAS_CLIENT_SECRET")
-    )
-    return client_id, client_secret
+    """Return only credentials explicitly bound to this Canvas origin."""
+    base = _normalize_base(canvas_base)
+    suffix = _host_key_suffix(base)
+    instance_id = os.getenv(f"CANVAS_CLIENT_ID_ORIGIN_{suffix}") if suffix else None
+    instance_secret = os.getenv(f"CANVAS_CLIENT_SECRET_ORIGIN_{suffix}") if suffix else None
+    if instance_id or instance_secret:
+        # A partial override is authoritative. Never combine it with a
+        # different origin's global key.
+        return instance_id, instance_secret
+    if _same_origin(base, DEFAULT_CANVAS_BASE):
+        return os.getenv("CANVAS_CLIENT_ID"), os.getenv("CANVAS_CLIENT_SECRET")
+    return None, None
+
+
+def _same_origin(left, right):
+    """Compare URL origins, including scheme and effective port."""
+    try:
+        a = urllib.parse.urlsplit(_normalize_base(left))
+        b = urllib.parse.urlsplit(_normalize_base(right))
+        if not a.hostname or not b.hostname:
+            return False
+        a_port = a.port or (443 if a.scheme.lower() == "https" else 80)
+        b_port = b.port or (443 if b.scheme.lower() == "https" else 80)
+        return (a.scheme.lower(), a.hostname.lower(), a_port) == (
+            b.scheme.lower(), b.hostname.lower(), b_port)
+    except ValueError:
+        return False
 
 
 def _normalize_base(canvas_base):
@@ -150,11 +161,13 @@ def get_canvas_auth_url(state, canvas_base=None, redirect_uri=None, scopes=None)
       - purpose (optional, shown to user)
     """
     base = _normalize_base(canvas_base)
-    client_id, _ = _client_credentials(base)
-    if not client_id:
+    client_id, client_secret = _client_credentials(base)
+    if not client_id or not client_secret:
         raise RuntimeError(
-            f"No Canvas Developer Key registered for {base}. Set CANVAS_CLIENT_ID "
-            f"(global) or CANVAS_CLIENT_ID_{_host_key_suffix(base)} (per-instance)."
+            f"No Canvas Developer Key registered for {base}. Set the global "
+            f"CANVAS_CLIENT_ID/CANVAS_CLIENT_SECRET pair for the configured "
+            f"default origin, or a complete CANVAS_CLIENT_ID_ORIGIN_{_host_key_suffix(base)} "
+            f"/ CANVAS_CLIENT_SECRET_ORIGIN_{_host_key_suffix(base)} pair for this origin."
         )
     params = {
         "client_id": client_id,
@@ -183,15 +196,14 @@ def exchange_canvas_code(code, canvas_base, redirect_uri=None):
     client_id, client_secret = _client_credentials(base)
     if not client_id or not client_secret:
         raise RuntimeError(f"Canvas OAuth credentials missing for {base}.")
-    resp = http_requests.post(
+    form = urllib.parse.urlencode({
+        "grant_type": "authorization_code", "client_id": client_id,
+        "client_secret": client_secret, "redirect_uri": _redirect_uri(redirect_uri),
+        "code": code,
+    })
+    resp = net_guard.pinned_https_request(
         f"{base}/login/oauth2/token",
-        data={
-            "grant_type": "authorization_code",
-            "client_id": client_id,
-            "client_secret": client_secret,
-            "redirect_uri": _redirect_uri(redirect_uri),
-            "code": code,
-        },
+        "POST", headers={"Content-Type": "application/x-www-form-urlencoded"}, data=form,
         timeout=20,
     )
     data = resp.json()
@@ -216,14 +228,13 @@ def refresh_canvas_token(refresh_token, canvas_base):
     client_id, client_secret = _client_credentials(base)
     if not client_id or not client_secret:
         raise RuntimeError(f"Canvas OAuth credentials missing for {base}.")
-    resp = http_requests.post(
+    form = urllib.parse.urlencode({
+        "grant_type": "refresh_token", "client_id": client_id,
+        "client_secret": client_secret, "refresh_token": refresh_token,
+    })
+    resp = net_guard.pinned_https_request(
         f"{base}/login/oauth2/token",
-        data={
-            "grant_type": "refresh_token",
-            "client_id": client_id,
-            "client_secret": client_secret,
-            "refresh_token": refresh_token,
-        },
+        "POST", headers={"Content-Type": "application/x-www-form-urlencoded"}, data=form,
         timeout=20,
     )
     data = resp.json()
@@ -240,8 +251,9 @@ def revoke_canvas_token(access_token, canvas_base):
     """Revoke a Canvas access token (best-effort)."""
     base = _normalize_base(canvas_base)
     try:
-        http_requests.delete(
+        net_guard.pinned_https_request(
             f"{base}/login/oauth2/token",
+            "DELETE",
             headers={"Authorization": f"Bearer {access_token}"},
             timeout=10,
         )

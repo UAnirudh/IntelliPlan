@@ -6,8 +6,8 @@ App.py can treat both sources uniformly.
 """
 
 import re
-import requests
-from urllib.parse import urlparse
+import net_guard
+from urllib.parse import urlparse, urlsplit
 from datetime import datetime, timezone
 
 
@@ -35,6 +35,11 @@ def _strip_html(s):
 _MAX_PAGES = 50
 
 
+def _canvas_get(url, headers=None, timeout=15):
+    """Fetch one Canvas URL without DNS rebinding or redirect escapes."""
+    return net_guard.pinned_https_request(url, "GET", headers=headers, timeout=timeout)
+
+
 def _get_list(url, headers, timeout=15):
     """GET a Canvas list endpoint and return *every* page of it.
 
@@ -49,12 +54,13 @@ def _get_list(url, headers, timeout=15):
     Returns [] on any failure, matching what the callers already expect.
     """
     out = []
+    origin = urlsplit(url)
     sep = "&" if "?" in url else "?"
     next_url = f"{url}{sep}per_page=100"
 
     for _ in range(_MAX_PAGES):
         try:
-            resp = requests.get(next_url, headers=headers, timeout=timeout)
+            resp = _canvas_get(next_url, headers=headers, timeout=timeout)
             page = resp.json()
         except Exception:
             break
@@ -78,6 +84,23 @@ def _get_list(url, headers, timeout=15):
         except Exception:
             nxt = None
         if not nxt or nxt == next_url:
+            break
+        try:
+            next_origin = urlsplit(nxt)
+            origin_scheme = origin.scheme.lower()
+            next_scheme = next_origin.scheme.lower()
+            origin_port = origin.port or (443 if origin_scheme == "https" else 80)
+            next_port = next_origin.port or (443 if next_scheme == "https" else 80)
+            same_origin = (
+                next_scheme, (next_origin.hostname or "").lower(), next_port
+            ) == (
+                origin_scheme, (origin.hostname or "").lower(), origin_port
+            )
+        except ValueError:
+            same_origin = False
+        if not same_origin:
+            # Do not forward the student's bearer token to a pagination URL
+            # supplied by another host.
             break
         next_url = nxt
 
@@ -118,8 +141,8 @@ def _estimate_minutes(assignment, points_possible):
 
 def test_login(canvas_url, token):
     try:
-        r = requests.get(f"{_base(canvas_url)}/courses",
-                         headers=_headers(token), timeout=10)
+        r = _canvas_get(f"{_base(canvas_url)}/courses",
+                        headers=_headers(token), timeout=10)
         return r.status_code == 200
     except Exception:
         return False

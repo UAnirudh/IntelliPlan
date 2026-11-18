@@ -10792,7 +10792,7 @@ def get_live_schedule():
         canvas_url = acct.get("canvas_url", "https://canvas.instructure.com")
         base = f"{canvas_url}/api/v1"
         headers = {"Authorization": f"Bearer {token}"}
-        course_response = requests.get(f"{base}/courses", headers=headers, timeout=20)
+        course_response = net_guard.pinned_https_request(f"{base}/courses", "GET", headers=headers, timeout=20)
         courses = course_response.json()
         course_map = {}
         for c in courses:
@@ -10800,7 +10800,9 @@ def get_live_schedule():
                 course_map[c["id"]] = c.get("name", "Unknown")
         assignments = []
         for course_id in course_map:
-            response = requests.get(f"{base}/courses/{course_id}/assignments?per_page=100&include[]=submission", headers=headers, timeout=20)
+            response = net_guard.pinned_https_request(
+                f"{base}/courses/{course_id}/assignments?per_page=100&include[]=submission",
+                "GET", headers=headers, timeout=20)
             data = response.json()
             if isinstance(data, list):
                 assignments += data
@@ -11372,7 +11374,8 @@ def get_courses():
             else:
                 canvas_url = acct.get("canvas_url", "https://canvas.instructure.com")
                 headers = {"Authorization": f"Bearer {acct['canvas_token']}"}
-                course_response = requests.get(f"{canvas_url}/api/v1/courses", headers=headers, timeout=20)
+                course_response = net_guard.pinned_https_request(
+                    f"{canvas_url}/api/v1/courses", "GET", headers=headers, timeout=20)
                 courses = course_response.json()
                 synced = [{"name": c.get("name", "Unknown")}
                           for c in courses if isinstance(c, dict) and "id" in c]
@@ -11814,7 +11817,12 @@ def get_description():
     if acct and acct["login_type"] == "canvas" and assignment_id and course_id:
         token = acct["canvas_token"]
         canvas_url = acct.get("canvas_url", "https://canvas.instructure.com")
-        resp = requests.get(f"{canvas_url}/api/v1/courses/{course_id}/assignments/{assignment_id}", headers={"Authorization": f"Bearer {token}"}, timeout=20)
+        try:
+            resp = net_guard.pinned_https_request(
+                f"{canvas_url}/api/v1/courses/{course_id}/assignments/{assignment_id}",
+                "GET", headers={"Authorization": f"Bearer {token}"}, timeout=20)
+        except (net_guard.BlockedURL, requests.RequestException):
+            return flask.jsonify({"description": "", "source": "none"})
         if resp.status_code == 200:
             raw = resp.json().get("description") or ""
             clean = re.sub(r"<[^>]+>", " ", raw).strip()
@@ -13620,7 +13628,7 @@ def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True, in
                 headers = {"Authorization": f"Bearer {token}"}
                 # Single 6s budget for the courses list — anything slower
                 # means Canvas is degraded and we'd rather show stale data
-                course_response = requests.get(f"{base}/courses", headers=headers, timeout=6)
+                course_response = net_guard.pinned_https_request(f"{base}/courses", "GET", headers=headers, timeout=6)
                 courses = course_response.json()
                 course_map = {c["id"]: c.get("name", "Unknown") for c in courses if isinstance(c, dict) and "id" in c}
 
@@ -13628,9 +13636,9 @@ def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True, in
                 # cuts a 10-course pull from ~50s sequential to ~6s.
                 def _fetch_course(course_id):
                     try:
-                        r = requests.get(
+                        r = net_guard.pinned_https_request(
                             f"{base}/courses/{course_id}/assignments?per_page=100&include[]=submission",
-                            headers=headers, timeout=6,
+                            "GET", headers=headers, timeout=6,
                         )
                         return course_id, r.json()
                     except Exception:
@@ -13838,11 +13846,13 @@ def unified_tasks():
                 canvas_url = acct.get("canvas_url", "https://canvas.instructure.com")
                 base = f"{canvas_url}/api/v1"
                 headers = {"Authorization": f"Bearer {token}"}
-                course_response = requests.get(f"{base}/courses", headers=headers, timeout=20)
+                course_response = net_guard.pinned_https_request(f"{base}/courses", "GET", headers=headers, timeout=20)
                 courses = course_response.json()
                 course_map = {c["id"]: c.get("name", "Unknown") for c in courses if isinstance(c, dict) and "id" in c}
                 for course_id in course_map:
-                    resp = requests.get(f"{base}/courses/{course_id}/assignments?per_page=100&include[]=submission", headers=headers, timeout=20)
+                    resp = net_guard.pinned_https_request(
+                        f"{base}/courses/{course_id}/assignments?per_page=100&include[]=submission",
+                        "GET", headers=headers, timeout=20)
                     data = resp.json()
                     if not isinstance(data, list):
                         continue
@@ -17343,10 +17353,13 @@ def extension_tasks():
                     canvas_token = creds["canvas_token"]
                     canvas_url = creds.get("canvas_url", "https://canvas.instructure.com")
                     headers = {"Authorization": f"Bearer {canvas_token}"}
-                    courses = requests.get(f"{canvas_url}/api/v1/courses", headers=headers, timeout=10).json()
+                    courses = net_guard.pinned_https_request(
+                        f"{canvas_url}/api/v1/courses", "GET", headers=headers, timeout=10).json()
                     course_map = {c["id"]: c.get("name", "Unknown") for c in courses if isinstance(c, dict) and "id" in c}
                     for course_id in course_map:
-                        resp = requests.get(f"{canvas_url}/api/v1/courses/{course_id}/assignments?per_page=100&include[]=submission", headers=headers, timeout=10).json()
+                        resp = net_guard.pinned_https_request(
+                            f"{canvas_url}/api/v1/courses/{course_id}/assignments?per_page=100&include[]=submission",
+                            "GET", headers=headers, timeout=10).json()
                         if not isinstance(resp, list):
                             continue
                         for a in resp:

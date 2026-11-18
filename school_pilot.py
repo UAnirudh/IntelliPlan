@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import os
 import re
+from collections.abc import Mapping
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import requests
@@ -47,7 +48,53 @@ def provider_allowed(provider):
             and os.getenv('SCHOOL_PILOT_CONTRACT_APPROVED') == '1')
 
 
-def target(method, url):
+def _text_only_groq_body(body, headers):
+    """Fail closed unless a Groq chat request contains text content only."""
+    content_type = str((headers or {}).get('content-type',
+                        (headers or {}).get('Content-Type', ''))).split(';', 1)[0].strip().lower()
+    if content_type != 'application/json':
+        raise PilotBlocked('School pilot permits only JSON text requests to Groq.')
+    if not isinstance(body, (str, bytes, bytearray)):
+        raise PilotBlocked('School pilot cannot verify the Groq request body.')
+    try:
+        raw = body.decode('utf-8') if isinstance(body, (bytes, bytearray)) else body
+        payload = json.loads(raw)
+    except (UnicodeDecodeError, json.JSONDecodeError, TypeError, ValueError):
+        raise PilotBlocked('School pilot cannot verify the Groq request body.') from None
+    if (not isinstance(payload, Mapping) or not isinstance(payload.get('messages'), list)
+            or not payload['messages']):
+        raise PilotBlocked('School pilot permits only text-only Groq chat requests.')
+    def has_modality_key(value):
+        if isinstance(value, Mapping):
+            for key, nested in value.items():
+                name = str(key).casefold()
+                if name.startswith(('image', 'audio', 'video', 'frame')) or name == 'modalities':
+                    return True
+                if has_modality_key(nested):
+                    return True
+        elif isinstance(value, list):
+            return any(has_modality_key(item) for item in value)
+        return False
+
+    if has_modality_key(payload):
+        raise PilotBlocked('School pilot permits only text-only Groq chat requests.')
+    for message in payload['messages']:
+        if not isinstance(message, Mapping) or 'content' not in message:
+            raise PilotBlocked('School pilot permits only text-only Groq chat requests.')
+        content = message['content']
+        if isinstance(content, str):
+            continue
+        if (isinstance(content, list) and content
+                and all(isinstance(part, Mapping)
+                        and part.get('type') == 'text'
+                        and isinstance(part.get('text'), str)
+                        and set(part) <= {'type', 'text'}
+                        for part in content)):
+            continue
+        raise PilotBlocked('School pilot permits only text-only Groq chat requests.')
+
+
+def target(method, url, *, body=None, headers=None):
     """Return (approved URL, wrap single course as list); deny everything else."""
     if not enabled():
         return str(url), False
@@ -60,6 +107,7 @@ def target(method, url):
     if parsed.hostname == 'api.groq.com':
         if (provider_allowed('groq') and method == 'POST'
                 and parsed.path == '/openai/v1/chat/completions' and not parsed.query):
+            _text_only_groq_body(body, headers)
             return str(url), False
         raise PilotBlocked('Pilot external AI is disabled or this endpoint is restricted.')
     if parsed.hostname != host:
@@ -109,7 +157,8 @@ def install():
     original = requests.Session.send
 
     def send(self, request, **kwargs):
-        url, wrap = target(request.method, request.url)
+        url, wrap = target(request.method, request.url,
+                           body=request.body, headers=request.headers)
         if not enabled():
             return original(self, request, **kwargs)
         if any(key.lower() in {'x-http-method-override', 'x-method-override'} for key in request.headers):
@@ -146,7 +195,11 @@ def install():
             # second Canvas transport with different list/redirect semantics.
             if request.url.host != 'api.groq.com':
                 raise PilotBlocked('Only approved Groq text requests may use httpx in pilot.')
-            target(request.method, str(request.url))
+            try:
+                body = request.content
+            except Exception:
+                raise PilotBlocked('School pilot cannot verify the Groq request body.') from None
+            target(request.method, str(request.url), body=body, headers=request.headers)
 
     def sync_send(self, request, **kwargs):
         check_httpx(request)

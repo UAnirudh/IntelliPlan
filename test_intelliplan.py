@@ -649,7 +649,9 @@ class TestAccessibility:
             const txt = (a.innerText || a.textContent || '').trim();
             const al  = (a.getAttribute('aria-label') || '').trim();
             const tt  = (a.getAttribute('title') || '').trim();
-            return !txt && !al && !tt;
+            const imgAlt = [...a.querySelectorAll('img[alt]')]
+              .some(img => (img.getAttribute('alt') || '').trim());
+            return !txt && !al && !tt && !imgAlt;
           }).length;
         }""")
         assert bad_links == 0, f"{bad_links} link(s) lack accessible text"

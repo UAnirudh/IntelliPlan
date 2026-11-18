@@ -56,6 +56,7 @@ def _wipe():
 
 @pytest.fixture
 def keys(monkeypatch):
+    monkeypatch.setattr(canvas_oauth, "DEFAULT_CANVAS_BASE", BASE)
     monkeypatch.setenv("CANVAS_CLIENT_ID", "1000")
     monkeypatch.setenv("CANVAS_CLIENT_SECRET", "secret")
     monkeypatch.delenv("CANVAS_SCOPES", raising=False)
@@ -86,7 +87,11 @@ def test_an_explicit_scope_list_is_sent_verbatim(keys, monkeypatch):
 
 def test_one_school_can_enforce_scopes_while_the_public_canvas_does_not(keys, monkeypatch):
     """Enforcement is a per-instance decision, so the override has to be too."""
-    monkeypatch.setenv("CANVAS_SCOPES_SCHOOL_INSTRUCTURE_COM", "default")
+    suffix = canvas_oauth._host_key_suffix(BASE)
+    monkeypatch.setenv(f"CANVAS_SCOPES_ORIGIN_{suffix}", "default")
+    public_suffix = canvas_oauth._host_key_suffix("https://canvas.instructure.com")
+    monkeypatch.setenv(f"CANVAS_CLIENT_ID_ORIGIN_{public_suffix}", "2000")
+    monkeypatch.setenv(f"CANVAS_CLIENT_SECRET_ORIGIN_{public_suffix}", "public-secret")
     scoped = canvas_oauth.get_canvas_auth_url("st", canvas_base=BASE)
     public = canvas_oauth.get_canvas_auth_url("st", canvas_base="https://canvas.instructure.com")
     assert "scope=" in scoped

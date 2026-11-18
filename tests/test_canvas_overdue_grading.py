@@ -146,7 +146,9 @@ def test_a_graded_past_due_assignment_is_excluded(client, monkeypatch):
             },
         ])
 
-    monkeypatch.setattr(App.requests, "get", fake_get)
+    monkeypatch.setattr(App.net_guard, "pinned_https_request",
+                        lambda url, method, **kwargs: fake_get(
+                            url, headers=kwargs.get("headers"), timeout=kwargs.get("timeout")))
     user_id = _canvas_student()
 
     with App.app.app_context():
@@ -178,7 +180,9 @@ def _canvas_feed(monkeypatch):
             return _Resp([{'id': 1, 'name': 'History'}])
         assert 'include[]=submission' in url
         return _Resp(rows)
-    monkeypatch.setattr(App.requests, 'get', get)
+    monkeypatch.setattr(App.net_guard, 'pinned_https_request',
+                        lambda url, method, **kwargs: get(
+                            url, headers=kwargs.get('headers'), timeout=kwargs.get('timeout')))
     return rows
 
 

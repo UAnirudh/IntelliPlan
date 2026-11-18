@@ -208,8 +208,32 @@ def test_reads_are_never_blocked(client):
 
 def test_oauth_callbacks_stay_reachable(client):
     """Providers redirect back to us cross-origin by design."""
-    for path in ("/oauth/google/callback", "/api/lms/callback/blackboard"):
+    for path in (
+        "/oauth/canvas/callback", "/oauth/google/callback", "/oauth2callback",
+        "/oauth/outlook/callback", "/oauth/notion/callback",
+        "/api/lms/callback/blackboard",
+    ):
         assert request_guards.is_exempt(path)
+
+
+def test_oauth_disconnect_writes_from_sibling_origin_are_refused(client):
+    for path in (
+        "/oauth/canvas/disconnect", "/oauth/google/disconnect",
+        "/oauth/google-drive/disconnect", "/oauth/outlook/disconnect",
+        "/oauth/onedrive/disconnect",
+    ):
+        response = client.post(path, base_url="https://intelliplan.tech",
+                               headers={"Origin": "https://parent.intelliplan.tech"})
+        assert response.status_code == 403, path
+
+
+def test_oauth_callback_exemptions_are_exact():
+    for path in (
+        "/oauth/canvas/callback/extra", "/oauth/google/callback-evil",
+        "/oauth2callback/extra", "/oauth/outlook/callback/extra",
+        "/oauth/notion/callback-evil",
+    ):
+        assert not request_guards.is_exempt(path), path
 
 
 def test_the_extension_is_allowed(client):
@@ -287,3 +311,11 @@ def test_no_local_database_is_tracked_in_git():
                              text=True, cwd=os.path.dirname(os.path.dirname(
                                  os.path.abspath(__file__)))).stdout
     assert not [f for f in tracked.splitlines() if f.endswith((".db", ".sqlite3"))]
+
+
+def test_docker_context_excludes_private_files_and_signing_keys():
+    from pathlib import Path
+    ignored = (Path(__file__).resolve().parents[1] / ".dockerignore").read_text()
+    for pattern in ("private/", "**/private/", "*.keystore", "*.jks",
+                    "**/*.keystore", "**/*.jks"):
+        assert pattern in ignored

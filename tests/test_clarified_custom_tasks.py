@@ -16,11 +16,12 @@ boundary where enriched task dicts were flattened back to bare strings.
 from __future__ import annotations
 
 from datetime import date, timedelta
+from uuid import uuid4
 
 import pytest
 
 import App
-from App import User, db
+from App import SchedulerPreset, User, db
 
 
 @pytest.fixture
@@ -28,11 +29,20 @@ def client():
     App.app.config["TESTING"] = True
     App.limiter.enabled = False
     with App.app.test_client() as c:
+        email = f"clarify+{uuid4().hex}@example.test"
         with App.app.app_context():
-            User.query.filter(User.email.like("clarify+%")).delete(
-                synchronize_session=False)
+            user = User(email=email, birth_year=2000)
+            db.session.add(user)
             db.session.commit()
+            user_id = user.id
+        with c.session_transaction() as session:
+            session["_user_id"] = str(user_id)
+            session["_fresh"] = True
         yield c
+        with App.app.app_context():
+            SchedulerPreset.query.filter_by(user_id=user_id).delete()
+            User.query.filter_by(id=user_id).delete()
+            db.session.commit()
     App.limiter.enabled = True
 
 

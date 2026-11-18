@@ -9,7 +9,7 @@ the token fallback has to stay solid for everyone else.
 Two bugs sat in that path:
 
 1. **Per-school Developer Keys could never light up.** ``canvas_oauth.py``
-   supports ``CANVAS_CLIENT_ID_<HOST>`` overrides so one deploy can serve
+   supports origin-bound ``CANVAS_CLIENT_ID_ORIGIN_<HEX>`` overrides so one deploy can serve
    several schools, but the login page asked ``oauth_is_configured()`` with
    no argument -- which only ever sees the *global* key. A deploy holding
    only per-school keys therefore rendered no OAuth block at all, including
@@ -57,25 +57,32 @@ def no_keys(monkeypatch):
 @pytest.fixture
 def only_school_key(no_keys, monkeypatch):
     """A deploy registered with one school and no global key."""
-    monkeypatch.setenv("CANVAS_CLIENT_ID_LAKESIDESCHOOL_INSTRUCTURE_COM", "10000000000001")
-    monkeypatch.setenv("CANVAS_CLIENT_SECRET_LAKESIDESCHOOL_INSTRUCTURE_COM", "secret")
+    suffix = canvas_oauth._host_key_suffix(SCHOOL)
+    monkeypatch.setenv(f"CANVAS_CLIENT_ID_ORIGIN_{suffix}", "10000000000001")
+    monkeypatch.setenv(f"CANVAS_CLIENT_SECRET_ORIGIN_{suffix}", "secret")
 
 
 # ── Naming the env vars a school needs ───────────────────────────────
 
 
 def test_the_env_var_suffix_is_derived_from_the_school_host():
-    assert canvas_oauth._host_key_suffix(SCHOOL) == "LAKESIDESCHOOL_INSTRUCTURE_COM"
+    assert canvas_oauth._host_key_suffix(SCHOOL) == \
+        "https://lakesideschool.instructure.com:443".encode().hex().upper()
 
 
 def test_a_trailing_slash_does_not_change_the_suffix():
     """Students paste the URL straight from the address bar."""
-    assert canvas_oauth._host_key_suffix(SCHOOL + "/") == "LAKESIDESCHOOL_INSTRUCTURE_COM"
+    assert canvas_oauth._host_key_suffix(SCHOOL + "/") == canvas_oauth._host_key_suffix(SCHOOL)
 
 
 def test_a_bare_host_without_a_scheme_resolves_the_same_way():
     assert canvas_oauth._host_key_suffix("lakesideschool.instructure.com") == \
-        "LAKESIDESCHOOL_INSTRUCTURE_COM"
+        canvas_oauth._host_key_suffix(SCHOOL)
+
+
+def test_origin_suffix_distinguishes_colliding_host_punctuation():
+    assert canvas_oauth._host_key_suffix("https://canvas.school.edu") != \
+        canvas_oauth._host_key_suffix("https://canvas-school.edu")
 
 
 # ── A per-school key must actually reach the page ────────────────────
@@ -97,8 +104,53 @@ def test_a_school_key_alone_counts_as_some_key_being_present(only_school_key):
 
 
 def test_an_id_without_its_secret_is_not_configured(no_keys, monkeypatch):
-    monkeypatch.setenv("CANVAS_CLIENT_ID_LAKESIDESCHOOL_INSTRUCTURE_COM", "10000000000001")
+    suffix = canvas_oauth._host_key_suffix(SCHOOL)
+    monkeypatch.setenv(f"CANVAS_CLIENT_ID_ORIGIN_{suffix}", "10000000000001")
     assert canvas_oauth.oauth_any_configured() is False
+
+
+def test_global_key_is_limited_to_the_configured_default_origin(no_keys, monkeypatch):
+    monkeypatch.setenv("CANVAS_CLIENT_ID", "10000000000001")
+    monkeypatch.setenv("CANVAS_CLIENT_SECRET", "synthetic-secret")
+    assert canvas_oauth._client_credentials(SCHOOL) == (None, None)
+    assert canvas_oauth._client_credentials(canvas_oauth.DEFAULT_CANVAS_BASE) == (
+        "10000000000001", "synthetic-secret")
+
+
+def test_partial_origin_override_does_not_borrow_global_secret(no_keys, monkeypatch):
+    suffix = canvas_oauth._host_key_suffix(SCHOOL)
+    monkeypatch.setenv("CANVAS_CLIENT_ID", "10000000000001")
+    monkeypatch.setenv("CANVAS_CLIENT_SECRET", "global-secret")
+    monkeypatch.setenv(f"CANVAS_CLIENT_ID_ORIGIN_{suffix}", "school-client")
+    assert canvas_oauth._client_credentials(SCHOOL) == ("school-client", None)
+
+
+def test_canvas_code_exchange_uses_the_origin_pinned_transport(no_keys, monkeypatch):
+    from urllib.parse import parse_qs
+    suffix = canvas_oauth._host_key_suffix(SCHOOL)
+    monkeypatch.setenv(f"CANVAS_CLIENT_ID_ORIGIN_{suffix}", "school-client")
+    monkeypatch.setenv(f"CANVAS_CLIENT_SECRET_ORIGIN_{suffix}", "synthetic-secret")
+    calls = []
+
+    class Response:
+        status_code = 200
+        def json(self):
+            return {"access_token": "synthetic-token", "user": {"id": 7}}
+
+    def pinned(url, method, **kwargs):
+        calls.append((url, method, kwargs))
+        return Response()
+
+    monkeypatch.setattr(canvas_oauth.net_guard, "pinned_https_request", pinned)
+    result = canvas_oauth.exchange_canvas_code("synthetic-code", SCHOOL)
+    assert result["access_token"] == "synthetic-token"
+    assert len(calls) == 1
+    url, method, kwargs = calls[0]
+    assert url == SCHOOL + "/login/oauth2/token"
+    assert method == "POST"
+    fields = parse_qs(kwargs["data"])
+    assert fields["client_id"] == ["school-client"]
+    assert fields["client_secret"] == ["synthetic-secret"]
 
 
 def test_no_keys_at_all_is_not_configured(no_keys):

@@ -72,8 +72,8 @@ export function evaluateMobileAudit({ audit, lock, allowlist, now = new Date() }
 
   for (const severity of Object.keys(severityCounts)) {
     const count = Number(metadata[severity] || 0);
-    if (severity !== "moderate" && count > 0) {
-      errors.push(`npm audit reported ${count} ${severity} findings; only the exact moderate allowlist is permitted.`);
+    if (!["moderate", "high"].includes(severity) && count > 0) {
+      errors.push(`npm audit reported ${count} ${severity} findings; only exact moderate and reviewed high exceptions are permitted.`);
     }
   }
   if (Number(metadata.total) !== packageEntries.length) {
@@ -87,7 +87,7 @@ export function evaluateMobileAudit({ audit, lock, allowlist, now = new Date() }
       continue;
     }
     severityCounts[severity] += 1;
-    if (severity !== "moderate") {
+    if (!["moderate", "high"].includes(severity)) {
       errors.push(`${name} has unapproved ${severity} severity.`);
       continue;
     }
@@ -112,7 +112,11 @@ export function evaluateMobileAudit({ audit, lock, allowlist, now = new Date() }
     if (ids.size === 0) errors.push(`No advisory ID could be resolved for ${name}.`);
     for (const id of ids) {
       const advisory = allowlist.acceptedAdvisories[id];
-      if (!advisory || advisory.severity !== "moderate" || !advisory.packages?.includes(name)) {
+      const exceptionMetadataValid = advisory
+        && typeof advisory.reason === "string" && advisory.reason.trim().length > 0
+        && typeof advisory.upstreamStatus === "string" && advisory.upstreamStatus.trim().length > 0
+        && typeof advisory.source === "string" && /^https:\/\//.test(advisory.source);
+      if (!exceptionMetadataValid || advisory.severity !== severity || !advisory.packages?.includes(name)) {
         errors.push(`Unapproved advisory/package pair: ${id} affects ${name}.`);
         continue;
       }
@@ -150,8 +154,11 @@ export function formatMobileAuditSuccess(verdict, reviewBy) {
       `Review by ${reviewBy}.`,
     ];
   }
+  const hasHighAdvisory = verdict.advisoryIds.some((id) => id === "GHSA-FC5Q-39XC-VJPF");
   return [
-    `Mobile audit passed with reviewed moderate advisories only: ${verdict.advisoryIds.join(", ")}.`,
+    hasHighAdvisory
+      ? `Mobile audit passed with the exact, expiring high-severity exception and any reviewed moderate advisories: ${verdict.advisoryIds.join(", ")}.`
+      : `Mobile audit passed with reviewed moderate advisories only: ${verdict.advisoryIds.join(", ")}.`,
     `Review by ${reviewBy}; vulnerable toolchain packages: ${verdict.vulnerablePackages.join(", ")}.`,
   ];
 }

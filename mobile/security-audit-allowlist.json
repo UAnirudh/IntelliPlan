@@ -1,8 +1,318 @@
 {
-  "reviewedAt": "2026-11-05",
-  "reviewBy": "2026-12-05",
-  "upstreamAssessment": "The Expo build-tool dependency overrides now resolve glob and minimatch to patched versions, and npm audit reports no current findings. Keep the dependency audit in CI and re-check the store-bound native artifact during EAS release preflight.",
-  "upstreamIssue": "https://github.com/expo/expo/issues/52735",
-  "packages": {},
-  "acceptedAdvisories": {}
+  "reviewedAt": "2026-11-17",
+  "reviewBy": "2026-12-01",
+  "upstreamAssessment": "Temporary risk acceptance for the exact picomatch ReDoS advisory reported through the locked Expo SDK 58 / React Native 0.88 build toolchain. Source inspection found no app imports of picomatch, but this does not establish bundle exclusion or remove build-time risk. Recheck upstream and the lockfile by the review date; remove this exception when a compatible patched release is available.",
+  "upstreamIssue": "https://github.com/advisories/GHSA-fc5q-39xc-vjpf",
+  "packages": {
+    "@expo/cli": {
+      "nodes": [
+        "node_modules/expo/node_modules/@expo/cli"
+      ],
+      "versions": [
+        "58.1.19"
+      ]
+    },
+    "@expo/config": {
+      "nodes": [
+        "node_modules/@expo/config"
+      ],
+      "versions": [
+        "58.0.11"
+      ]
+    },
+    "@expo/config-plugins": {
+      "nodes": [
+        "node_modules/@expo/config-plugins"
+      ],
+      "versions": [
+        "58.0.12"
+      ]
+    },
+    "@expo/inline-modules": {
+      "nodes": [
+        "node_modules/@expo/inline-modules"
+      ],
+      "versions": [
+        "0.2.9"
+      ]
+    },
+    "@expo/local-build-cache-provider": {
+      "nodes": [
+        "node_modules/@expo/local-build-cache-provider"
+      ],
+      "versions": [
+        "58.0.11"
+      ]
+    },
+    "@expo/metro": {
+      "nodes": [
+        "node_modules/@expo/metro"
+      ],
+      "versions": [
+        "58.0.0"
+      ]
+    },
+    "@expo/metro-config": {
+      "nodes": [
+        "node_modules/@expo/metro-config"
+      ],
+      "versions": [
+        "58.0.21"
+      ]
+    },
+    "@expo/metro-file-map": {
+      "nodes": [
+        "node_modules/@expo/metro-file-map"
+      ],
+      "versions": [
+        "58.0.5"
+      ]
+    },
+    "@expo/prebuild-config": {
+      "nodes": [
+        "node_modules/@expo/prebuild-config"
+      ],
+      "versions": [
+        "58.0.19"
+      ]
+    },
+    "@react-native/babel-plugin-codegen": {
+      "nodes": [
+        "node_modules/@react-native/babel-plugin-codegen"
+      ],
+      "versions": [
+        "0.88.1"
+      ]
+    },
+    "@react-native/babel-preset": {
+      "nodes": [
+        "node_modules/@react-native/babel-preset"
+      ],
+      "versions": [
+        "0.88.1"
+      ]
+    },
+    "@react-native/codegen": {
+      "nodes": [
+        "node_modules/@react-native/codegen"
+      ],
+      "versions": [
+        "0.88.1"
+      ]
+    },
+    "@react-native/community-cli-plugin": {
+      "nodes": [
+        "node_modules/@react-native/community-cli-plugin"
+      ],
+      "versions": [
+        "0.88.1"
+      ]
+    },
+    "@react-native/metro-babel-transformer": {
+      "nodes": [
+        "node_modules/@react-native/metro-babel-transformer"
+      ],
+      "versions": [
+        "0.88.1"
+      ]
+    },
+    "@react-native/metro-config": {
+      "nodes": [
+        "node_modules/@react-native/metro-config"
+      ],
+      "versions": [
+        "0.88.1"
+      ]
+    },
+    "@react-native/virtualized-lists": {
+      "nodes": [
+        "node_modules/@react-native/virtualized-lists"
+      ],
+      "versions": [
+        "0.88.1"
+      ]
+    },
+    "babel-preset-expo": {
+      "nodes": [
+        "node_modules/babel-preset-expo"
+      ],
+      "versions": [
+        "58.0.24"
+      ]
+    },
+    "expo": {
+      "nodes": [
+        "node_modules/expo"
+      ],
+      "versions": [
+        "58.0.23"
+      ]
+    },
+    "expo-modules-core": {
+      "nodes": [
+        "node_modules/expo-modules-core"
+      ],
+      "versions": [
+        "58.0.30"
+      ]
+    },
+    "expo-splash-screen": {
+      "nodes": [
+        "node_modules/expo-splash-screen"
+      ],
+      "versions": [
+        "58.0.13"
+      ]
+    },
+    "fdir": {
+      "nodes": [
+        "node_modules/fdir"
+      ],
+      "versions": [
+        "6.5.0"
+      ]
+    },
+    "jest-util": {
+      "nodes": [
+        "node_modules/jest-util"
+      ],
+      "versions": [
+        "29.7.0"
+      ]
+    },
+    "jest-worker": {
+      "nodes": [
+        "node_modules/jest-worker"
+      ],
+      "versions": [
+        "29.7.0"
+      ]
+    },
+    "metro": {
+      "nodes": [
+        "node_modules/metro"
+      ],
+      "versions": [
+        "0.87.1"
+      ]
+    },
+    "metro-config": {
+      "nodes": [
+        "node_modules/metro-config"
+      ],
+      "versions": [
+        "0.87.1"
+      ]
+    },
+    "metro-file-map": {
+      "nodes": [
+        "node_modules/metro-file-map"
+      ],
+      "versions": [
+        "0.87.1"
+      ]
+    },
+    "metro-transform-worker": {
+      "nodes": [
+        "node_modules/metro-transform-worker"
+      ],
+      "versions": [
+        "0.87.1"
+      ]
+    },
+    "micromatch": {
+      "nodes": [
+        "node_modules/micromatch"
+      ],
+      "versions": [
+        "4.0.8"
+      ]
+    },
+    "picomatch": {
+      "nodes": [
+        "node_modules/jest-util/node_modules/picomatch",
+        "node_modules/micromatch/node_modules/picomatch",
+        "node_modules/picomatch"
+      ],
+      "versions": [
+        "2.3.2",
+        "4.0.7"
+      ]
+    },
+    "react-native": {
+      "nodes": [
+        "node_modules/react-native"
+      ],
+      "versions": [
+        "0.88.1"
+      ]
+    },
+    "react-native-reanimated": {
+      "nodes": [
+        "node_modules/react-native-reanimated"
+      ],
+      "versions": [
+        "4.7.1"
+      ]
+    },
+    "react-native-worklets": {
+      "nodes": [
+        "node_modules/react-native-worklets"
+      ],
+      "versions": [
+        "0.13.1"
+      ]
+    },
+    "tinyglobby": {
+      "nodes": [
+        "node_modules/tinyglobby"
+      ],
+      "versions": [
+        "0.2.17"
+      ]
+    }
+  },
+  "acceptedAdvisories": {
+    "GHSA-FC5Q-39XC-VJPF": {
+      "severity": "high",
+      "source": "https://github.com/advisories/GHSA-fc5q-39xc-vjpf",
+      "reason": "The finding is confined by current dependency/source evidence to Expo/Metro project build tooling. A compatible patched release is unavailable, and changing the supported Expo/RN stack or vendoring a disputed patch carries compatibility risk. The app-source inspection is not proof that no native bundle includes the package.",
+      "upstreamStatus": "GitHub Advisory Database lists no patched versions as of 2026-11-17. Recheck by 2026-12-01 and remove the exception as soon as an Expo-compatible fix is available.",
+      "packages": [
+        "@expo/cli",
+        "@expo/config",
+        "@expo/config-plugins",
+        "@expo/inline-modules",
+        "@expo/local-build-cache-provider",
+        "@expo/metro",
+        "@expo/metro-config",
+        "@expo/metro-file-map",
+        "@expo/prebuild-config",
+        "@react-native/babel-plugin-codegen",
+        "@react-native/babel-preset",
+        "@react-native/codegen",
+        "@react-native/community-cli-plugin",
+        "@react-native/metro-babel-transformer",
+        "@react-native/metro-config",
+        "@react-native/virtualized-lists",
+        "babel-preset-expo",
+        "expo",
+        "expo-modules-core",
+        "expo-splash-screen",
+        "fdir",
+        "jest-util",
+        "jest-worker",
+        "metro",
+        "metro-config",
+        "metro-file-map",
+        "metro-transform-worker",
+        "micromatch",
+        "picomatch",
+        "react-native",
+        "react-native-reanimated",
+        "react-native-worklets",
+        "tinyglobby"
+      ]
+    }
+  }
 }
