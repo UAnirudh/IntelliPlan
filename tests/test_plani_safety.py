@@ -50,7 +50,7 @@ def test_full_latest_message_and_history_reach_dedicated_model(judge):
     kwargs = judge.post.call_args.kwargs
     assert kwargs['json']['model'] == 'openai/gpt-oss-safeguard-20b'
     assert kwargs['json']['stream'] is False
-    assert kwargs['json']['max_completion_tokens'] == safety.MAX_COMPLETION_TOKENS
+    assert kwargs['json']['max_completion_tokens'] == safety.SAFEGUARD_COMPLETION_TOKENS
     assert safety.MAX_COMPLETION_TOKENS <= 1024
     payload = json.loads(kwargs['json']['messages'][1]['content'])
     assert payload['target'] == question
@@ -303,8 +303,9 @@ def test_second_capacity_failure_uses_final_classifier_with_full_policy(judge):
     calls = [call.kwargs['json'] for call in judge.post.call_args_list]
     assert [call['model'] for call in calls] == list(safety.CLASSIFIERS)
     assert calls[0]['messages'] == calls[1]['messages'] == calls[2]['messages']
+    assert calls[0]['max_completion_tokens'] == safety.SAFEGUARD_COMPLETION_TOKENS
     assert all(call['max_completion_tokens'] == safety.MAX_COMPLETION_TOKENS
-               for call in calls)
+               for call in calls[1:])
     assert calls[2]['response_format'] == {'type': 'json_object'}
     assert calls[2]['reasoning_effort'] == 'medium'
     assert 'reasoning_effort' not in calls[0]
@@ -314,3 +315,33 @@ def test_final_classifier_unsafe_verdict_is_enforced(judge):
     judge.response.json.return_value['choices'][0]['message']['content'] = '{"safe":false,"category":"self_harm"}'
     judge.post.side_effect = [_http_failure(413), _http_failure(429), judge.response]
     assert safety.classify(turns('A context-dependent question.'), http=judge) == 'self_harm'
+
+
+def test_crisis_disclosure_remains_available_during_provider_outage(judge):
+    judge.post.side_effect = requests.Timeout()
+    assert safety.classify(turns("I'm suicidal and I need help."), http=judge) == 'self_harm'
+    judge.post.assert_not_called()
+
+
+def test_approved_independent_fallback_keeps_full_message_after_groq_capacity_errors(monkeypatch, judge):
+    monkeypatch.setenv('PLANI_GEMINI_SAFETY_FALLBACK', '1')
+    monkeypatch.setattr('ai_provider.gemini_available', lambda: True)
+    judge.post.side_effect = [_http_failure(413), _http_failure(429), _http_failure(429)]
+    secondary = Mock(return_value='self_harm')
+    monkeypatch.setattr(safety, '_gemini_verdict', secondary)
+    target = "Synthetic probe with a complete final sentence."
+    assert safety.classify(turns('Earlier turn', target), http=judge) == 'self_harm'
+    messages, = secondary.call_args.args
+    assert json.loads(messages[1]['content'])['target'] == target
+    assert messages[0]['content'] == safety.POLICY
+
+
+def test_school_policy_can_prevent_secondary_provider_use(monkeypatch, judge):
+    monkeypatch.setenv('PLANI_GEMINI_SAFETY_FALLBACK', '1')
+    monkeypatch.setattr('intelliplan.learning.enforcement.permitted_processing', lambda provider: provider == 'groq')
+    judge.post.side_effect = [_http_failure(429)] * 3
+    secondary = Mock()
+    monkeypatch.setattr(safety, '_gemini_verdict', secondary)
+    with pytest.raises(safety.SafetyUnavailable):
+        safety.classify(turns('Synthetic school prompt'), http=judge)
+    secondary.assert_not_called()

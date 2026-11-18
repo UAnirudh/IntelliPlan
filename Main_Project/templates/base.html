@@ -3594,6 +3594,7 @@ window.addEventListener('load',()=>{
      aria-modal="true" aria-labelledby="ipPolicyTitle">
   <div class="ip-policy-card">
     <div class="ip-policy-head">
+      <div class="ip-policy-kicker">IntelliPlan policies</div>
       <h2 id="ipPolicyTitle" class="ip-policy-title">We've updated our policies</h2>
       <p id="ipPolicyIntro" class="ip-policy-intro"></p>
     </div>
@@ -3615,79 +3616,75 @@ window.addEventListener('load',()=>{
   .ip-policy-backdrop {
     position: fixed; inset: 0; z-index: 3000;
     display: flex; align-items: center; justify-content: center;
-    padding: 1rem;
-    background: rgba(0, 0, 0, 0.6);
-    -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+    padding: 1rem; background: rgba(12, 18, 30, 0.68);
+    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
   }
   .ip-policy-backdrop[hidden] { display: none; }
   .ip-policy-card {
-    display: flex; flex-direction: column;
-    width: 100%; max-width: 640px; max-height: 88vh;
-    border: 1px solid var(--border); border-radius: 18px;
-    background: var(--bg-card, #fff);
-    box-shadow: var(--shadow-lg);
+    display: flex; flex-direction: column; width: 100%; max-width: 680px;
+    max-height: min(88vh, 860px); max-height: min(88dvh, 860px);
+    border: 1px solid var(--border); border-radius: 22px;
+    background: var(--bg-card, #fff); box-shadow: 0 24px 80px rgba(0, 0, 0, 0.3);
     overflow: hidden;
   }
-  .ip-policy-head { padding: 1.25rem 1.25rem 0.75rem; }
+  .ip-policy-head { padding: 1.6rem 1.75rem 1.2rem; border-bottom: 1px solid var(--border); }
+  .ip-policy-kicker {
+    display: flex; align-items: center; gap: 0.45rem; margin-bottom: 0.65rem;
+    color: var(--accent); font-size: 0.7rem; font-weight: 700;
+    letter-spacing: 0.09em; text-transform: uppercase;
+  }
   .ip-policy-title {
-    margin: 0 0 6px; font-family: var(--font-display, inherit);
-    font-size: 1.25rem; font-weight: 600; color: var(--text-primary);
+    margin: 0 0 0.45rem; font-family: var(--font-display, inherit);
+    font-size: clamp(1.35rem, 3vw, 1.7rem); line-height: 1.2;
+    font-weight: 700; color: var(--text-primary);
   }
-  .ip-policy-intro {
-    margin: 0; font-size: 0.84rem; line-height: 1.55; color: var(--text-muted);
-  }
+  .ip-policy-intro { margin: 0; max-width: 54ch; font-size: 0.88rem; line-height: 1.55; color: var(--text-secondary); }
   .ip-policy-body {
-    flex: 1; min-height: 0; overflow-y: auto;
-    padding: 0.5rem 1.25rem 1rem;
-    font-size: 0.85rem; line-height: 1.65; color: var(--text-secondary);
+    flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+    padding: 1.25rem 1.75rem 1.5rem;
+    font-size: 0.9rem; line-height: 1.7; color: var(--text-secondary);
   }
+  .ip-policy-body:focus-visible, .ip-policy-accept:focus-visible, .ip-policy-body a:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: -2px;
+  }
+  .ip-policy-body a { color: var(--accent); text-underline-offset: 3px; }
   .ip-policy-body h3 {
-    margin: 1.1rem 0 0.4rem; font-size: 0.83rem; letter-spacing: 0.04em;
-    text-transform: uppercase; color: var(--text-muted);
+    margin: 1.35rem 0 0.5rem; font-size: 0.76rem; letter-spacing: 0.07em;
+    text-transform: uppercase; color: var(--text-primary);
   }
-  .ip-policy-body ul { margin: 0 0 0.5rem; padding-left: 1.1rem; }
-  .ip-policy-body li { margin-bottom: 5px; }
+  .ip-policy-body ul { margin: 0 0 0.6rem; padding-left: 1.2rem; }
+  .ip-policy-body li { padding-left: 0.15rem; margin-bottom: 0.4rem; }
   .ip-policy-tldr {
-    margin: 0 0 1rem; padding: 0.85rem 1rem;
-    border: 1px solid var(--border-accent); border-radius: 12px;
+    margin: 0 0 1.25rem; padding: 1.1rem 1.2rem;
+    border: 1px solid var(--border-accent, var(--border)); border-radius: 14px;
     background: var(--accent-soft);
   }
-  .ip-policy-body .ip-policy-tldr h3 { margin-top: 0; }
-  .ip-policy-tldr-note { margin: 0.5rem 0 0; font-size: 0.78rem; color: var(--text-secondary); }
-  .ip-policy-tldr-doc { margin: 0.5rem 0 0.25rem; font-weight: 600; color: var(--text-primary); }
-  .ip-policy-sub {
-    margin: 0.6rem 0 0.3rem; font-size: 0.78rem; font-weight: 600; color: var(--text-primary);
-  }
+  .ip-policy-body .ip-policy-tldr h3 { margin-top: 0; color: var(--accent); }
+  .ip-policy-tldr-note { margin: 0.65rem 0 0; font-size: 0.8rem; color: var(--text-secondary); }
+  .ip-policy-tldr-doc { margin: 0.7rem 0 0.3rem; font-weight: 700; color: var(--text-primary); }
+  .ip-policy-sub { margin: 0.8rem 0 0.35rem; font-size: 0.83rem; font-weight: 700; color: var(--text-primary); }
   .ip-policy-clause {
-    border: 1px solid var(--border); border-radius: 10px;
-    padding: 10px 12px; margin-bottom: 10px;
-    background: var(--bg-secondary);
+    border: 1px solid var(--border); border-radius: 12px;
+    padding: 0.9rem 1rem; margin-bottom: 0.65rem; background: var(--bg-secondary);
   }
-  .ip-policy-clause-heading {
-    font-weight: 600; font-size: 0.8rem; color: var(--text-primary);
-    margin-bottom: 6px;
-  }
-  .ip-policy-verbatim {
-    white-space: pre-wrap; font-family: var(--font-mono, ui-monospace, monospace);
-    font-size: 0.78rem; line-height: 1.6; margin: 0;
-  }
-  .ip-policy-label {
-    display: inline-block; font-size: 0.68rem; letter-spacing: 0.07em;
-    text-transform: uppercase; color: var(--text-muted); margin-bottom: 2px;
-  }
-  .ip-policy-foot {
-    padding: 0.9rem 1.25rem 1.1rem;
-    border-top: 1px solid var(--border);
-  }
-  .ip-policy-hint {
-    margin: 0 0 8px; font-size: 0.75rem; color: var(--text-muted);
-  }
+  .ip-policy-clause-heading { font-weight: 700; font-size: 0.85rem; color: var(--text-primary); margin-bottom: 0.4rem; }
+  .ip-policy-verbatim { white-space: pre-wrap; font-family: inherit; font-size: 0.84rem; line-height: 1.65; margin: 0; }
+  .ip-policy-label { display: inline-block; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.2rem; }
+  .ip-policy-foot { padding: 1rem 1.75rem 1.25rem; border-top: 1px solid var(--border); }
+  .ip-policy-hint { margin: 0 0 0.55rem; font-size: 0.78rem; color: var(--text-secondary); }
   .ip-policy-accept {
-    width: 100%; padding: 11px; border: none; border-radius: 10px;
-    background: var(--accent); color: #fff;
-    font-family: inherit; font-weight: 700; font-size: 0.9rem; cursor: pointer;
+    width: 100%; min-height: 46px; padding: 11px; border: none; border-radius: 10px;
+    background: var(--accent); color: #fff; font-family: inherit;
+    font-weight: 700; font-size: 0.9rem; cursor: pointer;
   }
-  .ip-policy-accept:disabled { opacity: 0.45; cursor: not-allowed; }
+  .ip-policy-accept:disabled { opacity: 0.55; cursor: not-allowed; }
+  @media (max-width: 480px) {
+    .ip-policy-backdrop { padding: 0.75rem; }
+    .ip-policy-card { max-height: 92vh; max-height: 92dvh; border-radius: 18px; }
+    .ip-policy-head { padding: 1.2rem 1.15rem 1rem; }
+    .ip-policy-body { padding: 1rem 1.15rem 1.25rem; }
+    .ip-policy-foot { padding: 0.85rem 1.15rem 1rem; }
+  }
 </style>
 
 <script>

@@ -261,8 +261,8 @@ def test_aria_controls_point_at_real_elements(client, path):
 def test_toggle_buttons_declare_their_expanded_state(client, path):
     """A control that shows and hides something must say which it is doing.
 
-    Anything with aria-controls is a disclosure by definition, so it needs a
-    starting aria-expanded for a screen reader to announce.
+    Disclosure buttons announce aria-expanded. Tabs control their panels
+    through the separate aria-selected pattern.
     """
     response = client.get(path)
     assert response.status_code == 200, (path, response.status_code, response.headers.get('Location'))
@@ -271,6 +271,9 @@ def test_toggle_buttons_declare_their_expanded_state(client, path):
     silent = []
     for match in re.finditer(r"<button\b([^>]*)>", html, re.I):
         attrs = match.group(1)
+        if re.search(r'\brole=["\x27]tab["\x27]', attrs):
+            assert re.search(r'\baria-selected=["\x27](?:true|false)["\x27]', attrs)
+            continue
         if "aria-controls" in attrs and "aria-expanded" not in attrs:
             silent.append(match.group(0)[:100])
     assert not silent, f"{path} has disclosure button(s) with no state: {silent[:2]}"

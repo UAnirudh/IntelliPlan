@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import os
 import re
 import secrets
 from datetime import datetime
@@ -569,3 +570,100 @@ def owner_school_audit(organization_id: int):
 
 def install(app):
     app.register_blueprint(bp)
+
+
+def _lakeside_organization():
+    # Explicit opt-in prevents a name match from granting access to another school.
+    raw = os.environ.get("LAKESIDE_ADMIN_ORGANIZATION_ID", "")
+    if not raw.isdecimal() or int(raw) < 1:
+        return None
+    organization = _models()["Organization"].query.get(int(raw))
+    return organization if organization and organization.kind == "school" else None
+
+
+@bp.route("/lakeside-admin")
+def lakeside_admin_page():
+    return render_template("lakeside_admin_request.html", active_page="school_admin", noindex_page=True)
+
+
+@bp.route("/api/lakeside-admin/request", methods=["GET", "POST"])
+def lakeside_admin_request():
+    if not current_user.is_authenticated:
+        return jsonify(error="login_required", message="Sign in to request access."), 401
+    organization = _lakeside_organization()
+    if not organization:
+        return jsonify(error="unavailable", message="Lakeside requests are not configured yet."), 503
+    M = _models()
+    row = M["SchoolAdminRequest"].query.filter_by(organization_id=organization.id, user_id=current_user.id).first()
+    membership = M["Membership"].query.filter_by(organization_id=organization.id, user_id=current_user.id).first()
+    if membership and membership.role == "admin":
+        return jsonify(status="already_admin")
+    if request.method == "GET":
+        return jsonify(status=("none" if row and row.status == "approved" else row.status) if row else "none")
+    if getattr(current_user, "email_verified", False) is not True:
+        return jsonify(error="email_unverified", message="Verify your account email before requesting access."), 403
+    from App import db
+    if row and row.status == "pending":
+        return jsonify(status="pending")
+    if row is None:
+        row = M["SchoolAdminRequest"](organization_id=organization.id, user_id=current_user.id)
+        db.session.add(row)
+    else:
+        row.status = "pending"
+        row.created_at = utcnow()
+        row.decided_at = None
+        row.decided_by_id = None
+    _audit(organization.id, "school_admin_requested", {"user_id": int(current_user.id)})
+    db.session.commit()
+    return jsonify(status="pending"), 201
+
+
+@bp.route("/api/owner/lakeside-admin/requests")
+def owner_lakeside_requests():
+    _require_owner()
+    from App import User, db
+    organization = _lakeside_organization()
+    if not organization:
+        return jsonify(requests=[], configured=False)
+    M = _models()
+    rows = (db.session.query(M["SchoolAdminRequest"], User)
+            .join(User, User.id == M["SchoolAdminRequest"].user_id)
+            .filter(M["SchoolAdminRequest"].organization_id == organization.id,
+                    M["SchoolAdminRequest"].status == "pending")
+            .order_by(M["SchoolAdminRequest"].created_at).limit(100).all())
+    return jsonify(configured=True, organization=organization.name, requests=[
+        {"id": row.id, "email": user.email, "name": user.name or "",
+         "email_verified": bool(user.email_verified), "created_at": row.created_at.isoformat()}
+        for row, user in rows])
+
+
+@bp.route("/api/owner/lakeside-admin/requests/<int:request_id>", methods=["POST"])
+def owner_decide_lakeside_request(request_id):
+    _require_owner()
+    from App import User, db
+    organization = _lakeside_organization()
+    if not organization:
+        abort(404)
+    M = _models()
+    decision = _json_body().get("decision")
+    if decision not in {"approve", "deny"}:
+        return jsonify(error="invalid_decision"), 400
+    row = M["SchoolAdminRequest"].query.filter_by(id=request_id, organization_id=organization.id).with_for_update().first_or_404()
+    if row.status != "pending":
+        return jsonify(error="already_decided"), 409
+    user = db.session.get(User, row.user_id)
+    if decision == "approve":
+        if not user or user.email_verified is not True:
+            return jsonify(error="email_unverified", message="The account email must be verified before approval."), 409
+        membership = M["Membership"].query.filter_by(user_id=user.id, organization_id=organization.id).first()
+        if membership is None:
+            membership = M["Membership"](user_id=user.id, organization_id=organization.id, role="admin")
+            db.session.add(membership)
+        else:
+            membership.role = "admin"
+    row.status = "approved" if decision == "approve" else "denied"
+    row.decided_at = utcnow()
+    row.decided_by_id = current_user.id
+    _audit(organization.id, "school_admin_request_decided", {"user_id": int(row.user_id), "decision": decision})
+    db.session.commit()
+    return jsonify(status=row.status)

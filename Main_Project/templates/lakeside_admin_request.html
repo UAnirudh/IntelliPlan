@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Lakeside administrator access · IntelliPlan{% endblock %}
+{% block content %}
+<main style="max-width:640px;margin:3rem auto;padding:1.5rem">
+  <h1>Lakeside administrator access</h1>
+  <p>Request access to the Lakeside school workspace. The IntelliPlan owner reviews each request and may contact you to verify your school role. Approval does not establish school authorization for IntelliPlan.</p>
+  <p>Sign in with a verified account email before requesting access.</p>
+  <button id="request-access" type="button">Request administrator access</button>
+  <p id="request-status" role="status" aria-live="polite"></p>
+</main>
+<script src="{{ url_for('static', filename='js/lakeside_admin_request.js') }}" defer></script>
+{% endblock %}

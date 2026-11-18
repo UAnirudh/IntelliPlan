@@ -135,3 +135,27 @@ body.has-side.has-own-chat .command-chat .command-chat__composer #chatInput {
   .command-chat[data-display-plan="agenda"] .command-chat__schedule-days > div { grid-template-columns: 1fr; gap: 5px; }
 }
 @media (max-width: 380px) { .workspace-controls__grid { grid-template-columns: 1fr; } }
+
+/* Keep prompts, conversation, and composer in the same visual family. */
+.command-chat .command-chat__prompts {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+body .command-chat .command-chat__prompts li > :is(button, a) {
+  height: 100%;
+  min-height: 82px;
+  padding: 16px;
+  border: 0;
+  border-radius: 18px;
+  background: transparent !important;
+}
+body .command-chat .command-chat__prompts li > :is(button, a):hover {
+  background: var(--workspace-soft) !important;
+}
+body.has-side .command-chat .command-chat__composer {
+  background: var(--workspace-soft) !important;
+}
+@media (max-width: 520px) {
+  .command-chat .command-chat__prompts { grid-template-columns: 1fr; }
+  body .command-chat .command-chat__prompts li > :is(button, a) { min-height: 64px; padding: 12px 14px; }
+}

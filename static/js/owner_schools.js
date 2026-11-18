@@ -247,5 +247,21 @@
       await load({ offset: 0 });
     } catch (error) { notice(message, error.message, 'error'); }
   });
+  async function loadLakesideRequests() {
+    const target = $('lakesideRequests');
+    try {
+      const data = await api('/api/owner/lakeside-admin/requests');
+      if (!data.configured) { target.textContent = 'Lakeside requests are not configured.'; return; }
+      if (!data.requests.length) { target.textContent = 'No pending requests.'; return; }
+      target.innerHTML = data.requests.map((item) => `<div class="owner-staff-row"><div class="owner-staff-person"><strong>${esc(item.name || item.email)}</strong><small>${esc(item.email)} · ${item.email_verified ? 'Email verified' : 'Email unverified'} · ${esc(item.created_at)}</small></div><div class="owner-actions"><button class="owner-btn" data-request="${item.id}" data-decision="approve">Approve</button><button class="owner-btn secondary" data-request="${item.id}" data-decision="deny">Decline</button></div></div>`).join('');
+      target.querySelectorAll('[data-request]').forEach((button) => button.addEventListener('click', async () => {
+        if (!window.confirm(`${button.dataset.decision === 'approve' ? 'Approve administrator access for' : 'Decline the request from'} ${button.closest('.owner-staff-row').querySelector('strong').textContent}?`)) return;
+        button.disabled = true;
+        try { await api(`/api/owner/lakeside-admin/requests/${button.dataset.request}`, {method:'POST', body:JSON.stringify({decision:button.dataset.decision})}); await loadLakesideRequests(); await load(); }
+        catch (error) { target.textContent = error.message; }
+      }));
+    } catch (error) { target.textContent = `Could not load requests: ${error.message}`; }
+  }
+  loadLakesideRequests();
   load().catch((error) => notice($('createNotice'), error.message, 'error'));
 })();

@@ -125,3 +125,44 @@ body.has-side .sched-pane #generateBtn {
   html[data-side-rail] body.has-side .app-side:not(.is-peek) .side-collapse-btn { position: absolute; top: 20px; left: 16px; right: auto; width: 32px; min-height: 32px; margin: 0; }
 }
 @media (prefers-reduced-motion: reduce) { body.has-side * { scroll-behavior: auto; } }
+
+/* Rounded, quiet surfaces shared by the signed-in workspace. */
+body.has-side {
+  --r-md: 16px;
+  --r-lg: 22px;
+  --r-xl: 28px;
+  --workspace-outline: color-mix(in srgb, var(--text-primary) 10%, transparent);
+}
+body.has-side .app-side .side-link {
+  min-height: 44px;
+  border-radius: 14px;
+}
+body.has-side .app-side .side-link.active {
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg));
+}
+body.has-side :is(.ipd-card, .scheduler-panel, .ipa-card, .settings-section, .learning-panel) {
+  border: 1px solid var(--workspace-outline);
+  border-radius: var(--r-lg);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--text-primary) 4%, transparent);
+}
+body.has-side .sched-tabs {
+  width: fit-content;
+  max-width: 100%;
+  padding: 5px;
+  gap: 2px;
+  border: 1px solid var(--workspace-outline);
+  border-radius: 18px;
+  background: var(--bg-elevated);
+}
+body.has-side .sched-tabs .sched-tab { border-radius: 13px; }
+body.has-side .sched-tabs .sched-tab[aria-selected="true"] {
+  background: var(--bg-card);
+  box-shadow: 0 1px 4px color-mix(in srgb, var(--text-primary) 10%, transparent);
+}
+body.has-side :is(.side-link, .sched-tab, .btn-primary, .btn-secondary, .ipa-btn):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+@media (max-width: 768px) {
+  body.has-side .sched-tabs { width: 100%; box-sizing: border-box; }
+}

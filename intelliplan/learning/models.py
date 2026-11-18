@@ -21,6 +21,17 @@ def register(db):
         role = db.Column(db.String(16), nullable=False, default='student')
         __table_args__ = (db.UniqueConstraint('user_id', 'organization_id'),)
 
+    class SchoolAdminRequest(db.Model):
+        __tablename__ = 'learning_school_admin_requests'
+        id = db.Column(db.Integer, primary_key=True)
+        organization_id = db.Column(db.Integer, db.ForeignKey('learning_organizations.id'), nullable=False, index=True)
+        user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+        status = db.Column(db.String(16), nullable=False, default='pending')
+        created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+        decided_at = db.Column(db.DateTime)
+        decided_by_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'))
+        __table_args__ = (db.UniqueConstraint('organization_id', 'user_id'),)
+
     class SchoolDomain(db.Model):
         """Owner-verified email domains used only for school membership.
 
@@ -151,7 +162,7 @@ def register(db):
         reserved_tokens = db.Column(db.Integer, nullable=False, default=0)
         __table_args__ = (db.UniqueConstraint('organization_id', 'month'), db.UniqueConstraint('user_id', 'month'))
 
-    return dict(Organization=Organization, Membership=Membership, SchoolDomain=SchoolDomain,
+    return dict(Organization=Organization, Membership=Membership, SchoolAdminRequest=SchoolAdminRequest, SchoolDomain=SchoolDomain,
                 SchoolPlan=SchoolPlan, Audit=Audit,
                 Course=Course, Lesson=Lesson, Job=Job, Evidence=Evidence, Sitting=Sitting,
                 BetaEnrollment=BetaEnrollment, Feedback=Feedback, Budget=Budget)

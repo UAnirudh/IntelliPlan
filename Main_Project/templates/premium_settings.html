@@ -133,7 +133,8 @@
 
   <section class="pai-section" aria-labelledby="paiChatgptH">
     <h2 id="paiChatgptH">Use your ChatGPT plan</h2>
-    <p>IntelliPlan is preparing support for eligible ChatGPT plan usage. OpenAI must approve this hosted app before people can connect and choose to use their plan here. Linking an OpenAI API key above is a separate option with separate API billing.</p>
+    <p>Using your ChatGPT plan in IntelliPlan is not available yet. OpenAI approval and a separate integration are required.</p>
+    <p class="pai-note">The OpenAI API key option above uses separate API billing. Some eligible ChatGPT subscriptions offer API credits; check your eligibility and balance with OpenAI.</p>
     <p class="pai-note">When you apply, request <strong>Sign in and ChatGPT plan use for AI requests</strong>. Approval is required before this connection can be enabled.</p>
     <p class="pai-note"><strong>Website callback URI to include in your OpenAI application</strong></p>
     <div class="pai-redirect">
@@ -145,7 +146,7 @@
       <a class="pai-btn" href="/auth/openai" data-oai-siwc-button data-oai-siwc-button-client="{{ openai_client_id|e }}">Continue with ChatGPT</a>
       <p class="pai-note">This links your verified OpenAI identity to this account. ChatGPT plan use is not enabled by identity sign-in.</p>
       {% endif %}
-    <p class="pai-note"><a href="https://openai.com/form/sign-in-with-chatgpt-interest/" target="_blank" rel="noopener">Request OpenAI partner access</a> · <a href="https://developers.openai.com/siwc/website" target="_blank" rel="noopener">Website integration requirements</a> · <a href="https://help.openai.com/en/articles/20001542-using-your-chatgpt-plan-in-other-apps-and-sites" target="_blank" rel="noopener">How ChatGPT plan sharing works</a></p>
+    <p class="pai-note"><a href="https://openai.com/form/sign-in-with-chatgpt-interest/" target="_blank" rel="noopener">Request OpenAI partner access</a> · <a href="https://developers.openai.com/siwc/website" target="_blank" rel="noopener">Website integration requirements</a> · <a href="https://help.openai.com/en/articles/20001542-using-your-chatgpt-plan-in-other-apps-and-sites" target="_blank" rel="noopener">How ChatGPT plan sharing works</a> · <a href="https://help.openai.com/en/articles/20001626-api-credits-benefit-for-eligible-chatgpt-subscriptions" target="_blank" rel="noopener">OpenAI API credits eligibility</a></p>
   </section>
 
   {% if billing_enabled and not premium %}

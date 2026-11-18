@@ -472,3 +472,41 @@ def test_external_school_admin_addition_keeps_membership_but_not_school_paid_acc
             App.db.session.commit()
     finally:
         App.limiter.enabled = previous
+
+
+def test_lakeside_admin_request_requires_owner_approval_and_is_scoped(monkeypatch):
+    previous = App.limiter.enabled
+    App.limiter.enabled = False
+    App.app.config['TESTING'] = True
+    with App.app.app_context():
+        App.db.create_all()
+        M = policy.models()
+        school = _org('Lakeside')
+        other = _org('Other')
+        requester = _user(verified=True)
+        outsider = _user(verified=True)
+        owner = _user(verified=True)
+        App.db.session.commit()
+        school_id, other_id = school.id, other.id
+        requester_id, outsider_id, owner_id, owner_email = requester.id, outsider.id, owner.id, owner.email
+    try:
+        monkeypatch.setenv('LAKESIDE_ADMIN_ORGANIZATION_ID', str(school_id))
+        monkeypatch.setattr(App, 'FOUNDER_EMAIL', owner_email)
+        client = App.app.test_client()
+        _login(client, requester_id)
+        assert client.post('/api/lakeside-admin/request').status_code == 201
+        assert client.post('/api/lakeside-admin/request').status_code == 200
+        with App.app.app_context():
+            assert M['Membership'].query.filter_by(user_id=requester_id).count() == 0
+            req_id = M['SchoolAdminRequest'].query.filter_by(user_id=requester_id, organization_id=school_id).one().id
+        _login(client, outsider_id)
+        assert client.post(f'/api/owner/lakeside-admin/requests/{req_id}', json={'decision':'approve'}).status_code == 404
+        _login(client, owner_id)
+        assert client.get('/api/owner/lakeside-admin/requests').get_json()['requests'][0]['id'] == req_id
+        assert client.post(f'/api/owner/lakeside-admin/requests/{req_id}', json={'decision':'approve'}).status_code == 200
+        assert client.post(f'/api/owner/lakeside-admin/requests/{req_id}', json={'decision':'approve'}).status_code == 409
+        with App.app.app_context():
+            assert M['Membership'].query.filter_by(user_id=requester_id, organization_id=school_id, role='admin').count() == 1
+            assert M['Membership'].query.filter_by(user_id=requester_id, organization_id=other_id).count() == 0
+    finally:
+        App.limiter.enabled = previous
