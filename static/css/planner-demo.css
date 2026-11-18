@@ -1,0 +1,33 @@
+:root { color-scheme: light; font-family: system-ui, sans-serif; color: #173b35; background: #fff; line-height: 1.6; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+header, main, footer { max-width: 56rem; margin: auto; padding: 1.25rem; }
+header { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; border-bottom: 1px solid #c9d7d1; }
+header a:first-child { font-weight: 700; text-decoration: none; }
+h1 { font-size: clamp(1.8rem, 5vw, 2.7rem); line-height: 1.2; margin: 1.25rem 0 .75rem; }
+h2 { font-size: 1.3rem; line-height: 1.4; margin: 0 0 .75rem; }
+h3 { font-size: 1.05rem; margin: 0 0 .6rem; }
+p, li { max-width: 70ch; }
+a { color: #075d64; text-underline-offset: .2em; overflow-wrap: anywhere; }
+.intro { font-size: 1.15rem; }
+aside { border-left: .3rem solid #116f5d; background: #edf6f1; padding: 1rem; }
+section { margin-top: 2rem; }
+.examples { padding-left: 1.4rem; }
+.examples li { margin: .65rem 0; }
+.examples span { display: block; color: #425c55; }
+label { display: block; font-weight: 600; }
+select, button { font: inherit; border-radius: .4rem; max-width: 100%; min-height: 2.75rem; }
+select { background: white; color: #173b35; border: 1px solid #648178; padding: .6rem; width: 21rem; margin: .4rem 0; }
+button { background: #086b58; color: #fff; border: 1px solid #086b58; padding: .6rem .9rem; cursor: pointer; white-space: normal; }
+button.secondary { background: #fff; color: #173b35; border-color: #648178; }
+.actions, .block-actions { display: flex; flex-wrap: wrap; gap: .7rem; margin-top: .7rem; }
+:focus-visible { outline: 3px solid #164fa2; outline-offset: 3px; }
+#demo-status { min-height: 3em; padding: .8rem; background: #edf2f8; color: #213d5d; }
+.demo-day { border-top: 2px solid #9fbab0; padding: 1rem 0; }
+.demo-day ol { padding-left: 1.4rem; }
+.demo-day li { padding-bottom: 1rem; }
+.block-time { display: block; color: #425c55; }
+.missed, #demo-unplaced { color: #743c0d; }
+footer { display: flex; flex-wrap: wrap; gap: 1rem; border-top: 1px solid #c9d7d1; font-size: .9rem; margin-top: 2rem; }
+[hidden] { display: none !important; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; } }

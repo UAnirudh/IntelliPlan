@@ -594,8 +594,12 @@ def add_cors_headers(response):
             "frame-ancestors 'self' https://lotus-72e3e.web.app "
             "https://intelliplan.tech http://localhost:5000"
         )
-    csp_header_name = "Content-Security-Policy" if os.getenv("CSP_ENFORCE") == "1" else "Content-Security-Policy-Report-Only"
-    response.headers[csp_header_name] = csp_value
+    # A view may declare its own policy when the page has to be sealed off
+    # (the fabricated demo allows no network and no form posts). The site-wide
+    # policy would widen that back to 'self', so the view's header wins.
+    if "Content-Security-Policy" not in response.headers:
+        csp_header_name = "Content-Security-Policy" if os.getenv("CSP_ENFORCE") == "1" else "Content-Security-Policy-Report-Only"
+        response.headers[csp_header_name] = csp_value
     response.headers["X-Permitted-Cross-Domain-Policies"] = "none"
     return response
 
@@ -22348,6 +22352,12 @@ app.register_blueprint(admin_access_bp)
 app.register_blueprint(group_tasks_bp)
 app.register_blueprint(group_voice_bp)
 app.register_blueprint(manual_schedule_bp)
+
+# Public sample-week demo. It renders fabricated coursework only, so it
+# has to stay reachable without a session; see intelliplan/api/planner_demo.py.
+from intelliplan.api.planner_demo import bp as planner_demo_bp
+app.register_blueprint(planner_demo_bp)
+
 # The voice heartbeat runs every 12 seconds per person in a room, so the
 # default per-IP budget would throttle a household with two students in
 # the same call. Its own limit is sized to the poll, not to page loads.
