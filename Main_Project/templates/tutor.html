@@ -176,27 +176,22 @@ main {
   margin-bottom: 1.5rem;
 }
 #tutorPlaniSvg {
-  width: 110px; height: 127px;
-  animation: tpFloat 3.2s ease-in-out infinite;
-  /* Amber, matching --plani-signal. This was a hardcoded indigo that
-     belonged to neither the old accent nor the character. */
-  filter: drop-shadow(0 8px 24px rgba(var(--plani-glow), 0.32));
+  width: 110px; height: 110px; object-fit: contain;
+  filter: drop-shadow(0 6px 10px #25284424);
   transition: filter 0.3s ease;
 }
 #tutorPlaniWrap.is-thinking #tutorPlaniSvg {
-  animation: tpThink 0.85s ease-in-out infinite;
-  filter: drop-shadow(0 0 22px rgba(var(--plani-glow), 0.7));
+  animation: tpFloat 2.1s ease-in-out infinite;
+}
+#tutorPlaniWrap.is-responding #tutorPlaniSvg {
+  animation: tpRespond 0.55s var(--ease-out) forwards;
 }
 @media (prefers-reduced-motion: reduce) {
   #tutorPlaniSvg,
   #tutorPlaniWrap.is-thinking #tutorPlaniSvg,
   #tutorPlaniWrap.is-responding #tutorPlaniSvg { animation: none; }
 }
-#tutorPlaniWrap.is-responding #tutorPlaniSvg {
-  animation: tpRespond 0.55s var(--ease-out) forwards;
-}
-@keyframes tpFloat    { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-9px)} }
-@keyframes tpThink    { 0%,100%{transform:scale(1) translateY(0)} 50%{transform:scale(1.05) translateY(-5px)} }
+@keyframes tpFloat    { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-4px)} }
 @keyframes tpRespond  { 0%{transform:scale(1)} 35%{transform:scale(1.14)} 65%{transform:scale(0.95)} 100%{transform:scale(1)} }
 
 .tutor-empty-title {
@@ -586,7 +581,7 @@ main {
   #tutorSendBtn { border-radius: 0 12px 12px 0; }
   .tutor-empty-title { font-size: 1.45rem; }
   .tutor-empty { padding: 1.5rem 1rem 1.5rem; }
-  #tutorPlaniSvg { width: 82px; height: 95px; }
+  #tutorPlaniSvg { width: 82px; height: 82px; }
   .tutor-subject-pill { padding: 0 10px; font-size: 0.7rem; height: 46px; }
   #tutorInput { font-size: 16px; min-height: 46px; } /* prevent iOS zoom */
   #tutorSendBtn { width: 46px; height: 46px; }
@@ -631,6 +626,12 @@ main {
   font-size: 0.64rem; letter-spacing: 0.09em; opacity: 0.75;
 }
 .tutor-artifact { overflow-wrap: anywhere; }
+.tutor-roadmap { display: grid; gap: .65rem; padding-inline-start: 1.3rem; }
+.tutor-roadmap summary { cursor: pointer; font-weight: 650; }
+.tutor-roadmap details[open] > summary { margin-bottom: .55rem; }
+.tutor-roadmap ol { margin-block: .65rem; padding-inline-start: 1.3rem; }
+.tutor-roadmap dt { font-weight: 650; }
+.tutor-roadmap dd { margin: 0 0 .55rem; }
 .tutor-artifact .quiz-option {
   display: block; width: 100%; min-height: 44px; padding: 10px 12px; margin: 8px 0;
   border: 1px solid var(--border-strong); border-radius: 10px;
@@ -810,69 +811,7 @@ main {
          from a placeholder. Plani itself belongs here: same character as the
          corner assistant, same --plani-* palette, just larger. #}
       <div id="tutorPlaniWrap">
-        <svg id="tutorPlaniSvg" class="plani-figure" viewBox="0 0 80 92" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-          <defs>
-            <linearGradient id="tpHead" class="pg-shell" x1="0" y1="0" x2="1" y2="1">
-              <stop class="pg-s1" offset="0%"/><stop class="pg-s2" offset="100%"/>
-            </linearGradient>
-            <linearGradient id="tpBody" class="pg-torso" x1="0" y1="0" x2="1" y2="1">
-              <stop class="pg-s1" offset="0%"/><stop class="pg-s2" offset="100%"/>
-            </linearGradient>
-            <radialGradient id="tpGlow" class="pg-halo" cx="50%" cy="50%" r="50%">
-              <stop class="pg-s1" offset="0%" stop-opacity="0.85"/>
-              <stop class="pg-s2" offset="100%" stop-opacity="0"/>
-            </radialGradient>
-            <filter id="tpBlur"><feGaussianBlur stdDeviation="1.2"/></filter>
-          </defs>
-
-          <ellipse cx="40" cy="3.5" rx="5" ry="5" fill="url(#tpGlow)" filter="url(#tpBlur)" opacity="0.75">
-            <animate attributeName="opacity" values="0.75;0.3;0.75" dur="2s" repeatCount="indefinite"/>
-            <animate attributeName="rx" values="5;7.5;5" dur="2s" repeatCount="indefinite"/>
-          </ellipse>
-          <line x1="40" y1="14" x2="40" y2="5" class="pg-line" stroke-width="2" stroke-linecap="round"/>
-          <circle cx="40" cy="3.5" r="3" class="pg-signal">
-            <animate attributeName="r" values="3;4;3" dur="2s" repeatCount="indefinite"/>
-          </circle>
-
-          <rect x="13" y="14" width="54" height="42" rx="15" fill="url(#tpHead)"/>
-          <rect x="19" y="19" width="42" height="32" rx="10" class="pg-plate"/>
-
-          <g transform="translate(26,27)">
-            <rect x="0" y="0" width="12" height="9" rx="4" class="pg-eye">
-              <animateTransform attributeName="transform" type="scale" additive="sum"
-                values="1,1; 1,0.05; 1,1" keyTimes="0;0.93;1" dur="4.5s" begin="0s"
-                repeatCount="indefinite" calcMode="spline" keySplines="0.5 0 0.5 1;0.5 0 0.5 1"/>
-            </rect>
-            <circle cx="3" cy="2" r="2" fill="rgba(255,255,255,0.55)"/>
-          </g>
-          <g transform="translate(42,27)">
-            <rect x="0" y="0" width="12" height="9" rx="4" class="pg-eye">
-              <animateTransform attributeName="transform" type="scale" additive="sum"
-                values="1,1; 1,0.05; 1,1" keyTimes="0;0.93;1" dur="4.5s" begin="0.7s"
-                repeatCount="indefinite" calcMode="spline" keySplines="0.5 0 0.5 1;0.5 0 0.5 1"/>
-            </rect>
-            <circle cx="3" cy="2" r="2" fill="rgba(255,255,255,0.55)"/>
-          </g>
-
-          <path d="M 26 42 Q 40 52 54 42" class="pg-line" stroke-width="2.2" fill="none" stroke-linecap="round"/>
-          <ellipse cx="18" cy="40" rx="4.5" ry="2.5" fill="rgba(245,165,36,0.22)"/>
-          <ellipse cx="62" cy="40" rx="4.5" ry="2.5" fill="rgba(245,165,36,0.22)"/>
-
-          <rect x="19" y="59" width="42" height="29" rx="11" fill="url(#tpBody)"/>
-          <line x1="27" y1="68" x2="53" y2="68" stroke="rgba(255,255,255,0.13)" stroke-width="1.5" stroke-linecap="round"/>
-          <line x1="27" y1="75" x2="53" y2="75" stroke="rgba(255,255,255,0.09)" stroke-width="1.5" stroke-linecap="round"/>
-          <circle cx="40" cy="63.5" r="3" class="pg-signal">
-            <animate attributeName="opacity" values="1;0.25;1" dur="1.6s" repeatCount="indefinite"/>
-          </circle>
-
-          <rect x="4"  y="61" width="13" height="11" rx="5.5" fill="url(#tpBody)"/>
-          <circle cx="4.5" cy="66.5" r="4" class="pg-joint"/>
-          <rect x="63" y="61" width="13" height="11" rx="5.5" fill="url(#tpBody)"/>
-          <circle cx="75.5" cy="66.5" r="4" class="pg-joint"/>
-
-          <rect x="23" y="85" width="14" height="7" rx="3.5" class="pg-foot"/>
-          <rect x="43" y="85" width="14" height="7" rx="3.5" class="pg-foot"/>
-        </svg>
+        <img id="tutorPlaniSvg" src="/static/plani-3d.webp" width="110" height="110" alt="" aria-hidden="true">
       </div>
 
       <h2 class="tutor-empty-title">What do you want to learn today?</h2>
@@ -1023,6 +962,7 @@ main {
   <section id="educationMilestones" hidden aria-label="Learning milestones"></section>
 </dialog>
 <script src="/static/js/tutor_education.js?v={{ asset_v }}" defer></script>
+<script type="application/json" id="tutorRoadmapResources">{{ roadmap_resources | default({}) | tojson }}</script>
 <script src="/static/js/tutor-artifacts.js?v={{ asset_v }}"></script>
 
 <!-- Learning profile: onboarding answers + the student model Plani has built -->
@@ -1104,20 +1044,25 @@ main {
     <h4>Recommended next</h4>
     <div id="lpRecommendations" class="tutor-panel-empty">Finish a session to get recommendations.</div>
 
-    <h4>Import memory from another AI</h4>
+    <h4>Bring your study preferences</h4>
     <p style="font-size:0.76rem;color:var(--text-muted);margin:0 0 8px;">
-      Paste an export or summary from another assistant and Plani will fold it into your learner model.
+      Ask ChatGPT for a short preferences file, then review the choices before you save them.
     </p>
-    <div class="tutor-panel-row">
-      <div>
-        <label for="lpImportProvider">Source</label>
-        <input type="text" id="lpImportProvider" placeholder="ChatGPT, Claude, Gemini…">
-      </div>
-    </div>
-    <textarea id="lpImportText" rows="4" placeholder="Paste the conversation or memory summary here"></textarea>
-    <button type="button" class="btn-secondary" onclick="importLearnerMemory()"
-            style="padding:9px 16px;cursor:pointer;">Import memory</button>
-    <span id="lpImportStatus" style="font-size:0.76rem;color:var(--text-muted);margin-left:8px;"></span>
+    <details>
+      <summary>Prompt to copy into ChatGPT</summary>
+      <p>Describe my study preferences using only a JSON object. Include only values I have explicitly expressed.
+        Use explanation_style (concise, balanced, detailed), explanation_length (short, medium, long),
+        difficulty_level (easy, medium, hard, adaptive), and learning_modality (auto, auditory, visual, reading, blended).
+        Omit names, school records, and chat excerpts.</p>
+    </details>
+    <label for="lpImportText">Paste preferences JSON</label>
+    <textarea id="lpImportText" rows="4" maxlength="1000" spellcheck="false"
+              placeholder='{"explanation_style":"concise","learning_modality":"visual"}'
+              oninput="resetStudyPreferenceReview()"></textarea>
+    <p id="lpImportPreview" hidden></p>
+    <button type="button" class="btn-secondary" onclick="reviewStudyPreferences()">Review preferences</button>
+    <button type="button" class="btn-primary" id="lpImportSave" onclick="importLearnerMemory()" hidden>Save preferences</button>
+    <p id="lpImportStatus" role="status"></p>
   </div>
 </div>
 
@@ -2501,27 +2446,61 @@ function renderDashboard(data) {
   }
 }
 
-async function importLearnerMemory() {
+const studyPreferenceChoices = {{ study_preference_choices | default({}) | tojson }};
+let reviewedStudyPreferences = null;
+
+function resetStudyPreferenceReview() {
+  reviewedStudyPreferences = null;
+  document.getElementById('lpImportSave').hidden = true;
+  document.getElementById('lpImportPreview').hidden = true;
+  document.getElementById('lpImportStatus').textContent = '';
+}
+
+function reviewStudyPreferences() {
+  resetStudyPreferenceReview();
   const status = document.getElementById('lpImportStatus');
   const text = document.getElementById('lpImportText').value.trim();
-  if (!text) { status.textContent = 'Paste something to import first.'; return; }
+  try {
+    const preferences = JSON.parse(text.replace(/^```(?:json)?\s*([\s\S]*?)\s*```$/i, '$1'));
+    if (!preferences || typeof preferences !== 'object' || Array.isArray(preferences)) throw new Error();
+    const entries = Object.entries(preferences);
+    if (!entries.length || entries.some(([key, value]) => !Object.hasOwn(studyPreferenceChoices, key) ||
+      !studyPreferenceChoices[key].includes(value))) throw new Error();
+    reviewedStudyPreferences = preferences;
+    const preview = document.getElementById('lpImportPreview');
+    preview.textContent = entries.map(([key, value]) => `${key.replaceAll('_', ' ')}: ${value}`).join(' · ');
+    preview.hidden = false;
+    document.getElementById('lpImportSave').hidden = false;
+  } catch (_) {
+    status.textContent = 'Use only the values listed in the prompt and paste a JSON object.';
+  }
+}
 
-  status.textContent = 'Importing…';
+async function importLearnerMemory() {
+  if (!reviewedStudyPreferences) return;
+  const status = document.getElementById('lpImportStatus');
+  const save = document.getElementById('lpImportSave');
+  const input = document.getElementById('lpImportText');
+  save.disabled = true;
+  input.disabled = true;
+  status.textContent = 'Saving preferences…';
   try {
     const res = await fetch('/api/tutor/adaptive/memory-imports', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        provider: document.getElementById('lpImportProvider').value || 'unknown',
-        raw_text: text,
-      }),
+      body: JSON.stringify({ preferences: reviewedStudyPreferences }),
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    document.getElementById('lpImportText').value = '';
-    status.textContent = 'Imported — Plani folded it into your learner model.';
-    loadDashboard();
+    const data = await res.json();
+    if (!res.ok) { status.textContent = data.error || 'Preferences could not be saved.'; return; }
+    input.value = '';
+    resetStudyPreferenceReview();
+    status.textContent = 'Saved. You can change these choices in Learning Profile.';
+    loadAdaptiveProfile();
   } catch (err) {
-    status.textContent = 'Import failed. Try again.';
+    status.textContent = 'Preferences could not be saved. Try again.';
+  } finally {
+    save.disabled = false;
+    input.disabled = false;
   }
 }
 
@@ -2541,8 +2520,6 @@ function parseArtifactAttrs(raw) {
 
 function parseArtifacts(content) {
   content = window.IPRichText ? window.IPRichText.normalize(content) : String(content);
-  const structured = parseStructuredStudyJson(content);
-  if (structured) return structured;
   const segments = [];
   let lastIndex = 0;
   let match;
@@ -2563,6 +2540,9 @@ function parseArtifacts(content) {
     lastIndex = match.index + match[0].length;
   }
 
+  if (!lastIndex) {
+    return parseStructuredStudyJson(content) || [{ kind: 'text', text: content }];
+  }
   if (lastIndex < content.length) {
     const text = content.slice(lastIndex).trim();
     if (text) segments.push({ kind: 'text', text });
@@ -2687,6 +2667,19 @@ function readableTutorResponseText(text) {
     if (segment.type === 'svg-exercise') {
       const data = readableTutorArtifactData(segment);
       if (data && typeof data.question === 'string' && data.question.trim()) return `${segment.title}. ${data.question.trim().slice(0, 1500)}`;
+    }
+    if (segment.type === 'data-plot') {
+      const data = readableTutorArtifactData(segment);
+      if (data && Array.isArray(data.points)) {
+        const points = data.points.slice(0, 24).filter(point => Array.isArray(point) &&
+          point.length === 2 && point.every(Number.isFinite));
+        if (points.length) return `${segment.title}. ${data.note || ''} ${data.xLabel || 'X'} and ${data.yLabel || 'Y'}. ${points.map(point => point.join(', ')).join('. ')}.`;
+      }
+    }
+    if (segment.type === 'study-roadmap' && window.IPTutorArtifacts) {
+      const data = readableTutorArtifactData(segment);
+      const roadmap = data && window.IPTutorArtifacts.roadmapText(data);
+      if (roadmap) return `${segment.title}\n\n${roadmap}`;
     }
     return segment.title || 'Interactive study activity.';
   }).filter(Boolean).join('\n\n').trim();

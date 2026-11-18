@@ -67,6 +67,20 @@ def rank(objective, subject=None):
     return matches[:3]
 
 
+ROADMAP_RESOURCES = {
+    item['id']: {'title': item['title'], 'url': item['url']} for item in RESOURCES
+}
+ROADMAP_RESOURCES.update({
+    'statquest': {'title': 'StatQuest video index', 'url': 'https://statquest.org/video_index.html'},
+    'numpy': {'title': 'NumPy quickstart', 'url': 'https://numpy.org/doc/stable/user/quickstart.html'},
+    'ml-specialization': {'title': 'Machine Learning Specialization', 'url': 'https://www.coursera.org/specializations/machine-learning-introduction'},
+    'micrograd': {'title': 'Andrej Karpathy: Neural Networks Zero to Hero', 'url': 'https://karpathy.ai/zero-to-hero.html'},
+    'pytorch': {'title': 'PyTorch: Learn the Basics', 'url': 'https://docs.pytorch.org/tutorials/beginner/basics/intro.html'},
+    'usaaio-2027': {'title': '2027 USA–North America AI Olympiad', 'url': 'https://www.usaaio.org/usa-na-aio/2027'},
+    'usaaio-practice': {'title': 'USAAIO past problems', 'url': 'https://www.usaaio.org/usa-na-aio/past-problems'},
+})
+
+
 def algebra_blueprint(goal):
     return dict(title='Algebra foundations', overview=goal, subject='algebra',
         prerequisites=['Whole-number arithmetic and signed numbers'],

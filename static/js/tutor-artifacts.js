@@ -128,6 +128,119 @@
     });
     element('small', 'AI-generated practice; this result is not a scored mastery check.', wrap);
   }
+  function dataPlot(config, wrap) {
+    var points = config.points;
+    if (!Array.isArray(points) || points.length < 2 || points.length > 24 ||
+        points.some(function (point, index) {
+          return !Array.isArray(point) || point.length !== 2 ||
+            point.some(function (value) { return !Number.isFinite(value) || Math.abs(value) > 1e12; }) ||
+            (index > 0 && point[0] <= points[index - 1][0]);
+        })) throw new Error('Invalid data plot');
+    var xLabel = label(config.xLabel, 'X').slice(0, 50);
+    var yLabel = label(config.yLabel, 'Y').slice(0, 50);
+    var yValues = points.map(function (point) { return point[1]; });
+    var low = Math.min.apply(null, yValues), high = Math.max.apply(null, yValues);
+    var xStart = points[0][0], xSpan = points[points.length - 1][0] - xStart;
+    var svg = shape('svg', { viewBox: '0 0 440 210', role: 'img',
+      'aria-label': yLabel + ' by ' + xLabel + '. Exact values are in the data table.' }, wrap);
+    svg.style.width = '100%';
+    shape('path', { d: 'M32 20V180H418', stroke: 'var(--text-muted)', fill: 'none' }, svg);
+    var plotted = points.map(function (point) {
+      return [
+        37 + ((point[0] - xStart) / xSpan) * 374,
+        high === low ? 100 : 175 - ((point[1] - low) / (high - low)) * 150
+      ];
+    });
+    shape('polyline', { points: plotted.map(function (point) { return point.join(','); }).join(' '),
+      fill: 'none', stroke: 'var(--accent)', 'stroke-width': 3 }, svg);
+    plotted.forEach(function (point, index) {
+      var dot = shape('circle', { cx: point[0], cy: point[1], r: 4, fill: 'var(--accent)' }, svg);
+      shape('title', {}, dot).textContent = xLabel + ': ' + points[index][0] + ', ' + yLabel + ': ' + points[index][1];
+    });
+    element('p', yLabel + ' by ' + xLabel + ' · range ' + low + ' to ' + high, wrap);
+    if (config.note) element('p', label(config.note, ''), wrap);
+    var details = element('details', undefined, wrap);
+    element('summary', 'View exact data', details);
+    var table = element('table', undefined, details);
+    var headings = element('tr', undefined, element('thead', undefined, table));
+    element('th', xLabel, headings).setAttribute('scope', 'col');
+    element('th', yLabel, headings).setAttribute('scope', 'col');
+    var rows = element('tbody', undefined, table);
+    points.forEach(function (point) {
+      var row = element('tr', undefined, rows);
+      element('td', String(point[0]), row);
+      element('td', String(point[1]), row);
+    });
+  }
+  function roadmapStages(config) {
+    var start = typeof config.start === 'string' && /^20[0-9]{2}-[0-9]{2}-[0-9]{2}$/.test(config.start)
+      ? new Date(config.start + 'T00:00:00Z') : new Date(NaN);
+    var stages = config.stages;
+    function validText(value) {
+      return typeof value === 'string' && value.trim() && value.length <= 500;
+    }
+    if (!Number.isFinite(start.getTime()) || start.toISOString().slice(0, 10) !== config.start ||
+        !Array.isArray(stages) || stages.length < 1 || stages.length > 12 ||
+        stages.some(function (stage) {
+          return !stage || ![stage.title, stage.practice, stage.project, stage.exit, stage.review].every(validText) ||
+            !Number.isInteger(stage.days) || stage.days < 1 || stage.days > 90 ||
+            !Array.isArray(stage.lessons) || stage.lessons.length < 1 ||
+            stage.lessons.length > 8 || !stage.lessons.every(validText);
+        })) return null;
+    var catalog = {};
+    var catalogNode = document.getElementById('tutorRoadmapResources');
+    if (catalogNode) catalog = JSON.parse(catalogNode.textContent);
+    var date = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+    var day = 86400000;
+    var next = start.getTime();
+    return stages.map(function (stage) {
+      var dates = date.format(next);
+      if (stage.days > 1) dates += ' – ' + date.format(next + (stage.days - 1) * day);
+      next += stage.days * day;
+      var link = typeof stage.resource === 'string' && Object.hasOwn(catalog, stage.resource)
+        ? catalog[stage.resource] : null;
+      return Object.assign({}, stage, { dates: dates, link: link });
+    });
+  }
+  function roadmapText(config) {
+    var stages = roadmapStages(config);
+    return stages && stages.map(function (stage, index) {
+      return [
+        (index + 1) + '. ' + stage.title + ' · ' + stage.dates,
+        stage.link ? stage.link.title + ' — ' + stage.link.url : 'No reviewed source linked.',
+        'Lessons: ' + stage.lessons.join(' / '),
+        'Practice: ' + stage.practice, 'Project: ' + stage.project,
+        'Exit check: ' + stage.exit, 'Spaced review: ' + stage.review
+      ].join('\n');
+    }).join('\n\n');
+  }
+  function studyRoadmap(config, wrap) {
+    var stages = roadmapStages(config);
+    if (!stages) throw new Error('Invalid roadmap');
+    var list = element('ol', undefined, wrap);
+    list.className = 'tutor-roadmap';
+    stages.forEach(function (stage, index) {
+      var detail = element('details', undefined, element('li', undefined, list));
+      detail.open = index === 0;
+      element('summary', stage.title + ' · ' + stage.dates, detail);
+      if (stage.link) {
+        var resource = stage.link;
+        var link = element('a', resource.title, detail);
+        link.href = resource.url;
+        link.referrerPolicy = 'no-referrer';
+      } else {
+        element('p', 'No reviewed source linked for this stage.', detail);
+      }
+      var lessons = element('ol', undefined, detail);
+      stage.lessons.forEach(function (lesson) { element('li', lesson, lessons); });
+      var tasks = element('dl', undefined, detail);
+      [['Practice', stage.practice], ['Project', stage.project],
+       ['Exit check', stage.exit], ['Spaced review', stage.review]].forEach(function (task) {
+        element('dt', task[0], tasks);
+        element('dd', task[1], tasks);
+      });
+    });
+  }
   function flashcards(config, wrap) {
     if (!Array.isArray(config.cards) || config.cards.length < 1 || config.cards.length > 30 ||
         config.cards.some(function (card) {
@@ -218,6 +331,8 @@
       var config = JSON.parse(data);
       if (!config || typeof config !== 'object' || Array.isArray(config)) throw new Error('Invalid data');
       if (segment.type === 'svg-exercise') visual(config, body);
+      else if (segment.type === 'data-plot') dataPlot(config, body);
+      else if (segment.type === 'study-roadmap') studyRoadmap(config, body);
       else if (segment.type === 'quiz') quiz(config, body);
       else if (segment.type === 'flashcards') flashcards(config, body);
       else throw new Error('Unsupported exercise');
@@ -232,5 +347,5 @@
     }
     return wrap;
   }
-  window.IPTutorArtifacts = { create: create };
+  window.IPTutorArtifacts = { create: create, roadmapText: roadmapText };
 }());

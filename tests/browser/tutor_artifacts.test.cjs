@@ -41,6 +41,37 @@ test('flashcard artifacts reveal validated text without inserting generated HTML
   assert.equal(section.innerHTML, undefined);
 });
 
+test('data plot keeps signed values accessible and rejects unordered inputs', () => {
+  const config = {xLabel: 'Time', yLabel: 'Position', points: [[0, -2], [1, 3], [2, 8]]};
+  const render = points => window.IPTutorArtifacts.create({
+    type: 'data-plot', title: 'Motion', content: JSON.stringify({...config, points}),
+  });
+  assert.deepEqual(all(render(config.points)).filter(node => node.tagName === 'td')
+    .map(node => node.textContent), ['0', '-2', '1', '3', '2', '8']);
+  assert.ok(all(render([[2, 3], [1, 4]])).every(node => node.tagName !== 'svg'));
+});
+
+test('roadmaps keep dates consecutive and link only reviewed sources', () => {
+  global.document.getElementById = () => ({textContent: JSON.stringify({
+    'python-start': {title: 'Python tutorial', url: 'https://docs.python.org/3/tutorial/'},
+  })});
+  const stage = {title: 'Python', days: 2, lessons: ['Read the examples'],
+    practice: 'Solve two problems', project: 'Build a calculator',
+    exit: 'Test two unseen inputs', review: 'Repeat one problem in two days'};
+  const config = {start: '2026-12-30', stages: [
+    {...stage, resource: 'python-start'},
+    {...stage, title: 'Algebra', resource: 'https://unknown.example'},
+  ]};
+  const section = window.IPTutorArtifacts.create({
+    type: 'study-roadmap', title: 'Learning plan', content: JSON.stringify(config),
+  });
+  const links = all(section).filter(node => node.tagName === 'a');
+  assert.deepEqual(links.map(node => node.href), ['https://docs.python.org/3/tutorial/']);
+  assert.match(window.IPTutorArtifacts.roadmapText(config), /Jan 1, 2027/);
+  assert.match(window.IPTutorArtifacts.roadmapText(config), /Test two unseen inputs/);
+  assert.equal(window.IPTutorArtifacts.roadmapText({...config, start: '2027-02-29'}), null);
+});
+
 test('flashcard deck moves one card at a time and resets answer state', () => {
   const section = window.IPTutorArtifacts.create({
     type: 'flashcards', title: 'Biology cards',

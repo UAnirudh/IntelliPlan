@@ -178,7 +178,8 @@ def test_uploaded_file_deletion_is_limited_to_owned_names(tmp_path):
 
 
 def test_directory_badges_use_provider_images(client):
-    html = client.get("/").data.decode()
+    assert b'boostdomainrating.com/api/badge/' not in client.get("/").data
+    html = client.get("/about").data.decode()
     for host, alt in (("1000saas", "Featured on 1000 Saas"), ("saashunt", "Featured on SaasHunt"), ("devhub", "Featured on DevHub")):
         assert f'https://{host}.best/projects/intelliplan?utm_source=badge' in html
         assert alt in html

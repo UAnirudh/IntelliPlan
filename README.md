@@ -480,7 +480,7 @@ production (AAB) profiles ready for `eas build`.
 | `/api/tutor/adaptive/dashboard` | GET | Mastery scores, mistake patterns, learner memory, recommendations |
 | `/api/tutor/adaptive/modality` | POST | Set learning modality (`auto`/`auditory`/`visual`/`reading`/`blended`) |
 | `/api/tutor/adaptive/summarize` | POST | Close a conversation — summary, mistake extraction, mastery update |
-| `/api/tutor/adaptive/memory-imports` | GET/POST | Import learner context from another AI assistant |
+| `/api/tutor/adaptive/memory-imports` | GET/POST | List legacy imports or apply a reviewed set of study preferences |
 | `/api/tutor/adaptive/mistakes/<id>/resolve` | POST | Mark a recurring mistake resolved |
 | `/api/chatbot` | POST | Plani assistant — IntelliPlan feature help |
 | `/study/generate` | POST | Generate flashcards + quiz from notes |

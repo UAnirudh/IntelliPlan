@@ -132,6 +132,8 @@ def _voice_section() -> list[str]:
 
 
 def _artifact_section(use_voice: bool) -> list[str]:
+    from intelliplan.learning.catalog import ROADMAP_RESOURCES
+
     return [
         '\n## Interactive Artifacts',
         'Use declarative JSON exercises. Never emit HTML, JavaScript or external assets.',
@@ -142,11 +144,28 @@ def _artifact_section(use_voice: bool) -> list[str]:
         'Supported SVG exercises: kind="linear" with slope and intercept between -5 and 5; '
         'kind="fraction" with integer numerator 0..12 and denominator 1..12. '
         'The renderer provides labeled keyboard sliders, diagram descriptions and live text alternatives.',
+        'For a graph from real supplied data or a clearly labeled illustrative dataset, use type="data-plot" '
+        'and JSON {"xLabel":"Time (s)","yLabel":"Height (m)","note":"Illustrative data",'
+        '"points":[[0,0],[1,2],[2,3]]}. Use 2 to 24 finite numeric pairs with strictly increasing x. '
+        'Never present invented measurements as observed data.',
+        'For a course schedule or long learning roadmap, ask for start date, target date, and weekly time '
+        'when missing. Honor requests to do one course at a time. Fit the total days into the time window, '
+        'including a buffer when possible. State workload assumptions and distinguish selected modules '
+        'from completing an entire course. Use type="study-roadmap" with JSON '
+        '{"start":"2027-01-04","stages":[{"title":"Python foundations","days":7,'
+        '"resource":"python-start","lessons":["Read the introductory examples"],'
+        '"practice":"Solve three problems without notes","project":"Write a short calculator",'
+        '"exit":"Explain and test your code with two unseen inputs",'
+        '"review":"Retry one problem two days after practice"}]}. '
+        'Provide 1 to 12 stages in chronological order. Dates are calculated from their lengths. '
+        'Use only the following source IDs, or omit the source when no reviewed link fits: '
+        + ', '.join(f'{key} ({value["title"]})' for key, value in ROADMAP_RESOURCES.items()) + '.',
+        'Use a concrete exit check before progressing. A suggested or self-reported check is not demonstrated mastery.',
         'For a quiz, use type="quiz" and JSON {"question":"...","options":["...","..."],"correct":0}. '
         'The correct field is a zero-based option index. Feedback appears only after a choice. '
         'Generated quiz feedback is not server-scored evidence or proof of mastery.',
         'Ask for a prediction before manipulation, then invite the learner to explain what changed. '
-        'Choose an exercise only when it fits the current question. For other topics, '
+        'Choose an artifact only when it fits the current question. For other topics, '
         'use a short text analogy and one question; do not fabricate unsupported diagrams.',
         'In voice mode, speak the question and describe the controls briefly.' if use_voice else
         'Keep text around the exercise brief and question-led.',

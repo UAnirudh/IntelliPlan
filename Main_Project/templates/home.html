@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>IntelliPlan | Your school week, sorted</title>
+  <meta name="description" content="Turn assignments into a study plan that fits your calendar. Work through homework, practice with Plani, and build a course plan in IntelliPlan.">
+  <meta name="trustpilot-one-time-domain-verification-id" content="97f8c009-e934-4e60-8802-4bc9cd2ff5f1">
+  <meta property="og:title" content="IntelliPlan | Your school week, sorted">
+  <meta property="og:description" content="See what’s due, find time to study, and get help getting started.">
+  <meta property="og:image" content="https://intelliplan.tech/static/og-image.png">
+  <link rel="canonical" href="https://intelliplan.tech/">
+  <link rel="icon" href="/static/icons/icon-192.png" type="image/png">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}?v={{ asset_v }}">
+</head>
+<body>
+  <a class="a11y-skip" href="#main-content">Skip to content</a>
+  <header class="site-header shell">
+    <a class="brand" href="/" aria-label="IntelliPlan home"><span aria-hidden="true">↗</span> IntelliPlan</a>
+    <nav aria-label="Main navigation">
+      <a class="desktop-link" href="#planner">Planner</a>
+      <a class="desktop-link" href="#tutor">Tutor</a>
+      <a class="desktop-link" href="/schools">Schools</a>
+      {% if current_user.is_authenticated %}
+      <a class="button" href="/dashboard">Open workspace</a>
+      {% else %}
+      <a href="/login">Log in</a>
+      <a class="button" href="/register">Start free</a>
+      {% endif %}
+    </nav>
+  </header>
+  <main id="main-content">
+    <section class="hero shell" id="planner" aria-labelledby="home-title">
+      <div class="hero-copy">
+        <h1 id="home-title">Your school<br>week, <em>sorted.</em></h1>
+        <p>Bring your assignments into one place, find time around your calendar, and get help when you’re stuck.</p>
+        <div class="actions">
+          <a class="button" href="/demo/planner">Try the sample week <span aria-hidden="true">↗</span></a>
+          <a class="quiet-link" href="{{ '/dashboard' if current_user.is_authenticated else '/register' }}">Build my week free</a>
+        </div>
+        {% if student_accounts and student_accounts >= 25 %}
+        <p class="social-proof"><strong>{{ '{:,}'.format(student_accounts) }}</strong> verified student accounts.</p>
+        {% endif %}
+        <p class="credit"><a href="/about">Built by a student, for students.</a></p>
+      </div>
+      <article class="planner" id="example" aria-labelledby="example-title">
+        <header class="example-header">
+          <div><p class="eyebrow">Example study plan</p><h2 id="example-title">Tuesday after school</h2></div>
+          <span class="date-tab">TUE<br><strong>17</strong></span>
+        </header>
+        <ol class="timeline">
+          <li class="busy"><time datetime="15:30">3:30</time><div><strong>Soccer practice</strong><small>Already on your calendar</small></div></li>
+          <li class="study"><time datetime="17:00">5:00</time><div><strong>Algebra problem set</strong><small>35 min · due tomorrow</small></div></li>
+          <li class="reading"><time datetime="17:45">5:45</time><div><strong>Read chapter 6</strong><small>25 min · due Thursday</small></div></li>
+        </ol>
+        <p class="planner-note"><span aria-hidden="true">↳</span> A study block starts after practice ends.</p>
+      </article>
+    </section>
+    <div class="connections shell" aria-label="Supported connections">
+      <span>Connect your school and calendar</span>
+      <ul>
+        <li><img src="/static/logos/canvas.svg" width="21" height="21" alt="">Canvas</li>
+        <li><img src="/static/logos/studentvue.svg" width="21" height="21" alt="">StudentVUE</li>
+        <li><img src="/static/logos/schoology.svg" width="21" height="21" alt="">Schoology</li>
+        <li><img src="/static/logos/google-calendar.svg" width="21" height="21" alt="">Google Calendar</li>
+      </ul>
+    </div>
+    <section class="tutor-band" id="tutor" aria-labelledby="tutor-title">
+      <div class="shell tutor-layout">
+        <div>
+          <p class="eyebrow">Study with Plani</p>
+          <h2 id="tutor-title">Get unstuck.<br>Then make it stick.</h2>
+          <p>Bring a homework photo or ask a question. Explore a graph, try a practice question, or turn the material into flashcards.</p>
+          <a class="quiet-link" href="/tutor">Meet your tutor <span aria-hidden="true">↗</span></a>
+        </div>
+        <div class="tutor-example">
+          <img class="plani" src="/static/plani-3d.webp" alt="Plani, a small ivory and blue robot" width="240" height="240" loading="lazy">
+          <div class="graph-example">
+            <p class="eyebrow">Example tutor visual</p>
+            <strong>What changes when the slope doubles?</strong>
+            <svg viewBox="0 0 280 114" role="img" aria-label="Two lines rise from the same point. The blue line has twice the slope of the dashed line.">
+              <path d="M24 10V96H270" fill="none" stroke="#9b9fad" stroke-width="1.5"/>
+              <path d="M24 96L255 53" fill="none" stroke="#7b7794" stroke-width="2.5" stroke-dasharray="6 4"/>
+              <path d="M24 96L255 10" fill="none" stroke="#2943c4" stroke-width="3"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section class="final shell">
+      <div><h2>Start with what’s due.</h2><p>Connect a school account or add an assignment yourself.</p></div>
+      <a class="button" href="{{ '/dashboard' if current_user.is_authenticated else '/register' }}">Open my planner <span aria-hidden="true">↗</span></a>
+    </section>
+  </main>
+  <footer class="shell site-footer">
+    <a class="brand" href="/"><span aria-hidden="true">↗</span> IntelliPlan</a>
+    <nav aria-label="Footer navigation">
+      <a href="/faq">FAQ</a><a href="/compare">Compare</a><a href="/schools">Schools</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a href="/cookies">Cookies</a><a href="/blog">Blog</a>
+    </nav>
+  </footer>
+  {% include 'partials/consent_surfaces.html' %}
+</body>
+</html>

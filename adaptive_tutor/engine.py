@@ -26,6 +26,10 @@ from adaptive_tutor.prompt import build_adaptive_prompt
 logger = logging.getLogger(__name__)
 
 _SUBJECT_TAG = re.compile(r'^\[Subject:\s*([^\]]+)\]', re.I)
+_EXPLICIT_STUDY_ARTIFACT = re.compile(
+    r'\b(?:study (?:plan|schedule|roadmap)|course (?:plan|schedule|roadmap|sequence)|'
+    r'one course at a time|(?:draw|plot|graph|show) (?:me )?(?:a |the )?(?:graph|plot|chart|data))\b', re.I,
+)
 #: The learner memory pass is expensive; only re-run it every N tutor turns.
 _MEMORY_REFRESH_EVERY = 3
 
@@ -85,6 +89,8 @@ def prepare_turn(mode_override: str | None = None, student_message: str = '') ->
     active = modality_lib.get_active_modalities(mode, weights)
 
     subject, body = split_subject(student_message)
+    if _EXPLICIT_STUDY_ARTIFACT.search(body):
+        active['use_artifacts'] = True
     signal = turn_signals.classify_turn(body)
 
     prompt = build_adaptive_prompt(

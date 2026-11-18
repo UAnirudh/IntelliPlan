@@ -20,9 +20,6 @@ logger = logging.getLogger(__name__)
 
 adaptive_tutor_bp = Blueprint('adaptive_tutor', __name__)
 
-_MAX_IMPORT_CHARS = 200_000
-
-
 @adaptive_tutor_bp.route('/api/tutor/adaptive/education-plan', methods=['GET', 'POST', 'DELETE'])
 def education_plan():
     from chatbot_api import _schoolwork_access_error
@@ -256,66 +253,37 @@ def list_imports():
 
 @adaptive_tutor_bp.route('/api/tutor/adaptive/memory-imports', methods=['POST'])
 def create_import():
-    """Import learner context exported from another AI provider."""
+    """Apply reviewed, enumerated preferences without storing any export."""
+    from chatbot_api import _schoolwork_access_error
+    from intelliplan.learning import policy
+
+    if request.content_length and request.content_length > 2048:
+        return jsonify({'error': 'Paste only the short study-preferences object.'}), 413
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict) or not isinstance(payload.get('preferences'), dict):
+        return jsonify({'error': 'Provide reviewed study preferences.'}), 400
+    access_error = _schoolwork_access_error()
+    if access_error:
+        return access_error
+    allowed, _ = policy.decision(current_user, 'tutor')
+    if not allowed:
+        return jsonify({'error': 'Tutor is unavailable for this workspace.'}), 403
+
+    preferences = payload['preferences']
+    choices = store.STUDY_PREFERENCE_CHOICES
+    if (set(payload) != {'preferences'} or not preferences or any(
+            key not in choices or not isinstance(value, str) or value not in choices[key]
+            for key, value in preferences.items())):
+        return jsonify({'error': 'Use only the listed study preferences and values.'}), 400
+
     try:
-        payload = request.get_json(silent=True) or {}
-        raw_text = str(payload.get('raw_text') or '').strip()
-        if not raw_text:
-            return jsonify({'error': 'raw_text is required'}), 400
-        if len(raw_text) > _MAX_IMPORT_CHARS:
-            return jsonify({'error': f'raw_text exceeds {_MAX_IMPORT_CHARS} characters'}), 413
-
-        provider = str(payload.get('provider') or 'unknown').strip()[:64]
-        source_label = str(payload.get('source_label') or '').strip()[:160] or None
-
         profile = store.get_or_create_profile()
-        import_id = store.save_memory_import(
-            profile['id'], provider, raw_text, source_label=source_label
-        )
-
-        # Rebuild the durable learner model immediately so the import is felt
-        # on the very next message rather than several turns later.
-        context = store.get_student_context()
-        analysis_result = None
-        try:
-            from adaptive_tutor import analysis as analysis_lib
-            analysis_result = analysis_lib.analyze_learner_memory(
-                _chat(),
-                existing_summary=(context.get('learner_memory') or {}).get('summary'),
-                profile=context['profile'],
-                imported_memories=[
-                    {
-                        'provider': item.get('provider'),
-                        'source_label': item.get('source_label'),
-                        'text': item.get('extracted_summary') or item.get('raw_text'),
-                    }
-                    for item in context.get('memory_imports') or []
-                ],
-            )
-            blended = None
-            detected = None
-            if analysis_result.get('modalityScores'):
-                blended = modality_lib.blend_weights(
-                    (context.get('learner_memory') or {}).get('modality_scores'),
-                    analysis_result['modalityScores'],
-                )
-                detected = modality_lib.get_dominant_modality(blended)
-            store.upsert_learner_memory(
-                profile['id'], analysis_result,
-                source_count=len(context.get('memory_imports') or []),
-                blended_scores=blended, detected_modality=detected,
-            )
-        except Exception as exc:
-            logger.warning('adaptive tutor: post-import analysis failed: %s', exc)
-
-        return jsonify({
-            'id': import_id,
-            'provider': provider,
-            'learner_memory': store.get_learner_memory(profile['id']),
-        })
-    except Exception as exc:
-        logger.exception('adaptive tutor: import failed')
-        return jsonify({'error': 'import failed', 'detail': str(exc)}), 500
+        response = jsonify({'profile': store.update_profile(profile['id'], preferences)})
+        response.headers['Cache-Control'] = 'private, no-store'
+        return response
+    except Exception:
+        logger.exception('adaptive tutor: study preferences import failed')
+        return jsonify({'error': 'Study preferences could not be saved.'}), 503
 
 
 @adaptive_tutor_bp.route('/api/tutor/adaptive/memory-imports/<int:import_id>', methods=['DELETE'])

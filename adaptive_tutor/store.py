@@ -271,6 +271,12 @@ _STYLE_CHOICES = {'concise', 'balanced', 'detailed'}
 _LENGTH_CHOICES = {'short', 'medium', 'long'}
 _DIFFICULTY_CHOICES = {'easy', 'medium', 'hard', 'adaptive'}
 _MODALITY_CHOICES = {'auto', 'auditory', 'visual', 'reading', 'blended'}
+STUDY_PREFERENCE_CHOICES = {
+    'explanation_style': _STYLE_CHOICES,
+    'explanation_length': _LENGTH_CHOICES,
+    'difficulty_level': _DIFFICULTY_CHOICES,
+    'learning_modality': _MODALITY_CHOICES,
+}
 
 
 def _clean_list(value: Any, limit: int = 20) -> list[str]:

@@ -5041,7 +5041,12 @@ def public_stats():
 
 @app.route("/")
 def landing():
-    return render_template("landing.html", active_page="landing")
+    try:
+        student_accounts = User.query.filter_by(role="student", email_verified=True).count()
+    except Exception:
+        app.logger.exception("Verified student account count could not be loaded")
+        student_accounts = None
+    return _no_store(flask.make_response(render_template("home.html", student_accounts=student_accounts)))
 
 # ── SEO / AI-crawler static files ─────────────────────────────
 @app.route("/robots.txt")
@@ -5512,9 +5517,13 @@ def _seo_headers(response):
 
 @app.route("/tutor")
 def tutor():
+    from adaptive_tutor.store import STUDY_PREFERENCE_CHOICES
     from intelliplan.learning import policy
+    from intelliplan.learning.catalog import ROADMAP_RESOURCES
     logged_in = bool(session.get('logged_in') or (current_user.is_authenticated if hasattr(current_user, 'is_authenticated') else False))
     return render_template("tutor.html", active_page="tutor", logged_in=logged_in,
+                           roadmap_resources=ROADMAP_RESOURCES,
+                           study_preference_choices={key: sorted(values) for key, values in STUDY_PREFERENCE_CHOICES.items()},
                            can_manage_school=policy.is_learning_admin(current_user),
                            assessment_protection=policy.effective(current_user)['assessment_protection'])
 

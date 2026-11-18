@@ -74,6 +74,25 @@ def test_plan_requires_consent_and_contains_real_context(client):
     assert plan['revision'] == 1
 
 
+def test_study_preferences_import_requires_consent_and_drops_raw_chat(client):
+    path = '/api/tutor/adaptive/memory-imports'
+    payload = {'preferences': {'explanation_style': 'concise', 'learning_modality': 'visual'}}
+    assert client.post(path, json=payload).status_code == 401
+    uid = sign_in(client, opt_in=False)
+    assert client.post(path, json=payload).status_code == 403
+    with App.app.app_context():
+        App.db.session.get(App.User, uid).ai_personalization_opt_in = True
+        App.db.session.commit()
+    assert client.post(path, json={**payload, 'raw_text': 'private chat'}).status_code == 400
+    assert client.post(path, json={'preferences': {'explanation_style': ['concise']}}).status_code == 400
+    saved = client.post(path, json=payload)
+    assert saved.status_code == 200, saved.json
+    assert saved.headers['Cache-Control'] == 'private, no-store'
+    assert saved.json['profile']['explanation_style'] == 'concise'
+    assert saved.json['profile']['learning_modality'] == 'visual'
+    assert client.get(path).json['imports'] == []
+
+
 def test_goal_and_stuck_state_drive_tutor_and_opt_out_removes_context(client):
     uid = sign_in(client)
     assert build(client).status_code == 200
