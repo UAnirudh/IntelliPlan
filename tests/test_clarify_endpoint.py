@@ -5,11 +5,12 @@ model is ever reached, so these run without an API key.
 """
 
 import json
+from uuid import uuid4
 
 import pytest
 
 import App
-from App import SchedulerPreset, db
+from App import SchedulerPreset, User, db
 
 
 @pytest.fixture
@@ -19,12 +20,19 @@ def client():
     # that between them.
     App.limiter.enabled = False
     with App.app.test_client() as c:
+        email = f"clarify+{uuid4().hex}@example.test"
         with App.app.app_context():
-            SchedulerPreset.query.delete()
+            user = User(email=email, birth_year=2000)
+            db.session.add(user)
             db.session.commit()
+            user_id = user.id
+        with c.session_transaction() as session:
+            session["_user_id"] = str(user_id)
+            session["_fresh"] = True
         yield c
         with App.app.app_context():
-            SchedulerPreset.query.delete()
+            SchedulerPreset.query.filter_by(user_id=user_id).delete()
+            User.query.filter_by(id=user_id).delete()
             db.session.commit()
     App.limiter.enabled = True
 

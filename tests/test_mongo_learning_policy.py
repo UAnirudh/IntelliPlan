@@ -18,7 +18,9 @@ def environment():
     client = mongomock.MongoClient()
     store = MongoStore('mongodb://test', 'policy', client_factory=lambda *a, **k: client)
     store.transaction = lambda work: work(store.database, None)
-    store.database.users.insert_many([{'id': 1, 'plan_tier': 'premium'}, {'id': 2}])
+    store.database.users.insert_many([
+        {'id': 1, 'plan_tier': 'premium', 'birth_year': 2006}, {'id': 2}
+    ])
     store.database.learning_organizations.insert_many([
         {'id': 10, 'parent_id': None, 'policy': {'providers': ['claude', 'groq'], 'max_generation_tokens': 8000}},
         {'id': 11, 'parent_id': 10, 'policy': {'providers': ['groq'], 'notifications': False}},

@@ -46,6 +46,7 @@ def _wipe():
 def student(client):
     with App.app.app_context():
         user = User(email="cont+a@example.com",
+                    birth_year=date.today().year - 16,
                     password_hash=bcrypt.generate_password_hash("hunter2ok").decode())
         db.session.add(user)
         db.session.commit()

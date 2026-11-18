@@ -49,7 +49,8 @@ def _clean():
 
 def make_user(email="tt+a@example.com"):
     with App.app.app_context():
-        u = User(email=email, password_hash=App.bcrypt.generate_password_hash("hunter2ok").decode(), name="TT")
+        u = User(email=email, password_hash=App.bcrypt.generate_password_hash("hunter2ok").decode(),
+                 name="TT", birth_year=date.today().year - 16)
         db.session.add(u)
         db.session.commit()
         return u.id

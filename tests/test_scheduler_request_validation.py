@@ -1,4 +1,7 @@
 """Bad schedule input must be rejected before calendar or persistence work."""
+from datetime import datetime
+from uuid import uuid4
+
 import pytest
 
 import App
@@ -12,7 +15,23 @@ def client(monkeypatch):
     def unexpected_calendar_read(**kwargs):
         raise AssertionError('invalid input reached the calendar')
     monkeypatch.setattr(App, '_planner_busy_by_date', unexpected_calendar_read)
-    return App.app.test_client()
+    with App.app.test_client() as client:
+        with App.app.app_context():
+            user = App.User(
+                email=f'schedule-validation-{uuid4().hex}@example.test',
+                password_hash='',
+                birth_year=datetime.utcnow().year - 16,
+            )
+            App.db.session.add(user)
+            App.db.session.commit()
+            user_id = user.id
+        with client.session_transaction() as session:
+            session['_user_id'] = str(user_id)
+            session['_fresh'] = True
+        yield client
+        with App.app.app_context():
+            App.User.query.filter_by(id=user_id).delete()
+            App.db.session.commit()
 
 
 @pytest.mark.parametrize('payload', [

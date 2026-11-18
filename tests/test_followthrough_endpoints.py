@@ -57,6 +57,7 @@ def make_user(email="ft+a@example.com"):
     with App.app.app_context():
         u = User(
             email=email,
+            birth_year=TODAY.year - 16,
             password_hash=App.bcrypt.generate_password_hash("hunter2ok").decode(),
             name="Follow Through",
         )
