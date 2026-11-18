@@ -30,6 +30,10 @@
     source.readOnly = busy;
     el('psRead').disabled = busy || !file;
     el('psGenerate').disabled = busy || source.value.trim().length < 20;
+    el('psDraftSchedule').disabled = busy || source.value.trim().length < 20;
+    el('psSaveClasses').disabled = busy;
+    el('psExportEvents').disabled = busy;
+    el('psSendEvents').disabled = busy;
     el('psSave').disabled = busy || !receipt || !!el('psSave').dataset.saved;
     root.setAttribute('aria-busy', busy ? 'true' : 'false');
     el('psCharacters').textContent = source.value.length.toLocaleString() + ' / 12,000';
@@ -62,6 +66,7 @@
   }
   function invalidate() {
     practice = null; receipt = null;
+    el('psSchedule').hidden = true;
     el('psResults').hidden = true;
     el('psWorkspace').hidden = false;
     delete el('psSave').dataset.saved; el('psSaved').hidden = true;
@@ -99,6 +104,102 @@
       status('Browser storage is unavailable. Copy the reviewed text into the planner’s Add work panel.');
     }
   });
+  function scheduleFields(kind, draft, index) {
+    var group = node('fieldset', null, 'ps-schedule-row');
+    group.dataset.kind = kind;
+    group.append(node('legend', (kind === 'classes' ? 'Class ' : 'Event ') + (index + 1)));
+    function field(name, caption, type, value) {
+      var label = node('label', caption);
+      var input = node('input');
+      input.name = name;
+      input.type = type;
+      if (type === 'checkbox') input.checked = value === true;
+      else input.value = value || '';
+      if (name === 'title') input.maxLength = 160;
+      label.append(input);
+      group.append(label);
+      return input;
+    }
+    field('include', 'Include', 'checkbox', true);
+    field('title', 'Name', 'text', draft.title);
+    if (kind === 'classes') field('weekdays', 'Days (Mon, Wed)', 'text', draft.weekdays);
+    else field('date', 'Date', 'date', draft.date);
+    var start = field('start', 'Start', 'time', draft.start);
+    var end = field('end', 'End', 'time', draft.end);
+    if (kind === 'events') {
+      var allDay = field('all_day', 'All day', 'checkbox', false);
+      allDay.addEventListener('change', function () { start.disabled = end.disabled = allDay.checked; });
+    }
+    return group;
+  }
+  function reviewedRows(kind) {
+    return Array.from(el('psScheduleRows').querySelectorAll('fieldset'))
+      .filter(group => group.dataset.kind === kind && group.querySelector('[name="include"]').checked)
+      .map(group => Object.fromEntries(Array.from(group.querySelectorAll('input'))
+        .map(input => [input.name, input.type === 'checkbox' ? input.checked : input.value.trim()])));
+  }
+  async function scheduleAction(run) {
+    if (busy) return;
+    busy = true; controls();
+    try { await run(); }
+    catch (error) { status(error.message, true); }
+    finally { busy = false; controls(); }
+  }
+  el('psDraftSchedule').addEventListener('click', () => scheduleAction(async () => {
+    if (source.value.trim().length < 20) return;
+    status('Finding dates and classes…');
+    el('psSchedule').hidden = true;
+    const draft = await api('schedule', {source: source.value});
+    const rows = el('psScheduleRows');
+    rows.replaceChildren();
+    for (const kind of ['events', 'classes']) {
+      draft[kind].forEach((item, index) => rows.append(scheduleFields(kind, item, index)));
+    }
+    el('psExportEvents').hidden = !draft.events.length;
+    el('psSendEvents').hidden = !draft.events.length;
+    el('psSaveClasses').hidden = !draft.classes.length;
+    el('psSchedule').hidden = false;
+    status('Review each entry before saving.');
+  }));
+  async function scheduleRequest(path, body) {
+    const result = await fetch(path, {method: 'POST', credentials: 'same-origin',
+      headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+    if (!result.ok) {
+      const response = await result.json().catch(() => ({}));
+      throw new Error(response.message || response.error || 'Could not complete that request.');
+    }
+    return result;
+  }
+  el('psSaveClasses').addEventListener('click', () => scheduleAction(async () => {
+    const rows = reviewedRows('classes').map(row => ({
+      course: row.title, weekdays: row.weekdays, start: row.start, end: row.end,
+    }));
+    if (!rows.length || rows.some(row => !row.course || !row.start || !row.end ||
+        !/^(?:(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun)(?:\s*,\s*|$))+$/i.test(row.weekdays))) {
+      throw new Error('Choose at least one class and give each class a name, days, and both times.');
+    }
+    await scheduleRequest('/api/timetable/classes/bulk', {source: 'photo', classes: rows});
+    status('Classes saved. They will count as busy time in your planner.');
+  }));
+  el('psExportEvents').addEventListener('click', () => scheduleAction(async () => {
+    const response = await scheduleRequest('/api/flashcards/photo/calendar', {events: reviewedRows('events')});
+    const url = URL.createObjectURL(await response.blob());
+    const link = node('a');
+    link.href = url;
+    link.download = 'intelliplan-events.ics';
+    document.body.append(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    status('Events downloaded. Open the file in your calendar to add them.');
+  }));
+  el('psSendEvents').addEventListener('click', () => scheduleAction(async () => {
+    const response = await scheduleRequest('/api/flashcards/photo/calendar',
+      {events: reviewedRows('events'), destination: 'google'});
+    const result = await response.json();
+    status('Added ' + result.created + ' events to Google Calendar.' +
+      (result.skipped ? ' ' + result.skipped + ' were already there.' : ''));
+  }));
   el('psMode').addEventListener('change', invalidate); el('psCount').addEventListener('change', invalidate);
   el('psRead').addEventListener('click', async function () {
     if (busy || !file) return;

@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 
 BETA_NOTICE_VERSION = 'learning_beta_v1'
 LMS_SOURCES = frozenset({'canvas', 'studentvue', 'schoology', 'hac',
-                         'google_classroom', 'blackboard', 'moodle', 'notion', 'powerschool'})
+                         'google_classroom', 'blackboard', 'moodle', 'notion', 'powerschool', 'todoist'})
 SOURCE_CAPABILITIES = LMS_SOURCES | {'calendar'}
 
 

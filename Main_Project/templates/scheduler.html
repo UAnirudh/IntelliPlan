@@ -1120,6 +1120,19 @@
     <details class="assignment-queue planner-capture" id="plannerCapture">
       <summary>Add work</summary>
       <p><a href="/connect">Connect a school portal, calendar or Notion</a> · <a href="/flashcards/photo">Read a photo</a></p>
+      <details id="plannerTodoist">
+        <summary>Sync Todoist</summary>
+        <p>Choose the projects you want in your plan. Your Todoist tasks stay read-only.</p>
+        <a href="/oauth/todoist/start" id="plannerTodoistConnect" hidden>Connect Todoist</a>
+        <form id="plannerTodoistProjects" hidden>
+          <fieldset id="plannerTodoistChoices"><legend>Projects to sync</legend></fieldset>
+          <div class="planner-capture-actions">
+            <button type="submit" class="btn-primary">Save and sync</button>
+          </div>
+        </form>
+        <button type="button" class="btn-secondary" id="plannerTodoistDisconnect" hidden>Disconnect</button>
+        <p id="plannerTodoistStatus" role="status"></p>
+      </details>
       <form id="plannerCaptureForm">
         <label for="plannerCaptureText">Paste tasks, one per line</label>
         <textarea class="form-input" id="plannerCaptureText" rows="3" maxlength="24000" placeholder="Read chapter 6 due Friday 30m"></textarea>

@@ -508,3 +508,34 @@ def add_schedule_to_calendar(token_dict, schedule_data, existing_events=None, *,
         close = getattr(service, 'close', None)
         if callable(close):
             close()
+
+def add_reviewed_events(token, events):
+    """Insert reviewed photo entries. Stable IDs make an interrupted retry safe."""
+    from googleapiclient.errors import HttpError
+
+    if not has_calendar_scope(token):
+        raise ValueError("Calendar permission is missing.")
+    service, credentials = get_calendar_service(token)
+    created = skipped = 0
+    try:
+        for event in events:
+            identity = event["id"]
+            body = {**event, "extendedProperties": {"private": {"intelliplan_photo": identity}}}
+            try:
+                result = service.events().insert(calendarId="primary", body=body, sendUpdates="none").execute()
+                if not isinstance(result, dict) or result.get("id") != identity:
+                    raise ValueError("Google did not confirm the imported event.")
+                created += 1
+            except HttpError as exc:
+                if getattr(exc.resp, "status", None) != 409:
+                    raise
+                existing = service.events().get(calendarId="primary", eventId=identity).execute()
+                marker = existing.get("extendedProperties", {}).get("private", {}).get("intelliplan_photo")
+                if existing.get("id") != identity or marker != identity or existing.get("status") == "cancelled":
+                    raise ValueError("Google Calendar event identity could not be verified.") from None
+                skipped += 1
+        return created, skipped, credentials.token
+    finally:
+        close = getattr(service, "close", None)
+        if callable(close):
+            close()

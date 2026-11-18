@@ -163,3 +163,62 @@
     } catch (_) { /* The ordinary timer also works without browser storage. */ }
   });
 })();
+
+(() => {
+  const panel = document.getElementById('plannerTodoist');
+  if (!panel) return;
+  const form = document.getElementById('plannerTodoistProjects');
+  const choices = document.getElementById('plannerTodoistChoices');
+  const connect = document.getElementById('plannerTodoistConnect');
+  const disconnect = document.getElementById('plannerTodoistDisconnect');
+  const status = document.getElementById('plannerTodoistStatus');
+  let busy = false;
+  async function communicate(method, projects) {
+    if (busy) return;
+    busy = true;
+    choices.disabled = true;
+    status.textContent = 'Checking Todoist…';
+    try {
+      const response = await fetch('/api/todoist/connection', {method, credentials: 'same-origin',
+        headers: {'Content-Type': 'application/json'},
+        ...(projects ? {body: JSON.stringify({projects})} : {})});
+      const state = await response.json();
+      disconnect.hidden = !state.connected;
+      if (!response.ok) throw new Error(state.message || 'Todoist could not be reached.');
+      form.hidden = !state.connected;
+      connect.hidden = state.connected || state.available === false;
+      choices.querySelectorAll('label').forEach(label => label.remove());
+      for (const project of state.projects || []) {
+        const label = document.createElement('label');
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.value = project.id;
+        checkbox.checked = state.selected.includes(project.id);
+        label.append(checkbox, ' ' + project.name);
+        choices.append(label);
+      }
+      status.textContent = state.available === false ? 'Todoist sync is unavailable for this workspace.'
+        : method === 'POST' ? 'Projects saved. Your planner will read their current tasks.'
+          : method === 'DELETE' ? 'Todoist disconnected.' : '';
+      if (method !== 'GET' && typeof window.loadSchedulerAssignments === 'function') window.loadSchedulerAssignments();
+    } catch (error) {
+      status.textContent = error.message;
+      connect.hidden = false;
+    } finally {
+      choices.disabled = false;
+      busy = false;
+    }
+  }
+  panel.addEventListener('toggle', () => { if (panel.open) communicate('GET'); });
+  form.addEventListener('submit', event => {
+    event.preventDefault();
+    communicate('POST', Array.from(choices.querySelectorAll('input:checked'), input => input.value));
+  });
+  disconnect.addEventListener('click', () => communicate('DELETE'));
+  const oauth = new URLSearchParams(location.search).get('todoist');
+  if (oauth) {
+    document.getElementById('plannerCapture').open = true;
+    panel.open = true;
+    if (oauth === 'failed') status.textContent = 'Todoist could not connect. Try again.';
+  }
+})();

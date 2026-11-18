@@ -10,6 +10,8 @@ from time_utils import utcnow
 
 
 SCHEMAS = {
+    'todoist': ('todoist_integrations', frozenset({'access_token', 'refresh_token'}),
+        frozenset({'access_token', 'refresh_token', 'token_expires_at', 'projects_json'})),
     'google_classroom': ('classroom_integrations', frozenset({'access_token', 'refresh_token'}),
         frozenset({'access_token', 'refresh_token', 'token_expires_at', 'account_email', 'account_name'})),
     'blackboard': ('blackboard_integrations', frozenset({'access_token', 'refresh_token'}),
@@ -42,7 +44,10 @@ def validate_fields(provider, values, *, refresh=False):
     fields = SCHEMAS[provider][2]
     if values.keys() - fields:
         raise ValueError('Unsupported LMS connection fields')
-    if refresh and values.keys() - {'access_token', 'refresh_token', 'token_expires_at'}:
+    refresh_fields = {'access_token', 'refresh_token', 'token_expires_at'}
+    if provider == 'todoist':
+        refresh_fields.add('projects_json')
+    if refresh and values.keys() - refresh_fields:
         raise ValueError('Unsupported LMS refresh fields')
     secret = 'ws_token' if provider == 'moodle' else 'access_token'
     if secret not in values or not isinstance(values[secret], str) or not values[secret]:
@@ -55,7 +60,7 @@ def validate_fields(provider, values, *, refresh=False):
 
 
 def same_grant(provider, current, expected):
-    fields = SCHEMAS[provider][1] | {'id', 'user_id', 'connected_at',
+    fields = SCHEMAS[provider][1] | {'id', 'user_id', 'connected_at', 'projects_json',
         'institution_url', 'moodle_url', 'account_email', 'token_expires_at'}
     return current is not None and expected is not None and all(
         getattr(current, key, None) == getattr(expected, key, None) for key in fields)
@@ -88,9 +93,9 @@ def lms_grants(provider):
     if store is not None:
         from intelliplan.persistence.mongo_lms_grants import MongoLMSGrants
         return MongoLMSGrants(store, provider)
-    from App import BlackboardIntegration, ClassroomIntegration, MoodleIntegration, User, db
+    from App import BlackboardIntegration, ClassroomIntegration, MoodleIntegration, TodoistIntegration, User, db
     model = {'blackboard': BlackboardIntegration, 'google_classroom': ClassroomIntegration,
-        'moodle': MoodleIntegration}[provider]
+        'moodle': MoodleIntegration, 'todoist': TodoistIntegration}[provider]
     return SQLLMSGrants(db, model, User, provider)
 
 

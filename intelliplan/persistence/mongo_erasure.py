@@ -26,6 +26,7 @@ DIRECT_USER_COLLECTIONS = (
     'notion_integrations',
     'canvas_integrations',
     'classroom_integrations',
+    'todoist_integrations',
     'blackboard_integrations',
     'moodle_integrations',
     'lms_tokens',

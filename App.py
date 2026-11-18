@@ -1119,6 +1119,17 @@ class MoodleIntegration(db.Model):
     moodle_fullname = db.Column(db.String(255), nullable=True)
     connected_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+class TodoistIntegration(db.Model):
+    __tablename__ = "todoist_integrations"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, unique=True)
+    access_token = db.Column(secret_box.EncryptedText, nullable=False)
+    refresh_token = db.Column(secret_box.EncryptedText, nullable=True)
+    token_expires_at = db.Column(db.DateTime, nullable=True)
+    projects_json = db.Column(db.Text, nullable=False, default="[]")
+    connected_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
 class ResourceAccount(db.Model):
     """Study material a student has pointed us at, per course.
 
@@ -5042,11 +5053,11 @@ def public_stats():
 @app.route("/")
 def landing():
     try:
-        student_accounts = User.query.filter_by(role="student", email_verified=True).count()
+        account_count = User.query.count()
     except Exception:
-        app.logger.exception("Verified student account count could not be loaded")
-        student_accounts = None
-    return _no_store(flask.make_response(render_template("home.html", student_accounts=student_accounts)))
+        app.logger.exception("Registered account count could not be loaded")
+        account_count = None
+    return _no_store(flask.make_response(render_template("home.html", account_count=account_count)))
 
 # ── SEO / AI-crawler static files ─────────────────────────────
 @app.route("/robots.txt")
@@ -10525,6 +10536,7 @@ def _account_delete_impl():
         ("notion_integrations", "DELETE FROM notion_integrations WHERE user_id = :uid"),
         ("canvas_integrations", "DELETE FROM canvas_integrations WHERE user_id = :uid"),
         ("classroom_integrations", "DELETE FROM classroom_integrations WHERE user_id = :uid"),
+        ("todoist_integrations", "DELETE FROM todoist_integrations WHERE user_id = :uid"),
         ("blackboard_integrations", "DELETE FROM blackboard_integrations WHERE user_id = :uid"),
         ("moodle_integrations", "DELETE FROM moodle_integrations WHERE user_id = :uid"),
         ("lms_tokens", "DELETE FROM lms_tokens WHERE user_id = :uid"),
@@ -13604,6 +13616,8 @@ def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True, in
     if use_cache and all(permissions.values()):
         cached = _lms_cache_get(user_id)
         if cached is not None:
+            from intelliplan.api.todoist import filter_assignments
+            cached = filter_assignments(owner, cached)
             return _assignment_display_rows(cached, include_waiting=include_waiting, user_id=user_id)
 
     tasks: list[dict] = []
@@ -13774,6 +13788,13 @@ def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True, in
                     tasks.append(a)
     except Exception as e:
         print(f"[lms-collect] moodle err: {e}")
+
+    try:
+        from intelliplan.api.todoist import assignments as todoist_assignments
+        if permissions['todoist']:
+            tasks.extend(t for t in todoist_assignments(owner) if t['title'] not in dismissed)
+    except Exception as exc:
+        app.logger.warning("Todoist sync unavailable (%s)", type(exc).__name__)
 
     # Deduplicate (title + course + due_date)
     seen = set()
@@ -14004,6 +14025,12 @@ def unified_tasks():
                         tasks.append(t)
         except Exception as e:
             print(f"Notion tasks error: {e}")
+    if current_user.is_authenticated:
+        try:
+            from intelliplan.api.todoist import assignments as todoist_assignments
+            tasks.extend(t for t in todoist_assignments(current_user) if t['title'] not in dismissed)
+        except Exception as exc:
+            app.logger.warning("Todoist sync unavailable (%s)", type(exc).__name__)
     try:
         if "manual" in assignment_sources:
             if current_user.is_authenticated:
@@ -23000,6 +23027,10 @@ from breakdown_glue import breakdown_bp
 app.register_blueprint(breakdown_bp)
 from quick_add_glue import quick_add_bp
 app.register_blueprint(quick_add_bp)
+from intelliplan.api.todoist import bp as todoist_bp
+app.register_blueprint(todoist_bp)
+limiter.limit("20 per hour")(app.view_functions["todoist.start"])
+limiter.limit("60 per hour")(app.view_functions["todoist.connection"])
 # Adaptive scheduler v3 — Next Best Action, feasibility, overrides, versions.
 # Percentage-rolled-out; every route 404s outside the cohort. Nothing on an
 # existing surface depends on it.

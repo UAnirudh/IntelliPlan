@@ -86,6 +86,73 @@ def _api(handler):
     return wrapped
 
 
+@flashcards_bp.post('/api/flashcards/photo/schedule')
+@_api
+def photo_schedule():
+    from App import _calendar_policy_allowed
+    from intelliplan.learning import photo_schedule as schedule
+
+    if not _calendar_policy_allowed(current_user.id):
+        return jsonify(message='Schedule capture is unavailable for this workspace.'), 403
+    if request.content_length and request.content_length > 60000:
+        raise study.InvalidPhoto('Keep the reviewed schedule under 12,000 characters.')
+    body = request.get_json(silent=True)
+    source = study.reviewed_source(body.get('source') if isinstance(body, dict) else None)
+    decision = ai_firewall.guard(current_user, prompts=[source], want_output_tokens=2200,
+                                 feature='photo_practice')
+    _screen(source)
+    raw = ai_provider._groq_chat([
+        {'role': 'system', 'content': schedule.PROMPT},
+        {'role': 'user', 'content': json.dumps({'reviewed_schedule': source})}],
+        tier='standard', temperature=0, max_tokens=decision.max_output_tokens,
+        response_format={'type': 'json_object'})
+    ai_firewall.record_tokens(decision, len(source) + len(schedule.PROMPT), len(raw))
+    _screen(raw)
+    try:
+        return jsonify(**schedule.draft(study.parse_result(raw)))
+    except ValueError as exc:
+        raise study.InvalidPhoto(str(exc)) from exc
+
+
+@flashcards_bp.post('/api/flashcards/photo/calendar')
+def photo_calendar():
+    from App import _calendar_policy_allowed, _no_store, get_google_token
+    from flask import g
+    from intelliplan.learning.photo_schedule import calendar_events, calendar_file
+    from intelliplan.scheduler_clock import timezone_for
+
+    if not current_user.is_authenticated:
+        return jsonify(message='Sign in to export events.'), 401
+    if not _calendar_policy_allowed(current_user.id):
+        return jsonify(message='Calendar export is unavailable for this workspace.'), 403
+    if request.content_length and request.content_length > 32000:
+        return jsonify(message='Choose a smaller set of events.'), 413
+    body = request.get_json(silent=True)
+    zone, offset = timezone_for(current_user.id)
+    try:
+        events = calendar_events(body.get('events') if isinstance(body, dict) else None, zone=zone, offset=offset)
+    except ValueError as exc:
+        return jsonify(message=str(exc)), 400
+    if body.get('destination') == 'google':
+        token = get_google_token(user_id=current_user.id)
+        if not token:
+            return jsonify(message='Connect Google Calendar in Settings first, or download the calendar file.'), 409
+        try:
+            from google_calendar_helper import add_reviewed_events
+            from intelliplan.persistence.google import google_accounts
+            created, skipped, refreshed = add_reviewed_events(token, events)
+            proof = getattr(g, '_google_grant', None)
+            if proof and refreshed and refreshed != token.get('token'):
+                google_accounts().refresh(current_user.id, proof[1], json.dumps({**token, 'token': refreshed}))
+            return _no_store(jsonify(created=created, skipped=skipped))
+        except Exception as exc:
+            logger.warning('Reviewed photo calendar write failed (%s)', type(exc).__name__)
+            return _no_store(current_app.make_response((jsonify(
+                message='Google Calendar could not finish. Retry to add any remaining events.'), 502)))
+    return _no_store(current_app.response_class(calendar_file(events), mimetype='text/calendar',
+        headers={'Content-Disposition': 'attachment; filename="intelliplan-events.ics"'}))
+
+
 @flashcards_bp.get('/flashcards/photo')
 def photo_page():
     if not current_user.is_authenticated:
