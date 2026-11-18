@@ -1,7 +1,45 @@
 /* App workspace: plain surfaces, restrained controls and readable hierarchy. */
-body.has-side { --r-sm: 6px; --r-md: 8px; --r-lg: 10px; --r-xl: 12px; --neu-shadow: none; --neu-shadow-sm: none; --workspace-raised: none; }
-:root[data-theme="light"]:not([data-palette]) body.has-side { --bg: #fff; --bg-elevated: #f5f5f3; }
-:root[data-theme="dark"]:not([data-palette]) body.has-side { --bg: #191919; --bg-elevated: #222; }
+body.has-side {
+  --font-ui: "Segoe UI Variable Text", "Avenir Next", system-ui, sans-serif;
+  --font-body: var(--font-ui);
+  --font-display: "Segoe UI Variable Display", "Avenir Next", system-ui, sans-serif;
+  --ipd-font-display: var(--font-display);
+  --r-sm: 10px;
+  --r-md: 14px;
+  --r-lg: 18px;
+  --r-xl: 24px;
+  --neu-shadow: none;
+  --neu-shadow-sm: none;
+  --workspace-raised: none;
+}
+:root[data-theme="light"]:not([data-palette]) body.has-side { --bg: #fbfaf7; --bg-elevated: #eeeee8; }
+:root[data-theme="dark"]:not([data-palette]) body.has-side { --bg: #1d201e; --bg-elevated: #2b302d; }
+body.has-side :is(.side-link, .sched-tab, .command-chat__btn, .tutor-study-tools a, .btn-primary, .btn-secondary, .ipa-btn) {
+  transition: color 120ms ease, background-color 120ms ease;
+}
+body.has-side :is(.btn-primary, .btn-secondary, .ipa-btn, .command-chat__composer button):active {
+  transform: none;
+}
+.tutor-study-tools { margin-block-end: 12px; }
+.tutor-study-tools summary { cursor: pointer; padding: 8px; }
+.tutor-study-tools nav { display: grid; gap: 2px; }
+.tutor-study-tools a {
+  padding: 8px 12px;
+  border-radius: 12px;
+  color: var(--text-primary);
+  text-decoration: none;
+}
+.tutor-study-tools a:hover { background: var(--bg-elevated); }
+.tutor-course-link {
+  display: inline-flex;
+  align-self: flex-start;
+  padding: 9px 14px;
+  margin-block: 4px 12px;
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  text-underline-offset: 3px;
+}
 body.has-side :is(button, .command-chat__btn) { box-shadow: none !important; background-image: none !important; }
 body.has-side :is(button, .command-chat__btn):hover { transform: none !important; }
 body.has-side :is(button, .command-chat__btn)::after { box-shadow: none; }
@@ -9,20 +47,20 @@ body.has-side :is(button, .command-chat__btn)::after { box-shadow: none; }
 body.has-side button[class*="primary"]:not(.no-glass):not([class*="secondary"]):not([class*="ghost"]) {
   box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
 }
-body.has-side .app-side { background: var(--bg-elevated); box-shadow: none; }
-body.has-side .app-side .side-link { border-radius: 5px; font-weight: 450; }
+body.has-side .app-side { background: var(--bg) !important; box-shadow: none; }
+body.has-side .app-side .side-link { border-radius: 12px; font-weight: 450; }
 body.has-side .app-side .side-link.active { background: color-mix(in srgb, var(--text-primary) 7%, transparent); color: var(--text-primary); box-shadow: none; }
-body.has-side :is(.ipd-card, .scheduler-panel, .ipa-card) { box-shadow: none; border-radius: 10px; background: var(--bg-card); }
-body.has-side :is(.btn-primary, .btn-secondary, .ipui-btn, .ipa-btn, .ipd-btn) { border-radius: 6px; background-image: none; box-shadow: none; }
+body.has-side :is(.ipd-card, .scheduler-panel, .ipa-card) { box-shadow: none; border-radius: var(--r-lg); background: var(--bg-card); }
+body.has-side :is(.btn-primary, .btn-secondary, .ipui-btn, .ipa-btn, .ipd-btn) { border-radius: var(--r-md); background-image: none; box-shadow: none; }
 body.has-side :is(button, .btn-primary, .btn-secondary, .ipui-btn, .ipa-btn, .ipd-btn):hover { transform: none; }
 body.has-side :is(.ipui-btn--shimmer, .ipd-anim)::before,
 body.has-side .ipui-btn--shimmer::after { animation: none; background-image: none; }
-body.has-side .ip-bug-shortcut { display: none; }
+.side-foot { overflow-y: auto; max-height: min(38vh, 340px); }
 body.has-side .app-side :is(.side-quick-add, .side-search) {
   background: transparent;
   color: var(--text-secondary);
   border-color: transparent;
-  border-radius: 5px;
+  border-radius: 12px;
 }
 body.has-side .app-side :is(.side-quick-add, .side-search):hover {
   background: color-mix(in srgb, var(--text-primary) 8%, transparent);
@@ -32,22 +70,21 @@ body.has-side .app-side :is(.side-quick-add, .side-search):hover {
 body.has-side .sched-tabs {
   background: transparent;
   border: 0;
-  border-bottom: 1px solid var(--border-strong);
   border-radius: 0;
   padding: 0;
+  gap: 6px;
 }
 body.has-side .sched-tabs .sched-tab {
   background: transparent;
   border: 0;
-  border-bottom: 2px solid transparent;
-  border-radius: 0;
-  margin-bottom: -1px;
+  border-radius: 999px;
   min-height: 44px;
-  padding: 8px 12px;
+  padding: 8px 16px;
 }
 body.has-side .sched-tabs .sched-tab[aria-selected="true"] {
   color: var(--text-primary);
-  border-bottom-color: var(--accent);
+  background: var(--bg-elevated);
+  font-weight: 650;
 }
 body.has-side .sched-tabs .sched-tab:active { transform: none; }
 body.has-side .sched-pane #inputPanel {
@@ -64,20 +101,27 @@ body.has-side .sched-pane #inputPanel {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
-.scheduler-options[open] > :not(summary) { border-inline-start: 2px solid var(--border-strong); padding-inline-start: 14px; }
+.scheduler-options[open] > :not(summary) { margin-block: 8px 16px; }
+body.has-side #inputPanel .assignment-queue {
+  border: 0;
+  border-radius: var(--r-lg);
+  background: var(--bg-elevated);
+}
+body.has-side #inputPanel .assignment-queue-row { border: 0; }
 body.has-side .sched-pane #generateBtn {
   padding: 10px 16px;
   min-height: 44px;
+  border-radius: 999px;
   transform: none;
 }
-.ipa-assignment-picker { padding: 16px 0; margin-bottom: 16px; border-bottom: 1px solid var(--border); }
+.ipa-assignment-picker { padding: 16px 0; margin-bottom: 16px; }
 .ipa-assignment-picker label { display: block; font-size: .85rem; margin-bottom: 8px; color: var(--text-secondary); }
-.ipa-assignment-picker select { width: 100%; min-height: 44px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-card); color: var(--text-primary); font: inherit; padding: 9px 12px; }
+.ipa-assignment-picker select { width: 100%; min-height: 44px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--bg-card); color: var(--text-primary); font: inherit; padding: 9px 12px; }
 .ipa-assignment-picker p { color: var(--text-muted); font-size: .8rem; margin: 7px 0 0; }
 @media (min-width: 769px) {
-  body.has-side .app-side { inset: 0 auto 0 0; width: var(--side-w); border-radius: 0; border-right: 1px solid var(--border); }
+  body.has-side .app-side { inset: 0 auto 0 0; width: var(--side-w); border-radius: 0; border-right: 0; }
   html[data-side-rail] body.has-side .app-side { width: var(--side-peek-w); clip-path: inset(0 calc(var(--side-peek-w) - var(--side-rail-w)) 0 0); }
-  html[data-side-rail] body.has-side .app-side.is-peek { clip-path: inset(0 -40px 0 0); border-radius: 0; }
+  html[data-side-rail] body.has-side .app-side.is-peek { clip-path: inset(0 -40px 0 0); border-radius: 0 var(--r-xl) var(--r-xl) 0; background: var(--bg-elevated) !important; }
   html[data-side-rail] body.has-side .app-side:not(.is-peek) .side-collapse-btn { position: absolute; top: 20px; left: 16px; right: auto; width: 32px; min-height: 32px; margin: 0; }
 }
 @media (prefers-reduced-motion: reduce) { body.has-side * { scroll-behavior: auto; } }

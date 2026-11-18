@@ -52,6 +52,7 @@ DEFAULT_SCOPES = (
     "url:GET|/api/v1/courses/:course_id/students/submissions",
     "url:GET|/api/v1/courses/:course_id/assignment_groups",
     "url:GET|/api/v1/users/self/upcoming_events",
+    "url:GET|/api/v1/planner/overrides",
 )
 
 

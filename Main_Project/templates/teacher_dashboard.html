@@ -99,6 +99,77 @@
 </div>
 
 <div class="td-shell">
+  <details{% if request.args.get('canvas') == 'setup' %} open{% endif %}>
+    <summary>Your Canvas courses</summary>
+    {% if request.args.get('canvas') == 'setup' %}<p role="status">Canvas sign-in is unavailable. Ask your school to enable the scoped IntelliPlan Developer Key.</p>{% endif %}
+    <form action="/oauth/canvas" method="get">
+      <label for="tdCanvasSite">School Canvas URL</label>
+      <input id="tdCanvasSite" name="canvas_base" type="url" placeholder="https://school.instructure.com" required>
+      <button type="submit" class="btn-secondary">Connect Canvas</button>
+    </form>
+    <p class="td-consent-note">Only courses where Canvas reports an active teacher enrollment will appear here.</p>
+    <button type="button" class="btn-secondary" id="tdLoadCanvas">Load Canvas courses</button>
+    <p id="tdCanvasStatus" role="status"></p>
+    <ul id="tdCanvasCourses"></ul>
+    <ul id="tdCanvasAssignments" aria-label="Selected course assignments"></ul>
+  </details>
+  <script>
+  document.getElementById('tdLoadCanvas').addEventListener('click', async event => {
+    const button = event.currentTarget;
+    const status = document.getElementById('tdCanvasStatus');
+    const list = document.getElementById('tdCanvasCourses');
+    const assignments = document.getElementById('tdCanvasAssignments');
+    button.disabled = true;
+    status.textContent = 'Loading courses…';
+    list.replaceChildren();
+    assignments.replaceChildren();
+    try {
+      const response = await fetch('/api/teacher/canvas/courses', {cache: 'no-store'});
+      const result = await response.json();
+      if (!response.ok) {
+        status.textContent = response.status === 409
+          ? 'First connect your teacher account through your school’s Canvas OAuth setup.'
+          : 'Canvas access is unavailable for this workspace.';
+        return;
+      }
+      for (const course of result.courses) {
+        const item = document.createElement('li');
+        const open = document.createElement('button');
+        open.type = 'button';
+        open.className = 'btn-secondary';
+        open.textContent = course.name;
+        open.addEventListener('click', async () => {
+          const controls = list.querySelectorAll('button');
+          controls.forEach(control => { control.disabled = true; });
+          assignments.replaceChildren();
+          status.textContent = 'Loading assignments…';
+          try {
+            const result = await fetch('/api/teacher/canvas/courses/' + encodeURIComponent(course.id) + '/assignments', {cache: 'no-store'});
+            if (!result.ok) throw new Error('Unable to load assignments');
+            const data = await result.json();
+            for (const assignment of data.assignments) {
+              const entry = document.createElement('li');
+              entry.textContent = assignment.name + (assignment.due_at ? ' · ' + new Date(assignment.due_at).toLocaleDateString() : '');
+              assignments.appendChild(entry);
+            }
+            status.textContent = data.assignments.length ? course.name : 'No assignments found.';
+          } catch {
+            status.textContent = 'Assignments could not be loaded.';
+          } finally {
+            controls.forEach(control => { control.disabled = false; });
+          }
+        });
+        item.appendChild(open);
+        list.appendChild(item);
+      }
+      status.textContent = result.courses.length ? '' : 'No active teacher enrollments were found.';
+    } catch {
+      status.textContent = 'Canvas courses could not be loaded. Try again.';
+    } finally {
+      button.disabled = false;
+    }
+  });
+  </script>
   <div class="td-toolbar" id="invite">
     <form class="td-invite" id="tdInviteForm">
       <label for="tdInviteEmail" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);">Student's email</label>

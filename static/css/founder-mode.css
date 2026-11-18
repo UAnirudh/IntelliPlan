@@ -1,5 +1,17 @@
 /* Founder/normal switch stays quiet in the app shell. */
 .founder-mode-form { margin: 8px 0 0; }
+.founder-mode-options { display: grid; gap: 2px; padding: 4px; }
+.founder-mode-options button {
+  padding: 8px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.founder-mode-options button:hover { background: var(--bg-elevated); }
 .founder-mode-button {
   display: flex; width: 100%; align-items: center; gap: 10px;
   padding: 8px 10px; border: 0; border-radius: 8px;
@@ -15,4 +27,8 @@
 }
 html[data-side-rail] body.has-side .app-side:not(.is-peek) .founder-mode-button {
   justify-content: center; gap: 0; padding: 8px; font-size: 0;
+}
+html[data-side-rail] body.has-side .app-side:not(.is-peek) .founder-mode-button svg {
+  width: 17px;
+  height: 17px;
 }

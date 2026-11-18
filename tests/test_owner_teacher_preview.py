@@ -22,6 +22,8 @@ def test_owner_preview_is_exact_verified_and_founder_session_only(client, monkey
     response = client.get('/teacher/demo')
     assert response.status_code == 200
     assert b'Jordan Rivera' in response.data
+    assert b'My study week' in client.get('/teacher/demo?view=student').data
+    assert b'Family progress preview' in client.get('/teacher/demo?view=family').data
     assert response.headers['Cache-Control'] == 'no-store'
     # Preview access never converts the account to an adult teacher.
     assert client.post('/api/roles/role', json={'role': 'teacher'}).status_code == 403

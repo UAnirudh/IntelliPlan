@@ -155,8 +155,8 @@ def classify(messages, *, output=None, allowed_terms=(), http=None):
                 {'role': 'user', 'content': json.dumps(payload, ensure_ascii=False)}],
                 'temperature': 0, 'max_completion_tokens': MAX_COMPLETION_TOKENS,
                 'stream': False}
-            request_body['reasoning_effort'] = 'medium'
             if model != MODEL:
+                request_body['reasoning_effort'] = 'medium'
                 request_body['response_format'] = {'type': 'json_object'}
             response = (http or requests).post(
                 'https://api.groq.com/openai/v1/chat/completions',

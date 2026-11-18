@@ -34,8 +34,13 @@
     Every student, class, assignment, and progress state below is invented for this walkthrough. Toggling progress changes only this page; no records are sent to or saved by IntelliPlan.
   </div>
   <header class="tdemo-top">
-    <div><p class="page-kicker">Teacher workspace · preview</p><h1>A sample student week</h1><p class="tdemo-muted">Explore the kind of work a student may choose to share.</p></div>
-    <a class="btn-secondary" href="/teacher">Back to teacher dashboard</a>
+    <div>
+      {% if preview_view == 'student' %}<h1>My study week</h1><p class="tdemo-muted">Preview the student checklist and try completing a task.</p>
+      {% elif preview_view == 'family' %}<h1>Family progress preview</h1><p class="tdemo-muted">See an example of progress a student could share with family.</p>
+      {% else %}<h1>A sample student week</h1><p class="tdemo-muted">Explore the kind of work a student may choose to share.</p>{% endif %}
+    </div>
+    {% if owner_preview %}<nav aria-label="Preview account type"><a href="?view=student">Student</a> · <a href="?view=teacher">Teacher</a> · <a href="?view=family">Family</a> · <a href="/founder">Exit preview</a></nav>
+    {% else %}<a class="btn-secondary" href="/teacher">Back to teacher dashboard</a>{% endif %}
   </header>
   <section class="tdemo-profile" aria-label="Fictional student summary">
     <div class="tdemo-student"><span class="tdemo-avatar" aria-hidden="true">J</span><div><strong>Jordan Rivera</strong><small>Fictional student · sample data only</small></div></div>

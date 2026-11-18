@@ -19,7 +19,7 @@ from collections import Counter
 from datetime import date, datetime, timedelta
 from time_utils import utcnow
 
-from flask import Blueprint, current_app, jsonify, redirect, render_template, request, url_for
+from flask import Blueprint, abort, current_app, jsonify, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 from sqlalchemy import inspect, select
 from sqlalchemy.orm.exc import DetachedInstanceError
@@ -169,15 +169,59 @@ def teacher_dashboard():
     return render_template("teacher_dashboard.html", active_page="teacher", noindex_page=True)
 
 
+@bp.get("/api/teacher/canvas/courses")
+@bp.get("/api/teacher/canvas/courses/<int:course_id>/assignments")
+@login_required
+def teacher_canvas_courses(course_id=None):
+    """Read teaching courses and assignment metadata without student records."""
+    if current_user.role != "teacher" or not _adult_account(current_user):
+        abort(403)
+    from App import _lms_policy_allowed, get_active_account
+    from canvas_helper import _base, _get_list, _headers
+    from school_pilot import enabled
+    if enabled() or not _lms_policy_allowed("canvas"):
+        return jsonify(error="canvas_teacher_access_unavailable"), 403
+    account = get_active_account()
+    if (not account or account.get("login_type") != "canvas" or not account.get("canvas_oauth")
+            or not account.get("canvas_teacher_read_only")):
+        return jsonify(error="teacher_canvas_oauth_required"), 409
+    base = _base(account["canvas_url"])
+    courses = _get_list(f"{base}/courses?enrollment_type=teacher&enrollment_state=active",
+                        _headers(account["canvas_token"]))
+    result = [
+        {"id": str(course["id"]), "name": str(course.get("name") or "Canvas course")}
+        for course in courses if isinstance(course, dict) and str(course.get("id", "")).isdigit()
+        and any(isinstance(enrollment, dict) and enrollment.get("type") in {"teacher", "TeacherEnrollment"}
+                for enrollment in (course.get("enrollments") or []))
+    ]
+    if course_id is None:
+        response = jsonify(courses=result)
+    else:
+        if not any(course["id"] == str(course_id) for course in result):
+            abort(404)
+        rows = _get_list(f"{base}/courses/{course_id}/assignments", _headers(account["canvas_token"]))
+        response = jsonify(assignments=[
+            {"name": str(row.get("name") or "Assignment"), "due_at": row.get("due_at")}
+            for row in rows if isinstance(row, dict)
+        ])
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
 @bp.route("/teacher/demo")
 def teacher_demo():
     """Teacher-only walkthrough populated exclusively with fictional data."""
     if not current_user.is_authenticated:
         return redirect(url_for("login_account", next="/teacher/demo"))
-    if current_user.role != "teacher" and not _owner_teacher_preview():
+    owner_preview = _owner_teacher_preview()
+    if current_user.role != "teacher" and not owner_preview:
         return redirect("/teacher")
+    view = request.args.get("view", "teacher")
+    if view not in {"teacher", "student", "family"} or not owner_preview:
+        view = "teacher"
     response = current_app.make_response(render_template(
-        "teacher_demo.html", active_page="teacher", noindex_page=True))
+        "teacher_demo.html", active_page="teacher", noindex_page=True,
+        preview_view=view, owner_preview=owner_preview))
     response.headers["Cache-Control"] = "no-store"
     response.headers["X-Robots-Tag"] = "noindex, nofollow"
     response.headers["Referrer-Policy"] = "no-referrer"

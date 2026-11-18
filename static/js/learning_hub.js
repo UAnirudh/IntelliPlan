@@ -556,6 +556,11 @@
         status('');
       }
     }
+    if (new URLSearchParams(location.search).get('activity') === 'courses') {
+      const courses = document.querySelector('[data-activity="courses"]');
+      if (!courses.hidden) selectActivity(courses);
+      else status('Course creation is unavailable under your current account policy.');
+    }
     $('focus-link').hidden = !data.features.focus.allowed;
     if (data.features.study.allowed) restoreSitting().catch(() => {});
     api('/api/school-admin/organizations').then(result => { $('school-admin-link').hidden = !result.organizations.length; }).catch(() => {});

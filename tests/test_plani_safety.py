@@ -307,6 +307,7 @@ def test_second_capacity_failure_uses_final_classifier_with_full_policy(judge):
                for call in calls)
     assert calls[2]['response_format'] == {'type': 'json_object'}
     assert calls[2]['reasoning_effort'] == 'medium'
+    assert 'reasoning_effort' not in calls[0]
 
 
 def test_final_classifier_unsafe_verdict_is_enforced(judge):

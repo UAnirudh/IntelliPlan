@@ -29,6 +29,30 @@ def test_teacher_signup_signin_and_student_consent_flow(client, monkeypatch):
     assert b'noindex' in preview.headers.get('X-Robots-Tag', '').encode().lower()
     assert b'fetch(' not in preview.data
 
+    import canvas_helper
+    with monkeypatch.context() as canvas:
+        canvas.setattr(App, '_lms_policy_allowed', lambda source: source == 'canvas')
+        canvas.setattr(App, 'get_active_account', lambda: {
+            'login_type': 'canvas', 'canvas_oauth': True, 'canvas_teacher_read_only': True, 'canvas_url': 'https://canvas.example.test',
+            'canvas_token': 'synthetic-token',
+        })
+
+        def read_canvas(url, headers):
+            if url == 'https://canvas.example.test/api/v1/courses/14/assignments':
+                return [{'name': 'Read Chapter 2', 'due_at': None, 'submission': 'private'}]
+            assert url == 'https://canvas.example.test/api/v1/courses?enrollment_type=teacher&enrollment_state=active'
+            return [
+                {'id': 14, 'name': 'My course', 'enrollments': [{'type': 'teacher'}], 'private': 'excluded'},
+                {'id': 15, 'name': 'Student course', 'enrollments': [{'type': 'student'}]},
+            ]
+        canvas.setattr(canvas_helper, '_get_list', read_canvas)
+        courses = client.get('/api/teacher/canvas/courses')
+        assert courses.status_code == 200
+        assert courses.get_json() == {'courses': [{'id': '14', 'name': 'My course'}]}
+        assignments = client.get('/api/teacher/canvas/courses/14/assignments')
+        assert assignments.get_json() == {'assignments': [{'name': 'Read Chapter 2', 'due_at': None}]}
+        assert client.get('/api/teacher/canvas/courses/15/assignments').status_code == 404
+
     sent = []
     monkeypatch.setenv('BUG_REPORT_TO', 'bugs@example.test')
     monkeypatch.setattr(App, '_send_email', lambda *args, **kwargs: sent.append((args, kwargs)) or True)

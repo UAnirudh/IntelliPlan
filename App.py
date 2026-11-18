@@ -3416,6 +3416,8 @@ def get_active_account():
         acct = linked_accounts_repository().active(current_user.id)
         if acct:
             creds = acct.get_credentials()
+            if creds.get("canvas_teacher_read_only") and current_user.role != "teacher":
+                return None
             creds["login_type"] = acct.login_type
             return _refresh_canvas_if_stale(creds)
         return None
@@ -8756,19 +8758,30 @@ def oauth_canvas_check():
 @app.route("/oauth/canvas")
 def oauth_canvas_start():
     canvas_base = request.args.get("canvas_base") or DEFAULT_CANVAS_BASE
+    teacher_connection = current_user.is_authenticated and current_user.role == "teacher"
+    if teacher_connection:
+        from intelliplan.api.roles import _adult_account
+        if not _adult_account(current_user) or school_pilot.enabled() or not _lms_policy_allowed("canvas"):
+            return jsonify(error="canvas_teacher_access_unavailable"), 403
     if not CANVAS_OAUTH_AVAILABLE or not canvas_oauth_configured(canvas_base):
+        if teacher_connection:
+            return redirect(url_for("roles_bp.teacher_dashboard", canvas="setup"))
         return redirect(url_for("login_canvas") + "?reason=oauth_unavailable&canvas_base=" + urllib.parse.quote(canvas_base))
     profile_name = request.args.get("profile_name") or "Canvas Account"
     state = secrets_module.token_urlsafe(24)
     session["canvas_oauth_state"] = state
     session["canvas_oauth_base"] = canvas_base
     session["canvas_oauth_profile_name"] = profile_name
+    session["canvas_teacher_user_id"] = current_user.id if teacher_connection else None
     session.modified = True
     redirect_uri = os.getenv("CANVAS_REDIRECT_URI") or (
         APP_BASE_URL.rstrip("/") + "/oauth/canvas/callback"
     )
     try:
-        url = get_canvas_auth_url(state, canvas_base=canvas_base, redirect_uri=redirect_uri)
+        options = {"scopes": (
+            "url:GET|/api/v1/courses", "url:GET|/api/v1/courses/:course_id/assignments"
+        )} if teacher_connection else {}
+        url = get_canvas_auth_url(state, canvas_base=canvas_base, redirect_uri=redirect_uri, **options)
     except Exception as e:
         return render_template("error.html", active_page="error", error_code=500,
                                error_id=f"CANVAS-OAUTH-{make_error_id()}",
@@ -8785,6 +8798,10 @@ def oauth_canvas_callback():
     err = request.args.get("error")
     err_desc = request.args.get("error_description") or ""
     if err:
+        if session.get("canvas_teacher_user_id"):
+            session.pop("canvas_teacher_user_id", None)
+            session.pop("canvas_oauth_state", None)
+            return redirect(url_for("roles_bp.teacher_dashboard", canvas="setup"))
         # Canvas returns ?error=invalid_client when the institution hasn't
         # registered IntelliPlan as a Developer Key. Redirect to the token
         # paste page with a clear explanation instead of a generic error.
@@ -8802,6 +8819,13 @@ def oauth_canvas_callback():
         return render_template("error.html", active_page="error", error_code=400,
                                error_id="CANVAS-OAUTH-STATE",
                                message="Canvas OAuth state did not match. Try again."), 400
+    teacher_user_id = session.pop("canvas_teacher_user_id", None)
+    if teacher_user_id is not None:
+        from intelliplan.api.roles import _adult_account
+        if (not current_user.is_authenticated or current_user.id != teacher_user_id
+                or current_user.role != "teacher" or not _adult_account(current_user)
+                or school_pilot.enabled() or not _lms_policy_allowed("canvas")):
+            return jsonify(error="canvas_teacher_access_unavailable"), 403
     redirect_uri = os.getenv("CANVAS_REDIRECT_URI") or (
         APP_BASE_URL.rstrip("/") + "/oauth/canvas/callback"
     )
@@ -8829,6 +8853,7 @@ def oauth_canvas_callback():
         "canvas_refresh_token": refresh_token,
         "canvas_token_expires_at": expires_at.isoformat() if expires_at else None,
         "canvas_oauth": True,
+        "canvas_teacher_read_only": teacher_user_id is not None,
     }
 
     if current_user.is_authenticated:
@@ -8856,7 +8881,7 @@ def oauth_canvas_callback():
         # obvious way home.
         session.modified = True
         return redirect(app_link.deep_link("connected", provider="canvas"))
-    return redirect("/command-center")
+    return redirect("/teacher" if teacher_user_id is not None else "/command-center")
 
 
 @app.route("/oauth/canvas/status")
@@ -10792,6 +10817,8 @@ def get_live_schedule():
         canvas_url = acct.get("canvas_url", "https://canvas.instructure.com")
         base = f"{canvas_url}/api/v1"
         headers = {"Authorization": f"Bearer {token}"}
+        from canvas_helper import planner_completed_assignments
+        planner_checked = planner_completed_assignments(base, headers)
         course_response = requests.get(f"{base}/courses", headers=headers, timeout=20)
         courses = course_response.json()
         course_map = {}
@@ -10823,6 +10850,7 @@ def get_live_schedule():
                 "id": str(a["id"]),
                 "source": "canvas",
                 "submission": a.get('submission'),
+                "canvas_planner_complete": str(a["id"]) in planner_checked,
                 "course_id": str(a["course_id"]),
                 "title": title,
                 "course": course_map.get(a["course_id"], "Unknown Course"),
@@ -13574,7 +13602,8 @@ def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True, in
             creds["login_type"] = acct.login_type
             if not creds.get("canvas_url"):
                 creds["canvas_url"] = "https://canvas.instructure.com"
-            acct_dict = creds
+            if not creds.get("canvas_teacher_read_only"):
+                acct_dict = creds
     except Exception:
         acct_dict = None
 
@@ -13620,6 +13649,8 @@ def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True, in
                 headers = {"Authorization": f"Bearer {token}"}
                 # Single 6s budget for the courses list — anything slower
                 # means Canvas is degraded and we'd rather show stale data
+                from canvas_helper import planner_completed_assignments
+                planner_checked = planner_completed_assignments(base, headers)
                 course_response = requests.get(f"{base}/courses", headers=headers, timeout=6)
                 courses = course_response.json()
                 course_map = {c["id"]: c.get("name", "Unknown") for c in courses if isinstance(c, dict) and "id" in c}
@@ -13664,6 +13695,7 @@ def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True, in
                             tasks.append({
                                 "id": str(a["id"]),
                                 "submission": a.get('submission'),
+                                "canvas_planner_complete": str(a["id"]) in planner_checked,
                                 "title": title,
                                 "course": course_map.get(a.get("course_id"), course_map.get(course_id, "Unknown")),
                                 "due_date": due_str,
@@ -13838,6 +13870,8 @@ def unified_tasks():
                 canvas_url = acct.get("canvas_url", "https://canvas.instructure.com")
                 base = f"{canvas_url}/api/v1"
                 headers = {"Authorization": f"Bearer {token}"}
+                from canvas_helper import planner_completed_assignments
+                planner_checked = planner_completed_assignments(base, headers)
                 course_response = requests.get(f"{base}/courses", headers=headers, timeout=20)
                 courses = course_response.json()
                 course_map = {c["id"]: c.get("name", "Unknown") for c in courses if isinstance(c, dict) and "id" in c}
@@ -13865,6 +13899,7 @@ def unified_tasks():
                         tasks.append({
                             "id": str(a["id"]),
                             "submission": a.get('submission'),
+                            "canvas_planner_complete": str(a["id"]) in planner_checked,
                             "course_id": str(a["course_id"]),
                             "title": title,
                             "course": course_map.get(a["course_id"], "Unknown"),
@@ -18681,6 +18716,10 @@ def founder_mode_toggle():
         return jsonify(error="not_found"), 404
     body = request.get_json(silent=True) or request.form
     mode = str(body.get("mode", "")).strip().lower()
+    preview_modes = {"student_preview": "student", "teacher_preview": "teacher", "family_preview": "family"}
+    if mode in preview_modes:
+        session["ip_founder_mode"] = True
+        return redirect(url_for("roles_bp.teacher_demo", view=preview_modes[mode]))
     if mode not in {"founder", "normal"}:
         return jsonify(error="invalid_mode"), 400
     session["ip_founder_mode"] = mode == "founder"

@@ -21,6 +21,19 @@ from App import CustomDescription, LinkedAccount, User, bcrypt, db, utcnow, _can
 PASSWORD = "overdue-grading-pw"
 
 
+def test_canvas_checklist_mark_is_distinct_from_submission_and_can_be_removed():
+    from intelliplan.services.assignment_status import submission_facts
+
+    checked = submission_facts({'canvas_planner_complete': True})
+    assert checked['submission_status'] == 'planner_checked'
+    assert checked['requires_action'] is False
+    assert checked['submission_verified'] is False
+    assert checked['awaiting_grade'] is False
+    assert submission_facts({'canvas_planner_complete': False})['requires_action'] is True
+    reopened = submission_facts({'canvas_planner_complete': True, 'submission_status': 'reopened'})
+    assert reopened['requires_action'] is True
+
+
 # ── The pure predicate ──────────────────────────────────────────────
 
 

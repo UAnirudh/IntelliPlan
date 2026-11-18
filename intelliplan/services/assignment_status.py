@@ -54,11 +54,14 @@ def submission_facts(record: dict) -> dict:
                   'awaiting_grade' if normalized in _WAITING_STATES else normalized)
     else:
         status = 'unknown'
+    if status in {'needs_action', 'unknown'} and not reopened and record.get('canvas_planner_complete') is True:
+        status = 'planner_checked'
     waiting = status in {'awaiting_grade', 'student_reported'}
     labels = {
         'awaiting_grade': 'Submitted · waiting for grade',
         'student_reported': 'You marked submitted · waiting for grade',
         'graded': 'Graded', 'completed': 'Completed', 'excused': 'Excused',
+        'planner_checked': 'Checked off in Canvas',
         'needs_action': 'Needs your attention', 'unknown': 'Submission not confirmed',
     }
     return {

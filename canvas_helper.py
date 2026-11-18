@@ -163,6 +163,19 @@ def get_courses(canvas_url, token):
     return [{"name": c.get("name", "Unknown")} for c in _fetch_courses(canvas_url, token)]
 
 
+def planner_completed_assignments(base, headers):
+    """Read the current Canvas user's checklist marks separately from submissions."""
+    from school_pilot import enabled
+    if enabled():
+        # The single-course pilot cannot call account-wide planner endpoints.
+        return set()
+    return {
+        str(row["plannable_id"]) for row in _get_list(f"{base}/planner/overrides", headers, timeout=4)
+        if isinstance(row, dict) and row.get("plannable_type") == "assignment"
+        and row.get("marked_complete") is True and row.get("plannable_id") is not None
+    }
+
+
 def get_assignments(canvas_url, token):
     """Return upcoming/ungraded assignments in StudentVue-compatible shape."""
     base = _base(canvas_url)

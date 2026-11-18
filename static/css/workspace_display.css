@@ -4,6 +4,9 @@
   --workspace-width: 820px;
   --workspace-type: 1rem;
   --workspace-space: 22px;
+  --workspace-gutter: clamp(16px, 3vw, 32px);
+  --workspace-measure: min(var(--workspace-width), calc(100% - 2 * var(--workspace-gutter)));
+  --workspace-soft: color-mix(in srgb, var(--text-primary) 5%, var(--bg));
   background: var(--bg);
 }
 .command-chat[data-display-accent="iris"] { --workspace-accent: #6854c7; }
@@ -17,16 +20,48 @@
 .command-chat[data-display-width="wide"] { --workspace-width: 1140px; }
 .command-chat[data-display-text="large"] { --workspace-type: 1.16rem; }
 .command-chat[data-display-density="compact"] { --workspace-space: 10px; }
-.command-chat .command-chat__header { min-height: 56px; padding: 8px clamp(16px, 3vw, 32px); border-color: color-mix(in srgb, var(--text-primary) 8%, transparent); }
+/* Header, reminder, thread and composer share the same reading edges. */
+.command-chat .command-chat__header {
+  width: var(--workspace-measure);
+  min-height: 58px;
+  margin-inline: auto;
+  padding: 8px 0;
+  border: 0;
+}
+.command-chat details.command-remind {
+  width: var(--workspace-measure);
+  box-sizing: border-box;
+  margin: 0 auto 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.command-chat .command-remind summary {
+  display: list-item;
+  width: fit-content;
+  min-height: 36px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+.command-chat .command-remind summary:hover { background: var(--workspace-soft); }
+.command-chat .command-remind[open] {
+  padding: 8px 14px 14px;
+  border-radius: 16px;
+  background: var(--workspace-soft);
+}
+@media (min-width: 769px) {
+  body.has-side .command-chat { inset: 0 0 0 var(--side-w); border: 0; }
+}
 .command-chat .command-chat__title { margin: 0; font-size: .95rem; }
-.command-chat .command-chat__btn { min-height: 40px; border-radius: 6px; padding: 10px 16px; background: color-mix(in srgb, var(--bg) 75%, transparent); }
-.command-chat #workspaceCustomize { border-color: transparent; color: var(--text-secondary); }
-.command-chat .command-chat__inner { width: 100%; max-width: var(--workspace-width); padding: 32px clamp(20px, 4vw, 48px); box-sizing: border-box; transition: max-width .2s ease; }
+.command-chat .command-chat__btn { min-height: 40px; border: 0; border-radius: 999px; padding: 10px 14px; background: transparent; }
+.command-chat #newConversation, .command-chat .command-chat__btn:hover { background: var(--workspace-soft); }
+.command-chat .command-chat__inner { width: var(--workspace-measure); max-width: none; padding: 32px 0; box-sizing: border-box; }
 .command-chat .command-chat__intro { margin: 0; padding: 12px 0 24px; }
-.command-chat .command-chat__intro h2 { font-size: clamp(1.9rem, 3.6vw, 2.7rem); font-weight: 650; letter-spacing: -.055em; line-height: 1.08; margin-bottom: 20px; text-wrap: balance; }
-.command-chat .command-chat__prompts { display: block; list-style: none; padding: 0; margin: 20px 0 0; border-block: 1px solid var(--border); }
+.command-chat .command-chat__intro h2 { font-size: clamp(1.9rem, 3.6vw, 2.7rem); font-weight: 650; letter-spacing: -.04em; line-height: 1.08; margin-bottom: 20px; text-wrap: balance; }
+.command-chat .command-chat__prompts { display: grid; gap: 6px; list-style: none; padding: 0; margin: 18px 0 0; border: 0; }
 /* Action rows follow Primer's ActionList pattern using native controls. */
-.command-chat .command-chat__prompts li + li { border-top: 1px solid var(--border); }
 body .command-chat .command-chat__prompts li > :is(button, a) {
   display: flex;
   flex-direction: column;
@@ -36,35 +71,47 @@ body .command-chat .command-chat__prompts li > :is(button, a) {
   min-height: 52px;
   padding: 10px 12px;
   border: 0;
-  border-radius: 4px;
+  border-radius: 14px;
   background: transparent !important;
   text-align: left;
 }
 body .command-chat .command-chat__prompts li > :is(button, a):hover {
-  background: var(--bg-elevated) !important;
+  background: var(--workspace-soft) !important;
 }
 .command-chat__prompts li > :is(button, a):focus-visible {
   outline: 2px solid var(--workspace-accent);
   outline-offset: -2px;
 }
 .command-chat .command-chat__message { font-size: var(--workspace-type); margin-top: var(--workspace-space); line-height: 1.75; }
-.command-chat .command-chat__message--user { border: 1px solid color-mix(in srgb, var(--workspace-accent) 18%, var(--border)); background: color-mix(in srgb, var(--workspace-accent) 7%, var(--bg-card)); border-radius: 6px; padding: 13px 18px; }
+.command-chat .command-chat__message--user { border: 1px solid color-mix(in srgb, var(--workspace-accent) 18%, var(--border)); background: color-mix(in srgb, var(--workspace-accent) 7%, var(--bg-card)); border-radius: 18px; padding: 13px 18px; }
 .command-chat .command-chat__message--assistant { width: 100%; max-width: 100%; }
-.command-chat[data-display-presentation="cards"] .command-chat__message--assistant { box-sizing: border-box; padding: 22px; border: 1px solid var(--border); border-left: 3px solid var(--workspace-accent); border-radius: 6px; background: var(--bg-card); }
-.command-chat .command-chat__schedule { border-radius: 8px; box-shadow: none; }
-.command-chat .command-chat__schedule-days > div { border-left: 3px solid color-mix(in srgb, var(--workspace-accent) 55%, var(--border)); }
+body .command-chat[data-display-presentation="cards"] .command-chat__message--assistant { box-sizing: border-box; padding: 18px; border: 0; border-radius: 18px; background: var(--workspace-soft) !important; }
+body.has-side .command-chat .command-chat__schedule { border: 0 !important; border-radius: 18px !important; }
+.command-chat .command-chat__schedule-days > div { border: 0; border-radius: 14px; background: var(--workspace-soft); }
 .command-chat[data-display-plan="agenda"] .command-chat__schedule-days { grid-template-columns: 1fr; }
 .command-chat[data-display-plan="agenda"] .command-chat__schedule-days > div { display: grid; grid-template-columns: 130px 1fr; gap: 16px; padding: 16px 20px; }
 .command-chat[data-display-density="compact"] .command-chat__schedule-days > div { padding: 8px 14px; }
-.command-chat .command-chat__composer { box-sizing: border-box; width: min(calc(var(--workspace-width) - 80px), calc(100% - 40px)); padding: 16px 18px 12px; border-radius: 10px; margin-bottom: 24px; border-color: color-mix(in srgb, var(--workspace-accent) 27%, var(--border)); box-shadow: none; }
-.command-chat .command-chat__composer:focus-within { border-color: var(--workspace-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--workspace-accent) 12%, transparent); }
+body.has-side .command-chat .command-chat__composer {
+  box-sizing: border-box;
+  width: var(--workspace-measure);
+  padding: 14px 16px 10px;
+  margin-bottom: 18px;
+  background: var(--workspace-soft) !important;
+  border: 0 !important;
+  border-radius: 24px !important;
+  box-shadow: none !important;
+}
+body.has-side .command-chat .command-chat__composer:focus-within {
+  outline: 2px solid var(--workspace-accent);
+  outline-offset: 2px;
+}
 .workspace-composer-label { display: flex; gap: 7px; align-items: center; font-size: .8rem; font-weight: 650; letter-spacing: 0; color: var(--text-secondary); margin-bottom: 10px; }
 .command-chat .command-chat__composer textarea { font-size: var(--workspace-type); }
 body.has-side.has-own-chat .command-chat .command-chat__composer #chatInput {
   border: 0 !important; border-radius: 0; outline: none; box-shadow: none !important;
 }
-.command-chat .command-chat__composer button { width: 42px; height: 42px; margin-inline-start: auto; border-radius: 6px; background: var(--text-primary); }
-.workspace-controls { position: absolute; z-index: 10; right: 24px; top: 56px; width: min(490px, calc(100% - 32px)); box-sizing: border-box; background: var(--bg-card); border: 1px solid var(--border-strong, var(--border)); border-radius: 10px; padding: 24px; box-shadow: 0 6px 20px #0002; max-height: calc(100% - 100px); overflow-y: auto; }
+.command-chat .command-chat__composer button { width: 42px; height: 42px; margin-inline-start: auto; border-radius: 50%; background: var(--text-primary); }
+.workspace-controls { position: absolute; z-index: 10; right: 24px; top: 56px; width: min(490px, calc(100% - 32px)); box-sizing: border-box; background: var(--bg-card); border: 1px solid var(--border-strong, var(--border)); border-radius: 20px; padding: 24px; box-shadow: 0 6px 20px #0002; max-height: calc(100% - 100px); overflow-y: auto; }
 .workspace-controls[hidden] { display: none; }
 .workspace-controls__heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .workspace-controls h2 { margin: 6px 0; font-size: 1.45rem; font-weight: 650; letter-spacing: -.035em; }
@@ -73,19 +120,18 @@ body.has-side.has-own-chat .command-chat .command-chat__composer #chatInput {
 .workspace-controls label { display: flex; flex-direction: column; gap: 7px; color: var(--text-secondary); font-size: .76rem; }
 .workspace-controls select { width: 100%; min-height: 44px; font: inherit; font-size: .87rem; color: var(--text-primary); background: var(--bg); border: 1px solid var(--border-strong, var(--border)); border-radius: 10px; padding: 8px 10px; }
 .workspace-controls select:focus-visible { outline: 2px solid var(--workspace-accent); outline-offset: 2px; }
-.workspace-controls__footer { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border); }
+.workspace-controls__footer { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
 .workspace-controls__footer span { font-size: .72rem; color: var(--text-secondary); }
 @media (max-width: 768px) {
-  .command-chat .command-chat__header { min-height: 54px; padding: 10px 16px; }
+  .command-chat .command-chat__header { min-height: 54px; padding: 6px 0; }
   .command-chat .command-chat__actions { gap: 5px; }
   .command-chat .command-chat__btn { font-size: .72rem; padding: 9px 11px; }
   .command-chat__actions > a:first-of-type { display: none; }
-  .command-chat .command-chat__inner { padding: 22px 20px; }
+  .command-chat .command-chat__inner { padding: 18px 0; }
   .command-chat .command-chat__intro { padding-top: 10px; }
   .command-chat .command-chat__intro h2 { font-size: clamp(2rem, 7.7vw, 3rem); }
-  .command-chat .command-chat__composer { margin-bottom: 10px; width: calc(100% - 24px); border-radius: 8px; }
+  body.has-side .command-chat .command-chat__composer { margin-bottom: 8px; }
   .workspace-controls { top: 54px; right: 12px; padding: 20px; }
   .command-chat[data-display-plan="agenda"] .command-chat__schedule-days > div { grid-template-columns: 1fr; gap: 5px; }
 }
-@media (prefers-reduced-motion: reduce) { .command-chat .command-chat__inner { transition: none; } }
 @media (max-width: 380px) { .workspace-controls__grid { grid-template-columns: 1fr; } }
