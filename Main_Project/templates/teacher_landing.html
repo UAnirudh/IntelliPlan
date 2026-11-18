@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block page_title %}For Teachers | IntelliPlan{% endblock %}
+{% block meta_description %}A calm, consent-first view of shared student work for teachers. Create a teacher account to invite students and explore IntelliPlan's teacher workspace.{% endblock %}
+{% block content %}
+<style>
+  .tld-page { max-width:1040px; margin:0 auto; padding:clamp(2rem,6vw,5rem) 1rem; }
+  .tld-hero { display:grid; grid-template-columns:minmax(0,1.15fr) minmax(260px,.85fr); gap:clamp(1.5rem,4vw,3.5rem); align-items:center; }
+  .tld-kicker { color:var(--accent); font:700 .74rem var(--font-ui); letter-spacing:.12em; text-transform:uppercase; }
+  .tld-title { margin:.75rem 0 1rem; max-width:13ch; color:var(--text-primary); font:clamp(2.3rem,5vw,4rem)/1.02 var(--font-display); letter-spacing:-.04em; }
+  .tld-lede { max-width:54ch; color:var(--text-secondary); font:1.08rem/1.7 var(--font-ui); }
+  .tld-cta { display:flex; flex-wrap:wrap; gap:.7rem; margin:1.5rem 0 .75rem; }
+  .tld-cta a { padding:.9rem 1.2rem; border-radius:12px; font-weight:700; text-decoration:none; }
+  .tld-note { color:var(--text-muted); font-size:.82rem; line-height:1.55; }
+  .tld-preview { padding:1.3rem; border:1px solid var(--glass-border); border-radius:24px; background:var(--glass-bg); box-shadow:var(--glass-shadow); }
+  .tld-preview-head { display:flex; justify-content:space-between; gap:1rem; align-items:center; padding-bottom:1rem; border-bottom:1px solid var(--border); }
+  .tld-preview-head strong { color:var(--text-primary); }
+  .tld-badge { padding:.35rem .65rem; border-radius:99px; background:var(--accent-soft); color:var(--accent); font-size:.7rem; font-weight:700; }
+  .tld-student { display:flex; gap:.75rem; align-items:center; margin:1rem 0; }
+  .tld-avatar { display:grid; place-items:center; width:40px; height:40px; border-radius:50%; background:var(--accent-soft); color:var(--accent); font-weight:700; }
+  .tld-student small { display:block; color:var(--text-muted); }
+  .tld-task { padding:.8rem 0; border-top:1px solid var(--border); color:var(--text-secondary); font-size:.88rem; }
+  .tld-task b { display:block; color:var(--text-primary); margin-bottom:.2rem; }
+  .tld-section { margin-top:clamp(2.5rem,6vw,4.5rem); }
+  .tld-section h2 { color:var(--text-primary); font:clamp(1.5rem,3vw,2rem) var(--font-display); }
+  .tld-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:1rem; }
+  .tld-card { padding:1.2rem; border:1px solid var(--border-strong); border-radius:18px; background:var(--glass-bg); }
+  .tld-card h3 { margin:.2rem 0 .45rem; color:var(--text-primary); font-size:1rem; }
+  .tld-card p { margin:0; color:var(--text-secondary); line-height:1.6; font-size:.88rem; }
+  @media(max-width:760px) { .tld-hero { grid-template-columns:1fr; } .tld-title { max-width:16ch; } }
+</style>
+<main class="tld-page">
+  <section class="tld-hero">
+    <div>
+      <span class="tld-kicker">A clearer view for teachers</span>
+      <h1 class="tld-title">Help students find their next step.</h1>
+      <p class="tld-lede">IntelliPlan helps students organize assignments and study time. Teachers can invite students and see only the work each student chooses to share.</p>
+      <div class="tld-cta">
+        <a class="btn-primary" href="/register?next=/teacher">Create a teacher account</a>
+        <a class="btn-secondary" href="/login/account?next=/teacher">Teacher sign in</a>
+      </div>
+      <p class="tld-note">Sign-up uses an email address, password, and birth year for adult-account verification. Teacher accounts are for adults.</p>
+    </div>
+    <aside class="tld-preview" aria-label="Illustration of the teacher dashboard">
+      <div class="tld-preview-head"><strong>Shared student overview</strong><span class="tld-badge">Example</span></div>
+      <div class="tld-student"><span class="tld-avatar" aria-hidden="true">J</span><div><strong>Jordan R.</strong><small>Example student · shared with permission</small></div></div>
+      <div class="tld-task"><b>Biology · Cell models</b>Due Thursday · In progress</div>
+      <div class="tld-task"><b>History · Source notes</b>Due Friday · Planned</div>
+      <p class="tld-note">This illustration is fabricated. Real student details appear only after that student approves access.</p>
+    </aside>
+  </section>
+  <section class="tld-section">
+    <h2>Useful context, with student choice built in.</h2>
+    <div class="tld-grid">
+      <article class="tld-card"><h3>Invite your students</h3><p>Send an invitation by email. Students review the request and approve or decline it from their account.</p></article>
+      <article class="tld-card"><h3>See shared work</h3><p>View permitted assignments, deadlines, and progress in one place. Private tutor conversations and answers stay private.</p></article>
+      <article class="tld-card"><h3>Use a fictional preview</h3><p>Explore a sample student week with fabricated assignments and browser-only progress controls before inviting anyone.</p></article>
+    </div>
+  </section>
+</main>
+{% endblock %}

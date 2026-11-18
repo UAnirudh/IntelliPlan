@@ -635,6 +635,8 @@ body {
 <!-- ══════════════════════════════════════
      APP SIDEBAR (desktop), only for in-app pages
 ══════════════════════════════════════ -->
+{%- set _study_sub = ['tutor','priority','classes','grades','dismissed','tests','study','learn','focus','library','streak','lessons','writing','math','extractor','meetings','groups','study_hub'] -%}
+{%- set _more_nav_pages = ['primer','memories','flashcards','courses','features','gradebook','grademodel','streak','pet','balance','my_stats','priority','classes','grades','dismissed','tests','tutor','study','learn','focus','library','lessons','writing','math','extractor','meetings','groups','connect','settings','teacher','parent','school_admin'] -%}
 {% if active_page in _app_pages %}
 <aside class="app-side" aria-label="Primary navigation">
   <a href="/" class="side-logo" aria-label="IntelliPlan home">
@@ -658,37 +660,38 @@ body {
     <span class="kbd-hint">⌘K</span>
   </button>
 
-  {# ── Simplified nav: Dashboard, Scheduler, Grade Modeler, Study & Learn hub ── #}
-  {%- set _study_sub = ['tutor','priority','classes','grades','dismissed','tests','study','learn','focus','library','streak','lessons','writing','math','extractor','meetings','groups','study_hub'] -%}
+  {# ── Primary destinations: plan, assignments, focus, and learning. ── #}
   <div class="side-nav-list" id="sideNavList">
-    <h2 class="side-section-label">Plan &amp; focus</h2>
+    <h2 class="side-section-label">Your workspace</h2>
     <a href="/command-center" data-nav-item="command_center" class="side-link {% if active_page == 'command_center' %}active{% endif %}">
       <span class="side-icon"><svg><use href="#i-lightning"/></svg></span>Command Center
     </a>
     <a href="/dashboard" data-nav-item="dashboard" class="side-link {% if active_page == 'dashboard' %}active{% endif %}">
       <span class="side-icon"><svg><use href="#i-dashboard"/></svg></span>Dashboard
     </a>
-    {% if is_founder and founder_mode %}
-    <a href="/founder" data-nav-item="founder" class="side-link {% if active_page == 'founder' %}active{% endif %}">
-      <span class="side-icon"><svg><use href="#i-chart-bar"/></svg></span>Founder console
-    </a>
-    {% endif %}
     <a href="/scheduler" data-nav-item="scheduler" class="side-link {% if active_page == 'scheduler' %}active{% endif %}">
       <span class="side-icon"><svg><use href="#i-scheduler"/></svg></span>Scheduler
     </a>
     <a href="/active" data-nav-item="active" class="side-link {% if active_page == 'active' %}active{% endif %}">
       <span class="side-icon"><svg><use href="#i-video"/></svg></span>Active Study
     </a>
+    <a href="/study-and-learn" data-nav-item="study_hub" class="side-link {% if active_page in _study_sub %}active{% endif %}">
+      <span class="side-icon"><svg><use href="#i-study"/></svg></span>Study &amp; Learn
+    </a>
 
-    <h2 class="side-section-label">Study &amp; explore</h2>
+    <details class="side-more" {% if active_page in _more_nav_pages %}open{% endif %}>
+      <summary class="side-more-summary"><span>More</span><span class="side-more-count">Tools &amp; progress</span></summary>
+      {% if is_founder and founder_mode %}
+      <a href="/founder" data-nav-item="founder" class="side-link {% if active_page == 'founder' %}active{% endif %}">
+        <span class="side-icon"><svg><use href="#i-chart-bar"/></svg></span>Founder console
+      </a>
+      {% endif %}
+      <h2 class="side-section-label">Study &amp; explore</h2>
     <a href="/foundations" data-nav-item="primer" class="side-link {% if active_page == 'primer' %}active{% endif %}">
       <span class="side-icon"><svg><use href="#i-book"/></svg></span>Foundations
     </a>
     <a href="/memories" data-nav-item="memories" class="side-link {% if active_page == 'memories' %}active{% endif %}">
       <span class="side-icon"><svg><use href="#i-save"/></svg></span>Memories
-    </a>
-    <a href="/study-and-learn" data-nav-item="study_hub" class="side-link {% if active_page in _study_sub %}active{% endif %}">
-      <span class="side-icon"><svg><use href="#i-study"/></svg></span>Study &amp; Learn
     </a>
     <a href="/flashcards" data-nav-item="flashcards" class="side-link {% if active_page == 'flashcards' %}active{% endif %}">
       <span class="side-icon"><svg><use href="#i-clipboard"/></svg></span>Flashcards
@@ -700,7 +703,7 @@ body {
       <span class="side-icon"><svg><use href="#i-lightning"/></svg></span>Ideas
     </a>
 
-    <h2 class="side-section-label">Progress</h2>
+      <h2 class="side-section-label">Progress</h2>
     <a href="/gradebook" data-nav-item="gradebook" class="side-link {% if active_page in ['gradebook','grademodel'] %}active{% endif %}">
       <span class="side-icon"><svg><use href="#i-modeler"/></svg></span>Grade Modeler
     </a>
@@ -719,6 +722,7 @@ body {
       <span class="side-icon"><svg><use href="#i-modeler"/></svg></span>My Stats
     </a>
 
+    </details>
   </div>
 
   {# Sidebar customizer trigger #}
@@ -781,32 +785,24 @@ body {
   <div class="header-right">
     <nav class="nav-tabs" id="mainNav" aria-label="Main navigation">
       {% if logged_in %}
-      {# ── APP NAV (authenticated users), mirrors the sidebar so the top
-           bar never gets clumped on the default page. Anything not in
-           the sidebar lives in the sidebar's customizer or command palette. #}
+      {# ── APP NAV: four everyday destinations stay visible. The mobile
+           drawer keeps the rest under one disclosure; desktop users also
+           have the full sidebar and command palette. #}
       <div class="nav-group">
-        <span class="nav-more-head">Main</span>
-        <a href="/command-center" class="nav-tab nav-more-item {% if active_page == 'command_center' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-lightning"/></svg></span><span class="nav-label">Command Center</span></a>
-        <a href="/foundations" class="nav-tab nav-more-item {% if active_page == 'primer' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-book"/></svg></span><span class="nav-label">Foundations</span></a>
-        <a href="/dashboard"       class="nav-tab {% if active_page == 'dashboard' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-dashboard"/></svg></span><span class="nav-label">Dashboard</span></a>
+        <a href="/command-center" class="nav-tab {% if active_page == 'command_center' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-lightning"/></svg></span><span class="nav-label">Home</span></a>
         <a href="/scheduler"       class="nav-tab {% if active_page == 'scheduler' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-scheduler"/></svg></span><span class="nav-label">Scheduler</span></a>
         {# Active sits next to Scheduler because that is the order the two are
            used in: build the plan, then do the work. It was in the sidebar but
            missing from this bar entirely, so on a phone it was unreachable. #}
         <a href="/active"          class="nav-tab {% if active_page == 'active' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-video"/></svg></span><span class="nav-label">Active</span></a>
-        <a href="/memories"        class="nav-tab {% if active_page == 'memories' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-save"/></svg></span><span class="nav-label">Memories</span></a>
-        <a href="/gradebook"       class="nav-tab {% if active_page in ['gradebook','grademodel'] %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-modeler"/></svg></span><span class="nav-label">Grade Modeler</span></a>
         <a href="/study-and-learn" class="nav-tab {% if active_page in _study_sub %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-study"/></svg></span><span class="nav-label">Study &amp; Learn</span></a>
       </div>
-      {# ── EVERYTHING ELSE, drawer only ───────────────────────────
-           On a phone the sidebar is hidden, so this <nav> IS the whole
-           app menu — and it used to carry only the six tabs the desktop
-           top bar shows, which left Flashcards, Streak, My Pet, Balance,
-           My Stats and every tool page reachable on a laptop and nowhere
-           on a phone. These groups render only in the drawer (they are
-           display:none above 768px), so the desktop bar keeps its six. #}
+      {# ── Secondary destinations, available on demand in the drawer. ── #}
+      <details class="nav-more-disclosure" {% if active_page in _more_nav_pages or active_page == 'dashboard' %}open{% endif %}>
+      <summary class="nav-more-summary">More <span aria-hidden="true">⌄</span></summary>
       <div class="nav-group nav-more">
         <span class="nav-more-head">Plan</span>
+        <a href="/dashboard" class="nav-tab {% if active_page == 'dashboard' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-dashboard"/></svg></span><span class="nav-label">Dashboard</span></a>
         <a href="/priority"  class="nav-tab {% if active_page == 'priority' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-priority"/></svg></span><span class="nav-label">Priority Queue</span></a>
         <a href="/classes"   class="nav-tab {% if active_page == 'classes' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-classes"/></svg></span><span class="nav-label">Classes</span></a>
         <a href="/grades"    class="nav-tab {% if active_page == 'grades' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-grades"/></svg></span><span class="nav-label">Grades</span></a>
@@ -844,6 +840,7 @@ body {
         <a href="/meetings" class="nav-tab {% if active_page == 'meetings' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-video"/></svg></span><span class="nav-label">Meetings</span></a>
         <a href="/connect"  class="nav-tab {% if active_page == 'connect' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-link"/></svg></span><span class="nav-label">Integrations</span></a>
       </div>
+      </details>
       <div class="nav-divider" aria-hidden="true"></div>
       <div class="nav-group">
         <span class="nav-more-head">Account</span>
@@ -865,16 +862,20 @@ body {
            Only public, indexable destinations live here. ── #}
       <div class="nav-group">
         <a href="/tutor"   class="nav-tab nav-tab-tutor {% if active_page == 'tutor' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-tutor"/></svg></span><span class="nav-label">AI Tutor</span></a>
-        <a href="/tools/text-dissector" class="nav-tab {% if active_page == 'text_dissector' %}active{% endif %}"><span class="nav-label">Text Dissector</span></a>
-        <a href="/about" class="nav-tab {% if active_page == 'about' %}active{% endif %}"><span class="nav-label">About</span></a>
-        <a href="/compare" class="nav-tab {% if active_page == 'compare' %}active{% endif %}"><span class="nav-label">Compare</span></a>
-        <a href="/faq"     class="nav-tab {% if active_page == 'faq' %}active{% endif %}"><span class="nav-label">FAQ</span></a>
-        <a href="https://mintlify.wiki/UAnirudh/IntelliPlan/" target="_blank" rel="noopener noreferrer" class="nav-tab" aria-label="IntelliPlan documentation (opens in a new tab)"><span class="nav-label">Docs</span></a>
-        {# The desktop app was reachable only from a footer link, which is
-           where links go to be ignored. It is a shipped platform, so it
-           belongs in the nav next to everything else you can actually get. #}
-        <a href="/download" class="nav-tab {% if active_page == 'download' %}active{% endif %}"><span class="nav-label">Download</span></a>
+        <a href="/demo" class="nav-tab {% if active_page == 'demo' %}active{% endif %}"><span class="nav-label">Demo</span></a>
+        <a href="/teacher" class="nav-tab {% if active_page == 'teacher' %}active{% endif %}"><span class="nav-label">For teachers</span></a>
       </div>
+      <details class="nav-marketing-more" {% if active_page in ['about','compare','faq','text_dissector','download'] %}open{% endif %}>
+        <summary class="nav-marketing-summary">More</summary>
+        <div class="nav-marketing-panel">
+          <a href="/tools/text-dissector" class="nav-tab {% if active_page == 'text_dissector' %}active{% endif %}"><span class="nav-label">Text Dissector</span></a>
+          <a href="/about" class="nav-tab {% if active_page == 'about' %}active{% endif %}"><span class="nav-label">About</span></a>
+          <a href="/compare" class="nav-tab {% if active_page == 'compare' %}active{% endif %}"><span class="nav-label">Compare</span></a>
+          <a href="/faq" class="nav-tab {% if active_page == 'faq' %}active{% endif %}"><span class="nav-label">FAQ</span></a>
+          <a href="https://mintlify.wiki/UAnirudh/IntelliPlan/" target="_blank" rel="noopener noreferrer" class="nav-tab" aria-label="IntelliPlan documentation (opens in a new tab)"><span class="nav-label">Docs</span></a>
+          <a href="/download" class="nav-tab {% if active_page == 'download' %}active{% endif %}"><span class="nav-label">Download</span></a>
+        </div>
+      </details>
       <div class="nav-divider" aria-hidden="true"></div>
       <div class="nav-group">
         <a href="/login" class="nav-tab {% if active_page == 'login' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-login"/></svg></span><span class="nav-label">Log in</span></a>
@@ -1811,7 +1812,7 @@ if (mobileMenuBtn) {
       }
       const sectionEnd = nextHeading;
       sectionLinks.sort((a, b) => rank(a.dataset.navItem) - rank(b.dataset.navItem) || links.indexOf(a) - links.indexOf(b));
-      sectionLinks.forEach(link => list.insertBefore(link, sectionEnd));
+      sectionLinks.forEach(link => heading.parentElement.insertBefore(link, sectionEnd));
     });
   }
 
@@ -3119,6 +3120,10 @@ window.addEventListener('load',()=>{
 
 {# ── Floating feedback widget (authenticated pages only) ── #}
 {% if active_page in _app_pages and current_user is defined and current_user.is_authenticated %}
+<button type="button" class="ip-bug-shortcut" data-ip-bug-report aria-label="Report a bug">
+  <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 8h8a4 4 0 0 1 4 4v5a3 3 0 0 1-3 3h-1l-2-2h-4l-2 2H7a3 3 0 0 1-3-3v-5a4 4 0 0 1 4-4Z"/><path d="M9 12v3m6-3v3M9 5l2 3m4-3-2 3M3 12h4m10 0h4"/></svg>
+  <span>Report a bug</span>
+</button>
 <div id="ipFeedback" class="ip-fb" hidden>
   <button type="button" class="ip-fb-hide" id="ipFbHideBtn" onclick="ipFbHideWidget()" aria-label="Hide feedback button" title="Hide feedback button">&times;</button>
   <button type="button" class="ip-fb-trigger" id="ipFbTrigger" aria-label="Send feedback" title="Send feedback">
@@ -3162,6 +3167,12 @@ window.addEventListener('load',()=>{
   </div>
 </div>
 <style>
+/* Persistent, low-profile bug entry point in the bottom-left corner. */
+.ip-bug-shortcut{position:fixed;left:18px;bottom:18px;z-index:1000;display:inline-flex;align-items:center;gap:8px;padding:10px 13px;border:1px solid color-mix(in srgb,var(--border-strong) 72%,transparent);border-radius:999px;background:color-mix(in srgb,var(--bg-card) 90%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);color:var(--text-secondary);font:600 .78rem/1 var(--font-ui);box-shadow:0 8px 24px rgba(20,24,32,.12);cursor:pointer;transition:transform .16s ease,background .16s ease,color .16s ease,box-shadow .16s ease}
+.ip-bug-shortcut:hover{transform:translateY(-2px);background:var(--bg-card);color:var(--text-primary);box-shadow:0 12px 30px rgba(20,24,32,.16)}
+.ip-bug-shortcut:focus-visible{outline:2px solid var(--focus-ring);outline-offset:3px}
+body.has-tabbar .ip-bug-shortcut{bottom:calc(var(--ipx-tab-h, 64px) + var(--ipx-bottom, 12px) + 14px)}
+@media(max-width:480px){.ip-bug-shortcut{left:12px;bottom:calc(12px + env(safe-area-inset-bottom));padding:11px;border-radius:50%}.ip-bug-shortcut span{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}}
 /* Stacked above the Plani assistant (which sits at bottom:24px) so the two
    floating controls no longer overlap in the bottom-right corner. */
 .ip-fb{position:fixed;bottom:92px;right:24px;z-index:1001;font-family:var(--font-ui)}

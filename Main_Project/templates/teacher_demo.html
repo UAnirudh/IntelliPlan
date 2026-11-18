@@ -1,0 +1,82 @@
+{% extends "adult_base.html" %}
+{% block page_title %}Fictional Student Preview | IntelliPlan{% endblock %}
+{% block content %}
+<style>
+  .tdemo { max-width:1000px; margin:0 auto; display:grid; gap:1.2rem; }
+  .tdemo-banner { padding:1rem 1.2rem; border:1px solid var(--border-accent); border-radius:16px; background:var(--accent-soft); color:var(--text-primary); line-height:1.55; }
+  .tdemo-banner strong { display:block; margin-bottom:.2rem; }
+  .tdemo-top { display:flex; justify-content:space-between; align-items:flex-start; gap:1rem; flex-wrap:wrap; }
+  .tdemo-top h1 { margin:.2rem 0 .35rem; color:var(--text-primary); font:clamp(1.7rem,3vw,2.3rem) var(--font-display); }
+  .tdemo-muted { color:var(--text-muted); line-height:1.55; margin:0; }
+  .tdemo-profile, .tdemo-card { padding:1.1rem 1.2rem; border:1px solid var(--glass-border); border-radius:18px; background:var(--glass-bg); box-shadow:var(--neu-shadow-sm); }
+  .tdemo-profile { display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; }
+  .tdemo-student { display:flex; align-items:center; gap:.75rem; }
+  .tdemo-avatar { display:grid; place-items:center; width:46px; height:46px; border-radius:50%; background:var(--accent-soft); color:var(--accent); font-weight:700; font-size:1.1rem; }
+  .tdemo-student small { display:block; margin-top:.2rem; color:var(--text-muted); }
+  .tdemo-stats { display:flex; gap:1.4rem; flex-wrap:wrap; }
+  .tdemo-stats b { display:block; color:var(--text-primary); font-size:1.1rem; }
+  .tdemo-stats span { color:var(--text-muted); font-size:.75rem; }
+  .tdemo-list { display:grid; gap:.75rem; }
+  .tdemo-task { display:grid; grid-template-columns:auto minmax(0,1fr) auto; gap:.8rem; align-items:center; padding:.9rem 1rem; border:1px solid var(--border); border-radius:14px; background:var(--bg-card); }
+  .tdemo-task input { width:19px; height:19px; accent-color:var(--accent); cursor:pointer; }
+  .tdemo-task h3 { color:var(--text-primary); font-size:.95rem; margin:0 0 .25rem; }
+  .tdemo-task p { color:var(--text-muted); font-size:.8rem; margin:0; }
+  .tdemo-course { color:var(--text-secondary); text-align:right; font-size:.78rem; }
+  .tdemo-task[data-done="true"] h3 { text-decoration:line-through; color:var(--text-muted); }
+  .tdemo-task[data-done="true"] .tdemo-course { color:var(--accent); }
+  .tdemo-actions { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:.7rem; }
+  .tdemo-status { min-height:1.4em; color:var(--text-secondary); font-size:.85rem; }
+  @media(max-width:580px) { .tdemo-task { grid-template-columns:auto minmax(0,1fr); } .tdemo-course { grid-column:2; text-align:left; } }
+</style>
+<main class="tdemo" data-demo="fictional-teacher-preview">
+  <div class="tdemo-banner" role="note">
+    <strong>Fictional preview · no real student data</strong>
+    Every student, class, assignment, and progress state below is invented for this walkthrough. Toggling progress changes only this page; no records are sent to or saved by IntelliPlan.
+  </div>
+  <header class="tdemo-top">
+    <div><p class="page-kicker">Teacher workspace · preview</p><h1>A sample student week</h1><p class="tdemo-muted">Explore the kind of work a student may choose to share.</p></div>
+    <a class="btn-secondary" href="/teacher">Back to teacher dashboard</a>
+  </header>
+  <section class="tdemo-profile" aria-label="Fictional student summary">
+    <div class="tdemo-student"><span class="tdemo-avatar" aria-hidden="true">J</span><div><strong>Jordan Rivera</strong><small>Fictional student · sample data only</small></div></div>
+    <div class="tdemo-stats"><div><b id="tdemoDone">1 / 4</b><span>EXAMPLE TASKS DONE</span></div><div><b>4</b><span>EXAMPLE CLASSES</span></div><div><b>2.6 hr</b><span>PLANNED THIS WEEK</span></div></div>
+  </section>
+  <section class="tdemo-card" aria-labelledby="tdemoTasksHeading">
+    <h2 id="tdemoTasksHeading">Shared assignments</h2>
+    <p class="tdemo-muted" style="margin:.3rem 0 1rem;">Mark sample work complete to see how progress changes. These controls are a local demonstration only.</p>
+    <div class="tdemo-list" id="tdemoList">
+      <label class="tdemo-task" data-done="true"><input type="checkbox" checked aria-label="Mark Biology cell model complete"><span><h3>Build a cell model</h3><p>Due Wednesday · 35 minutes · On track</p></span><span class="tdemo-course">Biology</span></label>
+      <label class="tdemo-task" data-done="false"><input type="checkbox" aria-label="Mark English argument outline complete"><span><h3>Draft an argument outline</h3><p>Due Thursday · 50 minutes · Planned</p></span><span class="tdemo-course">English</span></label>
+      <label class="tdemo-task" data-done="false"><input type="checkbox" aria-label="Mark Algebra practice set complete"><span><h3>Finish practice set 4</h3><p>Due Friday · 40 minutes · Needs a start</p></span><span class="tdemo-course">Algebra II</span></label>
+      <label class="tdemo-task" data-done="false"><input type="checkbox" aria-label="Mark World History source notes complete"><span><h3>Collect two primary sources</h3><p>Due Monday · 30 minutes · Planned</p></span><span class="tdemo-course">World History</span></label>
+    </div>
+    <div class="tdemo-actions" style="margin-top:1rem;">
+      <span id="tdemoStatus" class="tdemo-status" role="status" aria-live="polite">1 of 4 fictional assignments marked complete.</span>
+      <button class="btn-secondary" id="tdemoReset" type="button">Reset example</button>
+    </div>
+  </section>
+  <p class="tdemo-muted">In the real teacher workspace, invitations require the student's approval. The teacher sees only the information the student has chosen to share.</p>
+</main>
+<script>
+(function () {
+  const list = document.getElementById('tdemoList');
+  const boxes = Array.from(list.querySelectorAll('input[type="checkbox"]'));
+  const total = boxes.length;
+  function update() {
+    const done = boxes.filter(box => box.checked).length;
+    boxes.forEach(box => {
+      const row = box.closest('.tdemo-task');
+      row.dataset.done = box.checked ? 'true' : 'false';
+    });
+    document.getElementById('tdemoDone').textContent = done + ' / ' + total;
+    document.getElementById('tdemoStatus').textContent = done + ' of ' + total + ' fictional assignments marked complete.';
+  }
+  boxes.forEach(box => box.addEventListener('change', update));
+  document.getElementById('tdemoReset').addEventListener('click', function () {
+    boxes.forEach((box, i) => { box.checked = i === 0; });
+    update();
+    boxes[0].focus();
+  });
+})();
+</script>
+{% endblock %}

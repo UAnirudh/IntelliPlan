@@ -350,6 +350,30 @@ select {
   /* ── Drawer-only destinations ──────────────────────────────
      The phone has no sidebar, so this drawer is the whole menu.
      Sectioned, because a flat list of two dozen links is a wall. */
+  #mainNav .nav-more-disclosure { display: block !important; width: 100%; margin: 4px 0; }
+  #mainNav .nav-marketing-more { display:block; width:100%; margin:4px 0; }
+  #mainNav .nav-marketing-summary {
+    display:flex; align-items:center; justify-content:space-between;
+    min-height:46px; padding:11px 14px; border-radius:12px;
+    color:var(--text-secondary); font-size:.95rem; font-weight:600;
+    cursor:pointer; list-style:none;
+  }
+  #mainNav .nav-marketing-summary::-webkit-details-marker { display:none; }
+  #mainNav .nav-marketing-summary::after { content:"⌄"; transition:transform .16s ease; }
+  #mainNav .nav-marketing-more[open] > .nav-marketing-summary::after { transform:rotate(180deg); }
+  #mainNav .nav-marketing-summary:hover { background:color-mix(in srgb,var(--text-primary) 6%,transparent); }
+  #mainNav .nav-marketing-panel { position:static; min-width:0; padding:0 4px; border:0; border-radius:0; box-shadow:none; background:transparent; }
+  #mainNav .nav-marketing-panel .nav-tab { width:100%; justify-content:flex-start; min-height:46px; }
+  #mainNav .nav-more-summary {
+    display: flex; align-items: center; justify-content: space-between;
+    min-height: 46px; padding: 11px 14px; border-radius: 12px;
+    color: var(--text-secondary); font-size: .95rem; font-weight: 600;
+    cursor: pointer; list-style: none;
+  }
+  #mainNav .nav-more-summary::-webkit-details-marker { display: none; }
+  #mainNav .nav-more-summary::after { content: "⌄"; transition: transform .16s ease; }
+  #mainNav .nav-more-disclosure[open] > .nav-more-summary::after { transform: rotate(180deg); }
+  #mainNav .nav-more-summary:hover { background: color-mix(in srgb, var(--text-primary) 6%, transparent); }
   #mainNav .nav-group.nav-more { display: flex !important; }
   #mainNav .nav-tab.nav-more-item { display: flex !important; }
   #mainNav .nav-more-head {

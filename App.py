@@ -14988,6 +14988,46 @@ def bug_report_submit():
         )
         db.session.add(fb)
         db.session.commit()
+        # Persist first so email provider issues never discard a report. The
+        # destination is configurable, with the existing admin allowlist as
+        # the default recipient group.
+        recipient_sources = (
+            os.getenv("BUG_REPORT_TO"),
+            os.getenv("ADMIN_EMAILS"),
+            ",".join(sorted(ADMIN_EMAILS)),
+            os.getenv("SUPPORT_EMAIL"),
+            "support@intelliplan.tech",
+        )
+        recipients = []
+        for source in recipient_sources:
+            candidates = list(dict.fromkeys(
+                address.strip() for address in (source or "").split(",")
+                if address.strip()
+            ))
+            if candidates:
+                recipients = candidates
+                break
+        report_body = (
+            f"A bug report was submitted in IntelliPlan.\n\n"
+            f"Report ID: {fb.id}\n"
+            f"From: {(getattr(current_user, 'email', '') or 'unknown')}\n"
+            f"Category: {category}\n"
+            f"Page: {(data.get('page_url') or '')[:512]}\n\n"
+            f"Description:\n{message[:5000]}\n\n"
+            f"Technical details (JSON):\n{diag_json or '{}'}"
+        )
+        for recipient in recipients:
+            try:
+                _send_email(
+                    recipient,
+                    f"IntelliPlan bug report #{fb.id}",
+                    report_body,
+                    reply_to=(getattr(current_user, "email", None) or None),
+                )
+            except Exception as mail_error:
+                # Keep the saved report available to admins even if email is
+                # temporarily unavailable.
+                print(f"[bug-report] email delivery failed for report {fb.id}: {mail_error}")
         return jsonify({"status": "ok", "id": fb.id})
     except Exception as e:
         db.session.rollback()
