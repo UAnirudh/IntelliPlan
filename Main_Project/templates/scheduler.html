@@ -4,6 +4,7 @@
 {% block head_extra %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/followthrough.css') }}?v={{ asset_v }}">
 <script defer src="{{ url_for('static', filename='js/followthrough.js') }}?v={{ asset_v }}"></script>
+<script defer src="{{ url_for('static', filename='js/planner-capture.js') }}?v={{ asset_v }}"></script>
 <style>
   /* ── IPD Tab bar ─────────────────────────────────── */
   .sched-tabs {
@@ -699,6 +700,7 @@
 
   .ck-foot {
     padding: 14px 1.5rem;
+    padding-bottom: calc(14px + env(safe-area-inset-bottom));
     border-top: 1px solid var(--border);
     background: var(--bg);
     display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
@@ -1382,7 +1384,6 @@
 {% endblock %}
 
 {% block scripts %}
-<script defer src="{{ url_for('static', filename='js/planner-capture.js') }}?v={{ asset_v }}"></script>
 
 /* ════════════════════════════════════════════════════════
    BUILD IT YOURSELF
@@ -3287,8 +3288,12 @@ function openChecklist(blockId) {
   // Move focus into the dialog; remember where it came from so Escape /
   // close returns the keyboard user to the block they were on.
   _ckReturnFocus = document.activeElement;
-  document.getElementById('ckOverlay').classList.add('open');
-  document.getElementById('ckDrawer').classList.add('open');
+  const overlay = document.getElementById('ckOverlay');
+  const drawer = document.getElementById('ckDrawer');
+  // Lift the drawer out of the main content's stacking context on mobile.
+  if (drawer.parentElement !== document.body) document.body.append(overlay, drawer);
+  overlay.classList.add('open');
+  drawer.classList.add('open');
   const closeBtn = document.querySelector('#ckDrawer .ck-close');
   if (closeBtn) closeBtn.focus();
 }
