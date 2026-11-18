@@ -1,150 +1,105 @@
 (() => {
-  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-  const orbit = document.getElementById('preview-orbit');
-  const motion = document.getElementById('motion-toggle');
-  const caption = document.getElementById('orbit-copy');
-  const planets = Array.from(orbit.querySelectorAll('.planet')).map(button => ({
-    button, angle: Number(button.dataset.angle), inner: button.dataset.ring === 'inner',
-  }));
-  const tilt = -23 * Math.PI / 180;
-  let angle = 0;
-  let width = 0;
-  let height = 0;
-  let paused = reduceMotion.matches;
-  let frame = 0;
-  let last = null;
-  let visible = true;
-  let drag = null;
-  let heldPlanet = false;
-  let heldFocus = false;
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+  const bar = document.querySelector('.segments');
+  const tabs = [...bar.querySelectorAll('[role="tab"]')];
+  const panels = tabs.map(tab => document.getElementById(tab.getAttribute('aria-controls')));
+  let selected = 0;
+  let transition;
 
-  function render() {
-    for (const {button, angle: start, inner} of planets) {
-      const phase = start + angle;
-      const depth = Math.sin(phase);
-      const x = Math.cos(phase) * width * (inner ? .265 : .38);
-      const y = depth * height * (inner ? .165 : .245);
-      button.style.setProperty('--orbit-x', (x * Math.cos(tilt) - y * Math.sin(tilt)).toFixed(2) + 'px');
-      button.style.setProperty('--orbit-y', (x * Math.sin(tilt) + y * Math.cos(tilt)).toFixed(2) + 'px');
-      button.style.setProperty('--depth', (1 + .045 * depth).toFixed(3));
-      button.style.zIndex = String(Math.round(11 + depth * 4));
+  function select(index, focus = false) {
+    const previous = selected;
+    selected = index;
+    transition?.cancel();
+    bar.style.setProperty('--active-tab', index);
+    tabs.forEach((tab, position) => {
+      tab.setAttribute('aria-selected', String(position === index));
+      tab.tabIndex = position === index ? 0 : -1;
+      panels[position].hidden = position !== index;
+    });
+    if (focus) tabs[index].focus();
+    if (previous !== index && !reduceMotion.matches) {
+      transition = panels[index].animate([
+        { opacity: .4, transform: `translateX(${index > previous ? 8 : -8}px)` },
+        { opacity: 1, transform: 'translateX(0)' },
+      ], { duration: 210, easing: 'ease-out' });
     }
   }
 
-  function tick(now) {
-    if (last !== null) angle += Math.min(now - last, 48) * .00032;
-    last = now;
-    render();
-    frame = requestAnimationFrame(tick);
-  }
-
-  function reconcile() {
-    const running = !paused && visible && !heldPlanet && !heldFocus && !drag && !document.hidden;
-    if (running && !frame) frame = requestAnimationFrame(tick);
-    if (!running && frame) {
-      cancelAnimationFrame(frame);
-      frame = 0;
-      last = null;
-    }
-    motion.textContent = paused ? 'Play motion' : 'Pause motion';
-  }
-
-  function measure() {
-    width = orbit.clientWidth;
-    height = orbit.clientHeight;
-    render();
-  }
-
-  orbit.classList.add('ready');
-  measure();
-  new ResizeObserver(measure).observe(orbit);
-  new IntersectionObserver(entries => {
-    visible = entries[0].isIntersecting;
-    reconcile();
-  }).observe(orbit);
-  document.addEventListener('visibilitychange', reconcile);
-  reduceMotion.addEventListener('change', () => {
-    paused = reduceMotion.matches;
-    reconcile();
-  });
-  motion.hidden = false;
-  motion.addEventListener('click', () => {
-    paused = !paused;
-    reconcile();
-  });
-
-  for (const {button} of planets) {
-    button.addEventListener('pointerenter', event => {
-      if (event.pointerType === 'mouse') {
-        heldPlanet = true;
-        reconcile();
-      }
+  tabs.forEach((tab, index) => {
+    tab.addEventListener('click', () => select(index));
+    tab.addEventListener('keydown', event => {
+      const destination = {
+        ArrowLeft: (index + tabs.length - 1) % tabs.length,
+        ArrowRight: (index + 1) % tabs.length,
+        Home: 0,
+        End: tabs.length - 1,
+      }[event.key];
+      if (destination === undefined) return;
+      event.preventDefault();
+      select(destination, true);
     });
-    button.addEventListener('pointerleave', () => {
-      heldPlanet = false;
-      reconcile();
-    });
-    button.addEventListener('focus', () => { heldFocus = true; reconcile(); });
-    button.addEventListener('blur', () => { heldFocus = false; reconcile(); });
-    button.addEventListener('click', () => {
-      for (const item of planets) item.button.setAttribute('aria-pressed', String(item.button === button));
-      caption.textContent = button.dataset.copy;
-    });
-  }
-
-  // Drag empty space to rotate without taking over vertical touch scrolling.
-  orbit.addEventListener('pointerdown', event => {
-    if (event.button !== 0 || event.target.closest('button') || drag) return;
-    drag = {id: event.pointerId, start: event.clientX, angle};
-    orbit.setPointerCapture(event.pointerId);
-    orbit.classList.add('dragging');
-    reconcile();
   });
-  orbit.addEventListener('pointermove', event => {
-    if (!drag || event.pointerId !== drag.id) return;
-    angle = drag.angle + (event.clientX - drag.start) * .014;
-    render();
-  });
-  orbit.addEventListener('lostpointercapture', () => {
-    drag = null;
-    orbit.classList.remove('dragging');
-    reconcile();
-  });
-  reconcile();
+  bar.hidden = false;
 
   const shift = document.getElementById('shift-practice');
-  const result = document.getElementById('sample-status');
-  const times = Array.from(document.querySelectorAll('.schedule-row time')).map(element => ({
-    element, original: element.dateTime,
+  const status = document.getElementById('shift-status');
+  const times = [...panels[1].querySelectorAll('time')].map(node => ({
+    node, label: node.textContent, datetime: node.dateTime,
   }));
   let moved = false;
   let animations = [];
-  shift.hidden = false;
   shift.addEventListener('click', () => {
     moved = !moved;
     animations.forEach(animation => animation.cancel());
     animations = [];
-    times.forEach(({element, original}, index) => {
-      element.textContent = moved ? element.dataset.change : element.dataset.original;
-      element.dateTime = moved ? element.dataset.time : original;
-      if (reduceMotion.matches) return;
-      animations.push(element.closest('li').animate([
-        {transform: 'translateX(13px)', opacity: .39},
-        {transform: 'translateX(0)', opacity: 1},
-      ], {duration: 380, delay: index * 45, easing: 'cubic-bezier(.2,.65,.34,1)', fill: 'backwards'}));
+    times.forEach(({node, label, datetime}, index) => {
+      node.textContent = moved ? node.dataset.late : label;
+      node.dateTime = moved ? node.dataset.clock : datetime;
+      if (!reduceMotion.matches) {
+        animations.push(node.closest('li').animate([
+          { transform: 'translateY(5px)', opacity: .5 },
+          { transform: 'translateY(0)', opacity: 1 },
+        ], { duration: 250, delay: index * 40, easing: 'ease-out' }));
+      }
     });
-    shift.firstChild.textContent = moved ? 'Reset the sample ' : 'Practice runs late ';
-    result.textContent = moved ? 'Both study blocks moved 30 minutes later.' : 'Try moving practice 30 minutes later.';
+    shift.textContent = moved ? 'Reset example' : 'Move practice 30 min later';
+    status.textContent = moved ? 'Both blocks moved 30 minutes later.' : '';
   });
 
-  const sample = document.getElementById('week');
-  const entrance = new IntersectionObserver(entries => {
-    if (!entries[0].isIntersecting) return;
-    if (!reduceMotion.matches) sample.querySelector('.plan-card').animate([
-      { opacity: .3, transform: 'translateY(18px)' },
-      { opacity: 1, transform: 'translateY(0)' },
-    ], {duration: 600, easing: 'cubic-bezier(.22,.61,.36,1)'});
-    entrance.disconnect();
-  }, {threshold: .18});
-  entrance.observe(sample);
+  const clock = document.getElementById('focus-clock');
+  const toggle = document.getElementById('focus-toggle');
+  const steps = [...panels[2].querySelectorAll('input[type="checkbox"]')];
+  const focusStatus = document.getElementById('focus-status');
+  let remaining = 25 * 60 * 1000;
+  let deadline = 0;
+  let ticker;
+  function renderTime() {
+    const seconds = Math.ceil(remaining / 1000);
+    clock.textContent = Math.floor(seconds / 60) + ':' + String(seconds % 60).padStart(2, '0');
+  }
+  function stop() {
+    clearInterval(ticker);
+    ticker = undefined;
+    toggle.textContent = remaining ? 'Resume timer' : 'Restart timer';
+  }
+  function tick() {
+    remaining = Math.max(0, deadline - performance.now());
+    renderTime();
+    if (!remaining) stop();
+  }
+  toggle.addEventListener('click', () => {
+    if (ticker !== undefined) {
+      tick();
+      stop();
+      return;
+    }
+    if (!remaining) remaining = 25 * 60 * 1000;
+    deadline = performance.now() + remaining;
+    ticker = setInterval(tick, 250);
+    toggle.textContent = 'Pause timer';
+    tick();
+  });
+  steps.forEach(step => step.addEventListener('change', () => {
+    focusStatus.textContent = steps.filter(item => item.checked).length + ' of ' + steps.length + ' steps complete';
+  }));
 })();

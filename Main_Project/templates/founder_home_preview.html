@@ -10,95 +10,81 @@
   <script defer src="{{ url_for('founder_home_preview', asset='motion.js') }}"></script>
 </head>
 <body>
-  <a class="skip" href="#main-content">Skip to content</a>
-  <header class="shell top">
-    <a class="brand" href="/"><img src="/static/icons/icon-192.png" width="39" height="39" alt=""><span>IntelliPlan</span></a>
-    <nav aria-label="Preview navigation">
-      <a href="#week">See the planner</a>
-      <a class="home-link" href="/">Public site <span aria-hidden="true">↗</span></a>
-    </nav>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="shell masthead">
+    <a class="brand" href="/"><img src="/static/icons/icon-192.png" width="37" height="37" alt="">IntelliPlan</a>
+    <span class="preview-label">Private preview</span>
+    <a class="public-link" href="/">Public site <span aria-hidden="true">↗</span></a>
   </header>
 
-  <main id="main-content">
+  <main id="main">
     <section class="hero shell" aria-labelledby="welcome">
-      <div class="hero-copy">
-        <p class="preview-label">Private preview</p>
-        <h1 id="welcome">Make time<br>for <em>school.</em></h1>
-        <p class="intro">Bring your assignments and calendar together. See what you can get done in the time you actually have.</p>
-        <a class="primary" href="#week">See a week in motion <span aria-hidden="true">↓</span></a>
+      <div class="lead">
+        <h1 id="welcome">Schoolwork that <em>fits your week.</em></h1>
+        <p>See what’s due, find time around the rest of your day, and start with one clear next step.</p>
+        <a class="primary" href="/demo/planner">Open the sample planner <span aria-hidden="true">↗</span></a>
       </div>
 
-      <div class="orbit-wrap">
-        <div class="orbit" id="preview-orbit" aria-label="School and calendar connections">
-          <div class="orbit-glow" aria-hidden="true"></div>
-          <div class="orbit-ring outer" aria-hidden="true"></div>
-          <div class="orbit-ring inner" aria-hidden="true"></div>
-          <div class="orbit-ring dust" aria-hidden="true"></div>
-          <div class="orbit-core">
-            <img width="224" height="224" src="/static/plani-3d.webp" alt="Plani, your study assistant" fetchpriority="high">
+      <div class="workbench">
+        <div class="workbench-header">
+          <span class="sample-label">Sample Tuesday</span>
+          <div class="segments" role="tablist" aria-label="Sample planner views" hidden>
+            <span class="segment-indicator" aria-hidden="true"></span>
+            <button type="button" role="tab" aria-selected="true" id="tab-plan" aria-controls="panel-plan">Plan</button>
+            <button type="button" role="tab" aria-selected="false" tabindex="-1" id="tab-replan" aria-controls="panel-replan">Replan</button>
+            <button type="button" role="tab" aria-selected="false" tabindex="-1" id="tab-focus" aria-controls="panel-focus">Focus</button>
           </div>
-          <button class="planet canvas" type="button" aria-pressed="true" data-angle="-2.62" data-ring="outer"
-                  data-copy="Canvas brings assignments and due dates into your plan.">
-            <span class="planet-icon"><img width="26" height="26" src="/static/logos/canvas.svg" alt=""></span>Canvas
-          </button>
-          <button class="planet calendar" type="button" aria-pressed="false" data-angle="-.6" data-ring="outer"
-                  data-copy="Google Calendar keeps study blocks clear of time that’s already booked.">
-            <span class="planet-icon"><img width="26" height="26" src="/static/logos/google-calendar.svg" alt=""></span>Google Calendar
-          </button>
-          <button class="planet vue" type="button" aria-pressed="false" data-angle="1.22" data-ring="outer"
-                  data-copy="StudentVUE brings assignments and deadlines together.">
-            <span class="planet-icon"><img width="26" height="26" src="/static/logos/studentvue.svg" alt=""></span>StudentVUE
-          </button>
-          <button class="planet notion" type="button" aria-pressed="false" data-angle="-1.61" data-ring="inner"
-                  data-copy="Notion tasks can join the rest of your schoolwork.">
-            <span class="planet-icon"><img width="26" height="26" src="/static/logos/notion.svg" alt=""></span>Notion
-          </button>
-          <button class="planet schoology" type="button" aria-pressed="false" data-angle="2.44" data-ring="inner"
-                  data-copy="Schoology brings coursework from your classes into the planner.">
-            <span class="planet-icon"><img width="26" height="26" src="/static/logos/schoology.svg" alt=""></span>Schoology
-          </button>
         </div>
-        <div class="orbit-caption">
-          <p id="orbit-copy" aria-live="polite">Canvas brings assignments and due dates into your plan.</p>
-          <button class="motion-button" id="motion-toggle" type="button" hidden>Pause motion</button>
+        <div class="planner-page">
+          <section role="tabpanel" aria-labelledby="tab-plan" id="panel-plan" tabindex="0">
+            <h2>After school</h2>
+            <p class="panel-note">Two study blocks around soccer practice.</p>
+            <ol class="agenda">
+              <li><time datetime="15:30">3:30 pm</time><i class="dot busy" aria-hidden="true"></i><div><strong>Soccer practice</strong><small>Already on your calendar</small></div><span>90 min</span></li>
+              <li><time datetime="17:15">5:15 pm</time><i class="dot math" aria-hidden="true"></i><div><strong>Related rates</strong><small>Calculus · due tomorrow</small></div><span>45 min</span></li>
+              <li><time datetime="18:15">6:15 pm</time><i class="dot bio" aria-hidden="true"></i><div><strong>Review cell division</strong><small>Biology · Thursday quiz</small></div><span>35 min</span></li>
+            </ol>
+            <p class="summary"><strong>80 min</strong> of study time</p>
+          </section>
+          <section role="tabpanel" aria-labelledby="tab-replan" id="panel-replan" tabindex="0" hidden>
+            <h2>Practice runs late</h2>
+            <p class="panel-note">See where the two study blocks can move.</p>
+            <ol class="agenda">
+              <li><time datetime="15:30" data-late="4:00 pm" data-clock="16:00">3:30 pm</time><i class="dot busy" aria-hidden="true"></i><div><strong>Soccer practice</strong><small>Calendar commitment</small></div><span>90 min</span></li>
+              <li><time datetime="17:15" data-late="5:45 pm" data-clock="17:45">5:15 pm</time><i class="dot math" aria-hidden="true"></i><div><strong>Related rates</strong><small>Calculus · due tomorrow</small></div><span>45 min</span></li>
+              <li><time datetime="18:15" data-late="6:45 pm" data-clock="18:45">6:15 pm</time><i class="dot bio" aria-hidden="true"></i><div><strong>Review cell division</strong><small>Biology · Thursday quiz</small></div><span>35 min</span></li>
+            </ol>
+            <div class="panel-actions">
+              <button type="button" class="tool-button" id="shift-practice">Move practice 30 min later</button>
+              <span id="shift-status" role="status"></span>
+            </div>
+          </section>
+          <section role="tabpanel" aria-labelledby="tab-focus" id="panel-focus" tabindex="0" hidden>
+            <h2>Related rates</h2>
+            <p class="panel-note">Calculus · sample focus session</p>
+            <div class="focus-body">
+              <div><span class="timer" id="focus-clock" role="timer" aria-label="Time remaining">25:00</span><button class="tool-button" type="button" id="focus-toggle">Start timer</button></div>
+              <ul>
+                <li><label><input type="checkbox"> Draw and label the diagram</label></li>
+                <li><label><input type="checkbox"> Solve the first problem</label></li>
+                <li><label><input type="checkbox"> Check the units</label></li>
+              </ul>
+            </div>
+            <p class="summary" id="focus-status" role="status">0 of 3 steps complete</p>
+          </section>
         </div>
       </div>
     </section>
 
-    <section class="sample shell" id="week" aria-labelledby="week-heading">
-      <div class="sample-copy">
-        <h2 id="week-heading">Plans change.<br>Keep your evening.</h2>
-        <p>See what happens when a practice runs late. Your homework can move without taking over the rest of your week.</p>
-        <button class="primary" type="button" id="shift-practice" hidden>Practice runs late <span aria-hidden="true">↗</span></button>
-        <p class="sample-status" id="sample-status" role="status">Try moving practice 30 minutes later.</p>
-      </div>
-      <article class="plan-card" aria-labelledby="sample-title">
-        <header>
-          <div><p>Sample week</p><h3 id="sample-title">Tuesday, after school</h3></div>
-          <span class="plan-total">1h 20m to study</span>
-        </header>
-        <ol class="plan-items">
-          <li class="schedule-row practice">
-            <time datetime="15:30" data-original="3:30 pm" data-change="4:00 pm" data-time="16:00">3:30 pm</time>
-            <div><strong>Soccer practice</strong><small>Already on your calendar</small></div><span>90 min</span>
-          </li>
-          <li class="schedule-row math">
-            <time datetime="17:15" data-original="5:15 pm" data-change="5:45 pm" data-time="17:45">5:15 pm</time>
-            <div><strong>Related rates</strong><small>Calculus · due tomorrow</small></div><span>45 min</span>
-          </li>
-          <li class="schedule-row science">
-            <time datetime="18:15" data-original="6:15 pm" data-change="6:45 pm" data-time="18:45">6:15 pm</time>
-            <div><strong>Review cell division</strong><small>Biology · quiz on Thursday</small></div><span>35 min</span>
-          </li>
-        </ol>
-        <a class="demo-link" href="/demo/planner">Open the full sample week <span aria-hidden="true">↗</span></a>
-      </article>
+    <section class="sources shell" aria-label="Supported connections">
+      <p>Bring your schoolwork and calendar together</p>
+      <ul>
+        <li><img src="/static/logos/canvas.svg" width="22" height="22" alt="">Canvas</li>
+        <li><img src="/static/logos/studentvue.svg" width="22" height="22" alt="">StudentVUE</li>
+        <li><img src="/static/logos/google-calendar.svg" width="22" height="22" alt="">Google Calendar</li>
+        <li><img src="/static/logos/notion.svg" width="22" height="22" alt="">Notion</li>
+      </ul>
     </section>
   </main>
-
-  <footer class="shell bottom">
-    <a class="brand" href="/"><img src="/static/icons/icon-192.png" width="32" height="32" alt="">IntelliPlan</a>
-    <a href="/">Back to the public site <span aria-hidden="true">↗</span></a>
-  </footer>
 </body>
 </html>

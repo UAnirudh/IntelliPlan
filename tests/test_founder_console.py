@@ -83,7 +83,7 @@ def test_homepage_preview_only_serves_verified_owner_and_keeps_assets_private(cl
     _sign_in(client, delegate_id)
     denied()
     _sign_in(client, owner_id)
-    expected = ("Private preview", ".orbit-ring", "requestAnimationFrame")
+    expected = ("Private preview", ".segment-indicator", "aria-selected")
     for path, marker in zip(private_urls, expected):
         result = client.get(path)
         assert result.status_code == 200
