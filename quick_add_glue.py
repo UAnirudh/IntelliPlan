@@ -36,6 +36,11 @@ the ones the server has. Reply::
 from __future__ import annotations
 
 import logging
+import csv
+import hashlib
+import io
+import json
+from datetime import date
 from typing import Any, Iterable
 
 from flask import Blueprint, jsonify, request
@@ -49,6 +54,7 @@ logger = logging.getLogger(__name__)
 quick_add_bp = Blueprint("quick_add", __name__)
 
 MAX_TEXT = 500
+MAX_BATCH = 40
 #: Sittings for a captured task are capped here; a two-hour lab becomes two
 #: hour blocks rather than one the student will not sit through.
 SITTING_CAP_MINUTES = 60
@@ -274,6 +280,98 @@ def _body() -> dict[str, Any]:
 
 def _text(body: dict[str, Any]) -> str:
     return str(body.get("text") or "").strip()[:MAX_TEXT]
+
+
+def _batch_rows(body, uid):
+    raw = body.get("text")
+    if not isinstance(raw, str) or not raw.strip() or len(raw) > 24000:
+        raise ValueError("Add a list of tasks up to 24,000 characters.")
+    warnings = []
+    rows = []
+    if body.get("format") == "todoist":
+        reader = csv.DictReader(io.StringIO(raw.lstrip("\ufeff")), strict=True)
+        if not reader.fieldnames or not {"TYPE", "CONTENT"} <= set(reader.fieldnames):
+            raise ValueError("Use a Todoist project export with TYPE and CONTENT columns.")
+        for item in reader:
+            if item.get("TYPE") != "task":
+                continue
+            due = (item.get("DATE") or "").strip()
+            if due:
+                try:
+                    if date.fromisoformat(due).isoformat() != due:
+                        raise ValueError()
+                except ValueError:
+                    due = ""
+                    warnings.append("A Todoist date could not be read. Check the undated tasks before adding.")
+            rows.append(dict(title=(item.get("CONTENT") or "").strip(), due_date=due,
+                             course="Personal", estimated_time=60,
+                             priority={"1": "High", "2": "High", "3": "Medium"}.get(item.get("PRIORITY"), "Low")))
+    elif body.get("format") == "lines":
+        now = student_now(uid, body.get("timezone"))
+        courses = known_courses(uid, None)
+        for line in raw.splitlines():
+            line = line.strip().removeprefix("- ").removeprefix("• ").strip()
+            if not line:
+                continue
+            if len(line) > MAX_TEXT:
+                raise ValueError("Each task line can be up to 500 characters.")
+            parsed = parse_quick_add(line, now=now, courses=courses)
+            minutes, _ = estimated_minutes(parsed)
+            rows.append(dict(title=parsed.title, due_date=parsed.due_date.isoformat() if parsed.due_date else "",
+                             course=parsed.course or "Personal", estimated_time=minutes,
+                             priority=parsed.priority or "Medium",
+                             notes=f"Due at {parsed.due_time:%H:%M}" if parsed.due_time else ""))
+    else:
+        raise ValueError("Choose pasted tasks or a Todoist CSV.")
+    if not 1 <= len(rows) <= MAX_BATCH or any(not row["title"] or len(row["title"]) > MAX_TEXT for row in rows):
+        raise ValueError("Add 1 to 40 tasks with a title of up to 500 characters each.")
+    return rows, list(dict.fromkeys(warnings))
+
+
+@quick_add_bp.post("/api/quick-add/batch")
+def quick_add_batch():
+    if not current_user.is_authenticated:
+        return jsonify({"message": "Sign in to save a task list."}), 401
+    if request.content_length and request.content_length > 150000:
+        return jsonify({"message": "That task list is too large."}), 413
+    from App import _no_store, invalidate_lms_cache_for_user
+    from intelliplan.persistence.manual_tasks import tasks
+
+    uid = int(current_user.id)
+    body = _body()
+    try:
+        rows, warnings = _batch_rows(body, uid)
+    except (ValueError, csv.Error) as exc:
+        return jsonify({"message": str(exc)}), 400
+
+    # Preview freezes relative dates and the exact fields the student reviewed.
+    from flask import current_app
+    from itsdangerous import BadSignature, URLSafeTimedSerializer
+    signer = URLSafeTimedSerializer(current_app.secret_key, salt="planner-batch-v1")
+    token = body.get("confirmation")
+    if token is None:
+        fingerprint = hashlib.sha256(json.dumps(rows, sort_keys=True).encode()).hexdigest()
+        return _no_store(jsonify({"tasks": rows, "warnings": warnings, "confirmation": signer.dumps([uid, fingerprint])}))
+    try:
+        if not isinstance(token, str) or len(token) > 512:
+            raise ValueError()
+        reviewed_uid, fingerprint = signer.loads(token, max_age=600)
+        if reviewed_uid != uid or hashlib.sha256(json.dumps(rows, sort_keys=True).encode()).hexdigest() != fingerprint:
+            raise ValueError()
+    except (BadSignature, ValueError, TypeError):
+        return jsonify({"message": "Review the task list again before adding it."}), 409
+
+    unique = {}
+    for row in rows:
+        key = hashlib.sha256(json.dumps(row, sort_keys=True).encode()).hexdigest()
+        unique[key] = dict(row, import_source="paste", external_id=key)
+    added = tasks(uid).import_batch(list(unique.values()))
+    if added:
+        try:
+            invalidate_lms_cache_for_user(uid)
+        except Exception:
+            logger.warning("Planner task import could not refresh the assignment cache")
+    return _no_store(jsonify({"added": added, "skipped": len(rows) - added}))
 
 
 @quick_add_bp.route("/api/quick-add/preview", methods=["POST"])

@@ -126,7 +126,7 @@
     var dialog = document.getElementById('workspaceAppearance');
     if (!dialog) return;
     var allowed = {density: ['comfortable','compact'], width: ['focused','wide'], text: ['standard','large','larger'], surface: ['glass','solid'],
-      accent: ['default','emerald','violet'], motion: ['full','reduce'], mascot: ['shown','hidden']};
+      accent: ['default','emerald','violet','ocean','rose','amber'], motion: ['full','reduce'], mascot: ['shown','hidden']};
     var previousFocus = null;
     function apply(values) {
       Object.keys(allowed).forEach(function (key) {

@@ -1076,6 +1076,13 @@
   .mb-status { margin: 0.7rem 0 0; font-size: 0.83rem; color: var(--text-muted); line-height: 1.55; }
   .mb-status.is-error { color: var(--danger-text); }
   .mb-status.is-ok { color: var(--low); }
+  .planner-capture { margin-block: 0 1rem; }
+  .planner-capture form { display: grid; gap: .55rem; padding: .75rem; max-width: 44rem; }
+  .planner-capture > p { padding-inline: .75rem; }
+  .planner-capture label { font-weight: 650; }
+  .planner-capture textarea { width: 100%; resize: vertical; }
+  .planner-capture-actions { display: flex; flex-wrap: wrap; gap: .55rem; }
+  :is(.planner-capture, .ck-foot) [hidden] { display: none !important; }
 </style>
 {% endblock %}
 
@@ -1084,11 +1091,11 @@
      style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:1rem;">
   <div>
     <h1 class="ipd-page-title">Study scheduler</h1>
-    <p class="ipd-page-subtitle">Build a plan, then work through it with an interactive checklist.</p>
+    <p class="ipd-page-subtitle">Plan your week around the time you have.</p>
   </div>
   <!-- The plan is only half of it. This is the other half, and it was
        previously reachable only by typing the URL. -->
-  <a href="/active" class="scheduler-study-link">Open Active Study</a>
+  <a href="/active" class="scheduler-study-link">Start studying</a>
 </div>
 
 <!-- ── TAB BAR ───────────────────────────────────────── -->
@@ -1097,7 +1104,7 @@
     Build a plan
   </button>
   <button type="button" id="tab-interactive" class="sched-tab" data-tab="interactive" role="tab" aria-selected="false" aria-controls="pane-interactive" tabindex="-1">
-    Interactive plan <span class="tab-count" id="ivBlockCount" style="display:none;">0</span>
+    My plan <span class="tab-count" id="ivBlockCount" style="display:none;">0</span>
   </button>
 </div>
 
@@ -1107,6 +1114,24 @@
 <div class="sched-pane active" id="pane-creator" role="tabpanel" aria-labelledby="tab-creator">
 
   <div class="scheduler-panel" id="inputPanel">
+    {% if current_user.is_authenticated %}
+    <details class="assignment-queue planner-capture" id="plannerCapture">
+      <summary>Add work</summary>
+      <p><a href="/connect">Connect a school portal, calendar or Notion</a> · <a href="/flashcards/photo">Read a photo</a></p>
+      <form id="plannerCaptureForm">
+        <label for="plannerCaptureText">Paste tasks, one per line</label>
+        <textarea class="form-input" id="plannerCaptureText" rows="3" maxlength="24000" placeholder="Read chapter 6 due Friday 30m"></textarea>
+        <label for="plannerCaptureFile">Or choose a Todoist project CSV</label>
+        <input type="file" id="plannerCaptureFile" accept=".csv,text/csv">
+        <div class="planner-capture-actions">
+          <button class="btn-secondary" type="submit" id="plannerCaptureReview">Review tasks</button>
+          <button class="btn-primary" type="button" id="plannerCaptureSave" hidden>Add these tasks</button>
+        </div>
+        <ul id="plannerCapturePreview" hidden></ul>
+        <p id="plannerCaptureStatus" role="status"></p>
+      </form>
+    </details>
+    {% endif %}
     <div class="scheduler-inputs">
       <div class="input-group">
         <label class="form-label" for="hoursPerDay">Hours available per day</label>
@@ -1277,6 +1302,28 @@
      TAB 2, INTERACTIVE VIEW
 ══════════════════════════════════════════════════ -->
 <div class="sched-pane" id="pane-interactive" role="tabpanel" aria-labelledby="tab-interactive">
+  {% if current_user.is_authenticated %}
+  <details class="assignment-queue planner-capture" id="plannerCheckin">
+    <summary>Daily check-in</summary>
+    <p>Save a note for the day or pick your next step. These stay on this browser.</p>
+    <form id="plannerCheckinForm">
+      <label for="plannerCheckinDay">Day</label>
+      <input type="date" class="form-input" id="plannerCheckinDay" required>
+      <label for="plannerCheckinProgress">How did the plan go?</label>
+      <select class="form-input" id="plannerCheckinProgress">
+        <option value="">Choose if you like</option><option value="done">On track</option>
+        <option value="continue">Continue tomorrow</option><option value="rest">Take a break</option>
+      </select>
+      <label for="plannerCheckinNote">Note for this day</label>
+      <textarea class="form-input" id="plannerCheckinNote" rows="2" maxlength="400"></textarea>
+      <div class="planner-capture-actions">
+        <button class="btn-secondary" type="submit">Save check-in</button>
+        <button class="btn-secondary" type="button" id="plannerCheckinClear">Clear day</button>
+      </div>
+      <p role="status" id="plannerCheckinStatus"></p>
+    </form>
+  </details>
+  {% endif %}
 
   <div class="iv-context" id="ivContext" style="display:none;">
     <div class="ic-icon"><svg width="18" height="18"><use href="#i-sparkle"/></svg></div>
@@ -1326,6 +1373,7 @@
   <div class="ck-foot">
     <div class="ck-progress"><div class="ck-progress-bar" id="ckProgressBar"></div></div>
     <div class="ck-progress-text" id="ckProgressText">0 / 0</div>
+    <a class="ck-redirect" id="ckFocus" href="/focus" hidden>Start focus timer</a>
     <a class="ck-redirect" id="ckRedirect" href="#" target="_self" style="display:none;">
       <svg><use href="#i-arrow-right"/></svg> <span id="ckRedirectLabel">Open</span>
     </a>
@@ -1334,6 +1382,7 @@
 {% endblock %}
 
 {% block scripts %}
+<script defer src="{{ url_for('static', filename='js/planner-capture.js') }}?v={{ asset_v }}"></script>
 
 /* ════════════════════════════════════════════════════════
    BUILD IT YOURSELF
@@ -1773,9 +1822,10 @@ schedulerTabs.forEach((btn, index) => {
   });
 });
 // Restore last tab if there's saved data
+const captureViewRequested = new URLSearchParams(location.search).get('capture') === '1';
 try {
   const lastTab = localStorage.getItem('ip_scheduler_tab');
-  if (lastTab === 'interactive') {
+  if (!captureViewRequested && lastTab === 'interactive') {
     // We only restore to interactive if a saved schedule will load (handled below).
     setTimeout(() => { if (_lastScheduleData) switchTab('interactive'); }, 50);
   }
@@ -3217,6 +3267,11 @@ function openChecklist(blockId) {
   });
 
   // Redirect button
+  const focusLink = document.getElementById('ckFocus');
+  const focusMinutes = Number(block.duration_minutes);
+  focusLink.hidden = !Number.isInteger(focusMinutes) || focusMinutes < 1 || focusMinutes > 180;
+  focusLink.dataset.minutes = focusMinutes;
+  focusLink.dataset.title = String(block.assignment || '').slice(0, 200);
   const redirect = block.redirect;
   const link = document.getElementById('ckRedirect');
   if (redirect && redirect.href) {
@@ -3402,7 +3457,7 @@ function dismissSavedPlan() {
   // Refreshes the forecast and lets Autopilot catch the plan up.
   if (window.FT) FT.planLoaded();
   try {
-    if (localStorage.getItem('ip_scheduler_tab') === 'interactive') switchTab('interactive');
+    if (!captureViewRequested && localStorage.getItem('ip_scheduler_tab') === 'interactive') switchTab('interactive');
   } catch(e) {}
 }).catch(() => {});
 {% endblock %}

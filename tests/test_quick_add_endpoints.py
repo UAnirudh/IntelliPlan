@@ -263,3 +263,30 @@ def test_extension_explicit_fields_override_the_parse(client, student):
 def test_extension_without_a_token_is_refused(client, student):
     r = client.post("/extension/task/add", json={"text": "no token"})
     assert r.status_code == 401
+
+def test_batch_capture_requires_review_and_retries_without_duplicates(client, student):
+    path = "/api/quick-add/batch"
+    draft = {"format": "lines", "text": "Bio lab due Fri 40m\nRead chapter 6"}
+    assert client.post(path, json=draft).status_code == 401
+    login(client, student)
+    preview = client.post(path, json=draft)
+    assert preview.status_code == 200
+    assert preview.json["tasks"][0]["due_date"] == "2026-10-09"
+    assert "no-store" in preview.headers["Cache-Control"]
+    reviewed = {**draft, "confirmation": preview.json["confirmation"]}
+    assert client.post(path, json={**reviewed, "text": "Change the task"}).status_code == 409
+    assert client.post(path, json=reviewed).json == {"added": 2, "skipped": 0}
+    assert client.post(path, json=reviewed).json == {"added": 0, "skipped": 2}
+    with App.app.app_context():
+        assert ManualTask.query.filter_by(user_id=student, import_source="paste").count() == 2
+
+
+def test_todoist_only_imports_tasks_and_flags_unreadable_due_dates(client, student):
+    login(client, student)
+    result = client.post("/api/quick-add/batch", json={"format": "todoist",
+        "text": 'TYPE,CONTENT,DATE,PRIORITY\nsection,Week,,\ntask,"Read, then review",2026-10-09,1\nnote,Private comment,,\ntask,Practice,every Friday,4'})
+    assert result.status_code == 200
+    assert [row["title"] for row in result.json["tasks"]] == ["Read, then review", "Practice"]
+    assert result.json["tasks"][0]["priority"] == "High"
+    assert result.json["tasks"][1]["due_date"] == ""
+    assert result.json["warnings"]

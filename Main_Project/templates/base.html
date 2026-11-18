@@ -146,7 +146,7 @@
     (function(){
       try {
         var p = JSON.parse(localStorage.getItem('ip_workspace_style_v1') || '{}');
-        var allowed = {density:['comfortable','compact'],width:['focused','wide'],text:['standard','large','larger'],surface:['glass','solid'],accent:['default','emerald','violet'],motion:['full','reduce'],mascot:['shown','hidden']};
+        var allowed = {density:['comfortable','compact'],width:['focused','wide'],text:['standard','large','larger'],surface:['glass','solid'],accent:['default','emerald','violet','ocean','rose','amber'],motion:['full','reduce'],mascot:['shown','hidden']};
         Object.keys(allowed).forEach(function(k){ if (allowed[k].indexOf(p[k]) >= 0) document.documentElement.setAttribute('data-ui-'+k,p[k]); });
       } catch (_) {}
     })();

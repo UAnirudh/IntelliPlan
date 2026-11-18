@@ -22,6 +22,7 @@ CALENDAR_SCOPES = [
     "https://www.googleapis.com/auth/calendar.events",
     "https://www.googleapis.com/auth/calendar.events.freebusy",
 ]
+CALENDAR_LIST_SCOPE = "https://www.googleapis.com/auth/calendar.calendarlist.readonly"
 
 # The file-picker flow asks for access to individual files the student
 # selects. Do not add this to the ordinary calendar connection: file access
@@ -52,6 +53,8 @@ def scopes_for(purpose):
         # restart; the drive.file-only default matches DRIVE_SCOPES above.
         from google_drive_helper import drive_scopes
         return drive_scopes() + LOGIN_SCOPES
+    if purpose == "calendar-list":
+        return [*SCOPES, CALENDAR_LIST_SCOPE]
     return list(SCOPES)
 
 
@@ -124,6 +127,9 @@ def has_calendar_scope(token_dict):
     scopes = set(token_dict.get("scopes") or [])
     return bool(scopes.intersection(CALENDAR_SCOPES))
 
+def has_calendar_list_scope(token_dict):
+    return CALENDAR_LIST_SCOPE in (token_dict.get("scopes") or ())
+
 def has_drive_scope(token_dict):
     scopes = set(token_dict.get("scopes") or [])
     return bool(scopes.intersection(DRIVE_SCOPES))
@@ -173,6 +179,30 @@ def get_free_busy(token_dict, date_str):
     result = service.freebusy().query(body=body).execute()
     return result.get("calendars", {}).get("primary", {}).get("busy", [])
 
+
+def _busy_calendar_ids(service):
+    ids = {"primary"}
+    page = None
+    for _ in range(5):
+        response = service.calendarList().list(
+            minAccessRole="freeBusyReader", fields="items(id,primary),nextPageToken",
+            maxResults=250, pageToken=page, showHidden=True,
+        ).execute()
+        items = response.get("items", [])
+        if not isinstance(items, list):
+            break
+        for item in items:
+            if not isinstance(item, dict) or not isinstance(item.get("id"), str) or not item["id"]:
+                raise ValueError("Google calendar availability is incomplete.")
+            if not item.get("primary"):
+                ids.add(item["id"])
+        page = response.get("nextPageToken")
+        if not page:
+            if len(ids) <= 250:
+                return sorted(ids)
+            break
+    raise ValueError("Google calendar availability is incomplete.")
+
 def busy_minutes_by_date(token_dict, start_date, days=14, utc_offset_minutes=0, tz_name=None,
                          require_complete=False):
     """``{date: [(start_minute, end_minute), ...]}`` of committed time.
@@ -203,18 +233,24 @@ def busy_minutes_by_date(token_dict, start_date, days=14, utc_offset_minutes=0, 
     time_max = to_utc(local_end, tz_name, offset).isoformat() + "Z"
 
     service, _ = get_calendar_service(token_dict)
-    result = service.freebusy().query(body={
-        "timeMin": time_min,
-        "timeMax": time_max,
-        "items": [{"id": "primary"}],
-    }).execute()
-    calendars = result.get('calendars') if isinstance(result, dict) else None
-    primary = calendars.get('primary') if isinstance(calendars, dict) else None
-    if isinstance(primary, dict) and primary.get('errors'):
-        raise ValueError('Google calendar availability is incomplete.')
-    if require_complete and (not isinstance(primary, dict) or not isinstance(primary.get('busy'), list)):
-        raise ValueError('Google calendar availability is incomplete.')
-    periods = (primary or {}).get('busy') or []
+    multi = has_calendar_list_scope(token_dict)
+    calendar_ids = _busy_calendar_ids(service) if multi else ["primary"]
+    periods = []
+    for index in range(0, len(calendar_ids), 50):
+        batch = calendar_ids[index:index + 50]
+        result = service.freebusy().query(body={
+            "timeMin": time_min, "timeMax": time_max, "items": [{"id": calendar_id} for calendar_id in batch],
+        }).execute()
+        calendars = result.get('calendars') if isinstance(result, dict) else None
+        for calendar_id in batch:
+            row = calendars.get(calendar_id) if isinstance(calendars, dict) else None
+            if isinstance(row, dict) and row.get('errors'):
+                raise ValueError('Google calendar availability is incomplete.')
+            busy = row.get('busy') if isinstance(row, dict) else None
+            if (require_complete or multi) and not isinstance(busy, list):
+                raise ValueError('Google calendar availability is incomplete.')
+            if isinstance(busy, list):
+                periods.extend(busy)
 
     out = {}
     for period in periods:
@@ -225,7 +261,7 @@ def busy_minutes_by_date(token_dict, start_date, days=14, utc_offset_minutes=0, 
             start = max(raw_start, to_utc(local_start, tz_name, offset))
             end = min(raw_end, to_utc(local_end, tz_name, offset))
         except Exception:
-            if require_complete:
+            if require_complete or multi:
                 raise ValueError('Google calendar availability is incomplete.') from None
             continue
         for day, intervals in busy_intervals(start, end, tz_name, offset).items():

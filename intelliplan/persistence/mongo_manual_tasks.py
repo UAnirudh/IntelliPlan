@@ -39,6 +39,21 @@ class MongoTasks:
             return Task(row)
         return self._write(write)
 
+    def import_batch(self, rows):
+        rows = [checked(row) for row in rows]
+        def write(db, active):
+            added = 0
+            for values in rows:
+                if db.manual_tasks.find_one({**self.scope, 'import_source': 'paste',
+                        'external_id': values['external_id']}, {'_id': 1}, session=active):
+                    continue
+                row = {**DEFAULTS, **values, **self.scope, 'created_at': utcnow().isoformat(),
+                    'id': self.store.next_id('manual_tasks', session=active)}
+                db.manual_tasks.insert_one(pack_document(row), session=active)
+                added += 1
+            return added
+        return self._write(write)
+
     def update(self, identity, values):
         values = checked(values)
         def write(db, active):

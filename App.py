@@ -9199,11 +9199,13 @@ def _handle_google_callback():
         _forget_document_matches()
         return redirect("/study-files?google_drive=connected")
 
-    if purpose == "calendar":
+    if purpose in {"calendar", "calendar-list"}:
         if not current_user.is_authenticated:
             print("[GOOGLE CALLBACK] calendar link attempted without an authenticated app user")
             return redirect(url_for("login"))
         user = current_user
+        if purpose == "calendar-list" and not _calendar_policy_allowed(user.id):
+            return redirect(url_for("settings"))
         google_accounts().capture_profile(user.id, email=email, subject=google_id, name=name)
         if has_calendar_scope(token_dict):
             grant = google_accounts().connect(user.id, token=token_dict,
@@ -9337,14 +9339,17 @@ def google_oauth_start():
             cancel_url=url_for("settings") if request.args.get("return") == "settings" else "/dashboard",
         )
 
+    purpose = "calendar-list" if request.args.get("calendars") == "all" else "calendar"
+    if purpose == "calendar-list" and (not current_user.is_authenticated or not _calendar_policy_allowed(current_user.id)):
+        return redirect(url_for("settings"))
     state = secrets_module.token_urlsafe(32)
     session["oauth_state"] = state
-    session["oauth_purpose"] = "calendar"
+    session["oauth_purpose"] = purpose
     if request.args.get("return") == "settings":
         session["oauth_return_to_settings"] = True
     session.permanent = True
     session.modified = True
-    auth_url, code_verifier = get_auth_url(state, purpose="calendar")
+    auth_url, code_verifier = get_auth_url(state, purpose=purpose)
     # When the user clicks "Add another account", force Google to show
     # the account picker even if they're already signed in.
     if request.args.get("add") == "1":
@@ -9368,11 +9373,16 @@ def gcal_status():
         "is_active": bool(r.is_active),
     } for r in rows]
     active = next((a for a in accounts if a["is_active"]), accounts[0] if accounts else None)
+    from google_calendar_helper import has_calendar_list_scope
+    calendar_allowed = bool(active and _calendar_policy_allowed(current_user.id))
+    token = get_google_token(user_id=current_user.id) if calendar_allowed else None
     return flask.jsonify({
         "connected": bool(accounts),
         "accounts": accounts,
         "active_id": active["id"] if active else None,
         "active_email": active["email"] if active else "",
+        "all_calendars_allowed": calendar_allowed,
+        "all_calendars_enabled": bool(token and has_calendar_list_scope(token)),
     })
 
 

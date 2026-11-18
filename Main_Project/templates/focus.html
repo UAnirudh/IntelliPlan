@@ -236,6 +236,11 @@
 .focus-ring-container { width: 200px; height: 200px; }
 .focus-ring-svg { width: 200px; height: 200px; }
 .focus-clock { font-size: 2.8rem; }
+.focus-timer-wrap:fullscreen {
+  display: grid; place-content: center; justify-items: center; width: 100%;
+  background: var(--bg, #f8f8fa); color: var(--text-primary, #252637);
+}
+.focus-session-status { text-align: center; margin: .5rem auto; max-width: 36ch; }
 </style>
 {% endblock %}
 
@@ -243,7 +248,7 @@
 <div class="focus-shell">
   <div class="focus-header">
     <h1>Focus Timer</h1>
-    <p>Deep work sessions with structured breaks, the Pomodoro technique.</p>
+    <p>Work on one thing. Take a break when the timer ends.</p>
   </div>
 
   <!-- Stats -->
@@ -271,12 +276,13 @@
 
   <!-- Task input -->
   <div class="focus-task-card">
-    <div class="focus-task-label">What are you working on?</div>
+    <label class="focus-task-label" for="taskInput">What are you working on?</label>
     <textarea class="focus-task-input" id="taskInput" rows="2" placeholder="e.g. Chapter 5 reading, calculus problem set, essay draft…" maxlength="200"></textarea>
   </div>
 
   <!-- Timer -->
-  <div class="focus-timer-wrap">
+  <div class="focus-timer-wrap" id="focusTimerSurface">
+    <p class="focus-session-status" id="focusPlannedTask" role="status"></p>
     <div class="focus-ring-container">
       <svg class="focus-ring-svg" width="220" height="220" viewBox="0 0 220 220">
         <circle class="focus-ring-track" cx="110" cy="110" r="98"/>
@@ -302,6 +308,7 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-5.04"/></svg>
       </button>
     </div>
+    <button type="button" class="focus-mode-btn" id="focusFullscreen" hidden>Full screen</button>
   </div>
 
   <!-- Session log -->
@@ -335,6 +342,20 @@ let isBreak    = false;
 let endAt      = null;   // ms epoch when the current phase ends (while running)
 let intervalId = null;
 let cycleCount = 0;      // completed work sessions since page state began
+const focusSurface = document.getElementById('focusTimerSurface');
+const fullscreenToggle = document.getElementById('focusFullscreen');
+if (document.fullscreenEnabled && typeof focusSurface.requestFullscreen === 'function') {
+  fullscreenToggle.hidden = false;
+  fullscreenToggle.addEventListener('click', async () => {
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else await focusSurface.requestFullscreen();
+    } catch (_) { /* The timer stays active when full screen is unavailable. */ }
+  });
+  document.addEventListener('fullscreenchange', () => {
+    fullscreenToggle.textContent = document.fullscreenElement ? 'Exit full screen' : 'Full screen';
+  });
+}
 let sessionLog = JSON.parse(localStorage.getItem('ip_focus_log') || '[]').filter(s => {
   return new Date(s.ts).toDateString() === new Date().toDateString();
 });
@@ -589,6 +610,29 @@ function chime() {
       }
     }
   } catch (e) {}
+  try {
+    const planned = JSON.parse(sessionStorage.getItem('ip_planned_focus') || 'null');
+    sessionStorage.removeItem('ip_planned_focus');
+    const owner = document.body.dataset.userId || '';
+    if (planned && planned.owner === owner && Date.now() - planned.at < 120000 &&
+        Number.isInteger(planned.minutes) && planned.minutes >= 1 && planned.minutes <= 180 &&
+        typeof planned.title === 'string') {
+      const status = document.getElementById('focusPlannedTask');
+      if (isRunning) {
+        status.textContent = 'Your current timer is still running.';
+      } else {
+        workMins = planned.minutes;
+        breakMins = 5;
+        isBreak = false;
+        totalSecs = remaining = workMins * 60;
+        document.querySelectorAll('.focus-mode-btn.active').forEach(button => button.classList.remove('active'));
+        document.getElementById('timerRing').classList.remove('break');
+        document.getElementById('phaseLabel').textContent = 'Focus';
+        document.getElementById('taskInput').value = planned.title.slice(0, 200);
+        status.textContent = document.getElementById('taskInput').value;
+      }
+    }
+  } catch (_) { /* This browser may disable session storage. */ }
   updateDisplay();
   const raw = JSON.parse(localStorage.getItem('ip_focus_stats_full') || 'null');
   if (raw && raw.date === new Date().toDateString()) renderStats(raw);

@@ -1455,6 +1455,8 @@ function renderGcalStatus(d) {
         <button onclick="connectGoogleAdd()" class="btn-secondary" style="padding:6px 12px;font-size:0.78rem;cursor:pointer;">+ Add account</button>
       </div>
       ${rows}
+      ${d.all_calendars_enabled ? '<small>Planning uses busy time from all calendars in the active Google account.</small>'
+        : d.all_calendars_allowed ? '<a class="btn-secondary" href="/oauth/google?calendars=all&return=settings">Include all Google calendars</a>' : ''}
     </div>`;
 }
 

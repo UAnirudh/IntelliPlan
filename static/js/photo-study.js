@@ -84,6 +84,21 @@
   el('psCamera').addEventListener('click', function () { el('psCameraFile').click(); });
   el('psFile').addEventListener('change', selected); el('psCameraFile').addEventListener('change', selected);
   source.addEventListener('input', invalidate);
+  el('psPlanTasks').addEventListener('click', function () {
+    var draft = source.value.trim();
+    if (busy || !draft) {
+      status('Read a photo or enter task text first.');
+      return;
+    }
+    try {
+      sessionStorage.setItem('ip_photo_planner_draft', JSON.stringify({
+        owner: document.body.dataset.userId, text: draft, at: Date.now()
+      }));
+      window.location.assign('/scheduler?capture=1');
+    } catch (_) {
+      status('Browser storage is unavailable. Copy the reviewed text into the planner’s Add work panel.');
+    }
+  });
   el('psMode').addEventListener('change', invalidate); el('psCount').addEventListener('change', invalidate);
   el('psRead').addEventListener('click', async function () {
     if (busy || !file) return;

@@ -378,6 +378,12 @@ html[data-ui-accent="emerald"] { --accent: #087d66; --accent-soft: rgba(8,125,10
 html[data-theme="dark"][data-ui-accent="emerald"] { --accent: #6ed9b3; --accent-soft: rgba(110,217,179,.09); }
 html[data-ui-accent="violet"] { --accent: #6d48c6; --accent-soft: rgba(109,72,198,.08); --accent-mid: rgba(109,72,198,.22); }
 html[data-theme="dark"][data-ui-accent="violet"] { --accent: #bb9afa; --accent-soft: rgba(187,154,250,.09); }
+html[data-ui-accent="ocean"] { --accent: #1b5d9c; --accent-soft: #1b5d9c12; --accent-mid: #1b5d9c38; }
+html[data-theme="dark"][data-ui-accent="ocean"] { --accent: #8ac6f2; --accent-soft: #8ac6f218; }
+html[data-ui-accent="rose"] { --accent: #9a3a5b; --accent-soft: #9a3a5b12; --accent-mid: #9a3a5b38; }
+html[data-theme="dark"][data-ui-accent="rose"] { --accent: #f3a8bc; --accent-soft: #f3a8bc18; }
+html[data-ui-accent="amber"] { --accent: #865117; --accent-soft: #86511712; --accent-mid: #86511738; }
+html[data-theme="dark"][data-ui-accent="amber"] { --accent: #efc083; --accent-soft: #efc08318; }
 .workspace-appearance { width: min(520px,calc(100% - 32px)); max-height: calc(100dvh - 48px); overflow-y: auto; padding: 28px; border: 1px solid var(--border-strong); border-radius: 28px; color: var(--text-primary); background: var(--bg-card); box-shadow: 0 24px 80px #0004; }
 .workspace-appearance::backdrop { background: #10152260; backdrop-filter: blur(6px); }
 .workspace-appearance header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }

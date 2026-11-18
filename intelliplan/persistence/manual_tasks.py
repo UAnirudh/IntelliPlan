@@ -98,6 +98,17 @@ class SQLTasks:
             return self.snapshot(row)
         return self._write(write)
 
+    def import_batch(self, rows):
+        rows = [checked(row) for row in rows]
+        def write():
+            existing = {row.external_id for row in self.model.query.filter_by(
+                **self.scope, import_source='paste'
+            ).filter(self.model.external_id.in_([row['external_id'] for row in rows]))}
+            new = [self.model(**self.scope, **row) for row in rows if row['external_id'] not in existing]
+            self.db.session.add_all(new)
+            return len(new)
+        return self._write(write)
+
     def update(self, identity, values):
         values = checked(values)
         def write():

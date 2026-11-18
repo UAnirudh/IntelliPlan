@@ -218,3 +218,25 @@ def test_repeated_hour_event_does_not_disappear(fake_calendar, start, end):
     busy = gcal.busy_minutes_by_date({}, date(2026, 11, 1), days=1,
                                      tz_name='America/Los_Angeles')
     assert busy[date(2026, 11, 1)] == [(60, 120)]
+
+def test_secondary_google_calendars_add_busy_time_without_event_details(monkeypatch):
+    from types import SimpleNamespace
+    requests = []
+    periods = [{"start": "2026-03-02T22:00:00Z", "end": "2026-03-02T23:00:00Z"}]
+
+    def calendar_list(**options):
+        assert options["fields"] == "items(id,primary),nextPageToken"
+        return SimpleNamespace(execute=lambda: {"items": [
+            {"id": "me@example.com", "primary": True}, {"id": "sports@example.com"}]})
+
+    def freebusy(*, body):
+        requests.extend(body["items"])
+        return SimpleNamespace(execute=lambda: {"calendars": {
+            "primary": {"busy": []}, "sports@example.com": {"busy": periods}}})
+
+    service = SimpleNamespace(calendarList=lambda: SimpleNamespace(list=calendar_list),
+                              freebusy=lambda: SimpleNamespace(query=freebusy))
+    monkeypatch.setattr(gcal, "get_calendar_service", lambda _: (service, None))
+    assert gcal.busy_minutes_by_date({"scopes": [gcal.CALENDAR_LIST_SCOPE]},
+        date(2026, 3, 2), days=1) == {date(2026, 3, 2): [(1320, 1380)]}
+    assert requests == [{"id": "primary"}, {"id": "sports@example.com"}]
