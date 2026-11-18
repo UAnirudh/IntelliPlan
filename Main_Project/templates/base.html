@@ -803,6 +803,8 @@ body {
       <div class="nav-group nav-more">
         <span class="nav-more-head">Plan</span>
         <a href="/dashboard" class="nav-tab {% if active_page == 'dashboard' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-dashboard"/></svg></span><span class="nav-label">Dashboard</span></a>
+        <a href="/foundations" class="nav-tab {% if active_page == 'primer' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-book"/></svg></span><span class="nav-label">Foundations</span></a>
+        <a href="/memories" class="nav-tab {% if active_page == 'memories' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-save"/></svg></span><span class="nav-label">Memories</span></a>
         <a href="/priority"  class="nav-tab {% if active_page == 'priority' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-priority"/></svg></span><span class="nav-label">Priority Queue</span></a>
         <a href="/classes"   class="nav-tab {% if active_page == 'classes' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-classes"/></svg></span><span class="nav-label">Classes</span></a>
         <a href="/grades"    class="nav-tab {% if active_page == 'grades' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-grades"/></svg></span><span class="nav-label">Grades</span></a>
@@ -821,6 +823,7 @@ body {
       </div>
       <div class="nav-group nav-more">
         <span class="nav-more-head">Progress</span>
+        <a href="/gradebook" class="nav-tab {% if active_page in ['gradebook','grademodel'] %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-modeler"/></svg></span><span class="nav-label">Grade Modeler</span></a>
         <a href="/streak"   class="nav-tab {% if active_page == 'streak' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-fire"/></svg></span><span class="nav-label">Streak</span><span class="nav-link-meta" id="navStreakMeta" hidden></span></a>
         <a href="/pet"      class="nav-tab {% if active_page == 'pet' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-sparkle"/></svg></span><span class="nav-label">My Pet</span><span class="nav-link-meta" id="navPetMeta" hidden></span></a>
         <a href="/balance"  class="nav-tab {% if active_page == 'balance' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-heart"/></svg></span><span class="nav-label">Balance</span></a>
