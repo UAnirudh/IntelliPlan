@@ -5052,12 +5052,29 @@ def public_stats():
 
 @app.route("/")
 def landing():
-    try:
-        account_count = User.query.count()
-    except Exception:
-        app.logger.exception("Registered account count could not be loaded")
-        account_count = None
-    return _no_store(flask.make_response(render_template("home.html", account_count=account_count)))
+    return render_template("landing.html", active_page="landing")
+
+
+@app.get("/test")
+@app.get("/test/<string:asset>")
+def founder_home_preview(asset=None):
+    if not is_owner(current_user):
+        response = flask.make_response("", 404)
+    elif asset is None:
+        response = flask.make_response(render_template("founder_home_preview.html"))
+    elif asset in {"design.css", "motion.js"}:
+        response = send_from_directory(
+            os.path.join(app.root_path, "Main_Project", "private_preview"),
+            asset, conditional=False, max_age=0,
+        )
+    else:
+        response = flask.make_response("", 404)
+    response = _no_store(response)
+    response.headers["Cache-Control"] = "private, no-store, max-age=0"
+    response.headers["X-Robots-Tag"] = "noindex, nofollow, noarchive"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.vary.add("Cookie")
+    return response
 
 # ── SEO / AI-crawler static files ─────────────────────────────
 @app.route("/robots.txt")

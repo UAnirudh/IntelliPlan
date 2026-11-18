@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <title>IntelliPlan | Homepage preview</title>
+  <link rel="icon" href="/static/icons/icon-192.png">
+  <link rel="stylesheet" href="{{ url_for('founder_home_preview', asset='design.css') }}">
+  <script defer src="{{ url_for('founder_home_preview', asset='motion.js') }}"></script>
+</head>
+<body>
+  <a class="skip" href="#main-content">Skip to content</a>
+  <header class="shell top">
+    <a class="brand" href="/"><img src="/static/icons/icon-192.png" width="39" height="39" alt=""><span>IntelliPlan</span></a>
+    <nav aria-label="Preview navigation">
+      <a href="#week">See the planner</a>
+      <a class="home-link" href="/">Public site <span aria-hidden="true">↗</span></a>
+    </nav>
+  </header>
+
+  <main id="main-content">
+    <section class="hero shell" aria-labelledby="welcome">
+      <div class="hero-copy">
+        <p class="preview-label">Private preview</p>
+        <h1 id="welcome">Make time<br>for <em>school.</em></h1>
+        <p class="intro">Bring your assignments and calendar together. See what you can get done in the time you actually have.</p>
+        <a class="primary" href="#week">See a week in motion <span aria-hidden="true">↓</span></a>
+      </div>
+
+      <div class="orbit-wrap">
+        <div class="orbit" id="preview-orbit" aria-label="School and calendar connections">
+          <div class="orbit-glow" aria-hidden="true"></div>
+          <div class="orbit-ring outer" aria-hidden="true"></div>
+          <div class="orbit-ring inner" aria-hidden="true"></div>
+          <div class="orbit-ring dust" aria-hidden="true"></div>
+          <div class="orbit-core">
+            <img width="224" height="224" src="/static/plani-3d.webp" alt="Plani, your study assistant" fetchpriority="high">
+          </div>
+          <button class="planet canvas" type="button" aria-pressed="true" data-angle="-2.62" data-ring="outer"
+                  data-copy="Canvas brings assignments and due dates into your plan.">
+            <span class="planet-icon"><img width="26" height="26" src="/static/logos/canvas.svg" alt=""></span>Canvas
+          </button>
+          <button class="planet calendar" type="button" aria-pressed="false" data-angle="-.6" data-ring="outer"
+                  data-copy="Google Calendar keeps study blocks clear of time that’s already booked.">
+            <span class="planet-icon"><img width="26" height="26" src="/static/logos/google-calendar.svg" alt=""></span>Google Calendar
+          </button>
+          <button class="planet vue" type="button" aria-pressed="false" data-angle="1.22" data-ring="outer"
+                  data-copy="StudentVUE brings assignments and deadlines together.">
+            <span class="planet-icon"><img width="26" height="26" src="/static/logos/studentvue.svg" alt=""></span>StudentVUE
+          </button>
+          <button class="planet notion" type="button" aria-pressed="false" data-angle="-1.61" data-ring="inner"
+                  data-copy="Notion tasks can join the rest of your schoolwork.">
+            <span class="planet-icon"><img width="26" height="26" src="/static/logos/notion.svg" alt=""></span>Notion
+          </button>
+          <button class="planet schoology" type="button" aria-pressed="false" data-angle="2.44" data-ring="inner"
+                  data-copy="Schoology brings coursework from your classes into the planner.">
+            <span class="planet-icon"><img width="26" height="26" src="/static/logos/schoology.svg" alt=""></span>Schoology
+          </button>
+        </div>
+        <div class="orbit-caption">
+          <p id="orbit-copy" aria-live="polite">Canvas brings assignments and due dates into your plan.</p>
+          <button class="motion-button" id="motion-toggle" type="button" hidden>Pause motion</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="sample shell" id="week" aria-labelledby="week-heading">
+      <div class="sample-copy">
+        <h2 id="week-heading">Plans change.<br>Keep your evening.</h2>
+        <p>See what happens when a practice runs late. Your homework can move without taking over the rest of your week.</p>
+        <button class="primary" type="button" id="shift-practice" hidden>Practice runs late <span aria-hidden="true">↗</span></button>
+        <p class="sample-status" id="sample-status" role="status">Try moving practice 30 minutes later.</p>
+      </div>
+      <article class="plan-card" aria-labelledby="sample-title">
+        <header>
+          <div><p>Sample week</p><h3 id="sample-title">Tuesday, after school</h3></div>
+          <span class="plan-total">1h 20m to study</span>
+        </header>
+        <ol class="plan-items">
+          <li class="schedule-row practice">
+            <time datetime="15:30" data-original="3:30 pm" data-change="4:00 pm" data-time="16:00">3:30 pm</time>
+            <div><strong>Soccer practice</strong><small>Already on your calendar</small></div><span>90 min</span>
+          </li>
+          <li class="schedule-row math">
+            <time datetime="17:15" data-original="5:15 pm" data-change="5:45 pm" data-time="17:45">5:15 pm</time>
+            <div><strong>Related rates</strong><small>Calculus · due tomorrow</small></div><span>45 min</span>
+          </li>
+          <li class="schedule-row science">
+            <time datetime="18:15" data-original="6:15 pm" data-change="6:45 pm" data-time="18:45">6:15 pm</time>
+            <div><strong>Review cell division</strong><small>Biology · quiz on Thursday</small></div><span>35 min</span>
+          </li>
+        </ol>
+        <a class="demo-link" href="/demo/planner">Open the full sample week <span aria-hidden="true">↗</span></a>
+      </article>
+    </section>
+  </main>
+
+  <footer class="shell bottom">
+    <a class="brand" href="/"><img src="/static/icons/icon-192.png" width="32" height="32" alt="">IntelliPlan</a>
+    <a href="/">Back to the public site <span aria-hidden="true">↗</span></a>
+  </footer>
+</body>
+</html>

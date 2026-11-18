@@ -62,6 +62,52 @@ def _freeze_app_clock(monkeypatch, now):
     monkeypatch.setattr(App, "datetime", FrozenDateTime)
 
 
+def test_homepage_preview_only_serves_verified_owner_and_keeps_assets_private(client, monkeypatch):
+    with App.app.app_context():
+        owner = _user(verified=True)
+        delegate = _user(verified=True)
+        owner_id, delegate_id = owner.id, delegate.id
+        monkeypatch.setattr(App, "FOUNDER_EMAIL", owner.email)
+        monkeypatch.setattr(App, "ADMIN_EMAILS", {owner.email, delegate.email})
+
+    private_urls = ("/test", "/test/design.css", "/test/motion.js")
+
+    def denied():
+        for path in private_urls:
+            result = client.get(path)
+            assert result.status_code == 404
+            assert "no-store" in result.headers["Cache-Control"]
+            assert result.data == b""
+
+    denied()
+    _sign_in(client, delegate_id)
+    denied()
+    _sign_in(client, owner_id)
+    expected = ("Private preview", ".orbit-ring", "requestAnimationFrame")
+    for path, marker in zip(private_urls, expected):
+        result = client.get(path)
+        assert result.status_code == 200
+        assert marker in result.get_data(as_text=True)
+        assert "no-store" in result.headers["Cache-Control"]
+        assert "private" in result.headers["Cache-Control"]
+        assert "noindex" in result.headers["X-Robots-Tag"]
+        assert "Cookie" in result.vary
+    assert client.get("/test/unknown.css").status_code == 404
+
+    with App.app.app_context():
+        App.db.session.get(App.User, owner_id).email_verified = False
+        App.db.session.commit()
+    denied()
+
+
+def test_public_homepage_uses_original_landing_template(client):
+    response = client.get("/")
+    assert response.status_code == 200
+    assert b'id="preview-title"' in response.data
+    assert b'href="/demo/planner"' in response.data
+    assert b'Private preview' not in response.data
+
+
 def test_feature_adoption_suppresses_small_counts_and_groups_unique_accounts():
     rows = [("/dashboard", f"u:{i}") for i in range(1, 5)]
     rows.extend([("/scheduler", "u:1"), ("/scheduler", "u:1")])
