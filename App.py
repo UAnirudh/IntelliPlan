@@ -10479,6 +10479,8 @@ def _account_delete_impl():
         ("learning_courses", "DELETE FROM learning_courses WHERE user_id = :uid"),
         ("learning_sittings", "DELETE FROM learning_sittings WHERE user_id = :uid"),
         ("learning_memberships", "DELETE FROM learning_memberships WHERE user_id = :uid"),
+        ("learning_school_admin_requests", "DELETE FROM learning_school_admin_requests WHERE user_id = :uid"),
+        ("learning_school_admin_requests", "UPDATE learning_school_admin_requests SET decided_by_id = NULL WHERE decided_by_id = :uid"),
         ("learning_policy_audit", "UPDATE learning_policy_audit SET actor_id = NULL WHERE actor_id = :uid"),
         # ── Rows that reference *other* rows this user owns ────────────
         # Focus samples hang off active_sessions with ON DELETE CASCADE, but

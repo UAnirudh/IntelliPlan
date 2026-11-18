@@ -352,7 +352,7 @@ def test_a_student_can_name_their_assistant(client):
 
     assert response.get_json()["identity"]["assistant_name"] == "Atlas"
     html = client.get("/command-center").data.decode("utf-8", "ignore")
-    assert "Ask Atlas anything" in html
+    assert 'for="chatInput">Message Atlas</label>' in html
     assert "Ask Plani anything" not in html
 
 

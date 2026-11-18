@@ -17,6 +17,7 @@ DIRECT_USER_COLLECTIONS = (
     'learning_courses',
     'learning_sittings',
     'learning_memberships',
+    'learning_school_admin_requests',
     'google_integrations',
     'outlook_integrations',
     'google_drive_integrations',
@@ -116,6 +117,7 @@ DIRECT_OTHER_OWNERS = {
 }
 ANONYMIZED_REFERENCES = {
     'learning_policy_audit': {'actor_id': None},
+    'learning_school_admin_requests': {'decided_by_id': None},
     'school_outreach_leads': {'user_id': None, 'student_email': ''},
     'manual_entry_reasons': {'user_id': None},
     'study_group_tasks': {'claimed_by_user_id': None},
