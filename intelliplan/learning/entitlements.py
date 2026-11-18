@@ -593,6 +593,15 @@ def lakeside_admin_request():
     organization = _lakeside_organization()
     if not organization:
         return jsonify(error="unavailable", message="Lakeside requests are not configured yet."), 503
+    from App import User, db
+    from intelliplan.api.roles import _adult_account
+    if request.method == "POST":
+        # Serialize submissions from the same account, including double clicks.
+        requester = db.session.get(User, current_user.id, populate_existing=True, with_for_update=True)
+        if requester is None or not _adult_account(requester):
+            return jsonify(error="adult_account_required", message="A verified adult account is required."), 403
+        if requester.email_verified is not True:
+            return jsonify(error="email_unverified", message="Verify your account email before requesting access."), 403
     M = _models()
     row = M["SchoolAdminRequest"].query.filter_by(organization_id=organization.id, user_id=current_user.id).first()
     membership = M["Membership"].query.filter_by(organization_id=organization.id, user_id=current_user.id).first()
@@ -600,9 +609,6 @@ def lakeside_admin_request():
         return jsonify(status="already_admin")
     if request.method == "GET":
         return jsonify(status=("none" if row and row.status == "approved" else row.status) if row else "none")
-    if getattr(current_user, "email_verified", False) is not True:
-        return jsonify(error="email_unverified", message="Verify your account email before requesting access."), 403
-    from App import db
     if row and row.status == "pending":
         return jsonify(status="pending")
     if row is None:
@@ -651,8 +657,11 @@ def owner_decide_lakeside_request(request_id):
     row = M["SchoolAdminRequest"].query.filter_by(id=request_id, organization_id=organization.id).with_for_update().first_or_404()
     if row.status != "pending":
         return jsonify(error="already_decided"), 409
-    user = db.session.get(User, row.user_id)
+    user = db.session.get(User, row.user_id, populate_existing=True)
     if decision == "approve":
+        from intelliplan.api.roles import _adult_account
+        if not user or not _adult_account(user):
+            return jsonify(error="adult_account_required", message="Only verified adult accounts can become school administrators."), 409
         if not user or user.email_verified is not True:
             return jsonify(error="email_unverified", message="The account email must be verified before approval."), 409
         membership = M["Membership"].query.filter_by(user_id=user.id, organization_id=organization.id).first()

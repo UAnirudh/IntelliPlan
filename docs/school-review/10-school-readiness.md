@@ -31,3 +31,7 @@ After those gates, a proposed limited pilot could involve a small volunteer clas
 The request page is `/lakeside-admin`; the owner reviews requests at `/owner/schools` while in founder mode. This is disabled until the operator sets `LAKESIDE_ADMIN_ORGANIZATION_ID` to the numeric ID of the independently verified Lakeside **school** organization. Create or identify that organization first and verify its ID; do not point this setting at a district or a different institution. Requests require an account with a verified email but do not prove employment or school authority. Independently verify the requester before approving. Approval creates or updates an admin membership only for that school; it does not constitute school permission for deployment. Declining leaves memberships unchanged. No approval or request is created by enabling the setting.
 
 The additive `learning_school_admin_requests` table is created by the application's normal `db.create_all` initialization; include it in deployment database migrations and backups. Changing the configured organization hides the prior queue rather than transferring requests. Remove the setting to disable new requests and decisions.
+
+Requesting and approving access both require the requester's account to record
+an adult birth year and a verified email. The owner still verifies the person's
+school role before approving.

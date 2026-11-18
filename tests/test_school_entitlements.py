@@ -503,6 +503,15 @@ def test_lakeside_admin_request_requires_owner_approval_and_is_scoped(monkeypatc
         assert client.post(f'/api/owner/lakeside-admin/requests/{req_id}', json={'decision':'approve'}).status_code == 404
         _login(client, owner_id)
         assert client.get('/api/owner/lakeside-admin/requests').get_json()['requests'][0]['id'] == req_id
+        with App.app.app_context():
+            changed = App.db.session.get(App.User, requester_id)
+            changed.birth_year = App.utcnow().year - 16
+            App.db.session.commit()
+        assert client.post(f'/api/owner/lakeside-admin/requests/{req_id}', json={'decision':'approve'}).get_json()['error'] == 'adult_account_required'
+        with App.app.app_context():
+            changed = App.db.session.get(App.User, requester_id)
+            changed.birth_year = 2000
+            App.db.session.commit()
         assert client.post(f'/api/owner/lakeside-admin/requests/{req_id}', json={'decision':'approve'}).status_code == 200
         assert client.post(f'/api/owner/lakeside-admin/requests/{req_id}', json={'decision':'approve'}).status_code == 409
         with App.app.app_context():
