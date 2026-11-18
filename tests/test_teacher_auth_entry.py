@@ -10,8 +10,9 @@ def test_teacher_signup_signin_and_student_consent_flow(client, monkeypatch):
     monkeypatch.setattr(App, 'send_welcome_email_on_signup', lambda uid: None)
     monkeypatch.setattr(App, '_grant_referral_bonus', lambda user: None)
     entry = client.get('/teacher')
-    assert entry.status_code == 302 and entry.location == '/login/account?next=/teacher'
-    assert b'Sign in to Teacher' in client.get(entry.location).data
+    assert entry.status_code == 200
+    assert b'Create a teacher account' in entry.data
+    assert b'fabricated' in entry.data
     page = client.get('/register?next=/teacher')
     assert b'Create your Teacher account' in page.data
     assert b'name="next" value="/teacher"' in page.data
@@ -20,6 +21,34 @@ def test_teacher_signup_signin_and_student_consent_flow(client, monkeypatch):
         'confirm_password': 'teacher-test-pass', 'birth_year': 1980, 'next': '/teacher'})
     assert response.status_code == 302 and response.location == '/teacher'
     assert b'Your students' in client.get('/teacher').data
+    preview = client.get('/teacher/demo')
+    assert preview.status_code == 200
+    assert b'Fictional preview' in preview.data
+    assert b'Jordan Rivera' in preview.data
+    assert b'no-store' in preview.headers.get('Cache-Control', '').encode().lower()
+    assert b'noindex' in preview.headers.get('X-Robots-Tag', '').encode().lower()
+    assert b'fetch(' not in preview.data
+
+    sent = []
+    monkeypatch.setenv('BUG_REPORT_TO', 'bugs@example.test')
+    monkeypatch.setattr(App, '_send_email', lambda *args, **kwargs: sent.append((args, kwargs)) or True)
+    bug = client.post('/api/bug-report', json={
+        'message': 'The sample progress control did not update.',
+        'page_url': '/teacher/demo',
+        'diagnostics': {'theme': 'light', 'viewport': 'desktop'},
+    })
+    assert bug.status_code == 200 and bug.get_json()['status'] == 'ok'
+    assert sent and sent[0][0][0] == 'bugs@example.test'
+    assert email in sent[0][0][2]
+    assert 'desktop' in sent[0][0][2]
+    monkeypatch.setattr(App, '_send_email', lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError('mail unavailable')))
+    saved_despite_mail_failure = client.post('/api/bug-report', json={
+        'message': 'A second example report survives mail failure.',
+        'page_url': '/teacher/demo',
+    })
+    assert saved_despite_mail_failure.status_code == 200
+    with App.app.app_context():
+        assert App.SiteFeedback.query.filter_by(id=saved_despite_mail_failure.get_json()['id']).first()
     with App.app.app_context():
         teacher = App.User.query.filter_by(email=email).first()
         assert teacher.role == 'teacher'

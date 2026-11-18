@@ -163,10 +163,25 @@ def _public_note(note):
 @bp.route("/teacher")
 def teacher_dashboard():
     if not current_user.is_authenticated:
-        return redirect(url_for("login_account", next="/teacher"))
+        return render_template("teacher_landing.html", noindex_page=False)
     if current_user.role != "teacher":
         return render_template("teacher_setup.html", active_page="teacher", noindex_page=True)
     return render_template("teacher_dashboard.html", active_page="teacher", noindex_page=True)
+
+
+@bp.route("/teacher/demo")
+def teacher_demo():
+    """Teacher-only walkthrough populated exclusively with fictional data."""
+    if not current_user.is_authenticated:
+        return redirect(url_for("login_account", next="/teacher/demo"))
+    if current_user.role != "teacher":
+        return redirect("/teacher")
+    response = current_app.make_response(render_template(
+        "teacher_demo.html", active_page="teacher", noindex_page=True))
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["X-Robots-Tag"] = "noindex, nofollow"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    return response
 
 
 @bp.route('/adult/account')

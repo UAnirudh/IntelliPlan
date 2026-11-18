@@ -26,3 +26,14 @@ def test_sidebar_uses_canvas_surface_and_has_visible_keyboard_focus():
     assert "body.has-side .app-side :is(.side-link, .side-customize-btn, .side-search, .side-quick-add):focus-visible" in finish
     assert "outline: 2px solid var(--accent);" in finish
     assert "background: var(--bg);" in rail
+
+
+def test_secondary_destinations_are_tucked_under_more_disclosures():
+    template = (ROOT / "Main_Project/templates/base.html").read_text(encoding="utf-8")
+    sidebar = template.split('<div class="side-nav-list" id="sideNavList">', 1)[1].split(
+        "</div>", 1
+    )[0]
+    assert sidebar.index('data-nav-item="command_center"') < sidebar.index('<details class="side-more"')
+    assert sidebar.index('data-nav-item="study_hub"') < sidebar.index('<details class="side-more"')
+    assert '<details class="nav-more-disclosure"' in template
+    assert "Tools &amp; progress" in template

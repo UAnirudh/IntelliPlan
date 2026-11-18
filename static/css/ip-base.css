@@ -877,6 +877,24 @@
       min-width: 0;
     }
     .nav-group { display:flex; align-items:center; gap:2px; }
+    .nav-more-disclosure { display:none; }
+    .nav-marketing-more { position:relative; display:block; }
+    .nav-marketing-summary {
+      display:inline-flex; align-items:center; min-height:34px; padding:5px 14px;
+      border-radius:var(--r-full); color:var(--text-secondary); font:400 .8rem var(--font-ui);
+      cursor:pointer; list-style:none;
+    }
+    .nav-marketing-summary::-webkit-details-marker { display:none; }
+    .nav-marketing-summary::after { content:"⌄"; margin-left:7px; color:var(--text-muted); transition:transform .16s ease; }
+    .nav-marketing-more[open] > .nav-marketing-summary::after { transform:rotate(180deg); }
+    .nav-marketing-summary:hover { background:var(--bg-elevated); color:var(--text-primary); }
+    .nav-marketing-panel {
+      position:absolute; top:calc(100% + 8px); right:0; z-index:1200; min-width:190px;
+      display:flex; flex-direction:column; gap:2px; padding:7px;
+      border:1px solid var(--border-strong); border-radius:16px;
+      background:var(--bg-card); box-shadow:var(--shadow-lg);
+    }
+    .nav-marketing-panel .nav-tab { justify-content:flex-start; min-height:40px; }
     /* Drawer-only groups. The phone drawer is the entire app menu, so it
        carries every destination; the desktop top bar keeps its six tabs
        because the sidebar already holds the rest. mobile.css turns these
@@ -1071,6 +1089,19 @@
     .app-side .side-link .side-icon { width: 16px; height: 16px; }
     .side-nav-list { display: flex; flex-direction: column; gap: 1px; }
     .side-nav-list .side-link.nav-hidden { display: none !important; }
+    .side-more { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 8px; }
+    .side-more-summary {
+      display: flex; align-items: center; justify-content: space-between;
+      min-height: 36px; padding: 0 11px; border-radius: var(--r-sm);
+      color: var(--text-secondary); font-family: var(--font-ui); font-size: .82rem;
+      font-weight: 600; cursor: pointer; list-style: none;
+    }
+    .side-more-summary::-webkit-details-marker { display: none; }
+    .side-more-summary::after { content: "⌄"; color: var(--text-muted); transition: transform .16s ease; }
+    .side-more[open] > .side-more-summary::after { transform: rotate(180deg); }
+    .side-more-summary:hover { color: var(--text-primary); background: var(--bg-elevated); }
+    .side-more-count { margin-left: auto; margin-right: 10px; color: var(--text-muted); font-size: .68rem; font-weight: 400; }
+    .side-more .side-section-label { margin-top: 8px; }
     /* Sidebar customize trigger, quiet, lives just above footer */
     .side-customize-btn {
       display: flex; align-items: center; gap: 10px;
