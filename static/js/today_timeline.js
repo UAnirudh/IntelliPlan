@@ -452,5 +452,11 @@
   document.addEventListener("visibilitychange", function () {
     if (!document.hidden && !state.drag && !state.pending) load();
   });
+  document.addEventListener("ip:plan-changed", function () {
+    if (!state.drag && !state.pending) load();
+  });
+  setInterval(function () {
+    if (!document.hidden && !state.drag && !state.pending) load();
+  }, 5 * 60 * 1000);
   load();
 })();

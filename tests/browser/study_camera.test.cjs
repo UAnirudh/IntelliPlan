@@ -45,6 +45,24 @@ test('lists video inputs only, including USB, capture and virtual cameras', asyn
   assert.equal(h.calls.length, 0, 'listing must never open a camera');
 });
 
+test('stopping a camera releases frame buffers and stops capture', async () => {
+  const h = harness();
+  const camera = new h.api.CameraMonitor();
+  await camera.start();
+  const captured = camera.stream;
+  const canvas = camera.canvas;
+  const previous = new Uint8Array([21, 82, 127]);
+  camera.prevFrame = previous;
+  camera.stop();
+  assert.equal(captured.track.stopped, true);
+  assert.deepEqual([...previous], [0, 0, 0]);
+  assert.equal(canvas.width, 0);
+  assert.equal(canvas.height, 0);
+  assert.equal(camera.canvas, null);
+  assert.equal(camera.detector, null);
+  assert.equal(camera.prevFrame, null);
+});
+
 test('explicit device is exact and never requests a microphone', async () => {
   const h = harness();
   const camera = new h.api.CameraMonitor();

@@ -97,6 +97,8 @@ class AdjustDeps:
     active_owners: Callable[[], list] = field(default=lambda: [])
     #: Cron work must resolve the explicit student's clock, not its caller.
     owner_now: Callable[[int | None], datetime] | None = None
+    owner_assignments: Callable[[int | None, str | None], list] = field(default=lambda uid, gid: [])
+    build_background_rows: Callable[[list], list] | None = None
 
 
 def _task_ids(schedule_data: Mapping[str, Any] | None) -> set[str]:
@@ -220,6 +222,11 @@ def create_adjust_blueprint(deps: AdjustDeps) -> Blueprint:
         state = AutopilotState.from_json(schedule_data.get('autopilot'))
         if not state.enabled:
             return {'status': 'ok', 'acted': False, 'enabled': False}, 200
+        background = rows is None
+        if background:
+            # Background runs have no browser to supply newly assigned work.
+            # Resolve the explicit owner after the opt-out check.
+            rows = deps.owner_assignments(uid, gid)
         now = _now_for(uid)
         today = now.date()
         try:
@@ -228,11 +235,16 @@ def create_adjust_blueprint(deps: AdjustDeps) -> Blueprint:
             reality = {}
         finished_titles = [
             str(r.get("title") or "") for r in rows or []
-            if isinstance(r, dict) and str(r.get("status") or "").lower()
-            in ("submitted", "graded", "completed", "complete", "done", "excused")
+            if isinstance(r, dict) and (
+                r.get('requires_action') is False or r.get('awaiting_grade') is True
+                or str(r.get("status") or r.get('submission_status') or "").lower()
+                in ("submitted", "graded", "completed", "complete", "done", "excused",
+                    "awaiting_grade", "student_reported", "pending_review", "turned_in")
+            )
         ]
         try:
-            planner_rows = deps.build_rows([
+            build_rows = deps.build_background_rows if background and deps.build_background_rows else deps.build_rows
+            planner_rows = build_rows([
                 r for r in rows or [] if isinstance(r, dict)
                 and str(r.get("title") or "") not in finished_titles
             ]) if rows else []
@@ -365,7 +377,7 @@ def create_adjust_blueprint(deps: AdjustDeps) -> Blueprint:
         for uid, gid in deps.active_owners():
             checked += 1
             try:
-                body, _status = _run_autopilot(uid, gid, [])
+                body, _status = _run_autopilot(uid, gid, None)
             except Exception:
                 failed += 1
                 continue

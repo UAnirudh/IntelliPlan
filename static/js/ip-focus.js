@@ -423,11 +423,14 @@
       this.stream = null;
     }
     if (this.video) { this.video.srcObject = null; this.video = null; }
+    // Release the decoded frame buffer as well as references on stop.
+    if (this.canvas) { this.canvas.width = 0; this.canvas.height = 0; }
     this.canvas = null;
     this.ctx = null;
     this.detector = null;
     // Drop the reference frame too, or a resumed session compares the first
     // new frame against a scene from before the break and reads as motion.
+    if (this.prevFrame) this.prevFrame.fill(0);
     this.prevFrame = null;
     if (_activeCamera === this) _activeCamera = null;
   };

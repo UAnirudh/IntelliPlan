@@ -86,13 +86,14 @@ COOKIES: list[dict[str, Any]] = [
         "duration": "12 months",
     },
     {
-        "name": "theme, ip_theme_palette, ip_a11y*",
+        "name": "theme, ip_theme_palette, ip_a11y*, ip_workspace_display_v1:*",
         "category": ESSENTIAL,
         "storage": "localStorage",
         "provider": "IntelliPlan",
         "purpose": "Your appearance and accessibility settings — dark mode, "
                    "colour palette, dyslexia-friendly font, reading level, "
-                   "language. Stored in your browser; some preferences also synchronize to your account.",
+                   "language, and account-specific workspace layout, spacing, text size and accent. "
+                   "Workspace display choices stay in this browser. Some other preferences also synchronize to your account.",
         "duration": "Until you clear your browser data",
     },
     {

@@ -23521,6 +23521,12 @@ def _enforce_pending_parental_consent():
     """An OAuth session must not unlock the product before parental approval."""
     if not current_user.is_authenticated:
         return None
+    if request.endpoint == 'roles_bp.teacher_demo' and request.method == 'GET':
+        from intelliplan.api.roles import _owner_teacher_preview
+        if _owner_teacher_preview():
+            # Fictional, static preview only. All real learner APIs retain
+            # the age/consent hold, including role changes and student links.
+            return None
     allowed = {"static", "legal", "privacy_alias_redirect", "terms_alias_redirect", "cookies_page", "logout",
                "account_age_gate", "account_age_pending", "parent_consent", "parent_deny",
                "account_age_pending_resend", "account_delete", "delete_account_info", "api_policy_pending",

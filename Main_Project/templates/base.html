@@ -486,6 +486,7 @@ body {
    never for a child. The only browser storage it needs is the ip_vid
    cookie, declared in cookie_policy.py. Anything added here in future must
    be declared there and gated on consent first. #}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/workspace_polish.css') }}?v={{ asset_v }}">
 </head>
 
 {# Active uses the same desktop sidebar as the rest of the workspace. Keeping
@@ -734,6 +735,8 @@ body {
   <div class="side-spacer"></div>
 
   <div class="side-foot">
+    <button type="button" class="side-link no-glass" data-ip-bug-report><span class="side-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 21V4m0 0c5-4 11 4 16 0v10c-5 4-11-4-16 0"/></svg></span>Report a bug</button>
+    {% if workspace_owner_admin %}<a href="/teacher/demo" class="side-link"><span class="side-icon"><svg><use href="#i-study"/></svg></span>Teacher preview</a>{% endif %}
     <button type="button" class="side-link no-glass" data-appearance-open><span class="side-icon"><svg><use href="#i-sparkle"/></svg></span>Appearance</button>
     {% if workspace_owner_admin %}<a href="/admin/accounts" class="side-link"><span class="side-icon"><svg><use href="#i-settings"/></svg></span>Account access</a>{% endif %}
     {% if workspace_role == 'teacher' %}<a href="/teacher" class="side-link"><span class="side-icon"><svg><use href="#i-study"/></svg></span>Teacher dashboard</a>{% elif workspace_role == 'parent' %}<a href="/parent" class="side-link"><span class="side-icon"><svg><use href="#i-study"/></svg></span>Family dashboard</a>{% endif %}

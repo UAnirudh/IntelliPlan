@@ -27,10 +27,9 @@
       : 'Get an email before sessions and deadlines.';
   }
   bar.hidden = false;
-  // Open the short explanation automatically after the signed-in user has
-  // reached the useful Command Center. No browser permission is requested
-  // until the visible Enable button is pressed.
-  bar.open = true;
+  // Keep setup secondary to the workspace. Opening the disclosure reveals
+  // the explanation; only Enable can request browser permission.
+  bar.open = false;
 
   dismiss.addEventListener('click', function () {
     rememberDecision();

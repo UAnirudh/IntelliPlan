@@ -433,6 +433,11 @@
 
 {% block content %}
 <div class="ipa-shell">
+  <div class="ipa-assignment-picker" id="ipaAssignmentPicker">
+    <label for="ipaAssignmentSelect">Study assignment</label>
+    <select id="ipaAssignmentSelect"><option value="">Suggested next session</option></select>
+    <p id="ipaAssignmentStatus" role="status">Choose an assignment, or follow your current plan.</p>
+  </div>
 
   <section class="ipa-empty" id="ipaEmpty">
     <h1>Active</h1>
@@ -540,7 +545,7 @@
         {% else %}
         Summary counts reach your account. For a paired camera, encrypted connection details also pass through IntelliPlan temporarily.
         Video is never recorded or uploaded to IntelliPlan; frames are
-        checked in your study browser and discarded. The counts record how many
+        checked in your study browser and discarded. Camera frames are not sent to Groq or another AI provider. The counts record how many
         checks saw someone, how many didn't. No images, no face data.
         {% endif %}
       </p>

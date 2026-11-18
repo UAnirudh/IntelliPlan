@@ -474,7 +474,28 @@ def _emit_signal(user_id: int, kind: str, value: dict) -> None:
 # ── autopilot ────────────────────────────────────────────────────────
 
 
-def _build_rows(assignments: list) -> list:
+def _owner_assignments(user_id, guest_id) -> list:
+    """Fresh, owner-bound sources for autonomous replanning, including new work."""
+    if not user_id:
+        return []
+    from App import ManualTask, User, db, collect_lms_assignments_for_user
+    from command_center_glue import _filter_stored_tasks
+    from child_privacy import hold_reason
+    from intelliplan.learning import policy
+    owner = db.session.get(User, user_id)
+    policy.invalidate_cache()
+    if owner is None or hold_reason(owner) or not policy.decision(owner, 'scheduler')[0]:
+        raise PermissionError('Background scheduling is restricted for this account.')
+    rows = collect_lms_assignments_for_user(user_id, use_cache=False, include_waiting=True)
+    manual = _filter_stored_tasks(user_id, ManualTask.query.filter_by(user_id=user_id).all())
+    return list(rows) + [{
+        'id': f'manual-{row.id}', 'title': row.title, 'course': row.course,
+        'due_date': row.due_date, 'estimated_time': row.estimated_time,
+        'status': 'completed' if row.done else 'pending',
+    } for row in manual]
+
+
+def _build_rows(assignments: list, *, include_descriptions=True) -> list:
     """The page's assignment rows → planner rows, the same way generation does."""
     from App import _planner_task_rows, _saved_descriptions_for, infer_task_difficulty
 
@@ -491,7 +512,7 @@ def _build_rows(assignments: list) -> list:
     if not normalized:
         return []
     try:
-        descriptions = _saved_descriptions_for(normalized)
+        descriptions = _saved_descriptions_for(normalized) if include_descriptions else {}
     except Exception:
         descriptions = None
     return _planner_task_rows(normalized, [], descriptions=descriptions)
@@ -645,6 +666,8 @@ followthrough_bp = create_adjust_blueprint(
         finalize_autopilot=_finalize_autopilot,
         notify=_notify,
         active_owners=_active_owners,
+        owner_assignments=_owner_assignments,
+        build_background_rows=lambda rows: _build_rows(rows, include_descriptions=False),
     )
 )
 

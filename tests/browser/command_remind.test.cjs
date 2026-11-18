@@ -51,10 +51,10 @@ function harness({decided = false} = {}) {
   return {bar, calls, handlers, on, text, dismiss, storage};
 }
 
-test('opens the reminder explanation on arrival without requesting browser permission', () => {
+test('offers a collapsed reminder disclosure without requesting browser permission', () => {
   const h = harness();
   assert.equal(h.bar.hidden, false);
-  assert.equal(h.bar.open, true);
+  assert.equal(h.bar.open, false);
   assert.equal(h.calls.length, 0);
 });
 

@@ -28,7 +28,7 @@ body.has-side .app-side .side-foot .side-link { width: 100%; min-height: 44px; l
   border: 0; border-radius: 7px; padding: 0;
   background: transparent; color: var(--text-muted);
   cursor: pointer;
-  opacity: 0; transition: opacity 0.14s, background 0.14s, color 0.14s;
+  opacity: 1; transition: background 0.14s, color 0.14s;
 }
 .app-side:hover .side-collapse-btn,
 .side-collapse-btn:focus-visible { opacity: 1; }
@@ -92,8 +92,11 @@ body.has-side .side-logo { padding-right: 40px; }
   html[data-side-rail] body.has-side .app-side:not(.is-peek) .side-quick-add > span:not(.side-icon),
   html[data-side-rail] body.has-side .app-side:not(.is-peek) .side-customize-btn > span:not(.side-icon),
   html[data-side-rail] body.has-side .app-side:not(.is-peek) .logo-text,
-  html[data-side-rail] body.has-side .app-side:not(.is-peek) .side-foot-row,
-  html[data-side-rail] body.has-side .app-side:not(.is-peek) .side-collapse-btn { display: none; }
+  html[data-side-rail] body.has-side .app-side:not(.is-peek) .side-foot-row { display: none; }
+  html[data-side-rail] body.has-side .app-side:not(.is-peek) .side-collapse-btn {
+    display: inline-grid; position: relative; top: auto; right: auto;
+    width: 44px; min-height: 36px; margin: 4px 0 8px;
+  }
   html[data-side-rail] body.has-side .app-side:not(.is-peek) .side-section-label,
   html[data-side-rail] body.has-side .app-side:not(.is-peek) .side-link-meta { display: none !important; }
   html[data-side-rail] body.has-side .app-side:not(.is-peek) .side-customize-btn { border-color: transparent; }

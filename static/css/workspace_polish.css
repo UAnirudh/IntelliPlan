@@ -1,0 +1,34 @@
+/* App workspace: plain surfaces, restrained controls and readable hierarchy. */
+body.has-side { --r-sm: 6px; --r-md: 8px; --r-lg: 10px; --r-xl: 12px; --neu-shadow: none; --neu-shadow-sm: none; --workspace-raised: none; }
+:root[data-theme="light"]:not([data-palette]) body.has-side { --bg: #fff; --bg-elevated: #f5f5f3; }
+:root[data-theme="dark"]:not([data-palette]) body.has-side { --bg: #191919; --bg-elevated: #222; }
+body.has-side :is(button, .command-chat__btn) { box-shadow: none !important; background-image: none !important; }
+body.has-side :is(button, .command-chat__btn):hover { transform: none !important; }
+body.has-side :is(button, .command-chat__btn)::after { box-shadow: none; }
+/* Override the legacy high-specificity frosted-primary material. */
+body.has-side button[class*="primary"]:not(.no-glass):not([class*="secondary"]):not([class*="ghost"]) {
+  box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+}
+body.has-side .app-side { background: var(--bg-elevated); box-shadow: none; }
+body.has-side .app-side .side-link { border-radius: 5px; font-weight: 450; }
+body.has-side .app-side .side-link.active { background: color-mix(in srgb, var(--text-primary) 7%, transparent); color: var(--text-primary); box-shadow: none; }
+body.has-side :is(.ipd-card, .scheduler-panel, .ipa-card) { box-shadow: none; border-radius: 10px; background: var(--bg-card); }
+body.has-side :is(.btn-primary, .btn-secondary, .ipui-btn, .ipa-btn, .ipd-btn) { border-radius: 6px; background-image: none; box-shadow: none; }
+body.has-side :is(button, .btn-primary, .btn-secondary, .ipui-btn, .ipa-btn, .ipd-btn):hover { transform: none; }
+body.has-side :is(.ipui-btn--shimmer, .ipd-anim)::before,
+body.has-side .ipui-btn--shimmer::after { animation: none; background-image: none; }
+body.has-side .ip-bug-shortcut { display: none; }
+.scheduler-options { margin-top: 16px; border-top: 1px solid var(--border); padding-top: 12px; }
+.scheduler-options > summary { cursor: pointer; color: var(--text-secondary); font-size: .88rem; padding: 8px 0; }
+.scheduler-options[open] > summary { margin-bottom: 12px; }
+.ipa-assignment-picker { padding: 16px 0; margin-bottom: 16px; border-bottom: 1px solid var(--border); }
+.ipa-assignment-picker label { display: block; font-size: .85rem; margin-bottom: 8px; color: var(--text-secondary); }
+.ipa-assignment-picker select { width: 100%; min-height: 44px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-card); color: var(--text-primary); font: inherit; padding: 9px 12px; }
+.ipa-assignment-picker p { color: var(--text-muted); font-size: .8rem; margin: 7px 0 0; }
+@media (min-width: 769px) {
+  body.has-side .app-side { inset: 0 auto 0 0; width: var(--side-w); border-radius: 0; border-right: 1px solid var(--border); }
+  html[data-side-rail] body.has-side .app-side { width: var(--side-peek-w); clip-path: inset(0 calc(var(--side-peek-w) - var(--side-rail-w)) 0 0); }
+  html[data-side-rail] body.has-side .app-side.is-peek { clip-path: inset(0 -40px 0 0); border-radius: 0; }
+  html[data-side-rail] body.has-side .app-side:not(.is-peek) .side-collapse-btn { position: absolute; top: 20px; left: 16px; right: auto; width: 32px; min-height: 32px; margin: 0; }
+}
+@media (prefers-reduced-motion: reduce) { body.has-side * { scroll-behavior: auto; } }

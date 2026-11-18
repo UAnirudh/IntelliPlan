@@ -61,7 +61,7 @@
   /* Press depth is deliberately small. Anything past ~3% reads as the
      button shrinking rather than as the button being pushed, and on a
      dense toolbar it makes neighbours look like they moved too. */
-  var PRESS_SCALE = 0.97;
+  var PRESS_SCALE = 1;
   var PRESS_IN    = 0.07;
   /* The release used to run `elastic.out(1, 0.55)` over 340ms. That is a
      long time for a control to still be visibly moving after the click
@@ -82,7 +82,7 @@
   window.IPGsap = api;
 
   function noMotion(el) {
-    return !el || (el.closest && el.closest('[data-no-motion]'));
+    return !el || (el.closest && el.closest('[data-no-motion], body.has-side'));
   }
 
   /* ── Engine handle ────────────────────────────────────────────────

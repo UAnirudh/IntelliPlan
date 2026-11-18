@@ -174,7 +174,7 @@ def teacher_demo():
     """Teacher-only walkthrough populated exclusively with fictional data."""
     if not current_user.is_authenticated:
         return redirect(url_for("login_account", next="/teacher/demo"))
-    if current_user.role != "teacher":
+    if current_user.role != "teacher" and not _owner_teacher_preview():
         return redirect("/teacher")
     response = current_app.make_response(render_template(
         "teacher_demo.html", active_page="teacher", noindex_page=True))
@@ -182,6 +182,20 @@ def teacher_demo():
     response.headers["X-Robots-Tag"] = "noindex, nofollow"
     response.headers["Referrer-Policy"] = "no-referrer"
     return response
+
+
+def _owner_teacher_preview():
+    """Explicit owner's fictional preview; never grants access to student records.
+
+    The existing owner checker requires verified email and an active Founder
+    session. This does not change the account's role, age or consent state.
+    """
+    if not current_user.is_authenticated:
+        return False
+    if (current_user.email or '').strip().lower() != 'uanirudh0811@gmail.com':
+        return False
+    checker = current_app.extensions.get('admin_owner_checker')
+    return bool(callable(checker) and checker(current_user))
 
 
 @bp.route('/adult/account')

@@ -192,6 +192,8 @@
   }
 
   function setControls(mode) {
+    var picker = $('ipaAssignmentSelect');
+    if (picker) picker.disabled = mode === 'running' || mode === 'paused';
     // 'none' means there is nothing to act on at all. It exists because the
     // phone layout pins these controls to a fixed bar: an inert "Start"
     // sitting in the thumb zone with no session behind it is a button that
@@ -211,11 +213,50 @@
 
   // ── Session lifecycle ───────────────────────────────────────────────
 
+  var assignmentChoices = [];
+  var assignmentGeneration = 0;
+  function loadAssignments() {
+    var select = $('ipaAssignmentSelect');
+    if (!select) return;
+    api('/tasks/unified').then(function (data) {
+      if (!data || !Array.isArray(data.today) || !Array.isArray(data.upcoming) || !Array.isArray(data.overdue)) throw new Error('Invalid assignments');
+      var rows = data.overdue.concat(data.today, data.upcoming);
+      assignmentChoices = rows.filter(function (row) { return row.title && row.requires_action !== false; });
+      assignmentChoices.forEach(function (row, index) {
+        var option = document.createElement('option');
+        option.value = String(index);
+        option.textContent = row.title + (row.course ? ' · ' + row.course : '');
+        select.appendChild(option);
+      });
+      $('ipaAssignmentStatus').textContent = assignmentChoices.length
+        ? 'Choose an assignment before starting. You can change it after finishing.'
+        : 'No assignments available. You can start a session with your own title.';
+    }).catch(function () { $('ipaAssignmentStatus').textContent = 'Assignments unavailable. Your timer and current plan still work.'; });
+    select.addEventListener('change', function () {
+      if (IPA.session && !IPA.session.ended_at) return;
+      assignmentGeneration++;
+      if (select.value === '') { loadNext(); return; }
+      var row = assignmentChoices[Number(select.value)];
+      if (!row) return;
+      renderPlan({ title: row.title, course: row.course || '', task_id: row.task_id || row.id,
+        kind: row.kind || 'homework', difficulty: row.difficulty || 'medium', due_date: row.due_date,
+        planned_minutes: Math.max(1, Math.min(300, Number(row.estimated_time || row.est_minutes) || 25)) });
+      setControls('idle');
+    });
+  }
+
   function loadNext() {
+    var generation = ++assignmentGeneration;
+    if ($('ipaAssignmentSelect')) {
+      $('ipaAssignmentSelect').value = '';
+      $('ipaAssignmentSelect').disabled = true;
+    }
     return api('/api/active/current')
       .then(function (data) {
+        if (generation !== assignmentGeneration) return;
         if (data.session) return resume(data.session);
         return api('/api/active/next').then(function (next) {
+          if (generation !== assignmentGeneration) return;
           if (!next.next) {
             /* Three different situations used to share one message telling
                the student to go build a plan — including the case where they
@@ -238,6 +279,7 @@
         });
       })
       .catch(function (err) {
+        if (generation !== assignmentGeneration) return;
         $('ipaEmptyMsg').textContent = 'Could not load your session: ' + err.message;
         /* A failed lookup should not also cost the student the ability to
            study. The ad-hoc form does not depend on the plan. */
@@ -291,6 +333,7 @@
 
   function adhocStart() {
     if (!adhocValidate()) return;
+    if ($('ipaAssignmentSelect')) $('ipaAssignmentSelect').disabled = true;
     var start = $('ipaAdhocStart');
     var title = $('ipaAdhocTitle').value.trim();
     start.disabled = true;
@@ -313,6 +356,7 @@
       resume(data.session);
     }).catch(function (err) {
       adhocError('Could not start that session: ' + err.message);
+      if ($('ipaAssignmentSelect')) $('ipaAssignmentSelect').disabled = false;
       start.disabled = false;
       start.textContent = 'Start session';
     });
@@ -356,6 +400,7 @@
 
   function start() {
     if (!IPA.plan) return;
+    if ($('ipaAssignmentSelect')) $('ipaAssignmentSelect').disabled = true;
     $('ipaStart').disabled = true;
     api('/api/active/start', {
       method: 'POST',
@@ -379,6 +424,7 @@
       if (data.focus_allowed === false) denyCameraCheckIn(data.focus_reason);
       if ($('ipaFocusToggle').checked) startTracker();
     }).catch(function (err) {
+      if ($('ipaAssignmentSelect')) $('ipaAssignmentSelect').disabled = false;
       status(err.message, true);
     }).then(function () {
       $('ipaStart').disabled = false;
@@ -751,6 +797,7 @@
   // ── Wiring ──────────────────────────────────────────────────────────
 
   document.addEventListener('DOMContentLoaded', function () {
+    loadAssignments();
     // Start with nothing shown. loadNext() decides what the student can
     // actually do; showing a Start button before we know there is anything
     // to start makes the first paint a lie.
