@@ -103,7 +103,7 @@ def test_homepage_preview_only_serves_verified_owner_and_keeps_assets_private(cl
 def test_public_homepage_uses_original_landing_template(client):
     response = client.get("/")
     assert response.status_code == 200
-    assert b'id="preview-title"' in response.data
+    assert b'class="preview-title"' in response.data
     assert b'href="/demo/planner"' in response.data
     assert b'Private preview' not in response.data
 
