@@ -129,7 +129,7 @@
       currentLink = destination;
     }
     if (!reduceMotion.matches) {
-      backdrop.style.setProperty('--backdrop-y', `${-Math.max(0, offset) * progress}px`);
+      backdrop.style.setProperty('--backdrop-y', `${-Math.min(Math.max(0, offset), Math.max(0, scrollY) * .2)}px`);
     }
   }
   function queueScrollUpdate() {
@@ -139,15 +139,31 @@
   window.addEventListener('resize', queueScrollUpdate);
   window.addEventListener('pageshow', queueScrollUpdate);
   reduceMotion.addEventListener('change', () => {
-    if (reduceMotion.matches) document.getAnimations().forEach(animation => animation.cancel());
+    if (reduceMotion.matches) document.getAnimations().forEach(animation => {
+      if (!(animation instanceof CSSAnimation) && !(animation instanceof CSSTransition)) animation.cancel();
+    });
     queueScrollUpdate();
   });
   currentLink = homeLink;
   queueScrollUpdate();
 
+  const motionToggle = document.querySelector('.motion-toggle');
   const stage = document.querySelector('.mascot-stage');
+  const stageObserver = new IntersectionObserver(([entry]) => {
+    stage.toggleAttribute('data-visible', entry.isIntersecting);
+  });
+  stageObserver.observe(stage);
+  function syncMotionControl() { motionToggle.hidden = reduceMotion.matches; }
+  syncMotionControl();
+  reduceMotion.addEventListener('change', syncMotionControl);
+  motionToggle.addEventListener('click', () => {
+    const paused = document.body.toggleAttribute('data-motion-paused');
+    motionToggle.setAttribute('aria-pressed', String(paused));
+    motionToggle.textContent = paused ? 'Resume Plani animation' : 'Pause Plani animation';
+    if (paused) for (const property of ['--stage-x', '--stage-y', '--stage-turn']) stage.style.removeProperty(property);
+  });
   stage.addEventListener('pointermove', event => {
-    if (reduceMotion.matches || event.pointerType !== 'mouse') return;
+    if (reduceMotion.matches || document.body.hasAttribute('data-motion-paused') || event.pointerType !== 'mouse') return;
     const bounds = stage.getBoundingClientRect();
     const x = (event.clientX - bounds.left) / bounds.width - .5;
     const y = (event.clientY - bounds.top) / bounds.height - .5;
@@ -190,6 +206,19 @@
     finalScoreValue.textContent = score + '%';
     gradeResult.value = projectedGrade.toLocaleString('en-US', { maximumFractionDigits: 2 }) + '%';
   });
+
+  finalScore.addEventListener('change', () => {
+    document.getElementById('grade-status').textContent = 'Projected course grade: ' + gradeResult.value;
+  });
+
+  fetch('/api/stats', { cache: 'no-store' })
+    .then(response => { if (!response.ok) throw new Error('Stats unavailable'); return response.json(); })
+    .then(data => {
+      if (!Number.isSafeInteger(data.students) || data.students <= 0) return;
+      const count = document.getElementById('student-count');
+      count.textContent = new Intl.NumberFormat().format(data.students) + (data.students === 1 ? ' registered account' : ' registered accounts');
+      count.hidden = false;
+    }).catch(() => {});
 
   const sections = new IntersectionObserver(entries => {
     entries.forEach(({ target, isIntersecting }) => {

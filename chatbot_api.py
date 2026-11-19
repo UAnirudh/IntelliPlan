@@ -2222,11 +2222,9 @@ def chatbot():
             return jsonify({'reply': reply, 'refusal': refusal})
 
         recent = context_window(messages)
-        identity_prompt = _build_identity_prompt(_load_user_identity())
-        personalization_prompt = _build_personalization_prompt(depth='thin')
+        from App import build_student_context
+        personalization_prompt = build_student_context(depth='thin')
         system_messages = [{'role': 'system', 'content': PLANI_SYSTEM_PROMPT + _assistant_name_line()}]
-        if identity_prompt:
-            system_messages.append({'role': 'system', 'content': identity_prompt})
         if personalization_prompt:
             system_messages.append({'role': 'system', 'content': personalization_prompt})
 

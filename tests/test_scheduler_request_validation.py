@@ -25,6 +25,10 @@ def client(monkeypatch):
     {'custom_tasks': ['Algebra'], 'hours_per_day': 'NaN', 'skip_clarify': True},
     {'custom_tasks': ['Algebra'], 'hours_per_day': True, 'skip_clarify': True},
     {'custom_tasks': ['Algebra'], 'hours_per_day': 25, 'skip_clarify': True},
+    {'custom_tasks': ['Algebra'], 'max_session_minutes': True},
+    {'custom_tasks': ['Algebra'], 'calendar_buffer_minutes': 31},
+    {'custom_tasks': ['Algebra'], 'study_start_time': '17:00'},
+    {'custom_tasks': ['Algebra'], 'study_start_time': '21:00', 'study_end_time': '17:00'},
 ])
 def test_invalid_request_returns_400_before_reading_calendar(client, payload):
     response = client.post('/generate_schedule', json=payload)

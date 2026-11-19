@@ -74,6 +74,7 @@ from intelliplan.intelligence.rescheduling import (
 )
 from intelliplan.intelligence.risk import RiskReport, simulate
 from intelliplan.intelligence.robust import plan_with_risk_control
+from intelliplan.services.schedule_input import apply_study_rules, validate_study_rules
 
 logger = logging.getLogger(__name__)
 
@@ -153,6 +154,7 @@ class StudentContext:
     outcome_rows: Sequence[Mapping[str, Any]] = field(default_factory=tuple)
     #: Population prior for the Follow-Through model; ``None`` → built-in.
     followthrough_prior: Any = None
+    study_rules: Mapping[str, Any] = field(default_factory=dict)
 
 
 class SchedulingService:
@@ -181,6 +183,18 @@ class SchedulingService:
         #: The on-time forecast of the last plan :meth:`plan` built.
         self.last_risk: RiskReport | None = None
         self.last_hardened: tuple[str, ...] = ()
+        self.set_study_rules(context.study_rules)
+
+    def set_study_rules(self, rules):
+        try:
+            self.study_rules = validate_study_rules(dict(rules) if isinstance(rules, Mapping) else rules)
+        except ValueError:
+            self.study_rules = {}
+        self._availability, self._busy = apply_study_rules(
+            self.study_rules, self._ctx.availability, self._ctx.busy_by_date,
+        )
+        self._model = None
+        self._ft = None
 
     # ── Model ─────────────────────────────────────────────────────────
 
@@ -192,6 +206,8 @@ class SchedulingService:
                 feedback_rows=self._ctx.feedback_rows,
                 session_rows=self._ctx.session_rows,
             )
+            if 'max_session_minutes' in self.study_rules:
+                self._model = replace(self._model, max_session_minutes=self.study_rules['max_session_minutes'])
         return self._model
 
     @property
@@ -319,24 +335,13 @@ class SchedulingService:
         for offset in range(max(1, horizon_days)):
             day = today + timedelta(days=offset)
             try:
-                windows = scheduler_engine.windows_for_date(
-                    day,
-                    self._ctx.availability,
-                    self._ctx.preferred_time,
-                    self._ctx.commitments,
-                    now=now,
-                    busy_by_date=self._ctx.busy_by_date,
-                )
+                windows = self.windows_for(day, now)
             except Exception as exc:
                 # A malformed availability blob must not cost the student a
                 # whole plan; treat that day as unknown-but-usable and move on.
                 logger.warning("window computation failed for %s: %s", day, exc)
                 windows = []
             override = self._overrides.get(day) or {}
-            if override.get("add"):
-                windows = scheduler_engine.extend_windows(
-                    windows, day, override["add"], self._ctx.preferred_time, now=now,
-                )
             # Break estimates guide load preferences. Actual ordered clock
             # placement, including transitions, determines hard feasibility.
             soft_minutes = sum(usable_minutes(w.minutes, stamina, long_break_after) for w in windows)
@@ -370,18 +375,26 @@ class SchedulingService:
 
     def windows_for(self, day: date, now: datetime | None = None):
         windows = scheduler_engine.windows_for_date(
-            day, self._ctx.availability, self._ctx.preferred_time,
-            self._ctx.commitments, now=now, busy_by_date=self._ctx.busy_by_date)
+            day, self._availability, self._ctx.preferred_time,
+            self._ctx.commitments, now=now, busy_by_date=self._busy)
         extra = (self._overrides.get(day) or {}).get('add')
-        if extra:
+        if extra and 'study_start_time' not in self.study_rules:
             windows = scheduler_engine.extend_windows(
                 windows, day, extra, self._ctx.preferred_time, now=now)
+            if self.study_rules.get('calendar_buffer_minutes'):
+                day_key = scheduler_engine.DAY_ABBR[day.weekday()]
+                permitted = scheduler_engine.windows_for_date(
+                    day, {day_key: {'start': '00:00', 'end': '23:59'}}, self._ctx.preferred_time,
+                    self._ctx.commitments, now=now, busy_by_date=self._busy,
+                )
+                windows = [scheduler_engine.Window(max(w.start, p.start), min(w.end, p.end))
+                           for w in windows for p in permitted if max(w.start, p.start) < min(w.end, p.end)]
         return windows
 
     def verify(self, data, now: datetime):
         from intelliplan.intelligence.constraints import check_schedule
         return check_schedule(data, now=now, windows_for=lambda day: self.windows_for(day, now),
-                              busy_by_date=self._ctx.busy_by_date, allow_overdue_recovery=True)
+                              busy_by_date=self._busy, allow_overdue_recovery=True)
 
     def tasks_from(self, rows: Sequence[Mapping[str, Any]], *, now=None) -> list[PlannerTask]:
         """Normalise assignment dicts and attach concept-difficulty signal.
@@ -592,6 +605,7 @@ class SchedulingService:
         now = now or datetime.now()
         today = today or now.date()
         disruption = parse_disruption(payload, today)
+        self.set_study_rules((schedule_data or {}).get('study_rules', self._ctx.study_rules))
         snapshot = snapshot_from_schedule(
             schedule_data, progress, today, credit=credit, finished=finished,
         )
@@ -659,6 +673,7 @@ class SchedulingService:
         state = ap.AutopilotState.from_json((schedule_data or {}).get("autopilot"))
         if not state.enabled:
             return None
+        self.set_study_rules((schedule_data or {}).get('study_rules', self._ctx.study_rules))
 
         snapshot = snapshot_from_schedule(
             schedule_data, progress, today, credit=credit, finished=finished,
@@ -755,6 +770,7 @@ class SchedulingService:
         """On-time odds for the plan as it stands, and what the model has learned."""
         now = now or datetime.now()
         today = today or now.date()
+        self.set_study_rules((schedule_data or {}).get('study_rules', self._ctx.study_rules))
         snapshot = snapshot_from_schedule(schedule_data, progress, today)
         self._overrides = overrides_from_json(
             (schedule_data or {}).get("capacity_overrides"), today
@@ -849,16 +865,13 @@ class SchedulingService:
         """
         data = plan_to_schedule_data(
             plan,
-            availability=self._ctx.availability,
-            preferred_time=self._ctx.preferred_time,
-            commitments=self._ctx.commitments,
             stamina_minutes=self.model.stamina_minutes,
             now=now,
-            busy_by_date=self._ctx.busy_by_date,
-            extra_minutes_by_date={
-                d: int(o["add"]) for d, o in self._overrides.items() if o.get("add")
-            },
+            windows_for=self.windows_for,
+            max_session_minutes=self.model.max_session_minutes,
         )
+        if self.study_rules:
+            data['study_rules'] = dict(self.study_rules)
         if self._overrides:
             data["capacity_overrides"] = overrides_to_json(self._overrides)
         if self._follow_through:
@@ -995,6 +1008,9 @@ def plan_to_schedule_data(
     now: datetime | None = None,
     busy_by_date: Mapping[date, Sequence[tuple[int, int]]] | None = None,
     extra_minutes_by_date: Mapping[date, int] | None = None,
+    *,
+    windows_for=None,
+    max_session_minutes: int | None = None,
 ) -> dict[str, Any]:
     """Render a plan as ``{"schedule": [{date, blocks: [...]}, ...], ...}``."""
     now = now or datetime.now()
@@ -1006,6 +1022,9 @@ def plan_to_schedule_data(
     block_id = 1
     windows_by_day = {}
     for day in plan.days:
+        if windows_for is not None:
+            windows_by_day[day.day] = windows_for(day.day, now)
+            continue
         windows = scheduler_engine.windows_for_date(
             day.day, availability, preferred_time, commitments, now=now,
             busy_by_date=busy_by_date)
@@ -1014,7 +1033,9 @@ def plan_to_schedule_data(
             windows = scheduler_engine.extend_windows(windows, day.day, extra, preferred_time, now=now)
         windows_by_day[day.day] = windows
     try:
-        calendar_sittings = size_calendar_sittings(plan, windows_by_day, dna, now=now)
+        calendar_sittings = size_calendar_sittings(
+            plan, windows_by_day, dna, now=now, max_session_minutes=max_session_minutes,
+        )
     except Exception:
         logger.warning('Calendar gap sizing unavailable; preserving original sittings', exc_info=True)
         calendar_sittings = {day.day: day.sessions for day in plan.days}

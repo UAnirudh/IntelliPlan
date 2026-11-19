@@ -487,6 +487,13 @@ body {
    cookie, declared in cookie_policy.py. Anything added here in future must
    be declared there and gated on consent first. #}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/workspace_polish.css') }}?v={{ asset_v }}">
+{% set selection_assistant = current_user is defined and current_user.is_authenticated
+  and '/api/chatbot' not in (workspace_blocked_paths or [])
+  and active_page in ('dashboard', 'scheduler', 'classes', 'grades', 'gradebook', 'active', 'study', 'study_hub', 'tutor', 'learn', 'lessons', 'flashcards', 'library', 'grademodel', 'writing', 'math') %}
+{% if selection_assistant %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/plani-selection.css') }}?v={{ asset_v }}">
+<script defer src="{{ url_for('static', filename='js/plani-selection.js') }}?v={{ asset_v }}"></script>
+{% endif %}
 </head>
 
 {# Active uses the same desktop sidebar as the rest of the workspace. Keeping
@@ -630,7 +637,7 @@ body {
   <rect x="2" y="6" width="14" height="12" rx="2" /></symbol>
     <symbol id="i-users" viewBox="0 0 256 256" fill="currentColor" stroke="none"><path d="M117.25,157.92a60,60,0,1,0-66.5,0A95.83,95.83,0,0,0,3.53,195.63a8,8,0,1,0,13.4,8.74,80,80,0,0,1,134.14,0,8,8,0,0,0,13.4-8.74A95.83,95.83,0,0,0,117.25,157.92ZM40,108a44,44,0,1,1,44,44A44.05,44.05,0,0,1,40,108Zm210.14,98.7a8,8,0,0,1-11.07-2.33A79.83,79.83,0,0,0,172,168a8,8,0,0,1,0-16,44,44,0,1,0-16.34-84.87,8,8,0,1,1-5.94-14.85,60,60,0,0,1,55.53,105.64,95.83,95.83,0,0,1,47.22,37.71A8,8,0,0,1,250.14,206.7Z"/></symbol>
     <symbol id="i-palette" viewBox="0 0 256 256" fill="currentColor" stroke="none"><path d="M200.77,53.89A103.27,103.27,0,0,0,128,24h-1.07A104,104,0,0,0,24,128c0,43,26.58,79.06,69.36,94.17A32,32,0,0,0,136,192a16,16,0,0,1,16-16h46.21a31.81,31.81,0,0,0,31.2-24.88,104.43,104.43,0,0,0,2.59-24A103.28,103.28,0,0,0,200.77,53.89Zm13,93.71A15.89,15.89,0,0,1,198.21,160H152a32,32,0,0,0-32,32,16,16,0,0,1-21.31,15.07C62.49,194.3,40,164,40,128a88,88,0,0,1,87.09-88h.9a88.35,88.35,0,0,1,88,87.25A88.86,88.86,0,0,1,213.81,147.6ZM140,76a12,12,0,1,1-12-12A12,12,0,0,1,140,76ZM96,100A12,12,0,1,1,84,88,12,12,0,0,1,96,100Zm0,56a12,12,0,1,1-12-12A12,12,0,0,1,96,156Zm88-56a12,12,0,1,1-12-12A12,12,0,0,1,184,100Z"/></symbol>
-    <symbol id="i-arrow-right" viewBox="0 0 256 256" fill="currentColor" stroke="none"><path d="M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z"/></symbol>
+    <symbol id="i-arrow-right" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"><path d="M3.75 10h12.5m-4.5-4.25L16 10l-4.25 4.25"/></symbol>
     <symbol id="i-plus" viewBox="0 0 256 256" fill="currentColor" stroke="none"><path d="M224,128a8,8,0,0,1-8,8H136v80a8,8,0,0,1-16,0V136H40a8,8,0,0,1,0-16h80V40a8,8,0,0,1,16,0v80h80A8,8,0,0,1,224,128Z"/></symbol>
     <symbol id="i-trash" viewBox="0 0 256 256" fill="currentColor" stroke="none"><path d="M216,48H176V40a24,24,0,0,0-24-24H104A24,24,0,0,0,80,40v8H40a8,8,0,0,0,0,16h8V208a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V64h8a8,8,0,0,0,0-16ZM96,40a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8v8H96Zm96,168H64V64H192ZM112,104v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm48,0v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Z"/></symbol>
     <symbol id="i-gift" viewBox="0 0 256 256" fill="currentColor" stroke="none"><path d="M216,72H180.92c.39-.33.79-.65,1.17-1A29.53,29.53,0,0,0,192,49.57,32.62,32.62,0,0,0,158.44,16,29.53,29.53,0,0,0,137,25.91a54.94,54.94,0,0,0-9,14.48,54.94,54.94,0,0,0-9-14.48A29.53,29.53,0,0,0,97.56,16,32.62,32.62,0,0,0,64,49.57,29.53,29.53,0,0,0,73.91,71c.38.33.78.65,1.17,1H40A16,16,0,0,0,24,88v32a16,16,0,0,0,16,16v64a16,16,0,0,0,16,16H200a16,16,0,0,0,16-16V136a16,16,0,0,0,16-16V88A16,16,0,0,0,216,72ZM149,36.51a13.69,13.69,0,0,1,10-4.5h.49A16.62,16.62,0,0,1,176,49.08a13.69,13.69,0,0,1-4.5,10c-9.49,8.4-25.24,11.36-35,12.4C137.7,60.89,141,45.5,149,36.51Zm-64.09.36A16.63,16.63,0,0,1,96.59,32h.49a13.69,13.69,0,0,1,10,4.5c8.39,9.48,11.35,25.2,12.39,34.92-9.72-1-25.44-4-34.92-12.39a13.69,13.69,0,0,1-4.5-10A16.6,16.6,0,0,1,84.87,36.87ZM40,88h80v32H40Zm16,48h64v64H56Zm144,64H136V136h64Zm16-80H136V88h80v32Z"/></symbol>
@@ -946,6 +953,14 @@ body {
   {% block content %}{% endblock %}
   <script type="application/json" id="ipWorkspacePolicy">{{ (workspace_blocked_paths or []) | tojson }}</script>
 </main>
+{% if selection_assistant %}
+<div id="planiSelection" role="group" aria-label="Study selected text" hidden>
+  <button type="button" data-plani-action="explain" aria-keyshortcuts="Alt+Shift+P">
+    <svg width="17" height="17" aria-hidden="true"><use href="#i-robot"/></svg> Ask {{ assistant_name }}
+  </button>
+  <button type="button" data-plani-action="quiz">Quiz me</button>
+</div>
+{% endif %}
 {% include '_workspace_appearance.html' %}
 
 {% if _app_tabbar %}
@@ -2163,18 +2178,20 @@ const BUBBLES = [
 function togglePlani() { planiOpen ? closePlani() : openPlani(); }
 
 function openPlani() {
+  const alreadyOpen = planiOpen;
   planiOpen = true;
   hideBubble();
   document.getElementById('planiChat').classList.add('open');
-  if (planiHistory.length === 0) {
+  if (!alreadyOpen && !document.querySelector('#planiMessages .plani-msg')) {
     addMsg('bot', "Hey there! I'm your IntelliPlan assistant. I can help you navigate the platform, explain features, or answer study questions. What can I help you with?");
   }
-  setTimeout(() => document.getElementById('planiInput').focus(), 220);
+  setTimeout(() => { if (planiOpen) document.getElementById('planiInput').focus(); }, 220);
 }
 
 function closePlani() {
   planiOpen = false;
   document.getElementById('planiChat').classList.remove('open');
+  document.getElementById('planiBot').classList.remove('is-selection-chat');
   scheduleBubble();
 }
 
@@ -2247,8 +2264,9 @@ function setTyping(show) {
 async function sendPlaniMessage() {
   const input = document.getElementById('planiInput');
   const text  = input.value.trim();
-  if (!text) return;
-  document.getElementById('planiSendBtn').disabled = true;
+  const send = document.getElementById('planiSendBtn');
+  if (!text || send.disabled) return;
+  send.disabled = true;
   const userEntry = {role: 'user', content: text};
   const userBubble = addMsg('user', text, false);
   setTyping(true);
@@ -2271,8 +2289,8 @@ async function sendPlaniMessage() {
     // Keep failed turns out of history so a resend is a single clean request.
     addMsg('bot', `${err.message || "I couldn't reach the server."} You can retry from the composer.`, false);
   } finally {
-    document.getElementById('planiSendBtn').disabled = false;
-    document.getElementById('planiInput').focus();
+    send.disabled = false;
+    if (planiOpen) input.focus();
   }
 }
 

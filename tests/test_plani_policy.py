@@ -138,6 +138,31 @@ def test_chat_reports_unconfigured_free_provider_without_calling_ai(account, mon
     generate.assert_not_called()
 
 
+def test_floating_chat_does_not_collect_unapproved_profile_or_grades(account, monkeypatch):
+    import chatbot_api
+
+    collect = Mock(side_effect=AssertionError('unexpected profile or grade collection'))
+    monkeypatch.setattr(chatbot_api, '_load_user_identity', collect)
+    monkeypatch.setattr(App, '_fetch_grades_for_personalization', collect)
+    monkeypatch.setattr('plani_safety.classify', lambda *args, **kwargs: None)
+    generate = Mock(return_value='Start by drawing a diagram.')
+    monkeypatch.setattr(chatbot_api, '_llm_chat', generate)
+
+    with App.app.app_context():
+        App.db.session.get(App.User, account[0]).ai_personalization_opt_in = False
+        App._get_or_create_identity(account[0]).goals = 'private fixture goal'
+        App.db.session.commit()
+    passage = 'Explain the selected passage on inclined planes.'
+    response = signed_client(account).post('/api/chatbot', json={'messages': [
+        {'role': 'user', 'content': passage},
+    ]})
+    assert response.status_code == 200
+    messages = generate.call_args.kwargs['messages']
+    assert messages[-1] == {'role': 'user', 'content': passage}
+    assert all('private fixture goal' not in message['content'] for message in messages)
+    collect.assert_not_called()
+
+
 def test_agent_reports_selected_provider_outage_as_retryable(account, monkeypatch):
     from ai_provider import AIUnavailable
 

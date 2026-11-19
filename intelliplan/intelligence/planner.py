@@ -363,7 +363,7 @@ def session_cap_for(task: PlannerTask, stamina: int) -> int:
     return int(max(lo, min(hi, round(cap))))
 
 
-def split_into_sessions(total_minutes: int, cap: int, subtask_count: int = 0) -> list[int]:
+def split_into_sessions(total_minutes: int, cap: int, subtask_count: int = 0, *, strict: bool = False) -> list[int]:
     """Divide total work into equal sittings no longer than ``cap``.
 
     Equal, not greedy. Greedy filling turns 100 minutes into 45 + 45 + 10,
@@ -390,7 +390,7 @@ def split_into_sessions(total_minutes: int, cap: int, subtask_count: int = 0) ->
                 break
 
     base, extra = divmod(total, parts)
-    if base < MIN_SESSION_MINUTES and parts > 1:
+    if not strict and base < MIN_SESSION_MINUTES and parts > 1:
         parts = max(1, total // MIN_SESSION_MINUTES)
         base, extra = divmod(total, parts)
     return [base + (1 if i < extra else 0) for i in range(parts)]
@@ -462,6 +462,7 @@ class _DayState:
     quality: float
     clock_windows: tuple[tuple[datetime, datetime], ...] | None = None
     clock_stamina_minutes: int = 45
+    max_session_minutes: int | None = None
     minutes: int = 0
     load: float = 0.0
     courses: dict[str, int] = field(default_factory=dict)
@@ -649,7 +650,7 @@ def _deadline_fits(item, day, state, ctx):
         timed.deadline_stamina_minutes if timed is not None else 45)
     if windows_input is None:
         return True
-    key = (day, tuple(sorted(rows)), windows_input, stamina)
+    key = (day, tuple(sorted(rows)), windows_input, stamina, state.max_session_minutes)
     if ctx is not None and key in ctx.deadline_cache:
         return ctx.deadline_cache[key]
     import scheduler_engine
@@ -667,7 +668,8 @@ def _deadline_fits(item, day, state, ctx):
     sessions = tuple(_dependency_order(sessions))
     temporary = Plan(days=(DayPlan(day, sessions, state.capacity, sum(s.minutes for s in sessions)),),
                      total_minutes=sum(s.minutes for s in sessions), capacity_minutes=state.capacity)
-    sized = calendar_sittings(temporary, {day: windows}, dna)[day]
+    sized = calendar_sittings(temporary, {day: windows}, dna,
+                              max_session_minutes=state.max_session_minutes)[day]
     blocks = [{'id': str(i), 'duration_minutes': s.minutes,
                'deadline_at': s.deadline_at.isoformat() if s.deadline_at else None}
               for i, s in enumerate(sized)]
@@ -803,6 +805,7 @@ def build_plan(
             quality=cap_by_day[d].quality,
             clock_windows=cap_by_day[d].clock_windows,
             clock_stamina_minutes=cap_by_day[d].clock_stamina_minutes,
+            max_session_minutes=model.max_session_minutes,
         )
         for d in days
     }
@@ -841,7 +844,8 @@ def build_plan(
     _defer_blocked_dependents(items, state)
     # Two sittings of the same task on the same day is a split that bought
     # nothing; fold them back before anyone sees them.
-    items = _coalesce(items)
+    if model.max_session_minutes is None:
+        items = _coalesce(items)
     _renumber(items)
 
     return _materialise(items, days, cap_by_day, state, config)
@@ -885,9 +889,12 @@ def _build_items(
         flexible = remaining - pinned_minutes
 
         cap = session_cap_for(task, model.stamina_minutes)
+        if model.max_session_minutes is not None:
+            cap = min(cap, model.max_session_minutes)
         if largest_day > 0:
             cap = min(cap, largest_day)
-        chunks = _chunked(flexible, task, cap, largest_day, day_set)
+        chunks = _chunked(flexible, task, cap, largest_day, day_set,
+                          max_session_minutes=model.max_session_minutes)
         if not chunks and not pins:
             continue
 
@@ -970,6 +977,8 @@ def _chunked(
     cap: int,
     largest_day: int,
     day_set: set[date],
+    *,
+    max_session_minutes: int | None = None,
 ) -> list[tuple[int, date | None]]:
     """``(minutes, anchor_day)`` sittings, reusing ``task.sittings`` first."""
     if flexible <= 0:
@@ -985,23 +994,26 @@ def _chunked(
         if int(m or 0) > 0
     ]
     if not hinted:
-        return [(m, None) for m in split_into_sessions(flexible, cap, task.subtask_count)]
+        return [(m, None) for m in split_into_sessions(flexible, cap, task.subtask_count,
+                                                      strict=max_session_minutes is not None)]
     ceiling = largest_day if largest_day > 0 else None
     out: list[tuple[int, date | None]] = []
     budget = flexible
     for minutes, anchor in hinted:
         if budget <= 0:
             break
-        take = min(minutes, budget, ceiling or minutes)
+        take = min(minutes, budget, ceiling or minutes, max_session_minutes or minutes)
         out.append((take, anchor))
         budget -= take
     if budget > 0:
-        if budget < MIN_SESSION_MINUTES and out:
+        if budget < MIN_SESSION_MINUTES and out and (
+            max_session_minutes is None or out[-1][0] + budget <= max_session_minutes
+        ):
             # Nobody opens a textbook for eight minutes; fold it in.
             minutes, anchor = out[-1]
             out[-1] = (minutes + budget, anchor)
         else:
-            out.extend((m, None) for m in split_into_sessions(budget, cap, 0))
+            out.extend((m, None) for m in split_into_sessions(budget, cap, strict=max_session_minutes is not None))
     return out
 
 

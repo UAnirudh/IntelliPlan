@@ -293,6 +293,7 @@ class EstimationModel:
     stamina_minutes: int = 45
     #: Fraction of started sessions the student saw through, 0..1 or None.
     session_completion_rate: float | None = None
+    max_session_minutes: int | None = None
 
     # ── Prediction ────────────────────────────────────────────────────
 

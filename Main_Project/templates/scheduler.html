@@ -342,6 +342,13 @@
     transform-origin: left center;
     transition: transform 0.5s var(--ipd-ease-out);
   }
+  .assignment-progress { margin-block: .75rem 1.25rem; }
+  .assignment-progress ul { list-style: none; margin: .9rem 0 .15rem; padding: 0; display: grid; gap: .65rem; }
+  .assignment-progress li { display: grid; gap: .28rem; padding: .65rem .8rem; border-radius: .85rem; background: var(--accent-soft); }
+  .assignment-progress__label { display: flex; align-items: baseline; justify-content: space-between; gap: .45rem 1rem; flex-wrap: wrap; }
+  .assignment-progress__label strong { overflow-wrap: anywhere; }
+  .assignment-progress small { color: var(--text-muted); }
+  .assignment-progress progress { width: 100%; height: .42rem; accent-color: var(--accent); }
 
   .iv-block.is-break { opacity: 0.6; cursor: default; }
   .iv-block.is-break:hover { transform: none; border-color: var(--border); box-shadow: none; }
@@ -1041,7 +1048,7 @@
         <input type="number" id="hoursPerDay" class="form-input" value="2" min="0.5" max="12" step="0.5" style="max-width:120px;" />
       </div>
       <details class="scheduler-options">
-        <summary>Study window and task options</summary>
+        <summary>Study rules and tasks</summary>
         <div class="scheduler-inputs">
           <div class="input-group">
             <label class="form-label" for="studyStartTime">Daily study window <span style="font-weight:400;">(optional)</span></label>
@@ -1051,6 +1058,26 @@
               <input type="time" id="studyEndTime" class="form-input" aria-label="Daily study end time" style="max-width:132px;" />
             </div>
             <span class="form-hint">Use exact times to place work inside this window each day.</span>
+          </div>
+          <div class="input-group">
+            <label class="form-label" for="maxStudySession">Longest study session</label>
+            <select id="maxStudySession" class="form-input">
+              <option value="">Adapt to the work</option>
+              <option value="25">25 minutes</option>
+              <option value="45">45 minutes</option>
+              <option value="60">60 minutes</option>
+              <option value="90">90 minutes</option>
+            </select>
+          </div>
+          <div class="input-group">
+            <label class="form-label" for="studyCalendarBuffer">Before and after calendar events</label>
+            <select id="studyCalendarBuffer" class="form-input">
+              <option value="0">No extra time</option>
+              <option value="5">5 minutes free</option>
+              <option value="10">10 minutes free</option>
+              <option value="15">15 minutes free</option>
+              <option value="30">30 minutes free</option>
+            </select>
           </div>
           <div class="input-group">
             <label class="form-label" for="preferredTime">Preferred study time</label>
@@ -1246,6 +1273,10 @@
     <button type="button" class="btn-primary" style="margin-top:1rem;padding:10px 22px;border:none;cursor:pointer;" onclick="switchTab('creator')">Build a plan</button>
   </div>
 
+  <details class="assignment-queue assignment-progress" id="assignmentStudyProgress" hidden>
+    <summary>Progress by assignment</summary>
+    <ul id="assignmentStudyProgressRows"></ul>
+  </details>
   <div id="ivDays"></div>
 </div>
 
@@ -2040,6 +2071,8 @@ function generateSchedule(extra) {
       assignments: allAssignments, hours_per_day: hours, preferred_time: time,
       custom_tasks: customTasks, clarifications: _clarifyAnswers,
       study_start_time: studyStartTime, study_end_time: studyEndTime,
+      max_session_minutes: Number(document.getElementById('maxStudySession').value) || null,
+      calendar_buffer_minutes: Number(document.getElementById('studyCalendarBuffer').value),
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
     }, extra || {}))
   })
@@ -2450,7 +2483,48 @@ function updateBadge() {
   badge.style.display = n > 0 ? 'inline' : 'none';
 }
 
+function renderAssignmentStudyProgress(data) {
+  const tasks = new Map();
+  function rowFor(item, title, course) {
+    const key = item.task_id ? String(item.task_id).split('::')[0]
+      : JSON.stringify([course, title, item.due_date]);
+    if (!tasks.has(key)) tasks.set(key, {title, course, done: 0, planned: 0, unplaced: 0, blocks: 0, finished: 0});
+    return tasks.get(key);
+  }
+  for (const day of data?.schedule || []) {
+    for (const block of day.blocks || []) {
+      const minutes = Number(block.duration_minutes);
+      if (block.is_break || !Number.isFinite(minutes) || minutes <= 0) continue;
+      const row = rowFor(block, block.parent_title || block.assignment || 'Task', block.course || '');
+      row.planned += minutes;
+      row.blocks++;
+      if (stateFor(block.block_id).done) {
+        row.done += minutes;
+        row.finished++;
+      }
+    }
+  }
+  for (const item of data?.deferred || []) {
+    const minutes = Number(item.minutes);
+    if (Number.isFinite(minutes) && minutes > 0) rowFor(item, item.title || 'Task', '').unplaced += minutes;
+  }
+  const panel = document.getElementById('assignmentStudyProgress');
+  panel.hidden = !tasks.size;
+  document.getElementById('assignmentStudyProgressRows').innerHTML = Array.from(tasks.values(), row => {
+    const total = row.planned + row.unplaced;
+    const remaining = total - row.done;
+    const label = row.course ? `${row.title} · ${row.course}` : row.title;
+    const completion = row.blocks ? `${row.finished} of ${row.blocks} sessions done` : 'No sessions scheduled';
+    const unscheduled = row.unplaced ? ` · ${fmtMinutes(row.unplaced)} still needs a time` : '';
+    return `<li><div class="assignment-progress__label"><strong>${escapeText(label)}</strong>
+      <small>${fmtMinutes(row.done)} done · ${fmtMinutes(remaining)} left</small></div>
+      <progress value="${row.done}" max="${total}" aria-label="Planned work completed for ${escapeText(label)}"></progress>
+      <small>${completion}${unscheduled}</small></li>`;
+  }).join('');
+}
+
 function renderInteractive() {
+  renderAssignmentStudyProgress(_lastScheduleData);
   const host = document.getElementById('ivDays');
   const empty = document.getElementById('ivEmpty');
   const ctx = document.getElementById('ivContext');
@@ -3336,6 +3410,11 @@ function dismissSavedPlan() {
   const res = wrapped.data || {};
   if (res.status !== 'ok' || _lastScheduleData) return;
   _lastScheduleData = res.data;
+  const savedRules = res.data.study_rules || {};
+  document.getElementById('studyStartTime').value = savedRules.study_start_time || '';
+  document.getElementById('studyEndTime').value = savedRules.study_end_time || '';
+  document.getElementById('maxStudySession').value = savedRules.max_session_minutes || '';
+  document.getElementById('studyCalendarBuffer').value = savedRules.calendar_buffer_minutes || '0';
   mergeServerProgress(res.progress);
   // Progress pushes are queued while offline rather than dropped, so this
   // stays on: IP.queue owns the retry, and the op id keeps a replay from

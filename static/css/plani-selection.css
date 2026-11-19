@@ -1,0 +1,58 @@
+#planiSelection {
+  position: fixed;
+  z-index: 1050;
+  display: flex;
+  align-items: center;
+  gap: .2rem;
+  padding: .25rem;
+  color: var(--text-primary);
+  background: var(--bg-card);
+  border: 1px solid var(--border-strong);
+  border-radius: .85rem;
+  box-shadow: var(--shadow-lg);
+}
+
+#planiSelection[hidden] { display: none; }
+#planiSelection button {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  min-height: 40px;
+  padding-inline: .62rem;
+  border: 0;
+  border-radius: .62rem;
+  background: transparent;
+  color: inherit;
+  font: 600 .84rem var(--font-ui);
+  cursor: pointer;
+}
+
+#planiSelection button:is(:hover, :focus-visible) { background: var(--accent-soft); }
+#planiSelection button:first-child { color: var(--accent); }
+body #planiBot.is-selection-chat:has(#planiChat.open) { display: flex !important; }
+body #planiBot.is-selection-chat #planiChat.open { display: flex !important; }
+#planiBot.is-selection-chat :is(#planiAvatar, #planiBubble) { display: none !important; }
+
+@media (prefers-reduced-motion: no-preference) {
+  #planiSelection:not([hidden]) { animation: plani-selection-in 160ms ease-out both; }
+  @keyframes plani-selection-in {
+    from { opacity: 0; transform: translateY(-4px) scale(.98); }
+  }
+}
+
+@media (max-width: 720px) {
+  body #planiBot.is-selection-chat:has(#planiChat.open) {
+    left: 12px !important;
+    right: 12px !important;
+    bottom: calc(max(env(safe-area-inset-bottom), 12px) + 56px) !important;
+    width: auto !important;
+    max-width: none !important;
+  }
+  body #planiBot.is-selection-chat #planiChat.open {
+    position: relative;
+    inset: auto;
+    width: 100%;
+    max-width: none;
+    max-height: min(470px, 64dvh);
+  }
+}

@@ -4911,6 +4911,25 @@ def reflow_schedule(schedule_data, availability=None, commitments=None, dna=None
     return schedule_data
 
 
+def _attach_schedule_block_details(schedule_data, *, new_plan=False):
+    """Make timed plans interactive without moving any study blocks."""
+    revision = f'{uuid.uuid4().hex[:12]}-' if new_plan else ''
+    count = 0
+    for day_number, day in enumerate(schedule_data.get('schedule') or [], start=1):
+        for block in day.get('blocks') or []:
+            count += 1
+            prefix = 'unplaced' if block.get('unplaced') else f'd{day_number}'
+            if not block.get('block_id'):
+                block['block_id'] = f'{revision}{prefix}-b{count}'
+            kind = 'break' if block.get('is_break') else classify_block_kind(
+                block.get('assignment', ''), block.get('course', ''),
+            )
+            block.setdefault('kind', kind)
+            block.setdefault('redirect', BLOCK_KIND_REDIRECT.get(kind))
+            if not block.get('checklist'):
+                block['checklist'] = build_block_checklist(block, kind, {})
+
+
 def enrich_schedule_data(schedule_data, assignments, preferred_time, hours_per_day):
     assignment_lookup = {item["title"]: item for item in assignments if isinstance(item, dict) and item.get("title")}
     assignment_ids = {str(item.get("id") or item.get("source_ref")): item
@@ -12530,7 +12549,7 @@ def _priority_score_for(assignment):
 
 def _build_planner_schedule(normalized_assignments, custom_tasks, uid, gid,
                             availability, commitments, preferred_time, hours_per_day,
-                            dna=None, *, record_version=True):
+                            dna=None, *, record_version=True, study_rules=None):
     """Run the v2 planner and return ``schedule_data``, or None to fall back.
 
     Returning None rather than raising is deliberate: if anything here is
@@ -12577,6 +12596,7 @@ def _build_planner_schedule(normalized_assignments, custom_tasks, uid, gid,
             # Real calendar events. Study time booked over a dentist
             # appointment is a plan the student cannot follow.
             busy_by_date=_planner_busy_by_date(require_complete=True),
+            study_rules=study_rules or {},
             **_followthrough_extras(uid, gid),
         )
         config = PlannerConfig()
@@ -12594,6 +12614,7 @@ def _build_planner_schedule(normalized_assignments, custom_tasks, uid, gid,
             )
         except Exception as ee:
             print(f"[planner] enrich_schedule_data failed (non-fatal): {ee}")
+        _attach_schedule_block_details(data, new_plan=True)
         validation = service.verify(data, planning_now)
         if not validation.feasible:
             app.logger.warning('Planner produced a plan that failed feasibility checks')
@@ -12849,36 +12870,16 @@ def _schedule_without_ai(assignments, preferred_time, hours_per_day,
 def generate_schedule():
     if request.method != "POST":
         return flask.jsonify({"status": "error", "message": "POST required"}), 405
-    from intelliplan.services.schedule_input import validate_schedule_request
+    from intelliplan.services.schedule_input import apply_study_rules, validate_schedule_request, validate_study_rules
     try:
         data = validate_schedule_request(request.get_json(silent=True))
+        study_rules = validate_study_rules(data)
     except ValueError as exc:
         return flask.jsonify(status='error', message=str(exc)), 400
     assignments = _assignment_display_rows(data.get("assignments", []))
     hours_per_day = data.get("hours_per_day", 2)
     preferred_time = data.get("preferred_time", "evening")
     custom_tasks = data.get("custom_tasks", [])
-    study_start_time = str(data.get("study_start_time") or "").strip()
-    study_end_time = str(data.get("study_end_time") or "").strip()
-    if bool(study_start_time) != bool(study_end_time):
-        return flask.jsonify({
-            "status": "error",
-            "message": "Choose both a study start and end time.",
-        }), 400
-    if study_start_time and study_end_time:
-        try:
-            start_clock = datetime.strptime(study_start_time, "%H:%M")
-            end_clock = datetime.strptime(study_end_time, "%H:%M")
-        except ValueError:
-            return flask.jsonify({
-                "status": "error",
-                "message": "Study times must use a valid clock time.",
-            }), 400
-        if end_clock <= start_clock:
-            return flask.jsonify({
-                "status": "error",
-                "message": "Your study end time must be after the start time.",
-            }), 400
     if not assignments and not custom_tasks:
         return flask.jsonify({"status": "error", "message": "No assignments to schedule."})
 
@@ -12978,13 +12979,6 @@ def generate_schedule():
         user_id=current_user.id if current_user.is_authenticated else None,
         guest_id=None if current_user.is_authenticated else get_guest_session_id(),
     )
-    if study_start_time:
-        # This is an intentional per-plan override. It does not erase a
-        # student's saved weekly availability in Settings.
-        availability = {
-            day: {"start": study_start_time, "end": study_end_time}
-            for day in scheduler_engine.DAY_ABBR
-        }
     # ── Deterministic planning ────────────────────────────────────
     # Day allocation — how much work exists, how it splits into sittings,
     # which day each lands on, how much buffer sits before each deadline —
@@ -13002,7 +12996,7 @@ def generate_schedule():
             planned = _build_planner_schedule(
                 normalized_assignments, custom_task_rows, uid, gid,
                 availability, commitments, preferred_time, hours_per_day,
-                dna=dna,
+                dna=dna, study_rules=study_rules,
             )
         except CalendarUnavailable as exc:
             return flask.jsonify(exc.response()), 503
@@ -13016,6 +13010,10 @@ def generate_schedule():
             'status': 'error', 'error': 'schedule_unverified',
             'message': 'We could not verify a plan against your free time. Please try again.',
         }), 503
+
+    if study_rules.keys() & {'max_session_minutes', 'calendar_buffer_minutes'}:
+        return flask.jsonify(status='error', message='Study rules are temporarily unavailable. Try again shortly.'), 503
+    availability, _ = apply_study_rules(study_rules, availability, {})
 
     # Re-baseline estimates against how long work actually takes THIS student,
     # before they reach the prompt — a plan built on "60 min" for someone who
@@ -15841,15 +15839,12 @@ def get_saved_schedule():
     # Backfill block_id / kind / checklist / redirect on schedules saved before
     # the Interactive View shipped, so the new UI works without re-generating.
     try:
-        needs_backfill = False
-        for d in (data.get("schedule") or []):
-            for b in (d.get("blocks") or []):
-                if not b.get("block_id") or not b.get("checklist"):
-                    needs_backfill = True
-                    break
-            if needs_backfill: break
-        if needs_backfill:
-            data = humanize_schedule(data, "evening", 2)
+        blocks = [b for d in data.get('schedule') or [] for b in d.get('blocks') or []]
+        if any(not b.get('block_id') or not b.get('checklist') for b in blocks):
+            if all(b.get('unplaced') or (b.get('start_iso') and b.get('end_iso')) for b in blocks):
+                _attach_schedule_block_details(data)
+            else:
+                data = humanize_schedule(data, 'evening', 2)
     except Exception as e:
         print(f"[scheduler] backfill on saved schedule failed: {e}")
     try:
@@ -16057,8 +16052,10 @@ def recover_schedule():
         # "Can't study today" and "extra time Saturday" still hold after a
         # recovery — the student said them, and nothing since has changed that.
         service.set_capacity_overrides(before.get("capacity_overrides"))
+        service.set_study_rules(before.get('study_rules'))
         replanned = service.replan(rows, reality, anchors=anchors)
         after = service.to_schedule_data(replanned)
+        _attach_schedule_block_details(after, new_plan=True)
         if uid:
             # A recovery is a new version of the plan, and the reason it
             # exists is the whole point of recording it: "v15, because you
@@ -16160,6 +16157,11 @@ def reflow_saved_schedule():
         return flask.jsonify({"status": "error", "message": "schedule_data required"}), 400
     if len(json.dumps(schedule_data)) > 500_000:
         return flask.jsonify({"status": "error", "message": "schedule too large"}), 413
+    from intelliplan.services.schedule_input import apply_study_rules, validate_study_rules
+    try:
+        rules = validate_study_rules(schedule_data.get('study_rules'))
+    except ValueError as exc:
+        return flask.jsonify(status='error', message=str(exc)), 400
     uid = current_user.id if current_user.is_authenticated else None
     gid = None if uid else get_guest_session_id()
     try:
@@ -16167,6 +16169,7 @@ def reflow_saved_schedule():
     except CalendarUnavailable as exc:
         return flask.jsonify(exc.response()), 503
     dna, availability, commitments = build_scheduler_personalization(user_id=uid, guest_id=gid)
+    availability, verified_busy = apply_study_rules(rules, availability, verified_busy)
     try:
         schedule_data = reflow_schedule(
             schedule_data, availability=availability, commitments=commitments, dna=dna,

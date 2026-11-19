@@ -57,6 +57,37 @@ def fragmented_service():
         ]}))
 
 
+def test_explicit_study_rules_survive_adjustments_and_keep_sessions_under_the_limit():
+    rules = {'study_start_time': '17:00', 'study_end_time': '21:00',
+             'max_session_minutes': 25, 'calendar_buffer_minutes': 10}
+    next_day = TODAY + timedelta(days=1)
+    events = {day: [(18 * 60, 19 * 60)] for day in (TODAY, next_day)}
+    svc = service(study_rules=rules, busy_by_date=events)
+    due = datetime.combine(next_day, datetime.min.time()).replace(hour=21)
+    task = rows(est_minutes=110, due_date=str(next_day), deadline_at=due.isoformat())
+    data = svc.to_schedule_data(svc.plan([task], now=NOW, today=TODAY), now=NOW)
+
+    def check(data):
+        assert data['study_rules'] == rules
+        assert not data['deferred']
+        work = [(date.fromisoformat(day['date']), block) for day in data['schedule']
+                for block in day['blocks'] if not block['is_break']]
+        assert work and sum(block['duration_minutes'] for _, block in work) == 110
+        for day, block in work:
+            start = datetime.fromisoformat(block['start_iso'])
+            end = datetime.fromisoformat(block['end_iso'])
+            assert start.hour >= 17 and end.hour * 60 + end.minute <= 21 * 60
+            assert block['duration_minutes'] <= 25 and end <= due
+            if day in events:
+                assert end.time().isoformat() <= '17:50:00' or start.time().isoformat() >= '19:10:00'
+
+    check(data)
+    second = service(busy_by_date=events)
+    _, adjusted = second.adjust(data, {}, {'action': 'add_time', 'day': str(next_day), 'minutes': 90},
+                                 today=TODAY, now=NOW)
+    check(adjusted)
+
+
 def test_fresh_sittings_fit_fragmented_calendar_without_losing_work():
     svc = fragmented_service()
     data = svc.to_schedule_data(fragmented_plan(), now=NOW)

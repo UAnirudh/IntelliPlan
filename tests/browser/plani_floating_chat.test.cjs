@@ -41,6 +41,7 @@ function harness(response) {
     document: {getElementById: id => ids[id], createElement: () => new Element()},
     fetch: async (url, options) => { requests.push({url, options}); return response; },
     planiHistory: [],
+    planiOpen: true,
   });
   vm.runInContext(chatFunctions, context);
   return {context, ids, requests};

@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 import scheduler_engine
 
 
-def calendar_sittings(plan, windows_by_day, dna, now=None):
+def calendar_sittings(plan, windows_by_day, dna, now=None, *, max_session_minutes=None):
     """Resize new sittings to the actual calendar gaps without changing work."""
     from intelliplan.intelligence.planner import MIN_SESSION_MINUTES
     from collections import Counter
@@ -55,6 +55,8 @@ def calendar_sittings(plan, windows_by_day, dna, now=None):
                     # the largest one. Preserve a useful final sitting.
                     while room >= MIN_SESSION_MINUTES and remaining >= MIN_SESSION_MINUTES:
                         cap = max(max(s.minutes for s in sittings), dna.block_minutes())
+                        if max_session_minutes is not None:
+                            cap = min(cap, max_session_minutes)
                         minutes = min(room, remaining, cap)
                         tail = remaining - minutes
                         if 0 < tail < MIN_SESSION_MINUTES:
@@ -66,7 +68,8 @@ def calendar_sittings(plan, windows_by_day, dna, now=None):
                         room -= minutes + (10 if minutes >= 60 else 5)
                 if remaining:
                     pieces.append(remaining)
-                if pieces and all(minutes >= MIN_SESSION_MINUTES for minutes in pieces):
+                if pieces and all(MIN_SESSION_MINUTES <= minutes <= (max_session_minutes or float('inf'))
+                                  for minutes in pieces):
                     first = sittings[0]
                     adjusted = [replace(first, minutes=minutes, reasons=first.reasons + (
                         'Sized to fit your calendar gaps.',)) for minutes in pieces]
