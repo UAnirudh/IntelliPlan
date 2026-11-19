@@ -12,6 +12,7 @@ from flask_login import current_user
 import requests
 
 from child_privacy import hold_reason
+from intelliplan.intelligence.deadlines import local_deadline
 from intelliplan.learning import policy
 from intelliplan.persistence.lms_grants import lms_grants
 from time_utils import utcnow
@@ -125,7 +126,8 @@ def assignments(user):
     rows = []
     for project, name in projects.items():
         for task in _list("tasks", grant.access_token, {"project_id": project}):
-            if not isinstance(task, dict) or task.get("project_id") != project or task.get("checked"):
+            if (not isinstance(task, dict) or task.get("project_id") != project
+                    or task.get("checked") or task.get("is_deleted")):
                 continue
             key, title = task.get("id"), task.get("content")
             if not isinstance(key, str) or not ID.fullmatch(key) or not isinstance(title, str) or not title.strip():
@@ -138,10 +140,16 @@ def assignments(user):
                     day = date.fromisoformat(due[:10]).isoformat()
                 except ValueError:
                     pass
+            time_fields = {"due_at": due} if day and local_deadline(due) is not None else {}
+            duration = task.get("duration")
+            if isinstance(duration, dict) and duration.get("unit") == "minute":
+                amount = duration.get("amount")
+                if type(amount) is int and amount > 0:
+                    time_fields["estimated_time"] = min(amount, 1440)
             rows.append(dict(id="todoist:" + key, title=title.strip()[:512], due_date=day,
                 course=name, source="todoist", priority={4: "High", 3: "High", 2: "Medium"}.get(task.get("priority"), "Low"),
                 todoist_project=project, todoist_connection=grant.connected_at.isoformat(),
-                url="https://app.todoist.com/app/task/" + key))
+                url="https://app.todoist.com/app/task/" + key, **time_fields))
     return filter_assignments(user, rows)
 
 

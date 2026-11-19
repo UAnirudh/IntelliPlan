@@ -1662,11 +1662,12 @@ function renderAssignmentQueue() {
     const info = document.createElement('div');
     const title = document.createElement('strong');
     title.textContent = row.title || 'Assignment';
+    const personalTask = ['manual', 'notion', 'todoist'].includes(row.source);
     const details = document.createElement('p');
-    details.textContent = [row.course, row.due_date && `Due ${row.due_date}`, row.status_label].filter(Boolean).join(' · ');
+    details.textContent = [row.course, row.due_date && `Due ${row.due_date}`, personalTask ? '' : row.status_label].filter(Boolean).join(' · ');
     info.append(title, details);
     card.appendChild(info);
-    if (row.requires_action !== false || row.submission_status === 'student_reported') {
+    if (!personalTask && (row.requires_action !== false || row.submission_status === 'student_reported')) {
       const button = document.createElement('button');
       button.className = 'btn-secondary btn-control';
       button.type = 'button';
@@ -1701,7 +1702,7 @@ function renderAssignmentQueue() {
 async function loadSchedulerAssignments() {
   const generation = ++_assignmentLoadGeneration;
   try {
-    const response = await fetch('/live?include_waiting=1', {cache: 'no-store'});
+    const response = await fetch('/api/scheduler/assignments?include_waiting=1', {cache: 'no-store'});
     if (!response.ok) throw new Error('Assignments could not be loaded. Try refreshing.');
     const data = await response.json();
     if (!Array.isArray(data)) throw new Error('Assignments could not be loaded. Try refreshing.');

@@ -3791,20 +3791,28 @@ def _refresh_notion_row(ni):
     return fresh["access_token"]
 
 
+def _notion_grant_for_user(user_id):
+    if not _lms_policy_allowed('notion', user_id):
+        return None
+    repository = notion_accounts()
+    grant = repository.get(user_id)
+    if not grant or not grant.token:
+        return None
+    token = _refresh_notion_row(grant)
+    current = repository.get(user_id)
+    if (token and current and current.id == grant.id and current.token == token
+            and current.connected_at == grant.connected_at
+            and _lms_policy_allowed('notion', user_id)):
+        return current
+    return None
+
+
 def get_notion_token_and_db():
     if current_user.is_authenticated:
-        if not _lms_policy_allowed('notion'):
-            return None, None
-        repository = notion_accounts()
-        ni = repository.get(current_user.id)
-        if ni and ni.token:
-            token = _refresh_notion_row(ni)
-            current = repository.get(current_user.id)
-            if (token and current and current.id == ni.id and current.token == token
-                    and current.connected_at == ni.connected_at
-                    and _lms_policy_allowed('notion')):
-                flask.g._notion_grant = current
-                return token, current.database_id
+        grant = _notion_grant_for_user(current_user.id)
+        if grant:
+            flask.g._notion_grant = grant
+            return grant.token, grant.database_id
         return None, None
     return session.get("notion_token"), session.get("notion_database_id")
 
@@ -5081,7 +5089,7 @@ def founder_home_preview(asset=None):
         response = flask.make_response("", 404)
     elif asset is None:
         response = flask.make_response(render_template("founder_home_preview.html"))
-    elif asset in {"design.css", "motion.js", "etched-glass.webp", "plani-ceramic.webp"}:
+    elif asset in {"design.css", "motion.js", "etched-glass.webp", "plani-ceramic.webp", "plani-notebook.webp"}:
         response = send_from_directory(
             os.path.join(app.root_path, "Main_Project", "private_preview"),
             asset, conditional=False, max_age=0,
@@ -13309,6 +13317,7 @@ def oauth_notion_callback():
     session.modified = True
     if current_user.is_authenticated:
         notion_accounts().connect(current_user.id, token=access_token, oauth=tokens)
+        invalidate_lms_cache_for_user(current_user.id)
     return redirect(url_for("settings") + "?notion=connected")
 
 
@@ -13401,6 +13410,7 @@ def notion_connect():
     if current_user.is_authenticated:
         notion_accounts().connect(current_user.id, token=token,
             workspace_name=workspace_name, bot_id=bot_id)
+        invalidate_lms_cache_for_user(current_user.id)
     try:
         dbs = get_notion_databases(token)
     except Exception as e:
@@ -13415,6 +13425,7 @@ def notion_connect():
 def notion_disconnect():
     if current_user.is_authenticated:
         notion_accounts().disconnect(current_user.id)
+        invalidate_lms_cache_for_user(current_user.id)
     session.pop("notion_token", None)
     session.pop("notion_database_id", None)
     return flask.jsonify({"status": "ok"})
@@ -13427,6 +13438,7 @@ def notion_set_database():
     if current_user.is_authenticated:
         if not notion_accounts().select_database(current_user.id, db_id):
             return flask.jsonify({"status": "error", "message": "Connect Notion first."}), 409
+        invalidate_lms_cache_for_user(current_user.id)
     session["notion_database_id"] = db_id
     session.modified = True
     return flask.jsonify({"status": "ok"})
@@ -13487,6 +13499,7 @@ def notion_create_database_route():
         if proof is None or not notion_accounts().select_database(current_user.id, new_id, expected=proof):
             return flask.jsonify({"status": "error", "message": "The Notion connection changed. Reconnect before selecting the new database.",
                 "database_id": new_id}), 409
+        invalidate_lms_cache_for_user(current_user.id)
     session["notion_database_id"] = new_id
     session.modified = True
     return flask.jsonify({"status": "ok", "database_id": new_id, "name": name})
@@ -13585,6 +13598,61 @@ def invalidate_lms_cache_for_user(user_id: int) -> None:
     _LMS_CACHE.pop(user_id, None)
 
 
+def _notion_planner_stamp(grant):
+    if not grant or not grant.database_id:
+        return None
+    payload = f'{grant.id}:{grant.connected_at}:{grant.database_id}'
+    return hashlib.sha256(payload.encode()).hexdigest()
+
+
+def _notion_enabled_for_planner(user_id):
+    if not NOTION_AVAILABLE:
+        return False
+    owner = account_repository().get(user_id)
+    if not owner:
+        return False
+    prefs = _lms_preferences_payload(owner.lms_preferences, allow_empty=True)
+    return 'notion' in prefs['assignment_sources']
+
+
+def _filter_notion_planner_rows(user_id, rows):
+    if not any(row.get('source') == 'notion' for row in rows):
+        return rows
+    stamp = None
+    try:
+        if _notion_enabled_for_planner(user_id) and _lms_policy_allowed('notion', user_id):
+            stamp = _notion_planner_stamp(notion_accounts().get(user_id))
+    except Exception as exc:
+        app.logger.warning('Notion planner access could not be verified (%s)', type(exc).__name__)
+    return [row for row in rows if row.get('source') != 'notion'
+            or (stamp and row.get('notion_planner_stamp') == stamp)]
+
+
+@app.get('/api/scheduler/assignments')
+@limiter.limit('30 per minute')
+def scheduler_assignments():
+    if not current_user.is_authenticated:
+        return _no_store(flask.make_response(get_live_schedule()))
+    user_id = current_user.id
+    waiting = request.args.get('include_waiting') == '1'
+    excluded_tests = get_test_titles()
+    rows = [row for row in collect_lms_assignments_for_user(user_id, use_cache=False, include_waiting=waiting)
+            if row.get('title') not in excluded_tests]
+    prefs = _lms_preferences_payload(current_user.lms_preferences, allow_empty=True)
+    if 'manual' in prefs['assignment_sources']:
+        from command_center_glue import _filter_stored_tasks
+
+        manual = _filter_stored_tasks(user_id, task_repository(user_id).list(done=False))
+        rows.extend(_assignment_display_rows([
+            {'id': f'manual-{task.id}', 'title': task.title, 'course': task.course,
+             'due_date': task.due_date or '', 'estimated_time': task.estimated_time,
+             'priority': task.priority, 'source': 'manual'}
+            for task in manual
+        ], user_id=user_id))
+    rows.sort(key=lambda row: (not row.get('due_date'), str(row.get('due_date') or '')))
+    return _no_store(jsonify(rows))
+
+
 def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True, include_waiting: bool = False) -> list[dict]:
     """Return canonical LMS-source task dicts for the given user.
 
@@ -13630,6 +13698,7 @@ def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True, in
         if cached is not None:
             from intelliplan.api.todoist import filter_assignments
             cached = filter_assignments(owner, cached)
+            cached = _filter_notion_planner_rows(user_id, cached)
             return _assignment_display_rows(cached, include_waiting=include_waiting, user_id=user_id)
 
     tasks: list[dict] = []
@@ -13735,23 +13804,24 @@ def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True, in
                             title = a.get("name") or ""
                             if not title or title in dismissed:
                                 continue
-                            priority = compute_priority(days, a.get("points_possible") or 0, title)
-                            est_minutes, description = _lms_row_sizing(
-                                a, a.get("points_possible")
-                            )
+                            points = a.get('points_possible')
+                            priority = compute_priority(days, points or 0, title)
+                            est_minutes, description = _lms_row_sizing(a, points)
                             tasks.append({
                                 "id": str(a["id"]),
                                 "submission": a.get('submission'),
                                 "canvas_planner_complete": str(a["id"]) in planner_checked,
+                                "course_id": str(a.get("course_id") or course_id),
                                 "title": title,
                                 "course": course_map.get(a.get("course_id"), course_map.get(course_id, "Unknown")),
                                 "due_date": due_str,
                                 "due_at": a.get('due_at'),
                                 "priority": priority,
+                                "points_possible": points,
                                 "source": "canvas",
                                 "estimated_time": est_minutes,
                                 "description": description,
-                                "difficulty": "Medium",
+                                "difficulty": infer_task_difficulty(points, priority, due_str),
                             })
             except Exception as e:
                 print(f"[lms-collect] canvas err: {e}")
@@ -13802,6 +13872,17 @@ def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True, in
         print(f"[lms-collect] moodle err: {e}")
 
     try:
+        if permissions['notion'] and _notion_enabled_for_planner(user_id):
+            grant = _notion_grant_for_user(user_id)
+            stamp = _notion_planner_stamp(grant)
+            if stamp:
+                tasks.extend({**task, 'source': 'notion', 'notion_planner_stamp': stamp}
+                             for task in get_notion_tasks(grant.token, grant.database_id)
+                             if task.get('title') and task['title'] not in dismissed)
+    except Exception as exc:
+        app.logger.warning('Notion planner sync unavailable (%s)', type(exc).__name__)
+
+    try:
         from intelliplan.api.todoist import assignments as todoist_assignments
         if permissions['todoist']:
             tasks.extend(t for t in todoist_assignments(owner) if t['title'] not in dismissed)
@@ -13815,7 +13896,11 @@ def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True, in
         title = (t.get("title") or "").strip().lower()
         course = (t.get("course") or "").strip().lower()
         due_date = (t.get("due_date") or "").strip()
-        key = (title, course, due_date)
+        source, task_id = t.get('source'), t.get('id')
+        if source in {'notion', 'todoist'} and task_id:
+            key = (source, str(task_id))
+        else:
+            key = (title, course, due_date)
         if key in seen:
             continue
         seen.add(key)
@@ -13835,6 +13920,7 @@ def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True, in
             capability = learning_policy.source_capability(row.get('source'))
             return latest[capability] if capability else True
         deduped = [row for row in deduped if permitted_row(row)]
+        deduped = _filter_notion_planner_rows(user_id, deduped)
     except Exception:
         app.logger.warning('LMS source policy recheck unavailable', exc_info=True)
         return []
@@ -23992,6 +24078,8 @@ def api_lms_sources():
     if isinstance(body.get("assignment_sources"), list):
         changes["assignment_sources"] = [str(s)[:32] for s in body["assignment_sources"]][:12]
     saved = account_repository().set_lms_sources(current_user.id, changes)
+    if 'assignment_sources' in changes:
+        invalidate_lms_cache_for_user(current_user.id)
     prefs = _lms_preferences_payload(saved.lms_preferences, allow_empty=True)
     return jsonify({"status": "ok", "preferences": prefs})
 

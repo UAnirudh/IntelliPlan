@@ -36,7 +36,7 @@
     <section class="hero shell" id="home" aria-labelledby="welcome">
       <div class="lead">
         <h1 id="welcome">A study plan <span>that fits.</span></h1>
-        <p>Make time for what’s due around class, practice, and the rest of your week.</p>
+        <p>Bring in assignments from Canvas, StudentVUE, or Schoology and plan around class, practice, and the rest of your week.</p>
         <p class="student-count" id="student-count" hidden></p>
         <a class="primary" href="#planner">Try the sample plan {{ arrow('down') }}</a>
       </div>
@@ -46,8 +46,7 @@
         <div class="stage-shadow"></div>
         <div class="mascot-figure">
           <div class="mascot-pose">
-            <img id="plani" src="{{ url_for('founder_home_preview', asset='plani-ceramic.webp') }}" alt="" width="920" height="920" fetchpriority="high">
-            <span class="mascot-lid lid-left"></span><span class="mascot-lid lid-right"></span>
+            <img id="plani" src="{{ url_for('founder_home_preview', asset='plani-notebook.webp') }}" alt="" width="960" height="960" fetchpriority="high">
           </div>
         </div>
         <div class="stage-timeline">
@@ -116,13 +115,18 @@
       </div>
     </section>
 
-    <section class="sources shell" aria-label="Supported connections">
-      <p>Start with the tools you already use</p>
-      <ul>
+    <section class="sources shell" aria-labelledby="connections-heading">
+      <div data-reveal>
+        <h2 id="connections-heading">Connect the tools you already use.</h2>
+        <p>Import school assignments, pull tasks from a selected Notion database or Todoist projects, and plan around time booked in Google Calendar.</p>
+      </div>
+      <ul data-reveal>
         <li><a href="/blog/how-to-use-canvas-with-a-study-planner"><img src="/static/logos/canvas.svg" width="24" height="24" alt="">Canvas</a></li>
         <li><a href="/blog/studentvue-study-planner"><img src="/static/logos/studentvue.svg" width="24" height="24" alt="">StudentVUE</a></li>
+        <li><a href="/schoology"><img src="/static/logos/schoology.svg" width="24" height="24" alt="">Schoology</a></li>
         <li><img src="/static/logos/google-calendar.svg" width="24" height="24" alt="">Google Calendar</li>
         <li><img src="/static/logos/notion.svg" width="24" height="24" alt="">Notion</li>
+        <li>Todoist</li>
       </ul>
     </section>
 
@@ -135,7 +139,7 @@
       <div class="tutor-example" data-reveal>
         <div class="tutor-message">
           <div class="tutor-byline">
-            <img id="tutor-plani" src="{{ url_for('founder_home_preview', asset='plani-ceramic.webp') }}" alt="" width="68" height="68" loading="lazy">
+            <img id="tutor-plani" src="{{ url_for('founder_home_preview', asset='plani-notebook.webp') }}" alt="" width="68" height="68" loading="lazy">
             <h3>A hint from Plani</h3>
           </div>
           <p>How do I start a related rates problem?</p>
@@ -166,6 +170,24 @@
       </figure>
     </section>
 
+    <section class="story shell" aria-labelledby="free-tools-heading">
+      <div class="story-copy" data-reveal>
+        <h2 id="free-tools-heading">Free student tools</h2>
+        <p>Check a grade or put together a study timetable without signing in.</p>
+        <a class="text-link" href="/blog">Browse the study guides {{ arrow() }}</a>
+      </div>
+      <ul class="preview-tools" data-reveal>
+        {% for label, link in [('GPA calculator', '/tools/gpa-calculator'),
+            ('Final grade calculator', '/tools/final-grade-calculator'),
+            ('Test grade calculator', '/tools/test-grade-calculator'),
+            ('Weighted grade calculator', '/tools/grade-calculator'),
+            ('Study schedule maker', '/tools/study-schedule-maker'),
+            ('Finals countdown', '/tools/finals-countdown')] %}
+          <li><a href="{{ link }}">{{ label }} {{ arrow() }}</a></li>
+        {% endfor %}
+      </ul>
+    </section>
+
     <section class="questions shell" id="faq" aria-labelledby="questions-heading">
       <div class="story-copy" data-reveal>
         <h2 id="questions-heading">Before you connect</h2>
@@ -175,14 +197,24 @@
         <details><summary>Can I plan without connecting a school portal?</summary><p>Yes. Start with the <a href="/demo/planner">sample planner</a> or sign in to <a href="/scheduler?capture=1">paste your tasks</a>. You can also <a href="/classes#timetable">paste or scan your class schedule</a>.</p></details>
         <details><summary>Can it work around practice or a shift?</summary><p>Yes. Set your own study hours or give IntelliPlan calendar access so it can use busy time when scheduling your work.</p></details>
         <details><summary>What if a teacher moves a deadline?</summary><p>IntelliPlan can update your plan after a supported connection refreshes. You can also rebuild it yourself from the scheduler.</p></details>
+        <details><summary>What is included for free?</summary><p>The free plan includes supported assignment imports, planning, and grade modeling.{% if billing_enabled %} It also includes {{ free_ai_allowance }} AI generations per month. Optional Pro costs ${{ pro_prices['month'] }} per month or ${{ pro_prices['year'] }} per year.{% endif %} <a href="/pricing">See plan details</a>.</p></details>
+        <details><summary>How is my school data handled?</summary><p>The <a href="/legal#privacy">Privacy Policy</a> explains what IntelliPlan reads from your connections and how you can manage or delete your data.</p></details>
         <details><summary>How does IntelliPlan compare with Matcha?</summary><p>Both help plan study time around classes and commitments. See how they differ on <a href="{{ url_for('compare_matcha') }}">planning, tutoring, and grade scenarios</a>.</p></details>
       </div>
+    </section>
+
+    <section class="preview-start shell" aria-labelledby="preview-start-heading" data-reveal>
+      <h2 id="preview-start-heading">Build your week for free.</h2>
+      <a class="primary" href="/register">Get IntelliPlan {{ arrow() }}</a>
+      <p>Built by a student, for students.</p>
     </section>
   </main>
 
   <footer class="shell site-footer">
     <span>Private preview</span>
     <a href="/">Public homepage</a>
+    <a href="/download">Desktop app</a>
+    <a href="/install">Install on your device</a>
     <a href="/legal">Privacy and terms</a>
   </footer>
 </body>
