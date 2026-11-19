@@ -101,10 +101,10 @@
   scrim.addEventListener('click', close);
   if (closeBtn) closeBtn.addEventListener('click', close);
 
-  // Feedback opens its own panel; the sheet should get out of the way.
+  // Close the menu before feedback opens so focus returns to the Menu button.
   sheet.addEventListener('click', function (e) {
     if (e.target.closest && e.target.closest('[data-ip-feedback-open]')) close();
-  });
+  }, true);
 
   document.addEventListener('keydown', function (e) {
     if (sheet.hidden) return;

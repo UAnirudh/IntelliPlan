@@ -140,13 +140,13 @@ def test_an_account_with_a_birth_year_is_not_flagged(client):
     assert pending(client)["needs_birth_year"] is False
 
 
-def test_the_notice_shows_a_tldr_after_accepting_and_asks_for_age(client):
+def test_the_notice_shows_a_summary_before_accepting_and_asks_for_age(client):
     uid = make_user("prompt+page@example.com", birth_year=2004)
     sign_in(client, uid)
     html = client.get("/settings", follow_redirects=True).get_data(as_text=True)
 
-    assert "You're all set" in html
-    assert "doc_tldr" in html
+    assert "Accept and continue" in html
+    assert "d.summary?.length ? d.summary : d.tldr" in html
     assert "needs_birth_year" in html
     assert "/account/age?next=" in html
 

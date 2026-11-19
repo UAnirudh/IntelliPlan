@@ -85,53 +85,44 @@
    stays disabled until they have actually reached the bottom of the text —
    a consent you can evidence is worth more than one you cannot. A Google
    sign-up, which never saw the signup checkbox, gets the documents' own
-   TL;DR instead of a change log. After accepting, the card shows the short
-   version of what was agreed to. #}
-<div id="ipPolicyNotice" class="ip-policy-backdrop" hidden role="dialog"
-     aria-modal="true" aria-labelledby="ipPolicyTitle">
+   TL;DR instead of a change log. #}
+<dialog id="ipPolicyNotice" class="ip-policy-dialog" aria-modal="true"
+        aria-labelledby="ipPolicyTitle" aria-describedby="ipPolicyIntro">
   <div class="ip-policy-card">
     <div class="ip-policy-head">
-      <div class="ip-policy-kicker">IntelliPlan policies</div>
-      <h2 id="ipPolicyTitle" class="ip-policy-title">We've updated our policies</h2>
+      <h2 id="ipPolicyTitle" class="ip-policy-title">Review our policies</h2>
       <p id="ipPolicyIntro" class="ip-policy-intro"></p>
     </div>
-    <div id="ipPolicyBody" class="ip-policy-body" tabindex="0"></div>
+    <div id="ipPolicyBody" class="ip-policy-body" tabindex="0" aria-label="Policy information"></div>
     <div class="ip-policy-foot">
-      {# Announced, so a screen reader user learns the button became usable
-         rather than discovering it by chance on a later pass. #}
+      <progress id="ipPolicyProgress" class="ip-policy-progress" max="100" value="0" aria-label="Position in the policy notice"></progress>
       <p id="ipPolicyHint" class="ip-policy-hint" role="status" aria-live="polite">
         Scroll to the end to continue.
       </p>
-      <button type="button" id="ipPolicyAccept" class="ip-policy-accept" disabled>
-        Read to the end to accept
-      </button>
+      <div class="ip-policy-actions">
+        <form action="/logout" method="POST">
+          <button type="submit" class="ip-policy-signout">Sign out</button>
+        </form>
+        <button type="button" id="ipPolicyAccept" class="ip-policy-accept" disabled>Accept and continue</button>
+      </div>
     </div>
   </div>
-</div>
+</dialog>
 
 <style>
-  .ip-policy-backdrop {
-    position: fixed; inset: 0; z-index: 3000;
-    display: flex; align-items: center; justify-content: center;
-    padding: 1rem; background: rgba(12, 18, 30, 0.68);
-    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  .ip-policy-dialog {
+    width: min(100% - 2rem, 650px); max-width: none; max-height: none;
+    margin: auto; padding: 0; border: 1px solid var(--border); border-radius: 22px;
+    background: var(--bg-card, #fff); color: var(--text-primary); box-shadow: var(--shadow-lg);
   }
-  .ip-policy-backdrop[hidden] { display: none; }
+  .ip-policy-dialog::backdrop { background: rgb(15 23 42 / .56); backdrop-filter: blur(3px); }
   .ip-policy-card {
-    display: flex; flex-direction: column; width: 100%; max-width: 680px;
+    display: flex; flex-direction: column;
     max-height: min(88vh, 860px); max-height: min(88dvh, 860px);
-    border: 1px solid var(--border); border-radius: 22px;
-    background: var(--bg-card, #fff); box-shadow: 0 24px 80px rgba(0, 0, 0, 0.3);
-    overflow: hidden;
   }
   .ip-policy-head { padding: 1.6rem 1.75rem 1.2rem; border-bottom: 1px solid var(--border); }
-  .ip-policy-kicker {
-    display: flex; align-items: center; gap: 0.45rem; margin-bottom: 0.65rem;
-    color: var(--accent); font-size: 0.7rem; font-weight: 700;
-    letter-spacing: 0.09em; text-transform: uppercase;
-  }
   .ip-policy-title {
-    margin: 0 0 0.45rem; font-family: var(--font-display, inherit);
+    margin: 0 0 0.45rem; font-family: inherit; letter-spacing: -.025em;
     font-size: clamp(1.35rem, 3vw, 1.7rem); line-height: 1.2;
     font-weight: 700; color: var(--text-primary);
   }
@@ -141,43 +132,39 @@
     padding: 1.25rem 1.75rem 1.5rem;
     font-size: 0.9rem; line-height: 1.7; color: var(--text-secondary);
   }
-  .ip-policy-body:focus-visible, .ip-policy-accept:focus-visible, .ip-policy-body a:focus-visible {
+  .ip-policy-body:focus-visible, .ip-policy-actions button:focus-visible, .ip-policy-body :is(a, summary):focus-visible {
     outline: 2px solid var(--accent); outline-offset: -2px;
   }
   .ip-policy-body a { color: var(--accent); text-underline-offset: 3px; }
   .ip-policy-body h3 {
-    margin: 1.35rem 0 0.5rem; font-size: 0.76rem; letter-spacing: 0.07em;
-    text-transform: uppercase; color: var(--text-primary);
+    margin: 1.05rem 0 0.35rem; font-size: 1rem; letter-spacing: -.015em; color: var(--text-primary);
   }
+  .ip-policy-body h3:first-child { margin-top: 0; }
   .ip-policy-body ul { margin: 0 0 0.6rem; padding-left: 1.2rem; }
   .ip-policy-body li { padding-left: 0.15rem; margin-bottom: 0.4rem; }
-  .ip-policy-tldr {
-    margin: 0 0 1.25rem; padding: 1.1rem 1.2rem;
-    border: 1px solid var(--border-accent, var(--border)); border-radius: 14px;
-    background: var(--accent-soft);
-  }
-  .ip-policy-body .ip-policy-tldr h3 { margin-top: 0; color: var(--accent); }
-  .ip-policy-tldr-note { margin: 0.65rem 0 0; font-size: 0.8rem; color: var(--text-secondary); }
-  .ip-policy-tldr-doc { margin: 0.7rem 0 0.3rem; font-weight: 700; color: var(--text-primary); }
-  .ip-policy-sub { margin: 0.8rem 0 0.35rem; font-size: 0.83rem; font-weight: 700; color: var(--text-primary); }
+  .ip-policy-doc + .ip-policy-doc { margin-top: 1.4rem; padding-top: 1.1rem; border-top: 1px solid var(--border); }
+  .ip-policy-effective { display: block; margin-bottom: 0.5rem; font-size: .8rem; color: var(--text-secondary); }
+  .ip-policy-link { display: inline-flex; align-items: center; min-height: 44px; }
   .ip-policy-clause {
-    border: 1px solid var(--border); border-radius: 12px;
-    padding: 0.9rem 1rem; margin-bottom: 0.65rem; background: var(--bg-secondary);
+    border-radius: 10px; padding: 0.8rem 0.95rem; margin: 0.6rem 0; background: var(--bg-elevated);
   }
   .ip-policy-clause-heading { font-weight: 700; font-size: 0.85rem; color: var(--text-primary); margin-bottom: 0.4rem; }
   .ip-policy-verbatim { white-space: pre-wrap; font-family: inherit; font-size: 0.84rem; line-height: 1.65; margin: 0; }
-  .ip-policy-label { display: inline-block; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.2rem; }
-  .ip-policy-foot { padding: 1rem 1.75rem 1.25rem; border-top: 1px solid var(--border); }
+  .ip-policy-previous summary { min-height: 44px; padding-block: .65rem; cursor: pointer; font-size: .8rem; color: var(--text-secondary); }
+  .ip-policy-foot { padding: .75rem 1.75rem 1rem; border-top: 1px solid var(--border); }
+  .ip-policy-progress { display: block; width: 100%; height: 4px; margin-bottom: .55rem; accent-color: var(--accent); }
   .ip-policy-hint { margin: 0 0 0.55rem; font-size: 0.78rem; color: var(--text-secondary); }
+  .ip-policy-actions { display: flex; gap: .6rem 1rem; justify-content: space-between; flex-wrap: wrap; }
+  .ip-policy-signout { min-height: 44px; padding: 0 10px; border: 0; border-radius: 9px; background: transparent; color: var(--text-secondary); cursor: pointer; }
   .ip-policy-accept {
-    width: 100%; min-height: 46px; padding: 11px; border: none; border-radius: 10px;
+    flex: 1 0 auto; max-width: 16rem; min-height: 46px; padding: 10px 14px; border: none; border-radius: 10px;
     background: var(--accent); color: #fff; font-family: inherit;
     font-weight: 700; font-size: 0.9rem; cursor: pointer;
   }
   .ip-policy-accept:disabled { opacity: 0.55; cursor: not-allowed; }
   @media (max-width: 480px) {
-    .ip-policy-backdrop { padding: 0.75rem; }
-    .ip-policy-card { max-height: 92vh; max-height: 92dvh; border-radius: 18px; }
+    .ip-policy-dialog { width: calc(100% - 1.25rem); border-radius: 17px; }
+    .ip-policy-card { max-height: 92vh; max-height: 92dvh; }
     .ip-policy-head { padding: 1.2rem 1.15rem 1rem; }
     .ip-policy-body { padding: 1rem 1.15rem 1.25rem; }
     .ip-policy-foot { padding: 0.85rem 1.15rem 1rem; }
@@ -191,10 +178,15 @@
 
   const title = document.getElementById('ipPolicyTitle');
   const body = document.getElementById('ipPolicyBody');
+  const progress = document.getElementById('ipPolicyProgress');
   const accept = document.getElementById('ipPolicyAccept');
   const hint = document.getElementById('ipPolicyHint');
   const intro = document.getElementById('ipPolicyIntro');
   let needsBirthYear = false;
+  let savedOverflow = '';
+  let reachedEnd = false;
+  let saving = false;
+  const saved = new Set();
   /* Resolves once nothing is left to accept, so other first-visit prompts
      (the app tour) can wait their turn instead of opening on top. */
   let settle;
@@ -207,36 +199,16 @@
 
   function renderClause(clause) {
     const before = clause.before
-      ? `<div><span class="ip-policy-label">Previously</span>
-           <p class="ip-policy-verbatim">${esc(clause.before)}</p></div>` : '';
+      ? `<details class="ip-policy-previous"><summary>Previous wording</summary>
+           <p class="ip-policy-verbatim">${esc(clause.before)}</p></details>` : '';
     const after = clause.after
-      ? `<div style="margin-top:8px;"><span class="ip-policy-label">Now reads</span>
-           <p class="ip-policy-verbatim">${esc(clause.after)}</p></div>` : '';
+      ? `<p class="ip-policy-verbatim">${esc(clause.after)}</p>` : '';
     const text = clause.text
       ? `<p class="ip-policy-verbatim">${esc(clause.text)}</p>` : '';
     return `<div class="ip-policy-clause">
       ${clause.heading ? `<div class="ip-policy-clause-heading">${esc(clause.heading)}</div>` : ''}
-      ${before}${after}${text}
+      ${after}${text}${before}
     </div>`;
-  }
-
-  /* Keyboard focus must not escape a modal to the page behind it, which is
-     inert to the eye but still tabbable. Without this a keyboard or screen
-     reader user tabs straight out of a notice they cannot see past. */
-  const FOCUSABLE = 'a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])';
-
-  function trapFocus(event) {
-    if (event.key !== 'Tab' || backdrop.hidden) return;
-    const items = Array.from(backdrop.querySelectorAll(FOCUSABLE))
-      .filter(el => el.offsetParent !== null || el === document.activeElement);
-    if (!items.length) return;
-    const first = items[0];
-    const last = items[items.length - 1];
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault(); last.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault(); first.focus();
-    }
   }
 
   const names = (docs) => docs.map(d => d.name).join(' and ');
@@ -246,44 +218,32 @@
   function show(docs) {
     const firstTime = docs.every(d => d.first_time);
     title.textContent = firstTime
-      ? 'Before you start'
-      : `We've updated our ${names(docs)}`;
+      ? 'Review our policies'
+      : 'Review the policy updates';
     intro.textContent = firstTime
-      ? `Please read and accept our ${names(docs)}. The short version comes first.`
-      : 'Here is what changed, in short and word for word. Please read and accept to keep using IntelliPlan.';
+      ? `Read the ${names(docs)} before using IntelliPlan.`
+      : `See what changed in the ${names(docs)} before continuing.`;
 
-    const tldr = docs.map(d => (d.tldr || []).length
-      ? `<p class="ip-policy-tldr-doc">${esc(d.name)}</p><ul>${list(d.tldr)}</ul>` : '').join('');
-
-    const details = firstTime ? '' : docs.map(d => {
-      const summary = list(d.summary);
-      const clauses = (d.clauses || []).map(renderClause).join('');
-      return `<h3>${esc(d.name)}${d.effective ? ' &middot; effective ' + esc(d.effective) : ''}</h3>
-        ${summary ? `<p class="ip-policy-sub">What changed</p><ul>${summary}</ul>` : ''}
-        ${clauses ? `<p class="ip-policy-sub">The exact wording</p>${clauses}` : ''}`;
+    body.innerHTML = docs.map(d => {
+      const summary = list(d.summary?.length ? d.summary : d.tldr);
+      const clauses = d.first_time ? '' : (d.clauses || []).map(renderClause).join('');
+      return `<section class="ip-policy-doc">
+        <h3>${esc(d.name)}</h3>
+        ${d.effective ? `<span class="ip-policy-effective">Effective ${esc(d.effective)}</span>` : ''}
+        ${summary ? `<ul>${summary}</ul>` : ''}
+        ${clauses}
+        <a class="ip-policy-link" href="${esc(d.url)}" target="_blank" rel="noopener">Read the full ${esc(d.name)}</a>
+      </section>`;
     }).join('');
 
-    const links = docs.map(d =>
-      `<a href="${esc(d.url)}" target="_blank" rel="noopener">${esc(d.name)}</a>`).join(' and ');
-
-    body.innerHTML = `
-      ${tldr ? `<div class="ip-policy-tldr"><h3>TL;DR</h3>${tldr}
-        <p class="ip-policy-tldr-note">A short version to read first. The full wording is what applies.</p></div>` : ''}
-      ${details}
-      <h3>The full documents</h3>
-      <p>You can read the complete ${links} at any time.</p>
-      <p style="margin-top:1.5rem;padding-top:0.75rem;border-top:1px solid var(--border);">
-         Selecting “I agree” records that you accept the ${esc(names(docs))}.</p>`;
-
+    saved.clear();
+    reachedEnd = false;
     accept.disabled = true;
-    accept.textContent = 'Read to the end to accept';
     hint.textContent = 'Scroll to the end to continue.';
-    hint.hidden = false;
+    savedOverflow = document.documentElement.style.overflow;
+    backdrop.showModal();
     body.scrollTop = 0;
-    backdrop.hidden = false;
-    /* The page behind must not scroll under the notice. */
     document.documentElement.style.overflow = 'hidden';
-    document.addEventListener('keydown', trapFocus);
     /* Land focus on the text, not on a disabled button: the reading is the
        task, and the scrollable region is where a keyboard user needs to be. */
     body.focus({ preventScroll: true });
@@ -294,23 +254,32 @@
   }
 
   function checkScrolled() {
-    /* A short notice can fit without scrolling; that still counts as read. */
-    const atEnd = body.scrollHeight - body.scrollTop - body.clientHeight <= 24;
-    if (!atEnd) return;
-    if (!accept.disabled || accept.dataset.state === 'done') return;
-    accept.disabled = false;
-    accept.textContent = 'I agree';
-    hint.textContent = 'You can now accept.';
+    if (!backdrop.open) return;
+    const scrollable = body.scrollHeight - body.clientHeight;
+    progress.value = scrollable <= 0 ? 100 : Math.max(0, Math.min(100, body.scrollTop / scrollable * 100));
+    if (scrollable - body.scrollTop <= 2) reachedEnd = true;
+    if (saving || !reachedEnd) return;
+    if (accept.disabled) {
+      accept.disabled = false;
+      hint.textContent = 'You can now accept the documents above.';
+    }
   }
 
   body.addEventListener('scroll', checkScrolled, { passive: true });
+  body.addEventListener('toggle', checkScrolled, true);
   window.addEventListener('resize', checkScrolled);
+  backdrop.addEventListener('cancel', event => event.preventDefault());
 
   async function acknowledge(docs) {
+    if (saving || !reachedEnd) return;
+    saving = true;
     accept.disabled = true;
-    accept.textContent = 'Saving...';
+    accept.textContent = 'Saving…';
+    hint.textContent = 'Recording your acceptance.';
     try {
       for (const doc of docs) {
+        const key = `${doc.doc}:${doc.version}`;
+        if (saved.has(key)) continue;
         const r = await fetch('/api/policy/acknowledge', {
           method: 'POST',
           credentials: 'same-origin',
@@ -318,42 +287,19 @@
           body: JSON.stringify({ doc: doc.doc, version: doc.version }),
         });
         if (!r.ok) throw new Error('save failed');
+        saved.add(key);
       }
     } catch (e) {
       accept.disabled = false;
-      accept.textContent = 'I agree';
+      accept.textContent = 'Accept and continue';
       hint.textContent = 'Could not save that. Please try again.';
       return;
+    } finally {
+      saving = false;
     }
-    confirmAccepted(docs);
-  }
-
-  /* After agreeing, the short version of what was agreed to — of the whole
-     document, not just the change — so the last thing read is the gist. */
-  function confirmAccepted(docs) {
-    title.textContent = "You're all set";
-    intro.textContent = `Thanks for accepting our ${names(docs)}. Here is what you agreed to, in short.`;
-    body.innerHTML = docs.map(d => {
-      const lines = (d.doc_tldr && d.doc_tldr.length) ? d.doc_tldr : d.tldr;
-      return `<div class="ip-policy-tldr"><h3>${esc(d.name)}: TL;DR</h3><ul>${list(lines)}</ul>
-        <p class="ip-policy-tldr-note">Full text any time at
-          <a href="${esc(d.url)}" target="_blank" rel="noopener">${esc(d.url)}</a>.</p></div>`;
-    }).join('');
-    body.scrollTop = 0;
-    hint.hidden = true;
-    accept.dataset.state = 'done';
-    accept.disabled = false;
-    accept.textContent = 'Continue';
-    accept.onclick = close;
-    accept.focus({ preventScroll: true });
-  }
-
-  function close() {
-    backdrop.hidden = true;
-    delete accept.dataset.state;
-    /* Give the page back its scrollbar and its focus. */
-    document.documentElement.style.overflow = '';
-    document.removeEventListener('keydown', trapFocus);
+    backdrop.close();
+    document.documentElement.style.overflow = savedOverflow;
+    window.IP?.toast?.('Policies accepted.', 'success');
     askBirthYear();
   }
 

@@ -418,11 +418,12 @@ def test_the_policy_modal_announces_itself_as_one(client):
     assert 'aria-labelledby="ipPolicyTitle"' in html
 
 
-def test_the_policy_modal_traps_keyboard_focus(client):
+def test_the_policy_modal_uses_native_focus_containment(client):
     """Focus escaping to the page behind leaves a keyboard user stranded on
     content they cannot see past."""
     html = client.get("/").data.decode("utf-8", "ignore")
-    assert "function trapFocus" in html
+    assert '<dialog id="ipPolicyNotice"' in html
+    assert "backdrop.showModal()" in html
     assert "document.documentElement.style.overflow = 'hidden'" in html
 
 

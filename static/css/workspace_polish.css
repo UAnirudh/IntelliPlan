@@ -2,7 +2,7 @@
 body.has-side {
   --font-ui: "Segoe UI Variable Text", "Avenir Next", system-ui, sans-serif;
   --font-body: var(--font-ui);
-  --font-display: "Segoe UI Variable Display", "Avenir Next", system-ui, sans-serif;
+  --font-display: var(--font-ui);
   --ipd-font-display: var(--font-display);
   --r-sm: 10px;
   --r-md: 14px;

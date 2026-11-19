@@ -330,7 +330,6 @@ body .tutor-practice-drawer .tutor-assignment-bar { padding: 14px; margin-top: 4
 .tutor-audio-feedback:has(span:empty):not(:has(button:not([hidden]))) { display: none; }
 body #tutorAudioPlay { color: var(--accent); background: transparent; border: 0; padding: 8px; font: inherit; cursor: pointer; }
 body #tutorAudioPlay[hidden] { display: none; }
-body.has-side.has-own-chat .ip-fb .ip-fb-trigger { display: none; }
 @media (min-width: 769px) {
   body.has-side .app-side {
     background: color-mix(in srgb, var(--bg-card) 24%, var(--bg));

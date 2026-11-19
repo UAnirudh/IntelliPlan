@@ -9,8 +9,8 @@
    desktop and phone. Glass is now a zero-specificity default a page can
    override.
 
-2. On phones the floating feedback bubble moved into the menu. The menu
-   entry has to exist and has to be wired, or phone users lose feedback.
+2. Feedback opens from the sidebar or phone menu so no floating control can
+   intercept workspace actions.
 """
 
 from __future__ import annotations
@@ -38,11 +38,12 @@ def test_generic_button_glass_is_zero_specificity():
 def test_feedback_is_reachable_from_the_phone_menu():
     assert "data-ip-feedback-open" in BASE_HTML
     assert "querySelectorAll('[data-ip-feedback-open]')" in BASE_HTML
-    # Hidden on desktop, where the floating button still exists.
+    # Desktop has its own sidebar entry.
     assert ".nav-feedback { display: none; }" in PHONE_CSS
 
 
-def test_the_floating_trigger_is_hidden_only_on_phones():
-    phone_block = PHONE_CSS[PHONE_CSS.index("THE FLOATING LAYER"):]
-    assert "@media (max-width: 768px)" in phone_block
-    assert ".ip-fb .ip-fb-trigger" in phone_block
+def test_feedback_uses_a_dialog_without_a_floating_trigger():
+    assert '<dialog id="ipFeedback"' in BASE_HTML
+    assert 'id="ipFbTrigger"' not in BASE_HTML
+    sidebar = BASE_HTML[BASE_HTML.index('<div class="side-foot">'):]
+    assert 'data-ip-feedback-open' in sidebar.split('class="side-foot-row"', 1)[0]

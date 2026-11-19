@@ -100,13 +100,10 @@ def test_the_feedback_widget_exposes_a_way_to_open_it():
     assert "ipFbOpen" in defined_names()
 
 
-def test_opening_the_widget_also_unhides_it():
-    """The panel lives inside #ipFeedback. For anyone who dismissed the
-    floating button with its X, opening the panel alone would open it
-    inside a hidden parent -- the same dead button, harder to diagnose."""
+def test_opening_feedback_activates_the_dialog():
     base = read(ROOT / "Main_Project" / "templates" / "base.html")
     body = base.split("window.ipFbOpen = function()", 1)[1].split("};", 1)[0]
-    assert "fb.hidden = false" in body
+    assert "fb.showModal()" in body
 
 
 def test_the_self_check_buttons_have_a_handler():

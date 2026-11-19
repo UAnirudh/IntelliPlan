@@ -320,18 +320,6 @@ button, .btn, [role="button"], .nav-tab, .sched-tab, .ipui-tab, .chip {
 @media (max-width: 768px) {
   .nav-feedback { display: flex; width: 100%; font: inherit; text-align: left; cursor: pointer; }
 
-  /* Feedback: no floating trigger. When opened from the menu, the panel
-     is a bottom sheet the width of the screen. */
-  .ip-fb .ip-fb-trigger,
-  .ip-fb .ip-fb-hide { display: none !important; }
-  .ip-fb {
-    left: calc(10px + env(safe-area-inset-left));
-    right: calc(10px + env(safe-area-inset-right));
-    bottom: calc(10px + env(safe-area-inset-bottom));
-    z-index: 10050;
-  }
-  .ip-fb .ip-fb-panel { position: static; width: auto; right: auto; }
-
   /* Where the page itself is a conversation with Plani, a second Plani in
      the corner only covers the composer. */
   body.has-own-chat #planiBot,

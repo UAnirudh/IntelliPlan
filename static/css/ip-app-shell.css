@@ -72,9 +72,7 @@
   }
   body.has-tabbar footer { padding-bottom: calc(var(--ipx-tab-h) + var(--ipx-bottom) + 20px); }
 
-  /* The floating feedback bubble and install pill sat exactly where the
-     bar now floats. Feedback lives in the Menu sheet instead. */
-  body.has-tabbar .ip-fb .ip-fb-trigger,
+  /* The install pill sat where the tab bar now floats. */
   body.has-tabbar .install-pill { display: none !important; }
 
   /* The floating Plani bubble sat on top of the Today tab, and the Plani

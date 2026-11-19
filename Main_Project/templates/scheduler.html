@@ -2588,6 +2588,8 @@ function renderInteractive() {
     el.addEventListener('click', e => {
       // ignore clicks on the inner buttons, they have their own handlers
       if (e.target.closest('.iv-check, .iv-move, .iv-grip')) return;
+      const selection = window.getSelection();
+      if (selection && !selection.isCollapsed && el.contains(selection.anchorNode)) return;
       // A drag ends with a click event on most browsers — don't open the
       // checklist for the block the student just dropped.
       if (Date.now() < _suppressClickUntil) return;
@@ -3035,7 +3037,7 @@ function ivWireDrag(host) {
     if (el.classList.contains('is-break')) return;
     el.addEventListener('pointerdown', ev => {
       if (ev.button != null && ev.button !== 0) return;
-      if (ev.target.closest('.iv-check, .iv-move')) return;
+      if (ev.target.closest('.iv-check, .iv-move, .iv-block-body')) return;
       const onGrip = !!ev.target.closest('.iv-grip');
       _drag = {
         srcEl: el, blockId: el.dataset.blockId,
