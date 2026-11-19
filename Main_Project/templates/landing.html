@@ -1094,6 +1094,8 @@
     .lp-tool-card:hover { border-color:var(--ink, #161616); }
     .lp-tool-card .t { font-family:var(--font-display); font-size:0.98rem; color:var(--text-primary); }
     .lp-tool-card .d { font-family:var(--font-ui); font-size:0.8rem; color:var(--text-muted); line-height:1.45; }
+    /* auto-fit, not auto-fill: three guide cards should fill the row instead of leaving two empty tracks under a centred heading. */
+    .lp-guides-grid { grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); }
   </style>
   <h2 id="free-tools-title" data-reveal style="font-family:var(--font-display);font-size:clamp(1.5rem,3vw,2.1rem);text-align:center;color:var(--text-primary);letter-spacing:-0.02em;margin:0 0 0.5rem;">Free student tools — no sign-up</h2>
   <p data-reveal style="text-align:center;font-family:var(--font-ui);color:var(--text-muted);max-width:36rem;margin:0 auto 1.5rem;line-height:1.6;">Instant calculators and planners students use every day. Free to try — then let IntelliPlan automate the rest from your real classes.</p>
@@ -1105,6 +1107,14 @@
     <a class="lp-tool-card" data-reveal href="/tools/study-schedule-maker"><span class="t">Study Schedule Maker</span><span class="d">Printable weekly timetable</span></a>
     <a class="lp-tool-card" data-reveal href="/tools/finals-countdown"><span class="t">Finals Countdown</span><span class="d">Days until your exams</span></a>
   </div>
+  {% if blog_picks %}
+  <h3 data-reveal style="font-family:var(--font-display);font-size:1.05rem;color:var(--text-primary);text-align:center;margin:1.75rem 0 0.75rem;">New study guides</h3>
+  <div class="lp-tools-grid lp-guides-grid">
+    {% for article in blog_picks %}
+    <a class="lp-tool-card" data-reveal href="{{ article_path(article) }}"><span class="t">{{ article.title }}</span><span class="d">{{ article.description }}</span></a>
+    {% endfor %}
+  </div>
+  {% endif %}
   <p data-reveal style="text-align:center;margin:1.25rem 0 0;"><a href="/blog" style="font-family:var(--font-ui);font-weight:600;color:var(--ink, #161616);text-decoration:none;">Browse all guides &amp; tools →</a></p>
 </section>
 

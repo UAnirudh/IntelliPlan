@@ -2468,7 +2468,10 @@ window.addEventListener('load',()=>{
   // Insert an estimated reading time after the article title.
   var body = document.querySelector('.blog-body');
   var title = document.querySelector('.blog-title');
-  if (body && title && !document.querySelector('.read-time')) {
+  // Registry articles already render "<date> · N min read" in .blog-meta.
+  // Injecting a second, differently computed badge put two reading times on
+  // one page, so the script stands down when a byline is already there.
+  if (body && title && !document.querySelector('.read-time') && !document.querySelector('.blog-meta')) {
     var words = (body.textContent || '').trim().split(/\s+/).filter(Boolean).length;
     var mins = Math.max(1, Math.round(words / 220));
     var badge = document.createElement('div');

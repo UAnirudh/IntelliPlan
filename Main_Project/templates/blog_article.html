@@ -98,6 +98,12 @@
     margin: 0 0 1rem;
     font-size: 0.95rem;
   }
+  .blog-cta-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    justify-content: center;
+  }
   .blog-related {
     margin-top: 2.5rem;
     padding-top: 1.5rem;
@@ -129,7 +135,7 @@
   <a class="blog-back" href="{{ '/compare' if active_page == 'compare' else '/blog' }}">&larr; {{ 'All comparisons' if active_page == 'compare' else 'All guides' }}</a>
   <span class="blog-kicker">{{ article.kicker }}</span>
   <h1 class="blog-title">{{ article.title }}</h1>
-  <p class="blog-meta">{% if article.updated %}Updated {% endif %}<time datetime="{{ article.updated or article.date }}">{{ article.updated or article.date }}</time> &middot; {{ article.reading_time }} min read</p>
+  <p class="blog-meta">{% if article.updated %}Updated {% endif %}<time datetime="{{ article.updated or article.date }}">{{ display_date }}</time> &middot; {{ reading_time }} min read</p>
 
   <div class="blog-body">
     {% for section in article.sections %}
@@ -152,7 +158,10 @@
     {% if active_page == 'compare' %}
     <h3>See how the scheduler works</h3>
     <p>Build and adjust a sample week before connecting a school account.</p>
-    <a href="/demo/planner" class="btn btn-primary">Try the sample planner</a>
+    <div class="blog-cta-actions">
+      <a href="/demo/planner" class="btn btn-primary">Try the sample planner</a>
+      <a href="/register" class="btn btn-secondary">Get started free</a>
+    </div>
     {% else %}
     <h3>Turn this into a plan for your week</h3>
     <p>IntelliPlan imports your assignments, ranks them by what is actually urgent, and builds a study schedule around the hours you have. Free to start.</p>
