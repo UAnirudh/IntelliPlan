@@ -1105,6 +1105,14 @@
     <a class="lp-tool-card" data-reveal href="/tools/study-schedule-maker"><span class="t">Study Schedule Maker</span><span class="d">Printable weekly timetable</span></a>
     <a class="lp-tool-card" data-reveal href="/tools/finals-countdown"><span class="t">Finals Countdown</span><span class="d">Days until your exams</span></a>
   </div>
+  {% if blog_picks %}
+  <h3 data-reveal style="font-family:var(--font-display);font-size:1.05rem;color:var(--text-primary);text-align:center;margin:1.75rem 0 0.75rem;">New study guides</h3>
+  <div class="lp-tools-grid">
+    {% for article in blog_picks %}
+    <a class="lp-tool-card" data-reveal href="/blog/{{ article.slug }}"><span class="t">{{ article.title }}</span><span class="d">{{ article.description }}</span></a>
+    {% endfor %}
+  </div>
+  {% endif %}
   <p data-reveal style="text-align:center;margin:1.25rem 0 0;"><a href="/blog" style="font-family:var(--font-ui);font-weight:600;color:var(--ink, #161616);text-decoration:none;">Browse all guides &amp; tools →</a></p>
 </section>
 

@@ -5039,7 +5039,11 @@ def public_stats():
 
 @app.route("/")
 def landing():
-    return render_template("landing.html", active_page="landing")
+    # Pulled from the registry rather than hand-listed, so the landing page
+    # keeps showing the newest guides without a second place to edit.
+    return render_template("landing.html",
+                           active_page="landing",
+                           blog_picks=blog_articles.all_articles()[:3])
 
 # ── SEO / AI-crawler static files ─────────────────────────────
 @app.route("/robots.txt")
