@@ -68,6 +68,7 @@ body:has(.command-chat) .pet-xp-toast { display: none; }
 }
 
 .command-chat__intro { margin: auto 0; padding: 4vh 0; }
+.command-chat__portrait { margin-bottom: 12px; }
 .command-chat__intro h2 {
   margin: 0 0 8px;
   font-size: clamp(1.7rem, 3.2vw, 2.3rem);

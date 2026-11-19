@@ -81,12 +81,6 @@
   .hub-chat-submit:hover { box-shadow: 0 6px 18px rgba(0,0,0,0.18);
   }
   .hub-chat-submit:disabled { opacity: 0.65; cursor: wait; }
-  .hub-chat-icon {
-    width: 22px; height: 22px;
-    flex-shrink: 0;
-    color: var(--text-muted);
-    display: inline-flex; align-items: center; justify-content: center;
-  }
   .hub-chat-suggest {
     display: flex; flex-wrap: wrap; gap: 6px;
     margin-top: 10px;
@@ -250,14 +244,13 @@
 {% endblock %}
 
 {% block content %}
+{% from 'partials/plani_avatar.html' import plani_avatar with context %}
 <section class="hub-hero">
   <h1 class="hub-hero-title">A tool for your next step.</h1>
   <p class="hub-hero-sub">Understand an idea, practice a skill, or organize your week. Open any available card to get started, or describe what you need.</p>
 
   <div class="hub-chat-wrap">
-    <span class="hub-chat-icon" aria-hidden="true">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-sparkle"/></svg>
-    </span>
+    {{ plani_avatar(24) }}
     <input id="hubChatInput" class="hub-chat-input" type="text"
       aria-label="Describe the study tool you need" maxlength="500"
       placeholder="What do you want to do? e.g. 'help me with calculus'"

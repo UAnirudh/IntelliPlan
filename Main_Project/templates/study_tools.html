@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% from 'partials/plani_avatar.html' import plani_avatar with context %}
 {% block page_title %}Study tools | IntelliPlan{% endblock %}
 {% block head_extra %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/study_tools.css') }}?v={{ asset_v }}">
@@ -8,7 +9,7 @@
   <header class="study-tools-intro">
     <div><p class="study-tools-eyebrow">Your learning toolkit</p><h1 id="tools-title">A little help for<br>every way you learn.</h1>
       <p>Ask a question, practice an idea, or make a plan. Your tools are all here.</p></div>
-    <a class="study-tools-return" href="/study-and-learn"><svg aria-hidden="true"><use href="#i-robot"/></svg>Back to Plani <span aria-hidden="true">↗</span></a>
+    <a class="study-tools-return" href="/study-and-learn">{{ plani_avatar(22) }}Back to Plani <span aria-hidden="true">↗</span></a>
   </header>
   {% if tutor_restricted %}<p class="study-tools-notice" role="status">Your school has turned off Plani chat for this account. You can still explore the tools your school allows.</p>{% endif %}
   <p class="study-tools-policy">School permissions apply to every tool. Unavailable tools are marked below.</p>

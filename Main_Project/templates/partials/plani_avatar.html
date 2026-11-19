@@ -1,0 +1,6 @@
+{% macro plani_avatar(size, classes='', image_id=None) -%}
+<img class="plani-portrait{% if classes %} {{ classes }}{% endif %}"
+     {% if image_id %}id="{{ image_id }}"{% endif %}
+     src="{{ url_for('static', filename='plani-notebook-avatar.webp') }}?v={{ asset_v }}"
+     width="{{ size }}" height="{{ size }}" alt="" aria-hidden="true">
+{%- endmacro %}

@@ -5062,7 +5062,7 @@ def founder_home_preview(asset=None):
         response = flask.make_response("", 404)
     elif asset is None:
         response = flask.make_response(render_template("founder_home_preview.html"))
-    elif asset in {"design.css", "motion.js", "etched-glass.webp", "plani-ceramic.webp"}:
+    elif asset in {"design.css", "motion.js", "etched-glass.webp", "plani-ceramic.webp", "plani-notebook.webp"}:
         response = send_from_directory(
             os.path.join(app.root_path, "Main_Project", "private_preview"),
             asset, conditional=False, max_age=0,

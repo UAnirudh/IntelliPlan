@@ -71,7 +71,7 @@ def test_homepage_preview_only_serves_verified_owner_and_keeps_assets_private(cl
         monkeypatch.setattr(App, "ADMIN_EMAILS", {owner.email, delegate.email})
 
     private_urls = ("/test", "/test/design.css", "/test/motion.js",
-                    "/test/etched-glass.webp", "/test/plani-ceramic.webp")
+                    "/test/etched-glass.webp", "/test/plani-ceramic.webp", "/test/plani-notebook.webp")
 
     def denied():
         for path in private_urls:
@@ -84,7 +84,7 @@ def test_homepage_preview_only_serves_verified_owner_and_keeps_assets_private(cl
     _sign_in(client, delegate_id)
     denied()
     _sign_in(client, owner_id)
-    expected = (b"Private preview", b".segment-indicator", b"aria-selected", b"RIFF", b"RIFF")
+    expected = (b"plani-notebook.webp", b".segment-indicator", b"aria-selected", b"RIFF", b"RIFF", b"RIFF")
     for path, marker in zip(private_urls, expected):
         result = client.get(path)
         assert result.status_code == 200
