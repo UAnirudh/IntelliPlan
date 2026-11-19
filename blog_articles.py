@@ -28,7 +28,6 @@ ARTICLES: list[dict] = [
         "meta_title": "IntelliPlan vs Matcha | Study Planner Comparison",
         "description": "Compare how IntelliPlan and Matcha schedule schoolwork, refresh connected calendars, and help you prepare for assignments and exams.",
         "date": "2026-11-18",
-        "reading_time": 3,
         "sections": [
             {"paragraphs": [
                 "Both apps help students make time for assignments imported from Canvas or StudentVUE. IntelliPlan is a good fit if your school uses Schoology, you want to try a sample planner before connecting an account, or you want to work backward from a target grade.",
@@ -68,7 +67,7 @@ ARTICLES: list[dict] = [
                 {"url": "https://www.trymatcha.org/faq", "label": "See Matcha’s current FAQ"},
             ]},
         ],
-        "related": ["fit-schoolwork-around-your-calendar", "how-to-use-canvas-with-a-study-planner", "spaced-repetition-for-students", "how-to-teach-yourself-a-subject"],
+        "related": ["fit-schoolwork-around-your-calendar", "how-to-use-canvas-with-a-study-planner", "spaced-repetition-for-students"],
     },
 {
         "slug": "fit-schoolwork-around-your-calendar",
@@ -77,7 +76,6 @@ ARTICLES: list[dict] = [
         "meta_title": "Plan Homework Around Your Calendar | IntelliPlan",
         "description": "Use calendar availability, movable study blocks, and realistic time estimates to fit homework around practice, shifts, and classes.",
         "date": "2026-11-18",
-        "reading_time": 3,
         "sections": [
             {"paragraphs": [
                 "Start with commitments that already have a time. If practice ends at 5, block travel and dinner too. Then put the assignment with the nearest deadline or highest consequence into the first gap long enough to make progress.",
@@ -103,7 +101,6 @@ ARTICLES: list[dict] = [
         "meta_title": "How to Study for Finals in One Week | IntelliPlan",
         "description": "A realistic seven-day finals plan: what to study first, how long to spend, and how to walk in rested instead of wrecked.",
         "date": "2026-11-14",
-        "reading_time": 6,
         "sections": [
             {"paragraphs": [
                 "One week is not enough time to learn a semester from scratch, and pretending otherwise is how students end up awake at 3am with six half-read chapters and no confidence. It is, however, plenty of time to study well if you spend it on the right things in the right order.",
@@ -153,7 +150,6 @@ ARTICLES: list[dict] = [
         "meta_title": "How to Make a Study Schedule That Works | IntelliPlan",
         "description": "Most study schedules fail in the first week. Here is a simple way to build one around real hours, real deadlines, and real energy.",
         "date": "2026-11-10",
-        "reading_time": 6,
         "sections": [
             {"paragraphs": [
                 "Almost everyone has made a study schedule. Almost nobody has kept one for a month. The schedules that fail are usually not too ambitious — they are too abstract. A block that says \"study biology\" is a wish; a block that says \"redo questions 4 to 12 from the cell division worksheet, 7pm to 7:40\" is a plan.",
@@ -201,7 +197,6 @@ ARTICLES: list[dict] = [
         "meta_title": "Time Blocking for Students: A Practical Guide | IntelliPlan",
         "description": "How to time-block a school week around real deadlines, with a simple template and the mistakes that make blocking fail.",
         "date": "2026-11-06",
-        "reading_time": 5,
         "sections": [
             {"paragraphs": [
                 "Time blocking is the practice of giving every hour a job in advance. Not a to-do list that says what should happen eventually, but a calendar that says what happens at 7pm. For students it solves a specific problem: the free hour between practice and dinner is invisible until it is gone.",
@@ -245,7 +240,6 @@ ARTICLES: list[dict] = [
         "meta_title": "Does the Pomodoro Technique Work for Students? | IntelliPlan",
         "description": "What the 25/5 timer actually does, when it helps, when it hurts, and how to adapt it for homework, essays, and exam prep.",
         "date": "2026-11-02",
-        "reading_time": 5,
         "sections": [
             {"paragraphs": [
                 "The Pomodoro Technique is the best-known productivity method in the world and one of the least examined. Twenty-five minutes of work, five minutes of break, repeat. It is genuinely useful, but not for the reason most students think, and it fails in predictable ways.",
@@ -289,7 +283,6 @@ ARTICLES: list[dict] = [
         "meta_title": "How to Stop Procrastinating on Homework | IntelliPlan",
         "description": "Procrastination is an emotion problem, not a time problem. Five changes that make starting easier than avoiding.",
         "date": "2026-10-29",
-        "reading_time": 5,
         "sections": [
             {"paragraphs": [
                 "People who procrastinate are not lazy and they are not bad at planning. They are usually trying to avoid a feeling: the task is boring, or confusing, or the standard they are holding themselves to is high enough that starting feels like failing.",
@@ -334,7 +327,6 @@ ARTICLES: list[dict] = [
         "meta_title": "How to Catch Up When You Are Behind in School | IntelliPlan",
         "description": "A triage method for missing work: what to do first, what to ask your teacher, and how to rebuild a plan you can actually finish.",
         "date": "2026-10-25",
-        "reading_time": 6,
         "sections": [
             {"paragraphs": [
                 "Being behind is not one problem, it is three: missing work that still counts, material you did not learn, and a plan that no longer matches reality. Students usually attack the third by making a bigger plan, which fails within a week because the first two are still there.",
@@ -379,7 +371,6 @@ ARTICLES: list[dict] = [
         "meta_title": "How to Study With ADHD: Systems That Work | IntelliPlan",
         "description": "Practical study systems for ADHD brains: external memory, short starts, body doubling, and plans that survive a bad day.",
         "date": "2026-10-21",
-        "reading_time": 6,
         "sections": [
             {"paragraphs": [
                 "Most study advice assumes a brain that remembers intentions, notices time passing, and can hold a boring task in place. If yours does not reliably do those things, the advice is not wrong so much as unusable. The fix is not more discipline; it is systems that do the remembering, the noticing and the holding for you.",
@@ -428,7 +419,6 @@ ARTICLES: list[dict] = [
         "meta_title": "How to Take Better Notes in Class | IntelliPlan",
         "description": "Notes are only useful if they help you remember later. What to write, what to skip, and how to review notes in ten minutes.",
         "date": "2026-10-17",
-        "reading_time": 5,
         "sections": [
             {"paragraphs": [
                 "Most class notes are transcripts. They record what the teacher said in the order it was said, which is a good way to have a record and a poor way to learn. The notes that help are the ones written for the person who will read them two weeks later, half-remembering the topic.",
@@ -466,7 +456,6 @@ ARTICLES: list[dict] = [
         "meta_title": "Active Recall vs Rereading: What Works | IntelliPlan",
         "description": "Rereading feels effective and mostly is not. How retrieval practice works, how to do it in ten minutes, and what it changes.",
         "date": "2026-10-13",
-        "reading_time": 5,
         "sections": [
             {"paragraphs": [
                 "Ask a student how they study and most will describe reading: the chapter, the notes, the slides, again. It is the default because it is comfortable and because fluency — the feeling that the material is familiar — is easy to mistake for knowing it.",
@@ -512,7 +501,6 @@ ARTICLES: list[dict] = [
         "description": "Why spacing beats cramming, what the forgetting curve means for your week, and how to run spaced review without a complex system.",
         "date": "2026-10-09",
         "updated": "2026-11-18",
-        "reading_time": 5,
         "sections": [
             {"paragraphs": [
                 "Spaced practice means revisiting material in separate sessions. For example, recall the phases of mitosis on Monday and revisit the ones you missed on Wednesday. Practice recalling the answer before you look it up.",
@@ -557,7 +545,6 @@ ARTICLES: list[dict] = [
         "meta_title": "The Cornell Note-Taking Method, Explained | IntelliPlan",
         "description": "How the Cornell system works, why the summary column matters, and a version that fits a fast lecture without slowing you down.",
         "date": "2026-10-05",
-        "reading_time": 4,
         "sections": [
             {"paragraphs": [
                 "Cornell notes divide a page into three parts: a narrow left column for cues and questions, a wide right column for notes, and a strip at the bottom for a summary. It has survived for decades because the layout forces two things students otherwise skip — turning notes into questions, and writing what the page was about.",
@@ -600,7 +587,6 @@ ARTICLES: list[dict] = [
         "meta_title": "How to Memorize Vocabulary Fast | IntelliPlan",
         "description": "A vocabulary routine that beats rereading a list: small batches, retrieval, spacing, and using the words in sentences.",
         "date": "2026-10-01",
-        "reading_time": 5,
         "sections": [
             {"paragraphs": [
                 "A vocabulary list is a test you have already seen the answers to, which is why reading it repeatedly feels like learning and produces almost nothing. The words that stick are the ones you have retrieved from memory, spaced out over days, and used in a sentence you made yourself.",
@@ -647,7 +633,6 @@ ARTICLES: list[dict] = [
         "meta_title": "How to Prepare for AP Exams | IntelliPlan",
         "description": "A realistic AP exam plan: when to start, how to use practice tests, and how to manage four exams in two weeks.",
         "date": "2026-09-27",
-        "reading_time": 6,
         "sections": [
             {"paragraphs": [
                 "AP exams have two features that make them different from a normal test: they cover a whole year, and they all arrive in the same two weeks. That combination is why students who study hard all year still walk into May feeling unprepared.",
@@ -695,7 +680,6 @@ ARTICLES: list[dict] = [
         "meta_title": "How to Study for a Math Test | IntelliPlan",
         "description": "Maths is not a reading subject. A problem-first routine that finds your real gaps before the test does.",
         "date": "2026-09-23",
-        "reading_time": 5,
         "sections": [
             {"paragraphs": [
                 "Maths is the subject where the gap between how students study and how they are tested is widest. You are tested on producing solutions to problems you have not seen, and most people study by reading worked solutions they have already seen. Those are different skills.",
@@ -744,7 +728,6 @@ ARTICLES: list[dict] = [
         "meta_title": "How to Study for a Science Test | IntelliPlan",
         "description": "Science tests mix recall, diagrams and application. How to study each layer, in the order that actually raises your score.",
         "date": "2026-09-19",
-        "reading_time": 5,
         "sections": [
             {"paragraphs": [
                 "A science test usually contains three different exams stapled together: vocabulary you either know or do not, a diagram or process you have to reproduce accurately, and problems that apply the concept to a situation you have not seen. Studying only one of those is why a student can know the chapter and still get a C.",
@@ -784,7 +767,6 @@ ARTICLES: list[dict] = [
         "meta_title": "How to Write a Better Essay in Less Time | IntelliPlan",
         "description": "Most essay time is lost to staring at a blank page. A structure-first process that cuts drafting time without cutting quality.",
         "date": "2026-09-15",
-        "reading_time": 5,
         "sections": [
             {"paragraphs": [
                 "Students rarely lose essay marks because they write slowly. They lose them because they start writing before they know what they are arguing, then spend three hours producing a draft that has to be reorganised. The time goes into rewriting a structure that was never decided.",
@@ -832,7 +814,6 @@ ARTICLES: list[dict] = [
         "meta_title": "Balancing AP Classes and Sports | IntelliPlan",
         "description": "A season-long plan for athletes in demanding classes: protect sleep, use the small gaps, and plan around game days.",
         "date": "2026-09-11",
-        "reading_time": 5,
         "sections": [
             {"paragraphs": [
                 "A sport takes ten to twenty hours a week, and AP classes take the rest. The students who survive the season are not the ones with more discipline; they are the ones who stopped pretending they had evening hours available on practice days and built the week around that fact.",
@@ -876,7 +857,6 @@ ARTICLES: list[dict] = [
         "meta_title": "Homework With a Part-Time Job | IntelliPlan",
         "description": "Working students lose hours, not motivation. How to plan around shifts, protect the small blocks, and keep grades steady.",
         "date": "2026-09-07",
-        "reading_time": 5,
         "sections": [
             {"paragraphs": [
                 "A part-time job does not make you worse at school. It makes you time-poor in a way that most study advice ignores, because that advice assumes a free evening and a quiet house. Fifteen hours a week changes which techniques are available to you, not whether you can succeed.",
@@ -922,7 +902,6 @@ ARTICLES: list[dict] = [
         "meta_title": "Google Classroom With a Study Planner | IntelliPlan",
         "description": "Classroom shows coursework per class. A planner turns it into one ranked week. How to connect them and what to check after.",
         "date": "2026-09-03",
-        "reading_time": 5,
         "sections": [
             {"paragraphs": [
                 "Google Classroom is good at distributing work and bad at telling you what to do next. Each class has its own stream and its own due dates, and the to-do list only shows what is assigned to you — not how much it is worth, how long it will take, or which of the four things due Friday matters most.",
@@ -972,7 +951,6 @@ ARTICLES: list[dict] = [
         "meta_title": "Keeping Track of Schoology Assignments | IntelliPlan",
         "description": "Schoology buries due dates inside courses. How to pull assignments into one list, and what to do when a course does not import.",
         "date": "2026-08-30",
-        "reading_time": 4,
         "sections": [
             {"paragraphs": [
                 "Schoology keeps a lot in the course stream and relatively little in a single place you can scan. There is a calendar and an upcoming panel, but both depend on teachers using the assignment tool consistently, and many do not.",
@@ -1014,7 +992,6 @@ ARTICLES: list[dict] = [
         "meta_title": "Track Grades Without Checking Constantly | IntelliPlan",
         "description": "Refreshing the grade portal is anxiety, not information. What to check weekly instead, and which numbers actually matter.",
         "date": "2026-08-26",
-        "reading_time": 5,
         "sections": [
             {"paragraphs": [
                 "Checking your grades five times a day feels like staying on top of things. It is usually the opposite: the portal updates when a teacher grades something, not when you do, so the refresh gives you no new information and a fresh dose of anxiety.",
@@ -1058,7 +1035,6 @@ ARTICLES: list[dict] = [
         "meta_title": "What You Need on a Final: The Formula | IntelliPlan",
         "description": "The exact arithmetic for a target grade, with worked examples, plus what to do when the number is impossible.",
         "date": "2026-08-22",
-        "reading_time": 5,
         "sections": [
             {"paragraphs": [
                 "The question is always the same: what do I need on the final to get the grade I want? The arithmetic is simple, the hard part is knowing which numbers to put in, and what to do when the answer is above 100.",
@@ -1109,7 +1085,6 @@ ARTICLES: list[dict] = [
         "meta_title": "How to Raise a Grade This Term | IntelliPlan",
         "description": "The realistic levers for moving a grade: category maths, the next two graded items, and the conversations worth having.",
         "date": "2026-08-18",
-        "reading_time": 5,
         "sections": [
             {"paragraphs": [
                 "Raising a grade is not about working more. It is about working on the items that are actually holding the grade down, which are usually fewer and more specific than they feel.",
@@ -1151,7 +1126,6 @@ ARTICLES: list[dict] = [
         "meta_title": "College Application Timeline | IntelliPlan",
         "description": "When to take tests, ask for recommendations, and write essays, laid out by month for junior and senior year.",
         "date": "2026-08-14",
-        "reading_time": 6,
         "sections": [
             {"paragraphs": [
                 "College applications are not hard because any one piece is difficult. They are hard because eight pieces have deadlines that are months apart and depend on each other, and nobody makes you a schedule until you build one.",
@@ -1199,7 +1173,6 @@ ARTICLES: list[dict] = [
         "meta_title": "6-Week SAT Study Schedule | IntelliPlan",
         "description": "A week-by-week SAT plan built around school, with practice-test timing, error review, and the score gains that come first.",
         "date": "2026-08-10",
-        "reading_time": 6,
         "sections": [
             {"paragraphs": [
                 "Six weeks is enough to move an SAT score meaningfully, and not enough to relearn high school maths. The plan below assumes about five hours a week, which is what a student with a full schedule can actually sustain, and it spends most of that time on the two things that move scores fastest: familiarity with the test and review of your own errors.",
@@ -1234,7 +1207,7 @@ ARTICLES: list[dict] = [
                 "Do not take a practice test every day; you will run out of real material and learn the tests rather than the skills. Do not study only your strongest section because it feels good. And do not buy a new prep book in week five — the material you already have, reviewed properly, is worth more.",
             ]},
         ],
-        "related": ["how-to-build-a-college-application-timeline", "spaced-repetition-for-students", "how-to-study-for-math-tests"],
+        "related": ["how-to-build-a-college-application-timeline", "spaced-repetition-for-students", "how-to-study-for-math-tests", "how-to-teach-yourself-a-subject"],
     },
 {
         "slug": "how-to-study-in-a-distracting-dorm",
@@ -1243,7 +1216,6 @@ ARTICLES: list[dict] = [
         "meta_title": "How to Study in a Distracting Dorm | IntelliPlan",
         "description": "You cannot always get a quiet room. Practical ways to study in a dorm, a shared bedroom, or a loud house without losing the evening.",
         "date": "2026-08-06",
-        "reading_time": 4,
         "sections": [
             {"paragraphs": [
                 "Most study advice quietly assumes a door you can close. If you live in a dorm, share a bedroom, or study in a house where the TV is always on, the useful question is not how to find silence but how to work without it.",
@@ -1288,7 +1260,6 @@ ARTICLES: list[dict] = [
         "meta_title": "How to Run a Study Group That Works | IntelliPlan",
         "description": "Most study groups become social hours. A simple format, the right size, and rules that keep the group useful.",
         "date": "2026-08-02",
-        "reading_time": 5,
         "sections": [
             {"paragraphs": [
                 "A study group is one of the few things that reliably improves understanding, and most of them turn into a conversation with textbooks open. The difference is not the people; it is whether the session has a format.",
@@ -1334,7 +1305,6 @@ ARTICLES: list[dict] = [
         "meta_title": "How Parents Can Help Without Taking Over | IntelliPlan",
         "description": "Support that builds independence instead of dependence: what to ask, what to stop checking, and how to help when a student is behind.",
         "date": "2026-07-29",
-        "reading_time": 5,
         "sections": [
             {"paragraphs": [
                 "Most parents who want to help end up doing one of two things: checking the portal every night, or backing off entirely because checking turned into arguing. Both are responses to the same problem — there is no shared picture of the week that is not an interrogation.",
@@ -1380,7 +1350,6 @@ ARTICLES: list[dict] = [
         "meta_title": "How to Teach Yourself a Subject | IntelliPlan",
         "description": "A self-study method for a course you are failing, a subject your school does not offer, or a gap you need to close before next year.",
         "date": "2026-07-25",
-        "reading_time": 5,
         "sections": [
             {"paragraphs": [
                 "Teaching yourself something is mostly a sequencing problem. The material is usually available — a textbook, a course, a set of videos — and the failure is starting in the middle, working without feedback, or never testing whether it went in.",
@@ -1424,7 +1393,6 @@ ARTICLES: list[dict] = [
         "meta_title": "PowerSchool Assignments in a Planner | IntelliPlan",
         "description": "District portals rarely offer student APIs. How PowerSchool, Aeries and similar portals get into a planner, and what to check.",
         "date": "2026-07-21",
-        "reading_time": 5,
         "sections": [
             {"paragraphs": [
                 "PowerSchool, Aeries, Infinite Campus, Skyward and eSchoolPlus have something in common: they are run by the district, and they do not issue API keys to students. There is no developer portal to sign up for and no OAuth flow to approve. That is why most planners support Canvas and Google Classroom and quietly do not support the portal your school actually uses.",
