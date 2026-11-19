@@ -15,15 +15,11 @@
     let revision = 0;
     if (new URLSearchParams(location.search).get('capture') === '1') {
       byId('plannerCapture').open = true;
-      try {
-        const draft = JSON.parse(sessionStorage.getItem('ip_photo_planner_draft') || 'null');
-        sessionStorage.removeItem('ip_photo_planner_draft');
-        if (draft && owner && draft.owner === owner && Date.now() - draft.at < 120000 &&
-            typeof draft.text === 'string' && draft.text.length <= 12000) {
-          text.value = draft.text;
-          status.textContent = 'Keep one task per line, then select Review tasks.';
-        }
-      } catch (_) { /* The paste field remains available. */ }
+      const draft = window.IPPlannerDraft?.take();
+      if (draft) {
+        text.value = draft;
+        status.textContent = 'Check the task and time estimate, then select Review tasks.';
+      }
     }
 
     function clearReview() {

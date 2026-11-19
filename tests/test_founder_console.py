@@ -70,7 +70,8 @@ def test_homepage_preview_only_serves_verified_owner_and_keeps_assets_private(cl
         monkeypatch.setattr(App, "FOUNDER_EMAIL", owner.email)
         monkeypatch.setattr(App, "ADMIN_EMAILS", {owner.email, delegate.email})
 
-    private_urls = ("/test", "/test/design.css", "/test/motion.js")
+    private_urls = ("/test", "/test/design.css", "/test/motion.js",
+                    "/test/etched-glass.webp", "/test/plani-ceramic.webp")
 
     def denied():
         for path in private_urls:
@@ -83,11 +84,14 @@ def test_homepage_preview_only_serves_verified_owner_and_keeps_assets_private(cl
     _sign_in(client, delegate_id)
     denied()
     _sign_in(client, owner_id)
-    expected = ("Private preview", ".segment-indicator", "aria-selected")
+    expected = (b"Private preview", b".segment-indicator", b"aria-selected", b"RIFF", b"RIFF")
     for path, marker in zip(private_urls, expected):
         result = client.get(path)
         assert result.status_code == 200
-        assert marker in result.get_data(as_text=True)
+        assert marker in result.data
+        if path.endswith(".webp"):
+            assert result.content_type == "image/webp"
+            assert result.data[8:12] == b"WEBP"
         assert "no-store" in result.headers["Cache-Control"]
         assert "private" in result.headers["Cache-Control"]
         assert "noindex" in result.headers["X-Robots-Tag"]

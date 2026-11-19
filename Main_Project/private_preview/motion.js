@@ -3,6 +3,9 @@
   const bar = document.querySelector('.segments');
   const tabs = [...bar.querySelectorAll('[role="tab"]')];
   const panels = tabs.map(tab => document.getElementById(tab.getAttribute('aria-controls')));
+  panels[0].setAttribute('role', 'tabpanel');
+  panels[0].setAttribute('aria-labelledby', tabs[0].id);
+  panels[0].tabIndex = 0;
   let selected = 0;
   let transition;
 
@@ -103,41 +106,77 @@
     focusStatus.textContent = steps.filter(item => item.checked).length + ' of ' + steps.length + ' steps complete';
   }));
 
-  const homeLink = document.querySelector('.nav-links a[href="#home"]');
-  const faqLink = document.querySelector('.nav-links a[href="#faq"]');
-  function updateNav() {
-    const onFaq = location.hash === '#faq';
-    (onFaq ? homeLink : faqLink).removeAttribute('aria-current');
-    (onFaq ? faqLink : homeLink).setAttribute('aria-current', 'location');
-  }
-  window.addEventListener('hashchange', updateNav);
-  updateNav();
+  const masthead = document.querySelector('.masthead');
+  const nav = document.querySelector('.nav-links');
+  const homeLink = nav.querySelector('a[href="#home"]');
+  const faqLink = nav.querySelector('a[href="#faq"]');
+  const faq = document.getElementById('faq');
+  const backdrop = document.querySelector('.backdrop img');
+  let scrollFrame;
+  let currentLink;
+  function updateScroll() {
+    scrollFrame = undefined;
+    const maxScroll = document.documentElement.scrollHeight - innerHeight;
+    const progress = maxScroll > 0 ? Math.min(1, Math.max(0, scrollY / maxScroll)) : 0;
+    const offset = backdrop.offsetHeight - innerHeight;
+    const destination = faq.getBoundingClientRect().top < innerHeight * .58 || progress > .995 ? faqLink : homeLink;
 
-  const plani = document.getElementById('plani');
-  const shadow = document.querySelector('.plani-shadow');
-  let planiMotion;
-  let shadowMotion;
-  function greet() {
-    if (reduceMotion.matches) return;
-    planiMotion?.cancel();
-    shadowMotion?.cancel();
-    planiMotion = plani.animate([
-      { transform: 'translateY(0) rotate(0)' },
-      { transform: 'translateY(-8px) rotate(-4deg)', offset: .32 },
-      { transform: 'translateY(1px) rotate(2deg)', offset: .75 },
-      { transform: 'none' },
-    ], { duration: 900, easing: 'ease-in-out' });
-    shadowMotion = shadow.animate([
-      { transform: 'scale(1)', opacity: 1 },
-      { transform: 'scale(.88)', opacity: .68, offset: .32 },
-      { transform: 'scale(1)', opacity: 1 },
-    ], { duration: 900, easing: 'ease-in-out' });
+    masthead.toggleAttribute('data-compact', scrollY > 80);
+    if (destination !== currentLink) {
+      currentLink?.removeAttribute('aria-current');
+      destination.setAttribute('aria-current', 'location');
+      nav.style.setProperty('--nav-index', destination === faqLink ? '1' : '0');
+      currentLink = destination;
+    }
+    if (!reduceMotion.matches) {
+      backdrop.style.setProperty('--backdrop-y', `${-Math.max(0, offset) * progress}px`);
+    }
   }
-
-  const hint = document.getElementById('hint-example');
-  hint.addEventListener('toggle', () => {
-    if (hint.open) greet();
+  function queueScrollUpdate() {
+    if (scrollFrame === undefined) scrollFrame = requestAnimationFrame(updateScroll);
+  }
+  window.addEventListener('scroll', queueScrollUpdate, { passive: true });
+  window.addEventListener('resize', queueScrollUpdate);
+  window.addEventListener('pageshow', queueScrollUpdate);
+  reduceMotion.addEventListener('change', () => {
+    if (reduceMotion.matches) document.getAnimations().forEach(animation => animation.cancel());
+    queueScrollUpdate();
   });
+  currentLink = homeLink;
+  queueScrollUpdate();
+
+  const stage = document.querySelector('.mascot-stage');
+  stage.addEventListener('pointermove', event => {
+    if (reduceMotion.matches || event.pointerType !== 'mouse') return;
+    const bounds = stage.getBoundingClientRect();
+    const x = (event.clientX - bounds.left) / bounds.width - .5;
+    const y = (event.clientY - bounds.top) / bounds.height - .5;
+    stage.style.setProperty('--stage-x', `${x * 22}px`);
+    stage.style.setProperty('--stage-y', `${y * 15}px`);
+    stage.style.setProperty('--stage-turn', `${x * 7}deg`);
+  }, { passive: true });
+  stage.addEventListener('pointerleave', () => {
+    for (const property of ['--stage-x', '--stage-y', '--stage-turn']) stage.style.removeProperty(property);
+  });
+
+  const portrait = document.getElementById('tutor-plani');
+  let nod;
+  document.querySelectorAll('details').forEach(details => details.addEventListener('toggle', () => {
+    queueScrollUpdate();
+    if (!details.open || reduceMotion.matches) return;
+    details.querySelector('p').animate([
+      { opacity: .2, transform: 'translateY(-4px)' },
+      { opacity: 1, transform: 'none' },
+    ], { duration: 240, easing: 'ease-out' });
+    if (details.id === 'hint-example') {
+      nod?.cancel();
+      nod = portrait.animate([
+        { transform: 'none' },
+        { transform: 'translateY(-3px) rotate(-8deg)' },
+        { transform: 'none' },
+      ], { duration: 600, easing: 'ease-in-out' });
+    }
+  }));
 
   const finalScore = document.getElementById('final-score');
   const finalScoreValue = document.getElementById('final-score-value');
@@ -161,7 +200,6 @@
         { opacity: .65, transform: 'translateY(12px)' },
         { opacity: 1, transform: 'none' },
       ], { duration: 420, easing: 'ease-out' });
-      if (target.contains(plani)) greet();
     });
   }, { threshold: .18 });
   document.querySelectorAll('[data-reveal]').forEach(element => sections.observe(element));

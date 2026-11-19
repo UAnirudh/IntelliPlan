@@ -113,6 +113,19 @@
     element('p', label(config.question, 'Choose an option and explain your thinking.'), wrap);
     var feedback = element('p', 'Choose an option to check your reasoning.', wrap);
     feedback.setAttribute('role', 'status');
+    var review;
+    if (document.body.dataset.userId && window.IPPlannerDraft) {
+      review = element('button', 'Plan a review', wrap);
+      review.className = 'btn-secondary';
+      review.type = 'button';
+      review.hidden = true;
+      review.addEventListener('click', function () {
+        var topic = label(config.question, 'Quiz question').replace(/\s+/g, ' ').slice(0, 150);
+        if (!window.IPPlannerDraft.open('Review practice question: ' + topic + ' 15m')) {
+          feedback.textContent = 'Open the scheduler and add a 15-minute review in Add work.';
+        }
+      });
+    }
     var buttons = [];
     config.options.forEach(function (option, index) {
       var button = element('button', option.slice(0, 300), wrap);
@@ -121,7 +134,9 @@
       buttons.push(button);
       button.addEventListener('click', function () {
         buttons.forEach(function (option) { option.setAttribute('aria-pressed', String(option === button)); });
-        feedback.textContent = index === config.correct
+        var correct = index === config.correct;
+        if (review && !correct) review.hidden = false;
+        feedback.textContent = correct
           ? 'That matches this AI-generated check. Tell Plani why you chose it.'
           : 'Try again. What might rule out this option?';
       });

@@ -9,9 +9,11 @@ from __future__ import annotations
 import base64
 import json
 import logging
+import math
 import os
 import re
 import time
+from email.utils import parsedate_to_datetime
 from typing import Any, Callable, Literal
 
 logger = logging.getLogger(__name__)
@@ -222,13 +224,23 @@ class AIQuotaExhausted(RuntimeError):
     """Every configured model refused the call for quota or rate-limit reasons.
 
     Distinct from AIUnavailable: the keys are fine and the request was well
-    formed, the allowance is simply spent. Callers surface this to the student
-    as "the AI is at today's limit", never as a generic failure.
+    formed, but provider capacity is unavailable for this request.
     """
 
     def __init__(self, message: str, retry_after: int | None = None):
         super().__init__(message)
         self.retry_after = retry_after
+
+    def user_message(self, feature: str = "Plani") -> str:
+        wait = self.retry_after
+        if wait and wait < 60:
+            duration = f"{wait} second" + ("" if wait == 1 else "s")
+        elif wait:
+            minutes = math.ceil(wait / 60)
+            duration = f"{minutes} minute" + ("" if minutes == 1 else "s")
+        else:
+            return f"{feature} is busy right now. Try again in a moment."
+        return f"{feature} is busy right now. Try again in about {duration}."
 
 
 class AIAllowanceExceeded(AIQuotaExhausted):
@@ -243,6 +255,9 @@ class AIAllowanceExceeded(AIQuotaExhausted):
         super().__init__(message)
         self.limit = limit
         self.used = used
+
+    def user_message(self, feature: str = "Plani") -> str:
+        return str(self)
 
 
 class AIUnavailable(RuntimeError):
@@ -585,7 +600,10 @@ def _groq_chat(
 
 def _is_quota_error(exc: Exception) -> bool:
     msg = str(exc).lower()
-    return "quota" in msg or "rate" in msg or "resource exhausted" in msg
+    status = getattr(exc, "status_code", None) or getattr(exc, "code", None)
+    return str(status) == "429" or bool(
+        re.search(r"\b(?:quota|rate[-_ ]?limit\w*|resource[-_ ]exhausted)\b", msg)
+    )
 
 
 def _is_transient_error(exc: Exception) -> bool:
@@ -727,7 +745,8 @@ def chat(
             except Exception as exc:
                 # A 503 under load clears in seconds. One quick retry on the
                 # same model beats stepping down to a weaker one.
-                if single_attempt or not _is_transient_error(exc) or isinstance(exc, AITruncatedError):
+                if (single_attempt or _is_quota_error(exc) or not _is_transient_error(exc)
+                        or isinstance(exc, AITruncatedError)):
                     raise
                 logger.info("%s/%s transient error (%s), retrying once", provider, model, exc)
                 time.sleep(1.5)
@@ -740,7 +759,9 @@ def chat(
                                provider, model, exc)
             elif _is_quota_error(exc):
                 quota_hits += 1
-                retry_after = retry_after or _retry_after_seconds(exc)
+                delay = _retry_after_seconds(exc)
+                if delay is not None:
+                    retry_after = min(retry_after, delay) if retry_after is not None else delay
                 logger.info("%s/%s out of quota, trying next model", provider, model)
             else:
                 logger.warning("%s/%s failed (%s), trying next model", provider, model, exc)
@@ -755,12 +776,29 @@ def chat(
 
 
 def _retry_after_seconds(exc: Exception) -> int | None:
-    """Pull Gemini's retryDelay out of a 429 body so callers can say when."""
-    m = re.search(r"['\"]retryDelay['\"]:\s*['\"](\d+)s", str(exc))
-    if m:
-        return int(m.group(1))
-    m = re.search(r"retry in (\d+)", str(exc), re.I)
-    return int(m.group(1)) if m else None
+    """Use the HTTP hint first, then a provider's duration in the error."""
+    headers = getattr(getattr(exc, "response", None), "headers", None) or {}
+    header = headers.get("retry-after") or headers.get("Retry-After")
+    if header:
+        if re.fullmatch(r"\d{1,8}", header):
+            return max(1, int(header))
+        try:
+            return max(1, math.ceil(parsedate_to_datetime(header).timestamp() - time.time()))
+        except (TypeError, ValueError, OverflowError):
+            pass
+    duration = re.search(
+        r"""(?:['"]retryDelay['"]:\s*['"]|(?:retry|try again) in\s+)((?:\d{1,8}(?:\.\d{1,12})?\s*(?:ms|[hms])\s*)+)""",
+        str(exc), re.I,
+    )
+    if not duration:
+        legacy = re.search(r"\bretry in (\d{1,8})(?![\d.])\b", str(exc), re.I)
+        return max(1, int(legacy[1])) if legacy else None
+    scale = {"h": 3600, "m": 60, "s": 1, "ms": .001}
+    seconds = sum(
+        float(number) * scale[unit.lower()]
+        for number, unit in re.findall(r"(\d+(?:\.\d+)?)\s*(ms|[hms])", duration[1], re.I)
+    )
+    return max(1, math.ceil(seconds))
 
 
 def vision(

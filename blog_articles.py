@@ -49,8 +49,8 @@ ARTICLES: list[dict] = [
                 {"url": "https://www.trymatcha.org/compare/intelliplan", "label": "Read Matcha’s November 6 comparison"},
             ]},
             {"h2": "Choose the support you need when you sit down to study", "paragraphs": [
-                "Matcha’s Mochi offers multiple-choice practice with explanations and accepts images and PDFs in chat. IntelliPlan Tutor can show graphs and tables, offer flashcards and quizzes, and build a study roadmap with resources. On supported accounts you can also start with an assignment from your planner.",
-                "Matcha shows what an upcoming assignment score would do to your class grade. IntelliPlan’s Grade Modeler lets you simulate scores across remaining assignments and work backward from a target, with category weighting for supported Canvas courses. The separate final-grade calculator can answer a quick what-if without an account.",
+                "Matcha’s Mochi offers multiple-choice practice with explanations and accepts images and PDFs in chat. IntelliPlan Tutor can show graphs and tables, offer flashcards and quizzes, and build a study roadmap with resources. On supported accounts you can start with an assignment from your planner or turn a missed practice question into a review task.",
+                "Matcha shows what an upcoming assignment score would do to your class grade. IntelliPlan’s Grade Modeler lets you simulate scores across remaining assignments, work backward from a target, and draft review time for the pending assignment with the largest modeled grade impact. The separate final-grade calculator can answer a quick what-if without an account.",
             ], "links": [
                 {"url": "/tutor", "label": "Explore IntelliPlan Tutor"},
                 {"url": "/grademodel", "label": "Explore Grade Modeler"},

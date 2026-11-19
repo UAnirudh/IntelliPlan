@@ -1642,13 +1642,12 @@ def plani_agent():
             return jsonify(status='error', error=e.reason, reply=e.message,
                            actions=actions, tool_log=tool_log), e.status
         except AIQuotaExhausted as e:
-            wait = getattr(e, "retry_after", None)
-            when = f" Try again in about {wait} seconds." if wait else " Try again shortly."
+            wait = e.retry_after
             logger.info("Plani agent out of AI quota: %s", e)
             return jsonify({"status": "error", "error": "ai_quota_exhausted",
-                "reply": "Plani has reached today's AI limit." + when,
+                "reply": e.user_message(),
                 "retry_after": wait,
-                "actions": actions, "tool_log": tool_log}), 503
+                "actions": actions, "tool_log": tool_log}), 503, {"Retry-After": str(wait)} if wait else {}
         except AIUnavailable as e:
             logger.error("Plani agent has no AI backend: %s", e)
             return jsonify({"status": "error", "error": "ai_unavailable",

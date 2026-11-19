@@ -120,6 +120,8 @@ def test_floating_chat_reports_quota_limit_as_retryable(tutor_client, monkeypatc
     assert response.json['error'] == 'ai_quota_exhausted'
     assert response.json['retryable'] is True
     assert response.json['retry_after'] == 45
+    assert response.headers['Retry-After'] == '45'
+    assert "today" not in response.json['reply']
     assert '45 seconds' in response.json['reply']
 
 

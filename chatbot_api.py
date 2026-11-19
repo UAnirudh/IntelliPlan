@@ -94,7 +94,7 @@ def _ollama_chat(model, messages, temperature, max_tokens, response_format=None)
 
 def _model_tier(model: str) -> str:
     """Map legacy Groq model names to ai_provider tiers."""
-    if '8b' in model or 'instant' in model:
+    if '8b' in model or 'instant' in model or model == 'openai/gpt-oss-20b':
         return 'fast'
     return 'standard'
 
@@ -1852,17 +1852,13 @@ def tutor():
         return resp, e.status
     except AIQuotaExhausted as e:
         _refund_tutor_message(quota_reservation)
-        # Every model in the chain is out of allowance. Saying so, with the
-        # wait, is worth more to the student than "hit a snag" -- and it is
-        # the signal that tells the operator to add a second provider key.
-        wait = getattr(e, 'retry_after', None)
-        when = f' Try again in about {wait} seconds.' if wait else ' Try again shortly.'
+        wait = e.retry_after
         print(f'Plani tutor quota exhausted: {e}')
         return jsonify({
-            'reply': "Plani has reached today's AI limit." + when,
+            'reply': e.user_message(),
             'error': 'ai_quota_exhausted',
             'retry_after': wait,
-        }), 503
+        }), 503, {'Retry-After': str(wait)} if wait else {}
     except AIUnavailable as e:
         _refund_tutor_message(quota_reservation)
         print(f'Plani tutor has no AI backend: {e}')
@@ -1925,8 +1921,8 @@ def tutor_voice():
         text = (ai_transcribe(name, data) or '').strip()
     except AIQuotaExhausted as e:
         return jsonify({'error': 'ai_quota_exhausted',
-                        'message': "Plani has reached today's AI limit.",
-                        'retry_after': getattr(e, 'retry_after', None)}), 503
+                        'message': e.user_message('Transcription'),
+                        'retry_after': e.retry_after}), 503, {'Retry-After': str(e.retry_after)} if e.retry_after else {}
     except AIUnavailable:
         return jsonify({'error': 'ai_unavailable',
                         'message': 'Speech recognition is not reachable right now.'}), 503
@@ -2235,7 +2231,7 @@ def chatbot():
             system_messages.append({'role': 'system', 'content': personalization_prompt})
 
         reply = _llm_chat(
-            model='openai/gpt-oss-120b',
+            model='openai/gpt-oss-20b',
             messages=system_messages + recent,
             temperature=0.45,
             max_tokens=320,
@@ -2255,11 +2251,10 @@ def chatbot():
             payload['retry_after'] = e.retry_after
         return jsonify(payload), e.status
     except AIQuotaExhausted as e:
-        wait = getattr(e, 'retry_after', None)
-        when = f' Try again in about {wait} seconds.' if wait else ' Try again shortly.'
+        wait = e.retry_after
         print(f'Plani chatbot out of AI quota: {e}')
         return jsonify(error='ai_quota_exhausted', retryable=True,
-            retry_after=wait, reply="Plani has reached today's AI limit." + when), 503
+            retry_after=wait, reply=e.user_message()), 503, {'Retry-After': str(wait)} if wait else {}
     except AIUnavailable as e:
         print(f'Plani chatbot has no AI backend: {e}')
         return jsonify(error='ai_unavailable', retryable=True,

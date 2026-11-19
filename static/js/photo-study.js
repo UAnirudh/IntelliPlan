@@ -95,13 +95,8 @@
       status('Read a photo or enter task text first.');
       return;
     }
-    try {
-      sessionStorage.setItem('ip_photo_planner_draft', JSON.stringify({
-        owner: document.body.dataset.userId, text: draft, at: Date.now()
-      }));
-      window.location.assign('/scheduler?capture=1');
-    } catch (_) {
-      status('Browser storage is unavailable. Copy the reviewed text into the planner’s Add work panel.');
+    if (!window.IPPlannerDraft?.open(draft)) {
+      status('Copy the reviewed text into the planner’s Add work panel.');
     }
   });
   function scheduleFields(kind, draft, index) {

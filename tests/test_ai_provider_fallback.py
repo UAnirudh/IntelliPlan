@@ -73,6 +73,23 @@ def both_keys(monkeypatch):
 MSGS = [{"role": "user", "content": "hi"}]
 
 
+@pytest.mark.parametrize(("provider_message", "wait"), [
+    ("Rate limit reached. Please try again in 825ms.", 1),
+    ("Rate limit reached. Please try again in 35.699999999s.", 36),
+    ("Too many requests. Please try again in 2m 01.25s.", 122),
+    ("Quota exceeded {'retryDelay': '45s'}", 45),
+])
+def test_provider_retry_durations_respect_units(provider_message, wait):
+    assert ai_provider._retry_after_seconds(RuntimeError(provider_message)) == wait
+
+
+def test_provider_retry_header_overrides_body():
+    failure = RuntimeError("Quota exceeded. Try again in 10s.")
+    failure.response = type("Response", (), {"headers": {"Retry-After": "42"}})()
+    assert ai_provider._retry_after_seconds(failure) == 42
+    assert not ai_provider._is_quota_error(RuntimeError("Could not generate a response"))
+
+
 # ── truncation detection ──────────────────────────────────────────
 
 

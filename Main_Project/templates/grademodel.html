@@ -1,6 +1,9 @@
 {% extends "base.html" %}
 {% block page_title %}Grade Modeler | IntelliPlan{% endblock %}
 {% block meta_description %}Model target grades, remaining assignments, and final-exam scores with IntelliPlan's grade modeler for students.{% endblock %}
+{% block head_extra %}
+<script defer src="{{ url_for('static', filename='js/planner-draft.js') }}?v={{ asset_v }}"></script>
+{% endblock %}
 
 {% block content %}
 <div class="page-header">
@@ -27,6 +30,8 @@
   .gp-card-meta { display: flex; gap: 0.5rem; margin-top: 0.5rem; font-size: 0.7rem; color: var(--text-muted); }
   .gp-trend-pill { padding: 1px 8px; border-radius: var(--r-full); background: var(--glass-btn-bg); border: 1px solid var(--glass-border); -webkit-backdrop-filter: blur(8px) saturate(1.4); backdrop-filter: blur(8px) saturate(1.4); box-shadow: var(--glass-btn-shadow); }
   .gp-empty { color: var(--text-muted); font-size: 0.88rem; text-align: center; padding: 1rem; }
+  .grade-review { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 0 0 1.25rem; padding: 12px 16px; border-radius: var(--r-md); background: var(--accent-soft); }
+  .grade-review p { font-size: .86rem; color: var(--text-secondary); }
 </style>
 
 <div class="gp-panel">
@@ -172,6 +177,14 @@ window.gpBuildOverride = function() {
         <div id="modelSummary" style="font-size:0.95rem; color:var(--text-primary); line-height:1.7;"></div>
       </div>
     </div>
+
+    {% if current_user.is_authenticated %}
+    <div class="grade-review" id="gradeReview" hidden>
+      <div><strong id="gradeReviewTitle"></strong><p id="gradeReviewEffect"></p></div>
+      <button type="button" class="btn-secondary" id="gradeReviewAction">Plan a review</button>
+      <p id="gradeReviewStatus" role="status"></p>
+    </div>
+    {% endif %}
 
     <!-- Assignment breakdown -->
     <div style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;flex-wrap:wrap;margin-bottom:1rem;">
@@ -339,7 +352,7 @@ function _counts(a) {
   return !a.excused && !a.omit_from_final_grade && (_num(a.points_possible) || 0) > 0;
 }
 
-function gradeOf(rows, fill) {
+function gradeOf(rows, fill, override = null) {
   const course = selectedCourse || {};
   const weighted = course.weighting === 'groups';
   const buckets = {};
@@ -347,7 +360,8 @@ function gradeOf(rows, fill) {
     if (!_counts(a)) return;
     const poss = _num(a.points_possible);
     let earned;
-    if (a.graded) earned = _num(a.points_earned) || 0;
+    if (override?.assignment === a) earned = poss * override.score;
+    else if (a.graded) earned = _num(a.points_earned) || 0;
     else if (fill === null || fill === undefined) return;
     else earned = poss * fill;
     const key = weighted ? String(a.group_id || '') : '_';
@@ -383,6 +397,43 @@ function shownGrade(raw) {
 
 function _pendingRows(rows) {
   return (rows || []).filter(a => !a.graded && _counts(a));
+}
+
+function showGradeReview() {
+  const panel = document.getElementById('gradeReview');
+  if (!panel) return;
+  const largestByGroup = new Map();
+  for (const assignment of _pendingRows(originalAssignments)) {
+    const key = selectedCourse.weighting === 'groups' ? String(assignment.group_id || '') : '';
+    const existing = largestByGroup.get(key);
+    if (!existing || assignment.points_possible > existing.points_possible) largestByGroup.set(key, assignment);
+  }
+  // With other pending scores fixed, the largest assignment in each group
+  // has that group's greatest possible change for the same score increase.
+  const baseline = gradeOf(originalAssignments, .8);
+  let best;
+  let effect = 0;
+  for (const assignment of largestByGroup.values()) {
+    const difference = gradeOf(originalAssignments, .8, {assignment, score: .9}) - baseline;
+    if (difference > effect) {
+      best = assignment;
+      effect = difference;
+    }
+  }
+  panel.hidden = !best || effect < .005;
+  if (panel.hidden) return;
+  document.getElementById('gradeReviewTitle').textContent = 'Most impact on this course: ' + best.title;
+  document.getElementById('gradeReviewEffect').textContent =
+    'In this example, scoring 90% instead of 80% on this assignment adds ' +
+    Number(effect.toFixed(2)) + ' percentage points to the course grade.';
+  const status = document.getElementById('gradeReviewStatus');
+  status.textContent = '';
+  document.getElementById('gradeReviewAction').onclick = () => {
+    const title = String(best.title || 'Upcoming assignment').replace(/\s+/g, ' ').slice(0, 150);
+    if (!window.IPPlannerDraft?.open('Review for ' + title + ' 25m')) {
+      status.textContent = 'Open the scheduler and add a review in Add work.';
+    }
+  };
 }
 
 /* The uniform score on every ungraded assignment that lands exactly on
@@ -481,6 +532,7 @@ function selectCourse(course) {
   populateGroupSelect();
   refreshHeader();
   renderBreakdown(selectedCourse.assignments);
+  showGradeReview();
 }
 
 function populateGroupSelect() {
@@ -813,6 +865,7 @@ function submitAddAssignment() {
   selectedCourse.assignments.push(newAsgn);
   // Re-apply any active what-ifs so manual rows and what-ifs coexist.
   applySimulation();
+  showGradeReview();
   // Close the form and clear inputs.
   document.getElementById('addAsgnForm').style.display = 'none';
 }
@@ -826,6 +879,7 @@ function removeManualAssignment(id) {
   selectedCourse.assignments = selectedCourse.assignments.filter(a => String(a.id) !== key);
   if (simulatedScores[key]) delete simulatedScores[key];
   applySimulation();
+  showGradeReview();
 }
 
 function runModel() {

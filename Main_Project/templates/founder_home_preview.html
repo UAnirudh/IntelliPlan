@@ -10,16 +10,20 @@
   <script defer src="{{ url_for('founder_home_preview', asset='motion.js') }}"></script>
 </head>
 <body>
+  <div class="backdrop" aria-hidden="true">
+    <img src="{{ url_for('founder_home_preview', asset='etched-glass.webp') }}" alt="" width="1024" height="1536">
+  </div>
   <a class="skip" href="#main">Skip to content</a>
   <header class="masthead">
-    <nav class="shell navbar" aria-label="Main">
-      <a class="brand" href="#home"><img src="/static/icons/icon-192.png" width="34" height="34" alt="">IntelliPlan</a>
+    <nav class="navbar" aria-label="Main">
+      <a class="brand" href="#home" aria-label="IntelliPlan home"><img src="/static/icons/icon-192.png" width="34" height="34" alt=""><span>IntelliPlan</span></a>
       <div class="nav-links">
+        <span class="nav-highlight" aria-hidden="true"></span>
         <a href="#home" aria-current="location">Home</a>
         <a href="#faq">FAQ</a>
         <a href="/blog">Blog</a>
       </div>
-      <a class="nav-cta" href="/register">Get IntelliPlan</a>
+      <a class="nav-cta" href="/register" aria-label="Get IntelliPlan">Get <span>IntelliPlan</span></a>
     </nav>
   </header>
 
@@ -27,12 +31,32 @@
     <section class="hero shell" id="home" aria-labelledby="welcome">
       <div class="lead">
         <h1 id="welcome">A study plan <span>that fits.</span></h1>
-        <p>See what’s due, find time around the rest of your day, and start with one clear next step.</p>
-        <a class="primary" href="/demo/planner">Open the sample planner <span aria-hidden="true">↗</span></a>
-        <a class="text-link manual-start" href="/scheduler?capture=1">Start with a pasted task list</a>
+        <p>Make time for what’s due around class, practice, and the rest of your week.</p>
+        <a class="primary" href="#planner">Try the sample plan <span aria-hidden="true">↓</span></a>
       </div>
 
-      <div class="workbench">
+      <div class="mascot-stage" aria-hidden="true">
+        <div class="stage-light"></div>
+        <div class="stage-shadow"></div>
+        <div class="mascot-figure">
+          <div class="mascot-pose">
+            <img id="plani" src="{{ url_for('founder_home_preview', asset='plani-ceramic.webp') }}" alt="" width="920" height="920" fetchpriority="high">
+            <span class="mascot-lid lid-left"></span><span class="mascot-lid lid-right"></span>
+          </div>
+        </div>
+        <div class="stage-note stage-practice"><i class="dot busy"></i><div><small>3:30 pm</small><strong>Soccer practice</strong></div></div>
+        <div class="stage-note stage-study"><i class="dot math"></i><div><small>5:15 pm</small><strong>Calculus review</strong></div></div>
+      </div>
+    </section>
+
+    <section class="story planner-story shell" id="planner" aria-labelledby="planner-heading">
+      <div class="story-copy" data-reveal>
+        <h2 id="planner-heading">When your day moves, so can your plan.</h2>
+        <p>Move practice later, see where your study blocks land, then start a focus session for your next assignment.</p>
+        <a class="text-link" href="/demo/planner">Open the full planner demo <span aria-hidden="true">↗</span></a>
+        <a class="text-link manual-start" href="/scheduler?capture=1">Start with a pasted task list</a>
+      </div>
+      <div class="workbench" data-reveal>
         <div class="workbench-header">
           <span class="sample-label">Sample Tuesday</span>
           <div class="segments" role="tablist" aria-label="Sample planner views" hidden>
@@ -43,8 +67,8 @@
           </div>
         </div>
         <div class="planner-page">
-          <section role="tabpanel" aria-labelledby="tab-plan" id="panel-plan" tabindex="0">
-            <h2>After school</h2>
+          <section aria-labelledby="example-day" id="panel-plan">
+            <h2 id="example-day">After school</h2>
             <p class="panel-note">Two study blocks around soccer practice.</p>
             <ol class="agenda">
               <li><time datetime="15:30">3:30 pm</time><i class="dot busy" aria-hidden="true"></i><div><strong>Soccer practice</strong><small>Already on your calendar</small></div><span>90 min</span></li>
@@ -93,19 +117,18 @@
       </ul>
     </section>
 
-    <section class="story shell" aria-labelledby="plani-heading">
+    <section class="story tutor-story shell" aria-labelledby="plani-heading">
       <div class="story-copy" data-reveal>
         <h2 id="plani-heading">Get unstuck on the work in front of you.</h2>
         <p>Ask Tutor for a hint, an explanation with a graph, or a practice quiz before you move on.</p>
         <a class="text-link" href="/tutor">Explore Tutor <span aria-hidden="true">↗</span></a>
       </div>
       <div class="tutor-example" data-reveal>
-        <div class="plani-scene" aria-hidden="true">
-          <div class="plani-shadow"></div>
-          <img id="plani" src="/static/plani-3d.webp" alt="" width="220" height="220" loading="lazy">
-        </div>
         <div class="tutor-message">
-          <h3>A hint from Plani</h3>
+          <div class="tutor-byline">
+            <img id="tutor-plani" src="{{ url_for('founder_home_preview', asset='plani-ceramic.webp') }}" alt="" width="58" height="58" loading="lazy">
+            <h3>A hint from Plani</h3>
+          </div>
           <p>How do I start a related rates problem?</p>
           <details id="hint-example">
             <summary>Show the first step</summary>
