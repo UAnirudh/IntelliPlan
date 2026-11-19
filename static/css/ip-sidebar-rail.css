@@ -43,17 +43,30 @@ body.has-side .app-side .side-foot .side-link { width: 100%; min-height: 44px; l
     box-shadow: 18px 0 40px -18px rgba(0, 0, 0, 0.35);
   }
 
-  /* Rows keep their left edge fixed so icons don't slide while the rail
-     widens; the label is clipped rather than squeezed. */
+  /* A rail reveal changes the clip, so keep the visible rows on the same grid. */
   html[data-side-rail] body.has-side .app-side .side-link,
-  html[data-side-rail] body.has-side .side-search,
-  html[data-side-rail] body.has-side .side-quick-add,
   html[data-side-rail] body.has-side .side-customize-btn {
-    white-space: nowrap; overflow: hidden;
-    padding-left: 13px; padding-right: 10px;
+    white-space: nowrap;
+    overflow: hidden;
+    padding-inline-start: calc((var(--side-rail-w) - 20px - 16px) / 2);
+    padding-inline-end: 10px;
   }
-  html[data-side-rail] body.has-side .side-logo { padding-left: 8px; }
-
+  html[data-side-rail] body.has-side .app-side :is(.side-search, .side-quick-add) {
+    white-space: nowrap;
+    overflow: hidden;
+    padding-inline-start: calc((var(--side-rail-w) - 20px - 18px) / 2);
+    padding-inline-end: 10px;
+  }
+  html[data-side-rail] body.has-side .app-side .side-logo {
+    block-size: 44px;
+    padding-block: 0;
+    padding-inline-start: calc((var(--side-rail-w) - 20px - 28px) / 2);
+  }
+  html[data-side-rail] body.has-side .side-nav-list > .side-section-label { display: none; }
+  html[data-side-rail] body.has-side .app-side .side-more-summary {
+    block-size: 44px;
+    padding-block: 0;
+  }
   /* Collapsed (not peeking): icons only. Text nodes can't be selected, so
      labels are hidden by zeroing font-size on the row; icons are px-sized. */
   html[data-side-rail] body.has-side .app-side:not(.is-peek) .side-link,

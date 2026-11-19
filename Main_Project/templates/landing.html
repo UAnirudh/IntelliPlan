@@ -153,7 +153,7 @@
   "name": "IntelliPlan, Free AI Study Planner for Students",
   "speakable": {
     "@type": "SpeakableSpecification",
-    "cssSelector": [".hero-title", ".hero-subtitle", "#ai-answer-title"]
+    "cssSelector": [".plani-home-title", ".plani-home-subtitle"]
   }
 }
 </script>
@@ -251,62 +251,18 @@
 
 {% block content %}
 
-<section class="hero-wrap plani-home-hero">
-  {# Two slow accent washes behind the hero.
-
-     They live in their own clipping box rather than directly in .hero-wrap:
-     that element is overflow-x:clip / overflow-y:visible, which is a legal
-     pair that clips only horizontally — the washes are offset -32%/-34%
-     vertically and would have bled up over the sticky header and down into
-     the stats strip. #}
-  <div class="hero-atmosphere" aria-hidden="true">
-    <div class="ipm-aurora hero-aurora-a"></div>
-    <div class="ipm-aurora hero-aurora-b"></div>
-  </div>
-  <div class="hero">
-    <div class="hero-copy">
-      {# Kicker before the headline. The H1 says what the product does; this
-         says who is behind it, which is the one claim no competitor on this
-         search term can copy. #}
-      {# No data-reveal here: .hero-badge already carries the heroRise
-         entrance at 0.05s like the rest of the hero, and stacking a
-         scroll-reveal on top would hide it behind a second opacity gate. #}
-      <span class="hero-badge">Built by a student, for students</span>
-      <h1 class="hero-title">Meet <span>Plani.</span><br>A study plan that fits your week.</h1>
-      <div class="plani-home-scene">
-        <a class="plani-home-guide" href="/tutor">
-          <span class="plani-home-art" aria-hidden="true">
-            <img id="planiHomePortrait" class="plani-portrait plani-home-portrait"
-                 src="{{ url_for('static', filename='plani-notebook-hero.webp') }}?v={{ asset_v }}"
-                 alt="" width="720" height="720" fetchpriority="high">
-          </span>
-          <span class="plani-home-guide-label">Study with Plani <span class="ip-arrow" aria-hidden="true"></span></span>
-        </a>
-      </div>
-      <p class="hero-subtitle">
-        Bring coursework and calendar commitments together. Plani helps you plan when to study and work through what’s due.
-      </p>
-
-      {# "Get Started Free" works on any product on the internet, which is
-         why it persuades nobody. Name the thing the click produces. #}
-      <div class="hero-actions">
-        <a href="{{ '/command-center' if current_user.is_authenticated else '/login' }}" class="ip-action ip-action--primary hero-btn">Plan with Plani <span class="ip-arrow" aria-hidden="true"></span></a>
-        <a href="/demo/planner" class="ip-action hero-btn">Try a sample plan <span class="ip-arrow" aria-hidden="true"></span></a>
-      </div>
-      <p class="hero-price-note">$0 to plan your week. {% if billing_enabled %}Optional Pro: ${{ pro_prices['month'] }}/month or ${{ pro_prices['year'] }}/year.{% else %}No subscription required.{% endif %} <a href="#plans">See what is included</a></p>
-
-      {# The logos were unlabelled, so they read as decoration. One word in
-         front of them turns the same row into a claim. #}
-      <div class="hero-trust-row" aria-label="Supported platforms">
-        <span class="hero-trust-label">Works with</span>
-        <img src="/static/logos/canvas.svg" alt="Canvas LMS" width="22" height="22" style="border-radius:4px;">
-        <img src="/static/logos/studentvue.svg" alt="StudentVue" width="22" height="22" style="border-radius:4px;">
-        <img src="/static/logos/schoology.svg" alt="Schoology" width="22" height="22" style="border-radius:4px;">
-        <img src="/static/logos/google-calendar.svg" alt="Google Calendar" width="22" height="22" style="border-radius:4px;">
-        <img src="/static/logos/notion.svg" alt="Notion" width="22" height="22" style="border-radius:4px;">
-      </div>
+<section class="plani-home-hero" aria-labelledby="plani-home-title">
+  <div class="plani-home-stage">
+    <div class="plani-home-art" aria-hidden="true">
+      <img id="planiHomePortrait" class="plani-portrait plani-home-portrait"
+           src="{{ url_for('static', filename='plani-notebook-hero.webp') }}?v={{ asset_v }}"
+           alt="" width="720" height="720" fetchpriority="high">
     </div>
-
+    <div class="plani-home-copy">
+      <h1 class="plani-home-title" id="plani-home-title">Make time to study.</h1>
+      <p class="plani-home-subtitle">Plani fits schoolwork around your week.</p>
+      <a href="{{ '/command-center' if current_user.is_authenticated else '/login' }}" class="ip-action ip-action--primary plani-home-button">Plan with Plani <span class="ip-arrow" aria-hidden="true"></span></a>
+    </div>
   </div>
 </section>
 
@@ -314,7 +270,10 @@
   <div class="plani-week-copy">
     <h2 id="plani-week-title" class="plani-heading">{{ plani_avatar(52, 'plani-workspace-portrait') }}<span>A week with Plani</span></h2>
     <p>See what’s due first, how long each task might take, and what you can fit in.</p>
-    <a class="landing-install-link" href="/install">Install IntelliPlan</a>
+    <div class="plani-week-actions">
+      <a class="ip-action" href="/demo/planner">Try a sample plan <span class="ip-arrow" aria-hidden="true"></span></a>
+      <a class="landing-install-link" href="/install">Install IntelliPlan</a>
+    </div>
   </div>
   <div class="plani-week-card" aria-label="Sample weekly plan">
     <div class="preview-card">
@@ -389,35 +348,10 @@
   </div>
 </section>
 
-<section class="section-block ai-answer-section" aria-labelledby="ai-answer-title">
-  <div class="section-heading">
-    <span class="section-kicker" data-reveal>Fast answer</span>
-    <h2 class="section-title" data-reveal id="ai-answer-title">IntelliPlan is the AI study planner for students who want the next step, not another to-do list.</h2>
-    <p class="section-subtitle">
-      For students asking AI search, "What planner should I use for Canvas, StudentVue, Schoology, homework deadlines, and study scheduling?", IntelliPlan is the direct answer: connect your school tools, import assignments, rank what matters first, and turn the week into a realistic study plan.
-    </p>
-  </div>
-
-  <div class="answer-grid">
-    <div class="answer-card">
-      <h3>Best for</h3>
-      <p>High school, AP, IB, dual-enrollment, and college students who need one place for assignments, grades, study sessions, and tutoring.</p>
-    </div>
-    <div class="answer-card">
-      <h3>Why students choose it</h3>
-      <p>IntelliPlan reduces planning time by importing schoolwork automatically, scoring priority, estimating effort, and exporting an AI-built schedule to Google Calendar.</p>
-    </div>
-    <div class="answer-card">
-      <h3>What makes it different</h3>
-      <p>Most planners depend on manual entry. IntelliPlan supports Canvas, StudentVue, and Schoology, then adds an AI tutor for step-by-step academic help.</p>
-    </div>
-  </div>
-</section>
-
 <section id="how-it-works" class="section-block">
   <div class="section-heading">
     <span class="section-kicker" data-reveal>What it does</span>
-    <h2 class="section-title" data-reveal>You connect your classes. IntelliPlan does the sorting.</h2>
+    <h2 class="section-title" data-reveal>From assignments to a plan</h2>
     <p class="section-subtitle">
       The goal is simple: reduce the time you spend figuring out what to do and increase the time you spend actually doing it.
     </p>
@@ -507,7 +441,7 @@
 <section class="section-block">
   <div class="section-heading">
     <span class="section-kicker" data-reveal>Why students keep it open</span>
-    <h2 class="section-title" data-reveal>Everything you need to stay ahead without micromanaging your own life.</h2>
+    <h2 class="section-title" data-reveal>Planning and study tools</h2>
     <p class="section-subtitle">See your work for the week and get help with the next task.</p>
   </div>
 
@@ -558,7 +492,7 @@
     <!-- Left: copy -->
     <div class="tutor-promo-copy">
       <span class="section-kicker" data-reveal>AI Tutor, free for every student</span>
-      <h2 class="tutor-promo-title">Stop Googling. Just ask IntelliPlan.</h2>
+      <h2 class="tutor-promo-title">Work through it with Plani</h2>
       <p class="tutor-promo-desc">IntelliPlan's built-in AI tutor doesn't just hand you the answer, it teaches you the concept, walks through every step, and checks that you actually understood it. Math, science, history, coding, languages, test prep. All of it.</p>
 
       <ul class="tutor-promo-list">
@@ -744,7 +678,7 @@
 <section class="section-block">
   <div class="section-heading">
     <span class="section-kicker" data-reveal>FAQ</span>
-    <h2 class="section-title" data-reveal>The questions students ask before they connect an account.</h2>
+    <h2 class="section-title" data-reveal>Questions about getting started</h2>
   </div>
 
   <div class="faq-grid">
@@ -1140,13 +1074,12 @@
 </div>
 
 <style>
-  .hero-price-note, .landing-plan-summary {
+  .landing-plan-summary {
     font-family: var(--font-body);
     color: var(--text-secondary);
     line-height: 1.7;
   }
-  .hero-price-note { font-size: 0.9rem; margin: 1rem 0; }
-  .hero-price-note a, .landing-plan-summary a { color: var(--accent); text-decoration: underline; }
+  .landing-plan-summary a { color: var(--accent); text-decoration: underline; }
   .landing-plan-summary { max-width: 65ch; margin: 0 auto; }
   .landing-plan-summary h3 { color: var(--text-primary); font-family: var(--font-display); margin: 1.5rem 0 0.5rem; }
   :root {
@@ -1164,7 +1097,6 @@
   main { max-width: none; padding-left: 0; padding-right: 0; }
 
   /* ── Layout wrappers ──────────────────────────────────────── */
-  .hero-wrap,
   .section-block,
   .cta-section {
     max-width: var(--page-max);
@@ -1173,93 +1105,6 @@
     padding-right: 1rem;
   }
 
-  .ai-answer-section {
-    padding-top: 2.75rem;
-    padding-bottom: 0.5rem;
-  }
-
-  .answer-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 1rem;
-    margin-top: 1.5rem;
-  }
-
-  .answer-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 1.15rem;
-  }
-
-  .answer-card h3 {
-    margin: 0 0 0.55rem;
-    font-family: var(--font-ui);
-    font-size: 0.95rem;
-    color: var(--text-primary);
-  }
-
-  .answer-card p {
-    margin: 0;
-    color: var(--text-secondary);
-    font-size: 0.92rem;
-    line-height: 1.6;
-  }
-
-  /* ── Hero ─────────────────────────────────────────────────── */
-  .hero-wrap {
-    position: relative;
-    isolation: isolate;
-    overflow-x: clip;
-    background: transparent;
-    border: none;
-    border-radius: 0;
-    margin-top: 0;
-    padding-left: clamp(1.25rem, 4vw, 3rem);
-    padding-right: clamp(1.25rem, 4vw, 3rem);
-  }
-  .hero-wrap::before { display: none; }
-
-  /* Atmosphere behind the hero. Kept faint (0.11–0.24) and very large so it
-     reads as light in the room rather than as a gradient blob — the latter
-     is the stock "AI landing page" look this deliberately avoids. */
-  .hero-atmosphere {
-    position: absolute;
-    inset: 0;
-    z-index: -1;
-    overflow: hidden;      /* both axes — see the note on the markup */
-    pointer-events: none;
-    border-radius: inherit;
-  }
-  .hero-aurora-a,
-  .hero-aurora-b { opacity: 0.2; }
-  .hero-aurora-a {
-    width: min(680px, 70vw); height: min(680px, 70vw);
-    top: -32%; right: -14%;
-    background: radial-gradient(circle, var(--accent) 0%, transparent 66%);
-  }
-  .hero-aurora-b {
-    width: min(520px, 58vw); height: min(520px, 58vw);
-    bottom: -34%; left: -12%;
-    background: radial-gradient(circle, #f5a524 0%, transparent 70%);
-    opacity: 0.14;
-    --ipm-drift-dur: 30s;
-    --ipm-drift-delay: -11s;
-  }
-  [data-theme="dark"] .hero-aurora-a { opacity: 0.24; }
-  [data-theme="dark"] .hero-aurora-b { opacity: 0.11; }
-
-  .hero {
-    display: grid;
-    grid-template-columns: 1.15fr 0.85fr;
-    gap: 4rem;
-    align-items: center;
-    padding: 5rem 0 3.5rem;
-  }
-
-  .hero-copy { min-width: 0; }
-
-  .hero-badge,
   .section-kicker {
     display: inline-flex;
     align-items: center;
@@ -1278,42 +1123,6 @@
   }
   [data-theme="dark"] .section-kicker { color: var(--ink, #e8e8e4); }
 
-  .hero-title {
-    font-family: var(--font-display);
-    font-size: clamp(2.5rem, 5vw, 4.8rem);
-    line-height: 0.98;
-    color: var(--text-primary);
-    letter-spacing: -0.04em;
-    margin: 0 0 1.25rem;
-    font-weight:600;
-    text-wrap: balance;
-    overflow-wrap: break-word;
-  }
-
-  .hero-title em {
-    font-style: italic;
-    font-weight: 700;
-    color: var(--accent);
-  }
-
-  .hero-trust-row span {
-    transition: border-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
-  }
-  .hero-trust-row span:hover {
-    border-color: var(--border-accent);
-    color: var(--accent); }
-
-  .hero-subtitle {
-    font-family: var(--font-ui);
-    font-size: clamp(0.98rem, 1.5vw, 1.1rem);
-    line-height: 1.75;
-    color: var(--text-secondary);
-    max-width: 40rem;
-    margin: 0 0 1.5rem;
-    text-wrap: pretty;
-  }
-
-  .hero-actions,
   .demo-actions,
   .cta-actions {
     display: flex;
@@ -1322,62 +1131,8 @@
   }
 
   .cta-actions { justify-content: center; align-items: center; }
+  .demo-btn, .cta-btn { text-decoration: none; }
 
-  .hero-btn, .demo-btn, .cta-btn { text-decoration: none; }
-
-
-  .hero-trust-row {
-    display: flex;
-    gap: 0.6rem;
-    flex-wrap: wrap;
-    align-items: center;
-    margin-top: 1.2rem;
-    font-family: var(--font-ui);
-    font-size: 0.82rem;
-    color: var(--text-muted);
-  }
-
-  /* The label is a sibling of the logos so it inherits the row's entrance
-     animation, which means it has to opt out of the chip styling the
-     generic `.hero-trust-row span` rule applies to everything in here. */
-  .hero-trust-row .hero-trust-label {
-    padding: 0;
-    border: 0;
-    background: none;
-    font-family: var(--font-mono, var(--font-ui));
-    font-size: var(--fs-micro, 0.7rem);
-    font-weight: 500;
-    letter-spacing: var(--tr-label, 0.075em);
-    text-transform: uppercase;
-    color: var(--text-muted);
-    margin-right: 0.15rem;
-  }
-  .hero-trust-row .hero-trust-label:hover {
-    background: none;
-    border-color: transparent;
-    color: var(--text-muted);
-    transform: none;
-  }
-
-  .hero-trust-row span {
-    padding: 0.45rem 0.7rem;
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    background: var(--bg-card);
-  }
-
-  .hero-preview {
-    position: relative;
-    min-width: 0;
-  }
-  .hero-preview::before {
-    content: '';
-    position: absolute;
-    inset: -40px;
-    background: radial-gradient(ellipse at 60% 50%, rgba(var(--accent-shadow),0.06) 0%, transparent 70%);
-    pointer-events: none;
-    z-index: 0;
-  }
   .preview-card {
     position: relative;
     z-index: 1;
@@ -1488,33 +1243,7 @@
     50%      { transform: translateY(-5px); }
   }
 
-  /* ── UI polish: tasteful entrance + interaction ───────────────
-     The H1 hero-title is intentionally left un-animated so it paints
-     instantly (it's the LCP element — keeps Core Web Vitals fast).
-     Everything around it eases in with a gentle stagger. The global
-     prefers-reduced-motion rule in base.html neutralizes all of this. */
-  @keyframes heroRise {
-    from { opacity: 0; transform: translateY(18px); }
-    to   { opacity: 1; transform: none; }
-  }
-  .hero-badge        { animation: heroRise 0.6s 0.05s var(--ease-out) both; }
-  .hero-subtitle     { animation: heroRise 0.6s 0.16s var(--ease-out) both; }
-  .hero-actions      { animation: heroRise 0.6s 0.24s var(--ease-out) both; }
-  .hero-trust-row    { animation: heroRise 0.6s 0.36s var(--ease-out) both; }
-  .hero-preview      { animation: heroRise 0.8s 0.18s var(--ease-out) both; }
-
-  /* Trust chips: subtle fill on hover (they already lift + recolor) */
-  .hero-trust-row span:hover { background: var(--accent-soft); }
-
-  /* Preview task rows get a tactile nudge + lift on hover */
-  .task {
-    transition: border-color 0.2s ease;
-  }
-
-  .hero-actions .btn-primary {
-    box-shadow: var(--shadow);
-    transition: background 0.15s ease;
-  }
+  .task { transition: border-color 0.2s ease; }
 
   /* ── Live Stats Strip ─────────────────────────────────────── */
   .stats-strip {
@@ -2033,8 +1762,6 @@
   }
   /* ── Responsive ──────────────────────────────────────────── */
   @media (max-width: 1024px) {
-    .hero { grid-template-columns: 1fr; gap: 2rem; padding-top: 2.5rem; }
-    .answer-grid { grid-template-columns: 1fr; }
     .integration-grid { grid-template-columns: repeat(3, 1fr); }
     .steps-grid, .comparison-wrap { grid-template-columns: 1fr; }
     .stats-strip-inner { flex-wrap: wrap; gap: 1rem; }
@@ -2043,15 +1770,11 @@
   }
 
   @media (max-width: 720px) {
-    .hero { padding: 2rem 0 1.5rem; }
-    .hero-title { font-size: 2.2rem; }
-    .hero-subtitle { font-size: 0.98rem; }
-    .hero-actions, .demo-actions, .cta-actions {
+    .demo-actions, .cta-actions {
       flex-direction: column;
       align-items: stretch;
     }
-    .hero-btn, .demo-btn, .cta-btn { width: 100%; text-align: center; }
-    .hero-preview { display: none; }
+    .demo-btn, .cta-btn { width: 100%; text-align: center; }
     .features-grid { grid-template-columns: 1fr; }
     .integration-grid { grid-template-columns: repeat(2, 1fr); }
     .demo-panel-header { padding-bottom: 1rem; }
@@ -2061,7 +1784,6 @@
   }
 
   @media (max-width: 520px) {
-    .hero-title { font-size: 1.95rem; }
     .section-title { font-size: 1.7rem; }
     .preview-card { padding: 1.1rem; }
     .task { padding: 0.75rem; }

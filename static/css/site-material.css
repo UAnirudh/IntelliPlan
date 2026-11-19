@@ -125,7 +125,9 @@ html[data-a11y-contrast="1"] body.has-side { --bg: inherit; --bg-elevated: inher
 
 /* Use the etched backdrop across the public landing page. App content stays
    on solid surfaces for readable tables and long study sessions. */
-.site-landing #main-content { position: relative; isolation: isolate; }
+.site-landing { --header-max-width: 1120px; }
+.site-landing > header :is(#dateBadge, #themeLabel) { display: none; }
+.site-landing #main-content { position: relative; isolation: isolate; padding-top: 0; }
 .site-landing #planiBot { display: none !important; }
 :root[data-theme="dark"]:not([data-palette]):not([data-a11y-contrast="1"]) .site-landing #main-content::before {
   content: "";
@@ -135,14 +137,12 @@ html[data-a11y-contrast="1"] body.has-side { --bg: inherit; --bg-elevated: inher
   pointer-events: none;
   background: linear-gradient(105deg, #09141cf2, #09141c94 68%, #09141c3b), url("../site-etched-glass.webp") center / cover;
 }
-.site-landing .hero-atmosphere { display: none; }
 :root[data-theme]:not([data-palette]):not([data-a11y-contrast="1"]) .site-landing .preview-card {
   background: var(--ip-raised);
   border-color: var(--ip-hairline);
   box-shadow: var(--ip-inset), 0 26px 60px -28px #06121d9e;
 }
-:root[data-theme="dark"]:not([data-palette]):not([data-a11y-contrast="1"]) .site-landing .hero-title { color: var(--ip-paper); }
-:root[data-theme]:not([data-a11y-contrast="1"]) .site-landing .hero-badge::before,
+:root[data-theme="dark"]:not([data-palette]):not([data-a11y-contrast="1"]) .site-landing .plani-home-title { color: var(--ip-paper); }
 .preview-warm-dot {
   content: "";
   display: inline-block;
@@ -153,7 +153,6 @@ html[data-a11y-contrast="1"] body.has-side { --bg: inherit; --bg-elevated: inher
   border-radius: 50%;
   background: var(--ip-warm);
 }
-:root[data-theme="light"]:not([data-a11y-contrast="1"]) .site-landing .hero-badge::before { background: #a27827; }
 
 :root[data-theme]:not([data-palette]):not([data-a11y-contrast="1"]):not([data-ui-surface="solid"]) body:not(.has-side) > header {
   --chrome-glass-border: var(--ip-hairline);
@@ -188,7 +187,7 @@ html[data-a11y-contrast="1"] body.has-side { --bg: inherit; --bg-elevated: inher
 
 @media (min-width: 1100px) {
   :root[data-theme]:not([data-palette]):not([data-a11y-contrast="1"]):not([data-ui-surface="solid"]) body:not(.has-side) > header {
-    width: min(1440px, calc(100% - 32px));
+    width: min(var(--header-max-width, 1440px), calc(100% - 32px));
     margin-inline: auto;
     top: 10px;
     padding-inline: 24px;
@@ -498,95 +497,95 @@ body.has-side.has-own-chat .tutor-suggestions .tutor-sug-card {
   .tutor-subject-control .ip-arrow { right: 4px; }
 }
 
-/* The home illustration links to Tutor. The actual sample plan is below it. */
-.site-landing .plani-home-hero .hero {
-  position: relative;
-  grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr);
-  gap: clamp(24px, 5vw, 74px);
-  min-height: min(730px, calc(100svh - 108px));
-  padding-block: clamp(34px, 7vh, 92px);
+/* A single opening scene before the sample week. */
+.plani-home-hero {
+  width: min(100%, var(--page-max, 1180px));
+  margin-inline: auto;
+  padding-inline: clamp(18px, 4vw, 54px);
 }
-.site-landing .plani-home-hero .hero-title { max-width: 12ch; }
-.plani-home-hero .hero-title span { color: var(--accent); }
-.plani-home-hero .hero-subtitle { max-width: 40ch; }
-.plani-home-scene {
-  position: absolute;
-  inset: 0 0 0 auto;
+.plani-home-stage {
   display: grid;
-  place-items: center;
-  width: 46%;
-  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  align-content: center;
+  gap: clamp(10px, 2.4vh, 22px);
+  min-height: calc(100svh - var(--nav-height, 62px));
+  padding-block: clamp(24px, 6vh, 56px);
+  text-align: center;
 }
-.plani-home-guide {
+.plani-home-hero .plani-home-copy {
   display: grid;
   justify-items: center;
-  grid-template-rows: minmax(0, 1fr) auto;
-  width: min(100%, 420px);
+  gap: 12px;
+}
+.plani-home-hero .plani-home-title {
+  margin: 0;
+  color: var(--text-primary);
+  font: 650 clamp(2.6rem, 7vw, 6.25rem)/.99 var(--font-ui);
+  letter-spacing: -.065em;
+  text-wrap: balance;
+}
+.plani-home-hero .plani-home-subtitle {
+  margin: 0;
+  max-width: 34ch;
   color: var(--text-secondary);
-  text-decoration: none;
-  border-radius: 28px;
+  font-size: clamp(.95rem, 1.8vw, 1.13rem);
+  line-height: 1.5;
+  text-wrap: balance;
+}
+.plani-home-hero .plani-home-button {
+  margin-top: 10px;
+  padding-inline: 22px;
+  border-radius: 999px;
 }
 .plani-home-art {
   position: relative;
   display: grid;
-  place-items: center;
-  width: 100%;
+  justify-items: center;
+  width: min(100%, clamp(144px, min(66vw, 39svh), 360px));
   isolation: isolate;
 }
 .plani-home-art::before {
   content: "";
   position: absolute;
-  inset: 0 -8%;
+  inset: -8% -32% -3%;
   z-index: -1;
   pointer-events: none;
-  background: radial-gradient(ellipse at 50% 57%, color-mix(in srgb, var(--accent) 21%, transparent), transparent 66%);
+  background: radial-gradient(ellipse at 50% 59%, color-mix(in srgb, var(--accent) 17%, transparent), transparent 65%);
 }
 .plani-home-art::after {
   content: "";
   position: absolute;
   z-index: -1;
-  inset: auto 9% 5% 9%;
-  height: 13%;
+  inset: auto 5% 5% 5%;
+  height: 11%;
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, transparent);
   border-radius: 50%;
-  border: 1px solid var(--ip-hairline);
-  background: radial-gradient(ellipse, color-mix(in srgb, var(--accent) 20%, transparent), transparent 69%);
-  transform: rotate(-8deg);
+  transform: rotate(-6deg);
 }
 .plani-home-portrait {
-  width: min(100%, 388px);
+  width: 100%;
   height: auto;
   display: block;
   filter: drop-shadow(0 14px 20px #04111966);
 }
-.plani-home-guide-label {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  gap: 10px;
-  color: var(--text-primary);
-  font: 620 .92rem/1.4 var(--font-ui);
-  transition: color 160ms var(--ip-material-ease);
-}
-.plani-home-guide:hover .plani-home-guide-label,
-.plani-home-guide:focus-visible .plani-home-guide-label { color: var(--accent); }
 @keyframes plani-home-hover {
-  0%, 100% { transform: translateY(0) rotate(-2deg); }
+  0%, 100% { transform: translateY(0) rotate(-1deg); }
   50% { transform: translateY(-8px) rotate(1deg); }
 }
 @media (prefers-reduced-motion: no-preference) {
   html:not([data-ui-motion="reduce"]):not([data-a11y-motion="reduce"]) .plani-home-portrait {
-    animation: plani-home-hover 6s ease-in-out infinite;
+    animation: plani-home-hover 7s ease-in-out infinite;
   }
 }
 html[data-ui-mascot="hidden"] .plani-home-art { display: none; }
-html[data-ui-mascot="hidden"] .plani-home-guide { grid-template-rows: auto; }
 .site-landing .plani-week-preview {
   display: grid;
   grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
   align-items: center;
   width: min(var(--page-max, 1120px), calc(100% - clamp(2.5rem, 8vw, 6rem)));
   gap: clamp(18px, 5vw, 72px);
-  margin: 0 auto clamp(36px, 6vw, 84px);
+  margin: clamp(42px, 7vw, 108px) auto clamp(36px, 6vw, 84px);
 }
 .plani-week-card { min-width: 0; }
 .plani-week-copy h2 {
@@ -625,31 +624,6 @@ html[data-ui-mascot="hidden"] .plani-home-guide { grid-template-rows: auto; }
 .plani-connection-portrait { margin: 0 auto 10px; }
 body #tutorPlaniSvg.plani-workspace-portrait { width: auto; height: clamp(86px, 15vh, 132px); }
 @media (max-width: 768px) {
-  .site-landing .plani-home-hero { padding-top: 0 !important; }
-  .site-landing .plani-home-hero .hero {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 0;
-    align-content: start;
-    justify-items: center;
-    text-align: center;
-    min-height: 0;
-    padding-block: 28px 35px;
-  }
-  .plani-home-hero .hero-copy { display: contents; }
-  .plani-home-hero .hero-badge { order: 0; margin-bottom: 10px; }
-  .site-landing .plani-home-hero .hero-title {
-    order: 1;
-    max-width: 16ch;
-    margin-bottom: 0;
-    font-size: clamp(2.15rem, 8.2vw, 3.4rem);
-  }
-  .plani-home-scene { position: static; order: 2; width: 100%; margin-top: 4px; }
-  .plani-home-guide { width: min(100%, 270px); }
-  .plani-home-portrait { width: min(100%, clamp(158px, 48vw, 252px)); }
-  .plani-home-hero .hero-subtitle { order: 3; margin-block: 8px 14px; }
-  .plani-home-hero .hero-actions { order: 4; width: min(100%, 360px); margin-top: 0; }
-  .plani-home-hero .hero-price-note { order: 5; }
-  .plani-home-hero .hero-trust-row { order: 6; justify-content: center; }
   .site-landing .plani-week-preview { grid-template-columns: minmax(0, 1fr); }
   .command-chat__intro .command-chat__portrait { height: 92px; }
   body #tutorPlaniSvg.plani-workspace-portrait { height: clamp(74px, 13vh, 104px); }
@@ -659,9 +633,9 @@ body #tutorPlaniSvg.plani-workspace-portrait { width: auto; height: clamp(86px, 
 
 .plani-connection-links { display: grid; gap: 8px; margin-top: 20px; }
 
+.plani-week-actions { display: flex; align-items: center; gap: 10px 18px; flex-wrap: wrap; margin-top: 1rem; }
 .landing-install-link {
   display: inline-block;
-  margin-top: .9rem;
   color: var(--text-secondary);
   text-underline-offset: .2em;
 }

@@ -512,7 +512,7 @@ body {
    only for readers who have not dismissed this particular key, which
    avoids flashing the bar on every load for someone who closed it
    weeks ago. #}
-{% set _ann_pages = ['/', '/about', '/faq', '/compare', '/blog', '/install'] %}
+{% set _ann_pages = ['/about', '/faq', '/compare', '/blog', '/install'] %}
 {% if (request.path or '/') in _ann_pages %}
 <div class="ipui-announce" data-ipui="announce" data-key="public-api-2026-08"
      role="region" aria-label="Announcement" hidden>
