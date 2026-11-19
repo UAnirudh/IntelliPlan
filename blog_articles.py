@@ -20,7 +20,7 @@ Adding an article: append a dict. Nothing else needs editing.
 from __future__ import annotations
 
 ARTICLES: list[dict] = [
-{
+    {
         "slug": "intelliplan-vs-matcha",
         "path": "/compare/intelliplan-vs-matcha",
         "kicker": "Comparison",
@@ -69,7 +69,7 @@ ARTICLES: list[dict] = [
         ],
         "related": ["fit-schoolwork-around-your-calendar", "how-to-use-canvas-with-a-study-planner", "spaced-repetition-for-students"],
     },
-{
+    {
         "slug": "fit-schoolwork-around-your-calendar",
         "kicker": "Planning",
         "title": "How to Plan Homework Around Practice, Shifts, and Classes",
@@ -94,7 +94,7 @@ ARTICLES: list[dict] = [
         ],
         "related": ["intelliplan-vs-matcha", "how-to-use-canvas-with-a-study-planner", "studentvue-study-planner"],
     },
-{
+    {
         "slug": "how-to-study-for-finals-in-one-week",
         "kicker": "Finals",
         "title": "How to Study for Finals in One Week (Without Cramming)",
@@ -143,7 +143,7 @@ ARTICLES: list[dict] = [
         ],
         "related": ["how-to-make-a-study-schedule-that-works", "active-recall-vs-rereading", "how-to-stop-procrastinating-on-homework", "how-to-study-for-a-test-you-forgot-about"],
     },
-{
+    {
         "slug": "how-to-make-a-study-schedule-that-works",
         "kicker": "Planning",
         "title": "How to Make a Study Schedule That Actually Works",
@@ -190,7 +190,7 @@ ARTICLES: list[dict] = [
         ],
         "related": ["time-blocking-for-students", "how-to-study-for-finals-in-one-week", "how-to-prioritize-assignments", "how-to-get-organized-for-a-new-semester"],
     },
-{
+    {
         "slug": "time-blocking-for-students",
         "kicker": "Study skills",
         "title": "Time Blocking for Students: A Practical Guide",
@@ -233,7 +233,7 @@ ARTICLES: list[dict] = [
         ],
         "related": ["how-to-make-a-study-schedule-that-works", "pomodoro-technique-for-students", "how-to-stop-procrastinating-on-homework", "how-to-plan-your-week-in-20-minutes"],
     },
-{
+    {
         "slug": "pomodoro-technique-for-students",
         "kicker": "Focus",
         "title": "Does the Pomodoro Technique Work for Students?",
@@ -276,7 +276,7 @@ ARTICLES: list[dict] = [
         ],
         "related": ["time-blocking-for-students", "how-to-study-with-adhd", "how-to-stop-procrastinating-on-homework", "how-to-study-on-your-phone-without-getting-distracted"],
     },
-{
+    {
         "slug": "how-to-stop-procrastinating-on-homework",
         "kicker": "Study skills",
         "title": "How to Stop Procrastinating on Homework (For Real)",
@@ -320,7 +320,7 @@ ARTICLES: list[dict] = [
         ],
         "related": ["pomodoro-technique-for-students", "how-to-make-a-study-schedule-that-works", "how-to-catch-up-when-behind-in-school", "how-to-keep-a-study-streak-going"],
     },
-{
+    {
         "slug": "how-to-catch-up-when-behind-in-school",
         "kicker": "Recovery",
         "title": "How to Catch Up When You Are Behind in School",
@@ -364,7 +364,7 @@ ARTICLES: list[dict] = [
         ],
         "related": ["how-to-prioritize-assignments", "how-to-stop-procrastinating-on-homework", "how-to-make-a-study-schedule-that-works", "how-parents-can-help-without-taking-over"],
     },
-{
+    {
         "slug": "how-to-study-with-adhd",
         "kicker": "Focus",
         "title": "How to Study With ADHD: Systems That Reduce Friction",
@@ -412,7 +412,7 @@ ARTICLES: list[dict] = [
         ],
         "related": ["pomodoro-technique-for-students", "how-to-stop-procrastinating-on-homework", "active-recall-vs-rereading"],
     },
-{
+    {
         "slug": "how-to-take-better-notes-in-class",
         "kicker": "Notes",
         "title": "How to Take Better Notes in Class (That You Will Actually Use)",
@@ -449,7 +449,7 @@ ARTICLES: list[dict] = [
         ],
         "related": ["cornell-note-taking-method", "active-recall-vs-rereading", "how-to-study-for-finals-in-one-week", "how-to-study-for-history-tests"],
     },
-{
+    {
         "slug": "active-recall-vs-rereading",
         "kicker": "Study science",
         "title": "Active Recall vs Rereading: What the Evidence Says",
@@ -493,7 +493,7 @@ ARTICLES: list[dict] = [
         ],
         "related": ["spaced-repetition-for-students", "how-to-take-better-notes-in-class", "how-to-study-for-finals-in-one-week", "how-to-study-smarter-not-longer"],
     },
-{
+    {
         "slug": "spaced-repetition-for-students",
         "kicker": "Study science",
         "title": "Spaced Repetition for Students: A Simple Explanation",
@@ -538,7 +538,7 @@ ARTICLES: list[dict] = [
         ],
         "related": ["active-recall-vs-rereading", "how-to-memorize-vocabulary-fast", "how-to-prepare-for-ap-exams"],
     },
-{
+    {
         "slug": "cornell-note-taking-method",
         "kicker": "Notes",
         "title": "The Cornell Note-Taking Method, Without the Busywork",
@@ -580,7 +580,7 @@ ARTICLES: list[dict] = [
         ],
         "related": ["how-to-take-better-notes-in-class", "active-recall-vs-rereading", "how-to-study-for-finals-in-one-week"],
     },
-{
+    {
         "slug": "how-to-memorize-vocabulary-fast",
         "kicker": "Languages",
         "title": "How to Memorize Vocabulary Fast (and Keep It)",
@@ -626,7 +626,7 @@ ARTICLES: list[dict] = [
         ],
         "related": ["spaced-repetition-for-students", "active-recall-vs-rereading", "how-to-prepare-for-ap-exams"],
     },
-{
+    {
         "slug": "how-to-prepare-for-ap-exams",
         "kicker": "AP",
         "title": "How to Prepare for AP Exams Without Burning Out",
@@ -673,7 +673,7 @@ ARTICLES: list[dict] = [
         ],
         "related": ["ap-study-planner", "how-to-study-for-finals-in-one-week", "spaced-repetition-for-students", "how-to-deal-with-test-anxiety"],
     },
-{
+    {
         "slug": "how-to-study-for-math-tests",
         "kicker": "Maths",
         "title": "How to Study for a Math Test (Not Just Reread the Notes)",
@@ -721,7 +721,7 @@ ARTICLES: list[dict] = [
         ],
         "related": ["how-to-study-for-science-tests", "how-to-calculate-what-you-need-on-a-final", "active-recall-vs-rereading"],
     },
-{
+    {
         "slug": "how-to-study-for-science-tests",
         "kicker": "Science",
         "title": "How to Study for a Science Test: A Subject-Specific Plan",
@@ -760,7 +760,7 @@ ARTICLES: list[dict] = [
         ],
         "related": ["how-to-study-for-math-tests", "spaced-repetition-for-students", "active-recall-vs-rereading", "how-to-study-for-a-lab-practical"],
     },
-{
+    {
         "slug": "how-to-write-a-better-essay-in-less-time",
         "kicker": "Writing",
         "title": "How to Write a Better Essay in Less Time",
@@ -807,7 +807,7 @@ ARTICLES: list[dict] = [
         ],
         "related": ["how-to-stop-procrastinating-on-homework", "time-blocking-for-students", "how-to-make-a-study-schedule-that-works"],
     },
-{
+    {
         "slug": "how-to-balance-ap-classes-and-sports",
         "kicker": "Balance",
         "title": "How to Balance AP Classes and Sports Without Falling Apart",
@@ -850,7 +850,7 @@ ARTICLES: list[dict] = [
         ],
         "related": ["time-blocking-for-students", "how-to-manage-homework-with-a-part-time-job", "how-to-make-a-study-schedule-that-works", "how-to-balance-schoolwork-and-a-social-life"],
     },
-{
+    {
         "slug": "how-to-manage-homework-with-a-part-time-job",
         "kicker": "Balance",
         "title": "How to Manage Homework With a Part-Time Job",
@@ -895,7 +895,7 @@ ARTICLES: list[dict] = [
         ],
         "related": ["how-to-balance-ap-classes-and-sports", "time-blocking-for-students", "how-to-catch-up-when-behind-in-school"],
     },
-{
+    {
         "slug": "how-to-use-google-classroom-with-a-planner",
         "kicker": "Google Classroom",
         "title": "How to Use Google Classroom With a Study Planner",
@@ -944,7 +944,7 @@ ARTICLES: list[dict] = [
         ],
         "related": ["how-to-use-canvas-with-a-study-planner", "how-to-use-schoology-assignments", "how-to-prioritize-assignments", "how-to-connect-powerschool-to-a-study-planner"],
     },
-{
+    {
         "slug": "how-to-use-schoology-assignments",
         "kicker": "Schoology",
         "title": "How to Keep Track of Schoology Assignments",
@@ -985,7 +985,7 @@ ARTICLES: list[dict] = [
         ],
         "related": ["how-to-use-google-classroom-with-a-planner", "how-to-use-canvas-with-a-study-planner", "how-to-prioritize-assignments"],
     },
-{
+    {
         "slug": "how-to-track-grades-without-checking-the-portal",
         "kicker": "Grades",
         "title": "How to Track Your Grades Without Checking the Portal Every Day",
@@ -1028,7 +1028,7 @@ ARTICLES: list[dict] = [
         ],
         "related": ["how-to-calculate-what-you-need-on-a-final", "how-to-raise-a-b-in-a-class", "what-is-a-good-gpa", "how-to-handle-a-bad-grade"],
     },
-{
+    {
         "slug": "how-to-calculate-what-you-need-on-a-final",
         "kicker": "Grades",
         "title": "How to Calculate What You Need on a Final",
@@ -1078,7 +1078,7 @@ ARTICLES: list[dict] = [
         ],
         "related": ["how-to-raise-a-b-in-a-class", "how-to-track-grades-without-checking-the-portal", "what-is-a-good-gpa"],
     },
-{
+    {
         "slug": "how-to-raise-a-b-in-a-class",
         "kicker": "Grades",
         "title": "How to Raise a B to an A (or a C to a B) This Term",
@@ -1119,7 +1119,7 @@ ARTICLES: list[dict] = [
         ],
         "related": ["how-to-calculate-what-you-need-on-a-final", "how-to-track-grades-without-checking-the-portal", "what-is-a-good-gpa", "how-to-prepare-for-a-quiz-without-overstudying"],
     },
-{
+    {
         "slug": "how-to-build-a-college-application-timeline",
         "kicker": "College",
         "title": "How to Build a College Application Timeline (Junior and Senior Year)",
@@ -1166,7 +1166,7 @@ ARTICLES: list[dict] = [
         ],
         "related": ["sat-study-schedule", "how-to-write-a-better-essay-in-less-time", "how-to-make-a-study-schedule-that-works"],
     },
-{
+    {
         "slug": "sat-study-schedule",
         "kicker": "Test prep",
         "title": "A 6-Week SAT Study Schedule That Fits a School Week",
@@ -1209,7 +1209,7 @@ ARTICLES: list[dict] = [
         ],
         "related": ["how-to-build-a-college-application-timeline", "spaced-repetition-for-students", "how-to-study-for-math-tests", "how-to-teach-yourself-a-subject"],
     },
-{
+    {
         "slug": "how-to-study-in-a-distracting-dorm",
         "kicker": "Focus",
         "title": "How to Study in a Distracting Dorm or a Busy House",
@@ -1253,7 +1253,7 @@ ARTICLES: list[dict] = [
         ],
         "related": ["pomodoro-technique-for-students", "how-to-study-with-adhd", "time-blocking-for-students"],
     },
-{
+    {
         "slug": "how-to-use-a-study-group-without-wasting-time",
         "kicker": "Study groups",
         "title": "How to Run a Study Group That Is Not Just Hanging Out",
@@ -1298,7 +1298,7 @@ ARTICLES: list[dict] = [
         ],
         "related": ["active-recall-vs-rereading", "how-to-study-in-a-distracting-dorm", "how-to-make-a-study-schedule-that-works", "how-to-prepare-for-a-presentation-or-oral-exam"],
     },
-{
+    {
         "slug": "how-parents-can-help-without-taking-over",
         "kicker": "Families",
         "title": "How Parents Can Help With Schoolwork Without Taking Over",
@@ -1343,7 +1343,7 @@ ARTICLES: list[dict] = [
         ],
         "related": ["how-to-make-a-study-schedule-that-works", "how-to-catch-up-when-behind-in-school", "how-to-stop-procrastinating-on-homework"],
     },
-{
+    {
         "slug": "how-to-teach-yourself-a-subject",
         "kicker": "Self-study",
         "title": "How to Teach Yourself a Subject Without a Teacher",
@@ -1386,7 +1386,7 @@ ARTICLES: list[dict] = [
         ],
         "related": ["active-recall-vs-rereading", "how-to-prepare-for-ap-exams", "how-to-study-with-adhd"],
     },
-{
+    {
         "slug": "how-to-connect-powerschool-to-a-study-planner",
         "kicker": "PowerSchool",
         "title": "How to Get PowerSchool Assignments Into a Study Planner",
@@ -1430,7 +1430,7 @@ ARTICLES: list[dict] = [
         ],
         "related": ["how-to-use-canvas-with-a-study-planner", "how-to-use-google-classroom-with-a-planner", "how-to-prioritize-assignments"],
     },
-{
+    {
         "slug": "how-to-study-for-history-tests",
         "kicker": "History",
         "title": "How to Study for History Tests Without Memorising Everything",
@@ -1479,7 +1479,7 @@ ARTICLES: list[dict] = [
         ],
         "related": ["how-to-prepare-for-ap-exams", "active-recall-vs-rereading", "how-to-write-a-better-essay-in-less-time"],
     },
-{
+    {
         "slug": "how-to-plan-a-long-term-project",
         "kicker": "Planning",
         "title": "How to Plan a Long-Term Project So the Last Week Is Boring",
@@ -1528,7 +1528,7 @@ ARTICLES: list[dict] = [
         ],
         "related": ["how-to-make-a-study-schedule-that-works", "time-blocking-for-students", "how-to-catch-up-when-behind-in-school"],
     },
-{
+    {
         "slug": "how-to-use-ai-for-studying-without-cheating",
         "kicker": "Study skills",
         "title": "How to Use AI for Studying Without Cheating",
@@ -1574,7 +1574,7 @@ ARTICLES: list[dict] = [
         ],
         "related": ["active-recall-vs-rereading", "how-to-take-better-notes-in-class", "how-to-write-a-better-essay-in-less-time", "how-to-use-ai-to-plan-your-week"],
     },
-{
+    {
         "slug": "how-to-prepare-for-a-presentation-or-oral-exam",
         "kicker": "Speaking",
         "title": "How to Prepare for a Presentation or Oral Exam",
@@ -1623,7 +1623,7 @@ ARTICLES: list[dict] = [
         ],
         "related": ["how-to-write-a-better-essay-in-less-time", "how-to-use-a-study-group-without-wasting-time", "active-recall-vs-rereading"],
     },
-{
+    {
         "slug": "how-to-get-organized-for-a-new-semester",
         "kicker": "Semesters",
         "title": "How to Get Organized for a New Semester in One Afternoon",
@@ -1680,7 +1680,7 @@ ARTICLES: list[dict] = [
         ],
         "related": ["how-to-make-a-study-schedule-that-works", "how-to-plan-a-long-term-project", "how-to-calculate-what-you-need-on-a-final"],
     },
-{
+    {
         "slug": "how-to-plan-your-week-in-20-minutes",
         "kicker": "Planning",
         "title": "How to Plan Your Week in 20 Minutes",
@@ -1732,7 +1732,7 @@ ARTICLES: list[dict] = [
         ],
         "related": ["how-to-make-a-study-schedule-that-works", "time-blocking-for-students", "how-to-prioritize-assignments"],
     },
-{
+    {
         "slug": "how-to-study-smarter-not-longer",
         "kicker": "Study habits",
         "title": "How to Study Smarter, Not Longer",
@@ -1777,7 +1777,7 @@ ARTICLES: list[dict] = [
         ],
         "related": ["active-recall-vs-rereading", "spaced-repetition-for-students", "pomodoro-technique-for-students", "how-to-remember-what-you-read"],
     },
-{
+    {
         "slug": "how-to-study-for-a-test-you-forgot-about",
         "kicker": "Exams",
         "title": "How to Study for a Test You Forgot About",
@@ -1828,7 +1828,7 @@ ARTICLES: list[dict] = [
         ],
         "related": ["how-to-study-for-finals-in-one-week", "how-to-catch-up-when-behind-in-school", "how-to-study-for-math-tests"],
     },
-{
+    {
         "slug": "how-to-balance-schoolwork-and-a-social-life",
         "kicker": "Balance",
         "title": "How to Balance Schoolwork and a Social Life",
@@ -1876,7 +1876,7 @@ ARTICLES: list[dict] = [
         ],
         "related": ["time-blocking-for-students", "how-to-manage-homework-with-a-part-time-job", "how-to-study-in-a-distracting-dorm"],
     },
-{
+    {
         "slug": "how-to-keep-a-study-streak-going",
         "kicker": "Motivation",
         "title": "How to Keep a Study Streak Going Without Burning Out",
@@ -1921,7 +1921,7 @@ ARTICLES: list[dict] = [
         ],
         "related": ["how-to-stop-procrastinating-on-homework", "pomodoro-technique-for-students", "how-to-study-with-adhd", "how-to-get-back-into-a-study-routine-after-a-break"],
     },
-{
+    {
         "slug": "how-to-use-ai-to-plan-your-week",
         "kicker": "AI",
         "title": "How to Use AI to Plan Your Week Without Handing It Your Brain",
@@ -1968,7 +1968,7 @@ ARTICLES: list[dict] = [
         ],
         "related": ["how-to-use-ai-for-studying-without-cheating", "best-ai-study-planner", "how-to-prioritize-assignments"],
     },
-{
+    {
         "slug": "how-to-study-on-your-phone-without-getting-distracted",
         "kicker": "Focus",
         "title": "How to Study on Your Phone Without Getting Distracted",
