@@ -126,7 +126,7 @@ html[data-a11y-contrast="1"] body.has-side { --bg: inherit; --bg-elevated: inher
 /* Use the etched backdrop across the public landing page. App content stays
    on solid surfaces for readable tables and long study sessions. */
 .site-landing #main-content { position: relative; isolation: isolate; }
-.site-landing #planiBot { display: none; }
+.site-landing #planiBot { display: none !important; }
 :root[data-theme="dark"]:not([data-palette]):not([data-a11y-contrast="1"]) .site-landing #main-content::before {
   content: "";
   position: fixed;
