@@ -1,0 +1,12 @@
+<div class="ipa-canvas" id="ipaCanvasTools" hidden>
+  <a class="ipa-btn" id="ipaCanvasLink" target="_blank" rel="noopener noreferrer">Open in Canvas <span class="ip-arrow" data-direction="up-right" aria-hidden="true"></span></a>
+  {% if focus_allowed %}
+  <button type="button" class="ipa-btn ipa-btn--ghost" id="ipaScreenShare" hidden>Share Canvas tab</button>
+  <p class="ipa-screen-status" id="ipaScreenStatus" role="status" hidden></p>
+  <p class="ipa-screen-time" id="ipaScreenTime" hidden></p>
+  <details class="ipa-screen-preview" id="ipaScreenPreview" hidden>
+    <summary>Preview the shared tab</summary>
+    <video id="ipaScreenVideo" playsinline autoplay muted aria-label="Local preview of your shared tab"></video>
+  </details>
+  {% endif %}
+</div>

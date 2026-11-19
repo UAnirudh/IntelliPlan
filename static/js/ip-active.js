@@ -30,7 +30,8 @@
     ticker: null,
     tracker: null,
     difficulty: null,
-    finishing: false
+    finishing: false,
+    saving: false
   };
 
   function $(id) { return document.getElementById(id); }
@@ -75,6 +76,7 @@
     IPA.plan = block;
     $('ipaEmpty').hidden = true;
     $('ipaCard').hidden = false;
+    paintCanvasTools();
 
     $('ipaTitle').textContent = block.title || 'Study session';
     $('ipaCourse').textContent = block.course || 'Study';
@@ -101,8 +103,8 @@
 
     var due = $('ipaDue');
     if (block.due_date) {
-      var days = Math.round((new Date(block.due_date) - new Date()) / 86400000);
-      due.textContent = days <= 0 ? 'due today' : (days === 1 ? 'due tomorrow' : 'due in ' + days + ' days');
+      var date = new Date(block.due_date.slice(0, 10) + 'T12:00:00');
+      due.textContent = Number.isNaN(date.getTime()) ? '' : 'Due ' + date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
     } else {
       due.textContent = block.planned_minutes + ' min';
     }
@@ -193,12 +195,13 @@
 
   function setControls(mode) {
     var picker = $('ipaAssignmentSelect');
-    if (picker) picker.disabled = mode === 'running' || mode === 'paused';
+    if (picker) picker.disabled = mode === 'loading' || mode === 'running' || mode === 'paused';
+    paintCanvasTools();
     // 'none' means there is nothing to act on at all. It exists because the
     // phone layout pins these controls to a fixed bar: an inert "Start"
     // sitting in the thumb zone with no session behind it is a button that
     // teaches the student it does nothing.
-    var empty = mode === 'none';
+    var empty = mode === 'none' || mode === 'loading';
     $('ipaStart').hidden = empty || mode !== 'idle';
     $('ipaPause').hidden = empty || mode === 'idle';
     $('ipaDone').hidden = empty || mode === 'idle';
@@ -226,20 +229,32 @@
         var option = document.createElement('option');
         option.value = String(index);
         option.textContent = row.title + (row.course ? ' · ' + row.course : '');
-        select.appendChild(option);
+        select.insertBefore(option, select.lastElementChild);
       });
       $('ipaAssignmentStatus').textContent = assignmentChoices.length
-        ? 'Choose an assignment before starting. You can change it after finishing.'
-        : 'No assignments available. You can start a session with your own title.';
+        ? 'Pick the work you want to focus on.'
+        : 'You can study with a session of your own.';
+      paintCanvasTools();
     }).catch(function () { $('ipaAssignmentStatus').textContent = 'Assignments unavailable. Your timer and current plan still work.'; });
     select.addEventListener('change', function () {
       if (IPA.session && !IPA.session.ended_at) return;
       assignmentGeneration++;
       if (select.value === '') { loadNext(); return; }
+      if (select.value === 'custom') {
+        IPA.plan = null;
+        $('ipaCard').hidden = true;
+        $('ipaEmpty').hidden = false;
+        $('ipaEmptyMsg').textContent = 'Choose a name and length for this session.';
+        showAdhoc(false);
+        setControls('none');
+        $('ipaAdhocTitle').focus();
+        return;
+      }
       var row = assignmentChoices[Number(select.value)];
       if (!row) return;
       renderPlan({ title: row.title, course: row.course || '', task_id: row.task_id || row.id,
         kind: row.kind || 'homework', difficulty: row.difficulty || 'medium', due_date: row.due_date,
+        description: row.description, assignment_url: row.source === 'canvas' ? row.assignment_url : null,
         planned_minutes: Math.max(1, Math.min(300, Number(row.estimated_time || row.est_minutes) || 25)) });
       setControls('idle');
     });
@@ -251,6 +266,7 @@
       $('ipaAssignmentSelect').value = '';
       $('ipaAssignmentSelect').disabled = true;
     }
+    setControls('loading');
     return api('/api/active/current')
       .then(function (data) {
         if (generation !== assignmentGeneration) return;
@@ -258,6 +274,9 @@
         return api('/api/active/next').then(function (next) {
           if (generation !== assignmentGeneration) return;
           if (!next.next) {
+            IPA.plan = null;
+            $('ipaCard').hidden = true;
+            $('ipaEmpty').hidden = false;
             /* Three different situations used to share one message telling
                the student to go build a plan — including the case where they
                had a plan and had finished it, which reads as the app having
@@ -280,7 +299,10 @@
       })
       .catch(function (err) {
         if (generation !== assignmentGeneration) return;
-        $('ipaEmptyMsg').textContent = 'Could not load your session: ' + err.message;
+        IPA.plan = null;
+        $('ipaCard').hidden = true;
+        $('ipaEmpty').hidden = false;
+        $('ipaEmptyMsg').textContent = 'Could not load your session. You can still start one below.';
         /* A failed lookup should not also cost the student the ability to
            study. The ad-hoc form does not depend on the plan. */
         showAdhoc(true);
@@ -373,6 +395,8 @@
   function resume(session) {
     IPA.session = session;
     IPA.accrued = session.active_seconds || 0;
+    IPA.overNoted = false;
+    IPA.difficulty = null;
     IPA.pausedTotal = session.paused_seconds || 0;
     IPA.pauseCount = session.pause_count || 0;
     renderPlan({
@@ -399,7 +423,7 @@
   }
 
   function start() {
-    if (!IPA.plan) return;
+    if (!IPA.plan || $('ipaStart').disabled || IPA.session) return;
     if ($('ipaAssignmentSelect')) $('ipaAssignmentSelect').disabled = true;
     $('ipaStart').disabled = true;
     api('/api/active/start', {
@@ -416,13 +440,16 @@
         focus_enabled: $('ipaFocusToggle').checked
       })
     }).then(function (data) {
-      IPA.session = data.session;
-      IPA.accrued = 0;
-      beginTicking();
-      setControls('running');
-      status('Session started. The timer keeps running if the tab sleeps.');
+      if (!data.session) throw new Error('Could not start the session.');
+      var plan = IPA.plan;
       if (data.focus_allowed === false) denyCameraCheckIn(data.focus_reason);
-      if ($('ipaFocusToggle').checked) startTracker();
+      resume(data.session);
+      if (String(data.session.task_id || '') === String(plan.task_id || '') && data.session.title === plan.title) {
+        IPA.plan.assignment_url = plan.assignment_url;
+        IPA.plan.description = plan.description;
+        paintCanvasTools();
+      }
+      status('Session started.');
     }).catch(function (err) {
       if ($('ipaAssignmentSelect')) $('ipaAssignmentSelect').disabled = false;
       status(err.message, true);
@@ -447,12 +474,13 @@
   }
 
   function togglePause() {
-    if (!IPA.session) return;
+    if (!IPA.session || IPA.saving) return;
     if (IPA.running) {
       IPA.accrued = elapsedSeconds();
       IPA.pausedAt = Date.now();
       IPA.pauseCount += 1;
       stopTicking();
+      stopScreen();
       stopTracker();
       if ($('ipaFocusToggle').checked) $('ipaFocusNote').textContent = 'Camera paused with this study session.';
       setControls('paused');
@@ -493,6 +521,7 @@
   // ── Finishing ───────────────────────────────────────────────────────
 
   function openFinish(completed) {
+    if (IPA.saving) return;
     IPA.finishing = completed;
     $('ipaFinish').hidden = false;
     $('ipaProgress').value = completed ? 100 : Math.min(90, Math.round(
@@ -502,13 +531,16 @@
   }
 
   function submitFinish() {
-    if (!IPA.session) return;
+    if (!IPA.session || IPA.saving) return;
+    IPA.saving = true;
+    var wasRunning = IPA.running;
     $('ipaFinishSave').disabled = true;
     IPA.accrued = elapsedSeconds();
     stopTicking();
-    stopTracker();
+    stopScreen();
+    paintCanvasTools();
+    stopCameraCheckIn();
     var focusSummary = IPA.tracker ? IPA.tracker.snapshot() : null;
-    IPA.tracker = null;
 
     api('/api/active/' + IPA.session.id + '/finish', {
       method: 'POST',
@@ -520,6 +552,7 @@
         focus: focusSummary ? { summary: focusSummary } : undefined
       })
     }).then(function (data) {
+      IPA.tracker = null;
       $('ipaFinish').hidden = true;
       // Not 'idle' — idle means "a session is queued and ready to start",
       // and between finishing and loadNext() returning there is nothing.
@@ -535,12 +568,124 @@
       IPA.session = null;
       IPA.accrued = 0;
       IPA.overNoted = false;
-      window.setTimeout(loadNext, 900);
+      $('ipaAdhocTitle').value = '';
+      $('ipaAdhocStart').textContent = 'Start session';
+      adhocValidate();
+      loadNext();
     }).catch(function (err) {
-      status(err.message, true);
-    }).then(function () {
+      if (wasRunning) beginTicking();
+      setControls(wasRunning ? 'running' : 'paused');
+      status('Could not save. Try again to log this session.', true);
+    }).finally(function () {
+      IPA.saving = false;
       $('ipaFinishSave').disabled = false;
+      paintCanvasTools();
     });
+  }
+
+  // Capture only on request. The stream stays in this page and never enters
+  // the session payload, persistence layer, recorder, or AI pipeline.
+  var sharedScreen = null;
+  var screenRequest = 0;
+  var screenStarted = 0;
+  var screenTicker = null;
+
+  function canvasLink() {
+    if (!IPA.plan) return null;
+    var candidate = IPA.plan.assignment_url;
+    if (!candidate && IPA.plan.task_id != null) {
+      var row = assignmentChoices.find(function (choice) {
+        return choice.source === 'canvas' && String(choice.task_id || choice.id) === String(IPA.plan.task_id)
+          && choice.title === IPA.plan.title && (choice.course || '') === (IPA.plan.course || '');
+      });
+      candidate = row && row.assignment_url;
+    }
+    if (!candidate) return null;
+    try {
+      var url = new URL(candidate);
+      if (url.protocol === 'https:' && !url.username && !url.password && !url.search && !url.hash
+          && /^\/courses\/\d+\/assignments\/\d+\/?$/.test(url.pathname)) return url.href;
+    } catch (_) {}
+    return null;
+  }
+
+  function paintCanvasTools() {
+    var tools = $('ipaCanvasTools');
+    if (!tools) return;
+    var link = $('ipaCanvasLink');
+    var url = canvasLink();
+    tools.hidden = !url;
+    if (url) link.href = url;
+    else link.removeAttribute('href');
+    var button = $('ipaScreenShare');
+    if (!button) return;
+    button.hidden = !url || !IPA.running || IPA.saving || !navigator.mediaDevices?.getDisplayMedia;
+    button.textContent = sharedScreen ? 'Stop sharing' : 'Share Canvas tab';
+  }
+
+  function stopScreen(message) {
+    screenRequest += 1;
+    if (screenTicker) window.clearInterval(screenTicker);
+    screenTicker = null;
+    if (sharedScreen) sharedScreen.getTracks().forEach(function (track) { track.stop(); });
+    sharedScreen = null;
+    var video = $('ipaScreenVideo');
+    if (!video) return;
+    video.srcObject = null;
+    $('ipaScreenPreview').hidden = true;
+    $('ipaScreenPreview').open = false;
+    var progress = $('ipaScreenStatus');
+    progress.hidden = !message;
+    progress.textContent = message || '';
+    $('ipaScreenTime').hidden = true;
+    $('ipaScreenShare').disabled = false;
+    paintCanvasTools();
+  }
+
+  async function shareCanvas() {
+    if (sharedScreen) { stopScreen('Tab sharing stopped. Your timer is still running.'); return; }
+    if (!IPA.running || !canvasLink()) return;
+    var request = ++screenRequest;
+    var button = $('ipaScreenShare');
+    button.disabled = true;
+    try {
+      var stream = await navigator.mediaDevices.getDisplayMedia({
+        audio: false, video: { displaySurface: 'browser', frameRate: { ideal: 5, max: 10 } },
+        selfBrowserSurface: 'exclude', monitorTypeSurfaces: 'exclude', surfaceSwitching: 'exclude'
+      });
+      var track = stream.getVideoTracks()[0];
+      if (request !== screenRequest || !IPA.running) {
+        stream.getTracks().forEach(function (item) { item.stop(); });
+        return;
+      }
+      if (!track || track.getSettings().displaySurface !== 'browser') {
+        stream.getTracks().forEach(function (item) { item.stop(); });
+        stopScreen('Choose a browser tab in the sharing picker.');
+        return;
+      }
+      sharedScreen = stream;
+      screenStarted = Date.now();
+      $('ipaScreenVideo').srcObject = stream;
+      $('ipaScreenPreview').hidden = false;
+      var progress = $('ipaScreenStatus');
+      progress.hidden = false;
+      progress.textContent = 'Sharing a browser tab. The preview stays on this device.';
+      var time = $('ipaScreenTime');
+      time.hidden = false;
+      function updateShareTime() {
+        time.textContent = 'Shared for ' + fmt((Date.now() - screenStarted) / 1000);
+      }
+      updateShareTime();
+      screenTicker = window.setInterval(updateShareTime, 1000);
+      track.addEventListener('ended', function () {
+        if (sharedScreen === stream) stopScreen('Tab sharing ended. Your timer is still running.');
+      }, { once: true });
+      paintCanvasTools();
+    } catch (_) {
+      if (request === screenRequest) stopScreen('Tab sharing did not start. Your study timer is still running.');
+    } finally {
+      if (request === screenRequest) button.disabled = false;
+    }
   }
 
   // ── Focus tracking ──────────────────────────────────────────────────
@@ -803,6 +948,7 @@
     // to start makes the first paint a lie.
     setControls('none');
 
+    $('ipaScreenShare')?.addEventListener('click', shareCanvas);
     $('ipaStart').addEventListener('click', start);
     $('ipaPause').addEventListener('click', togglePause);
     $('ipaDone').addEventListener('click', function () { openFinish(true); });
@@ -887,6 +1033,7 @@
     // is the difference between a logged session and a phantom one when
     // someone closes the tab mid-study.
     window.addEventListener('pagehide', function () {
+      stopScreen();
       stopTracker();
       if ($('ipaFocusToggle').checked) {
         $('ipaFocusToggle').checked = false;

@@ -357,7 +357,7 @@ def create_active_blueprint(deps: ActiveDeps) -> Blueprint:
                         "has_plan": True,
                         "all_done": False,
                         "next": {
-                            "block_id": block.get("id"),
+                            "block_id": block.get("block_id") or block.get("id"),
                             "task_id": block.get("task_id"),
                             "title": block.get("parent_title") or block.get("assignment"),
                             "label": block.get("assignment"),

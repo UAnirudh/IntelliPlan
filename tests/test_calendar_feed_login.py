@@ -192,11 +192,10 @@ def test_the_page_is_honest_that_a_feed_carries_no_grades(client):
     assert "grade" in body
 
 
-def test_the_token_path_is_still_offered(client):
-    """The inverse guard: the feed is an addition, not a replacement."""
+def test_token_walkthrough_does_not_require_credentials(client):
     body = client.get("/login/canvas").get_data(as_text=True)
-    assert 'action="/login/canvas"' in body
-    assert 'name="canvas_token"' in body
+    assert 'id="canvasTokenDemo"' in body
+    assert 'name="canvas_token"' not in body
 
 
 # ── Signed in, where credentials take a different route ──────────────
@@ -313,6 +312,9 @@ def test_the_canvas_token_form_will_not_probe_an_internal_url(client, monkeypatc
     and fetched by us, and 'Invalid token' versus 'Could not reach' would
     report whether the internal host answered."""
     import App as app_module
+    monkeypatch.setattr(app_module, "is_owner", lambda _: True)
+    monkeypatch.setattr(app_module.school_pilot, "enabled", lambda: False)
+    monkeypatch.setattr(app_module, "_lms_policy_allowed", lambda source: source == "canvas")
     fetched = []
     monkeypatch.setattr(app_module.requests, "get",
                         lambda u, *a, **k: fetched.append(u) or _Resp(b"", 200))

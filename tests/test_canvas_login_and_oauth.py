@@ -123,11 +123,31 @@ def test_the_button_stays_hidden_when_no_school_is_registered(client, no_keys):
     assert "Continue with Canvas" not in body
 
 
-def test_the_token_form_is_always_available(client, no_keys):
-    """Whatever happens with OAuth, the path that works on any Canvas stays."""
+@pytest.fixture
+def owner_testing(monkeypatch):
+    monkeypatch.setattr(App, "is_owner", lambda _: True)
+    monkeypatch.setattr(App.school_pilot, "enabled", lambda: False)
+    monkeypatch.setattr(App, "_lms_policy_allowed", lambda source: source == "canvas")
+    monkeypatch.setattr(App, "_resolves_to_public_host", lambda _: True)
+
+
+def test_the_token_form_appears_above_the_calendar_link_for_the_owner(client, no_keys, owner_testing):
     body = client.get("/login/canvas").get_data(as_text=True)
     assert 'name="canvas_token"' in body
     assert 'name="canvas_url"' in body
+    assert body.index('id="canvasTokenForm"') < body.index('id="canvasTokenDemo"') < body.index('name="feed_url"')
+
+
+def test_guest_can_practice_but_cannot_submit_a_token(client, monkeypatch):
+    def unexpected(*args, **kwargs):
+        pytest.fail("A guest should not be able to contact Canvas with a token")
+
+    monkeypatch.setattr(App.net_guard, "pinned_https_request", unexpected)
+    page = client.get("/login/canvas").get_data(as_text=True)
+    assert 'id="canvasTokenDemo"' in page
+    assert 'name="canvas_token"' not in page
+    response = client.post("/login/canvas", data={"canvas_token": "fake", "canvas_url": SCHOOL})
+    assert response.status_code == 403
 
 
 # ── The token path must not crash ────────────────────────────────────
@@ -137,7 +157,7 @@ def _unreachable(*args, **kwargs):
     raise requests.ConnectionError("nope")
 
 
-def test_an_unreachable_canvas_is_an_explanation_not_a_crash(client, monkeypatch):
+def test_an_unreachable_canvas_is_an_explanation_not_a_crash(client, monkeypatch, owner_testing):
     monkeypatch.setattr(App.net_guard, "pinned_https_request", _unreachable)
     r = client.post("/login/canvas", data={
         "canvas_token": "1234~tok", "canvas_url": SCHOOL})
@@ -145,7 +165,7 @@ def test_an_unreachable_canvas_is_an_explanation_not_a_crash(client, monkeypatch
     assert "Could not reach" in r.get_data(as_text=True)
 
 
-def test_an_unreachable_canvas_is_not_blamed_on_the_token(client, monkeypatch):
+def test_an_unreachable_canvas_is_not_blamed_on_the_token(client, monkeypatch, owner_testing):
     """"Invalid token" sends the student off to regenerate a token that was
     never the problem."""
     monkeypatch.setattr(App.net_guard, "pinned_https_request", _unreachable)
@@ -154,7 +174,7 @@ def test_an_unreachable_canvas_is_not_blamed_on_the_token(client, monkeypatch):
     assert "Invalid token or Canvas URL" not in body
 
 
-def test_a_timeout_is_handled_the_same_way(client, monkeypatch):
+def test_a_timeout_is_handled_the_same_way(client, monkeypatch, owner_testing):
     def timeout(*a, **k):
         raise requests.Timeout("slow")
     monkeypatch.setattr(App.net_guard, "pinned_https_request", timeout)
@@ -164,7 +184,7 @@ def test_a_timeout_is_handled_the_same_way(client, monkeypatch):
     assert "Could not reach" in r.get_data(as_text=True)
 
 
-def test_a_genuinely_bad_token_still_says_so(client, monkeypatch):
+def test_a_genuinely_bad_token_still_says_so(client, monkeypatch, owner_testing):
     """The inverse guard: a 401 from a reachable Canvas is a token problem,
     and must not be reported as a connectivity one."""
     class Resp:
@@ -176,7 +196,7 @@ def test_a_genuinely_bad_token_still_says_so(client, monkeypatch):
     assert "Could not reach" not in body
 
 
-def test_canvas_token_check_does_not_follow_redirects(client, monkeypatch):
+def test_canvas_token_check_does_not_follow_redirects(client, monkeypatch, owner_testing):
     captured = {}
 
     class Resp:
@@ -194,7 +214,7 @@ def test_canvas_token_check_does_not_follow_redirects(client, monkeypatch):
     assert captured["timeout"] == 20
 
 
-def test_a_missing_field_is_caught_before_any_request(client, monkeypatch):
+def test_a_missing_field_is_caught_before_any_request(client, monkeypatch, owner_testing):
     def explode(*a, **k):
         raise AssertionError("should not have called Canvas")
     monkeypatch.setattr(App.requests, "get", explode)
@@ -212,7 +232,12 @@ def test_the_unavailable_notice_tells_the_admin_what_to_register(client):
     assert "/oauth/canvas/callback" in body, "and the redirect URI it needs"
 
 
-def test_the_unavailable_notice_points_at_the_token_method(client):
+def test_the_unavailable_notice_points_to_the_calendar_link(client):
     """It is not a dead end: the fallback works today and is worth saying so."""
     body = client.get("/login/canvas?reason=oauth_unavailable").get_data(as_text=True)
-    assert "access token" in body.lower()
+    assert "calendar link" in body.lower()
+
+
+def test_assignment_link_uses_the_connected_canvas_school():
+    assert App.canvas_assignment_url(SCHOOL, 4716, 19) == f"{SCHOOL}/courses/4716/assignments/19"
+    assert App.canvas_assignment_url(SCHOOL, None, 19) is None

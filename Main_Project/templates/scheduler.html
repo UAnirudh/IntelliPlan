@@ -2381,7 +2381,7 @@ function renderSchedule(data) {
     </div>`;
   const days = document.getElementById('scheduleDays');
   const todayStr = localToday();
-  days.innerHTML = (data.schedule || []).filter(day => (day.blocks || []).length).map((day, di) => {
+  days.innerHTML = plannerDisplayDays(data.schedule).map(({ day }, di) => {
     const isToday = String(day.date || '').slice(0,10) === todayStr;
     const load = String(day.workload_level || '').toLowerCase().trim();
     return `
@@ -2422,6 +2422,13 @@ function renderSchedule(data) {
       ${day.daily_tip ? `<p class="daily-tip">${escapeText(day.daily_tip)}</p>` : ''}
     </section>`;
   }).join('');
+}
+
+// Keep the saved schedule and blocks chronological. Reverse only the day cards.
+function plannerDisplayDays(schedule) {
+  return (schedule || []).map((day, index) => ({ day, index }))
+    .filter(({ day }) => day.blocks?.length)
+    .sort((a, b) => String(b.day.date || '').localeCompare(String(a.day.date || '')));
 }
 
 /* Display-only formatters for the list view. Prefixed: page scripts share
@@ -2474,7 +2481,8 @@ function renderInteractive() {
   const todayIso = localToday();
   const sched = _lastScheduleData.schedule;
   const todayDay = sched.find(d => (d.date || '').slice(0, 10) === todayIso);
-  const nextDay = sched.find(d => (d.date || '').slice(0, 10) > todayIso);
+  const displayedDays = plannerDisplayDays(sched);
+  const nextDay = displayedDays.findLast(({ day }) => (day.date || '').slice(0, 10) > todayIso)?.day;
   let allWork = 0, allDone = 0;
   sched.forEach(d => (d.blocks || []).forEach(b => {
     if (b.is_break) return;
@@ -2494,13 +2502,13 @@ function renderInteractive() {
     : 'No work is scheduled for today or a later date. Pick a block below to open its interactive checklist.';
   document.getElementById('ivContextBody').textContent = ctxBody;
 
-  host.innerHTML = sched.filter(day => (day.blocks || []).length).map(day => {
+  host.innerHTML = displayedDays.map(({ day, index }) => {
     const work = (day.blocks || []).filter(b => !b.is_break);
     const doneCount = work.filter(b => stateFor(b.block_id).done).length;
     const pct = work.length ? Math.round((doneCount / work.length) * 100) : 0;
     const isToday = String(day.date || '').slice(0, 10) === todayIso;
     return `
-      <div class="iv-day-card ${isToday ? 'is-today' : ''}">
+      <div class="iv-day-card ${isToday ? 'is-today' : ''}" data-day-index="${index}">
         <div class="iv-day-head">
           <div>
             <div class="iv-day-name">${escapeText([day.day_name, schedFmtDate(day.date)].filter(Boolean).join(', '))}${isToday ? '<span class="today-label">Today</span>' : ''}</div>
@@ -2958,11 +2966,8 @@ function ivAnnounce(msg) {
 function ivWireDrag(host) {
   // Map each rendered day card back to its index in the data.
   const dayCardIdxSource = new Map();
-  const rendered = (_lastScheduleData.schedule || [])
-    .map((d, i) => ({ d, i }))
-    .filter(({ d }) => (d.blocks || []).length);
-  [...host.querySelectorAll('.iv-day-card')].forEach((card, n) => {
-    if (rendered[n]) dayCardIdxSource.set(card, rendered[n].i);
+  host.querySelectorAll('.iv-day-card').forEach(card => {
+    dayCardIdxSource.set(card, Number(card.dataset.dayIndex));
   });
 
   host.querySelectorAll('.iv-block').forEach(el => {

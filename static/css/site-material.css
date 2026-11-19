@@ -696,3 +696,59 @@ body #tutorPlaniSvg.plani-workspace-portrait { width: auto; height: clamp(86px, 
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
+
+/* Canvas connection and its demo share the same small form layout. */
+.canvas-connect { width: min(100%, 520px); }
+.canvas-connect__logo { display: block; margin: 0 auto .75rem; border-radius: 10px; }
+.canvas-connect form { gap: .75rem; }
+.canvas-connect h2 { margin: 0; font-size: 1.06rem; }
+.canvas-connect p { margin: 0; color: var(--text-secondary); line-height: 1.55; }
+.canvas-connect .login-error { margin-bottom: .8rem; color: var(--text-primary); }
+.canvas-connect .form-group { min-width: 0; }
+.canvas-connect__section { margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+.canvas-connect details > summary { cursor: pointer; font-weight: 600; padding-block: .4em; }
+.canvas-connect details[open] > summary { margin-bottom: .5rem; }
+.canvas-connect__demo { display: grid; gap: .5rem; }
+.canvas-connect code { overflow-wrap: anywhere; }
+.canvas-connect__demo > button { justify-self: start; }
+.canvas-connect .login-footer { margin-top: 1.25rem; }
+
+/* Keep the timer and assignment above the optional session tools. */
+body.has-side .ipa-shell { min-height: 0; padding-top: 0; }
+.ipa-page-head h1 {
+  margin: 0 0 1rem;
+  color: var(--text-primary);
+  font: 650 clamp(1.5rem, 3vw, 2rem)/1.1 var(--font-ui);
+  letter-spacing: -.035em;
+}
+body.has-side .ipa-assignment-picker { padding: 0; border: 0; background: transparent; }
+.ipa-assignment-picker select { max-width: 100%; }
+.ipa-shell .ipa-empty { text-align: left; padding: .5rem 0 1.5rem; }
+.ipa-shell .ipa-empty p { margin-inline: 0; }
+.ipa-shell .ipa-adhoc { margin-inline: 0; box-shadow: none; }
+.ipa-shell .ipa-card { box-shadow: none; }
+.ipa-shell .ipa-timer-wrap { margin-block: .8rem 1.1rem; }
+.ipa-shell .ipa-ring { width: clamp(136px, 24vh, 200px); height: auto; aspect-ratio: 1; }
+.ipa-shell .ipa-focus { margin: .65rem 0 0; padding: .55rem 0 0; background: transparent; border: 0; border-top: 1px solid var(--border); border-radius: 0; }
+.ipa-shell .ipa-focus > summary { min-height: 44px; padding-block: .6rem; cursor: pointer; font-weight: 600; }
+.ipa-shell .ipa-focus[open] > summary { margin-bottom: .5rem; }
+.ipa-canvas { display: flex; gap: .3rem .5rem; flex-wrap: wrap; align-items: center; margin-top: .45rem; }
+.ipa-canvas [hidden], .ipa-canvas[hidden] { display: none; }
+.ipa-screen-status, .ipa-screen-time { margin: 0; color: var(--text-secondary); font-size: .85rem; }
+.ipa-screen-status { flex-basis: 100%; }
+.ipa-screen-preview { flex-basis: 100%; color: var(--text-secondary); }
+.ipa-screen-preview summary { cursor: pointer; padding-block: .4rem; }
+.ipa-screen-preview video { display: block; width: min(100%, 460px); max-height: 180px; object-fit: contain; border-radius: 8px; }
+
+@media (min-width: 769px) and (max-width: 1280px) {
+  body.has-side:not(:has(.command-chat, .tutor-shell)) main {
+    padding: clamp(18px, 3vh, 30px) clamp(16px, 2.2vw, 26px) 2rem;
+  }
+  body.has-side :is(.ipd-stats-row, .scheduler-grid) { gap: 12px; }
+  body.has-side .ipd-columns { grid-template-columns: minmax(0, 1fr) minmax(210px, .55fr); }
+  body.has-side .ipa-shell { padding-inline: 0; }
+  body.has-side #planiBot { display: none !important; }
+}
+@media (min-width: 769px) and (max-width: 950px) {
+  body.has-side .ipd-columns { grid-template-columns: minmax(0, 1fr); }
+}

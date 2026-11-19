@@ -8653,14 +8653,21 @@ def connect_account():
     from intelliplan.api import todoist
 
     return render_template("connect.html", active_page="login",
-                           canvas_oauth_ready=CANVAS_OAUTH_AVAILABLE and canvas_oauth_any_configured(),
                            todoist_ready=todoist.configured() and todoist.allowed(current_user))
 
 @app.route("/login/canvas", methods=["GET", "POST"])
 @limiter.limit("12 per minute;60 per hour", methods=["POST"])
 def login_canvas():
+    token_testing = (is_owner(current_user) and not school_pilot.enabled()
+                     and _lms_policy_allowed("canvas"))
     error = None
     if request.method == "POST":
+        if not token_testing:
+            return render_template(
+                "login_canvas.html", active_page="login",
+                error="Use your school’s Canvas sign-in or connect a calendar link.",
+                canvas_oauth_available=CANVAS_OAUTH_AVAILABLE and canvas_oauth_any_configured(),
+            ), 403
         token = request.form.get("canvas_token", "").strip()
         canvas_url = request.form.get("canvas_url", "").strip().rstrip("/")
         profile_name = request.form.get("profile_name", "").strip() or "Canvas Account"
@@ -8681,6 +8688,8 @@ def login_canvas():
                     and not parsed_canvas_url.query
                     and not parsed_canvas_url.fragment
                 )
+                if safe_canvas_url:
+                    canvas_url = f"https://{parsed_canvas_url.netloc}"
             except ValueError:
                 safe_canvas_url = False
             if not safe_canvas_url or not _resolves_to_public_host(canvas_url):
@@ -8709,14 +8718,8 @@ def login_canvas():
                     )
                 if test is not None and test.status_code == 200:
                     creds = {"canvas_token": token, "canvas_url": canvas_url}
-                    if current_user.is_authenticated:
-                        linked_accounts_repository().create_active(
-                            current_user.id, profile_name, "canvas", creds)
-                    else:
-                        session.permanent = True
-                        session["canvas_token"] = token
-                        session["canvas_url"] = canvas_url
-                        session["login_type"] = "canvas"
+                    linked_accounts_repository().create_active(
+                        current_user.id, profile_name, "canvas", creds)
                     return redirect("/command-center")
                 elif test is not None:
                     error = "Invalid token or Canvas URL."
@@ -8724,6 +8727,7 @@ def login_canvas():
         "login_canvas.html",
         active_page="login",
         error=error,
+        canvas_token_testing=token_testing,
         # any_configured, not configured(): the latter sees only the global
         # key, so a deploy holding only per-school keys hid the OAuth block
         # entirely -- including the probe that decides, per URL, whether that
@@ -12225,6 +12229,20 @@ def _submission_evidence_key(row):
     return hashlib.sha256(json.dumps({k: evidence.get(k) for k in fields}, sort_keys=True).encode()).hexdigest()
 
 
+def canvas_assignment_url(canvas_base, course_id, assignment_id):
+    """Build a link to the assignment in the already connected Canvas school."""
+    if not all(re.fullmatch(r"[0-9]+", str(value)) for value in (course_id, assignment_id)):
+        return None
+    try:
+        school = urllib.parse.urlsplit(canvas_base)
+        if (school.scheme != "https" or not school.hostname or school.username is not None
+                or school.password is not None or school.port not in (None, 443)):
+            return None
+        return f"https://{school.netloc}/courses/{course_id}/assignments/{assignment_id}"
+    except (TypeError, ValueError):
+        return None
+
+
 def _assignment_display_rows(rows, *, include_waiting=False, user_id=None):
     """Keep waiting work inspectable while withholding it from new-work queues.
 
@@ -13850,6 +13868,7 @@ def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True, in
                                 "submission": a.get('submission'),
                                 "canvas_planner_complete": str(a["id"]) in planner_checked,
                                 "course_id": str(a.get("course_id") or course_id),
+                                "assignment_url": canvas_assignment_url(acct_dict["canvas_url"], course_id, a["id"]),
                                 "title": title,
                                 "course": course_map.get(a.get("course_id"), course_map.get(course_id, "Unknown")),
                                 "due_date": due_str,
@@ -14079,6 +14098,7 @@ def unified_tasks():
                             "submission": a.get('submission'),
                             "canvas_planner_complete": str(a["id"]) in planner_checked,
                             "course_id": str(a["course_id"]),
+                            "assignment_url": canvas_assignment_url(canvas_url, course_id, a["id"]),
                             "title": title,
                             "course": course_map.get(a["course_id"], "Unknown"),
                             "due_date": due_str,

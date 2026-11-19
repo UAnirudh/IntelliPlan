@@ -261,7 +261,7 @@ fetch('/gradebook/detail')
     if (!Array.isArray(data) || data.length === 0) {
       document.getElementById('loadingState').innerHTML =
         '<p style="margin-bottom:0.5rem;">No gradebook data found.</p>' +
-        '<p style="font-size:0.88rem;color:var(--text-muted);">If you connected Canvas with an access token, make sure the token has the <code>url:GET|/api/v1/courses</code> and <code>url:GET|/api/v1/courses/:id/enrollments</code> scopes (or use an unscoped token). Then reconnect from <a href="/settings" style="color:var(--accent);">Settings → Integrations</a>.</p>';
+        '<p style="font-size:0.88rem;color:var(--text-muted);">Check your Canvas connection in <a href="/login/canvas" style="color:var(--accent);">Connect Canvas</a>. If grades are still missing, ask your school to review the Canvas permissions for IntelliPlan.</p>';
       return;
     }
     gradebookData = data;

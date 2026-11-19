@@ -54,7 +54,7 @@
   function render() {
     const container = document.getElementById('demo-days');
     container.replaceChildren();
-    for (let day = 0; day < days.length; day += 1) {
+    for (let day = days.length - 1; day >= 0; day -= 1) {
       const blocks = plan.filter(block => block.day === day && !block.task.done);
       if (!blocks.length) continue;
       const section = text('section', '', 'iv-day-card');

@@ -433,14 +433,9 @@
 
 {% block content %}
 <div class="ipa-shell">
-  <div class="ipa-assignment-picker" id="ipaAssignmentPicker">
-    <label for="ipaAssignmentSelect">Study assignment</label>
-    <select id="ipaAssignmentSelect"><option value="">Suggested next session</option></select>
-    <p id="ipaAssignmentStatus" role="status">Choose an assignment, or follow your current plan.</p>
-  </div>
+  {% include "partials/active_assignment.html" %}
 
   <section class="ipa-empty" id="ipaEmpty">
-    <h1>Active</h1>
     <p id="ipaEmptyMsg">Loading your next session…</p>
 
     {# Without this form the phone layout dead-ended at "Build a schedule":
@@ -473,7 +468,7 @@
     </form>
   </section>
 
-  <section class="ipa-card" id="ipaCard" hidden aria-live="polite">
+  <section class="ipa-card" id="ipaCard" hidden aria-labelledby="ipaTitle">
     <div class="ipa-eyebrow">
       <span class="ipa-course-dot" aria-hidden="true"></span>
       <span id="ipaCourse">Study</span>
@@ -481,7 +476,7 @@
       <span id="ipaDue"></span>
     </div>
 
-    <h1 class="ipa-title" id="ipaTitle">Session</h1>
+    <h2 class="ipa-title" id="ipaTitle">Session</h2>
     <p class="ipa-part" id="ipaPart" hidden></p>
 
     <div class="ipa-reasons-wrap">
@@ -493,9 +488,30 @@
       <ul class="ipa-reasons" id="ipaReasons" hidden></ul>
     </div>
 
-    <!-- Focus check-in. Above the timer: the decision is made before you
-         start, and below a running timer on a phone it is off-screen. -->
-    <div class="ipa-focus">
+    <div class="ipa-timer-wrap">
+      <div class="ipa-ring" id="ipaRing" role="timer" aria-label="Session timer">
+        <svg viewBox="0 0 120 120" aria-hidden="true">
+          <circle class="ipa-ring-track" cx="60" cy="60" r="54"></circle>
+          <circle class="ipa-ring-fill" id="ipaRingFill" cx="60" cy="60" r="54"
+                  stroke-dasharray="339.29" stroke-dashoffset="339.29"></circle>
+        </svg>
+        <div class="ipa-clock">
+          <span class="ipa-clock-time" id="ipaClock">00:00</span>
+          <span class="ipa-clock-label" id="ipaClockLabel">of 0 min</span>
+        </div>
+      </div>
+      <p class="ipa-status" id="ipaStatus" role="status"></p>
+    </div>
+
+    <div class="ipa-nudge" id="ipaNudge" hidden>
+      <span id="ipaNudgeText"></span>
+      <button type="button" class="ipa-btn ipa-btn--ghost" id="ipaNudgeDismiss">Dismiss</button>
+    </div>
+
+    {% include "partials/active_canvas_tools.html" %}
+
+    <details class="ipa-focus">
+      <summary>Camera check-in</summary>
       <div class="ipa-focus-row">
         <div>
           <span class="ipa-focus-head">
@@ -504,7 +520,7 @@
               <path d="M23 7l-7 5 7 5V7z"></path>
               <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
             </svg>
-            <span class="ipa-focus-label">Focus check-in: optional</span>
+            <span class="ipa-focus-label">Use your camera</span>
           </span>
           <p class="ipa-focus-note" id="ipaFocusNote" role="status">
             {% if focus_allowed %}Optional check-ins. Video stays within your chosen devices; summary counts are saved to your account.
@@ -555,28 +571,7 @@
         <span id="ipaFocusStateText" role="status" aria-live="polite" aria-atomic="true">Not tracking</span>
         <button type="button" class="ipa-focus-stop" id="ipaFocusStop" hidden>Stop camera check-in</button>
       </div>
-    </div>
-
-    <div class="ipa-timer-wrap">
-      <div class="ipa-ring" id="ipaRing" role="timer" aria-label="Session timer">
-        <svg viewBox="0 0 120 120" aria-hidden="true">
-          <circle class="ipa-ring-track" cx="60" cy="60" r="54"></circle>
-          <circle class="ipa-ring-fill" id="ipaRingFill" cx="60" cy="60" r="54"
-                  stroke-dasharray="339.29" stroke-dashoffset="339.29"></circle>
-        </svg>
-        <div class="ipa-clock">
-          <span class="ipa-clock-time" id="ipaClock">00:00</span>
-          <span class="ipa-clock-label" id="ipaClockLabel">of 0 min</span>
-        </div>
-      </div>
-      <p class="ipa-status" id="ipaStatus"></p>
-    </div>
-
-    <div class="ipa-nudge" id="ipaNudge" hidden>
-      <span id="ipaNudgeText"></span>
-      <button type="button" class="ipa-btn ipa-btn--ghost" id="ipaNudgeDismiss">Dismiss</button>
-    </div>
-
+    </details>
 
     <div class="ipa-finish" id="ipaFinish" hidden>
       <div class="ipa-field">

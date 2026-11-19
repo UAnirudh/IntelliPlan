@@ -1,147 +1,126 @@
 {% extends "base.html" %}
-
+{% block page_title %}Connect Canvas | IntelliPlan{% endblock %}
 {% block content %}
 <div class="login-wrap">
-  <div class="login-card">
-    <div class="login-header">
-      <div style="width:48px;height:48px;border-radius:12px;background:#e66000;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:white;font-weight: 700;font-size:1.2rem;font-family:var(--font-ui);margin:0 auto 1rem;">C</div>
-      <h1 class="login-title">Connect Canvas</h1>
-      <p class="login-subtitle">Enter your Canvas URL and access token</p>
-    </div>
+  <section class="login-card canvas-connect" aria-labelledby="canvasConnectTitle">
+    <header class="login-header">
+      <img class="canvas-connect__logo" src="/static/logos/canvas.svg" width="44" height="44" alt="">
+      <h1 class="login-title" id="canvasConnectTitle">Connect Canvas</h1>
+      <p class="login-subtitle">Bring your assignments into IntelliPlan.</p>
+    </header>
 
-    {% if error %}
-    <div class="login-error"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px"><use href="#i-warning"/></svg> {{ error }}</div>
+    {% if error %}<p class="login-error" role="alert">{{ error }}</p>{% endif %}
+    {% if request.args.get('reason') in ['oauth_not_registered', 'oauth_unavailable'] %}
+    <p class="login-error" role="status">Your school has not enabled IntelliPlan’s Canvas sign-in. You can still import due dates with a calendar link.</p>
     {% endif %}
 
-    {% if request.args.get('reason') == 'oauth_not_registered' %}
-    <div class="login-error" style="background:rgba(217,119,6,0.12);border-color:rgba(217,119,6,0.4);color:#d97706;">
-      <strong>One-click Canvas sign-in isn't available for this school yet.</strong><br>
-      Canvas requires each school to register IntelliPlan as a Developer Key. Until your school's admin does that, please paste a personal access token below, it works just as well.
-      {% if request.args.get('desc') %}<br><span style="font-size:0.78rem;opacity:0.85;">Canvas said: {{ request.args.get('desc') }}</span>{% endif %}
-    </div>
-    {% endif %}
-    {% if request.args.get('reason') == 'oauth_unavailable' %}
-    <div class="login-error" style="background:rgba(217,119,6,0.12);border-color:rgba(217,119,6,0.4);color:#d97706;">
-      <strong>One-click Canvas sign-in isn't set up for this school yet.</strong><br>
-      Canvas only allows it once a school's Canvas admin registers IntelliPlan
-      as a Developer Key, which has to be done per school. There is no way for
-      us to enable it from our side. <strong>The access token method below works
-      today and gives IntelliPlan exactly the same access.</strong>
-      <details style="margin-top:0.6rem;">
-        <summary style="cursor:pointer;font-size:0.8rem;font-weight:600;">For your Canvas admin</summary>
-        <div style="font-size:0.78rem;opacity:0.9;margin-top:0.4rem;line-height:1.5;">
-          In Canvas: <em>Admin → Developer Keys → + Key → API Key</em>, then send
-          us the Key ID and Secret.
-          <br>Redirect URI: <code>https://intelliplan.tech/oauth/canvas/callback</code>
-        </div>
-      </details>
-    </div>
-    {% endif %}
-
-    {% if canvas_oauth_available %}
-    <div style="margin-bottom:1.25rem;">
-      <form id="canvasOauthForm" method="GET" action="/oauth/canvas" style="display:flex;flex-direction:column;gap:10px;">
-        <input type="url" id="canvasOauthBase" name="canvas_base" class="form-input" placeholder="https://canvas.instructure.com" value="{{ request.args.get('canvas_base', 'https://canvas.instructure.com') }}">
-        <button type="submit" id="canvasOauthBtn" class="btn-primary" style="display:flex;align-items:center;justify-content:center;gap:10px;padding:14px;width:100%;font-size:0.95rem;background:#e66000;border:none;cursor:pointer;">
-          <span style="font-weight: 700;">C</span>
-          Continue with Canvas
-        </button>
-        <div id="canvasOauthHint" style="font-size:0.78rem;color:var(--text-muted);text-align:center;">
-          Sign in through Canvas, no access token needed.
-        </div>
-      </form>
-    </div>
-    <div style="display:flex;align-items:center;gap:12px;margin:1rem 0 1rem;">
-      <div style="flex:1;height:1px;background:var(--border);"></div>
-      <span style="font-size:0.74rem;color:var(--text-muted);font-weight:600;letter-spacing:0.06em;text-transform:uppercase;">or paste a token</span>
-      <div style="flex:1;height:1px;background:var(--border);"></div>
-    </div>
-    <script>
-    (function() {
-      const baseInput = document.getElementById('canvasOauthBase');
-      const btn = document.getElementById('canvasOauthBtn');
-      const hint = document.getElementById('canvasOauthHint');
-      if (!baseInput || !btn) return;
-      let timer = null;
-      async function probe() {
-        const val = (baseInput.value || '').trim();
-        if (!val) return;
-        try {
-          const r = await fetch('/oauth/canvas/check?canvas_base=' + encodeURIComponent(val));
-          const data = await r.json();
-          if (data.available) {
-            btn.disabled = false;
-            btn.style.opacity = '1'; btn.style.cursor = 'pointer';
-            hint.textContent = 'Sign in through Canvas, no access token needed.';
-            hint.style.color = 'var(--text-muted)';
-          } else {
-            btn.disabled = true;
-            btn.style.opacity = '0.55'; btn.style.cursor = 'not-allowed';
-            hint.innerHTML = "IntelliPlan isn't registered on this Canvas yet. Paste an access token below, it works on any Canvas.";
-            hint.style.color = '#d97706';
-          }
-        } catch (e) {}
-      }
-      baseInput.addEventListener('input', () => {
-        clearTimeout(timer);
-        timer = setTimeout(probe, 350);
-      });
-      probe();
-    })();
-    </script>
-    {% endif %}
-
-    {# The path that needs nothing from a school admin. Offered first
-       because it is one copied URL against the token flow's seven steps,
-       and it behaves the same on every Canvas. #}
-    <form class="login-form" method="POST" action="/login/calendar-feed" style="margin-bottom:1rem;">
+    {% if canvas_token_testing %}
+    <form class="login-form" id="canvasTokenForm" method="POST" action="/login/canvas">
+      <h2>Test with an access token</h2>
+      <p>Use your developer test account and sample coursework.</p>
       <div class="form-group">
-        <label class="form-label">Calendar feed link <span style="font-weight:600;color:var(--low);font-size:0.72rem;">FASTEST</span></label>
-        <input type="text" name="feed_url" class="form-input"
-               placeholder="https://yourschool.instructure.com/feeds/calendars/user_....ics" required />
-        <span class="form-hint">
-          Canvas → Calendar → <strong>Calendar Feed</strong> (bottom right) → copy the link.
-          No token, nothing for your school to set up.
-        </span>
+        <label class="form-label" for="canvasTestUrl">Canvas address</label>
+        <input id="canvasTestUrl" type="text" name="canvas_url" class="form-input"
+               placeholder="https://school.instructure.com" autocomplete="off" required>
       </div>
-      <button type="submit" class="btn-primary" style="width:100%;padding:14px;border:none;cursor:pointer;font-size:0.95rem;">
-        Connect with calendar link <span class="ip-arrow" aria-hidden="true"></span>
-      </button>
-      <div style="font-size:0.74rem;color:var(--text-muted);text-align:center;margin-top:8px;">
-        Brings in what's due and when. For grades too, use a token below.
+      <div class="form-group">
+        <label class="form-label" for="canvasTestToken">Test access token</label>
+        <input id="canvasTestToken" type="password" name="canvas_token" class="form-input"
+               autocomplete="off" spellcheck="false" required>
       </div>
+      <button type="submit" class="ip-action ip-action--primary">Connect test account</button>
+    </form>
+    {% endif %}
+
+    <details class="canvas-connect__section" id="canvasTokenDemo">
+      <summary>Try the token setup demo</summary>
+      <p>Practice with a sample account. The demo uses a fake token and runs in this browser.</p>
+      <ol>
+        <li>In the sample Canvas account, open <strong>Account → Settings</strong>.</li>
+        <li>Look for <strong>Approved Integrations → New Access Token</strong>.</li>
+        <li>In a developer test account, choose a purpose and expiry date, then copy the generated token once.</li>
+      </ol>
+      <div class="canvas-connect__demo">
+        <label class="form-label" for="canvasSampleAddress">Sample Canvas address</label>
+        <input class="form-input" id="canvasSampleAddress" value="https://school.example" readonly>
+        <label class="form-label" for="canvasSampleToken">Sample token</label>
+        <input class="form-input" id="canvasSampleToken" value="intelliplan-demo-token" readonly>
+        <button type="button" class="ip-action" id="canvasDemoConnect">Try connecting</button>
+        <p id="canvasDemoResult" role="status" hidden></p>
+      </div>
+    </details>
+
+    <form class="login-form canvas-connect__section" id="canvasOauthForm" method="GET" action="/oauth/canvas">
+      <h2>Sign in through your school</h2>
+      {% if canvas_oauth_available %}
+      <div class="form-group">
+        <label class="form-label" for="canvasOauthBase">Canvas address</label>
+        <input type="url" id="canvasOauthBase" name="canvas_base" class="form-input"
+               placeholder="https://school.instructure.com" value="{{ request.args.get('canvas_base', '') }}" required>
+      </div>
+      <button type="submit" id="canvasOauthBtn" class="ip-action ip-action--primary">Continue with Canvas</button>
+      <p id="canvasOauthHint" role="status">Available when your school has approved IntelliPlan.</p>
+      {% else %}
+      <p>Ask your school’s Canvas admin to enable IntelliPlan’s sign-in. The calendar link below can import due dates in the meantime.</p>
+      {% endif %}
     </form>
 
-    <div style="display:flex;align-items:center;gap:12px;margin:1rem 0;">
-      <div style="flex:1;height:1px;background:var(--border);"></div>
-      <span style="font-size:0.74rem;color:var(--text-muted);font-weight:600;letter-spacing:0.06em;text-transform:uppercase;">or paste a token</span>
-      <div style="flex:1;height:1px;background:var(--border);"></div>
-    </div>
+    <details class="canvas-connect__section">
+      <summary>For Canvas admins</summary>
+      <p>Enable a scoped Canvas Developer Key for IntelliPlan. Use this redirect address.</p>
+      <code>https://intelliplan.tech/oauth/canvas/callback</code>
+      <p><a href="https://developerdocs.instructure.com/services/canvas/oauth2/file.developer_keys" target="_blank" rel="noopener noreferrer">Canvas Developer Key setup</a></p>
+    </details>
 
-    <form class="login-form" method="POST" action="/login/canvas">
+    <form class="login-form canvas-connect__section" method="POST" action="/login/calendar-feed">
+      <h2>Connect a calendar link</h2>
+      <p>In Canvas, open <strong>Calendar → Calendar Feed</strong> and copy the link. This imports due dates. Grades require school sign-in.</p>
       <div class="form-group">
-        <label class="form-label">Profile Name</label>
-        <input type="text" name="profile_name" class="form-input" placeholder="e.g. School Canvas" />
-        <span class="form-hint">Optional, helps identify this account</span>
+        <label class="form-label" for="canvasFeedUrl">Calendar feed link</label>
+        <input id="canvasFeedUrl" name="feed_url" class="form-input" type="text" autocomplete="off"
+               placeholder="https://school.instructure.com/feeds/calendars/…" required>
       </div>
-      <div class="form-group">
-        <label class="form-label">Canvas URL</label>
-        <input type="text" name="canvas_url" class="form-input" placeholder="https://canvas.instructure.com" required />
-        <span class="form-hint">Your school's Canvas instance URL</span>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Access Token</label>
-        <input type="password" name="canvas_token" class="form-input" placeholder="••••••••••••••••" required />
-        <span class="form-hint">Canvas → Account → Settings → New Access Token</span>
-      </div>
-      <button type="submit" class="btn-primary" style="width:100%;padding:14px;border:none;cursor:pointer;font-size:0.95rem;">
-        Connect Canvas <span class="ip-arrow" aria-hidden="true"></span>
-      </button>
+      <button type="submit" class="ip-action">Connect calendar link</button>
     </form>
-
     <div class="login-footer">
-      <a href="/login" class="login-link"><span class="ip-arrow" data-direction="left" aria-hidden="true"></span> Back to login options</a>
+      <a href="/connect" class="login-link">Back to connections</a>
     </div>
-  </div>
+  </section>
 </div>
+<script>
+(function () {
+  const sample = document.getElementById('canvasDemoConnect');
+  sample.addEventListener('click', () => {
+    const result = document.getElementById('canvasDemoResult');
+    result.hidden = false;
+    result.textContent = 'Sample account connected. 2 example assignments found: Biology reading and Algebra practice.';
+  });
+
+  const input = document.getElementById('canvasOauthBase');
+  const button = document.getElementById('canvasOauthBtn');
+  const status = document.getElementById('canvasOauthHint');
+  if (!input || !button) return;
+  let timer;
+  async function checkSchool() {
+    const address = input.value.trim();
+    if (!address || !input.validity.valid) return;
+    try {
+      const response = await fetch('/oauth/canvas/check?canvas_base=' + encodeURIComponent(address));
+      const school = await response.json();
+      if (input.value.trim() !== address) return;
+      status.textContent = school.available
+        ? 'Your school is ready. Continue to Canvas to approve access.'
+        : 'Your school has not enabled this sign-in. Use the calendar link below.';
+    } catch (_) {
+      if (input.value.trim() === address) status.textContent = 'You can continue to check your school’s sign-in.';
+    }
+  }
+  input.addEventListener('input', () => {
+    clearTimeout(timer);
+    status.textContent = 'Available when your school has approved IntelliPlan.';
+    timer = setTimeout(checkSchool, 300);
+  });
+  checkSchool();
+})();
+</script>
 {% endblock %}
