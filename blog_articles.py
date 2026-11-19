@@ -21,6 +21,134 @@ from __future__ import annotations
 
 ARTICLES: list[dict] = [
     {
+        "slug": "turn-a-task-list-into-a-study-plan",
+        "kicker": "Planning",
+        "title": "Turn a Messy Task List Into a Study Plan",
+        "meta_title": "Turn a Pasted Task List Into a Study Plan | IntelliPlan",
+        "description": "Use IntelliPlan’s task preview to turn loose deadlines and homework notes into a list you can schedule.",
+        "date": "2026-11-19",
+        "reading_time": 2,
+        "sections": [
+            {"paragraphs": [
+                "On Sunday night, you might have a chemistry reminder in a notebook, an essay deadline in a message, and a reading assignment on the back of a worksheet. You can bring those together in a single pass. Start with the next seven days and write each task as a line you could act on.",
+            ]},
+            {"h2": "Write one task per line", "paragraphs": [
+                "Try “Read chapter 6 due Friday 30m” or “Outline history essay due Thursday 45m.” Start each line with an action. Add a clear deadline and an estimate for the work in that line. For an essay that needs two evenings, a line for the outline and a line for the draft make each block easier to start.",
+                "Use a date when a weekday could mean more than one thing. Leave a date out if you need to check it first. An undated task you remember to verify is easier to recover from than a guessed deadline.",
+            ]},
+            {"h2": "Review the tasks before adding them", "paragraphs": [
+                "Open Add work in IntelliPlan’s scheduler. Paste the list and select Review tasks. Check the preview for the deadlines and durations you intended. If a line came through wrong, change the text and preview it again. Select Add these tasks when the list matches your notes.",
+                "Before making the plan, check for duplicates from any school portal you already connected. Give yourself room for one assignment that runs over its estimate. If you have 90 minutes tonight, plan 70 before filling the remaining 20.",
+            ], "links": [
+                {"url": "/scheduler?capture=1", "label": "Open task capture in IntelliPlan"},
+                {"url": "/demo/planner", "label": "Try a sample plan"},
+            ]},
+        ],
+        "related": ["fit-schoolwork-around-your-calendar", "reset-your-study-plan-after-a-missed-day"],
+    },
+    {
+        "slug": "bring-todoist-and-notion-into-your-study-plan",
+        "kicker": "Integrations",
+        "title": "Bring Todoist and Notion Tasks Into Your Study Plan",
+        "meta_title": "Study Planning With Todoist and Notion | IntelliPlan",
+        "description": "Choose school projects in Todoist or a task database in Notion, then check what belongs in this week’s homework plan.",
+        "date": "2026-11-19",
+        "reading_time": 2,
+        "sections": [
+            {"paragraphs": [
+                "Your notes and task apps can stay where you like them. Give your study planner the pieces it needs to schedule this week. For a science project, that might be three dated milestones from Todoist and one lab write-up from a Notion database you already use.",
+            ]},
+            {"h2": "Choose a small set of Todoist projects", "paragraphs": [
+                "In the scheduler, open Add work, then Sync Todoist. When the connection is available for your account, sign in and select the projects you want to use. Start with one school project and choose Save and sync. You can select up to four. The sync reads tasks from the projects you select.",
+                "If you have a general inbox, move school items into a project first or add just the work you need with a project CSV. Choose the file under Add work and review it before saving.",
+            ]},
+            {"h2": "Give Notion a dedicated database", "paragraphs": [
+                "In Settings, open Integrations and connect Notion. Share your school task database with the integration, then use Choose database. Keep actionable items with clear titles and dates together. A database row titled “Submit lab reflection” with Friday as the due date gives the planner more to work with than a row named “Chemistry.”",
+                "Use the same source for a task as its date changes. If a deadline appears in both Canvas and your own project, check the upcoming work before planning so you only schedule it once.",
+            ], "links": [
+                {"url": "/scheduler?capture=1", "label": "Open Add work"},
+                {"url": "/settings#integrationsWrap", "label": "Open integration settings"},
+            ]},
+        ],
+        "related": ["turn-a-task-list-into-a-study-plan", "how-to-use-canvas-with-a-study-planner"],
+    },
+    {
+        "slug": "ask-plani-for-a-hint",
+        "kicker": "Tutoring",
+        "title": "How to Ask Plani for a Hint and Keep Solving",
+        "meta_title": "How to Ask Plani for a Homework Hint | IntelliPlan",
+        "description": "Try three short prompts that help you find the next step, check your reasoning, and practice with a fresh question.",
+        "date": "2026-11-19",
+        "reading_time": 2,
+        "sections": [
+            {"paragraphs": [
+                "The most useful thing to bring into a tutoring chat is what you’ve already tried. Even a crossed-out first step tells Plani where to start. Pick one question and write down the point where your reasoning stopped.",
+            ]},
+            {"h2": "Ask for the smallest next step", "paragraphs": [
+                "In Tutor, try “I have 3(x − 2) = 15. I think I should divide by 3 first. Give me one hint and let me do the work.” Follow the hint on paper and come back with the line you wrote. If your class expects a particular method, name it in your question.",
+                "On a worksheet with sensitive information in the header, type the part you’re working on. A short prompt gives the tutor a clear job and lets you leave names and grades out of the conversation.",
+            ]},
+            {"h2": "Check what you think you know", "paragraphs": [
+                "When you have a result, explain why it works. Try “I divided both sides by 3 because it keeps the equation balanced. Check that explanation and tell me the first step you’d fix.” Compare the feedback with a worked example or your class notes.",
+            ]},
+            {"h2": "Finish with a different example", "paragraphs": [
+                "Ask for one similar practice question and try it before requesting feedback. If the same mistake comes back, write it down as a prompt for tomorrow. For example, “When do I need to distribute before combining terms?” A question you can retry later is more useful than a long chat you have to reread.",
+            ], "links": [{"url": "/tutor", "label": "Open Tutor and ask Plani"}]},
+        ],
+        "related": ["active-recall-vs-rereading", "how-to-study-for-math-tests"],
+    },
+    {
+        "slug": "reset-your-study-plan-after-a-missed-day",
+        "kicker": "Planning",
+        "title": "Reset Your Study Plan After a Missed Day",
+        "meta_title": "Reset a Study Plan After a Missed Day | IntelliPlan",
+        "description": "Use a quick check-in and a realistic timeline to move unfinished work without overloading tomorrow.",
+        "date": "2026-11-19",
+        "reading_time": 2,
+        "sections": [
+            {"paragraphs": [
+                "A missed evening changes how much time you have. Start by separating what you finished from what still needs time. If you wrote half of a lab report, plan the analysis and revision that remain. The original estimate already includes work you did.",
+            ]},
+            {"h2": "Compare the deadlines with your real time", "paragraphs": [
+                "Say a lab is due Wednesday and a history reading is due Friday. Tuesday has a 45-minute opening after dinner. Use it for the lab, then put the reading into a later opening. If the lab still needs more than 45 minutes, decide which part needs to be ready first and look for one smaller session before the deadline.",
+                "Protect the things that make the next day workable, including meals, travel, and sleep. If a deadline no longer fits, knowing early gives you a chance to ask your teacher which part to prioritize.",
+            ]},
+            {"h2": "Record where to resume", "paragraphs": [
+                "In the scheduler’s My plan view, open Daily check-in. Choose Continue tomorrow and write one short next step, such as “Add measurements to the lab graph.” The note stays in this browser.",
+                "Open Adjust the plan and review the proposed changes before applying them. Check that the nearest deadline still has enough time and that the first new block has a clear starting point. You can also practice adjusting a sample week before using your own courses.",
+            ], "links": [
+                {"url": "/scheduler", "label": "Open your study plan"},
+                {"url": "/demo/planner", "label": "Practice on a sample week"},
+            ]},
+        ],
+        "related": ["fit-schoolwork-around-your-calendar", "how-to-catch-up-when-behind-in-school"],
+    },
+    {
+        "slug": "turn-a-photo-into-calendar-events",
+        "kicker": "Planning",
+        "title": "Turn a Syllabus Photo Into Calendar Events",
+        "meta_title": "Turn a Syllabus Photo Into Calendar Events | IntelliPlan",
+        "description": "Review the dates in a handout or class timetable before saving tasks, events, or a class in IntelliPlan.",
+        "date": "2026-11-19",
+        "reading_time": 2,
+        "sections": [
+            {"paragraphs": [
+                "A printed syllabus mixes things you need to do with places and times you need to be. Sort those into tasks, calendar events, and recurring classes. “Read chapter 4 by Tuesday” needs study time. “Meet at the library Tuesday at 3:30” already has a time. “Biology lab each Thursday” belongs on the class timetable.",
+            ]},
+            {"h2": "Photograph the dates you need", "paragraphs": [
+                "Start with the part of the page that holds the work, such as the first month of deadlines. Take the photo straight on with good light. Crop out classmates’ names, grades, and parts of the page you do not need for planning. If dates are too blurry to read, take a clearer photo or type those lines in Add work.",
+            ]},
+            {"h2": "Check the preview against the handout", "paragraphs": [
+                "On supported accounts, open Read a photo. Check the extracted text, then select Find events and classes. Review the proposed entries before saving. Pay special attention to months and times on tables, the end time of an event, and which days repeat for a class. If a date or time is uncertain, confirm it with the course syllabus before you save it.",
+                "Save recurring classes to your timetable. For one-off events, add them to a connected Google Calendar or download the calendar file and import it into the calendar you use. Check that the events and classes appear at the right times before planning homework around them.",
+            ], "links": [
+                {"url": "/flashcards/photo", "label": "Read a photo in IntelliPlan"},
+                {"url": "/scheduler?capture=1", "label": "Paste a task list"},
+            ]},
+        ],
+        "related": ["turn-a-task-list-into-a-study-plan", "fit-schoolwork-around-your-calendar"],
+    },
+    {
         "slug": "intelliplan-vs-matcha",
         "path": "/compare/intelliplan-vs-matcha",
         "kicker": "Comparison",
