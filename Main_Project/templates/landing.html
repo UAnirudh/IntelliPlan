@@ -584,9 +584,10 @@
     <!-- Right: mock chat preview -->
     <div class="tutor-promo-preview" aria-hidden="true">
       <div class="tp-preview-header">
-        <div class="tp-preview-avatar" style="border-radius:6px;font-family:var(--font-ui);font-size:11px;font-weight:700;color:white;letter-spacing:0.02em;">IP</div>
+        {% from 'partials/plani_avatar.html' import plani_avatar with context %}
+        <div class="tp-preview-avatar">{{ plani_avatar(28) }}</div>
         <div>
-          <div class="tp-preview-name">IntelliPlan</div>
+          <div class="tp-preview-name">Plani</div>
           <div class="tp-preview-status"><span class="tp-status-dot"></span>Online</div>
         </div>
       </div>

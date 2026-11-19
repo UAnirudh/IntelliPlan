@@ -1,3 +1,4 @@
+{% from 'partials/plani_avatar.html' import plani_avatar with context -%}
 <!DOCTYPE html>
 <html lang="en" data-theme="light">
 <head>
@@ -957,7 +958,7 @@ body {
 {% if selection_assistant %}
 <div id="planiSelection" role="group" aria-label="Study selected text" hidden>
   <button type="button" data-plani-action="explain" aria-keyshortcuts="Alt+Shift+P">
-    <svg width="17" height="17" aria-hidden="true"><use href="#i-robot"/></svg> Ask {{ assistant_name }}
+    {{ plani_avatar(22) }} Ask {{ assistant_name }}
   </button>
   <button type="button" data-plani-action="quiz">Quiz me</button>
 </div>
@@ -1061,15 +1062,16 @@ body {
 </div>
 
 <!-- ══════════════════════════════════════
-     PLANI ROBOT CHATBOT
+     PLANI ASSISTANT
 ══════════════════════════════════════ -->
+<template id="planiReplyPortrait">{{ plani_avatar(24) }}</template>
 <div id="planiBot" role="complementary" aria-label="{{ assistant_name }}, the IntelliPlan assistant">
 
   <!-- Chat window -->
   <div id="planiChat" role="dialog" aria-label="Chat with {{ assistant_name }}">
     <div id="planiChatHeader">
       <div class="plani-hdr-avatar" aria-hidden="true">
-        <svg width="16" height="16" viewBox="0 0 256 256" fill="currentColor"><use href="#i-robot"/></svg>
+        {{ plani_avatar(27) }}
       </div>
       <div class="plani-hdr-info">
         <div class="plani-hdr-name">{{ assistant_name }}</div>
@@ -1084,8 +1086,8 @@ body {
     <div id="planiMessages" role="log" aria-live="polite"></div>
 
     <div id="planiTyping" aria-label="{{ assistant_name }} is typing">
-      <div class="plani-msg-avatar" style="background:var(--plani-body-1); color:var(--plani-signal);" aria-hidden="true">
-        <svg width="13" height="13" viewBox="0 0 256 256" fill="currentColor"><use href="#i-robot"/></svg>
+      <div class="plani-msg-avatar" aria-hidden="true">
+        {{ plani_avatar(24) }}
       </div>
       <div class="plani-dots">
         <div class="plani-dots-goo ipm-goo">
@@ -1112,38 +1114,9 @@ body {
 
     <div id="planiBubble" role="status"></div>
 
-    <!-- Plani. Colours come from the --plani-* tokens via CSS (SVG
-         attributes cannot parse var(), stop-color as a CSS property can),
-         so the character follows the theme instead of being baked in. -->
-    <img id="planiRobot" src="/static/plani-3d.webp" width="52" height="52" alt="" aria-hidden="true">
+    {{ plani_avatar(68, image_id='planiRobot') }}
   </div>
 </div>
-
-<script>
-/* SMIL (<animate>) ignores prefers-reduced-motion — CSS cannot reach it and
-   there is no media query for it. Pausing the SVG's own timeline is the only
-   way to honour the setting for Plani's blink and signal pulse. */
-(function () {
-  try {
-    var mq = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)');
-    if (!mq) return;
-    function apply() {
-      /* Every copy of the character, not just the corner one — the tutor
-         page draws its own at 110px in the empty state. */
-      var figures = document.querySelectorAll('.plani-figure');
-      Array.prototype.forEach.call(figures, function (svg) {
-        if (!svg.pauseAnimations) return;
-        if (mq.matches) svg.pauseAnimations(); else svg.unpauseAnimations();
-      });
-    }
-    if (document.readyState !== 'loading') apply();
-    else document.addEventListener('DOMContentLoaded', apply);
-    /* addEventListener on MediaQueryList is unsupported in older Safari. */
-    if (mq.addEventListener) mq.addEventListener('change', apply);
-    else if (mq.addListener) mq.addListener(apply);
-  } catch (e) {}
-})();
-</script>
 
 <!-- ══════════════════════════════════════
      SCRIPTS
@@ -2233,11 +2206,8 @@ function addMsg(role, text, record = true) {
   av.className = 'plani-msg-avatar';
   av.setAttribute('aria-hidden','true');
   if (role === 'bot') {
-    /* Match the robot's own palette, not --accent — the avatar and the
-       character in the corner have to read as the same entity. */
-    av.style.background = 'var(--plani-body-1)';
-    av.style.color = 'var(--plani-signal)';
-    av.innerHTML = '<svg width="13" height="13" viewBox="0 0 256 256" fill="currentColor"><use href="#i-robot"/></svg>';
+    const portrait = document.getElementById('planiReplyPortrait');
+    if (portrait) av.appendChild(portrait.content.cloneNode(true));
   } else {
     av.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-user"/></svg>';
   }

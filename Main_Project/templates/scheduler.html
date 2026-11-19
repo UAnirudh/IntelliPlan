@@ -1,4 +1,5 @@
 ﻿{% extends "base.html" %}
+{% from 'partials/plani_avatar.html' import plani_avatar with context %}
 {% block page_title %}Scheduler | IntelliPlan{% endblock %}
 
 {% block head_extra %}
@@ -327,6 +328,7 @@
     border-radius: var(--ipd-radius-lg);
     font-family: var(--ipd-font-body);
   }
+  .iv-empty .plani-portrait { margin-inline: auto; }
   .iv-empty .iv-empty-title {
     font-family: var(--ipd-font-display); font-size: 1.15rem; color: var(--text-secondary);
     margin: 0.5rem 0; font-weight:600;
@@ -1267,7 +1269,7 @@
   <div data-ft-mount hidden></div>
 
   <div id="ivEmpty" class="iv-empty">
-    <div><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-scheduler"/></svg></div>
+    {{ plani_avatar(64) }}
     <div class="iv-empty-title">No schedule yet</div>
     <p>Build a study plan to see it here.</p>
     <button type="button" class="btn-primary" style="margin-top:1rem;padding:10px 22px;border:none;cursor:pointer;" onclick="switchTab('creator')">Build a plan</button>

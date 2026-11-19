@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from 'partials/plani_avatar.html' import plani_avatar with context %}
 {% block page_title %}AI Tutor, Study Tutor | IntelliPlan{% endblock %}
 {% block meta_description %}Ask anything and learn step by step. IntelliPlan's AI tutor covers math, science, history, coding, languages, and more, free for every student.{% endblock %}
 {% block og_title %}AI Tutor, Free AI Study Tutor for Students{% endblock %}
@@ -269,7 +270,7 @@ main {
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0; margin-top: 18px; overflow: hidden;
 }
-.tutor-avatar.bot { background: linear-gradient(135deg,var(--plani-body-1),var(--plani-body-2)); }
+.tutor-avatar.bot { background: var(--accent-soft); }
 .tutor-avatar.user {
   background: var(--accent-soft);
   font-family: var(--ipd-font-mono); font-size: 0.6rem; font-weight: 700; color: var(--accent);
@@ -806,12 +807,8 @@ main {
     <!-- Empty state: Plani centered -->
     <div class="tutor-empty" id="tutorEmpty">
 
-      {# The empty state is the first thing anyone sees on this page, and it
-         was an "IP" monogram in a dark rounded square — indistinguishable
-         from a placeholder. Plani itself belongs here: same character as the
-         corner assistant, same --plani-* palette, just larger. #}
       <div id="tutorPlaniWrap">
-        <img id="tutorPlaniSvg" src="/static/plani-3d.webp" width="110" height="110" alt="" aria-hidden="true">
+        {{ plani_avatar(110, image_id='tutorPlaniSvg') }}
       </div>
 
       <h2 class="tutor-empty-title">What do you want to learn today?</h2>
@@ -849,7 +846,7 @@ main {
     <!-- Thinking dots -->
     <div class="tutor-thinking-row" id="tutorThinking" aria-label="AI Tutor is thinking">
       <div class="tutor-avatar bot" aria-hidden="true">
-        <svg width="16" height="18" viewBox="0 0 80 92"><defs><linearGradient id="ta" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" style="stop-color:var(--plani-shell-1)"/><stop offset="100%" style="stop-color:var(--plani-shell-2)"/></linearGradient></defs><rect x="13" y="14" width="54" height="42" rx="15" fill="url(#ta)"/><g transform="translate(26,27)"><rect width="12" height="9" rx="4" style="fill:var(--plani-eye)"/></g><g transform="translate(42,27)"><rect width="12" height="9" rx="4" style="fill:var(--plani-eye)"/></g><path d="M26 42 Q40 52 54 42" style="stroke:var(--plani-line)" stroke-width="2.2" fill="none" stroke-linecap="round"/><rect x="19" y="59" width="42" height="29" rx="11" style="fill:var(--plani-body-1)"/></svg>
+        {{ plani_avatar(24) }}
       </div>
       <div class="tutor-thinking-dots">
         <div class="tutor-dot"></div><div class="tutor-dot"></div><div class="tutor-dot"></div>
@@ -2952,7 +2949,8 @@ function addTutorMsg(role, text, refusal, studySources) {
   av.setAttribute('aria-hidden', 'true');
 
   if (role === 'bot') {
-    av.innerHTML = '<svg width="17" height="17" aria-hidden="true"><use href="#i-study"/></svg>';
+    const portrait = document.getElementById('planiReplyPortrait');
+    if (portrait) av.appendChild(portrait.content.cloneNode(true));
   } else {
     av.textContent = 'You';
   }

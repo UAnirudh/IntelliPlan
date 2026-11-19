@@ -2469,6 +2469,12 @@
       background:var(--plani-signal);
       opacity:0.55;
     }
+    .plani-portrait { display:block; flex-shrink:0; object-fit:contain; }
+    .plani-portrait-fallback { display:none !important; }
+    html[data-ui-mascot="hidden"] .plani-portrait { display:none !important; }
+    html[data-ui-mascot="hidden"] .plani-portrait-fallback { display:block !important; }
+    html[data-ui-mascot="hidden"] :is(.plani-hdr-avatar, .plani-msg.bot .plani-msg-avatar, #planiTyping .plani-msg-avatar, .tutor-avatar.bot) { display:none; }
+
     .plani-hdr-avatar {
       width:30px; height:30px; background:rgba(255,255,255,0.1);
       border:1px solid rgba(255,255,255,0.12);
@@ -2493,7 +2499,7 @@
     .plani-msg { display:flex; gap:8px; animation:fadeUp 0.22s var(--ease-out) both; }
     .plani-msg.user { flex-direction:row-reverse; }
     .plani-msg-avatar { width:25px; height:25px; border-radius:7px; background:var(--ink, #161616); display:flex; align-items:center; justify-content:center; font-size:9px; font-family:var(--font-ui); font-weight:700; color:var(--on-ink); letter-spacing:0.02em; flex-shrink:0; margin-top:2px; }
-    :root[data-theme="dark"] .plani-msg-avatar { background:var(--ink); color:var(--on-ink); }
+    :is(.plani-msg.bot, #planiTyping) .plani-msg-avatar { background:var(--accent-soft); }
     .plani-msg.user .plani-msg-avatar { background:var(--accent-soft); color:var(--accent); }
     .plani-msg-bubble { max-width:76%; padding:8px 12px; border-radius:15px; font-size:0.84rem; line-height:1.55; color:var(--text-primary); background:var(--bg-elevated); border:1px solid var(--border); }
     .plani-msg.user .plani-msg-bubble { background:var(--ink, #161616); color:var(--on-ink); border-color:transparent; border-radius:15px 15px 3px 15px; }
@@ -2564,7 +2570,7 @@
     #planiAvatar { position:relative; cursor:pointer; user-select:none; }
     #planiRobot {
       width:68px; height:68px; display:block;
-      filter:drop-shadow(0 10px 24px rgba(var(--plani-glow), 0.30));
+      filter:drop-shadow(0 5px 8px rgba(0, 0, 0, 0.2));
       transition:transform 0.24s var(--ease-out), filter 0.24s ease;
     }
     /* The idle bob is what made the old bot feel alive. Kept slow (3.4s)
@@ -2574,13 +2580,9 @@
     }
     #planiAvatar:hover #planiRobot {
       transform:scale(1.09);
-      filter:drop-shadow(0 16px 34px rgba(var(--plani-glow), 0.45));
+      filter:drop-shadow(0 8px 12px rgba(0, 0, 0, 0.24));
     }
-    #planiAvatar:focus-visible { outline:none; }
-    #planiAvatar:focus-visible #planiRobot {
-      transform:scale(1.09);
-      filter:drop-shadow(0 0 0 3px var(--accent)) drop-shadow(0 10px 24px rgba(var(--plani-glow), 0.4));
-    }
+    #planiAvatar:focus-visible { outline:2px solid var(--accent); outline-offset:3px; border-radius:14px; }
 
     /* SVG gradient stops are set here rather than as attributes: attribute
        values do not parse var(), but stop-color is a real CSS property, so
@@ -2602,13 +2604,6 @@
     .pg-line   { stroke:var(--plani-line); }
     .pg-foot   { fill:var(--plani-body-2); }
     .pg-joint  { fill:var(--plani-shell-2); }
-
-    /* The blink and pulse are SMIL <animate> inside the SVG, which
-       prefers-reduced-motion cannot reach from CSS. The JS toggle below
-       pauses them; this is the belt to that braces. */
-    @media (prefers-reduced-motion: reduce) {
-      #planiRobot { animation:none; }
-    }
 
     #planiBubble {
       position:absolute; bottom:calc(100% + 10px); right:0;
