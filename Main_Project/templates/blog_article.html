@@ -129,7 +129,7 @@
   <a class="blog-back" href="{{ '/compare' if active_page == 'compare' else '/blog' }}">&larr; {{ 'All comparisons' if active_page == 'compare' else 'All guides' }}</a>
   <span class="blog-kicker">{{ article.kicker }}</span>
   <h1 class="blog-title">{{ article.title }}</h1>
-  <p class="blog-meta">{% if article.updated %}Updated {% endif %}<time datetime="{{ article.updated or article.date }}">{{ article.updated or article.date }}</time> &middot; {{ article.reading_time }} min read</p>
+  <p class="blog-meta">{% if article.updated %}Updated {% endif %}<time datetime="{{ article.updated or article.date }}">{{ display_date }}</time> &middot; {{ reading_time }} min read</p>
 
   <div class="blog-body">
     {% for section in article.sections %}
