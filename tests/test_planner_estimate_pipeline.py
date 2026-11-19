@@ -215,3 +215,20 @@ def test_a_student_marked_high_priority_is_respected():
     high = App._planner_task_rows([_assignment(priority="High")], [])[0]["priority"]
     low = App._planner_task_rows([_assignment(priority="Low")], [])[0]["priority"]
     assert high > low
+
+
+def test_interactive_details_preserve_planned_times_and_existing_progress_keys():
+    plan = _plan_with_split()
+    first = plan["schedule"][0]["blocks"][0]
+    first.update(block_id="saved-progress-id", start_iso=f"{TOMORROW}T17:00",
+                 end_iso=f"{TOMORROW}T17:40")
+    second = {**first, "assignment": "Practice fractions", "block_id": None}
+    plan["schedule"][0]["blocks"].append(second)
+
+    App._attach_schedule_block_details(plan, new_plan=True)
+
+    assert first["block_id"] == "saved-progress-id"
+    assert second["block_id"] and second["block_id"] != first["block_id"]
+    assert first["checklist"] and second["checklist"]
+    assert all(block["start_iso"] == f"{TOMORROW}T17:00" for block in (first, second))
+    assert all(block["end_iso"] == f"{TOMORROW}T17:40" for block in (first, second))

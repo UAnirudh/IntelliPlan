@@ -4911,6 +4911,25 @@ def reflow_schedule(schedule_data, availability=None, commitments=None, dna=None
     return schedule_data
 
 
+def _attach_schedule_block_details(schedule_data, *, new_plan=False):
+    """Make timed plans interactive without moving any study blocks."""
+    revision = f'{uuid.uuid4().hex[:12]}-' if new_plan else ''
+    count = 0
+    for day_number, day in enumerate(schedule_data.get('schedule') or [], start=1):
+        for block in day.get('blocks') or []:
+            count += 1
+            prefix = 'unplaced' if block.get('unplaced') else f'd{day_number}'
+            if not block.get('block_id'):
+                block['block_id'] = f'{revision}{prefix}-b{count}'
+            kind = 'break' if block.get('is_break') else classify_block_kind(
+                block.get('assignment', ''), block.get('course', ''),
+            )
+            block.setdefault('kind', kind)
+            block.setdefault('redirect', BLOCK_KIND_REDIRECT.get(kind))
+            if not block.get('checklist'):
+                block['checklist'] = build_block_checklist(block, kind, {})
+
+
 def enrich_schedule_data(schedule_data, assignments, preferred_time, hours_per_day):
     assignment_lookup = {item["title"]: item for item in assignments if isinstance(item, dict) and item.get("title")}
     assignment_ids = {str(item.get("id") or item.get("source_ref")): item
@@ -12594,6 +12613,7 @@ def _build_planner_schedule(normalized_assignments, custom_tasks, uid, gid,
             )
         except Exception as ee:
             print(f"[planner] enrich_schedule_data failed (non-fatal): {ee}")
+        _attach_schedule_block_details(data, new_plan=True)
         validation = service.verify(data, planning_now)
         if not validation.feasible:
             app.logger.warning('Planner produced a plan that failed feasibility checks')
@@ -12824,6 +12844,7 @@ def _schedule_without_ai(assignments, preferred_time, hours_per_day,
         data = enrich_schedule_data(data, assignments, preferred_time, hours_per_day)
     except Exception as exc:
         print(f"[scheduler] fallback enrich failed (non-fatal): {exc}")
+    _attach_schedule_block_details(data, new_plan=True)
 
     try:
         log_security_event("scheduler_degraded", detail=reason[:200])
@@ -15841,15 +15862,13 @@ def get_saved_schedule():
     # Backfill block_id / kind / checklist / redirect on schedules saved before
     # the Interactive View shipped, so the new UI works without re-generating.
     try:
-        needs_backfill = False
-        for d in (data.get("schedule") or []):
-            for b in (d.get("blocks") or []):
-                if not b.get("block_id") or not b.get("checklist"):
-                    needs_backfill = True
-                    break
-            if needs_backfill: break
-        if needs_backfill:
-            data = humanize_schedule(data, "evening", 2)
+        blocks = [block for day in data.get("schedule") or [] for block in day.get("blocks") or []]
+        if any(not block.get("block_id") or (not block.get("is_break") and not block.get("checklist"))
+               for block in blocks):
+            if all(block.get("unplaced") or (block.get("start_iso") and block.get("end_iso")) for block in blocks):
+                _attach_schedule_block_details(data)
+            else:
+                data = humanize_schedule(data, "evening", 2)
     except Exception as e:
         print(f"[scheduler] backfill on saved schedule failed: {e}")
     try:
@@ -16059,6 +16078,7 @@ def recover_schedule():
         service.set_capacity_overrides(before.get("capacity_overrides"))
         replanned = service.replan(rows, reality, anchors=anchors)
         after = service.to_schedule_data(replanned)
+        _attach_schedule_block_details(after, new_plan=True)
         if uid:
             # A recovery is a new version of the plan, and the reason it
             # exists is the whole point of recording it: "v15, because you
