@@ -1185,7 +1185,7 @@
       color: var(--text-muted); transition: all 0.12s;
     }
     #navCustomizer .nc-toggle button:hover { color: var(--text-primary); }
-    #navCustomizer .nc-toggle button.active { background: var(--accent); color: #fff; }
+    #navCustomizer .nc-toggle button.active { background: var(--accent); color: var(--on-accent, #fff); }
     #navCustomizer .nc-foot {
       display: flex; justify-content: space-between; align-items: center; gap: 8px;
       padding: 12px 18px; border-top: 1px solid var(--border);
@@ -2839,7 +2839,7 @@
          link is parked at the top of the document, so tabbing to it after
          any scroll moves focus to something the user cannot see. */
       position: fixed; top: -100px; left: 8px; z-index: var(--z-max, 9000);
-      background: var(--accent); color: #fff;
+      background: var(--accent); color: var(--on-accent, #fff);
       padding: 10px 16px; border-radius: 8px;
       font: 600 0.92rem var(--font-display);
       text-decoration: none;

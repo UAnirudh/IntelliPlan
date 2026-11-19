@@ -137,7 +137,7 @@
     cursor: pointer; transition: background-color 0.16s, color 0.16s;
   }
   .hub-filter-btn:hover { border-color: var(--border-accent); color: var(--accent); }
-  .hub-filter-btn.active { background: var(--accent); color: #fff; border-color: transparent; }
+  .hub-filter-btn.active { background: var(--accent); color: var(--on-accent, #fff); border-color: transparent; }
 
   /* Card grid */
   .hub-grid {
@@ -257,7 +257,7 @@
       autocomplete="off" />
     <button id="hubChatSubmit" class="hub-chat-submit" type="button">
       Ask
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+      <span class="ip-arrow" style="--ip-arrow-size:14px" aria-hidden="true"></span>
     </button>
   </div>
 
@@ -275,7 +275,7 @@
     <div class="hub-chat-result-reason" id="hubResultReason">…</div>
     <a id="hubResultGo" class="hub-chat-result-go" href="#">
       Go there
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+      <span class="ip-arrow" style="--ip-arrow-size:13px" aria-hidden="true"></span>
     </a>
   </div>
 </section>
@@ -299,7 +299,7 @@
       <span class="hub-card-title">AI Tutor</span>
     </div>
     <p class="hub-card-desc">Work through a question with hints, explanations, and independent checks.</p>
-    <div class="hub-card-footer"><span class="hub-card-tag">AI Help</span><span class="hub-card-go">Open<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span></div>
+    <div class="hub-card-footer"><span class="hub-card-tag">AI Help</span><span class="hub-card-go">Open<span class="ip-arrow" style="--ip-arrow-size:13px" aria-hidden="true"></span></span></div>
   </a>
 
   <a href="/writing" class="hub-card" data-cat="ai">
@@ -308,7 +308,7 @@
       <span class="hub-card-title">Writing</span>
     </div>
     <p class="hub-card-desc">Essay help, grammar checking, draft refinement, and proofreading — all powered by AI.</p>
-    <div class="hub-card-footer"><span class="hub-card-tag">AI Help</span><span class="hub-card-go">Open<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span></div>
+    <div class="hub-card-footer"><span class="hub-card-tag">AI Help</span><span class="hub-card-go">Open<span class="ip-arrow" style="--ip-arrow-size:13px" aria-hidden="true"></span></span></div>
   </a>
 
   <a href="/math" class="hub-card" data-cat="ai">
@@ -317,7 +317,7 @@
       <span class="hub-card-title">Math Explainer</span>
     </div>
     <p class="hub-card-desc">Step-by-step solutions for algebra, calculus, geometry, and more. See the work, not just the answer.</p>
-    <div class="hub-card-footer"><span class="hub-card-tag">AI Help</span><span class="hub-card-go">Open<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span></div>
+    <div class="hub-card-footer"><span class="hub-card-tag">AI Help</span><span class="hub-card-go">Open<span class="ip-arrow" style="--ip-arrow-size:13px" aria-hidden="true"></span></span></div>
   </a>
 
   <a href="/extractor" class="hub-card" data-cat="ai">
@@ -326,7 +326,7 @@
       <span class="hub-card-title">Task Extractor</span>
     </div>
     <p class="hub-card-desc">Upload a syllabus, screenshot, or PDF — IntelliPlan pulls out every assignment and due date for you.</p>
-    <div class="hub-card-footer"><span class="hub-card-tag">AI Help</span><span class="hub-card-go">Open<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span></div>
+    <div class="hub-card-footer"><span class="hub-card-tag">AI Help</span><span class="hub-card-go">Open<span class="ip-arrow" style="--ip-arrow-size:13px" aria-hidden="true"></span></span></div>
   </a>
 
   <a href="/tools/text-dissector" class="hub-card" data-cat="ai">
@@ -335,20 +335,20 @@
       <span class="hub-card-title">Text Dissector</span>
     </div>
     <p class="hub-card-desc">Paste any passage — get a plain-English summary, key points, vocabulary definitions, and comprehension questions.</p>
-    <div class="hub-card-footer"><span class="hub-card-tag">AI Help</span><span class="hub-card-go">Open<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span></div>
+    <div class="hub-card-footer"><span class="hub-card-tag">AI Help</span><span class="hub-card-go">Open<span class="ip-arrow" style="--ip-arrow-size:13px" aria-hidden="true"></span></span></div>
   </a>
 
   {# ── PRACTICE ── #}
-  <a href="/foundations" class="hub-card" data-cat="practice"><div class="hub-card-header"><span class="hub-card-icon"><svg><use href="#i-book"/></svg></span><span class="hub-card-title">Foundations</span></div><p class="hub-card-desc">A short path through reading, writing, and math, with checked answers and useful next steps.</p><div class="hub-card-footer"><span class="hub-card-tag">Practice</span><span class="hub-card-go">Open <span aria-hidden="true">↗</span></span></div></a>
-  <a href="/flashcards" class="hub-card" data-cat="practice"><div class="hub-card-header"><span class="hub-card-icon"><svg><use href="#i-book"/></svg></span><span class="hub-card-title">Flashcards</span></div><p class="hub-card-desc">Recall an answer before turning a card. Return to your own decks and due reviews.</p><div class="hub-card-footer"><span class="hub-card-tag">Practice</span><span class="hub-card-go">Open <span aria-hidden="true">↗</span></span></div></a>
-  <a href="/study-files" class="hub-card" data-cat="practice"><div class="hub-card-header"><span class="hub-card-icon"><svg><use href="#i-book"/></svg></span><span class="hub-card-title">Study materials</span></div><p class="hub-card-desc">Return to your uploaded notes and files, then use them to guide your next study session.</p><div class="hub-card-footer"><span class="hub-card-tag">Practice</span><span class="hub-card-go">Open <span aria-hidden="true">↗</span></span></div></a>
+  <a href="/foundations" class="hub-card" data-cat="practice"><div class="hub-card-header"><span class="hub-card-icon"><svg><use href="#i-book"/></svg></span><span class="hub-card-title">Foundations</span></div><p class="hub-card-desc">A short path through reading, writing, and math, with checked answers and useful next steps.</p><div class="hub-card-footer"><span class="hub-card-tag">Practice</span><span class="hub-card-go">Open <span class="ip-arrow" data-direction="up-right" aria-hidden="true"></span></span></div></a>
+  <a href="/flashcards" class="hub-card" data-cat="practice"><div class="hub-card-header"><span class="hub-card-icon"><svg><use href="#i-book"/></svg></span><span class="hub-card-title">Flashcards</span></div><p class="hub-card-desc">Recall an answer before turning a card. Return to your own decks and due reviews.</p><div class="hub-card-footer"><span class="hub-card-tag">Practice</span><span class="hub-card-go">Open <span class="ip-arrow" data-direction="up-right" aria-hidden="true"></span></span></div></a>
+  <a href="/study-files" class="hub-card" data-cat="practice"><div class="hub-card-header"><span class="hub-card-icon"><svg><use href="#i-book"/></svg></span><span class="hub-card-title">Study materials</span></div><p class="hub-card-desc">Return to your uploaded notes and files, then use them to guide your next study session.</p><div class="hub-card-footer"><span class="hub-card-tag">Practice</span><span class="hub-card-go">Open <span class="ip-arrow" data-direction="up-right" aria-hidden="true"></span></span></div></a>
   <a href="/active" class="hub-card featured" data-cat="practice">
     <div class="hub-card-header">
       <span class="hub-card-icon"><svg><use href="#i-video"/></svg></span>
       <span class="hub-card-title">Active Study</span>
     </div>
     <p class="hub-card-desc">Work one task at a time against your plan, with optional camera check-ins. Video is processed on your study device; a paired phone sends video only to that browser. Nothing is recorded.</p>
-    <div class="hub-card-footer"><span class="hub-card-tag">Practice</span><span class="hub-card-go">Open<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span></div>
+    <div class="hub-card-footer"><span class="hub-card-tag">Practice</span><span class="hub-card-go">Open<span class="ip-arrow" style="--ip-arrow-size:13px" aria-hidden="true"></span></span></div>
   </a>
 
   <a href="/study" class="hub-card featured" data-cat="practice">
@@ -357,7 +357,7 @@
       <span class="hub-card-title">Deep Study</span>
     </div>
     <p class="hub-card-desc">A structured 3-step session — setup, encoding, and database building — designed for serious study time.</p>
-    <div class="hub-card-footer"><span class="hub-card-tag">Practice</span><span class="hub-card-go">Open<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span></div>
+    <div class="hub-card-footer"><span class="hub-card-tag">Practice</span><span class="hub-card-go">Open<span class="ip-arrow" style="--ip-arrow-size:13px" aria-hidden="true"></span></span></div>
   </a>
 
   <a href="/learn" class="hub-card" data-cat="practice">
@@ -366,7 +366,7 @@
       <span class="hub-card-title">Learn</span>
     </div>
     <p class="hub-card-desc">AI-generated flashcards and quizzes for mastery practice. Spaced repetition keeps it sticky.</p>
-    <div class="hub-card-footer"><span class="hub-card-tag">Practice</span><span class="hub-card-go">Open<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span></div>
+    <div class="hub-card-footer"><span class="hub-card-tag">Practice</span><span class="hub-card-go">Open<span class="ip-arrow" style="--ip-arrow-size:13px" aria-hidden="true"></span></span></div>
   </a>
 
   <a href="/olympiad" class="hub-card featured" data-cat="practice">
@@ -375,7 +375,7 @@
       <span class="hub-card-title">Olympiad Preparer</span>
     </div>
     <p class="hub-card-desc">Native lessons for AMC, AIME, Science Olympiad, and computing contests — formulas, strategies, and practice frameworks.</p>
-    <div class="hub-card-footer"><span class="hub-card-tag">Practice</span><span class="hub-card-go">Open<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span></div>
+    <div class="hub-card-footer"><span class="hub-card-tag">Practice</span><span class="hub-card-go">Open<span class="ip-arrow" style="--ip-arrow-size:13px" aria-hidden="true"></span></span></div>
   </a>
 
   <a href="/focus" class="hub-card" data-cat="practice">
@@ -384,7 +384,7 @@
       <span class="hub-card-title">Focus Timer</span>
     </div>
     <p class="hub-card-desc">A clean Pomodoro timer with break reminders and session history. No distractions, just deep work.</p>
-    <div class="hub-card-footer"><span class="hub-card-tag">Practice</span><span class="hub-card-go">Open<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span></div>
+    <div class="hub-card-footer"><span class="hub-card-tag">Practice</span><span class="hub-card-go">Open<span class="ip-arrow" style="--ip-arrow-size:13px" aria-hidden="true"></span></span></div>
   </a>
 
   <a href="/library" class="hub-card" data-cat="practice">
@@ -393,7 +393,7 @@
       <span class="hub-card-title">AP Library</span>
     </div>
     <p class="hub-card-desc">Curated AP-course study guides, practice tests, and reference materials.</p>
-    <div class="hub-card-footer"><span class="hub-card-tag">Practice</span><span class="hub-card-go">Open<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span></div>
+    <div class="hub-card-footer"><span class="hub-card-tag">Practice</span><span class="hub-card-go">Open<span class="ip-arrow" style="--ip-arrow-size:13px" aria-hidden="true"></span></span></div>
   </a>
 
   <a href="/lessons" class="hub-card" data-cat="practice">
@@ -402,7 +402,7 @@
       <span class="hub-card-title">Lessons</span>
     </div>
     <p class="hub-card-desc">Upload a class recording — IntelliPlan transcribes it and pulls out the key takeaways.</p>
-    <div class="hub-card-footer"><span class="hub-card-tag">Practice</span><span class="hub-card-go">Open<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span></div>
+    <div class="hub-card-footer"><span class="hub-card-tag">Practice</span><span class="hub-card-go">Open<span class="ip-arrow" style="--ip-arrow-size:13px" aria-hidden="true"></span></span></div>
   </a>
 
   {# ── PLANNING ── #}
@@ -412,7 +412,7 @@
       <span class="hub-card-title">Priority Queue</span>
     </div>
     <p class="hub-card-desc">Your assignments, ranked by urgency. Always know what to tackle next.</p>
-    <div class="hub-card-footer"><span class="hub-card-tag">Planning</span><span class="hub-card-go">Open<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span></div>
+    <div class="hub-card-footer"><span class="hub-card-tag">Planning</span><span class="hub-card-go">Open<span class="ip-arrow" style="--ip-arrow-size:13px" aria-hidden="true"></span></span></div>
   </a>
 
   <a href="/classes" class="hub-card" data-cat="planning">
@@ -421,7 +421,7 @@
       <span class="hub-card-title">Classes</span>
     </div>
     <p class="hub-card-desc">Every course in one place — assignments, grades, and materials side-by-side.</p>
-    <div class="hub-card-footer"><span class="hub-card-tag">Planning</span><span class="hub-card-go">Open<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span></div>
+    <div class="hub-card-footer"><span class="hub-card-tag">Planning</span><span class="hub-card-go">Open<span class="ip-arrow" style="--ip-arrow-size:13px" aria-hidden="true"></span></span></div>
   </a>
 
   <a href="/grades" class="hub-card" data-cat="planning">
@@ -430,7 +430,7 @@
       <span class="hub-card-title">Grades</span>
     </div>
     <p class="hub-card-desc">Live grades with trends, target tracking, and "what-if" projections.</p>
-    <div class="hub-card-footer"><span class="hub-card-tag">Planning</span><span class="hub-card-go">Open<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span></div>
+    <div class="hub-card-footer"><span class="hub-card-tag">Planning</span><span class="hub-card-go">Open<span class="ip-arrow" style="--ip-arrow-size:13px" aria-hidden="true"></span></span></div>
   </a>
 
   <a href="/tests" class="hub-card" data-cat="planning">
@@ -439,7 +439,7 @@
       <span class="hub-card-title">Tests &amp; Quizzes</span>
     </div>
     <p class="hub-card-desc">Upcoming tests, prep checklists, and practice exam libraries.</p>
-    <div class="hub-card-footer"><span class="hub-card-tag">Planning</span><span class="hub-card-go">Open<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span></div>
+    <div class="hub-card-footer"><span class="hub-card-tag">Planning</span><span class="hub-card-go">Open<span class="ip-arrow" style="--ip-arrow-size:13px" aria-hidden="true"></span></span></div>
   </a>
 
   <a href="/dismissed" class="hub-card" data-cat="planning">
@@ -448,7 +448,7 @@
       <span class="hub-card-title">Completed Work</span>
     </div>
     <p class="hub-card-desc">Your archive of finished assignments. Restore any of them with one click.</p>
-    <div class="hub-card-footer"><span class="hub-card-tag">Planning</span><span class="hub-card-go">Open<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span></div>
+    <div class="hub-card-footer"><span class="hub-card-tag">Planning</span><span class="hub-card-go">Open<span class="ip-arrow" style="--ip-arrow-size:13px" aria-hidden="true"></span></span></div>
   </a>
 
   <a href="/streak" class="hub-card" data-cat="planning">
@@ -457,7 +457,7 @@
       <span class="hub-card-title">Streak</span>
     </div>
     <p class="hub-card-desc">Track your daily study habit and earn rewards for consistency.</p>
-    <div class="hub-card-footer"><span class="hub-card-tag">Planning</span><span class="hub-card-go">Open<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span></div>
+    <div class="hub-card-footer"><span class="hub-card-tag">Planning</span><span class="hub-card-go">Open<span class="ip-arrow" style="--ip-arrow-size:13px" aria-hidden="true"></span></span></div>
   </a>
 
   {# ── SOCIAL ── #}
@@ -467,7 +467,7 @@
       <span class="hub-card-title">Meetings</span>
     </div>
     <p class="hub-card-desc">Your Zoom, Teams, Meet, and Webex calls — all in one synced feed.</p>
-    <div class="hub-card-footer"><span class="hub-card-tag">Social</span><span class="hub-card-go">Open<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span></div>
+    <div class="hub-card-footer"><span class="hub-card-tag">Social</span><span class="hub-card-go">Open<span class="ip-arrow" style="--ip-arrow-size:13px" aria-hidden="true"></span></span></div>
   </a>
 
   <a href="/groups" class="hub-card" data-cat="social">
@@ -476,7 +476,7 @@
       <span class="hub-card-title">Study Groups</span>
     </div>
     <p class="hub-card-desc">Form a group, share notes, and study together — even when you're apart.</p>
-    <div class="hub-card-footer"><span class="hub-card-tag">Social</span><span class="hub-card-go">Open<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span></div>
+    <div class="hub-card-footer"><span class="hub-card-tag">Social</span><span class="hub-card-go">Open<span class="ip-arrow" style="--ip-arrow-size:13px" aria-hidden="true"></span></span></div>
   </a>
 </div>
 

@@ -557,7 +557,7 @@
       return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + d + '</svg>';
     };
     return [
-      { action: 'ft-push', label: 'Not today — push it', svg: icon('<path d="M5 12h14"/><polyline points="13 6 19 12 13 18"/>'), enabled: true },
+      { action: 'ft-push', label: 'Not today — push it', svg: '<span class="ip-arrow" aria-hidden="true"></span>', enabled: true },
       { action: 'ft-done', label: 'Already done — take it off', svg: icon('<polyline points="20 6 9 17 4 12"/>'), enabled: true },
     ];
   };

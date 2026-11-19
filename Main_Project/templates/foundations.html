@@ -10,7 +10,7 @@
       <h1 id="primerPageTitle">Small practice. Real understanding.</h1>
       <p id="primerPageIntro">Read carefully, write clearly, and reason with numbers. Start with a short activity, get useful feedback, and pick up where you left off.</p>
     </div>
-    <div class="primer-heading-actions"><a class="primer-secondary" href="/tutor?plan=1">Build your personal learning plan with Plani <span aria-hidden="true">↗</span></a></div>
+    <div class="primer-heading-actions"><a class="primer-secondary" href="/tutor?plan=1">Build your personal learning plan with Plani <span class="ip-arrow" data-direction="up-right" aria-hidden="true"></span></a></div>
   </header>
 
   <div id="primerStatus" class="primer-status" role="status" aria-live="polite">Loading your learners…</div>
@@ -38,7 +38,7 @@
           {% for grade in range(1, 13) %}<option value="{{ grade }}">Grade {{ grade }}</option>{% endfor %}
           <option value="13">College foundation</option>
         </select>
-        <button class="primer-primary" type="submit">Start practicing <span aria-hidden="true">→</span></button>
+        <button class="primer-primary" type="submit">Start practicing <span class="ip-arrow" aria-hidden="true"></span></button>
         <button class="primer-text-btn" id="primerCancelCreate" type="button" hidden>Back to my practice</button>
       </form>
     </div>
@@ -83,12 +83,12 @@
             <div id="primerResponse"></div>
             <button class="primer-text-btn primer-clue-button" id="primerShowClue" type="button">Show a clue</button>
             <p class="primer-clue" id="primerClue" hidden></p>
-            <button class="primer-primary" id="primerCheck" type="submit">Check answer <span aria-hidden="true">→</span></button>
+            <button class="primer-primary" id="primerCheck" type="submit">Check answer <span class="ip-arrow" aria-hidden="true"></span></button>
           </form>
           <div class="primer-feedback" id="primerFeedback" role="status" aria-live="polite" hidden></div>
           <p class="primer-evidence-note" id="primerEvidenceNote" hidden></p>
-          <div class="primer-session-end" id="primerSessionEnd" hidden><h3>A good place to pause.</h3><p id="primerSessionResult"></p><p>Your next step is saved. Return whenever you're ready, or keep practicing below.</p><a class="primer-secondary" href="/study-tools">Explore other study tools <span aria-hidden="true">↗</span></a></div>
-          <button type="button" class="primer-primary" id="primerNext" hidden>Next activity <span aria-hidden="true">→</span></button>
+          <div class="primer-session-end" id="primerSessionEnd" hidden><h3>A good place to pause.</h3><p id="primerSessionResult"></p><p>Your next step is saved. Return whenever you're ready, or keep practicing below.</p><a class="primer-secondary" href="/study-tools">Explore other study tools <span class="ip-arrow" data-direction="up-right" aria-hidden="true"></span></a></div>
+          <button type="button" class="primer-primary" id="primerNext" hidden>Next activity <span class="ip-arrow" aria-hidden="true"></span></button>
         </div>
         <div class="primer-story-choice" id="primerStoryChoice" hidden>
           <p class="primer-eyebrow">YOUR DECISION</p>
@@ -100,7 +100,7 @@
           <p class="primer-eyebrow">JOURNEY COMPLETE</p>
           <h3>What will you discover next time?</h3>
           <p>The story can begin again with different choices. Practice evidence stays with this learner.</p>
-          <button type="button" class="primer-primary" id="primerRestart">Explore this world again <span aria-hidden="true">→</span></button>
+          <button type="button" class="primer-primary" id="primerRestart">Explore this world again <span class="ip-arrow" aria-hidden="true"></span></button>
         </div>
       </section>
 

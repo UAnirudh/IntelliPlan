@@ -44,7 +44,7 @@
     border-radius: 10px; font-family: inherit; font-size: 0.83rem;
     font-weight: 600; cursor: pointer; white-space: nowrap;
   }
-  .ip-cookie-primary { border: 1px solid var(--accent); background: var(--accent); color: #fff; }
+  .ip-cookie-primary { border: 1px solid var(--accent); background: var(--accent); color: var(--on-accent, #fff); }
   .ip-cookie-secondary {
     border: 1px solid var(--border-strong); background: transparent;
     color: var(--text-primary);
@@ -171,7 +171,7 @@
   .ip-policy-hint { margin: 0 0 0.55rem; font-size: 0.78rem; color: var(--text-secondary); }
   .ip-policy-accept {
     width: 100%; min-height: 46px; padding: 11px; border: none; border-radius: 10px;
-    background: var(--accent); color: #fff; font-family: inherit;
+    background: var(--accent); color: var(--on-accent, #fff); font-family: inherit;
     font-weight: 700; font-size: 0.9rem; cursor: pointer;
   }
   .ip-policy-accept:disabled { opacity: 0.55; cursor: not-allowed; }

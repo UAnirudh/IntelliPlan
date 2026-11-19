@@ -43,7 +43,7 @@
   .day-chip { display:flex; flex-direction:column; gap:4px; align-items:center; border:1px solid var(--border-strong); border-radius:10px; padding:0.5rem; min-width:70px; }
   .day-chip label { font-family:var(--font-ui); font-size:0.78rem; font-weight:600; color:var(--text-primary); display:flex; align-items:center; gap:4px; }
   .day-chip input[type=number] { width:54px; padding:0.35rem; border:1px solid var(--border-strong); border-radius:7px; font-family:inherit; font-size:0.82rem; text-align:center; background:var(--bg-secondary); color:var(--text-primary); }
-  .gen-btn { width:100%; margin-top:1.1rem; padding:0.85rem; border:none; border-radius:12px; background:var(--accent); color:#fff; font-family:var(--font-ui); font-weight:700; font-size:0.95rem; cursor:pointer; }
+  .gen-btn { width:100%; margin-top:1.1rem; padding:0.85rem; border:none; border-radius:12px; background:var(--accent); color:var(--on-accent, #fff); font-family:var(--font-ui); font-weight:700; font-size:0.95rem; cursor:pointer; }
   .sm-out { margin-top:1.5rem; }
   .sm-note { font-family:var(--font-ui); font-size:0.88rem; margin-bottom:0.75rem; }
   .sm-day { border:1px solid var(--border); border-radius:12px; padding:0.9rem 1rem; margin-bottom:0.6rem; background:var(--bg-secondary); }
@@ -98,7 +98,7 @@
   <div class="tool-cta">
     <h3>Skip the manual setup</h3>
     <p>IntelliPlan builds your study schedule from your real deadlines, automatically. Free for students.</p>
-    <a href="/login" class="btn-primary" style="text-decoration:none">Try IntelliPlan Free →</a>
+    <a href="/login" class="btn-primary" style="text-decoration:none">Try IntelliPlan Free <span class="ip-arrow" aria-hidden="true"></span></a>
   </div>
 </div>
 

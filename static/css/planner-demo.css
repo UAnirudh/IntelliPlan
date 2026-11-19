@@ -1,13 +1,13 @@
 :root {
   color-scheme: dark;
-  --bg: #0e0f12;
-  --bg-card: #17181d;
-  --bg-elevated: #1f2127;
-  --text-primary: #eceef2;
-  --text-secondary: #a9adb8;
-  --text-muted: #9a9eaa;
-  --border: #ffffff24;
-  --accent: #9ab5fa;
+  --bg: var(--ip-night);
+  --bg-card: #13232d;
+  --bg-elevated: #1a2d39;
+  --text-primary: var(--ip-paper);
+  --text-secondary: #bacbd4;
+  --text-muted: #9bb1bf;
+  --border: #bde5f33b;
+  --accent: var(--ip-ice);
   --focus-ring: var(--accent);
   --ipd-font-body: system-ui, sans-serif;
   --ipd-font-display: var(--ipd-font-body);
@@ -38,16 +38,14 @@ main { padding-block: clamp(27px, 5vw, 59px) 34px; }
 .demo-notice strong { color: var(--text-primary); }
 .sched-tabs { background: color-mix(in srgb, var(--bg-card) 58%, var(--bg)); margin-bottom: 14px; }
 .sched-tab { min-height: 40px; }
-.demo-panel { background: var(--bg-card); border-radius: var(--ipd-radius-lg); padding: clamp(15px, 3vw, 24px); }
+.demo-panel { background: var(--ip-raised); border: 1px solid var(--ip-hairline); box-shadow: var(--ip-inset); border-radius: var(--ipd-radius-lg); padding: clamp(15px, 3vw, 24px); }
 .study-hours { display: flex; flex-wrap: wrap; gap: 7px 18px; align-items: center; margin-bottom: 18px; }
 .study-hours label { font-size: .89rem; font-weight: 650; }
-select, .actions button, .secondary {
+select, .secondary {
   min-height: 42px; max-width: 100%; padding: 8px 12px;
   color: var(--text-primary); background: var(--bg-elevated); border: 1px solid var(--border);
   border-radius: var(--ipd-radius-sm); font: 580 .86rem/1.4 var(--ipd-font-body); cursor: pointer;
 }
-.actions button { background: var(--accent); border-color: transparent; color: #101a30; }
-.actions button:hover { background: #b9cbff; }
 .secondary:hover { border-color: var(--accent); }
 button:disabled { opacity: .7; cursor: default; }
 .assignment-queue { background: var(--bg); padding: 13px 15px; border-radius: var(--ipd-radius-md); }

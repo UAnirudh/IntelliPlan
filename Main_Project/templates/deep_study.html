@@ -38,7 +38,7 @@
   position: relative;
 }
 .ds-step-pill:last-child { border-right: none; }
-.ds-step-pill.active { background: var(--accent); color: #fff; }
+.ds-step-pill.active { background: var(--accent); color: var(--on-accent, #fff); }
 .ds-step-pill.done { color: var(--text-primary); }
 .ds-step-pill.done::after {
   content: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2310b981' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E"); margin-left: auto;
@@ -139,7 +139,7 @@
   cursor: pointer; transition: background 0.13s, transform 0.12s;
   display: inline-flex; align-items: center; gap: 8px;
 }
-.ds-btn-primary { background: var(--accent); color: #fff; }
+.ds-btn-primary { background: var(--accent); color: var(--on-accent, #fff); }
 .ds-btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
 .ds-btn-primary:active { transform: scale(0.97); }
 .ds-btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
@@ -286,7 +286,7 @@
   font-family: var(--font-ui); font-size: 0.74rem; font-weight: 700;
   color: var(--text-muted);
 }
-.ds-mode-toggle button.active { background: var(--accent); color: #fff; }
+.ds-mode-toggle button.active { background: var(--accent); color: var(--on-accent, #fff); }
 .ds-call-controls {
   display: flex; justify-content: center; gap: 14px; margin-top: 1.5rem;
 }
@@ -374,7 +374,7 @@
   transition: color 0.13s, background 0.13s, border-color 0.13s;
 }
 .ds-tc-btn:hover { color: var(--accent); border-color: var(--accent); }
-.ds-tc-btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.ds-tc-btn.primary { background: var(--accent); color: var(--on-accent, #fff); border-color: var(--accent); }
 .ds-tc-btn.primary:hover { background: var(--accent-hover); }
 .ds-tc-answer {
   margin-top: 10px; padding: 10px 12px;
@@ -446,7 +446,7 @@
 
     <div class="ds-ingest-actions">
       <button class="ds-btn ds-btn-primary" id="dsIngestBtn" onclick="dsIngest()">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+        <span class="ip-arrow" data-arrow-kind="chevron" style="--ip-arrow-size:14px" aria-hidden="true"></span>
         Lock in &amp; continue
       </button>
       <span class="ds-file-chip" id="dsFileChip" style="display:none;"></span>
@@ -486,7 +486,7 @@
     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:1.5rem;gap:1rem;">
       <span style="font-size:0.78rem;color:var(--text-muted);" id="dsLockStatus">Complete all 4 items and finish the timer to unlock Step 2.</span>
       <button class="ds-btn ds-btn-primary" id="dsUnlock2" onclick="dsGoto(2)" disabled>
-        Unlock Encoding Engine →
+        Unlock Encoding Engine <span class="ip-arrow" aria-hidden="true"></span>
       </button>
     </div>
   </section>
@@ -542,7 +542,7 @@
 
     <div style="display:flex;justify-content:space-between;margin-top:1.5rem;align-items:center;">
       <span style="font-size:0.78rem;color:var(--text-muted);">Whenever you're ready, end the session to move on.</span>
-      <button class="ds-btn ds-btn-primary" id="dsUnlock3" onclick="dsGoto(3)" disabled>Proceed to Database →</button>
+      <button class="ds-btn ds-btn-primary" id="dsUnlock3" onclick="dsGoto(3)" disabled>Proceed to Database <span class="ip-arrow" aria-hidden="true"></span></button>
     </div>
   </section>
 
@@ -554,7 +554,7 @@
     <div class="ds-magic-btn-wrap">
       <button class="ds-btn ds-btn-primary" id="dsMagicBtn" onclick="dsTransform()">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15 8.5 22 9.3 17 14.1 18.2 21 12 17.8 5.8 21 7 14.1 2 9.3 9 8.5 12 2"/></svg>
-        AI Magic Transform →
+        AI Magic Transform <span class="ip-arrow" aria-hidden="true"></span>
       </button>
     </div>
 
@@ -648,7 +648,7 @@ async function dsIngest() {
   } catch (err) {
     document.getElementById('dsIngestMsg').textContent = 'Error: ' + err.message;
     btn.disabled = false;
-    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg> Lock in &amp; continue';
+    btn.innerHTML = '<span class="ip-arrow" data-arrow-kind="chevron" style="--ip-arrow-size:14px" aria-hidden="true"></span> Lock in &amp; continue';
   }
 }
 

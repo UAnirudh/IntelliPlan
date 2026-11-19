@@ -2,7 +2,7 @@
 {% block page_title %}Institution Settings | IntelliPlan{% endblock %}
 {% block content %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/learning_hub.css') }}">
-<article class="learning-hub learning-admin" aria-labelledby="admin-title" data-no-motion><header class="learning-intro"><div class="learning-context"><span class="learning-eyebrow">INTELLIPLAN · SCHOOL ADMIN</span><a href="{{ adult_home|default('/learning') }}">Back to workspace <span aria-hidden="true">↗</span></a></div>
+<article class="learning-hub learning-admin" aria-labelledby="admin-title" data-no-motion><header class="learning-intro"><div class="learning-context"><span class="learning-eyebrow">INTELLIPLAN · SCHOOL ADMIN</span><a href="{{ adult_home|default('/learning') }}">Back to workspace <span class="ip-arrow" data-direction="up-right" aria-hidden="true"></span></a></div>
 <h1 id="admin-title">School workspace</h1><p>Manage your people, classrooms, and learning policies from one place. Your district's restrictions always take priority.</p></header>
 <p id="admin-status" role="status" aria-live="polite"></p>
 <div class="learning-organization admin-orgbar"><div><label for="admin-organization">Workspace</label><select id="admin-organization" aria-describedby="admin-scope" disabled></select></div><p id="admin-scope">Loading your school workspaces…</p></div>

@@ -9,7 +9,7 @@
   <header class="study-tools-intro">
     <div><p class="study-tools-eyebrow">Your learning toolkit</p><h1 id="tools-title">A little help for<br>every way you learn.</h1>
       <p>Ask a question, practice an idea, or make a plan. Your tools are all here.</p></div>
-    <a class="study-tools-return" href="/study-and-learn">{{ plani_avatar(22) }}Back to Plani <span aria-hidden="true">↗</span></a>
+    <a class="study-tools-return" href="/study-and-learn">{{ plani_avatar(22) }}Back to Plani <span class="ip-arrow" data-direction="up-right" aria-hidden="true"></span></a>
   </header>
   {% if tutor_restricted %}<p class="study-tools-notice" role="status">Your school has turned off Plani chat for this account. You can still explore the tools your school allows.</p>{% endif %}
   <p class="study-tools-policy">School permissions apply to every tool. Unavailable tools are marked below.</p>
@@ -31,13 +31,13 @@
         <span class="study-tool-icon"><svg aria-hidden="true"><use href="#i-{{ tool.icon }}"/></svg></span>
         <div><h3>{% if tool.allowed %}<a href="{{ tool.href }}">{{ tool.name }}</a>{% else %}<span>{{ tool.name }}</span>{% endif %}</h3><p>{{ tool.description }}</p>
         {% if not tool.allowed %}<span class="study-tool-reason">{{ 'Disabled by your school' if tool.reason == 'institution_policy' else 'Currently unavailable' }}</span>{% endif %}</div>
-        {% if tool.allowed %}<span class="study-tool-arrow" aria-hidden="true">↗</span>{% endif %}
+        {% if tool.allowed %}<span class="ip-arrow study-tool-arrow" data-direction="up-right" aria-hidden="true"></span>{% endif %}
       </article>
       {% endfor %}
     </div>
   </section>
   {% endfor %}
-  <footer class="study-tools-footer"><p>Start with what you know. Plani uses questions and hints to help you take the next step.</p><div><a href="/learning">Open sessions &amp; progress <span aria-hidden="true">↗</span></a>{% if can_manage_school %}<a href="/school-admin">Institution settings <span aria-hidden="true">↗</span></a>{% endif %}</div></footer>
+  <footer class="study-tools-footer"><p>Start with what you know. Plani uses questions and hints to help you take the next step.</p><div><a href="/learning">Open sessions &amp; progress <span class="ip-arrow" data-direction="up-right" aria-hidden="true"></span></a>{% if can_manage_school %}<a href="/school-admin">Institution settings <span class="ip-arrow" data-direction="up-right" aria-hidden="true"></span></a>{% endif %}</div></footer>
 </article>
 <script src="{{ url_for('static', filename='js/study_tools.js') }}?v={{ asset_v }}" defer></script>
 {% endblock %}

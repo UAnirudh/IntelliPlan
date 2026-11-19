@@ -7,6 +7,7 @@
   <title>Study scheduler demo | IntelliPlan</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/scheduler-agenda.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/planner-demo.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/site-material.css') }}?v={{ asset_v }}">
   <script src="{{ url_for('static', filename='js/planner-demo.js') }}" defer></script>
 </head>
 <body>
@@ -14,7 +15,7 @@
 <main>
   <h1>Study scheduler</h1>
   <p class="intro">Plan your week around the time you have.</p>
-  <p class="demo-notice"><strong>Fabricated coursework only.</strong> Sign in to use your own assignments. Changes here reset when you reload.</p>
+  <p class="demo-notice"><strong><span class="preview-warm-dot" aria-hidden="true"></span>Fabricated coursework only.</strong> Sign in to use your own assignments. Changes here reset when you reload.</p>
 
   {% set demo_mode = true %}
   <div id="demo-tabs" hidden>{% include "scheduler_tabs.html" %}</div>
@@ -35,7 +36,7 @@
       </ul>
       <p>Due Thursday at 5 pm. The example has study time Monday through Thursday.</p>
     </details>
-    <div class="actions"><button id="demo-build" type="button">Build study plan</button></div>
+    <div class="actions"><button id="demo-build" class="ip-action ip-action--primary" type="button">Build study plan <span class="ip-arrow" aria-hidden="true"></span></button></div>
   </section>
 
   <section id="pane-interactive" role="tabpanel" aria-labelledby="tab-interactive" hidden>

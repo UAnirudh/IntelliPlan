@@ -37,7 +37,7 @@
 .math-submit {
   margin-top:12px; padding:10px 22px; border:none; cursor:pointer; width:100%; min-height:44px;
   border-radius:var(--r-md); font-family:var(--font-body); font-weight:600; font-size:0.92rem;
-  background:var(--accent); color:#fff; transition:opacity 0.15s ease, transform 0.15s ease;
+  background:var(--accent); color:var(--on-accent, #fff); transition:opacity 0.15s ease, transform 0.15s ease;
 }
 .math-submit:hover:not(:disabled) { opacity:0.9; }
 .math-submit:active:not(:disabled) { transform:scale(0.98); }
@@ -61,7 +61,7 @@
 .math-skel-row.short { height:70px; }
 
 .step-row { display:flex; gap:12px; padding:12px 14px; background:var(--glass-bg); -webkit-backdrop-filter:blur(14px) saturate(1.5); backdrop-filter:blur(14px) saturate(1.5); border:1px solid var(--glass-border); box-shadow:var(--glass-btn-shadow); border-radius:var(--r-md); margin-bottom:10px; }
-.step-num { width:28px; height:28px; flex-shrink:0; border-radius:50%; background:var(--accent); color:#fff; font-family:var(--font-ui); font-weight:700; font-size:0.84rem; display:flex; align-items:center; justify-content:center; font-variant-numeric:tabular-nums; }
+.step-num { width:28px; height:28px; flex-shrink:0; border-radius:50%; background:var(--accent); color:var(--on-accent, #fff); font-family:var(--font-ui); font-weight:700; font-size:0.84rem; display:flex; align-items:center; justify-content:center; font-variant-numeric:tabular-nums; }
 .step-body { flex:1; min-width:0; }
 .step-text { font-size:0.9rem; color:var(--text-primary); margin-bottom:6px; line-height:1.5; }
 .step-math { font-family:var(--font-mono); font-size:0.95rem; background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:8px 12px; color:var(--text-primary); white-space:pre-wrap; overflow-x:auto; }

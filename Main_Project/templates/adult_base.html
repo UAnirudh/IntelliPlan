@@ -1,13 +1,14 @@
 <!doctype html>
-<html lang="en" data-theme="light">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
   <title>{% block page_title %}Your students | IntelliPlan{% endblock %}</title>
   <link rel="icon" href="/static/icons/icon-192.png">
-  <script>try { document.documentElement.dataset.theme = localStorage.getItem('theme') === 'dark' ? 'dark' : 'light'; } catch (_) {}</script>
+  {% include "partials/site_theme_init.html" %}
   {% block head_extra %}{% endblock %}
   <link rel="stylesheet" href="/static/css/adult_workspace.css?v={{ asset_v }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/site-material.css') }}?v={{ asset_v }}">
 </head>
 {% set adult_teacher = current_user.role == 'teacher' %}
 {% set adult_home = '/teacher' if adult_teacher else family_home_url|default('/parent') %}
@@ -17,7 +18,7 @@
     <aside class="adult-rail" aria-label="{{ 'Teacher' if adult_teacher else 'Family' }} navigation">
       <a class="adult-brand" href="{{ adult_home }}" aria-label="IntelliPlan {{ 'Teacher' if adult_teacher else 'Family' }} home"><img src="/static/icons/icon-192.png" alt=""><span>IntelliPlan<small>{{ 'Teacher' if adult_teacher else 'Family' }}</small></span></a>
       <nav aria-label="Workspace">
-        <a href="{{ adult_home }}" {% if active_page|default('parent') in ['teacher','parent'] %}aria-current="page"{% endif %}>Your students <span aria-hidden="true">↗</span></a>
+        <a href="{{ adult_home }}" {% if active_page|default('parent') in ['teacher','parent'] %}aria-current="page"{% endif %}>Your students <span class="ip-arrow" data-direction="up-right" aria-hidden="true"></span></a>
         <a href="{{ adult_home }}#{{ 'invite' if adult_teacher else 'access' }}">Invite a student <span aria-hidden="true">+</span></a>
         <a href="/adult/account" {% if active_page == 'adult_account' %}aria-current="page"{% endif %}>Your account</a>
         {% if workspace_school_admin %}<a href="/school-admin">Institution settings</a>{% endif %}

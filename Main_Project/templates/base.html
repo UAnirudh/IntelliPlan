@@ -1,8 +1,9 @@
 {% from 'partials/plani_avatar.html' import plani_avatar with context -%}
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
+  {% include "partials/site_theme_init.html" %}
   <meta name="ip-account-owner" content="{{ current_user.id if current_user is defined and current_user.is_authenticated else '' }}" />
   {# viewport-fit=cover is REQUIRED for env(safe-area-inset-*) to resolve to
      real values on notched iPhones, without it the insets are always 0. #}
@@ -191,10 +192,8 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/founder-mode.css') }}?v={{ asset_v }}">
 
   <link rel="manifest" href="/static/manifest.json">
-  {# Single theme-color tag, updated live by JS to match the active theme/
-     palette (see updateThemeColor()). The default matches the light --bg so
-     the very first paint (before JS) already looks right on iOS/Android. #}
-  <meta name="theme-color" content="#f3f5fb" id="metaThemeColor">
+  {# Updated live by updateThemeColor() after preferences are applied. #}
+  <meta name="theme-color" content="#09141c" id="metaThemeColor">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -488,6 +487,7 @@ body {
    cookie, declared in cookie_policy.py. Anything added here in future must
    be declared there and gated on consent first. #}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/workspace_polish.css') }}?v={{ asset_v }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/site-material.css') }}?v={{ asset_v }}">
 </head>
 
 {# Active uses the same desktop sidebar as the rest of the workspace. Keeping
@@ -500,7 +500,7 @@ body {
 {%- set _reading_progress = _rp_path.startswith('/blog') or _rp_path.startswith('/compare')
     or _rp_path in ['/about', '/faq', '/legal', '/privacy', '/terms', '/schools', '/uk', '/olympiad'] -%}
 {%- set _app_tabbar = logged_in and active_page in _app_pages -%}
-<body class="{% if active_page in _app_pages %}has-side{% endif %}{% if _app_tabbar %} has-tabbar{% endif %}{% if active_page in ['command_center','tutor','study_hub'] %} has-own-chat{% endif %}"
+<body class="{% if active_page in _app_pages %}has-side{% endif %}{% if _app_tabbar %} has-tabbar{% endif %}{% if active_page == 'landing' %} site-landing{% endif %}{% if active_page in ['command_center','tutor','study_hub'] %} has-own-chat{% endif %}"
       {% if current_user is defined and current_user.is_authenticated %}data-user-id="{{ current_user.id }}"{% endif %}{% if _reading_progress %}data-reading-progress{% endif %}{% block body_attrs %}{% endblock %}>
 <div class="ip-progress" aria-hidden="true"></div>
 {# One skip link. There were two — .a11y-skip and .skip-to-content — both
@@ -631,7 +631,6 @@ body {
   <rect x="2" y="6" width="14" height="12" rx="2" /></symbol>
     <symbol id="i-users" viewBox="0 0 256 256" fill="currentColor" stroke="none"><path d="M117.25,157.92a60,60,0,1,0-66.5,0A95.83,95.83,0,0,0,3.53,195.63a8,8,0,1,0,13.4,8.74,80,80,0,0,1,134.14,0,8,8,0,0,0,13.4-8.74A95.83,95.83,0,0,0,117.25,157.92ZM40,108a44,44,0,1,1,44,44A44.05,44.05,0,0,1,40,108Zm210.14,98.7a8,8,0,0,1-11.07-2.33A79.83,79.83,0,0,0,172,168a8,8,0,0,1,0-16,44,44,0,1,0-16.34-84.87,8,8,0,1,1-5.94-14.85,60,60,0,0,1,55.53,105.64,95.83,95.83,0,0,1,47.22,37.71A8,8,0,0,1,250.14,206.7Z"/></symbol>
     <symbol id="i-palette" viewBox="0 0 256 256" fill="currentColor" stroke="none"><path d="M200.77,53.89A103.27,103.27,0,0,0,128,24h-1.07A104,104,0,0,0,24,128c0,43,26.58,79.06,69.36,94.17A32,32,0,0,0,136,192a16,16,0,0,1,16-16h46.21a31.81,31.81,0,0,0,31.2-24.88,104.43,104.43,0,0,0,2.59-24A103.28,103.28,0,0,0,200.77,53.89Zm13,93.71A15.89,15.89,0,0,1,198.21,160H152a32,32,0,0,0-32,32,16,16,0,0,1-21.31,15.07C62.49,194.3,40,164,40,128a88,88,0,0,1,87.09-88h.9a88.35,88.35,0,0,1,88,87.25A88.86,88.86,0,0,1,213.81,147.6ZM140,76a12,12,0,1,1-12-12A12,12,0,0,1,140,76ZM96,100A12,12,0,1,1,84,88,12,12,0,0,1,96,100Zm0,56a12,12,0,1,1-12-12A12,12,0,0,1,96,156Zm88-56a12,12,0,1,1-12-12A12,12,0,0,1,184,100Z"/></symbol>
-    <symbol id="i-arrow-right" viewBox="0 0 256 256" fill="currentColor" stroke="none"><path d="M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z"/></symbol>
     <symbol id="i-plus" viewBox="0 0 256 256" fill="currentColor" stroke="none"><path d="M224,128a8,8,0,0,1-8,8H136v80a8,8,0,0,1-16,0V136H40a8,8,0,0,1,0-16h80V40a8,8,0,0,1,16,0v80h80A8,8,0,0,1,224,128Z"/></symbol>
     <symbol id="i-trash" viewBox="0 0 256 256" fill="currentColor" stroke="none"><path d="M216,48H176V40a24,24,0,0,0-24-24H104A24,24,0,0,0,80,40v8H40a8,8,0,0,0,0,16h8V208a16,16,0,0,0,16,16H192a16,16,0,0,0,16-16V64h8a8,8,0,0,0,0-16ZM96,40a8,8,0,0,1,8-8h48a8,8,0,0,1,8,8v8H96Zm96,168H64V64H192ZM112,104v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Zm48,0v64a8,8,0,0,1-16,0V104a8,8,0,0,1,16,0Z"/></symbol>
     <symbol id="i-gift" viewBox="0 0 256 256" fill="currentColor" stroke="none"><path d="M216,72H180.92c.39-.33.79-.65,1.17-1A29.53,29.53,0,0,0,192,49.57,32.62,32.62,0,0,0,158.44,16,29.53,29.53,0,0,0,137,25.91a54.94,54.94,0,0,0-9,14.48,54.94,54.94,0,0,0-9-14.48A29.53,29.53,0,0,0,97.56,16,32.62,32.62,0,0,0,64,49.57,29.53,29.53,0,0,0,73.91,71c.38.33.78.65,1.17,1H40A16,16,0,0,0,24,88v32a16,16,0,0,0,16,16v64a16,16,0,0,0,16,16H200a16,16,0,0,0,16-16V136a16,16,0,0,0,16-16V88A16,16,0,0,0,216,72ZM149,36.51a13.69,13.69,0,0,1,10-4.5h.49A16.62,16.62,0,0,1,176,49.08a13.69,13.69,0,0,1-4.5,10c-9.49,8.4-25.24,11.36-35,12.4C137.7,60.89,141,45.5,149,36.51Zm-64.09.36A16.63,16.63,0,0,1,96.59,32h.49a13.69,13.69,0,0,1,10,4.5c8.39,9.48,11.35,25.2,12.39,34.92-9.72-1-25.44-4-34.92-12.39a13.69,13.69,0,0,1-4.5-10A16.6,16.6,0,0,1,84.87,36.87ZM40,88h80v32H40Zm16,48h64v64H56Zm144,64H136V136h64Zm16-80H136V88h80v32Z"/></symbol>
@@ -1086,7 +1085,7 @@ body {
         onkeydown="handlePlaniKey(event)"
         oninput="autoResizePlani(this)"></textarea>
       <button id="planiSendBtn" onclick="sendPlaniMessage()" aria-label="Send message">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        <span class="ip-arrow" data-direction="up" style="--ip-arrow-size:15px" aria-hidden="true"></span>
       </button>
     </div>
   </div>
@@ -1109,12 +1108,11 @@ body {
 /* ── THEME (mode + palette) ────────── */
 const html       = document.documentElement;
 const PALETTES   = ['default','ocean','forest','sunset','rose','midnight','mocha'];
-const savedMode  = localStorage.getItem('theme') || 'light';
+const savedMode  = html.dataset.theme;
 const savedPal   = (() => {
   const p = localStorage.getItem('ip_theme_palette') || 'default';
   return PALETTES.includes(p) ? p : 'default';
 })();
-html.setAttribute('data-theme', savedMode);
 if (savedPal && savedPal !== 'default') html.setAttribute('data-palette', savedPal);
 
 const themeToggles = [document.getElementById('themeToggle'), document.getElementById('themeToggleSide')].filter(Boolean);
@@ -1428,7 +1426,7 @@ if (mobileMenuBtn) {
       html += `<a class="cmd-item ${i===0?'active':''}" data-idx="${i}" ${it.href?`href="${it.href}"`:'href="#"'}>` +
               `<svg class="cmd-icon"><use href="#${it.icon}"/></svg>` +
               `<span>${escapeCmd(it.label)}</span>` +
-              `<svg class="cmd-icon cmd-arrow"><use href="#i-arrow-right"/></svg>` +
+              `<span class="ip-arrow cmd-icon cmd-arrow" aria-hidden="true"></span>` +
               `</a>`;
     });
     results.innerHTML = html;
@@ -2375,7 +2373,7 @@ window.addEventListener('load',()=>{
 {% if active_page in ['blog', 'compare', 'tools', 'about'] %}
 <div id="readingProgress" aria-hidden="true"></div>
 <button id="scrollTopBtn" class="no-glass" type="button" aria-label="Back to top" title="Back to top">
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>
+  <span class="ip-arrow" data-direction="up" style="--ip-arrow-size:18px" aria-hidden="true"></span>
 </button>
 <style>
   #readingProgress {
@@ -2491,7 +2489,7 @@ window.addEventListener('load',()=>{
     <div id="tourDots" style="display:flex;gap:5px;"></div>
     <div style="display:flex;gap:8px;">
       <button id="tourPrev" onclick="tourNav(-1)" style="padding:8px 16px;border-radius:10px;border:1px solid var(--border-strong);background:var(--bg-card);color:var(--text-secondary);cursor:pointer;font-family:var(--font-ui);font-size:0.82rem;font-weight:600;">Back</button>
-      <button id="tourNext" onclick="tourNav(1)" class="btn-primary" style="padding:8px 18px;border:none;cursor:pointer;font-size:0.82rem;">Next</button>
+      <button id="tourNext" onclick="tourNav(1)" class="btn-primary" style="padding:8px 18px;border:none;cursor:pointer;font-size:0.82rem;"><span id="tourNextLabel">Next</span> <span id="tourNextArrow" class="ip-arrow" aria-hidden="true"></span></button>
     </div>
   </div>
 </div>
@@ -2559,7 +2557,9 @@ window.addEventListener('load',()=>{
     document.getElementById('tourStepLabel').textContent = `Step ${_step + 1} of ${STEPS.length}, ${s.title}`;
     document.getElementById('tourText').textContent = s.text;
     document.getElementById('tourPrev').style.display = _step === 0 ? 'none' : '';
-    document.getElementById('tourNext').textContent = _step === STEPS.length - 1 ? 'Finish' : 'Next →';
+    const lastStep = _step === STEPS.length - 1;
+    document.getElementById('tourNextLabel').textContent = lastStep ? 'Finish' : 'Next';
+    document.getElementById('tourNextArrow').hidden = lastStep;
     const dots = document.getElementById('tourDots');
     dots.innerHTML = STEPS.map((_,i) => `<div style="width:7px;height:7px;border-radius:50%;background:${i===_step?'var(--accent)':'var(--border-strong)'};transition:background 0.2s;"></div>`).join('');
     if (target) {
@@ -3091,7 +3091,7 @@ window.addEventListener('load',()=>{
 /* Stacked above the Plani assistant (which sits at bottom:24px) so the two
    floating controls no longer overlap in the bottom-right corner. */
 .ip-fb{position:fixed;bottom:92px;right:24px;z-index:1001;font-family:var(--font-ui)}
-.ip-fb-trigger{width:48px;height:48px;border-radius:50%;border:none;background:var(--accent);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px -4px rgba(28,25,20,0.28);transition:transform .15s,box-shadow .15s}
+.ip-fb-trigger{width:48px;height:48px;border-radius:50%;border:none;background:var(--accent);color:var(--on-accent, #fff);cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px -4px rgba(28,25,20,0.28);transition:transform .15s,box-shadow .15s}
 .ip-fb-trigger:hover{transform:scale(1.08);box-shadow:0 8px 22px -6px rgba(28,25,20,0.38)}
 /* Small ✕ badge, top-right of the feedback button, to hide the widget. */
 .ip-fb-hide{position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;border:1px solid var(--border-strong);background:var(--bg-card);color:var(--text-secondary);font-size:13px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-sm);padding:0;transition:background .15s,color .15s,transform .15s}
@@ -3107,7 +3107,7 @@ window.addEventListener('load',()=>{
 .ip-fb-cat{cursor:pointer}
 .ip-fb-cat input{display:none}
 .ip-fb-cat span{display:inline-block;padding:4px 10px;border-radius:8px;font-size:.75rem;font-weight:600;border:1px solid var(--border);color:var(--text-secondary);transition:all .15s}
-.ip-fb-cat input:checked+span{background:var(--accent);color:#fff;border-color:var(--accent)}
+.ip-fb-cat input:checked+span{background:var(--accent);color:var(--on-accent, #fff);border-color:var(--accent)}
 .ip-fb-mood-row{display:flex;align-items:center;gap:8px}
 .ip-fb-mood-label{font-size:.72rem;color:var(--text-muted);white-space:nowrap}
 .ip-fb-moods{display:flex;gap:2px}
@@ -3116,7 +3116,7 @@ window.addEventListener('load',()=>{
 .ip-fb-mood.ip-fb-mood-active{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,transparent)}
 .ip-fb-msg{width:100%;border:1px solid var(--border);border-radius:10px;padding:8px 10px;font-family:var(--font-ui);font-size:.82rem;resize:vertical;background:var(--bg-page,#f8f8fa);color:var(--text-primary);min-height:60px}
 .ip-fb-msg:focus{outline:none;border-color:var(--accent)}
-.ip-fb-submit{width:100%;padding:8px;border:none;border-radius:10px;background:var(--accent);color:#fff;font-family:var(--font-ui);font-weight:700;font-size:.82rem;cursor:pointer;transition:filter .15s}
+.ip-fb-submit{width:100%;padding:8px;border:none;border-radius:10px;background:var(--accent);color:var(--on-accent, #fff);font-family:var(--font-ui);font-weight:700;font-size:.82rem;cursor:pointer;transition:filter .15s}
 .ip-fb-submit:hover{filter:brightness(1.1)}
 .ip-fb-submit:disabled{opacity:.5;cursor:not-allowed}
 .ip-fb-bug{background:none;border:0;padding:2px 0;font-family:var(--font-ui);font-size:.74rem;font-weight:600;color:var(--text-muted);text-align:left;cursor:pointer;transition:color .15s}

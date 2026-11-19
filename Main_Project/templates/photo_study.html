@@ -28,7 +28,7 @@
 {% endblock %}
 {% block content %}
 <div class="photo-study" id="photoStudy">
-  <a href="/flashcards" class="ps-back">← Your flashcards</a>
+  <a href="/flashcards" class="ps-back"><span class="ip-arrow" data-direction="left" aria-hidden="true"></span> Your flashcards</a>
   <header class="ps-header"><div class="page-kicker">Photo practice</div>
     <h1>Your notes. A new way to remember.</h1>
     <p>Turn a page into questions you can actually practice. Check the reading first, then test yourself or build a flashcard deck.</p>
@@ -77,7 +77,7 @@
   <section id="psResults" class="ps-panel ps-results" aria-labelledby="psResultTitle" hidden>
     <div class="ps-result-header"><div><h2 id="psResultTitle" tabindex="-1"></h2><p id="psResultHint"></p></div><div class="ps-buttons"><button type="button" class="ps-btn" id="psRestart">Start again</button><button type="button" class="ps-btn" id="psEdit">Edit source</button></div></div>
     <div id="psPractice"></div>
-    <div class="ps-saving"><div class="ps-buttons"><button type="button" class="ps-btn ps-primary" id="psSave">Save flashcards</button><a href="/flashcards" id="psSaved" hidden>Open your saved deck →</a></div><p class="ps-privacy" id="psSaveHint">Saving adds these questions to your private spaced-repetition library. Your photo is never stored.</p></div>
+    <div class="ps-saving"><div class="ps-buttons"><button type="button" class="ps-btn ps-primary" id="psSave">Save flashcards</button><a href="/flashcards" id="psSaved" hidden>Open your saved deck <span class="ip-arrow" aria-hidden="true"></span></a></div><p class="ps-privacy" id="psSaveHint">Saving adds these questions to your private spaced-repetition library. Your photo is never stored.</p></div>
   </section>
 </div>
 {% endblock %}

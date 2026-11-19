@@ -625,7 +625,7 @@
     transition: opacity 0.16s;
   }
   .ck-redirect:hover { opacity: 0.88; }
-  .ck-redirect svg { width: 14px; height: 14px; }
+  .ck-redirect .ip-arrow { --ip-arrow-size: 14px; }
 
   /* Context info panel */
   .iv-context {
@@ -703,7 +703,7 @@
   .exp-btn:hover { border-color: var(--text-muted); }
   .exp-btn:disabled { opacity: 0.6; cursor: default; transform: none; }
   .exp-btn:active:not(:disabled) { transform: scale(0.98); }
-  .exp-btn.exp-gcal { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .exp-btn.exp-gcal { background: var(--accent); border-color: var(--accent); color: var(--on-accent, #fff); }
   .exp-btn.exp-gcal:hover { opacity: 0.9; }
   .exp-btn svg { width: 14px; height: 14px; }
 
@@ -1094,7 +1094,7 @@
         <button type="button" onclick="saveSchedule()" style="padding:12px 20px; border-radius:10px; border:1px solid var(--low); background:var(--low-bg); color:var(--low); cursor:pointer; font-family:var(--font-ui); font-size:0.88rem; font-weight:600; display:inline-flex; align-items:center; gap:6px;"><svg width="14" height="14"><use href="#i-save"/></svg> Save to dashboard</button>
         <details class="scheduler-options"><summary>More plan actions</summary>
         <button type="button" onclick="saveToMemories()" style="padding:12px 20px; border-radius:10px; border:1px solid var(--accent); background:var(--accent-soft); color:var(--accent); cursor:pointer; font-family:var(--font-ui); font-size:0.88rem; font-weight:600; display:inline-flex; align-items:center; gap:6px;"><svg width="14" height="14"><use href="#i-save"/></svg> Save to memories</button>
-        <button type="button" onclick="openInteractive()" style="padding:12px 20px; border-radius:10px; border:1px solid var(--accent); background:var(--accent); color:#fff; cursor:pointer; font-family:var(--font-ui); font-size:0.88rem; font-weight:600; display:inline-flex; align-items:center; gap:6px;"><svg width="14" height="14"><use href="#i-arrow-right"/></svg> Open interactive view</button></details>
+        <button type="button" onclick="openInteractive()" style="padding:12px 20px; border-radius:10px; border:1px solid var(--accent); background:var(--accent); color:var(--on-accent, #fff); cursor:pointer; font-family:var(--font-ui); font-size:0.88rem; font-weight:600; display:inline-flex; align-items:center; gap:6px;"><span class="ip-arrow" style="--ip-arrow-size:14px" aria-hidden="true"></span> Open interactive view</button></details>
       </div>
     </div>
     {# role="alert" is on the message span, not here: this container also
@@ -1281,7 +1281,7 @@
     <div class="ck-progress-text" id="ckProgressText">0 / 0</div>
     <a class="ck-redirect" id="ckFocus" href="/focus" hidden>Start focus timer</a>
     <a class="ck-redirect" id="ckRedirect" href="#" target="_self" style="display:none;">
-      <svg><use href="#i-arrow-right"/></svg> <span id="ckRedirectLabel">Open</span>
+      <span class="ip-arrow" aria-hidden="true"></span> <span id="ckRedirectLabel">Open</span>
     </a>
   </div>
 </aside>
@@ -3021,10 +3021,10 @@ function openMoveMenu(btn) {
   const menu = document.getElementById('ivMoveMenu');
   const icon = d => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
   const items = [
-    { action: 'up', label: 'Move earlier in the day', svg: icon('<polyline points="18 15 12 9 6 15"/>'), enabled: posAmongWork > 0 },
-    { action: 'down', label: 'Move later in the day', svg: icon('<polyline points="6 9 12 15 18 9"/>'), enabled: posAmongWork < workIdxs.length - 1 },
-    { action: 'prevday', label: prevDay ? `Move to ${escapeText(prevDay.day_name || 'previous day')}` : 'Move to previous day', svg: icon('<polyline points="15 18 9 12 15 6"/>'), enabled: !!prevDay },
-    { action: 'nextday', label: nextDay ? `Move to ${escapeText(nextDay.day_name || 'next day')}` : 'Move to next day', svg: icon('<polyline points="9 18 15 12 9 6"/>'), enabled: !!nextDay },
+    { action: 'up', label: 'Move earlier in the day', svg: '<span class="ip-arrow" data-direction="up" data-arrow-kind="chevron" aria-hidden="true"></span>', enabled: posAmongWork > 0 },
+    { action: 'down', label: 'Move later in the day', svg: '<span class="ip-arrow" data-direction="down" data-arrow-kind="chevron" aria-hidden="true"></span>', enabled: posAmongWork < workIdxs.length - 1 },
+    { action: 'prevday', label: prevDay ? `Move to ${escapeText(prevDay.day_name || 'previous day')}` : 'Move to previous day', svg: '<span class="ip-arrow" data-direction="left" data-arrow-kind="chevron" aria-hidden="true"></span>', enabled: !!prevDay },
+    { action: 'nextday', label: nextDay ? `Move to ${escapeText(nextDay.day_name || 'next day')}` : 'Move to next day', svg: '<span class="ip-arrow" data-direction="right" data-arrow-kind="chevron" aria-hidden="true"></span>', enabled: !!nextDay },
     // "Not today" and "Already done" re-plan the rest of the week around
     // the change (with a preview first) rather than just shuffling one block.
     ...(window.FT ? FT.menuItems() : []),

@@ -276,14 +276,11 @@
         The free AI study planner that syncs Canvas, StudentVue, and Schoology, ranks every assignment by what is due first, and builds a weekly study schedule you can actually follow.
       </p>
 
-      {# Magnetic only on the primary action. Applying it to both would make
-         the pair squirm and cost the primary its emphasis; one control that
-         leans toward the cursor is the whole effect. #}
       {# "Get Started Free" works on any product on the internet, which is
          why it persuades nobody. Name the thing the click produces. #}
       <div class="hero-actions">
-        <a href="/login" class="btn-primary hero-btn u-sheen" data-magnetic="0.24">Build my week, free</a>
-        <a href="/demo/planner" class="btn-secondary hero-btn">See it sort a sample week</a>
+        <a href="/login" class="ip-action ip-action--primary hero-btn">Build my week, free <span class="ip-arrow" aria-hidden="true"></span></a>
+        <a href="/demo/planner" class="ip-action hero-btn">See it sort a sample week <span class="ip-arrow" aria-hidden="true"></span></a>
       </div>
       <p class="hero-price-note">$0 to plan your week. {% if billing_enabled %}Optional Pro: ${{ pro_prices['month'] }}/month or ${{ pro_prices['year'] }}/year.{% else %}No subscription required.{% endif %} <a href="#plans">See what is included</a></p>
 
@@ -578,7 +575,7 @@
         </li>
       </ul>
 
-      <a href="/tutor" class="btn-primary tutor-promo-cta">Try the AI Tutor →</a>
+      <a href="/tutor" class="btn-primary tutor-promo-cta">Try the AI Tutor <span class="ip-arrow" aria-hidden="true"></span></a>
     </div>
 
     <!-- Right: mock chat preview -->
@@ -800,7 +797,7 @@
 
   <div style="margin-top:1.25rem;">
     <a href="/faq" style="font-family:var(--font-ui);font-size:0.92rem;color:var(--accent);font-weight:700;text-decoration:none;">
-      See all 12 frequently asked questions →
+      See all 12 frequently asked questions <span class="ip-arrow" aria-hidden="true"></span>
     </a>
   </div>
 </section>
@@ -1106,7 +1103,7 @@
     <a class="lp-tool-card" data-reveal href="/tools/study-schedule-maker"><span class="t">Study Schedule Maker</span><span class="d">Printable weekly timetable</span></a>
     <a class="lp-tool-card" data-reveal href="/tools/finals-countdown"><span class="t">Finals Countdown</span><span class="d">Days until your exams</span></a>
   </div>
-  <p data-reveal style="text-align:center;margin:1.25rem 0 0;"><a href="/blog" style="font-family:var(--font-ui);font-weight:600;color:var(--ink, #161616);text-decoration:none;">Browse all guides &amp; tools →</a></p>
+  <p data-reveal style="text-align:center;margin:1.25rem 0 0;"><a href="/blog" style="font-family:var(--font-ui);font-weight:600;color:var(--ink, #161616);text-decoration:none;">Browse all guides &amp; tools <span class="ip-arrow" aria-hidden="true"></span></a></p>
 </section>
 
 <div style="text-align:center;padding:1rem;">
@@ -1149,7 +1146,7 @@
 
 <div class="mobile-cta-bar" id="mobileCTABar">
   <button class="mobile-cta-minimize" id="mobileCTAMinimize" aria-label="Minimize bar" onclick="toggleMobileCTA()">
-    <svg id="mobileCTAChevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="18 15 12 9 6 15"/></svg>
+    <span id="mobileCTAChevron" class="ip-arrow" data-direction="up" data-arrow-kind="chevron" style="--ip-arrow-size:14px" aria-hidden="true"></span>
   </button>
   <div class="mobile-cta-buttons" id="mobileCTAButtons">
     <a href="/login" class="mobile-cta-primary">Get Started Free</a>
@@ -2185,7 +2182,7 @@
       letter-spacing: -0.01em;
       box-shadow: 0 4px 16px -6px rgba(0,0,0,0.22);
     }
-    .mobile-cta-primary { background: var(--accent); color: white; }
+    .mobile-cta-primary { background: var(--accent); color: var(--on-accent, #fff); }
     .mobile-cta-secondary {
       background: var(--bg-card);
       color: var(--text-primary);
@@ -2323,7 +2320,7 @@
   function setMinimized(minimized) {
     bar.classList.toggle('minimized', minimized);
     if (chevron) {
-      chevron.setAttribute('points', minimized ? '6 9 12 15 18 9' : '18 15 12 9 6 15');
+      chevron.dataset.direction = minimized ? 'down' : 'up';
     }
     localStorage.setItem(BAR_KEY, minimized ? '1' : '0');
   }

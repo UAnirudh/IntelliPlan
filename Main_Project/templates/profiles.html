@@ -45,7 +45,7 @@ fetch('/profiles/list')
         <div style="flex:1; min-width:0;">
           <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
             <span id="name_${p.id}" style="font-size:1rem; font-weight:600; color:var(--text-primary);">${p.name}</span>
-            ${isActive ? '<span style="font-size:0.72rem; background:var(--accent); color:white; padding:2px 8px; border-radius:10px; font-weight:600;">Active</span>' : ''}
+            ${isActive ? '<span style="font-size:0.72rem; background:var(--accent); color:var(--on-accent, #fff); padding:2px 8px; border-radius:10px; font-weight:600;">Active</span>' : ''}
           </div>
           <div style="font-size:0.78rem; color:var(--text-muted); text-transform:capitalize;">${p.login_type}</div>
         </div>

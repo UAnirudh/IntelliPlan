@@ -83,7 +83,7 @@
   <div class="tool-cta">
     <h3>Turn your countdown into a study plan</h3>
     <p>IntelliPlan back-plans your finals prep automatically. Free for students.</p>
-    <a href="/login" class="btn-primary" style="text-decoration:none">Try IntelliPlan Free →</a>
+    <a href="/login" class="btn-primary" style="text-decoration:none">Try IntelliPlan Free <span class="ip-arrow" aria-hidden="true"></span></a>
   </div>
 </div>
 
@@ -113,7 +113,7 @@ function startCountdown() {
     document.getElementById('cdMins').textContent = m;
     document.getElementById('cdSecs').textContent = s;
     disp.style.display = 'flex';
-    msg.innerHTML = d + ' day' + (d === 1 ? '' : 's') + ' until your exams. <a href="/login" style="color:var(--accent);font-weight:600;">Make a study plan →</a>';
+    msg.innerHTML = d + ' day' + (d === 1 ? '' : 's') + ' until your exams. <a href="/login" style="color:var(--accent);font-weight:600;">Make a study plan <span class="ip-arrow" aria-hidden="true"></span></a>';
   }
   tick();
   _cdInterval = setInterval(tick, 1000);

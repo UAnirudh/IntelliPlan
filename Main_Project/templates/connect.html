@@ -210,7 +210,7 @@
           <input id="bbUrl" type="url" placeholder="https://learn.myschool.edu" autocomplete="off"
             style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border-strong);background:var(--bg-secondary);color:var(--text-primary);font-family:inherit;font-size:0.9rem;margin-bottom:12px;"/>
           <button type="button" id="bbBtn" onclick="submitBlackboard()"
-            style="width:100%;padding:11px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-family:inherit;font-weight:700;cursor:pointer;font-size:0.9rem;">Continue to Blackboard</button>
+            style="width:100%;padding:11px;border-radius:10px;border:none;background:var(--accent);color:var(--on-accent, #fff);font-family:inherit;font-weight:700;cursor:pointer;font-size:0.9rem;">Continue to Blackboard</button>
           <div id="bbMsg" style="margin-top:8px;font-size:0.8rem;display:none;"></div>
         `;
         formHost().appendChild(wrap);
@@ -311,7 +311,7 @@
           <input id="mTok" type="password" placeholder="Your Moodle web-services token" autocomplete="off"
             style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border-strong);background:var(--bg-secondary);color:var(--text-primary);font-family:inherit;font-size:0.9rem;margin-bottom:12px;"/>
           <button type="button" id="mBtn" onclick="submitMoodle()"
-            style="width:100%;padding:11px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-family:inherit;font-weight:700;cursor:pointer;font-size:0.9rem;">Connect Moodle</button>
+            style="width:100%;padding:11px;border-radius:10px;border:none;background:var(--accent);color:var(--on-accent, #fff);font-family:inherit;font-weight:700;cursor:pointer;font-size:0.9rem;">Connect Moodle</button>
           <div id="mMsg" style="margin-top:8px;font-size:0.8rem;display:none;"></div>
         `;
         formHost().appendChild(wrap);
@@ -446,7 +446,7 @@
               </div>
               <input type="file" id="ipCsvFile" accept=".csv,text/csv" style="font-size:0.82rem;margin-bottom:10px;">
               <button type="button" onclick="ipUploadCsv()" id="ipCsvBtn"
-                style="padding:9px 18px;border:none;border-radius:10px;background:var(--accent);color:#fff;font-weight:700;cursor:pointer;font-family:inherit;font-size:0.85rem;">Upload</button>
+                style="padding:9px 18px;border:none;border-radius:10px;background:var(--accent);color:var(--on-accent, #fff);font-weight:700;cursor:pointer;font-family:inherit;font-size:0.85rem;">Upload</button>
               <div id="ipCsvMsg" style="margin-top:8px;font-size:0.8rem;"></div>
             </div>`;
         } else if (kind === 'paste') {
@@ -462,7 +462,7 @@
               <textarea id="ipPasteText" rows="8" placeholder="Paste your gradebook or assignment list here..."
                 style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border-strong);background:var(--bg-secondary);color:var(--text-primary);font-family:inherit;font-size:0.85rem;margin-bottom:10px;resize:vertical;"></textarea>
               <button type="button" onclick="ipUploadPaste()" id="ipPasteBtn"
-                style="padding:9px 18px;border:none;border-radius:10px;background:var(--accent);color:#fff;font-weight:700;cursor:pointer;font-family:inherit;font-size:0.85rem;">Import with AI</button>
+                style="padding:9px 18px;border:none;border-radius:10px;background:var(--accent);color:var(--on-accent, #fff);font-weight:700;cursor:pointer;font-family:inherit;font-size:0.85rem;">Import with AI</button>
               <div id="ipPasteMsg" style="margin-top:8px;font-size:0.8rem;"></div>
             </div>`;
         } else if (kind === 'manual') {
@@ -475,7 +475,7 @@
               <textarea id="ipManualClasses" rows="5" placeholder="Algebra II&#10;AP Biology&#10;World History"
                 style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border-strong);background:var(--bg-secondary);color:var(--text-primary);font-family:inherit;font-size:0.85rem;margin-bottom:10px;resize:vertical;"></textarea>
               <button type="button" onclick="ipSaveManualClasses()" id="ipManualBtn"
-                style="padding:9px 18px;border:none;border-radius:10px;background:var(--accent);color:#fff;font-weight:700;cursor:pointer;font-family:inherit;font-size:0.85rem;">Save classes</button>
+                style="padding:9px 18px;border:none;border-radius:10px;background:var(--accent);color:var(--on-accent, #fff);font-weight:700;cursor:pointer;font-family:inherit;font-size:0.85rem;">Save classes</button>
               <div id="ipManualMsg" style="margin-top:8px;font-size:0.8rem;"></div>
             </div>`;
           ipLoadManualClasses();
@@ -601,7 +601,7 @@
             style="width:100%;padding:9px 11px;border-radius:9px;border:1px solid var(--border-strong);background:var(--bg-primary);color:var(--text-primary);font-family:inherit;font-size:0.82rem;resize:vertical;"></textarea>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;">
             <button type="button" onclick="ipSendWhyManual()" id="ipWhyBtn"
-              style="min-height:44px;padding:8px 18px;border:none;border-radius:9px;background:var(--accent);color:#fff;font-weight:700;cursor:pointer;font-family:inherit;font-size:0.82rem;">Send</button>
+              style="min-height:44px;padding:8px 18px;border:none;border-radius:9px;background:var(--accent);color:var(--on-accent, #fff);font-weight:700;cursor:pointer;font-family:inherit;font-size:0.82rem;">Send</button>
             <button type="button" onclick="document.getElementById('ipWhyManual').remove()"
               style="min-height:44px;padding:8px 16px;border:1px solid var(--border-strong);border-radius:9px;background:transparent;color:var(--text-secondary);cursor:pointer;font-family:inherit;font-size:0.82rem;">No thanks</button>
             <span id="ipWhyMsg" role="alert" style="font-size:0.78rem;color:var(--text-muted);"></span>
@@ -732,7 +732,7 @@
           <textarea id="ipoNotes" rows="2" style="${field}resize:vertical;" placeholder="What happened when you tried to connect?"></textarea>
 
           <button type="button" onclick="ipSendSchoolOutreach()" id="ipoBtn" disabled
-            style="width:100%;min-height:44px;padding:12px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-family:inherit;font-weight:700;cursor:pointer;font-size:0.9rem;">Send to IntelliPlan</button>
+            style="width:100%;min-height:44px;padding:12px;border-radius:10px;border:none;background:var(--accent);color:var(--on-accent, #fff);font-family:inherit;font-weight:700;cursor:pointer;font-size:0.9rem;">Send to IntelliPlan</button>
           <div id="ipoMsg" role="alert" style="margin-top:8px;font-size:0.8rem;display:none;"></div>
           <p style="font-size:0.72rem;color:var(--text-muted);line-height:1.5;margin:10px 0 0;">
             We use this only to contact your school about IntelliPlan. See the
@@ -880,7 +880,7 @@
     </script>
 
     <div style="text-align:center;margin-top:1.25rem;">
-      <a href="/scheduler" style="font-size:0.82rem;color:var(--text-muted);text-decoration:none;">Skip for now →</a>
+      <a href="/scheduler" style="font-size:0.82rem;color:var(--text-muted);text-decoration:none;">Skip for now <span class="ip-arrow" aria-hidden="true"></span></a>
     </div>
   </div>
 </div>

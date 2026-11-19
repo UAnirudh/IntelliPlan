@@ -1,0 +1,6 @@
+<script>
+  try {
+    const mode = localStorage.getItem('theme');
+    if (mode === 'light' || mode === 'dark') document.documentElement.dataset.theme = mode;
+  } catch (_) {}
+</script>

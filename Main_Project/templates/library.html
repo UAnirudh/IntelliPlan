@@ -23,7 +23,7 @@
   transition: all 0.13s;
 }
 .lib-filter-btn.active, .lib-filter-btn:hover {
-  background: var(--accent); border-color: var(--accent); color: #fff;
+  background: var(--accent); border-color: var(--accent); color: var(--on-accent, #fff);
 }
 
 .lib-grid {
@@ -62,7 +62,7 @@
   font-family: var(--font-ui); font-size: 0.78rem; font-weight: 600;
   cursor: pointer; transition: background 0.13s;
 }
-.lib-btn-primary { background: var(--accent); color: #fff; }
+.lib-btn-primary { background: var(--accent); color: var(--on-accent, #fff); }
 .lib-btn-primary:hover { background: var(--accent-hover); }
 .lib-btn-secondary {
   background: transparent; color: var(--text-primary);

@@ -56,8 +56,8 @@
     transition: background 0.13s, color 0.13s, border-color 0.13s;
   }
   .pa-btn:hover { background: var(--accent-soft); color: var(--accent); border-color: var(--border-accent); }
-  .pa-btn.primary { background: var(--accent); color: #fff; border-color: transparent; }
-  .pa-btn.primary:hover { background: var(--accent-hover); color: #fff; }
+  .pa-btn.primary { background: var(--accent); color: var(--on-accent, #fff); border-color: transparent; }
+  .pa-btn.primary:hover { background: var(--accent-hover); color: var(--on-accent, #fff); }
 
   .section-title {
     font-family: var(--font-display); font-size: 1.15rem;

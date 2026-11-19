@@ -60,7 +60,7 @@
     {% if session.topic %}<p class="page-subtitle">Topic: {{ session.topic }}</p>{% endif %}
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-    <a href="/dashboard" class="btn-secondary" style="padding:9px 16px;text-decoration:none;font-size:0.84rem;">← Dashboard</a>
+    <a href="/dashboard" class="btn-secondary" style="padding:9px 16px;text-decoration:none;font-size:0.84rem;"><span class="ip-arrow" data-direction="left" aria-hidden="true"></span> Dashboard</a>
     <a href="/groups" class="btn-secondary" style="padding:9px 16px;text-decoration:none;font-size:0.84rem;">Study Groups</a>
     <a href="{{ session.room_url }}" target="_blank" rel="noopener" class="btn-primary" style="padding:9px 16px;text-decoration:none;font-size:0.84rem;">Open full meeting</a>
   </div>

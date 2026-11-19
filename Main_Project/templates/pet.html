@@ -29,7 +29,7 @@
       </ul>
       <a href="/streak" class="pet-cta-link">
         View streak milestones
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+        <span class="ip-arrow" style="--ip-arrow-size:15px" aria-hidden="true"></span>
       </a>
     </section>
   </div>
@@ -654,7 +654,7 @@
 .pet-btn:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 .pet-btn--ghost { border-color: var(--border-strong); background: var(--bg-card); color: var(--text-primary); }
 .pet-btn--ghost:hover { background: var(--bg-elevated); }
-.pet-btn--primary { background: var(--accent); color: #fff; }
+.pet-btn--primary { background: var(--accent); color: var(--on-accent, #fff); }
 .pet-btn--primary:hover { background: var(--accent-hover); }
 
 /* ── Preferences and responsive ───────────────────────────────────── */

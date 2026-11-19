@@ -150,7 +150,7 @@
   border: 1px solid var(--border);
 }
 .onb-msg.user .onb-msg-bubble {
-  background: var(--accent); color: white; border-color: var(--accent);
+  background: var(--accent); color: var(--on-accent, #fff); border-color: var(--accent);
 }
 .onb-msg-avatar {
   width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
@@ -341,7 +341,7 @@
         </details>
       </div>
       <div class="onb-actions">
-        <button class="onb-skip" onclick="onbShow('intro')">← Back</button>
+        <button class="onb-skip" onclick="onbShow('intro')"><span class="ip-arrow" data-direction="left" aria-hidden="true"></span> Back</button>
         <button class="btn-primary" onclick="onbQuickNext(event)" id="onbQuickBtn"
           style="padding:11px 24px;border:none;cursor:pointer;font-size:0.92rem;">Continue</button>
       </div>
@@ -361,9 +361,9 @@
       </div>
       <div class="onb-msg-meta" id="onbChatMeta">IntelliPlan saves what it learns automatically. Click "Continue" when you're done chatting.</div>
       <div class="onb-actions">
-        <button class="onb-skip" onclick="onbShow('intro')">← Back</button>
+        <button class="onb-skip" onclick="onbShow('intro')"><span class="ip-arrow" data-direction="left" aria-hidden="true"></span> Back</button>
         <div style="display:flex;gap:8px;">
-          <button class="onb-skip" onclick="onbShow('import')">Skip chat →</button>
+          <button class="onb-skip" onclick="onbShow('import')">Skip chat <span class="ip-arrow" aria-hidden="true"></span></button>
           <button class="btn-primary" onclick="onbShow('import')" id="onbChatNextBtn"
             style="padding:11px 22px;border:none;cursor:pointer;font-size:0.9rem;">Continue</button>
         </div>
@@ -415,7 +415,7 @@
       <div id="onbImportHost" style="margin-top:14px;"></div>
 
       <div class="onb-actions">
-        <button class="onb-skip" onclick="onbImportBack()" id="onbImportBackBtn">← Back to chat</button>
+        <button class="onb-skip" onclick="onbImportBack()" id="onbImportBackBtn"><span class="ip-arrow" data-direction="left" aria-hidden="true"></span> <span id="onbImportBackLabel">Back to chat</span></button>
         <div style="display:flex;gap:8px;">
           <button class="onb-skip" onclick="onbFinishCustom(event)">Skip for now</button>
           <button class="btn-primary" onclick="onbFinishCustom(event)" id="onbCustomBtn"
@@ -673,7 +673,7 @@ function onbDressImport() {
   const quick = ONB.mode === 'quick';
   document.getElementById('onbImportEyebrow').textContent =
     quick ? 'Quick start · Connect your school' : 'Customized · Step 2 of 2';
-  document.getElementById('onbImportBackBtn').textContent = quick ? '← Back' : '← Back to chat';
+  document.getElementById('onbImportBackLabel').textContent = quick ? 'Back' : 'Back to chat';
 }
 
 function onbImportBack() {

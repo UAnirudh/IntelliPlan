@@ -70,7 +70,7 @@
   .calc-row label { display:block; font-family:var(--font-ui); font-size:0.9rem; font-weight:600; color:var(--text-primary); margin-bottom:0.4rem; }
   .calc-row .hint { font-weight:400; color:var(--text-muted); font-size:0.8rem; }
   .calc-input { width:100%; padding:0.75rem 0.9rem; border:1px solid var(--border-strong); border-radius:10px; font-family:inherit; font-size:1rem; background:var(--bg-secondary); color:var(--text-primary); }
-  .calc-btn { width:100%; margin-top:0.4rem; padding:0.85rem; border:none; border-radius:12px; background:var(--accent); color:#fff; font-family:var(--font-ui); font-weight:700; font-size:0.95rem; cursor:pointer; }
+  .calc-btn { width:100%; margin-top:0.4rem; padding:0.85rem; border:none; border-radius:12px; background:var(--accent); color:var(--on-accent, #fff); font-family:var(--font-ui); font-weight:700; font-size:0.95rem; cursor:pointer; }
   .calc-result { margin-top:1.25rem; padding:1.25rem; border-radius:14px; font-family:var(--font-ui); display:none; }
   .calc-result.show { display:block; }
   .calc-result .big { font-size:2rem; font-weight:600; font-family:var(--font-display); }
@@ -133,7 +133,7 @@
   <div class="tool-cta">
     <h3>Want this automatic for every class?</h3>
     <p>IntelliPlan tracks your real grades and tells you what you need, automatically. Free for students.</p>
-    <a href="/login" class="btn-primary" style="text-decoration:none">Try IntelliPlan Free →</a>
+    <a href="/login" class="btn-primary" style="text-decoration:none">Try IntelliPlan Free <span class="ip-arrow" aria-hidden="true"></span></a>
   </div>
 </div>
 

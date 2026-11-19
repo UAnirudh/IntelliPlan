@@ -1,14 +1,14 @@
 {% set adult_label = 'Teacher' if teacher_auth else 'Family' %}
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="robots" content="noindex,nofollow">
   <title>{{ 'Create ' ~ adult_label ~ ' account' if mode == 'register' else 'Sign in to ' ~ adult_label }} | IntelliPlan</title>
   <link rel="icon" href="/static/icons/icon-192.png">
-  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet">
+  {% include "partials/site_theme_init.html" %}
   <link rel="stylesheet" href="/static/css/parent_portal.css?v={{ asset_v }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/site-material.css') }}?v={{ asset_v }}">
 </head>
 <body class="family-auth-body">
   <main class="family-auth">
@@ -32,7 +32,7 @@
             <label for="regConfirm">Confirm password</label><input id="regConfirm" type="password" name="confirm_password" autocomplete="new-password" minlength="8" required>
             <label for="regBirthYear">Your birth year</label><input id="regBirthYear" type="number" name="birth_year" min="1900" required>
             <small>Parent and teacher accounts are for adults. Your student uses their own IntelliPlan account.</small>
-            <button class="family-primary" type="submit">Create {{ adult_label }} account →</button>
+            <button class="family-primary" type="submit">Create {{ adult_label }} account <span class="ip-arrow" aria-hidden="true"></span></button>
           </form>
           <p class="family-auth-switch">Already have an account? <a href="{{ url_for('login_account', next=adult_auth_next) if adult_auth_next else url_for('login_account') }}">Sign in</a></p>
           <p class="family-auth-legal">By creating an account you agree to the <a href="https://intelliplan.tech/legal#terms">Terms</a> and <a href="https://intelliplan.tech/legal#privacy">Privacy Policy</a>.</p>
@@ -42,7 +42,7 @@
             <label for="loginEmail">Email</label><input id="loginEmail" type="email" name="email" autocomplete="email" required>
             <label for="loginPassword">Password</label><input id="loginPassword" type="password" name="password" autocomplete="current-password" required>
             {% if recaptcha_required %}{% set recaptcha_action = 'login' %}{% include '_recaptcha.html' with context %}{% endif %}
-            <button class="family-primary" type="submit">Sign in →</button>
+            <button class="family-primary" type="submit">Sign in <span class="ip-arrow" aria-hidden="true"></span></button>
           </form>
           <p class="family-auth-switch">New to {{ adult_label }}? <a href="{{ url_for('register', next=adult_auth_next) if adult_auth_next else url_for('register') }}">Create an account</a></p>
           <p class="family-auth-legal"><a href="/forgot-password">Forgot your password?</a></p>

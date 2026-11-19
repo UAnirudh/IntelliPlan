@@ -639,7 +639,7 @@ body.serious-mode .nav-tabs { display:none !important; }
       <button class="x-sc-btn x-correct" onclick="xMark(true)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg> Got it</button>
       <button class="x-sc-btn x-wrong" onclick="xMark(false)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-x"/></svg> Missed it</button>
     </div>
-    <button class="x-next" id="xNextBtn" onclick="xNext()">Next Question →</button>
+    <button class="x-next" id="xNextBtn" onclick="xNext()"><span id="xNextLabel">Next Question</span> <span id="xNextArrow" class="ip-arrow" aria-hidden="true"></span></button>
   </div>
   <div class="hold-exit">
     <button class="he-btn" id="heBtn" onmousedown="hStart()" onmouseup="hStop()" onmouseleave="hStop()" ontouchstart="hStart(event)" ontouchend="hStop()">
@@ -841,8 +841,8 @@ body.serious-mode .nav-tabs { display:none !important; }
       </div>
       <div class="fc-controls">
         <div class="fc-nav">
-          <button class="fc-nav-btn" onclick="fcPrev()">← Prev</button>
-          <button class="fc-nav-btn" onclick="fcNext()">Next →</button>
+          <button class="fc-nav-btn" onclick="fcPrev()"><span class="ip-arrow" data-direction="left" aria-hidden="true"></span> Prev</button>
+          <button class="fc-nav-btn" onclick="fcNext()">Next <span class="ip-arrow" aria-hidden="true"></span></button>
         </div>
         <div class="fc-counter" id="fcCounter">1 / 8</div>
       </div>
@@ -860,7 +860,7 @@ body.serious-mode .nav-tabs { display:none !important; }
         <div class="sp-label" style="display:flex;align-items:center;gap:8px;">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-scheduler"/></svg>
           Spaced Repetition Review
-          <span id="srsCountBadge" style="font-size:0.7rem;font-weight:700;background:var(--accent);color:#fff;padding:2px 8px;border-radius:20px;"></span>
+          <span id="srsCountBadge" style="font-size:0.7rem;font-weight:700;background:var(--accent);color:var(--on-accent, #fff);padding:2px 8px;border-radius:20px;"></span>
         </div>
         <!-- SRS card session -->
         <div id="srsSession" style="display:none;">
@@ -1913,7 +1913,7 @@ function fcRenderSets() {
         <div style="font-weight:600;font-size:0.88rem;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(s.title)}</div>
         <div style="font-size:0.72rem;color:var(--txm);margin-top:2px;">${s.count} cards · ${dateLabel}</div>
       </div>
-      <button onclick="fcLoadSet('${s.id}')" style="padding:6px 12px;border-radius:var(--r-sm);border:none;background:var(--accent);color:#fff;font-family:var(--font-ui);font-size:0.74rem;font-weight:600;cursor:pointer;">Study</button>
+      <button onclick="fcLoadSet('${s.id}')" style="padding:6px 12px;border-radius:var(--r-sm);border:none;background:var(--accent);color:var(--on-accent, #fff);font-family:var(--font-ui);font-size:0.74rem;font-weight:600;cursor:pointer;">Study</button>
       <button onclick="fcDeleteSet('${s.id}')" title="Delete set" aria-label="Delete" style="width:30px;height:30px;border-radius:var(--r-sm);border:1px solid var(--border);background:transparent;color:var(--txm);cursor:pointer;display:flex;align-items:center;justify-content:center;">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
       </button>
@@ -2289,8 +2289,7 @@ async function xSubmit() {
   }
 
   btn.style.display = 'none';
-  document.getElementById('xNextBtn').style.display = 'block';
-  document.getElementById('xNextBtn').textContent = G.xQ + 1 < G.questions.length ? 'Next Question →' : 'Finish';
+  showQuizNextButton();
 }
 
 /* "Got it" / "Missed it".
@@ -2315,9 +2314,14 @@ async function xMark(correct) {
   // the mastery record, or it never comes back for review.
   updateMastery(q, correct ? 'correct' : 'incorrect', correct ? 1 : 0);
 
-  const next = document.getElementById('xNextBtn');
-  next.style.display = 'block';
-  next.textContent = G.xQ + 1 < G.questions.length ? 'Next Question →' : 'Finish';
+  showQuizNextButton();
+}
+
+function showQuizNextButton() {
+  const hasNextQuestion = G.xQ + 1 < G.questions.length;
+  document.getElementById('xNextLabel').textContent = hasNextQuestion ? 'Next Question' : 'Finish';
+  document.getElementById('xNextArrow').hidden = !hasNextQuestion;
+  document.getElementById('xNextBtn').style.display = 'block';
 }
 
 function xNext() {

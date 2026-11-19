@@ -31,7 +31,7 @@
     style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border-strong);background:var(--bg-primary);color:var(--text-primary);font-family:inherit;font-size:0.88rem;resize:vertical;margin-bottom:10px;"></textarea>
   <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
     <button type="button" id="ipmcSaveBtn" onclick="ipmcSave()"
-      style="padding:9px 18px;border:none;border-radius:10px;background:var(--accent);color:#fff;font-weight:700;cursor:pointer;font-family:inherit;font-size:0.85rem;">Save classes</button>
+      style="padding:9px 18px;border:none;border-radius:10px;background:var(--accent);color:var(--on-accent, #fff);font-weight:700;cursor:pointer;font-family:inherit;font-size:0.85rem;">Save classes</button>
     <span id="ipmcMsg" style="font-size:0.8rem;color:var(--text-muted);"></span>
   </div>
   <div id="ipmcList" style="margin-top:14px;display:flex;flex-direction:column;gap:8px;"></div>
@@ -224,11 +224,11 @@
       </div>
 
       <div class="notes-panel notes-right">
-        <button id="notesToggleBtn" class="notes-expand-btn" type="button" onclick="toggleNotesDrawer()" title="Collapse or expand preview">
-          →
+        <button id="notesToggleBtn" class="notes-expand-btn" type="button" onclick="toggleNotesDrawer()" aria-label="Collapse preview" aria-expanded="true" aria-controls="notesPreviewPanel">
+          <span class="ip-arrow" aria-hidden="true"></span>
         </button>
 
-        <div class="notes-preview-inner">
+        <div class="notes-preview-inner" id="notesPreviewPanel">
           <div class="notes-preview-head">
             <div>
               <div class="notes-label" style="margin-bottom:0.4rem;">Preview</div>
@@ -856,7 +856,6 @@ function openNotesModal(course) {
   updateNotesButtonState();
 
   const overlay = document.getElementById("notesOverlay");
-  const shell = document.getElementById("notesShell");
 
   document.getElementById("notesCourseTitle").textContent = courseLabel(payload) || "Course Notes";
   document.getElementById("notesDate").value = new Date().toISOString().split("T")[0];
@@ -871,10 +870,7 @@ function openNotesModal(course) {
   overlay.style.display = "flex";
   document.body.style.overflow = "hidden";
 
-  notesDrawerOpen = true;
-  shell.classList.remove("drawer-closed");
-  shell.classList.add("drawer-open");
-  document.getElementById("notesToggleBtn").textContent = "→";
+  setNotesDrawer(true);
 
   loadCourseNotes();
 }
@@ -897,20 +893,19 @@ function closeNotesPreview() {
   document.getElementById("notesDownloadLink").style.display = "none";
 }
 
-function toggleNotesDrawer() {
+function setNotesDrawer(open) {
+  notesDrawerOpen = open;
   const shell = document.getElementById('notesShell');
-  const btn = document.getElementById('notesToggleBtn');
-  notesDrawerOpen = !notesDrawerOpen;
+  const button = document.getElementById('notesToggleBtn');
+  shell.classList.toggle('drawer-open', open);
+  shell.classList.toggle('drawer-closed', !open);
+  button.setAttribute('aria-expanded', String(open));
+  button.setAttribute('aria-label', open ? 'Collapse preview' : 'Expand preview');
+  button.querySelector('.ip-arrow').dataset.direction = open ? 'right' : 'left';
+}
 
-  if (notesDrawerOpen) {
-    shell.classList.remove('drawer-closed');
-    shell.classList.add('drawer-open');
-    btn.textContent = '→';
-  } else {
-    shell.classList.remove('drawer-open');
-    shell.classList.add('drawer-closed');
-    btn.textContent = '←';
-  }
+function toggleNotesDrawer() {
+  setNotesDrawer(!notesDrawerOpen);
 }
 
 async function loadCourseNotes() {

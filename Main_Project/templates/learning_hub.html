@@ -5,8 +5,8 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='vendor/learning-content/katex.min.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/rich_math.css') }}">
 <article class="learning-hub" aria-labelledby="hub-title" data-no-motion>
-  <header class="learning-intro"><div class="learning-context"><h1 id="hub-title">Learning workspace</h1><a href="/school-admin" id="school-admin-link" hidden>Institution settings <span aria-hidden="true">↗</span></a></div>
-    <p>Bring a question, choose one clear study goal, and check what you understand. <a href="/study-tools">Browse all study tools <span aria-hidden="true">↗</span></a></p>
+  <header class="learning-intro"><div class="learning-context"><h1 id="hub-title">Learning workspace</h1><a href="/school-admin" id="school-admin-link" hidden>Institution settings <span class="ip-arrow" data-direction="up-right" aria-hidden="true"></span></a></div>
+    <p>Bring a question, choose one clear study goal, and check what you understand. <a href="/study-tools">Browse all study tools <span class="ip-arrow" data-direction="up-right" aria-hidden="true"></span></a></p>
   </header>
   <p id="hub-status" role="status" aria-live="polite"></p>
   <nav class="learning-activities" aria-label="Learning activities">
@@ -22,16 +22,16 @@
   <section data-panel="tutor" class="learning-panel" aria-labelledby="tutor-title">
     <h2 id="tutor-title">What are you working on?</h2>
     <div id="tutor-starters" class="learning-starters" role="group" aria-label="Question starters">
-      <button type="button" data-question="What does the slope of a curve tell me?"><span>Understand an idea</span><small>Explore the slope of a curve <span aria-hidden="true">↗</span></small></button>
-      <button type="button" data-question="Help me reason through adding fractions with different denominators." data-mode="practice"><span>Work through a problem</span><small>Practice adding fractions <span aria-hidden="true">↗</span></small></button>
-      <button type="button" data-question="Ask me a question to check what I remember about Python variables." data-mode="review"><span>Check what you remember</span><small>Recall Python variables <span aria-hidden="true">↗</span></small></button>
+      <button type="button" data-question="What does the slope of a curve tell me?"><span>Understand an idea</span><small>Explore the slope of a curve <span class="ip-arrow" data-direction="up-right" aria-hidden="true"></span></small></button>
+      <button type="button" data-question="Help me reason through adding fractions with different denominators." data-mode="practice"><span>Work through a problem</span><small>Practice adding fractions <span class="ip-arrow" data-direction="up-right" aria-hidden="true"></span></small></button>
+      <button type="button" data-question="Ask me a question to check what I remember about Python variables." data-mode="review"><span>Check what you remember</span><small>Recall Python variables <span class="ip-arrow" data-direction="up-right" aria-hidden="true"></span></small></button>
     </div>
     <div id="hub-conversation" class="learning-conversation" aria-live="polite"></div>
     <form id="hub-tutor-form"><label for="hub-question">Your question or reasoning</label>
       <textarea id="hub-question" maxlength="6000" rows="4" required placeholder="Tell me what you're working on and where you got stuck."></textarea>
       <div class="learning-composer-actions"><div><label for="tutor-activity">Learning approach</label><select id="tutor-activity"><option value="learn">Learn a concept</option><option value="practice">Guided practice</option><option value="review">Recall and review</option></select></div><button type="submit" class="learning-primary">Work through it with me</button></div></form>
     <p class="learning-note">AI explanations can be wrong. Your school's assessment rules apply to every request.</p>
-    <div class="learning-links"><a href="/tutor">Tutor history &amp; learning profile <span aria-hidden="true">↗</span></a></div>
+    <div class="learning-links"><a href="/tutor">Tutor history &amp; learning profile <span class="ip-arrow" data-direction="up-right" aria-hidden="true"></span></a></div>
   </section>
   <section data-panel="study" class="learning-panel" hidden aria-labelledby="sitting-title">
     <h2 id="sitting-title">Give this session a purpose.</h2>
@@ -73,7 +73,7 @@
   <aside class="learning-guide" aria-labelledby="learning-guide-title">
     <h2 id="learning-guide-title">Study guide</h2>
     <ol class="learning-guide-steps"><li><strong>Find your question.</strong><p>Start with the part you can't quite explain yet.</p></li><li><strong>Try it for yourself.</strong><p>Work through an example, on screen or on paper.</p></li><li><strong>Come back to it.</strong><p>Recall the idea before opening your notes.</p></li></ol>
-    <div class="learning-guide-links"><h3>Your study tools</h3><a href="/foundations">Reviewed Foundations practice <span aria-hidden="true">↗</span></a><a href="/study-files">My study materials <span aria-hidden="true">↗</span></a><a href="/flashcards">My flashcards <span aria-hidden="true">↗</span></a></div>
+    <div class="learning-guide-links"><h3>Your study tools</h3><a href="/foundations">Reviewed Foundations practice <span class="ip-arrow" data-direction="up-right" aria-hidden="true"></span></a><a href="/study-files">My study materials <span class="ip-arrow" data-direction="up-right" aria-hidden="true"></span></a><a href="/flashcards">My flashcards <span class="ip-arrow" data-direction="up-right" aria-hidden="true"></span></a></div>
     <p class="learning-note">Your progress keeps reported work, assisted practice, and independent checks distinct.</p>
   </aside>
   </div>

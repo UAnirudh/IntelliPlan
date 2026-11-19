@@ -111,7 +111,6 @@ h1 span { display: block; color: var(--accent); }
 .story-copy p { margin-top: 14px; max-width: 41ch; color: var(--muted); }
 .text-link { display: inline-flex; align-items: center; gap: 6px; margin-top: 17px; color: var(--accent); font-weight: 650; text-decoration-color: #a0dfef65; text-underline-offset: .24em; transition: text-decoration-color .18s; }
 .text-link:hover { text-decoration-color: currentColor; }
-.manual-start { display: flex; width: fit-content; margin-top: 9px; font-size: .89rem; }
 .workbench, .tutor-example, .grade-example {
   min-width: 0; padding: clamp(15px, 2.9vw, 27px);
   border: 1px solid var(--edge); border-radius: 28px;

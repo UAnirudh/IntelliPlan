@@ -306,7 +306,7 @@ main {
   border-radius: 4px 16px 16px 16px;
 }
 .tutor-msg-group.user .tutor-bubble {
-  background: var(--accent); color: white;
+  background: var(--accent); color: var(--on-accent, #fff);
   border-radius: 16px 4px 16px 16px;
 }
 
@@ -448,7 +448,7 @@ main {
 #tutorInput::placeholder { color: var(--text-muted); }
 #tutorSendBtn {
   width: 50px; height: 50px; border: none;
-  background: var(--accent); color: white; cursor: pointer;
+  background: var(--accent); color: var(--on-accent, #fff); cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
   transition: background 0.13s, transform 0.13s;
@@ -667,7 +667,7 @@ main {
 }
 .tutor-modality-btn:hover { border-color: var(--border-accent, var(--accent)); }
 .tutor-modality-btn.active {
-  background: var(--accent); border-color: var(--accent); color: #fff;
+  background: var(--accent); border-color: var(--accent); color: var(--on-accent, #fff);
 }
 .tutor-modality-note {
   width: 100%; font-size: 0.68rem; color: var(--text-muted); margin: 2px 0 0;
@@ -790,7 +790,7 @@ main {
   <div class="tutor-main">
     <header class="tutor-workspace-header">
       <div class="tutor-workspace-heading"><h1>Study &amp; learn</h1><p>{% if assessment_protection %}Assessment protection is on{% else %}A little clarity, one question at a time.{% endif %}</p></div>
-      <div class="tutor-workspace-actions"><a class="tutor-tools-link no-glass" href="/study-tools">All study tools <span aria-hidden="true">↗</span></a></div>
+      <div class="tutor-workspace-actions"><a class="tutor-tools-link no-glass" href="/study-tools">All study tools <span class="ip-arrow" data-direction="up-right" aria-hidden="true"></span></a></div>
     </header>
 
     <!-- Mobile-only action bar -->
@@ -915,7 +915,7 @@ main {
           <span class="ib-tip" id="ttsTip">Voice replies off</span>
         </button>
         <button id="tutorSendBtn" class="no-glass" onclick="sendTutorMessage()" aria-label="Send message">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          <span class="ip-arrow" data-direction="up" style="--ip-arrow-size:18px" aria-hidden="true"></span>
         </button>
       </div>
       <div class="tutor-audio-feedback" role="status" aria-live="polite"><span id="tutorAudioFeedback"></span><button type="button" id="tutorAudioPlay" class="no-glass" hidden>Play audio</button></div>
