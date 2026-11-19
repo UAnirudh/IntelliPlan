@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from 'partials/plani_avatar.html' import plani_avatar with context %}
 
 {% block page_title %}Free AI Study Planner for Students | IntelliPlan{% endblock %}
 
@@ -250,7 +251,7 @@
 
 {% block content %}
 
-<section class="hero-wrap">
+<section class="hero-wrap plani-home-hero">
   {# Two slow accent washes behind the hero.
 
      They live in their own clipping box rather than directly in .hero-wrap:
@@ -271,31 +272,33 @@
          entrance at 0.05s like the rest of the hero, and stacking a
          scroll-reveal on top would hide it behind a second opacity gate. #}
       <span class="hero-badge">Built by a student, for students</span>
-      <h1 class="hero-title">Stop missing assignments and build your study plan automatically</h1>
+      <h1 class="hero-title">Meet <span>Plani.</span><br>A study plan that fits your week.</h1>
+      <div class="plani-home-scene">
+        <a class="plani-home-guide" href="/tutor">
+          <span class="plani-home-art" aria-hidden="true">
+            <img id="planiHomePortrait" class="plani-portrait plani-home-portrait"
+                 src="{{ url_for('static', filename='plani-notebook-hero.webp') }}?v={{ asset_v }}"
+                 alt="" width="720" height="720" fetchpriority="high">
+          </span>
+          <span class="plani-home-guide-label">Study with Plani <span class="ip-arrow" aria-hidden="true"></span></span>
+        </a>
+      </div>
       <p class="hero-subtitle">
-        The free AI study planner that syncs Canvas, StudentVue, and Schoology, ranks every assignment by what is due first, and builds a weekly study schedule you can actually follow.
+        Bring coursework and calendar commitments together. Plani helps you plan when to study and work through what’s due.
       </p>
 
       {# "Get Started Free" works on any product on the internet, which is
          why it persuades nobody. Name the thing the click produces. #}
       <div class="hero-actions">
-        <a href="/login" class="ip-action ip-action--primary hero-btn">Build my week, free <span class="ip-arrow" aria-hidden="true"></span></a>
-        <a href="/demo/planner" class="ip-action hero-btn">See it sort a sample week <span class="ip-arrow" aria-hidden="true"></span></a>
+        <a href="{{ '/command-center' if current_user.is_authenticated else '/login' }}" class="ip-action ip-action--primary hero-btn">Plan with Plani <span class="ip-arrow" aria-hidden="true"></span></a>
+        <a href="/demo/planner" class="ip-action hero-btn">Try a sample plan <span class="ip-arrow" aria-hidden="true"></span></a>
       </div>
       <p class="hero-price-note">$0 to plan your week. {% if billing_enabled %}Optional Pro: ${{ pro_prices['month'] }}/month or ${{ pro_prices['year'] }}/year.{% else %}No subscription required.{% endif %} <a href="#plans">See what is included</a></p>
-
-      <div class="hero-mini-actions">
-        {# Desktop first: it is the only one of the three that is a real
-           download rather than an add-to-home-screen instruction. #}
-        <a href="/download" class="btn-secondary mini-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-download"/></svg> Desktop app</a>
-        <a href="/install" class="btn-secondary mini-btn">Install App</a>
-        <a href="/install/ios" class="btn-secondary mini-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-apple"/></svg> iPhone Install</a>
-      </div>
 
       {# The logos were unlabelled, so they read as decoration. One word in
          front of them turns the same row into a claim. #}
       <div class="hero-trust-row" aria-label="Supported platforms">
-        <span class="hero-trust-label">Syncs with</span>
+        <span class="hero-trust-label">Works with</span>
         <img src="/static/logos/canvas.svg" alt="Canvas LMS" width="22" height="22" style="border-radius:4px;">
         <img src="/static/logos/studentvue.svg" alt="StudentVue" width="22" height="22" style="border-radius:4px;">
         <img src="/static/logos/schoology.svg" alt="Schoology" width="22" height="22" style="border-radius:4px;">
@@ -304,57 +307,65 @@
       </div>
     </div>
 
-    {# The preview drifts slowly and tilts toward the cursor. This is the one
-       place on the page where the "floaty" quality earns its keep: the card
-       is showing a product artifact, so giving it physical presence sells it
-       better than a flat screenshot would. #}
-    <div class="hero-preview" aria-label="Sample weekly plan" data-float style="--ipm-float-y:10px; --ipm-float-dur:9s;">
-      <div class="preview-card" data-tilt="5">
-        <div class="preview-header">
-          <div class="preview-title">This Week's Priorities</div>
-          <div class="preview-pill">4h 30m planned</div>
-        </div>
+  </div>
+</section>
 
-        <div class="preview-list">
-          <div class="task task-high">
-            <div class="task-dot"></div>
-            <div class="task-main">
-              <div class="task-name">Calc BC, Related Rates</div>
-              <div class="task-meta">High priority • due tomorrow</div>
-            </div>
-            <div class="task-time">45m</div>
-          </div>
-
-          <div class="task task-medium">
-            <div class="task-dot"></div>
-            <div class="task-main">
-              <div class="task-name">AP Bio, Ch. 7 quiz prep</div>
-              <div class="task-meta">Medium priority • this week</div>
-            </div>
-            <div class="task-time">30m</div>
-          </div>
-
-          <div class="task task-low">
-            <div class="task-dot"></div>
-            <div class="task-main">
-              <div class="task-name">English, Essay outline</div>
-              <div class="task-meta">Low priority • later this week</div>
-            </div>
-            <div class="task-time">25m</div>
-          </div>
-
-          <div class="task task-accent">
-            <div class="task-dot"></div>
-            <div class="task-main">
-              <div class="task-name">Physics, Problem set #4</div>
-              <div class="task-meta">Auto-scheduled into your calendar</div>
-            </div>
-            <div class="task-time">60m</div>
-          </div>
-        </div>
+<section class="plani-week-preview" aria-labelledby="plani-week-title">
+  <div class="plani-week-copy">
+    <h2 id="plani-week-title">A week with Plani</h2>
+    <p>See what’s due first, how long each task might take, and what you can fit in.</p>
+    <div class="hero-mini-actions">
+      {# Desktop first: it is the only one of the three that is a real
+         download rather than an add-to-home-screen instruction. #}
+      <a href="/download" class="btn-secondary mini-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-download"/></svg> Desktop app</a>
+      <a href="/install" class="btn-secondary mini-btn">Install App</a>
+      <a href="/install/ios" class="btn-secondary mini-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-apple"/></svg> iPhone Install</a>
+    </div>
+  </div>
+  <div class="plani-week-card" aria-label="Sample weekly plan">
+    <div class="preview-card">
+      <div class="preview-header">
+        <div class="preview-title">This Week's Priorities</div>
+        <div class="preview-pill">2h 40m planned</div>
       </div>
 
-      <div class="floating-badge"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-robot"/></svg> AI-powered schedule</div>
+      <div class="preview-list">
+        <div class="task task-high">
+          <div class="task-dot"></div>
+          <div class="task-main">
+            <div class="task-name">Calc BC, Related Rates</div>
+            <div class="task-meta">High priority • due tomorrow</div>
+          </div>
+          <div class="task-time">45m</div>
+        </div>
+
+        <div class="task task-medium">
+          <div class="task-dot"></div>
+          <div class="task-main">
+            <div class="task-name">AP Bio, Ch. 7 quiz prep</div>
+            <div class="task-meta">Medium priority • this week</div>
+          </div>
+          <div class="task-time">30m</div>
+        </div>
+
+        <div class="task task-low">
+          <div class="task-dot"></div>
+          <div class="task-main">
+            <div class="task-name">English, Essay outline</div>
+            <div class="task-meta">Low priority • later this week</div>
+          </div>
+          <div class="task-time">25m</div>
+        </div>
+
+        <div class="task task-accent">
+          <div class="task-dot"></div>
+          <div class="task-main">
+            <div class="task-name">Physics, Problem set #4</div>
+            <div class="task-meta">Auto-scheduled into your calendar</div>
+          </div>
+          <div class="task-time">60m</div>
+        </div>
+      </div>
     </div>
   </div>
 </section>
@@ -581,7 +592,6 @@
     <!-- Right: mock chat preview -->
     <div class="tutor-promo-preview" aria-hidden="true">
       <div class="tp-preview-header">
-        {% from 'partials/plani_avatar.html' import plani_avatar with context %}
         <div class="tp-preview-avatar">{{ plani_avatar(28) }}</div>
         <div>
           <div class="tp-preview-name">Plani</div>

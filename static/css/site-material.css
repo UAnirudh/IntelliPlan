@@ -488,3 +488,146 @@ body.has-side.has-own-chat .tutor-suggestions .tutor-sug-card {
   #tutorSubjectSelect { padding-inline: 6px 19px; }
   .tutor-subject-control .ip-arrow { right: 4px; }
 }
+
+/* The home illustration links to Tutor. The actual sample plan is below it. */
+.site-landing .plani-home-hero .hero {
+  position: relative;
+  grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr);
+  gap: clamp(24px, 5vw, 74px);
+  min-height: min(730px, calc(100svh - 108px));
+  padding-block: clamp(34px, 7vh, 92px);
+}
+.site-landing .plani-home-hero .hero-title { max-width: 12ch; }
+.plani-home-hero .hero-title span { color: var(--accent); }
+.plani-home-hero .hero-subtitle { max-width: 40ch; }
+.plani-home-scene {
+  position: absolute;
+  inset: 0 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 46%;
+  min-width: 0;
+}
+.plani-home-guide {
+  display: grid;
+  justify-items: center;
+  grid-template-rows: minmax(0, 1fr) auto;
+  width: min(100%, 420px);
+  color: var(--text-secondary);
+  text-decoration: none;
+  border-radius: 28px;
+}
+.plani-home-art {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  isolation: isolate;
+}
+.plani-home-art::before {
+  content: "";
+  position: absolute;
+  inset: 0 -8%;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 50% 57%, color-mix(in srgb, var(--accent) 21%, transparent), transparent 66%);
+}
+.plani-home-art::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: auto 9% 5% 9%;
+  height: 13%;
+  border-radius: 50%;
+  border: 1px solid var(--ip-hairline);
+  background: radial-gradient(ellipse, color-mix(in srgb, var(--accent) 20%, transparent), transparent 69%);
+  transform: rotate(-8deg);
+}
+.plani-home-portrait {
+  width: min(100%, 388px);
+  height: auto;
+  display: block;
+  filter: drop-shadow(0 14px 20px #04111966);
+}
+.plani-home-guide-label {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  gap: 10px;
+  color: var(--text-primary);
+  font: 620 .92rem/1.4 var(--font-ui);
+  transition: color 160ms var(--ip-material-ease);
+}
+.plani-home-guide:hover .plani-home-guide-label,
+.plani-home-guide:focus-visible .plani-home-guide-label { color: var(--accent); }
+@keyframes plani-home-hover {
+  0%, 100% { transform: translateY(0) rotate(-2deg); }
+  50% { transform: translateY(-8px) rotate(1deg); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-ui-motion="reduce"]):not([data-a11y-motion="reduce"]) .plani-home-portrait {
+    animation: plani-home-hover 6s ease-in-out infinite;
+  }
+}
+html[data-ui-mascot="hidden"] .plani-home-art { display: none; }
+html[data-ui-mascot="hidden"] .plani-home-guide { grid-template-rows: auto; }
+.site-landing .plani-week-preview {
+  display: grid;
+  grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
+  align-items: center;
+  width: min(var(--page-max, 1120px), calc(100% - clamp(2.5rem, 8vw, 6rem)));
+  gap: clamp(18px, 5vw, 72px);
+  margin: 0 auto clamp(36px, 6vw, 84px);
+}
+.plani-week-card { min-width: 0; }
+.plani-week-copy h2 {
+  margin: 0 0 12px;
+  color: var(--text-primary);
+  font: 650 clamp(1.8rem, 4vw, 3rem)/1.12 var(--font-ui);
+  letter-spacing: -.035em;
+}
+.plani-week-copy p { color: var(--text-secondary); line-height: 1.6; max-width: 37ch; }
+
+.plani-workspace-portrait { filter: drop-shadow(0 4px 7px #04111933); }
+.command-chat__intro .command-chat__portrait { width: auto; height: clamp(76px, 12vh, 104px); margin-bottom: 14px; }
+.plani-dashboard-byline,
+.plani-scheduler-heading { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.plani-dashboard-byline { margin-bottom: 8px; }
+.plani-dashboard-byline .ipd-assistant-label { margin: 0; }
+.plani-scheduler-heading .plani-portrait { width: clamp(40px, 5vw, 54px); height: auto; }
+.plani-connection-portrait { margin: 0 auto 10px; }
+body #tutorPlaniSvg.plani-workspace-portrait { width: auto; height: clamp(76px, 11vh, 104px); }
+@media (max-width: 768px) {
+  .site-landing .plani-home-hero { padding-top: 0 !important; }
+  .site-landing .plani-home-hero .hero {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+    align-content: start;
+    justify-items: center;
+    text-align: center;
+    min-height: 0;
+    padding-block: 28px 35px;
+  }
+  .plani-home-hero .hero-copy { display: contents; }
+  .plani-home-hero .hero-badge { order: 0; margin-bottom: 10px; }
+  .site-landing .plani-home-hero .hero-title {
+    order: 1;
+    max-width: 16ch;
+    margin-bottom: 0;
+    font-size: clamp(2.15rem, 8.2vw, 3.4rem);
+  }
+  .plani-home-scene { position: static; order: 2; width: 100%; margin-top: 4px; }
+  .plani-home-guide { width: min(100%, 270px); }
+  .plani-home-portrait { width: min(100%, clamp(158px, 48vw, 252px)); }
+  .plani-home-hero .hero-subtitle { order: 3; margin-block: 8px 14px; }
+  .plani-home-hero .hero-actions { order: 4; width: min(100%, 360px); margin-top: 0; }
+  .plani-home-hero .hero-price-note { order: 5; }
+  .plani-home-hero .hero-trust-row { order: 6; justify-content: center; }
+  .site-landing .plani-week-preview { grid-template-columns: minmax(0, 1fr); }
+  .plani-week-copy .hero-mini-actions { flex-direction: row; align-items: center; }
+  .plani-week-copy .mini-btn { width: auto; }
+  .command-chat__intro .command-chat__portrait { height: 76px; }
+  body #tutorPlaniSvg.plani-workspace-portrait { height: 72px; }
+}
+
+.plani-connection-links { display: grid; gap: 8px; margin-top: 20px; }

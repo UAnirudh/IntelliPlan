@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from 'partials/plani_avatar.html' import plani_avatar with context %}
 
 {% block content %}
 <style>
@@ -860,10 +861,13 @@
   <div class="ipd-anim ipd-d4" style="display:flex;flex-direction:column;gap:0;">
     {# Assistant strip #}
     <div class="ipd-assistant-card" id="ipdAssistant">
-      <div class="ipd-assistant-label">Plani suggests</div>
+      <div class="plani-dashboard-byline">
+        {{ plani_avatar(56, 'plani-workspace-portrait') }}
+        <div class="ipd-assistant-label">{{ assistant_name }} suggests</div>
+      </div>
       <div class="ipd-assistant-text" id="ipdAssistantText">Start with your highest-priority task today. Focusing on one thing at a time builds momentum.</div>
       <a href="/tutor" class="ipd-assistant-cta">
-        Open AI Tutor
+        Study with {{ assistant_name }}
         <span class="ip-arrow" style="--ip-arrow-size:14px" aria-hidden="true"></span>
       </a>
     </div>
@@ -1914,7 +1918,7 @@ function ipIntegrationCard(it) {
   var body = '';
   if (it.connected) {
     if (it.manage_url) {
-      body += '<a class="ipd-btn" style="display:inline-block;text-decoration:none;font-size:0.75rem;padding:6px 12px;margin-top:8px;" href="' + ipEsc(it.manage_url) + '">Manage files</a> ';
+      body += '<a class="ipd-btn" style="display:inline-block;text-decoration:none;font-size:0.75rem;padding:6px 12px;margin-top:8px;" href="' + ipEsc(it.manage_url) + '">' + (it.id === 'todoist' ? 'Manage projects' : 'Manage files') + '</a> ';
     }
     if (it.disconnect_url) {
       body += '<button class="ipd-btn" style="font-size:0.75rem;padding:6px 12px;margin-top:8px;" ' +

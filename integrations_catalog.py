@@ -355,7 +355,7 @@ NOTION = Integration(
     id="notion",
     name="Notion",
     category="productivity",
-    brings="Sends your tasks into a Notion database",
+    brings="Imports tasks from your selected database and can export study plans",
     status_url="/notion/status",
     disconnect_url="/notion/disconnect",
     methods=(
@@ -378,6 +378,23 @@ NOTION = Integration(
 )
 
 
+TODOIST = Integration(
+    id="todoist",
+    name="Todoist",
+    category="productivity",
+    brings="Imports active tasks from the projects you choose",
+    status_url="/api/todoist/connection",
+    manage_url="/scheduler?capture=1",
+    methods=(Method(
+        key="oauth",
+        label="Connect Todoist",
+        how="Sign in, then choose up to four projects in the planner.",
+        friction="low",
+        start_url="/scheduler?capture=1",
+    ),),
+)
+
+
 #: Order matters: this is the order every surface renders. Coursework
 #: first, because an empty planner is the problem a student came to solve.
 CATALOG = (
@@ -395,6 +412,7 @@ CATALOG = (
     GOOGLE_DRIVE,
     ONEDRIVE,
     NOTION,
+    TODOIST,
 )
 
 BY_ID = {i.id: i for i in CATALOG}

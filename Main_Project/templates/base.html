@@ -683,7 +683,7 @@ body {
   <div class="side-nav-list" id="sideNavList">
     <h2 class="side-section-label">Your workspace</h2>
     <a href="/command-center" data-nav-item="command_center" class="side-link {% if active_page == 'command_center' %}active{% endif %}">
-      <span class="side-icon"><svg><use href="#i-lightning"/></svg></span>Command Center
+      <span class="side-icon">{{ plani_avatar(22) }}<svg class="plani-portrait-fallback" aria-hidden="true"><use href="#i-lightning"/></svg></span>Plan with {{ assistant_name }}
     </a>
     <a href="/dashboard" data-nav-item="dashboard" class="side-link {% if active_page == 'dashboard' %}active{% endif %}">
       <span class="side-icon"><svg><use href="#i-dashboard"/></svg></span>Dashboard

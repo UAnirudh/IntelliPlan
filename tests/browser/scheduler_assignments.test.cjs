@@ -58,7 +58,7 @@ function fixture() {
     _assignmentLoadGeneration: 0, _assignmentQueueRows: [], allAssignments: [], renders: 0,
     renderAssignmentQueue() { ctx.renders++; },
     fetch(url, options) {
-      assert.equal(url, '/live?include_waiting=1');
+      assert.equal(url, '/api/scheduler/assignments?include_waiting=1');
       assert.equal(options.cache, 'no-store');
       return new Promise((resolve, reject) => pending.push({
         reply(rows) { resolve({ok: true, json: async () => rows}); }, reject,

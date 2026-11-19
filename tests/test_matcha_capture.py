@@ -48,7 +48,7 @@ def test_oauth_and_project_scope(account, monkeypatch):
         calls.append(kwargs["params"]["project_id"])
         return _reply({"results": [
             {"id": "task1", "content": "Study Biology", "project_id": "selected", "priority": 4,
-             "due": {"date": "2026-11-20T18:30:00"}},
+             "due": {"date": "2026-11-20T18:30:00"}, "duration": {"amount": 45, "unit": "minute"}},
             {"id": "hidden", "content": "Private", "project_id": "personal"},
             {"id": "done", "content": "Already done", "project_id": "selected", "checked": True},
         ]})
@@ -72,11 +72,72 @@ def test_oauth_and_project_scope(account, monkeypatch):
         rows = todoist.assignments(user)
         assert len(rows) == 1 and rows[0]["id"] == "todoist:task1"
         assert rows[0]["due_date"] == "2026-11-20"
-    assert calls == ["selected"]
+        assert rows[0]["due_at"] == "2026-11-20T18:30:00"
+        assert rows[0]["estimated_time"] == 45
+    scheduler_rows = client.get('/api/scheduler/assignments').json
+    assert [row['id'] for row in scheduler_rows] == ['todoist:task1']
+    assert calls == ["selected", "selected"]
     assert client.delete(path).status_code == 200
     with App.app.app_context():
         assert lms_grants("todoist").get(uid) is None
         assert not todoist.filter_assignments(App.db.session.get(App.User, uid), rows)
+
+
+def test_scheduler_and_autopilot_read_selected_notion_database(account, monkeypatch):
+    from followthrough_glue import _owner_assignments
+    from intelliplan.persistence.notion import notion_accounts
+
+    client, uid = account
+    queries = []
+
+    def pull(token, database):
+        assert token == 'test-notion-token'
+        queries.append(database)
+        return [{'id': database, 'title': f'Task for {database}', 'course': 'Notion',
+                 'due_date': '2026-11-20', 'due_at': '2026-11-20T08:40:00-08:00'}]
+
+    monkeypatch.setattr(App, 'NOTION_AVAILABLE', True)
+    monkeypatch.setattr(App, 'get_notion_tasks', pull, raising=False)
+    with App.app.app_context():
+        notion_accounts().connect(uid, token='test-notion-token')
+        notion_accounts().select_database(uid, 'selected-database')
+
+    path = '/api/scheduler/assignments?include_waiting=1'
+    response = client.get(path)
+    assert response.status_code == 200
+    assert response.json[0]['source'] == 'notion'
+    assert response.json[0]['due_at'] == '2026-11-20T08:40:00-08:00'
+    assert 'no-store' in response.headers['Cache-Control']
+
+    with App.app.app_context():
+        assert _owner_assignments(uid, None)[0]['title'] == 'Task for selected-database'
+        App.collect_lms_assignments_for_user(uid)
+        notion_accounts().select_database(uid, 'replacement-database')
+        # The database was changed directly, without invalidating the cache.
+        assert App.collect_lms_assignments_for_user(uid) == []
+
+    assert client.get(path).json[0]['title'] == 'Task for replacement-database'
+    assert client.patch('/api/settings/lms-sources', json={'assignment_sources': []}).status_code == 200
+    assert client.get(path).json == []
+    assert queries == ['selected-database', 'selected-database', 'selected-database', 'replacement-database']
+
+
+def test_notion_import_preserves_exact_date_time(monkeypatch):
+    import notion_helper
+
+    def row(key, start):
+        return {'id': key, 'properties': {
+            'Name': {'type': 'title', 'title': [{'plain_text': 'Plant science'}]},
+            'Due': {'type': 'date', 'date': {'start': start}},
+        }}
+
+    tasks = [row('date-only', '2026-11-20'), row('timed', '2026-11-21T08:40:00-08:00')]
+    databases = SimpleNamespace(query=lambda **kwargs: {'results': tasks, 'has_more': False})
+    monkeypatch.setattr(notion_helper, 'get_notion_client', lambda token: SimpleNamespace(databases=databases))
+    date_only, timed = notion_helper.get_notion_tasks('fixture', 'selected-database')
+    assert date_only['due_date'] == '2026-11-20' and 'due_at' not in date_only
+    assert timed['due_date'] == '2026-11-21'
+    assert timed['due_at'] == '2026-11-21T08:40:00-08:00'
 
 
 def test_photo_schedule_omits_unknown_values():

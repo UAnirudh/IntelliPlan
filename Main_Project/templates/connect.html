@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from 'partials/plani_avatar.html' import plani_avatar with context %}
 {% from "partials/lms_logo.html" import lms_logo %}
 {% block content %}
 <style>
@@ -58,12 +59,12 @@
     .login-wrap .login-card button[style*="gap:14px"] { transition: none !important; }
   }
 </style>
-<div class="login-wrap">
+<div class="login-wrap plani-connection-hub">
   <div class="login-card" style="max-width:480px;">
     <div class="login-header">
-      <div style="margin-bottom:0.75rem;color:var(--accent);"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-link"/></svg></div>
+      {{ plani_avatar(86, 'plani-workspace-portrait plani-connection-portrait') }}
       <h1 class="login-title">Connect your school</h1>
-      <p class="login-subtitle">Link your LMS so IntelliPlan can pull your assignments</p>
+      <p class="login-subtitle">Bring assignments into your planner so {{ assistant_name }} can help you organize your week.</p>
       {% if current_user.is_authenticated %}
       <p><a href="/scheduler?capture=1">Paste assignments</a> or <a href="/classes#timetable">add your class schedule</a> without linking a portal.</p>
       {% else %}
@@ -82,12 +83,12 @@
     </div>
 
     <div style="display:flex; flex-direction:column; gap:12px; margin-bottom:1.5rem;">
-      <a href="/oauth/canvas" style="display:flex;align-items:center;gap:14px;padding:16px 20px;border-radius:14px;border:1px solid var(--glass-border);box-shadow:var(--glass-btn-shadow);background:var(--glass-btn-bg);-webkit-backdrop-filter:blur(12px) saturate(1.5);backdrop-filter:blur(12px) saturate(1.5);text-decoration:none;color:var(--text-primary);transition:all 0.2s;"
+      <a href="{{ '/oauth/canvas' if canvas_oauth_ready else '/login/canvas' }}" style="display:flex;align-items:center;gap:14px;padding:16px 20px;border-radius:14px;border:1px solid var(--glass-border);box-shadow:var(--glass-btn-shadow);background:var(--glass-btn-bg);-webkit-backdrop-filter:blur(12px) saturate(1.5);backdrop-filter:blur(12px) saturate(1.5);text-decoration:none;color:var(--text-primary);transition:all 0.2s;"
         onmouseover="this.style.borderColor='#e66000'" onmouseout="this.style.borderColor='var(--border)'">
         {{ lms_logo('canvas', 42) }}
         <div>
           <div style="font-size:0.95rem;font-weight:600;margin-bottom:2px;">Canvas LMS</div>
-          <div style="font-size:0.78rem;color:var(--text-muted);">One-click OAuth, no token needed</div>
+          <div style="font-size:0.78rem;color:var(--text-muted);">{{ 'School-approved sign-in' if canvas_oauth_ready else 'Connect with a Canvas token or calendar link' }}</div>
         </div>
         <div style="margin-left:auto;color:var(--text-muted);">→</div>
       </a>
@@ -879,6 +880,14 @@
       }
     </script>
 
+    {% if current_user.is_authenticated %}
+    <nav class="plani-connection-links" aria-label="Calendar and task connections">
+      <a class="ip-action" href="/settings#integrationsWrap">Manage calendars and Notion <span class="ip-arrow" aria-hidden="true"></span></a>
+      {% if todoist_ready %}
+      <a class="ip-action" href="/scheduler?capture=1">Manage Todoist projects <span class="ip-arrow" aria-hidden="true"></span></a>
+      {% endif %}
+    </nav>
+    {% endif %}
     <div style="text-align:center;margin-top:1.25rem;">
       <a href="/scheduler" style="font-size:0.82rem;color:var(--text-muted);text-decoration:none;">Skip for now <span class="ip-arrow" aria-hidden="true"></span></a>
     </div>

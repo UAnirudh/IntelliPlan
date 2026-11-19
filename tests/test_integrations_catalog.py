@@ -34,7 +34,7 @@ def test_every_integration_the_app_supports_is_listed():
     expected = {
         "canvas", "calendar_feed", "studentvue", "hac", "schoology",
         "google_classroom", "blackboard", "moodle", "brightspace",
-        "google_calendar", "outlook_calendar", "google_drive", "onedrive", "notion",
+        "google_calendar", "outlook_calendar", "google_drive", "onedrive", "notion", "todoist",
     }
     assert {i.id for i in ic.CATALOG} == expected
 
@@ -126,6 +126,16 @@ def test_it_works_signed_out(client):
     assert len(r.get_json()["integrations"]) == len(ic.CATALOG)
 
 
+def test_todoist_connect_method_requires_an_eligible_account(client, monkeypatch):
+    from intelliplan.api import todoist
+
+    monkeypatch.setattr(todoist, "configured", lambda: True)
+    data = client.get("/api/integrations/status").get_json()
+    entry = next(item for item in data["integrations"] if item["id"] == "todoist")
+    assert not entry["connected"]
+    assert not entry["methods"]
+
+
 def test_nothing_is_connected_for_a_fresh_visitor(client):
     data = client.get("/api/integrations/status").get_json()
     assert not any(i["connected"] for i in data["integrations"])
@@ -149,6 +159,15 @@ def test_an_unknown_session_login_type_does_not_break_the_list(client):
     r = client.get("/api/integrations/status")
     assert r.status_code == 200
     assert not any(i["connected"] for i in r.get_json()["integrations"])
+
+
+def test_canvas_connections_remain_usable_without_school_oauth(client, monkeypatch):
+    monkeypatch.setattr(App, "canvas_oauth_any_configured", lambda: False)
+    response = client.get("/api/integrations/status")
+    canvas = next(item for item in response.json["integrations"] if item["id"] == "canvas")
+    assert {method["key"] for method in canvas["methods"]} == {"calendar_feed", "token"}
+    assert "no-store" in response.headers["Cache-Control"]
+    assert b'href="/login/canvas"' in client.get("/connect").data
 
 
 def test_the_payload_carries_what_the_ui_needs(client):

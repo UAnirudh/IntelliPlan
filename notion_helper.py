@@ -312,11 +312,16 @@ def get_notion_tasks(token, database_id):
         
         # Extract due date
         due_date = None
+        due_at = None
         for key in ["Due", "Due Date", "Date", "Deadline"]:
             if key in props and props[key].get("type") == "date":
                 date_obj = props[key].get("date")
                 if date_obj:
-                    due_date = date_obj.get("start", "")[:10]
+                    start = date_obj.get("start") or ""
+                    if isinstance(start, str):
+                        due_date = start[:10]
+                        if len(start) > 10:
+                            due_at = start
                 break
         
         # Extract status/priority
@@ -346,6 +351,7 @@ def get_notion_tasks(token, database_id):
             "notion_page_id": page["id"],
             "title": title,
             "due_date": due_date or "",
+            **({"due_at": due_at} if due_at else {}),
             "priority": priority,
             "source": "notion",
             "estimated_time": 60,
