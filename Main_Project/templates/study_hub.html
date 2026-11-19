@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block page_title %}All study tools | IntelliPlan{% endblock %}
-{% block meta_description %}One place for every IntelliPlan study tool — AI Tutor, flashcards, deep study, focus timer, AP library, writing help, math explainer, and more.{% endblock %}
+{% block meta_description %}One place for every IntelliPlan study tool. AI Tutor, flashcards, deep study, focus timer, AP library, writing help, math explainer, and more.{% endblock %}
 
 {% block head_extra %}
 <style>
@@ -246,8 +246,13 @@
 {% block content %}
 {% from 'partials/plani_avatar.html' import plani_avatar with context %}
 <section class="hub-hero">
-  <h1 class="hub-hero-title">A tool for your next step.</h1>
-  <p class="hub-hero-sub">Understand an idea, practice a skill, or organize your week. Open any available card to get started, or describe what you need.</p>
+  <div class="plani-hub-heading">
+    {{ plani_avatar(104, 'plani-workspace-portrait') }}
+    <div>
+      <h1 class="hub-hero-title">Study with {{ assistant_name }}</h1>
+      <p class="hub-hero-sub">Ask me where to start, or pick a tool to practice, review, or plan.</p>
+    </div>
+  </div>
 
   <div class="hub-chat-wrap">
     {{ plani_avatar(24) }}
@@ -307,7 +312,7 @@
       <span class="hub-card-icon"><svg><use href="#i-pencil"/></svg></span>
       <span class="hub-card-title">Writing</span>
     </div>
-    <p class="hub-card-desc">Essay help, grammar checking, draft refinement, and proofreading — all powered by AI.</p>
+    <p class="hub-card-desc">Essay help, grammar checking, draft refinement, and proofreading. All powered by AI.</p>
     <div class="hub-card-footer"><span class="hub-card-tag">AI Help</span><span class="hub-card-go">Open<span class="ip-arrow" style="--ip-arrow-size:13px" aria-hidden="true"></span></span></div>
   </a>
 
@@ -325,7 +330,7 @@
       <span class="hub-card-icon"><svg><use href="#i-check-circle"/></svg></span>
       <span class="hub-card-title">Task Extractor</span>
     </div>
-    <p class="hub-card-desc">Upload a syllabus, screenshot, or PDF — IntelliPlan pulls out every assignment and due date for you.</p>
+    <p class="hub-card-desc">Upload a syllabus, screenshot, or PDF. IntelliPlan pulls out every assignment and due date for you.</p>
     <div class="hub-card-footer"><span class="hub-card-tag">AI Help</span><span class="hub-card-go">Open<span class="ip-arrow" style="--ip-arrow-size:13px" aria-hidden="true"></span></span></div>
   </a>
 
@@ -334,7 +339,7 @@
       <span class="hub-card-icon"><svg><use href="#i-tutor"/></svg></span>
       <span class="hub-card-title">Text Dissector</span>
     </div>
-    <p class="hub-card-desc">Paste any passage — get a plain-English summary, key points, vocabulary definitions, and comprehension questions.</p>
+    <p class="hub-card-desc">Paste any passage. Get a plain-English summary, key points, vocabulary definitions, and comprehension questions.</p>
     <div class="hub-card-footer"><span class="hub-card-tag">AI Help</span><span class="hub-card-go">Open<span class="ip-arrow" style="--ip-arrow-size:13px" aria-hidden="true"></span></span></div>
   </a>
 
@@ -356,7 +361,7 @@
       <span class="hub-card-icon"><svg><use href="#i-rocket"/></svg></span>
       <span class="hub-card-title">Deep Study</span>
     </div>
-    <p class="hub-card-desc">A structured 3-step session — setup, encoding, and database building — designed for serious study time.</p>
+    <p class="hub-card-desc">A structured 3-step session (setup, encoding, and database building) designed for serious study time.</p>
     <div class="hub-card-footer"><span class="hub-card-tag">Practice</span><span class="hub-card-go">Open<span class="ip-arrow" style="--ip-arrow-size:13px" aria-hidden="true"></span></span></div>
   </a>
 
@@ -374,7 +379,7 @@
       <span class="hub-card-icon"><svg><use href="#i-fire"/></svg></span>
       <span class="hub-card-title">Olympiad Preparer</span>
     </div>
-    <p class="hub-card-desc">Native lessons for AMC, AIME, Science Olympiad, and computing contests — formulas, strategies, and practice frameworks.</p>
+    <p class="hub-card-desc">Native lessons for AMC, AIME, Science Olympiad, and computing contests: formulas, strategies, and practice frameworks.</p>
     <div class="hub-card-footer"><span class="hub-card-tag">Practice</span><span class="hub-card-go">Open<span class="ip-arrow" style="--ip-arrow-size:13px" aria-hidden="true"></span></span></div>
   </a>
 
@@ -401,7 +406,7 @@
       <span class="hub-card-icon"><svg><use href="#i-lightbulb"/></svg></span>
       <span class="hub-card-title">Lessons</span>
     </div>
-    <p class="hub-card-desc">Upload a class recording — IntelliPlan transcribes it and pulls out the key takeaways.</p>
+    <p class="hub-card-desc">Upload a class recording. IntelliPlan transcribes it and pulls out the key takeaways.</p>
     <div class="hub-card-footer"><span class="hub-card-tag">Practice</span><span class="hub-card-go">Open<span class="ip-arrow" style="--ip-arrow-size:13px" aria-hidden="true"></span></span></div>
   </a>
 
@@ -420,7 +425,7 @@
       <span class="hub-card-icon"><svg><use href="#i-classes"/></svg></span>
       <span class="hub-card-title">Classes</span>
     </div>
-    <p class="hub-card-desc">Every course in one place — assignments, grades, and materials side-by-side.</p>
+    <p class="hub-card-desc">Every course in one place: assignments, grades, and materials side-by-side.</p>
     <div class="hub-card-footer"><span class="hub-card-tag">Planning</span><span class="hub-card-go">Open<span class="ip-arrow" style="--ip-arrow-size:13px" aria-hidden="true"></span></span></div>
   </a>
 
@@ -466,7 +471,7 @@
       <span class="hub-card-icon"><svg><use href="#i-video"/></svg></span>
       <span class="hub-card-title">Meetings</span>
     </div>
-    <p class="hub-card-desc">Your Zoom, Teams, Meet, and Webex calls — all in one synced feed.</p>
+    <p class="hub-card-desc">Your Zoom, Teams, Meet, and Webex calls. All in one synced feed.</p>
     <div class="hub-card-footer"><span class="hub-card-tag">Social</span><span class="hub-card-go">Open<span class="ip-arrow" style="--ip-arrow-size:13px" aria-hidden="true"></span></span></div>
   </a>
 
@@ -475,7 +480,7 @@
       <span class="hub-card-icon"><svg><use href="#i-users"/></svg></span>
       <span class="hub-card-title">Study Groups</span>
     </div>
-    <p class="hub-card-desc">Form a group, share notes, and study together — even when you're apart.</p>
+    <p class="hub-card-desc">Form a group, share notes, and study together, even when you're apart.</p>
     <div class="hub-card-footer"><span class="hub-card-tag">Social</span><span class="hub-card-go">Open<span class="ip-arrow" style="--ip-arrow-size:13px" aria-hidden="true"></span></span></div>
   </a>
 </div>

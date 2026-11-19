@@ -44,7 +44,7 @@ def main() -> None:
     # UnicodeEncodeError on the first non-ASCII character, which would make
     # this script crash before printing the keys it just generated.
     print("Add these to your environment (Railway > Variables, or .env locally).")
-    print("Keep VAPID_PRIVATE_KEY secret — treat it like a password.\n")
+    print("Keep VAPID_PRIVATE_KEY secret. Treat it like a password.\n")
     print(f"VAPID_PUBLIC_KEY={b64(public)}")
     print(f"VAPID_PRIVATE_KEY={b64(private)}")
     print("VAPID_EMAIL=you@yourdomain.com")

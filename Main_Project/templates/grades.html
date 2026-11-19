@@ -238,7 +238,7 @@ function ipGradesProvenance(fromCache, cachedAt) {
   const when = mins < 1 ? 'moments ago'
              : mins < 60 ? mins + ' minute' + (mins === 1 ? '' : 's') + ' ago'
              : Math.round(mins / 60) + ' hour' + (Math.round(mins / 60) === 1 ? '' : 's') + ' ago';
-  el.textContent = 'Offline — these are your grades as of ' + when + '.';
+  el.textContent = 'Offline. These are your grades as of ' + when + '.';
   el.hidden = false;
 }
 

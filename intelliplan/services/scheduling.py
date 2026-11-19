@@ -469,7 +469,7 @@ class SchedulingService:
                 replace(
                     task,
                     id=f"{task.id}::{stage.key}",
-                    title=f"{task.title} — {stage.label}",
+                    title=f"{task.title}: {stage.label}",
                     parent_title=task.title,
                     stage_index=index,
                     est_minutes=stage.minutes,
@@ -939,7 +939,7 @@ def _stepped(task: PlannerTask, steps: Sequence[Mapping[str, Any]]) -> list[Plan
             replace(
                 task,
                 id=task_id,
-                title=f"{task.title} — {sitting_label(group)}",
+                title=f"{task.title}: {sitting_label(group)}",
                 parent_title=task.title,
                 stage_index=index,
                 est_minutes=max(5, sum(int(s.get("minutes") or 0) for s in group)),

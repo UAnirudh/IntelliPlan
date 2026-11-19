@@ -9,7 +9,7 @@
 <div class="page-header">
   <div class="page-kicker">Grades</div>
   <h1 class="page-title">Grade Modeler</h1>
-  <p class="page-subtitle">See what you need to hit your target grade — and where the AI thinks you're headed.</p>
+  <p class="page-subtitle">See what you need to hit your target grade. And where the AI thinks you're headed.</p>
 </div>
 
 <style>
@@ -226,7 +226,7 @@ window.gpBuildOverride = function() {
         <button type="button" onclick="submitAddAssignment()" style="padding:7px 14px;border:none;background:var(--accent);color:var(--on-accent, #fff);border-radius:9px;cursor:pointer;font-family:var(--font-ui);font-size:0.85rem;font-weight:700;">Add</button>
       </div>
       <div style="font-family:var(--font-ui);font-size:0.74rem;color:var(--text-muted);margin-top:0.6rem;line-height:1.5;">
-        Leave the score blank to add a future/pending assignment — you can simulate it below like any other pending work. Manual assignments stay until you remove them.
+        Leave the score blank to add a future/pending assignment. You can simulate it below like any other pending work. Manual assignments stay until you remove them.
       </div>
     </div>
 
@@ -464,8 +464,8 @@ function refreshHeader() {
   }
   const tag = Object.keys(simulatedScores).length
     ? ' <span style="font-size:0.35em;font-weight:600;color:var(--accent);vertical-align:middle;white-space:nowrap;">what-if</span>' : '';
-  document.getElementById('currentPct').innerHTML = pct === null ? '—' : `${pct.toFixed(1)}%${tag}`;
-  const letter = pct === null ? (selectedCourse.officialLetter || '—')
+  document.getElementById('currentPct').innerHTML = pct === null ? 'N/A' : `${pct.toFixed(1)}%${tag}`;
+  const letter = pct === null ? (selectedCourse.officialLetter || 'N/A')
     : (isModified() ? pctToLetter(pct) : (selectedCourse.officialLetter || pctToLetter(pct)));
   selectedCourse.percentage = pct === null ? null : Number(pct.toFixed(2));
   selectedCourse.letter = letter;

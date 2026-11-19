@@ -252,7 +252,7 @@ def send_lifecycle_email(
         # because the fix is one environment variable and the failure is
         # otherwise invisible until someone complains.
         logger.error(
-            "MARKETING_POSTAL_ADDRESS is unset — refusing to send %s to %s. "
+            "MARKETING_POSTAL_ADDRESS is unset. Refusing to send %s to %s. "
             "CAN-SPAM requires a physical mailing address in commercial email.",
             email_key,
             address,

@@ -177,7 +177,7 @@
           state.data = res.data;
           renderList();
           say("Saved " + (res.data.classes ? name : "") + ".");
-        }).catch(function () { save.disabled = false; say("Network error — not saved.", true); });
+        }).catch(function () { save.disabled = false; say("Network error, not saved.", true); });
       });
       var del = node("button", { type: "button", className: "tt-btn" }, "Remove");
       del.setAttribute("aria-label", "Remove " + name);
@@ -229,7 +229,7 @@
     (s.skip_days || []).forEach(function (skip, idx) {
       var li = node("li");
       var when = skip.start === skip.end ? skip.start : skip.start + " to " + skip.end;
-      li.appendChild(node("span", null, when + (skip.label ? " — " + skip.label : "")));
+      li.appendChild(node("span", null, when + (skip.label ? ": " + skip.label : "")));
       var rm = node("button", { type: "button", className: "tt-btn" }, "Remove");
       rm.setAttribute("aria-label", "Remove no-school day " + when);
       rm.addEventListener("click", function () {
@@ -271,7 +271,7 @@
       state.data = res.data;
       renderList();
       say(okMessage || "Saved.");
-    }).catch(function () { say("Network error — not saved.", true); });
+    }).catch(function () { say("Network error, not saved.", true); });
   }
 
   // ── wiring ─────────────────────────────────────────────────────────
@@ -327,7 +327,7 @@
       renderList();
       say("Added " + body.course + ".");
       $("ttNewCourse").focus();
-    }).catch(function () { say("Network error — not added.", true); });
+    }).catch(function () { say("Network error, not added.", true); });
   });
 
   el.importBtn.addEventListener("click", function () {
@@ -383,7 +383,7 @@
       var days = (parts[1] || "").split(/[\s,]+/).filter(Boolean).map(function (day) {
         return WEEKDAYS.find(function (abbr) { return abbr.toLowerCase() === day.toLowerCase(); });
       });
-      var time = /^(\d\d:\d\d)\s*[-–—]\s*(\d\d:\d\d)$/.exec(parts[2] || "");
+      var time = /^(\d\d:\d\d)\s*[-–\u2014]\s*(\d\d:\d\d)$/.exec(parts[2] || "");
       var valid = function (clock) { return /^([01]\d|2[0-3]):[0-5]\d$/.test(clock); };
       if (parts.length !== 3 || !course || course.length > 256 || !days.length ||
           days.includes(undefined) || !time || !valid(time[1]) || !valid(time[2]) || time[1] >= time[2]) {

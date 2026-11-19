@@ -336,4 +336,4 @@ def explain(triggers: Sequence[Trigger], moved: int) -> tuple[str, list[str]]:
         tail = "1 session moved"
     else:
         tail = f"{moved} sessions moved"
-    return f"Autopilot updated your plan — {tail}.", reasons
+    return f"Autopilot updated your plan: {tail}.", reasons

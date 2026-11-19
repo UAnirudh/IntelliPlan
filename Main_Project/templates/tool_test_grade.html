@@ -96,7 +96,7 @@
     </div>
     <div class="tg-result" id="tgResult">
       <div class="big" id="tgPct">90%</div>
-      <div class="sub" id="tgSub">18 out of 20 correct — grade B</div>
+      <div class="sub" id="tgSub">18 out of 20 correct. Grade B</div>
     </div>
     <div class="tg-chart">
       <h2>Full grading chart</h2>
@@ -143,14 +143,14 @@ function calcTest() {
   var pctEl = document.getElementById('tgPct');
   var subEl = document.getElementById('tgSub');
   var body = document.getElementById('tgChartBody');
-  if (isNaN(total) || total < 1) { pctEl.textContent = '—'; subEl.textContent = 'Enter the number of questions'; body.innerHTML = ''; return; }
+  if (isNaN(total) || total < 1) { pctEl.textContent = 'N/A'; subEl.textContent = 'Enter the number of questions'; body.innerHTML = ''; return; }
   if (isNaN(wrong) || wrong < 0) wrong = 0;
   if (wrong > total) wrong = total;
   var correct = total - wrong;
   var pct = (correct / total) * 100;
   var rounded = Math.round(pct * 10) / 10;
   pctEl.textContent = rounded + '%';
-  subEl.textContent = correct + ' out of ' + total + ' correct — grade ' + letterFor(pct);
+  subEl.textContent = correct + ' out of ' + total + ' correct. Grade ' + letterFor(pct);
   // Build chart (cap rows for very large tests)
   var rows = '';
   var maxRows = Math.min(total, 60);

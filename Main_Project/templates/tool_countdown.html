@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 
-{% block page_title %}Finals Countdown — Days Until Your Exams | IntelliPlan{% endblock %}
+{% block page_title %}Finals Countdown | Days Until Your Exams | IntelliPlan{% endblock %}
 
 {% block meta_description %}Free finals countdown timer. Set your exam date and see exactly how many days until finals. A motivator plus a way to back-plan study time.{% endblock %}
 {% block og_type %}website{% endblock %}
-{% block og_title %}Finals Countdown — Days Until Your Exams{% endblock %}
+{% block og_title %}Finals Countdown | Days Until Your Exams{% endblock %}
 {% block og_description %}Set your finals date and watch the countdown. Then let IntelliPlan back-plan your study schedule. Free.{% endblock %}
-{% block twitter_title %}Finals Countdown — Days Until Your Exams{% endblock %}
+{% block twitter_title %}Finals Countdown. Days Until Your Exams{% endblock %}
 {% block twitter_description %}How many days until finals? Set your date and find out. Free.{% endblock %}
 
 {% block head_extra %}
@@ -100,7 +100,7 @@ function startCountdown() {
     var diff = target.getTime() - Date.now();
     if (diff <= 0) {
       disp.style.display = 'none';
-      msg.innerHTML = 'It\'s here — good luck on your finals!';
+      msg.innerHTML = 'It\'s here. Good luck on your finals!';
       if (_cdInterval) clearInterval(_cdInterval);
       return;
     }

@@ -261,7 +261,7 @@ def apply_for_key():
     use_case = (body.get("use_case") or "").strip()[:2000]
     if len(use_case) < 40:
         return _err(
-            "Describe what you're building in at least 40 characters — "
+            "Describe what you're building in at least 40 characters: "
             "this is what a reviewer reads.", 400, field="use_case")
 
     if not body.get("accepted_terms"):
@@ -292,7 +292,7 @@ def apply_for_key():
             return _err(f'You already have {MAX_KEYS_PER_USER} open applications or keys. Revoke one before applying again.', 409)
         if secret:
             _notify_applicant(row, approved=True)
-            return jsonify(status='approved', message='Approved. Copy the key now — this is the only time we show it.',
+            return jsonify(status='approved', message='Approved. Copy the key now. This is the only time we show it.',
                            key=secret, application=row.to_dict()), 201
         _notify_reviewers(row)
         return jsonify(status='pending', message="Submitted. Write access is reviewed by a person, usually within two business days. We'll email you either way.",
@@ -328,7 +328,7 @@ def apply_for_key():
         _notify_applicant(row, approved=True)
         return jsonify({
             "status": "approved",
-            "message": "Approved. Copy the key now — this is the only time we show it.",
+            "message": "Approved. Copy the key now. This is the only time we show it.",
             "key": secret,
             "application": row.to_dict(),
         }), 201
@@ -525,7 +525,7 @@ def _notify_applicant(row, approved, secret=None):
             return False
         if approved:
             body = f'Your IntelliPlan API application for "{row.app_name}" is approved.\n\nScopes: {row.scopes}\nRate limit: {row.rate_limit_per_min} requests/minute\n\n'
-            body += f'Your key:\n{secret}\n\nStore it now — we cannot show it again.\n' if secret else 'Your key is on the /developers page.\n'
+            body += f'Your key:\n{secret}\n\nStore it now. We cannot show it again.\n' if secret else 'Your key is on the /developers page.\n'
             subject = 'Your IntelliPlan API key'
         else:
             body = f'Your IntelliPlan API application for "{row.app_name}" was not approved.\n\n{row.review_note or "No further detail was given."}'
@@ -542,7 +542,7 @@ def _notify_applicant(row, approved, secret=None):
             body = (f"Your IntelliPlan API application for \"{row.app_name}\" is approved.\n\n"
                     f"Scopes: {row.scopes}\n"
                     f"Rate limit: {row.rate_limit_per_min} requests/minute\n\n")
-            body += (f"Your key:\n{secret}\n\nStore it now — we can't show it again.\n"
+            body += (f"Your key:\n{secret}\n\nStore it now. We can't show it again.\n"
                      if secret else
                      "Your key is on the /developers page.\n")
             subject = "Your IntelliPlan API key"

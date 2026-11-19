@@ -84,7 +84,7 @@ _TIME = r"\d{1,2}(?::\d{2})?"
 _RANGE_RE = re.compile(
     rf"(?P<days>(?:{_DAY_TOKEN})[a-z]*(?:\s*(?:[/,&+]|and)\s*(?:{_DAY_TOKEN})[a-z]*)*)"
     rf"\s*(?:from\s+)?(?P<t1>{_TIME})\s*(?P<ap1>am|pm)?"
-    rf"\s*(?:[-–—]|to)\s*(?P<t2>{_TIME})\s*(?P<ap2>am|pm)?",
+    rf"\s*(?:[-–: ]|to)\s*(?P<t2>{_TIME})\s*(?P<ap2>am|pm)?",
     re.IGNORECASE,
 )
 _SINGLE_RE = re.compile(
@@ -477,7 +477,7 @@ class StudyDNA:
             pct = int(round(abs(self.estimation_ratio - 1.0) * 100))
             direction = "longer than" if self.estimation_ratio > 1 else "less time than"
             bits.append(
-                f"Tasks take this student ~{pct}% {direction} they estimate — "
+                f"Tasks take this student ~{pct}% {direction} they estimate"
                 f"size blocks accordingly instead of trusting the raw estimate."
             )
         if self.best_slot:
@@ -491,43 +491,43 @@ class StudyDNA:
             bits.append(
                 f"Measured focus: their longest uninterrupted focused stretch is "
                 f"typically {self.focus_streak_minutes} minutes (from {self.session_samples} "
-                f"timed sittings, not self-reported). Size single blocks to this — "
+                f"timed sittings, not self-reported). Size single blocks to this"
                 f"work scheduled past it is work they stop partway through."
             )
         elif self.stamina_minutes:
             bits.append(
-                f"Their typical finished block is {self.stamina_minutes} minutes — "
+                f"Their typical finished block is {self.stamina_minutes} minutes"
                 f"do not schedule single blocks much longer than this."
             )
         if self.distractions_per_hour is not None and self.distractions_per_hour >= 1.5:
             bits.append(
-                f"They lose focus about {self.distractions_per_hour:.1f} times per hour — "
+                f"They lose focus about {self.distractions_per_hour:.1f} times per hour"
                 f"schedule shorter runs with breaks between them rather than long stretches."
             )
         if self.session_completion is not None and self.session_samples >= MIN_SAMPLES_FOR_SIGNAL:
             pct = int(round(self.session_completion * 100))
             if pct < 50:
                 bits.append(
-                    f"Only ~{pct}% of their study sittings end with the work finished — "
+                    f"Only ~{pct}% of their study sittings end with the work finished"
                     f"break work into smaller pieces so a sitting can actually complete one."
                 )
         if self.strong_days:
             bits.append(f"Historically productive days: {', '.join(self.strong_days)}.")
         if self.weak_days:
             bits.append(
-                f"Historically low-output days: {', '.join(self.weak_days)} — "
+                f"Historically low-output days: {', '.join(self.weak_days)}: "
                 f"keep these lighter."
             )
         if self.adherence is not None:
             pct = int(round(self.adherence * 100))
             if pct < 55:
                 bits.append(
-                    f"They complete only ~{pct}% of scheduled blocks — plan fewer, "
+                    f"They complete only ~{pct}% of scheduled blocks, so plan fewer, "
                     f"shorter blocks so the plan stays achievable."
                 )
             elif pct >= 85:
                 bits.append(
-                    f"They complete ~{pct}% of scheduled blocks — they can handle a "
+                    f"They complete ~{pct}% of scheduled blocks. They can handle a "
                     f"full, ambitious plan."
                 )
         if self.course_ratios:
@@ -539,7 +539,7 @@ class StudyDNA:
         if not bits:
             return ""
         return (
-            "\n=== MEASURED STUDY HABITS (from this student's own history — "
+            "\n=== MEASURED STUDY HABITS (from this student's own history: "
             "plan against these, never quote them back) ===\n"
             + "\n".join(f"  - {b}" for b in bits)
             + "\n=== END MEASURED STUDY HABITS ===\n"
@@ -1119,7 +1119,7 @@ def describe_week(
                 f"{s // 60 % 12 or 12}:{s % 60:02d}–{e // 60 % 12 or 12}:{e % 60:02d}"
                 for s, e in _merge(busy[day])
             )
-            line += f" — busy {blocked}"
+            line += f": busy {blocked}"
         lines.append(line)
     if not lines:
         return ""

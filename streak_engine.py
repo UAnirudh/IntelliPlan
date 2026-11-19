@@ -309,7 +309,7 @@ def assess_streak_risk(
     return StreakRisk(
         level="due_today",
         hours_until_break=hours_left,
-        message=f"Keep your {current_streak}-day streak alive — finish one task today.",
+        message=f"Keep your {current_streak}-day streak alive. Finish one task today.",
         urgency_score=60,
     )
 
@@ -330,7 +330,7 @@ def perfect_week_bonus(week_dots: list[dict]) -> dict:
             "perfect": True,
             "progress": qualified_days,
             "total_days": 7,
-            "message": "Perfect week — +200 XP bonus!",
+            "message": "Perfect week: +200 XP bonus!",
             "bonus_xp": 200,
         }
     return {

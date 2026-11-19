@@ -128,9 +128,9 @@ def _summary(days: tuple[DayLoad, ...], heaviest: date | None) -> str:
     today_load = days[0]
     name = heaviest.strftime("%A")
     if heaviest == today_load.day:
-        return f"Today is your heaviest day — {heaviest_load.committed_minutes + heaviest_load.prework_minutes} min of work."
+        return f"Today is your heaviest day: {heaviest_load.committed_minutes + heaviest_load.prework_minutes} min of work."
     if today_load.stress < 0.25 and heaviest_load.stress > 0.5:
-        return f"{name} is your heaviest day. Today is light — use it to get ahead."
+        return f"{name} is your heaviest day. Today is light. Use it to get ahead."
     if heaviest_load.stress > 0.75:
         return f"{name} is going to be tight. Worth shifting work earlier."
     return f"{name} is the heaviest day this week."

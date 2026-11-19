@@ -9,7 +9,7 @@
   function value(summary, key, source) {
     if (summary[source + '_status'] === 'not_shared') return 'Private';
     if (!['ok', 'partial'].includes(summary[source + '_status'])) return 'Unavailable';
-    return Number.isFinite(summary[key]) && summary[key] >= 0 ? summary[key] : '—';
+    return Number.isFinite(summary[key]) && summary[key] >= 0 ? summary[key] : 'N/A';
   }
   function render(host, summary) {
     host.replaceChildren();

@@ -99,7 +99,7 @@
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color:var(--accent);"><path d="M12 2v4"/><path d="m16.2 7.8 2.9-2.9"/><path d="M18 12h4"/><path d="m16.2 16.2 2.9 2.9"/><path d="M12 18v4"/><path d="m4.9 19.1 2.9-2.9"/><path d="M2 12h4"/><path d="m4.9 4.9 2.9 2.9"/></svg>
           AI Grade Predictions
         </div>
-        <div class="gp-sub">Where each grade is heading, projected from your graded history — trend, consistency, and remaining work all factored in.</div>
+        <div class="gp-sub">Where each grade is heading, projected from your graded history: trend, consistency, and remaining work all factored in.</div>
       </div>
       <button class="gp-btn" id="gpBtn" onclick="runPredictions()">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
@@ -384,9 +384,9 @@ function courseHeadline(course) {
   const letter = (course && course.letter) || (hasPct ? pctToLetter(pct) : '');
   return {
     pct: hasPct ? pct : null,
-    pctText: hasPct ? `${Math.round(pct * 10) / 10}%` : '—',
+    pctText: hasPct ? `${Math.round(pct * 10) / 10}%` : 'N/A',
     letter: letter,
-    letterText: letter || '—',
+    letterText: letter || 'N/A',
   };
 }
 
@@ -1010,10 +1010,10 @@ function recalculateModeled() {
     ? Math.round((weightedSum / totalWeightUsed) * 10000) / 100
     : selectedCourse.percentage;
 
-  animateGradeChange(document.getElementById('modeledPct'), modeled == null ? '—' : `${modeled}%`);
+  animateGradeChange(document.getElementById('modeledPct'), modeled == null ? 'N/A' : `${modeled}%`);
   const modeledLetter = document.getElementById('modeledLetter');
   const modeledGradeLetter = modeled == null ? '' : pctToLetter(modeled);
-  modeledLetter.textContent = modeledGradeLetter || '—';
+  modeledLetter.textContent = modeledGradeLetter || 'N/A';
   modeledLetter.className = 'priority-badge ' + letterToClass(modeledGradeLetter);
 
   return modeled;
@@ -1325,7 +1325,7 @@ function updateCurrentDisplaysFromSelectedCourse() {
   if (!selectedCourse) return;
 
   document.getElementById('currentPct').textContent = `${selectedCourse.percentage}%`;
-  document.getElementById('currentLetter').textContent = selectedCourse.letter || '—';
+  document.getElementById('currentLetter').textContent = selectedCourse.letter || 'N/A';
   document.getElementById('currentLetter').className = 'priority-badge ' + letterToClass(selectedCourse.letter);
 }
 
@@ -1406,7 +1406,7 @@ function gpTrendChip(p) {
   if (p.trend === 'declining') {
     return `<span class="gp-chip down" title="Recent scores are ${p.trend_delta} pts vs earlier work">▼ Declining</span>`;
   }
-  return `<span class="gp-chip flat" title="Recent scores match your earlier work">— Steady</span>`;
+  return `<span class="gp-chip flat" title="Recent scores match your earlier work">: Steady</span>`;
 }
 
 function gpConfidenceChip(p) {
@@ -1421,7 +1421,7 @@ function esc(s) {
 function renderPredictions(data) {
   const wrap = document.getElementById('gpResults');
   const cards = (data.predictions || []).map((p, i) => {
-    const cur = p.current !== null && p.current !== undefined ? `${p.current}%` : '—';
+    const cur = p.current !== null && p.current !== undefined ? `${p.current}%` : 'N/A';
     const predLetter = pctToLetter(p.predicted);
     const delta = (p.current !== null && p.current !== undefined)
       ? Math.round((p.predicted - p.current) * 10) / 10
@@ -1453,7 +1453,7 @@ function renderPredictions(data) {
   wrap.innerHTML = `<div class="gp-grid">${cards}</div>${summaryBlock}
     <div style="margin-top:0.7rem;font-size:0.72rem;color:var(--text-muted);">
       Predictions assume you keep scoring near your historical category averages, adjusted for your recent trend.
-      They're a planning tool — verify your actual standing with your teacher.
+      They're a planning tool. Verify your actual standing with your teacher.
     </div>`;
 }
 
@@ -1461,7 +1461,7 @@ function runPredictions() {
   const btn = document.getElementById('gpBtn');
   const wrap = document.getElementById('gpResults');
   if (!Array.isArray(gradebookData) || !gradebookData.length) {
-    wrap.innerHTML = '<div style="margin-top:1rem;font-size:0.86rem;color:var(--text-muted);">No gradebook data loaded yet — connect StudentVue or Canvas in Settings first.</div>';
+    wrap.innerHTML = '<div style="margin-top:1rem;font-size:0.86rem;color:var(--text-muted);">No gradebook data loaded yet. Connect StudentVue or Canvas in Settings first.</div>';
     return;
   }
   btn.disabled = true;
@@ -1479,7 +1479,7 @@ function runPredictions() {
       renderPredictions(d);
     })
     .catch(err => {
-      wrap.innerHTML = `<div style="margin-top:1rem;font-size:0.86rem;color:var(--high);">${esc(err.message || 'Could not generate predictions — please try again.')}</div>`;
+      wrap.innerHTML = `<div style="margin-top:1rem;font-size:0.86rem;color:var(--high);">${esc(err.message || 'Could not generate predictions. Please try again.')}</div>`;
     })
     .finally(() => {
       btn.disabled = false;

@@ -519,7 +519,7 @@ body {
   <span class="ipui-announce__body">
     <span class="ipui-announce__badge">New</span>
     <p class="ipui-announce__text">
-      The IntelliPlan API is open — read assignments, build plans, and sync study data from your own app.
+      The IntelliPlan API is open. Read assignments, build plans, and sync study data from your own app.
     </p>
     {# no-glass opts this out of the blanket a[class*="cta"] glass-pill rule in
        ip-base.css, which was painting a dark filled box behind what is meant
@@ -1149,7 +1149,7 @@ document.addEventListener('pointerdown', (e) => {
 function setThemeMode(mode, opts) {
   let applied = false;
   const applyTheme = () => {
-    if (applied) return;              // idempotent — the guard below may race
+    if (applied) return;              // idempotent. The guard below may race
     applied = true;
     html.setAttribute('data-theme', mode);
     try { localStorage.setItem('theme', mode); } catch(e){}
@@ -1406,7 +1406,7 @@ if (mobileMenuBtn) {
     selectedIdx = 0;
     if (filtered.length === 0) {
       results.innerHTML = quickMode
-        ? '<div class="cmd-empty">Type a task — e.g. “bio lab due fri 2h” or “quiz tmrw”.</div>'
+        ? '<div class="cmd-empty">Type a task: e.g. “bio lab due fri 2h” or “quiz tmrw”.</div>'
         : '<div class="cmd-empty">No matches.</div>';
       return;
     }
@@ -1454,7 +1454,7 @@ if (mobileMenuBtn) {
   function open(mode) {
     quickMode = mode === 'quick';
     input.setAttribute('placeholder', quickMode
-      ? 'Add a task — e.g. bio lab due fri 2h'
+      ? 'Add a task: e.g. bio lab due fri 2h'
       : defaultPlaceholder);
     palette.classList.add('open');
     input.value = '';
@@ -2188,7 +2188,7 @@ function addMsg(role, text, record = true) {
 
   const bbl = document.createElement('div');
   bbl.className = 'plani-msg-bubble';
-  bbl.textContent = text;
+  bbl.textContent = role === 'bot' && globalThis.IPRichText ? globalThis.IPRichText.prose(text) : text;
 
   w.appendChild(av);
   w.appendChild(bbl);
@@ -2492,7 +2492,7 @@ window.addEventListener('load',()=>{
   const STEPS = [
     { selector: '.side-logo, .logo', text: 'Welcome to IntelliPlan, your AI-powered study planner. Let\'s take a quick tour!', title: 'Welcome' },
     { selector: 'a[href="/dashboard"].side-link, a[href="/dashboard"].nav-tab', text: 'Your Dashboard shows all your assignments, prioritized by urgency and due date.', title: 'Dashboard' },
-    { selector: 'a[href="/tutor"].side-link, a[href="/tutor"].nav-tab', text: 'The AI Tutor answers any question step by step — math, science, history, and more.', title: 'AI Tutor' },
+    { selector: 'a[href="/tutor"].side-link, a[href="/tutor"].nav-tab', text: 'The AI Tutor answers any question step by step: math, science, history, and more.', title: 'AI Tutor' },
     { selector: 'a[href="/scheduler"].side-link, a[href="/schedule"].side-link, a[href="/scheduler"].nav-tab', text: 'The Scheduler builds a personalized study plan around your free time and deadlines.', title: 'Scheduler' },
     { selector: 'a[href="/study"].side-link, a[href="/study"].nav-tab', text: 'Study & Learn uses spaced repetition and AI quizzes to help you actually retain material.', title: 'Study & Learn' },
     { selector: 'a[href="/gradebook"].side-link, a[href="/grademodel"].side-link, a[href="/gradebook"].nav-tab', text: 'The Grade Modeler shows exactly what scores you need on upcoming assignments to hit your target grade.', title: 'Grade Modeler' },
@@ -2901,7 +2901,7 @@ window.addEventListener('load',()=>{
       const data = await r.json();
       if (data && data.awarded) {
         const a = data.awarded;
-        showXpToast('+' + a.delta + ' XP — daily visit');
+        showXpToast('+' + a.delta + ' XP. Daily visit');
         if (a.evolved) {
           flashEvolve();
           setTimeout(() => showXpToast('Your pet evolved!'), 1100);

@@ -367,55 +367,6 @@
    through IP.offline shows the same note, so it should not be defined
    per page. */
 
-/* ── Right column: Assistant strip ────────────────────────── */
-.ipd-assistant-card {
-  background: var(--text-primary);
-  color: var(--bg);
-  border-radius: var(--ipd-radius-lg);
-  padding: 1.4rem;
-  margin-bottom: 14px;
-  position: relative;
-  overflow: hidden;
-}
-.ipd-assistant-card::before {
-  content: '';
-  position: absolute;
-  top: -40%;
-  right: -30%;
-  width: 180px;
-  height: 180px;
-  border-radius: 50%;
-  background: rgba(255,255,255,0.05);
-}
-.ipd-assistant-label {
-  font-family: var(--ipd-font-mono);
-  font-size: 0.68rem;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  opacity: 0.55;
-  margin-bottom: 10px;
-}
-.ipd-assistant-text {
-  font-family: var(--ipd-font-body);
-  font-size: 0.88rem;
-  line-height: 1.55;
-  font-weight: 500;
-}
-.ipd-assistant-cta {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 14px;
-  font-family: var(--ipd-font-body);
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: inherit;
-  text-decoration: none;
-  opacity: 0.85;
-  transition: opacity 0.15s;
-}
-.ipd-assistant-cta:hover { opacity: 1; }
-
 /* ── Right column: Grade Modeler teaser ───────────────────── */
 .ipd-grade-card {
   background: var(--glass-bg); -webkit-backdrop-filter: blur(16px) saturate(1.6); backdrop-filter: blur(16px) saturate(1.6);
@@ -598,7 +549,6 @@
   .ipd-grade-card,
   .ipd-sched-card,
   .ipd-upcoming-card,
-  .ipd-assistant-card { padding: 1.1rem; }
   .ipd-task-card { padding: 12px 13px; gap: 11px; }
   /* Row actions were hover-only, so on a touch screen — where there is no
      hover — Edit and Delete simply did not exist. */
@@ -740,10 +690,18 @@ body.has-tabbar:has(.ipd-modal-overlay[style*="flex"]) .ip-tabbar { visibility: 
 
 {# ── Page header ────────────────────────────────────────────── #}
 <div class="ipd-header ipd-anim ipd-d1">
-  <div class="ipd-kicker" id="ipdDateKicker"></div>
-  <h1 class="ipd-greeting" id="ipdGreeting">Good morning.</h1>
+  <div class="plani-day" id="ipdAssistant">
+    {{ plani_avatar(148, 'plani-workspace-portrait plani-day__portrait') }}
+    <div class="plani-day__copy">
+      <div class="ipd-kicker" id="ipdDateKicker"></div>
+      <h1 class="ipd-greeting" id="ipdGreeting">Good morning.</h1>
+      <p class="plani-day__label">{{ assistant_name }}’s next step</p>
+      <p class="plani-day__tip" id="ipdAssistantText" role="status">Start with one task you can finish today.</p>
+    </div>
+  </div>
   <div class="ipd-header-actions">
-    <button class="ipd-btn ipd-btn-primary" onclick="openNewTaskModal()">
+    <a class="ip-action ip-action--primary" href="/command-center">Plan with {{ assistant_name }} <span class="ip-arrow" aria-hidden="true"></span></a>
+    <button type="button" class="ipd-btn" onclick="openNewTaskModal()">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
       New Task
     </button>
@@ -763,22 +721,22 @@ body.has-tabbar:has(.ipd-modal-overlay[style*="flex"]) .ip-tabbar { visibility: 
 <div class="ipd-stats-row ipd-anim ipd-d2">
   <div class="ipd-stat-card">
     <span class="ipd-stat-label">On-time rate</span>
-    <span class="ipd-stat-value" id="ipdStatOnTime">—</span>
+    <span class="ipd-stat-value" id="ipdStatOnTime">N/A</span>
     <span class="ipd-stat-sub" id="ipdStatOnTimeSub">Loading…</span>
   </div>
   <div class="ipd-stat-card">
     <span class="ipd-stat-label">GPA</span>
-    <span class="ipd-stat-value" id="ipdStatGpa">—</span>
+    <span class="ipd-stat-value" id="ipdStatGpa">N/A</span>
     <span class="ipd-stat-sub" id="ipdStatGpaSub">Loading…</span>
   </div>
   <div class="ipd-stat-card">
     <span class="ipd-stat-label">Due this week</span>
-    <span class="ipd-stat-value" id="ipdStatDueWeek">—</span>
+    <span class="ipd-stat-value" id="ipdStatDueWeek">N/A</span>
     <span class="ipd-stat-sub" id="ipdStatDueWeekSub">Loading…</span>
   </div>
   <div class="ipd-stat-card">
     <span class="ipd-stat-label">Study streak</span>
-    <span class="ipd-stat-value" id="ipdStatStreak">—</span>
+    <span class="ipd-stat-value" id="ipdStatStreak">N/A</span>
     <div class="ipd-streak-week" id="ipdStreakWeek">
       <span class="ipd-streak-dot" data-d="0"></span>
       <span class="ipd-streak-dot" data-d="1"></span>
@@ -860,19 +818,6 @@ body.has-tabbar:has(.ipd-modal-overlay[style*="flex"]) .ip-tabbar { visibility: 
 
   {# ── Right sidebar ─────────────────────────────────────────── #}
   <div class="ipd-anim ipd-d4" style="display:flex;flex-direction:column;gap:0;">
-    {# Assistant strip #}
-    <div class="ipd-assistant-card" id="ipdAssistant">
-      <div class="plani-dashboard-byline">
-        {{ plani_avatar(56, 'plani-workspace-portrait') }}
-        <div class="ipd-assistant-label">{{ assistant_name }} suggests</div>
-      </div>
-      <div class="ipd-assistant-text" id="ipdAssistantText">Start with your highest-priority task today. Focusing on one thing at a time builds momentum.</div>
-      <a href="/tutor" class="ipd-assistant-cta">
-        Study with {{ assistant_name }}
-        <span class="ip-arrow" style="--ip-arrow-size:14px" aria-hidden="true"></span>
-      </a>
-    </div>
-
     {# Today's study plan (from saved schedule) #}
     <div class="ipd-sched-card" id="ipdSchedCard" style="display:none;">
       <div class="ipd-card-title">
@@ -1093,7 +1038,7 @@ body.has-tabbar:has(.ipd-modal-overlay[style*="flex"]) .ip-tabbar { visibility: 
       <svg viewBox="0 0 256 256" width="34" height="34" fill="currentColor" stroke="none"><use href="#i-graduation"/></svg>
     </div>
     <h3>Welcome to IntelliPlan</h3>
-    <p style="font-size:0.88rem;color:var(--text-secondary);line-height:1.6;margin:0 0 1.5rem;">Your AI-powered study planner. Let's set you up — it only takes a minute.</p>
+    <p style="font-size:0.88rem;color:var(--text-secondary);line-height:1.6;margin:0 0 1.5rem;">Your AI-powered study planner. Let's set you up. It only takes a minute.</p>
     <a href="/onboarding" class="ipd-btn ipd-btn-primary" style="text-decoration:none;display:inline-flex;padding:12px 28px;font-size:0.92rem;">Get started</a>
     <div style="margin-top:1rem;">
       <button class="ipd-btn" onclick="document.getElementById('onboardingModal').style.display='none'" style="font-size:0.8rem;color:var(--text-muted);">Skip for now</button>
@@ -1114,7 +1059,7 @@ body.has-tabbar:has(.ipd-modal-overlay[style*="flex"]) .ip-tabbar { visibility: 
   <h1 class="ipd-greeting" style="margin-bottom:0.6rem;">Your dashboard is waiting</h1>
   <p style="font-family:var(--ipd-font-body);font-size:0.95rem;color:var(--text-muted);line-height:1.65;margin:0 0 1.75rem;">
     Sign in or connect your school account to see your assignments, build
-    AI study plans, and track your progress — it takes under a minute.
+    AI study plans, and track your progress. It takes under a minute.
   </p>
   {# The old secondary label ("Try the scheduler — no account needed") was wide
      enough to wrap the pair onto two rows at unequal widths, which read as a
@@ -1251,7 +1196,7 @@ function renderSchedToday() {
       break;
     }
   }
-  if (!day) return; // no plan for today — card stays hidden
+  if (!day) return; // no plan for today. Card stays hidden
   var work = (day.blocks || []).filter(function(b) { return !b.is_break; });
   if (!work.length) return;
   var ck = {};
@@ -1419,15 +1364,15 @@ function updateAssistantTip() {
   if (!el) return;
   var t = _ipdState.unifiedTasks;
   if (t.overdue.length > 0) {
-    el.textContent = 'You have ' + t.overdue.length + ' overdue task' + (t.overdue.length > 1 ? 's' : '') + '. Tackling the oldest one first clears mental weight fast.';
+    el.textContent = 'You have ' + t.overdue.length + ' overdue task' + (t.overdue.length > 1 ? 's' : '') + '. Start with the oldest one you can still turn in.';
   } else if (t.today.length === 0) {
-    el.textContent = "You're clear for today! Perfect time to get ahead on upcoming work or review your notes.";
+    el.textContent = "Nothing is due today. Take a break or get a head start on what’s next.";
   } else if (t.today.length <= 2) {
-    el.textContent = 'Light day — just ' + t.today.length + ' task' + (t.today.length > 1 ? 's' : '') + '. Start with the hardest one while your energy is fresh.';
+    el.textContent = 'Light day. Just ' + t.today.length + ' task' + (t.today.length > 1 ? 's' : '') + '. Start with the hardest one while your energy is fresh.';
   } else {
     var highPrio = t.today.filter(function(task) { return (task.priority || '').toLowerCase() === 'high'; });
     if (highPrio.length > 0) {
-      el.textContent = highPrio.length + ' high-priority task' + (highPrio.length > 1 ? 's' : '') + ' today. Focus on "' + highPrio[0].title + '" first — it\'ll have the biggest impact.';
+      el.textContent = highPrio.length + ' high-priority task' + (highPrio.length > 1 ? 's' : '') + ' today. Focus on "' + highPrio[0].title + '" first. It\'ll have the biggest impact.';
     } else {
       el.textContent = t.today.length + ' tasks today. Start with your toughest one while your energy is fresh, then build momentum through the easier ones.';
     }
@@ -1443,7 +1388,7 @@ async function loadGradeSnapshot() {
     if (!courses || !Array.isArray(courses) || !courses.length) {
       wrap.innerHTML = '<div style="text-align:center;padding:1rem 0;color:var(--text-muted);font-family:var(--ipd-font-body);font-size:0.82rem;">No grade data yet</div>';
       var gpaEl = document.getElementById('ipdStatGpa');
-      if (gpaEl) gpaEl.textContent = '—';
+      if (gpaEl) gpaEl.textContent = 'N/A';
       var gpaSub = document.getElementById('ipdStatGpaSub');
       if (gpaSub) gpaSub.textContent = 'No grades yet';
       return;
@@ -1476,7 +1421,7 @@ async function loadGradeSnapshot() {
     }
   } catch (e) {
     var gpaEl = document.getElementById('ipdStatGpa');
-    if (gpaEl) gpaEl.textContent = '—';
+    if (gpaEl) gpaEl.textContent = 'N/A';
     var gpaSub = document.getElementById('ipdStatGpaSub');
     if (gpaSub) gpaSub.textContent = 'Unavailable';
   }
@@ -1544,7 +1489,7 @@ function dashMarkTest(e, taskObj, btn) {
   }).catch(function() {
     btn.disabled = false;
     btn.innerHTML = orig;
-    IP.alert('Network error — try again.');
+    IP.alert('Network error. Try again.');
   });
 }
 

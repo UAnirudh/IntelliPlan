@@ -285,11 +285,11 @@ def _why_now(a: Assignment, score: PriorityScore, forecast: WorkloadForecast) ->
     if urgency and urgency.weight >= 34:
         reason = urgency.reason
         if forecast.heaviest_day and a.due_date == forecast.heaviest_day:
-            return f"{reason} — and it lands on your heaviest day"
+            return f"{reason}, and it lands on your heaviest day"
         return reason
     impact = chips.get("grade_impact")
     if impact and impact.weight >= 12:
-        return f"{impact.reason} — high impact on your grade"
+        return f"{impact.reason}, high impact on your grade"
     if urgency:
         return urgency.reason
     return "Keeps you ahead of schedule"

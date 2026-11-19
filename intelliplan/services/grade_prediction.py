@@ -108,7 +108,7 @@ def _baseline(course: str, assignments: list[dict[str, Any]]) -> CoursePredictio
             predicted_percent=0.0,
             confidence=0.0,
             trend="steady",
-            narrative="No graded assignments yet — connect your LMS to enable predictions.",
+            narrative="No graded assignments yet. Connect your LMS to enable predictions.",
             sample_size=0,
             method="insufficient",
         )
@@ -123,8 +123,8 @@ def _baseline(course: str, assignments: list[dict[str, Any]]) -> CoursePredictio
         predicted = max(0.0, predicted - 2.0)
 
     narrative = {
-        "improving": f"You're trending up in {course} — recent work outperforms early scores.",
-        "slipping":  f"{course} is drifting down — recent scores are lower than your early average.",
+        "improving": f"You're trending up in {course}. Recent work outperforms early scores.",
+        "slipping":  f"{course} is drifting down. Recent scores are lower than your early average.",
         "steady":    f"You're holding steady in {course} at around {predicted:.0f}%.",
     }[trend]
 

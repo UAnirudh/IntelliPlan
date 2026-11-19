@@ -14,6 +14,7 @@ to index a page and the X-Robots-Tag header told it not to.
 from __future__ import annotations
 
 import re
+from html.parser import HTMLParser
 
 import pytest
 
@@ -338,3 +339,35 @@ def test_every_comparison_link_points_at_a_real_comparison_page(client):
         }
     unknown = sorted(referenced - real - {"/compare"})
     assert not unknown, f"links to comparison pages that do not exist: {unknown}"
+
+
+def test_public_website_copy_has_no_em_dash(client):
+    class CopyParser(HTMLParser):
+        def __init__(self):
+            super().__init__()
+            self.raw_text_tag = None
+            self.copy = []
+
+        def handle_starttag(self, tag, attrs):
+            if tag in {"script", "style"}:
+                self.raw_text_tag = tag
+            self.copy.extend(value for name, value in attrs
+                             if name in {"title", "aria-label", "placeholder", "alt", "content"} and value)
+
+        def handle_endtag(self, tag):
+            if tag == self.raw_text_tag:
+                self.raw_text_tag = None
+
+        def handle_data(self, data):
+            if self.raw_text_tag is None:
+                self.copy.append(data)
+
+    failures = []
+    for path in dict.fromkeys([*sitemap_paths(client), "/login", "/register", "/legal"]):
+        response = client.get(path, follow_redirects=True)
+        if response.status_code != 200 or response.mimetype != "text/html":
+            continue
+        parser = CopyParser()
+        parser.feed(response.get_data(as_text=True))
+        failures.extend((path, text.strip()) for text in parser.copy if "\u2014" in text)
+    assert not failures

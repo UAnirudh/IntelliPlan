@@ -149,7 +149,7 @@
       if (isFiveMinuteStart()) {
         offerToContinue();
       } else {
-        status('Past your estimate — keep going if you\'re in flow, or stop and log it. Either is useful.');
+        status('Past your estimate. Keep going if you\'re in flow, or stop and log it. Either is useful.');
       }
     }
   }
@@ -171,10 +171,10 @@
     var nudge = $('ipaNudge');
     var text = $('ipaNudgeText');
     if (!nudge || !text) {
-      status('That\'s your 5 minutes. Keep going — the timer is still running — or stop and log it.');
+      status('That\'s your 5 minutes. Keep going (the timer is still running) or stop and log it.');
       return;
     }
-    text.textContent = 'That\'s your 5 minutes. Keep going? The timer is still running — ' +
+    text.textContent = 'That\'s your 5 minutes. Keep going? The timer is still running: ' +
       'or stop here and the time still counts.';
     var stop = $('ipaNudgeStop');
     if (!stop) {
@@ -269,7 +269,7 @@
               ? 'Everything in your plan is done. Start another session if you want to keep going.'
               : hasPlan
                 ? 'Nothing left scheduled for now. You can still start a session below.'
-                : 'No schedule yet — you do not need one. Start a session below, or build a plan.';
+                : 'No schedule yet. You do not need one. Start a session below, or build a plan.';
             showAdhoc(!hasPlan);
             setControls('none');
             return;

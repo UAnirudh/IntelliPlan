@@ -104,7 +104,7 @@
       lastSignature = sig;
 
       if (!messages.length) {
-        log.innerHTML = '<div class="sess-chat-empty">No messages yet — share materials with the room.</div>';
+        log.innerHTML = '<div class="sess-chat-empty">No messages yet. Share materials with the room.</div>';
         return;
       }
 

@@ -139,7 +139,7 @@ def create_adjust_blueprint(deps: AdjustDeps) -> Blueprint:
         if not schedule_data or not schedule_data.get("schedule"):
             return jsonify({
                 "status": "none",
-                "message": "There's no saved plan to adjust yet — make one first.",
+                "message": "There's no saved plan to adjust yet. Make one first.",
             }), 404
 
         now = _now_for(uid)

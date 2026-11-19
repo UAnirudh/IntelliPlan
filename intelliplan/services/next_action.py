@@ -289,7 +289,7 @@ class NextActionService:
         elif snap.available_minutes <= 0:
             # There is work, but no time today. Say so rather than
             # recommending a 45-minute block into a window that closed.
-            reason = "Today's study window has closed — this is what tomorrow starts with."
+            reason = "Today's study window has closed. This is what tomorrow starts with."
 
         elapsed = int((time.perf_counter() - started) * 1000)
         return TodayDecision(

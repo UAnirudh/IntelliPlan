@@ -239,7 +239,7 @@ def capture(
                 "part_index": i,
                 "part_total": len(parts),
                 "notes": "Added with quick add.",
-                "reasons": ["Added with quick add — placed in your next free time."],
+                "reasons": ["Added with quick add. Placed in your next free time."],
                 "quick_add": True,
             }
             for i, part in enumerate(parts, start=1)
@@ -252,9 +252,9 @@ def capture(
 
     message = _summary(parsed, minutes)
     if placement.get("label"):
-        message += f" — {placement['label']}"
+        message += f": {placement['label']}"
     elif placement.get("status") == "no_plan":
-        message += " — it'll be scheduled when you build your plan."
+        message += ". It'll be scheduled when you build your plan."
     return {
         "status": "ok",
         "task": {

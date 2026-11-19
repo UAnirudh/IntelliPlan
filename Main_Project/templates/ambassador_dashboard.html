@@ -58,11 +58,11 @@
   <div class="ad-stats" style="margin-bottom:1.1rem;">
     <div class="ad-stat">
       <div class="label">Total referrals</div>
-      <div class="val" id="cntTotal">—</div>
+      <div class="val" id="cntTotal">N/A</div>
     </div>
     <div class="ad-stat">
       <div class="label">Current tier</div>
-      <div class="val" style="font-size:1rem;line-height:1.2;"><span id="tierBadge" class="ad-tier-badge tier-none">—</span></div>
+      <div class="val" style="font-size:1rem;line-height:1.2;"><span id="tierBadge" class="ad-tier-badge tier-none">N/A</span></div>
     </div>
   </div>
 
@@ -71,7 +71,7 @@
     <div style="font-family:var(--font-ui);font-size:0.92rem;color:var(--text-secondary);" id="tierNote">Loading your progress…</div>
     <div class="ad-progress">
       <div class="bar-wrap"><div class="bar" id="tierBar"></div></div>
-      <div class="lbl" id="tierLbl">—</div>
+      <div class="lbl" id="tierLbl">N/A</div>
     </div>
   </div>
 
@@ -79,7 +79,7 @@
     <div style="font-family:var(--font-display);font-size:1.05rem;font-weight:600;color:var(--text-primary);margin-bottom:0.5rem;">Need ideas where to share?</div>
     <ul style="font-family:var(--font-ui);font-size:0.94rem;color:var(--text-secondary);line-height:1.7;margin:0 0 0.75rem;padding-left:1.1rem;">
       <li>Your school's Discord, GroupMe, or class group chat</li>
-      <li>The school subreddit (e.g. r/<em>yourschool</em>) — share authentically, not as a drop</li>
+      <li>The school subreddit (e.g. r/<em>yourschool</em>). Share authentically, not as a drop</li>
       <li>Your TikTok / Instagram bio if you post study content</li>
       <li>Reply to friends asking "how do you stay on top of Canvas?"</li>
     </ul>
@@ -127,12 +127,12 @@
       lblEl.textContent = total + ' activated referrals';
     }
     // Wire share links
-    const shareText = encodeURIComponent("I've been using IntelliPlan — free AI study planner that syncs Canvas/StudentVue/Schoology and builds your week. Try it: " + link);
+    const shareText = encodeURIComponent("I've been using IntelliPlan. Free AI study planner that syncs Canvas/StudentVue/Schoology and builds your week. Try it: " + link);
     document.getElementById('shareSms').href = "sms:?body=" + shareText;
     document.getElementById('shareMail').href = "mailto:?subject=" + encodeURIComponent("Try IntelliPlan") + "&body=" + shareText;
     document.getElementById('shareWa').href = "https://wa.me/?text=" + shareText;
   } catch (e) {
-    document.getElementById('refLink').value = 'Unable to load — please refresh.';
+    document.getElementById('refLink').value = 'Unable to load. Please refresh.';
     document.getElementById('tierNote').textContent = 'Could not load your stats. Please refresh the page.';
   }
 })();

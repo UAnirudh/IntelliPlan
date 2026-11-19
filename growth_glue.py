@@ -621,7 +621,7 @@ def streak_email_off(token):
         "Streak emails off",
         "<h1>Streak emails are off</h1>"
         f"<p>We won't email <strong>{escape(address)}</strong> about streaks again. "
-        'Other reminders are unchanged — manage them in <a href="/settings">Settings</a>.</p>',
+        'Other reminders are unchanged. Manage them in <a href="/settings">Settings</a>.</p>',
     )
 
 

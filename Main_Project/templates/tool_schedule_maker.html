@@ -89,7 +89,7 @@
     <h2>Want this from your real assignments?</h2>
     <p>
       This builds a plan from what you type in. <a href="/">IntelliPlan</a> does it from your <em>actual</em>
-      coursework — it imports assignments from Canvas, StudentVue, and Schoology, knows what's due and how much
+      coursework. It imports assignments from Canvas, StudentVue, and Schoology, knows what's due and how much
       it's worth, and builds (and updates) the schedule for you, then exports to Google Calendar.
     </p>
     <p>Related: <a href="/tools/finals-countdown">Finals Countdown</a> · <a href="/blog/best-ai-study-planner">Best AI study planner</a> · <a href="/blog">All free tools</a></p>
@@ -184,7 +184,7 @@ function generate() {
 
   var note;
   if (totalNeeded > totalAvail) {
-    note = '<div class="sm-note" style="color:#b45309;">You asked for <strong>' + totalNeeded + 'h</strong> of study but only have <strong>' + totalAvail + 'h</strong> free. Here\'s the best fit — the extra ' + (totalNeeded - totalAvail) + 'h didn\'t fit, so trim a subject or free up more time.</div>';
+    note = '<div class="sm-note" style="color:#b45309;">You asked for <strong>' + totalNeeded + 'h</strong> of study but only have <strong>' + totalAvail + 'h</strong> free. Here\'s the best fit. The extra ' + (totalNeeded - totalAvail) + 'h didn\'t fit, so trim a subject or free up more time.</div>';
   } else {
     note = '<div class="sm-note" style="color:#047857;">Balanced plan for <strong>' + totalNeeded + 'h</strong> of study across <strong>' + days.length + '</strong> days. The rest is review time.</div>';
   }

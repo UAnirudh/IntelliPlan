@@ -253,7 +253,7 @@ BRIGHTSPACE = Integration(
         Method(
             key="oauth",
             label="Sign in with Brightspace",
-            how="Not available yet — join the waitlist and we will email you.",
+            how="Not available yet. Join the waitlist and we will email you.",
             friction="instant",
             start_post="/api/lms/connect/brightspace",
         ),

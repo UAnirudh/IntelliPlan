@@ -125,7 +125,7 @@ AGENT_TOOLS = [
         "description": "Mark a task as done. Works for manual AND LMS (Canvas/StudentVue/etc.) tasks.",
         "parameters": {
             "task_id": {"type": "integer", "description": "Manual task ID"},
-            "title": {"type": "string", "description": "Title (fuzzy match) — required for LMS tasks since they have no DB id"},
+            "title": {"type": "string", "description": "Title (fuzzy match). Required for LMS tasks since they have no DB id"},
         },
     },
     {
@@ -258,7 +258,7 @@ ACTION_START = "[[IP_ACTION]]"
 ACTION_END = "[[/IP_ACTION]]"
 
 
-AGENT_SYSTEM_PROMPT = """You are Plani — IntelliPlan's AI assistant. You sit at the center of the user's Command Center and help them manage school.
+AGENT_SYSTEM_PROMPT = """You are Plani, IntelliPlan's AI assistant. Use periods, commas, and parentheses instead of em dashes in user-facing prose. You sit at the center of the user's Command Center and help them manage school.
 
 PERSONALITY: Friendly, smart, concise. Talk like a sharp friend who's also their TA. Never corporate. 1-3 sentences unless the user wants depth.
 
@@ -294,26 +294,26 @@ INTELLIGENT BEHAVIOR:
   request recommend_courses and pass on its links unchanged. Time a student
   reports is self-reported; never call it verified.
 - If they ask to go somewhere, request navigate_to. The client ASKS the user
-  before moving them, so propose freely — but say in your reply where you
+  before moving them, so propose freely. But say in your reply where you
   are offering to take them and why, because that is what they will be
   agreeing to. Never navigate as a way of avoiding an answer you could
   give here.
 - Chain multiple actions when needed: e.g. list_tasks → identify the target → complete_task.
 
-SCHEDULING — VERY IMPORTANT:
+SCHEDULING. VERY IMPORTANT:
 When the user asks you to schedule, plan, or organize their study time:
 1. First, create any new tasks they mentioned using create_task (one per assignment/item).
 2. Then request generate_schedule to build a full study plan from ALL pending tasks.
-3. After generating, save a summary note using save_note (course="General", title="Study Schedule — [date]") so it persists in their memories.
+3. After generating, save a summary note using save_note (course="General", title="Study Schedule: [date]") so it persists in their memories.
 4. Tell the user the schedule is saved and visible on both the Scheduler page and Dashboard.
-Always be proactive: if a user says "I have a math test Friday and an essay due Monday", create BOTH tasks first, THEN generate the schedule. Don't ask — just do it.
+Always be proactive: if a user says "I have a math test Friday and an essay due Monday", create BOTH tasks first, THEN generate the schedule. Don't ask. Just do it.
 
-ACTION FORMAT — these markers are plain text in your answer; no separate action-call channel is provided. Emit one or more un-fenced blocks exactly like this:
+ACTION FORMAT. These markers are plain text in your answer; no separate action-call channel is provided. Emit one or more un-fenced blocks exactly like this:
 [[IP_ACTION]]{"action":"action_name","arguments":{"param":"value"}}[[/IP_ACTION]]
 Use only action names and arguments listed below. Do not wrap the marker in Markdown fences. After action results come back, give a brief natural-language reply.
 
 WHO MADE INTELLIPLAN:
-Anirudh Ulabala built IntelliPlan solo — design, backend, interface, AI and the
+Anirudh Ulabala built IntelliPlan solo: design, backend, interface, AI and the
 browser extension. There is no company, team or university behind it. If asked
 who made this or who runs it, say that and point to /about. Never attribute it
 to a university, an accelerator, a company or "a team of students", and never
@@ -998,7 +998,7 @@ def _execute_tool(name: str, args: dict, user_id: int) -> dict[str, Any]:
                 logger.warning("Outlook calendar export from Plani failed: %s", exc)
             return {"status": "ok",
                 "calendar_connected": bool(exports) or _has_calendar(),
-                "message": f"Schedule generated — {schedule.get('total_study_time', '')}. "
+                "message": f"Schedule generated: {schedule.get('total_study_time', '')}. "
                            "It is saved on the Scheduler page, the Dashboard, and Memories.",
                 "days": len(schedule.get("schedule", [])),
                 "overview": schedule.get("overview", ""),
@@ -1138,7 +1138,7 @@ def _tool_list_prompt() -> str:
                 for k, v in params.items())
         else:
             param_str = "none"
-        lines.append(f"- {t['name']}({param_str}) — {t['description']}")
+        lines.append(f"- {t['name']}({param_str}): {t['description']}")
     return "\n".join(lines)
 
 
@@ -1160,7 +1160,7 @@ def _humanize_action(tool: str, args: dict, result: dict) -> str | None:
     if tool == "delete_task":
         return result.get("message", "✓ Deleted task")
     if tool == "generate_schedule":
-        line = f"✓ Generated schedule — {result.get('days', '?')} days"
+        line = f"✓ Generated schedule: {result.get('days', '?')} days"
         exports = result.get("calendar_exports") or {}
         synced = [f"{name.title()} ({v.get('created', 0)} events)"
                   for name, v in exports.items() if isinstance(v, dict)]
@@ -1313,7 +1313,7 @@ def build_agent_context(user_id: int) -> str:
             return []
         out = []
         if not ui.completed:
-            out.append("Onboarding questionnaire is not finished — some "
+            out.append("Onboarding questionnaire is not finished. Some "
                        "personalisation is missing. Offer to fill the gaps.")
         cls = (_safe(lambda: json.loads(ui.class_schedule or "[]"), []) or []) if _capabilities_allowed(user, 'scheduler') else []
         if cls:
@@ -1340,7 +1340,7 @@ def build_agent_context(user_id: int) -> str:
 
         lines = []
         if brief.get("headline"):
-            lines.append(f"Briefing: {brief['headline']} — {brief.get('body', '')}".strip(" —"))
+            lines.append(f"Briefing: {brief['headline']}. {brief.get('body', '')}")
         if health.get("score") is not None:
             lines.append(
                 f"Academic health: {health['score']}/100 ({health.get('tier', '')}), "
@@ -1355,8 +1355,8 @@ def build_agent_context(user_id: int) -> str:
             pr = t.get("priority") or {}
             plan_lines.append(
                 f"{t.get('title')} ({t.get('course') or 'no course'}) "
-                f"due {t.get('due_date') or '—'}, {t.get('est_minutes') or '?'}min, "
-                f"priority {pr.get('tier') or '?'} — {t.get('why_now') or ''}".strip()
+                f"due {t.get('due_date') or 'N/A'}, {t.get('est_minutes') or '?'}min, "
+                f"priority {pr.get('tier') or '?'}: {t.get('why_now') or ''}".strip()
             )
         if len(plan) > 6:
             plan_lines.append(f"…and {len(plan) - 6} more. Call get_today_plan for the full list.")
@@ -1442,7 +1442,7 @@ def build_agent_context(user_id: int) -> str:
         out = ["Recent memories (call up detail if relevant):"]
         for n in notes:
             snippet = (n.summary_cache or n.text_content or "").strip().replace("\n", " ")
-            out.append(f"  · [{n.note_date}] {n.course_name} — {n.title}: {snippet[:120]}")
+            out.append(f"  · [{n.note_date}] {n.course_name}: {n.title}: {snippet[:120]}")
         return out
 
     if _capabilities_allowed(user, 'uploads'):
@@ -1492,7 +1492,7 @@ def build_agent_context(user_id: int) -> str:
     return (
         "\n=== WHAT YOU ALREADY KNOW ABOUT THIS USER ===\n"
         "This is live data from their account, assembled just now. Treat it "
-        "as true and current — you do NOT need to request an action to re-read "
+        "as true and current. You do NOT need to request an action to re-read "
         "anything already stated here. Use it to answer immediately and "
         "specifically. Request read actions only for detail this does not "
         "cover, and never repeat this block back verbatim.\n"

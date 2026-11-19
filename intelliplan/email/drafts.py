@@ -43,7 +43,7 @@ from .sender import send_lifecycle_email
 logger = logging.getLogger(__name__)
 
 SUBJECT = "You left a few things unfinished"
-PREHEADER = "A short list of what's still open in IntelliPlan — pick one and close it out."
+PREHEADER = "A short list of what's still open in IntelliPlan. Pick one and close it out."
 
 #: Seconds between sends in a batch, matching ``campaigns.BATCH_DELAY_SECONDS``.
 BATCH_DELAY_SECONDS = 0.1

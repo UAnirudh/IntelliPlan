@@ -46,7 +46,7 @@
 
 <div class="upg">
   <p class="u-label">Your plan</p>
-  {% if paid %}<div class="upg-flash" role="status">Payment received. Unlimited AI is on — it can take a minute to show here.</div>{% endif %}
+  {% if paid %}<div class="upg-flash" role="status">Payment received. Unlimited AI is on. It can take a minute to show here.</div>{% endif %}
 
   {% if plan == 'paid' %}
     <h1 class="upg-title">You're on IntelliPlan Pro.</h1>
@@ -107,7 +107,7 @@
           <input id="upgPayLinkInput" readonly aria-label="Payment link">
           <button type="button" data-copy="upgPayLinkInput">Copy</button>
         </div>
-        <p class="upg-note">{% if is_minor %}Checkout goes through whoever pays — send them this link. It works for 14 days and shows only your first name.{% else %}Someone else paying? Send them the link instead.{% endif %}</p>
+        <p class="upg-note">{% if is_minor %}Checkout goes through whoever pays. Send them this link. It works for 14 days and shows only your first name.{% else %}Someone else paying? Send them the link instead.{% endif %}</p>
         <p class="upg-err" id="upgErr" role="alert"></p>
       {% endif %}
     </section>

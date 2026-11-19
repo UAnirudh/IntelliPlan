@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 FEATURE_TIPS: list[dict] = [
     {
         "title": "Let the scheduler see your real week",
-        "body": "Most people give the scheduler their ideal hours instead of their actual ones, then wonder why the plan slips. Put your genuine free time in — including the evening you always waste — and the blocks it builds will survive contact with reality.",
+        "body": "Most people give the scheduler their ideal hours instead of their actual ones, then wonder why the plan slips. Put your genuine free time in (including the evening you always waste) and the blocks it builds will survive contact with reality.",
         "action": "Open the Scheduler and set your availability honestly, then regenerate.",
     },
     {
@@ -65,7 +65,7 @@ FEATURE_TIPS: list[dict] = [
     },
     {
         "title": "Reminders that arrive when you can act",
-        "body": "Set your lead time to match how you work — an hour ahead if you need to prepare, fifteen minutes if you just need a nudge. Quiet hours stop anything arriving after you have gone to bed.",
+        "body": "Set your lead time to match how you work. An hour ahead if you need to prepare, fifteen minutes if you just need a nudge. Quiet hours stop anything arriving after you have gone to bed.",
         "action": "Settings → Notifications: set your lead time and quiet hours.",
     },
     {
@@ -84,7 +84,7 @@ FEATURE_TIPS: list[dict] = [
 #: because "studies show" without a citation is how bad advice spreads.
 STUDY_SCIENCE: list[dict] = [
     {
-        "title": 'The "Retrieval Effect" — why re-reading is mostly wasted time',
+        "title": 'The "Retrieval Effect". Why re-reading is mostly wasted time',
         "body": "Roediger & Karpicke (2006) found students who tested themselves on material outperformed students who re-read it, even a week later. Re-reading feels productive because it is easy. Retrieval feels hard because it is working.",
         "action": "After reading a chapter, close the book and write down everything you remember. The gap is what to study.",
     },

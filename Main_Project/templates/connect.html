@@ -291,7 +291,7 @@
         const el = document.getElementById('bbAppId');
         if (!el) return;
         navigator.clipboard?.writeText(el.textContent.trim())
-          .then(() => lmsBanner('Application ID copied — send it to your Blackboard admin.'))
+          .then(() => lmsBanner('Application ID copied. Send it to your Blackboard admin.'))
           .catch(() => {});
       }
 
@@ -385,7 +385,7 @@
           <span style="flex:1;">
             <span style="display:block;font-size:0.88rem;font-weight:600;">Add classes manually</span>
             <span style="display:block;font-size:0.74rem;color:var(--text-muted);margin-top:1px;">
-              Type your classes — no account linking needed
+              Type your classes. No account linking needed
             </span>
           </span>
         </button>
@@ -395,7 +395,7 @@
           <span style="flex:1;">
             <span style="display:block;font-size:0.88rem;font-weight:600;">Browser extension auto-sync</span>
             <span style="display:block;font-size:0.74rem;color:var(--text-muted);margin-top:1px;">
-              Install once — scrapes PowerSchool, Aeries, Infinite Campus, and more on a schedule
+              Install once. Scrapes PowerSchool, Aeries, Infinite Campus, and more on a schedule
             </span>
           </span>
         </button>
@@ -416,7 +416,7 @@
       <p style="font-size:0.8rem;color:var(--text-muted);line-height:1.55;margin:0 0 12px;">
         Canvas, Blackboard, Schoology and Google Classroom all let a school decide which
         outside apps its students may connect. If yours has not approved IntelliPlan yet,
-        sign-in fails no matter what you do — tell us who they are and we will ask them.
+        sign-in fails no matter what you do. Tell us who they are and we will ask them.
       </p>
       <button type="button" onclick="ipShowSchoolOutreach()" id="ipOutreachOpenBtn"
         style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:12px;border:1px solid var(--glass-border);box-shadow:var(--glass-btn-shadow);background:var(--glass-btn-bg);-webkit-backdrop-filter:blur(12px) saturate(1.5);backdrop-filter:blur(12px) saturate(1.5);color:var(--text-primary);text-align:left;cursor:pointer;font-family:inherit;width:100%;">
@@ -424,7 +424,7 @@
         <span style="flex:1;">
           <span style="display:block;font-size:0.88rem;font-weight:600;">Tell us about your school</span>
           <span style="display:block;font-size:0.74rem;color:var(--text-muted);margin-top:1px;">
-            Takes a minute — we handle the conversation with your IT department
+            Takes a minute. We handle the conversation with your IT department
           </span>
         </span>
       </button>
@@ -490,9 +490,9 @@
                 every few hours.
               </p>
               <ul style="font-size:0.78rem;color:var(--text-muted);line-height:1.6;margin:0 0 10px 1.1rem;padding:0;">
-                <li>PowerSchool — supported</li>
-                <li>Aeries, Infinite Campus, Skyward, eSchoolPlus — supported</li>
-                <li>Anything else — falls back to smart-paste of the visible page</li>
+                <li>PowerSchool: supported</li>
+                <li>Aeries, Infinite Campus, Skyward, eSchoolPlus: supported</li>
+                <li>Anything else. Falls back to smart-paste of the visible page</li>
               </ul>
               <a href="/extension" class="btn-primary"
                 style="display:inline-block;padding:9px 18px;border-radius:10px;text-decoration:none;font-weight:700;font-size:0.85rem;">Get the extension</a>
@@ -633,7 +633,7 @@
                is the details that let us contact it — not a thank-you. */
             ipShowSchoolOutreach(true);
           } else {
-            lmsBanner('Thanks — that helps us prioritise which schools to fix.');
+            lmsBanner('Thanks. That helps us prioritise which schools to fix.');
           }
         } catch (e) {
           btn.disabled = false; btn.textContent = 'Send';
@@ -668,7 +668,7 @@
             const d = await r.json();
             ipOutreachPlatforms = d.platforms || [];
             if (d.already_submitted && !fromSurvey) {
-              lmsBanner('You already told us about your school — we are on it.');
+              lmsBanner('You already told us about your school. We are on it.');
               return;
             }
           } catch (e) { ipOutreachPlatforms = []; }
@@ -687,7 +687,7 @@
         wrap.innerHTML = `
           <div style="font-weight:600;margin-bottom:6px;font-size:0.95rem;">Tell us about your school</div>
           <p style="font-size:0.78rem;color:var(--text-muted);line-height:1.55;margin:0 0 12px;">
-            We will contact them about approving IntelliPlan. Only the school name is required —
+            We will contact them about approving IntelliPlan. Only the school name is required
             everything else just makes it faster.
           </p>
 
@@ -713,7 +713,7 @@
           <div style="margin:14px 0 10px;padding-top:12px;border-top:1px solid var(--border);">
             <div style="font-size:0.82rem;font-weight:600;margin-bottom:3px;">Know who runs your school's IT?</div>
             <p style="font-size:0.75rem;color:var(--text-muted);line-height:1.5;margin:0 0 10px;">
-              Optional. If you don't, leave it blank — we'll find them.
+              Optional. If you don't, leave it blank. We'll find them.
             </p>
           </div>
 
@@ -793,7 +793,7 @@
             return;
           }
           document.getElementById('ipOutreachForm').innerHTML = `
-            <div style="font-weight:600;font-size:0.92rem;margin-bottom:6px;">Got it — thank you</div>
+            <div style="font-weight:600;font-size:0.92rem;margin-bottom:6px;">Got it. Thank you</div>
             <p style="font-size:0.8rem;color:var(--text-muted);line-height:1.6;margin:0;">
               ${ipEsc(d.message || '')}
             </p>`;
@@ -818,18 +818,18 @@
         if (!q.get('lms_error')) return;
         const provider = (q.get('lms_provider') || 'your LMS').replace(/_/g, ' ');
         const reasons = {
-          state_mismatch: 'the sign-in link expired — please try again in this tab',
-          session_expired: 'your session expired mid-sign-in — please try again',
+          state_mismatch: 'the sign-in link expired. Please try again in this tab',
+          session_expired: 'your session expired mid-sign-in. Please try again',
           no_token: 'your school did not return an access token',
           token_exchange: 'your school rejected the token request',
           redirect_mismatch: "this site's redirect URL is not registered with your school yet",
           access_denied: 'access was declined on the sign-in screen',
           no_code: 'the sign-in was cancelled before it finished',
-          not_registered: 'your school has not approved the IntelliPlan integration yet — '
+          not_registered: 'your school has not approved the IntelliPlan integration yet: '
                           + 'a Blackboard administrator needs to enable it',
         };
         const why = reasons[q.get('reason')] || 'something went wrong on the way back';
-        lmsBanner(`Could not finish connecting ${provider} — ${why}.`);
+        lmsBanner(`Could not finish connecting ${provider}: ${why}.`);
       })();
 
       async function ipUploadCsv() {

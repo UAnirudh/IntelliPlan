@@ -55,7 +55,7 @@ def _init() -> None:
         posthog.host = host
         _client = posthog
     except ImportError:
-        print("[analytics] posthog package not installed — events will be no-ops")
+        print("[analytics] posthog package not installed. Events will be no-ops")
         _disabled = True
 
 

@@ -297,7 +297,7 @@ def _schedule_steps(uid: int | None, gid: str | None, title: str, course: str,
     now = student_now(uid, tz_hint)
     open_steps = [r.to_dict() for r in rows if not r.done]
     if not open_steps:
-        return {"status": "ok", "placed": [], "label": "Every step is done — nothing left to schedule."}
+        return {"status": "ok", "placed": [], "label": "Every step is done. Nothing left to schedule."}
     row = active_plan_row(uid, gid)
     progress: dict[str, Any] = {}
     if row is not None and row.progress_json:
@@ -326,7 +326,7 @@ def _schedule_steps(uid: int | None, gid: str | None, title: str, course: str,
     for index, group in enumerate(groups, start=1):
         ids = [s["id"] for s in group]
         blocks.append({
-            "assignment": f"{title} — {bd.sitting_label(group)}",
+            "assignment": f"{title}: {bd.sitting_label(group)}",
             "parent_title": title,
             "stage_title": bd.sitting_label(group),
             "task_id": base + "-".join(str(i) for i in ids),
@@ -629,7 +629,7 @@ def start_five_minutes():
             step = bd.first_open_step(_steps_for(uid, gid, assignment_key(title)))
     if step is None:
         return jsonify({"status": "error",
-                        "message": "Break it down first — there's no unfinished step to start."}), 404
+                        "message": "Break it down first. There's no unfinished step to start."}), 404
     minutes = bd.FIVE_MINUTE_START
     try:
         if body.get("minutes"):
@@ -639,7 +639,7 @@ def start_five_minutes():
     repo = ActiveSessionRepository(ActiveSession, ActiveFocusSample, db.session)
     session_row = repo.start(
         user_id=uid, guest_id=gid,
-        title=f"{step.assignment_title} — {step.text}"[:512],
+        title=f"{step.assignment_title}: {step.text}"[:512],
         planned_minutes=minutes,
         task_id=step.task_ref,
         course=step.course or "",

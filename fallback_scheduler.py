@@ -166,7 +166,7 @@ def build_schedule(
     if unplaced:
         overview += (f" {len(unplaced)} item"
                      f"{'' if len(unplaced) == 1 else 's'} did not fit in your "
-                     "free time — they are listed below the plan.")
+                     "free time. They are listed below the plan.")
 
     return {
         "schedule": schedule,

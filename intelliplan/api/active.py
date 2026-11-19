@@ -463,9 +463,9 @@ def _learned(repo: Any, row: Any) -> dict[str, Any]:
     if abs(delta) < max(3, planned * 0.1):
         message = f"Right on your estimate ({actual} min planned {planned})."
     elif delta < 0:
-        message = f"Finished {abs(delta)} min faster than planned — future estimates will come down."
+        message = f"Finished {abs(delta)} min faster than planned. Future estimates will come down."
     else:
-        message = f"Took {delta} min longer than planned — future estimates will allow for it."
+        message = f"Took {delta} min longer than planned. Future estimates will allow for it."
     return {"planned_minutes": planned, "actual_minutes": actual, "message": message}
 
 

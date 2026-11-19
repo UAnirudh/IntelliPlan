@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block page_title %}Focus Timer | IntelliPlan — Pomodoro{% endblock %}
+{% block page_title %}Focus Timer | IntelliPlan | Pomodoro{% endblock %}
 {% block meta_description %}Stay focused with IntelliPlan's Pomodoro timer. 25-minute deep work sessions with short breaks to maximize your study efficiency.{% endblock %}
 
 {% block head_extra %}
@@ -453,7 +453,7 @@ function completePhase() {
     const isLong = bMins === LONG_BREAK_MINS && bMins !== breakMins;
     chime();
     notify('Focus session complete!', isLong
-      ? `You earned a long ${bMins}-min break — ${cycleCount} sessions done.`
+      ? `You earned a long ${bMins}-min break: ${cycleCount} sessions done.`
       : `Time for a ${bMins}-min break.`);
     isBreak   = true;
     totalSecs = bMins * 60;

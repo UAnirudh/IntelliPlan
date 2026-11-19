@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "partials/plani_avatar.html" import plani_avatar with context %}
 {% block page_title %}Welcome | IntelliPlan{% endblock %}
 
 {% block head_extra %}
@@ -303,12 +304,12 @@
   <div class="onb-card">
     <!-- ── STEP: INTRO (choose mode) ── -->
     <section id="onbIntro" class="onb-section">
-      <div class="onb-eyebrow">Welcome to IntelliPlan</div>
-      <h1 class="onb-title">Let's make your first plan.</h1>
-      <p class="onb-sub">Start with the basics, then connect your school when you're ready. You can change everything later in Settings.</p>
+      {{ plani_avatar(96, 'plani-workspace-portrait') }}
+      <h1 class="onb-title">Meet {{ assistant_name }}</h1>
+      <p class="onb-sub">I'll help you make your first plan. Start with the basics, then connect your school when you're ready. You can change everything later in Settings.</p>
       <div class="onb-intro-actions">
         <button type="button" class="btn-primary" onclick="onbPickMode('quick')">Quick start</button>
-        <button type="button" class="onb-skip no-glass" onclick="onbPickMode('custom')">Set up with AI instead</button>
+        <button type="button" class="onb-skip no-glass" onclick="onbPickMode('custom')">Set up with {{ assistant_name }}</button>
       </div>
     </section>
 
@@ -351,7 +352,7 @@
     <section id="onbCustom" class="onb-section" style="display:none;">
       <div class="onb-eyebrow">Customized · Step 1 of 2</div>
       <h1 class="onb-title">Tell IntelliPlan about you.</h1>
-      <p class="onb-sub">A quick back-and-forth — IntelliPlan will ask the right questions and save your answers as you go.</p>
+      <p class="onb-sub">A quick back-and-forth. IntelliPlan will ask the right questions and save your answers as you go.</p>
       <div class="onb-chat" id="onbChat"></div>
       <div class="onb-input-row">
         <input id="onbInput" class="onb-textinput" type="text" autocomplete="off"
@@ -407,7 +408,7 @@
         <a class="onb-import-card" href="/extension" target="_blank" rel="noopener">
           <span class="onb-import-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-puzzle"/></svg></span>
           <span><strong>Browser extension</strong><br>
-            <small style="color:var(--text-muted);">PowerSchool, Aeries, Infinite Campus, Skyward — auto-syncs every 4 hours.</small></span>
+            <small style="color:var(--text-muted);">PowerSchool, Aeries, Infinite Campus, Skyward: auto-syncs every 4 hours.</small></span>
         </a>
       </div>
 
@@ -445,7 +446,7 @@
       <h1 class="onb-title">What should happen if you drift?</h1>
       <p class="onb-sub">
         During a study session IntelliPlan can use your camera to notice when you have actually
-        left &mdash; not just glanced away. Face detection runs on your device; no video is ever
+        left, not just glanced away. Face detection runs on your device; no video is ever
         uploaded or stored. Pick what happens when it notices.
       </p>
 
@@ -565,7 +566,7 @@
     <section id="onbPlan" class="onb-section" style="display:none;">
       <div class="onb-eyebrow" id="onbPlanEyebrow">Reading your week</div>
       <h1 class="onb-title" id="onbPlanTitle">Working out what matters first…</h1>
-      <p class="onb-sub" id="onbPlanSub">One moment — IntelliPlan is sorting your deadlines by what actually needs doing.</p>
+      <p class="onb-sub" id="onbPlanSub">One moment. IntelliPlan is sorting your deadlines by what actually needs doing.</p>
 
       <div id="onbPlanBody" class="onb-plan-body">
         <div class="onb-plan-skeleton" aria-hidden="true">
@@ -823,7 +824,7 @@ async function onbBootstrapChat() {
     meta.textContent = 'IntelliPlan saves what it learns as you reply. Tap "Continue" when ready.';
   } catch (_e) {
     meta.style.color = 'var(--high)';
-    meta.textContent = 'Could not reach the AI — try again or skip to Quick.';
+    meta.textContent = 'Could not reach the AI. Try again or skip to Quick.';
   }
 }
 
@@ -855,7 +856,7 @@ async function onbSendChat() {
       document.getElementById('onbChatNextBtn').classList.add('pulse');
       const meta = document.getElementById('onbChatMeta');
       meta.style.color = 'var(--low)';
-      meta.textContent = 'IntelliPlan has what it needs — tap Continue when you\'re ready.';
+      meta.textContent = 'IntelliPlan has what it needs. Tap Continue when you\'re ready.';
     }
     // Persist messages in the session for refresh-safety.
     fetch('/api/onboarding/state', {
@@ -863,7 +864,7 @@ async function onbSendChat() {
       body: JSON.stringify({ messages: ONB.messages, step: 'custom', mode: 'custom' })
     }).catch(() => {});
   } catch (_e) {
-    ONB.messages.push({ role: 'assistant', content: 'Lost connection — try again?' });
+    ONB.messages.push({ role: 'assistant', content: 'Lost connection. Try again?' });
     onbRenderChat();
   }
   btn.disabled = false; btn.textContent = 'Send';
@@ -1007,7 +1008,7 @@ function onbRenderEmptyPlan() {
   onbPlanSet(
     'You are set up',
     'Nothing to plan yet.',
-    'IntelliPlan works from your assignments. Add one — or connect your school — and it will sort your week by what actually needs doing.'
+    'IntelliPlan works from your assignments. Add one (or connect your school) and it will sort your week by what actually needs doing.'
   );
   document.getElementById('onbPlanBody').innerHTML = `
     <div class="onb-plan-empty">
@@ -1083,7 +1084,7 @@ function onbRenderPlanUnavailable() {
   onbPlanSet(
     'You are set up',
     'Your account is ready.',
-    'IntelliPlan could not build your first plan just now — that is a hiccup on our side, not a problem with your setup. Your dashboard will have it.'
+    'IntelliPlan could not build your first plan just now. That is a hiccup on our side, not a problem with your setup. Your dashboard will have it.'
   );
   document.getElementById('onbPlanBody').innerHTML = '';
   document.getElementById('onbPlanActions').style.display = 'flex';

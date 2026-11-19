@@ -952,7 +952,7 @@ function petPage_render(d, host) {
   document.getElementById('petProgressBar').setAttribute('aria-valuenow', pct);
   set('petProgressMeta', d.xp_for_next_stage > 0
     ? d.xp_into_stage + ' / ' + d.xp_for_next_stage + ' XP'
-    : 'Fully grown — ' + (d.xp || 0) + ' XP total');
+    : 'Fully grown: ' + (d.xp || 0) + ' XP total');
 
   document.getElementById('petRenameBtn').addEventListener('click', IP.guard(petPage_openRename, 'petRename'));
   petPage_renderStages(d);

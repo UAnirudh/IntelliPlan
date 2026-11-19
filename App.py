@@ -1401,7 +1401,7 @@ def check_recaptcha(action, required=True):
         return None
 
     print(f"[recaptcha] {action} refused: {reason}")
-    log_security_event("recaptcha_failed", detail=f"{action} — {reason}")
+    log_security_event("recaptcha_failed", detail=f"{action}: {reason}")
     return ("We couldn't confirm you're not a robot. "
             "Please tick the box and try again.")
 
@@ -3983,12 +3983,12 @@ def infer_block_energy_level(time_slot, preferred_time, difficulty):
 def build_daily_tip(workload_level, preferred_time, high_priority_count, hard_task_count):
     preference = (preferred_time or "evening").lower()
     if workload_level == "heavy":
-        return f"Today is a heavier {preference} workload — protect your focus for the first block."
+        return f"Today is a heavier {preference} workload. Protect your focus for the first block."
     if hard_task_count >= 2:
-        return "Multiple demanding tasks today — clean starts and no distractions before each block."
+        return "Multiple demanding tasks today. Clean starts and no distractions before each block."
     if high_priority_count >= 1:
         return "Knock out the urgent task first while your attention is strongest."
-    return "Balanced day — finish each block fully and keep your momentum steady."
+    return "Balanced day. Finish each block fully and keep your momentum steady."
 
 def classify_block_kind(title, course=""):
     """Infer the *type* of work in a block from its title + course.
@@ -4061,7 +4061,7 @@ def build_block_checklist(block, kind, assignment_meta):
             "summary": [
                 f"Re-read the prompt for '{short_title}'",
                 "Outline 3 key points before drafting",
-                "Draft without editing — momentum first",
+                "Draft without editing. Momentum first",
                 "Read aloud, mark awkward sentences",
                 "Edit one pass for clarity, one pass for grammar",
             ],
@@ -4072,7 +4072,7 @@ def build_block_checklist(block, kind, assignment_meta):
                  "why":  "Picking before drafting prevents mid-paragraph thesis drift."},
                 {"step": "Set a timer for half the block and draft without backspacing",
                  "why":  "Separating drafting from editing roughly doubles writing speed."},
-                {"step": "Read the draft aloud — mark every sentence that trips your tongue",
+                {"step": "Read the draft aloud. Mark every sentence that trips your tongue",
                  "why":  "Awkward speech = awkward prose; your ear catches what your eye misses."},
                 {"step": "Do one pass for argument flow, then one pass for grammar/typos",
                  "why":  "Single-purpose editing passes catch ~30% more issues than mixed passes."},
@@ -4089,12 +4089,12 @@ def build_block_checklist(block, kind, assignment_meta):
             "detailed": [
                 {"step": "Pick 1-2 worked examples and solve them WITHOUT looking at the solution",
                  "why":  "Replicating a known solution from memory primes the same patterns for new problems."},
-                {"step": "Work the actual problem set on paper — no calculator unless required",
+                {"step": "Work the actual problem set on paper. No calculator unless required",
                  "why":  "Writing math by hand activates the muscle memory you need on tests."},
                 {"step": "Check answers; circle every wrong one (don't fix yet)",
                  "why":  "Batching errors lets you see if you're missing one concept across many problems."},
                 {"step": "For each wrong problem, redo it from scratch on a clean line",
-                 "why":  "Re-deriving > erasing — it forces you to find your real misstep."},
+                 "why":  "Re-deriving > erasing. It forces you to find your real misstep."},
                 {"step": "Write the missed rule on a flashcard / Learn deck for tomorrow",
                  "why":  "Spaced repetition is the only thing that locks math facts long-term."},
             ],
@@ -4111,7 +4111,7 @@ def build_block_checklist(block, kind, assignment_meta):
                 {"step": "Skim headings, bold terms, and the first sentence of each paragraph",
                  "why":  "Building a mental map first triples retention on the careful read."},
                 {"step": "Annotate margins with one-word tags (claim, evidence, question, ?)",
-                 "why":  "Tagging forces active reading — you can't tag what you didn't process."},
+                 "why":  "Tagging forces active reading. You can't tag what you didn't process."},
                 {"step": "After each subsection, write one sentence that summarizes it",
                  "why":  "Forces synthesis in the moment, when the context is still loaded."},
                 {"step": "Write 2 questions the reading raised but didn't answer",
@@ -4131,10 +4131,10 @@ def build_block_checklist(block, kind, assignment_meta):
             "detailed": [
                 {"step": "Write all topics you expect on the exam, then rank each as Strong / Shaky / Weak",
                  "why":  "Studying what you already know feels good but does nothing for your score."},
-                {"step": "Open a past test or FRQ for your two weakest topics — work them blind",
+                {"step": "Open a past test or FRQ for your two weakest topics. Work them blind",
                  "why":  "Practice under the format of the real test transfers ~3× better than re-reading notes."},
                 {"step": "Score yourself honestly; mark exactly which step broke",
-                 "why":  "Most missed points come from one of three repeated process errors — find yours."},
+                 "why":  "Most missed points come from one of three repeated process errors. Find yours."},
                 {"step": "Make a one-page cheat sheet by hand (you won't use it, that's the point)",
                  "why":  "Compression forces you to decide what's load-bearing knowledge."},
                 {"step": "Close everything and brain-dump for 5 minutes",
@@ -4150,7 +4150,7 @@ def build_block_checklist(block, kind, assignment_meta):
                 "Schedule the gaps for tomorrow",
             ],
             "detailed": [
-                {"step": "Open the deck or notes for the topic — start cold, no warm-up",
+                {"step": "Open the deck or notes for the topic. Start cold, no warm-up",
                  "why":  "Friction at the start of recall is where the actual learning happens."},
                 {"step": "Run 10-15 active-recall reps (Anki, Quizlet, or hand-quizzed)",
                  "why":  "Recalling is ~2× more effective per minute than re-reading."},
@@ -4173,9 +4173,9 @@ def build_block_checklist(block, kind, assignment_meta):
             "detailed": [
                 {"step": "Write the question you're researching in one specific sentence",
                  "why":  "Broad questions waste hours; narrow ones finish themselves."},
-                {"step": "Pull 2-3 sources from a library database or Google Scholar — not the open web",
+                {"step": "Pull 2-3 sources from a library database or Google Scholar, not the open web",
                  "why":  "Curated sources are higher signal and easier to cite cleanly."},
-                {"step": "Take notes in your own words only — never copy verbatim",
+                {"step": "Take notes in your own words only. Never copy verbatim",
                  "why":  "Paraphrasing now is the cheapest plagiarism insurance later."},
                 {"step": "Add a citation in your draft the moment you pull a fact",
                  "why":  "Reconstructing citations at the end is where most bibliographies break."},
@@ -4195,8 +4195,8 @@ def build_block_checklist(block, kind, assignment_meta):
                 {"step": "Re-read the rubric or assignment description top to bottom",
                  "why":  "Most lost points are for ignored rubric items, not bad work."},
                 {"step": "Pick ONE concrete deliverable for this block (a slide, a section, a feature)",
-                 "why":  "Projects stall on 'work on the project' — they move on shipped pieces."},
-                {"step": "Work only the deliverable — defer every shiny side-quest to a notes file",
+                 "why":  "Projects stall on 'work on the project'. They move on shipped pieces."},
+                {"step": "Work only the deliverable. Defer every shiny side-quest to a notes file",
                  "why":  "Scope creep is the #1 reason projects miss deadlines."},
                 {"step": "Save / export / commit before you close the block",
                  "why":  "Future-you should not have to remember what unsaved work was about."},
@@ -4214,7 +4214,7 @@ def build_block_checklist(block, kind, assignment_meta):
             ],
             "detailed": [
                 {"step": "Listen to 5 minutes of native audio (podcast, song with lyrics, news clip)",
-                 "why":  "Tunes your ear before active practice — measurable comprehension boost."},
+                 "why":  "Tunes your ear before active practice. Measurable comprehension boost."},
                 {"step": "Run today's vocab as RECALL (target → English), not recognition",
                  "why":  "Recognition flatters you; recall is what tests measure."},
                 {"step": "Write 5 sentences using today's grammar focus",
@@ -4222,7 +4222,7 @@ def build_block_checklist(block, kind, assignment_meta):
                 {"step": "Read or listen to one paragraph of a real text",
                  "why":  "Untextbook input shows you how the language actually behaves."},
                 {"step": "Say / write 3 sentences about your own day using today's pattern",
-                 "why":  "Personal content is the easiest to remember — it sticks."},
+                 "why":  "Personal content is the easiest to remember. It sticks."},
             ],
         },
         "coding": {
@@ -4237,10 +4237,10 @@ def build_block_checklist(block, kind, assignment_meta):
                 {"step": "Re-read the prompt / spec twice, in your own words once",
                  "why":  "Most coding mistakes start as misread requirements."},
                 {"step": "Sketch a 3-line plan on paper before touching the keyboard",
-                 "why":  "Coding without a plan is debugging with a plan — pay now or pay later."},
+                 "why":  "Coding without a plan is debugging with a plan. Pay now or pay later."},
                 {"step": "Write a failing test (or a sample call you expect to work)",
                  "why":  "A test makes 'done' a binary, not a feeling."},
-                {"step": "Implement the dumbest version that could pass — no abstractions yet",
+                {"step": "Implement the dumbest version that could pass. No abstractions yet",
                  "why":  "Premature abstractions are the #1 source of bugs in student code."},
                 {"step": "Add 2 edge cases (empty, big, weird) and refactor only after they pass",
                  "why":  "Refactoring red code makes both problems harder."},
@@ -4255,7 +4255,7 @@ def build_block_checklist(block, kind, assignment_meta):
                 "Note tomorrow's first move",
             ],
             "detailed": [
-                {"step": f"Re-read '{short_title}' top to bottom — note what 'done' actually means",
+                {"step": f"Re-read '{short_title}' top to bottom. Note what 'done' actually means",
                  "why":  "Most procrastination is fear of an unclear target."},
                 {"step": "Pick a concrete first sub-step you can finish in 10 minutes",
                  "why":  "Starting is the costly part; small first steps make starting cheap."},
@@ -4485,7 +4485,7 @@ def humanize_schedule(schedule_data, preferred_time, hours_per_day,
                     "course": "",
                     "duration_minutes": 10,
                     "time_slot": "",
-                    "notes": "Two demanding tasks in a row — reset before the next one.",
+                    "notes": "Two demanding tasks in a row. Reset before the next one.",
                     "is_break": True,
                 })
                 i += 1
@@ -4537,7 +4537,7 @@ def humanize_schedule(schedule_data, preferred_time, hours_per_day,
                 if spilled and windows:
                     overflow_notes.append(
                         f"{len(spilled)} block(s) didn't fit in your free time on "
-                        f"{day_date:%a %b %d} — moved to the next available day."
+                        f"{day_date:%a %b %d}. Moved to the next available day."
                     )
                 elif not windows:
                     # The student has no free time left on this date (the slots
@@ -4545,7 +4545,7 @@ def humanize_schedule(schedule_data, preferred_time, hours_per_day,
                     # commitment). Carrying forward respects what they told us;
                     # falling back to an anchor hour would silently contradict it.
                     overflow_notes.append(
-                        f"No free time on {day_date:%a %b %d} — that day's work "
+                        f"No free time on {day_date:%a %b %d}. That day's work "
                         f"moved to your next available day."
                     )
             except Exception as pe:
@@ -4594,7 +4594,7 @@ def humanize_schedule(schedule_data, preferred_time, hours_per_day,
     if carry and schedule:
         for b in carry:
             b["unplaced"] = True
-            b["time_slot"] = "No free time — needs rescheduling"
+            b["time_slot"] = "No free time. Needs rescheduling"
             b["block_id"] = f"unplaced-{next_block_id}"
             next_block_id += 1
             b.setdefault("kind", "study")
@@ -4901,13 +4901,13 @@ def reflow_schedule(schedule_data, availability=None, commitments=None, dna=None
             label = "You have no free time" if not windows else "There isn't room"
             notes.append(
                 f"{label} on {day_date:%a %b %d} for "
-                f"{len(spilled)} block(s) — moved to your next available day."
+                f"{len(spilled)} block(s). Moved to your next available day."
             )
     if carry and schedule:
         for b in carry:
             b["conflict"] = "unplaceable"
             b["unplaced"] = True
-            b["time_slot"] = "No free time — needs rescheduling"
+            b["time_slot"] = "No free time. Needs rescheduling"
         schedule[-1].setdefault("blocks", []).extend(carry)
         notes.append(
             f"{len(carry)} block(s) don't fit anywhere in your available hours. "
@@ -5985,7 +5985,7 @@ def study_hub_recommend():
     if not best:
         # Fallback: send them to the AI Tutor — it can handle any open-ended question.
         best = ("tutor", "/tutor", "AI Tutor")
-        reason = "I'm not sure which page fits best — try asking the AI Tutor, it can guide you from there."
+        reason = "I'm not sure which page fits best. Try asking the AI Tutor, it can guide you from there."
     else:
         reason_map = {
             "tutor":     "The AI Tutor can answer that directly.",
@@ -6148,10 +6148,10 @@ def api_deepstudy_feedback():
     src   = (data.get("source_text") or "")[:3500]
     user_text = (data.get("user_text") or "").strip()
     if not user_text:
-        return jsonify({"reply": "Keep going — I'm listening."})
+        return jsonify({"reply": "Keep going. I'm listening."})
 
     if not ai_available():
-        return jsonify({"reply": "Got it — keep explaining. Try to simplify any jargon."})
+        return jsonify({"reply": "Got it. Keep explaining. Try to simplify any jargon."})
 
     if mode == "feynman":
         system_msg = (
@@ -6160,7 +6160,7 @@ def api_deepstudy_feedback():
             "If their utterance quotes textbook jargon or hides behind technical terms from the source, "
             "INTERRUPT gently and ask them to re-explain that exact phrase in everyday words. "
             "If they explain well, give one short specific encouragement and ask the next probing question. "
-            "Always reply in 1-3 short sentences — this is a spoken voice call, not a lecture."
+            "Always reply in 1-3 short sentences. This is a spoken voice call, not a lecture."
         )
     else:
         system_msg = (
@@ -6183,7 +6183,7 @@ def api_deepstudy_feedback():
         )
     except Exception as e:
         print(f"[deepstudy feedback] AI error: {e}")
-        reply = "Good — keep going. Try to put that in your own words."
+        reply = "Good. Keep going. Try to put that in your own words."
 
     return jsonify({"reply": reply})
 
@@ -6307,7 +6307,7 @@ def api_lms_connect(provider):
             return jsonify({
                 "status": "error",
                 "message": "Could not reach that Blackboard address. Check the URL "
-                           "with your school — it should look like "
+                           "with your school. It should look like "
                            "https://learn.myschool.edu.",
             }), 400
 
@@ -7634,7 +7634,7 @@ def register():
                 print(f"[register] user create failed: {_e}")
                 try: db.session.rollback()
                 except Exception: pass
-                error = "Could not create that account right now — please try again."
+                error = "Could not create that account right now. Please try again."
     if _is_adult_auth_request():
         return render_template("parent_auth.html", mode="register", error=error)
     return render_template("register.html", active_page="login", error=error)
@@ -8132,7 +8132,7 @@ def api_onboarding_chat():
         return jsonify({"error": "auth required"}), 401
     if not ai_available():
         return jsonify({"error": "ai unavailable",
-                        "reply": "The AI is offline — switch to Quick onboarding for now and refine later in Settings.",
+                        "reply": "The AI is offline. Switch to Quick onboarding for now and refine later in Settings.",
                         "extracted": {}}), 503
     body = request.get_json(silent=True) or {}
     msgs = body.get("messages") or []
@@ -8165,7 +8165,7 @@ def api_onboarding_chat():
         # Without this the model invents an origin (it has been answering
         # "students at Michigan" / "at UPenn"). Stated as a fact so it has
         # something true to say instead of guessing.
-        "IF ASKED WHO MADE INTELLIPLAN: Anirudh Ulabala built it solo — no company, "
+        "IF ASKED WHO MADE INTELLIPLAN: Anirudh Ulabala built it solo. No company, "
         "no team, no university. Point to /about. Never invent an origin story. "
         "Answer in one short sentence inside 'reply', then continue onboarding.\n\n"
         "OUTPUT FORMAT: return ONLY valid JSON shaped exactly like:\n"
@@ -8178,7 +8178,7 @@ def api_onboarding_chat():
         "  - extracted.availability: simple {day: 'morning|afternoon|evening|none'} for the 7 weekday keys. "
         "No nested objects. Skip days you're unsure about.\n"
         "  - reply: KEEP IT SHORT. One acknowledgement sentence + one question. Do not echo the student's full input.\n"
-        "  - Only include extracted fields you're confident about — leave others as empty string / empty array / empty object.\n"
+        "  - Only include extracted fields you're confident about. Leave others as empty string / empty array / empty object.\n"
         "  - Set complete=true only when you have grade_level + focus_areas + goals at minimum.\n\n"
         f"PROFILE SO FAR: {json.dumps(so_far)}"
     )
@@ -8455,7 +8455,7 @@ def login_account():
                 # COPPA: block sign-in for under-13 accounts that haven't been approved yet.
                 if hasattr(user, "parent_consent_granted") and user.parent_consent_granted is False and (user.parent_email or ""):
                     error = ("This account is waiting for parental consent. We emailed "
-                             f"{user.parent_email} a consent link — once they click it, "
+                             f"{user.parent_email} a consent link. Once they click it, "
                              "you'll be able to sign in.")
                     if _is_adult_auth_request():
                         return render_template("parent_auth.html", mode="login", error=error)
@@ -8553,7 +8553,7 @@ def forgot_password():
             "forgot_password.html", active_page="login", sent=True,
             message="If an account exists for that address, we've sent a reset "
                     "link. If you signed up with Google, use "
-                    "“Continue with Google” instead — that "
+                    "“Continue with Google” instead. That "
                     "account has no password to reset.")
 
     raw = issue_password_reset(user)
@@ -8565,7 +8565,7 @@ def forgot_password():
             "Someone asked to reset the password for your IntelliPlan account.\n\n"
             f"Set a new one here (the link works once, and expires in "
             f"{PASSWORD_RESET_TTL_MINUTES} minutes):\n{link}\n\n"
-            "If this wasn't you, you can ignore this email — your password "
+            "If this wasn't you, you can ignore this email. Your password "
             "has not changed.\n",
         )
         log_security_event("password_reset_requested", user=user)
@@ -11373,7 +11373,7 @@ def api_school_outreach_create():
     return flask.jsonify({
         "status": "ok",
         "lead": lead.to_dict(),
-        "message": "Thanks — we'll reach out to your school. "
+        "message": "Thanks. We'll reach out to your school. "
                    "You can keep using IntelliPlan with your classes typed in.",
     })
 
@@ -13097,19 +13097,19 @@ def generate_schedule():
         )
     overdue_text = ""
     if overdue:
-        overdue_text = f"\nOVERDUE — MUST BE SCHEDULED TODAY ({len(overdue)} assignments):\n" + "\n".join([
-            f"  ⚠ {a['title']} ({a['course']}) — was due {a['due_date']}, Priority: HIGH, Est: {a['estimated_time']}min"
+        overdue_text = f"\nOVERDUE. MUST BE SCHEDULED TODAY ({len(overdue)} assignments):\n" + "\n".join([
+            f"  ⚠ {a['title']} ({a['course']}). Was due {a['due_date']}, Priority: HIGH, Est: {a['estimated_time']}min"
             for a in overdue
         ])
     upcoming_text = ""
     if upcoming:
         upcoming_text = f"\nUPCOMING ({len(upcoming)} assignments):\n" + "\n".join([
-            f"  - {a['title']} ({a['course']}) — Due: {a['due_date']}, Priority: {a['priority']}, Difficulty: {a['difficulty']}, Est: {a['estimated_time']}min"
+            f"  - {a['title']} ({a['course']}): Due: {a['due_date']}, Priority: {a['priority']}, Difficulty: {a['difficulty']}, Est: {a['estimated_time']}min"
             for a in upcoming
         ])
     custom_text = ""
     if custom_tasks:
-        custom_text = f"\nCUSTOM TASKS ADDED BY STUDENT — use EXACT names as written ({len(custom_tasks)}):\n" + "\n".join([f"  - {t}" for t in custom_tasks])
+        custom_text = f"\nCUSTOM TASKS ADDED BY STUDENT. Use EXACT names as written ({len(custom_tasks)}):\n" + "\n".join([f"  - {t}" for t in custom_tasks])
     today = planning_today.isoformat()
     total = len(normalized_assignments) + len(custom_tasks)
     # Build personalized student context. When the user has opted in
@@ -13130,7 +13130,7 @@ def generate_schedule():
     )
     week_context = scheduler_engine.describe_week(availability, commitments)
     habits_context = dna.to_prompt() if _ai_personalization_enabled() else ""
-    prompt = f"""You are IntelliPlan — an adaptive academic study-planning system. Today is {today}.
+    prompt = f"""You are IntelliPlan. An adaptive academic study-planning system. Today is {today}.
 
 You must schedule ALL {total} items below. Every single one must appear in the schedule.
 {profile_context}{week_context}{habits_context}{overdue_text}
@@ -13139,13 +13139,13 @@ You must schedule ALL {total} items below. Every single one must appear in the s
 
 Student availability: {hours_per_day} hours/day, prefers {preferred_time}.
 The estimates above are already corrected for how long work actually takes
-this student — treat them as accurate and do not pad them further.
+this student. Treat them as accurate and do not pad them further.
 
 RULES:
-1. ALL {total} items must appear in the schedule — no exceptions
+1. ALL {total} items must appear in the schedule. No exceptions
 2. Overdue items go on Day 1 as first priority blocks
-3. Custom task names must be copied EXACTLY as written — do not rename them
-4. Spread assignments across multiple days — max 3 assignments per day unless unavoidable
+3. Custom task names must be copied EXACTLY as written. Do not rename them
+4. Spread assignments across multiple days. Max 3 assignments per day unless unavoidable
 5. Split long assignments (>90min) across multiple days
 6. Add a 10min break after every 45min work block
 7. Never put the same assignment twice in one day
@@ -13153,7 +13153,7 @@ RULES:
 9. If REAL WEEK is present above, put NO work on days marked "no study time
    available", and keep each day's total within that day's listed hours.
    Blocks that don't fit get pushed to the next day automatically, so an
-   overstuffed day silently loses work — size days honestly.
+   overstuffed day silently loses work. Size days honestly.
 
 PERSONALIZATION (only if STUDENT CONTEXT is present above):
 - Allocate ~30% more study time to assignments in subjects listed under "needing more time".
@@ -13161,14 +13161,14 @@ PERSONALIZATION (only if STUDENT CONTEXT is present above):
   (e.g. "review the last quiz error first", "redo example problems before starting").
 - For strong-subject blocks, keep blocks shorter and frame notes around polish/depth,
   not foundations.
-- Never reference specific past grades back to the student in the notes — the context
+- Never reference specific past grades back to the student in the notes. The context
   is for YOUR planning only, the student does not need to read their own GPA back.
 
 WRITE FOR THIS STUDENT, NOT A GENERIC ONE:
 - "notes" must name the actual next physical action for THAT assignment
   ("outline the three body paragraphs", "redo problems 12–18"), never filler
   like "focus on this task", "work steadily", or "review the material".
-- "daily_tip" must reference something concrete about THAT day — the specific
+- "daily_tip" must reference something concrete about THAT day. The specific
   assignment that matters most, or the shape of that day's free time. A tip
   that would read identically on any other day is a failed tip.
 
@@ -15743,7 +15743,7 @@ def api_import_smart_paste():
     today = datetime.now().strftime("%Y-%m-%d")
     prompt = f"""You convert pasted gradebook/assignment text into IntelliPlan JSON. Today is {today}.
 
-The student pasted this from an unsupported LMS{(' — ' + hint) if hint else ''}:
+The student pasted this from an unsupported LMS{(': ' + hint) if hint else ''}:
 ---
 {text}
 ---
@@ -16092,7 +16092,7 @@ def recover_schedule():
         return flask.jsonify({
             "status": "ok",
             "changed": False,
-            "message": "Your plan is still on track — nothing needed moving.",
+            "message": "Your plan is still on track. Nothing needed moving.",
             "completed_minutes": facts.completed_minutes,
         })
 
@@ -18950,11 +18950,11 @@ DEFAULT_FLAGS = {
     "onboarding":    "First-run onboarding modal",
     "ai_chat":       "Plani chat assistant",
     "streak_v1":     "Task-completion streak (retention experiment)",
-    "command_center": "AI Daily Command Center (kill switch — default page)",
+    "command_center": "AI Daily Command Center (kill switch. Default page)",
     "active_study":  "Active study sessions (timer, focus check-in, feedback loop)",
-    "planner_v2":    "Deterministic scheduling engine (kill switch — falls back to the AI path)",
-    "adaptive_scheduler": "Adaptive scheduler v3 — Next Best Action, counterfactual plans, overrides",
-    "followthrough_engine": "Follow-Through engine — completion-aware planning, on-time forecasts, one-tap rescheduling (kill switch)",
+    "planner_v2":    "Deterministic scheduling engine (kill switch. Falls back to the AI path)",
+    "adaptive_scheduler": "Adaptive scheduler v3. Next Best Action, counterfactual plans, overrides",
+    "followthrough_engine": "Follow-Through engine: completion-aware planning, on-time forecasts, one-tap rescheduling (kill switch)",
 }
 
 
@@ -20386,12 +20386,12 @@ def _sms_send_email_gateway(to_phone, body, carrier="tmobile"):
     if len(digits) == 11 and digits.startswith("1"):
         digits = digits[1:]
     if len(digits) != 10:
-        print(f"[sms-email] refusing to send — number must be 10 digits, got {digits!r}")
+        print(f"[sms-email] refusing to send. Number must be 10 digits, got {digits!r}")
         return None, f"phone must be 10 digits, got {len(digits)}"
 
     gateway = SMS_CARRIER_GATEWAYS.get((carrier or "tmobile").lower())
     if not gateway:
-        print(f"[sms-email] unknown carrier {carrier!r} — falling back to T-Mobile")
+        print(f"[sms-email] unknown carrier {carrier!r}. Falling back to T-Mobile")
         gateway = SMS_CARRIER_GATEWAYS["tmobile"]
 
     sms_recipient = f"{digits}@{gateway}"
@@ -20405,7 +20405,7 @@ def _sms_send_email_gateway(to_phone, body, carrier="tmobile"):
     # ── SMTP fallback ─────────────────────────────────────────────────
     smtp_host, smtp_port, smtp_username, smtp_password, smtp_from = _smtp_config()
     if not smtp_host:
-        print(f"[sms-email] no sender configured — would email {sms_recipient}: {sms_message}")
+        print(f"[sms-email] no sender configured. Would email {sms_recipient}: {sms_message}")
         return None, "No email sender configured (set RESEND_API_KEY in Railway)"
 
     try:
@@ -21317,7 +21317,7 @@ def _cron_unauthorised():
         return {
             "status": "error",
             "message": "unauthorized: no cron secret was sent. Set X-Cron-Secret "
-                       "(or X-Cron-Token) — in PowerShell the variable is "
+                       "(or X-Cron-Token). In PowerShell the variable is "
                        "$env:CRON_SECRET, not $CRON_SECRET.",
         }
     return {"status": "error", "message": "unauthorized: that cron secret does not match."}
@@ -21741,7 +21741,7 @@ def email_unsubscribe(token):
         "Unsubscribed",
         "<h1>You're unsubscribed</h1>"
         f"<p>We won't send marketing email to <strong>{_escape(address)}</strong> again.</p>"
-        "<p>Deadline reminders are separate and are unaffected — if you had those "
+        "<p>Deadline reminders are separate and are unaffected. If you had those "
         "switched on, they'll keep arriving. You can change them any time in "
         '<a href="/settings">Settings</a>.</p>',
     )
@@ -22256,7 +22256,7 @@ def api_grades_predict():
     if not predictions:
         return flask.jsonify({
             "status": "error",
-            "message": "No graded work found yet — predictions need at least one graded assignment.",
+            "message": "No graded work found yet. Predictions need at least one graded assignment.",
         }), 422
 
     # AI layer: narrative insight per course + overall recommendations.
@@ -22317,7 +22317,7 @@ def api_grades_predict():
         fallback = (
             f"Your scores are {p['trend']}"
             + (f" ({p['trend_delta']:+.1f} pts recently)" if p["trend"] != "steady" else "")
-            + f" — projected to land near {p['predicted']}% if you keep performing at your averages."
+            + f": projected to land near {p['predicted']}% if you keep performing at your averages."
         )
         p["insight"] = insights.get(p["course"].lower(), fallback)
 
@@ -23853,7 +23853,7 @@ def _block_cross_site_writes():
 
     print(f"[security] blocked {request.method} {request.path}: {reason}")
     try:
-        log_security_event("csrf_blocked", detail=f"{request.path} — {reason}")
+        log_security_event("csrf_blocked", detail=f"{request.path}: {reason}")
     except Exception:
         pass
     return flask.jsonify({
@@ -23979,7 +23979,7 @@ def api_syllabus_import():
     today_str = utcnow().strftime("%Y-%m-%d")
     prompt = f"""You are a syllabus parser. Today is {today_str}.
 Extract every assignment, exam, quiz, project, or deadline from the syllabus text below.
-Return ONLY a valid JSON array — no markdown, no explanations — where each item has:
+Return ONLY a valid JSON array (no markdown, no explanations) where each item has:
   "title": short assignment name (string),
   "due_date": due date as YYYY-MM-DD if determinable, else null,
   "course": course name/code if visible (string or null),
@@ -24312,7 +24312,7 @@ def api_save_session_message(msg_id):
         user_id=current_user.id,
         course_name="Study Session",
         note_date=utcnow().strftime("%Y-%m-%d"),
-        title=f"Chat — {msg.author_name}"[:255],
+        title=f"Chat: {msg.author_name}"[:255],
         text_content=msg.body,
     )
     db.session.add(note)

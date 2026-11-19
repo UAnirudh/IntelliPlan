@@ -354,7 +354,7 @@ def _clean_settings(row, data):
         if not n:
             raise TimetableError("That isn't a day in this rotation.")
         if rotation.kind != "week" and not is_school_day(today, rotation):
-            raise TimetableError("There's no school that day — pick a school day to set the rotation from.")
+            raise TimetableError("There's no school that day. Pick a school day to set the rotation from.")
         anchored = anchor_for_today(today, n[0], rotation)
         row.anchor_date, row.anchor_day = anchored.anchor_date, anchored.anchor_day
     elif "anchor_date" in data:

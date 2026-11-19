@@ -90,7 +90,7 @@ COOKIES: list[dict[str, Any]] = [
         "category": ESSENTIAL,
         "storage": "localStorage",
         "provider": "IntelliPlan",
-        "purpose": "Your appearance and accessibility settings — dark mode, "
+        "purpose": "Your appearance and accessibility settings. Dark mode, "
                    "colour palette, dyslexia-friendly font, reading level, "
                    "language, and account-specific workspace layout, spacing, text size and accent. "
                    "Workspace display choices stay in this browser. Some other preferences also synchronize to your account.",

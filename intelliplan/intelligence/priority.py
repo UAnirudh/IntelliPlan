@@ -131,7 +131,7 @@ def _urgency(assignment: Assignment, ctx: PriorityContext) -> ReasonChip:
     if d <= 7:
         return ReasonChip(key="urgency", weight=8, reason="Due this week")
     if assignment.status is AssignmentStatus.NOT_STARTED:
-        return ReasonChip(key="urgency", weight=4, reason=f"Due in {d} days — not started")
+        return ReasonChip(key="urgency", weight=4, reason=f"Due in {d} days, not started")
     return ReasonChip(key="urgency", weight=2, reason=f"Due in {d} days")
 
 
@@ -178,9 +178,9 @@ def _effort(assignment: Assignment, ctx: PriorityContext) -> ReasonChip:
     if est == 0:
         return ReasonChip(key="effort", weight=3, reason="No time estimate")
     if est <= 30 and d is not None and 0 <= d <= 3:
-        return ReasonChip(key="effort", weight=10, reason="Quick win — fits in one sitting")
+        return ReasonChip(key="effort", weight=10, reason="Quick win. Fits in one sitting")
     if est >= 120 and assignment.status is AssignmentStatus.NOT_STARTED:
-        return ReasonChip(key="effort", weight=8, reason="Large task — start early")
+        return ReasonChip(key="effort", weight=8, reason="Large task. Start early")
     if est <= 60:
         return ReasonChip(key="effort", weight=6, reason="Manageable in one session")
     return ReasonChip(key="effort", weight=4, reason=f"~{est // 60}h of work")

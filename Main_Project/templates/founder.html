@@ -53,7 +53,7 @@
           <tr>
             <th scope="row">{{ label }}</th>
             <td data-label="Eligible signup cohort">{% if metric.cohort_accounts is not none %}{{ metric.cohort_accounts }}{% else %}Fewer than {{ report.signup_cohort_retention.minimum_accounts }}{% endif %}</td>
-            <td data-label="Returned accounts">{% if metric.returned_accounts is not none %}{{ metric.returned_accounts }}{% elif metric.status == 'small_cell_suppressed' %}Suppressed{% else %}—{% endif %}</td>
+            <td data-label="Returned accounts">{% if metric.returned_accounts is not none %}{{ metric.returned_accounts }}{% elif metric.status == 'small_cell_suppressed' %}Suppressed{% else %}: {% endif %}</td>
             <td data-label="Return rate">{% if metric.rate is not none %}{{ (metric.rate * 100)|round|int }}%{% elif metric.status == 'no_mature_cohorts' %}Not enough history{% else %}Suppressed{% endif %}</td>
           </tr>
           {% endfor %}
@@ -95,7 +95,7 @@
     {% elif report.optimization_actions['items'] %}
       <ul class="founder-actions">
       {% for item in report.optimization_actions['items'] %}
-        <li><strong>{{ item.feature }}</strong> — {{ item.action }}</li>
+        <li><strong>{{ item.feature }}</strong>: {{ item.action }}</li>
       {% endfor %}
       </ul>
     {% else %}

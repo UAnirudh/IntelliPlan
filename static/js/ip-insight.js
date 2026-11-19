@@ -81,7 +81,7 @@
       card.classList.add('is-done');
       if (!dismissed) {
         card.innerHTML = '';
-        card.appendChild(el('p', 'ip-prompt-thanks', 'Thank you — that genuinely helps.'));
+        card.appendChild(el('p', 'ip-prompt-thanks', 'Thank you. That genuinely helps.'));
         setTimeout(function () { card.remove(); }, 2600);
       } else {
         card.remove();

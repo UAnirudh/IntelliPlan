@@ -76,5 +76,5 @@ def test_state_round_trips_and_the_log_is_bounded():
 
 def test_the_explanation_is_plain():
     headline, reasons = explain([Trigger("missed", "90 min you didn't get to (Chem) got new days")], 2)
-    assert headline == "Autopilot updated your plan — 2 sessions moved."
+    assert headline == "Autopilot updated your plan: 2 sessions moved."
     assert reasons == ["90 min you didn't get to (Chem) got new days."]

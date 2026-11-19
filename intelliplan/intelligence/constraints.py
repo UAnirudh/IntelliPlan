@@ -323,7 +323,7 @@ def _check_durations(placed: Sequence[_Placed], day: date) -> list[Violation]:
                     severity=Severity.SOFT,
                     day=day,
                     detail=(
-                        f"{p.title} is only {p.minutes} minutes — too short to be "
+                        f"{p.title} is only {p.minutes} minutes. Too short to be "
                         f"worth starting."
                     ),
                     block_ids=(p.block_id,) if p.block_id else (),

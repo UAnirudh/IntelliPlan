@@ -988,10 +988,10 @@
 {% block content %}
 <div class="ipd-page-header ipd-anim ipd-d1 scheduler-heading">
   <div class="plani-scheduler-heading">
-    {{ plani_avatar(54, 'plani-workspace-portrait') }}
+    {{ plani_avatar(94, 'plani-workspace-portrait') }}
     <div>
       <h1 class="ipd-page-title">Study scheduler</h1>
-      <p class="ipd-page-subtitle">Plan your week with {{ assistant_name }}.</p>
+      <p class="ipd-page-subtitle">I’m {{ assistant_name }}. Let’s find time for what’s due.</p>
     </div>
   </div>
   <!-- The plan is only half of it. This is the other half, and it was
@@ -1201,7 +1201,7 @@
   <div class="empty-state" id="emptyState" style="display:none;">
     <div class="empty-icon"><svg width="32" height="32"><use href="#i-scheduler"/></svg></div>
     <div class="empty-title">Nothing to schedule yet</div>
-    <p>Connect Canvas or StudentVue to pull in assignments — or just type a task into <strong>Add custom tasks</strong> above. No account needed.</p>
+    <p>Connect Canvas or StudentVue to pull in assignments. Or just type a task into <strong>Add custom tasks</strong> above. No account needed.</p>
   </div>
 </div>
 
@@ -1933,7 +1933,7 @@ function showUsedPresets(used) {
       .map(([k, v]) => `${escapeText(k)}: <strong>${escapeText(v)}</strong>`).join(' · ');
     return `
       <div class="clarify-preset" style="margin:0;">
-        <span>Used your saved answers for <strong>${escapeText(p.label)}</strong>${summary ? ' — ' + summary : ''}</span>
+        <span>Used your saved answers for <strong>${escapeText(p.label)}</strong>${summary ? ': ' + summary : ''}</span>
         <button type="button" class="forget"
           onclick="forgetPresetAndReplan('${escapeText(p.task_key)}')">Change these</button>
       </div>`;
@@ -2069,7 +2069,7 @@ function generateSchedule(extra) {
       showGenError(response.message || 'We could not build this plan yet. Check your assignments and available study time, then try again.', !!response.retryable);
       return;
     }
-    _clarifyAnswers = {};   // consumed — a fresh plan starts clean
+    _clarifyAnswers = {};   // consumed: a fresh plan starts clean
     showUsedPresets(response.used_presets);
     _lastScheduleData = response.data;
     // Block ids restart at d1-b1 for every generated plan, so stale state
@@ -2148,7 +2148,7 @@ async function downloadIcs() {
     setTimeout(() => URL.revokeObjectURL(url), 4000);
     if (btn) btn.innerHTML = '<svg width="14" height="14"><use href="#i-check-circle"/></svg> Downloaded';
   } catch (e) {
-    if (btn) btn.textContent = 'Export failed — try again';
+    if (btn) btn.textContent = 'Export failed. Try again';
   } finally {
     if (btn) setTimeout(() => { btn.disabled = false; btn.innerHTML = orig; }, 2200);
   }
@@ -2304,7 +2304,7 @@ function renderCapacitySummary(data) {
   let headline;
   if (total && capacity && shortfall > 0) {
     headline = 'You have about ' + fmtMinutes(total) + ' of work and ' +
-               fmtMinutes(capacity) + ' of free time before these are due — ' +
+               fmtMinutes(capacity) + ' of free time before these are due: ' +
                'roughly ' + fmtMinutes(shortfall) + ' short.';
   } else if (deferred.length) {
     headline = deferred.length === 1
@@ -2490,7 +2490,7 @@ function renderInteractive() {
     ? "Today's session"
     : nextDay ? 'Next planned session' : 'Session summary';
   const ctxBody = contextDay
-    ? `${contextLabel}: ${(contextDay.blocks || []).filter(b => !b.is_break).length} work blocks · ${contextDay.total_hours || 0}h planned${overall}${contextDay.daily_tip ? ' — ' + contextDay.daily_tip : ''}`
+    ? `${contextLabel}: ${(contextDay.blocks || []).filter(b => !b.is_break).length} work blocks · ${contextDay.total_hours || 0}h planned${overall}${contextDay.daily_tip ? ': ' + contextDay.daily_tip : ''}`
     : 'No work is scheduled for today or a later date. Pick a block below to open its interactive checklist.';
   document.getElementById('ivContextBody').textContent = ctxBody;
 
@@ -2722,7 +2722,7 @@ function scheduleReflow() {
         updateBadge();
         if (window.FT) FT.refresh();
       })
-      .catch(() => {});   // offline / unsaved preview — the local retime stands
+      .catch(() => {});   // offline / unsaved preview. The local retime stands
   }, 700);
 }
 
@@ -3364,7 +3364,7 @@ function dismissSavedPlan() {
                : Math.round(mins / 60) + ' hour' + (Math.round(mins / 60) === 1 ? '' : 's') + ' ago';
     const note = document.getElementById('schedCacheAge');
     if (note) {
-      note.textContent = 'Offline — this is your plan as it was ' + when +
+      note.textContent = 'Offline. This is your plan as it was ' + when +
                          '. Anything you tick off will sync when you reconnect.';
       note.hidden = false;
     }

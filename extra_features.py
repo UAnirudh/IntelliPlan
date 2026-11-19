@@ -156,7 +156,7 @@ DISSECTOR_SYSTEM = (
     "produce a structured analysis as strict JSON with these keys: "
     "summary (1-3 sentences, plain language), "
     "key_points (array of 3-8 short bullet strings), "
-    "vocabulary (array of {term, meaning} for terms a high-schooler might not know — empty array if none), "
+    "vocabulary (array of {term, meaning} for terms a high-schooler might not know. Empty array if none), "
     "questions (array of 3 short comprehension questions). "
     "Output ONLY valid JSON. No commentary, no markdown fences."
 )
@@ -297,7 +297,7 @@ def _local_hour(offset_minutes: int) -> int:
 # Daytime nudges: short, energizing, never pushy. Rotation prevents repetition.
 DAY_MESSAGES = [
     "You've been working for a while. Stand up, stretch, drink some water.",
-    "Quick eye break — look at something 20 feet away for 20 seconds. Your focus will thank you.",
+    "Quick eye break. Look at something 20 feet away for 20 seconds. Your focus will thank you.",
     "Long session. A 2-minute walk now can make the next hour sharper.",
     "Refill the water bottle. Hydration > willpower.",
     "Shake your hands out. Roll your shoulders. You're doing great.",
@@ -306,14 +306,14 @@ DAY_MESSAGES = [
 # Evening nudges: bridge between focused work and winding down.
 EVENING_MESSAGES = [
     "Sun's down. Try to wrap the hardest task first so the rest is downhill.",
-    "Long study night ahead? Save the easy stuff for last — fatigue hits everyone.",
+    "Long study night ahead? Save the easy stuff for last. Fatigue hits everyone.",
     "Good time for a real meal. Brains run on glucose, not vibes.",
 ]
 
 # Night nudges: progressively stronger pull toward sleep.
 NIGHT_MESSAGES = [
     "Sleep is when memory consolidates. What you studied today sticks better after rest.",
-    "It's late. Consider wrapping up — diminishing returns kick in fast at this hour.",
+    "It's late. Consider wrapping up. Diminishing returns kick in fast at this hour.",
     "Your brain is asking for sleep. Tomorrow-you will be much sharper.",
     "Late-night cramming has the worst return on effort. Try a fresh start in the morning.",
     "Long-term recall doubles when you sleep 7+ hours after studying. Worth it.",
@@ -345,7 +345,7 @@ def _suggestions(today_minutes: int, week_minutes: int, goal: int) -> list[str]:
     """Awareness-only suggestions. Never restrictive."""
     tips: list[str] = []
     if today_minutes >= goal and goal > 0:
-        tips.append(f"You've hit your awareness goal of {goal} min today — great pace.")
+        tips.append(f"You've hit your awareness goal of {goal} min today. Great pace.")
     if today_minutes >= 120:
         tips.append("Long stretch today. A 5-minute stretch break can reset your focus.")
     if week_minutes >= 600:
@@ -353,7 +353,7 @@ def _suggestions(today_minutes: int, week_minutes: int, goal: int) -> list[str]:
     if today_minutes < 15 and week_minutes < 60:
         tips.append("Light usage. If you have a busy week ahead, a quick scheduler check helps.")
     if not tips:
-        tips.append("Balanced usage. Keep going — small consistent sessions beat marathon ones.")
+        tips.append("Balanced usage. Keep going. Small consistent sessions beat marathon ones.")
     return tips
 
 

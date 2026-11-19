@@ -426,7 +426,7 @@ class EstimationModel:
             pct = int(round(abs(overall - 1.0) * 100))
             word = "longer than" if overall > 1 else "less time than"
             bits.append(
-                f"This student takes about {pct}% {word} they estimate overall — "
+                f"This student takes about {pct}% {word} they estimate overall"
                 f"size the work accordingly."
             )
         slow = sorted(
@@ -449,7 +449,7 @@ class EstimationModel:
         if self.session_completion_rate is not None and self.session_completion_rate < 0.6:
             bits.append(
                 f"They finish only ~{int(self.session_completion_rate * 100)}% of "
-                f"sessions they start — prefer shorter sessions."
+                f"sessions they start. Prefer shorter sessions."
             )
         return (
             "\n=== MEASURED EFFORT MODEL (this student's own history) ===\n"

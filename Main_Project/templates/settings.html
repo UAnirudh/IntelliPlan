@@ -810,7 +810,7 @@
         <input type="radio" name="feMode" value="stakes">
         <span class="fe-option__body">
           <span class="fe-option__name">Put sparks on the line</span>
-          <span class="fe-option__desc">Silent, but it costs you. The session starts forfeiting the sparks it has earned, and you watch the number climb. Only this session&rsquo;s sparks &mdash; your balance is never touched.</span>
+          <span class="fe-option__desc">Silent, but it costs you. The session starts forfeiting the sparks it has earned, and you watch the number climb. Only this session&rsquo;s sparks. Your balance is never touched.</span>
         </span>
       </label>
     </div>
@@ -853,7 +853,7 @@
     <div class="settings-section-title">Your plan in your calendar</div>
     <div style="font-size:0.86rem;color:var(--text-secondary);margin-bottom:1rem;line-height:1.55;">
       Subscribe once and your study blocks and due dates appear in Apple Calendar, Google Calendar
-      or Outlook &mdash; and keep updating whenever your plan changes. Anyone with the link can see
+      or Outlook and keep updating whenever your plan changes. Anyone with the link can see
       your plan, so keep it to yourself; you can replace or turn off the link at any time.
     </div>
     <div id="calFeedOff">
@@ -879,7 +879,7 @@
                style="margin-top:3px;accent-color:var(--accent);width:16px;height:16px;flex-shrink:0;">
         <span><strong>Hide assignment and class names.</strong>
           <span style="display:block;font-size:0.78rem;color:var(--text-muted);margin-top:2px;">
-            Events read &ldquo;Study block&rdquo; and &ldquo;Assignment due&rdquo; &mdash; useful for a shared or family calendar.
+            Events read &ldquo;Study block&rdquo; and &ldquo;Assignment due&rdquo;. This is useful for a shared or family calendar.
           </span>
         </span>
       </label>
@@ -900,7 +900,7 @@
       The IntelliPlan browser extension blocks these sites <strong>only while a planned study block or an
       Active session is running</strong>, then lifts the block on its own when the block ends. You get a
       couple of 5-minute breaks per block and an &ldquo;I&rsquo;m done early&rdquo; button. Your browsing is
-      never reported to anyone &mdash; not to us, not to a parent, not to a teacher.
+      never reported to anyone, including IntelliPlan, a parent, or a teacher.
     </div>
     <label style="display:flex;align-items:flex-start;gap:10px;font-size:0.9rem;color:var(--text-primary);cursor:pointer;margin:0 0 1rem;">
       <input type="checkbox" id="fsEnabled"
@@ -948,7 +948,7 @@
     <div class="settings-section-title">Product news</div>
     <div style="font-size:0.86rem;color:var(--text-secondary);margin-bottom:1rem;line-height:1.55;">
       One email each Monday morning with a practical study idea and occasional product news. Separate from your
-      deadline reminders — turning this off never affects those.
+      deadline reminders. Turning this off does not affect those.
     </div>
     <label style="display:flex;align-items:flex-start;gap:10px;font-size:0.9rem;color:var(--text-primary);cursor:pointer;margin:0;">
       <input type="checkbox" id="marketingOptIn"
@@ -1955,7 +1955,7 @@ function saveAiPersonalization() {
     .then(d => {
       if (!status) return;
       if (d.status === 'ok') {
-        status.textContent = enabled ? 'On — AI features will use your grades and history.' : 'Off — AI features run in generic mode.';
+        status.textContent = enabled ? 'On. AI features will use your grades and history.' : 'Off. AI features run in generic mode.';
         status.style.color = 'var(--low)';
         setTimeout(() => { if (status) status.style.color = 'var(--text-muted)'; }, 3200);
       } else {
@@ -1997,7 +1997,7 @@ function saveMarketingOptIn() {
       if (d && !d.error) {
         status.textContent = enabled
           ? "You're on the list. Every email has a one-click unsubscribe."
-          : "Off — we won't email you about new features. Reminders are unaffected.";
+          : "Off. We won't email you about new features. Reminders are unaffected.";
         status.style.color = 'var(--low)';
         setTimeout(() => { if (status) status.style.color = 'var(--text-muted)'; }, 3200);
       } else {
@@ -2825,7 +2825,7 @@ async function disconnectNotion() {
   var err = q.get('notion_error');
   if (!err) return;
   var reasons = {
-    access_denied: 'You cancelled the Notion install — nothing was connected.',
+    access_denied: 'You cancelled the Notion install. Nothing was connected.',
     no_code: 'Notion did not finish the install. Please try again.',
   };
   ipSetNotify(reasons[err] || 'Could not finish connecting Notion. Please try again.',
@@ -3061,7 +3061,7 @@ function feRemoveSound() {
    screen" means for the first time twenty minutes into a session. */
 function fePreview() {
   var mode = _feMode();
-  if (mode === 'off') { _feStatus('Nothing to preview — that is the quiet one.'); return; }
+  if (mode === 'off') { _feStatus('Nothing to preview. That is the quiet one.'); return; }
   if (!window.IPEnforce) { _feStatus('Preview is unavailable here.'); return; }
   _feStatus('Previewing for 3 seconds…');
   window.IPEnforce.preview({

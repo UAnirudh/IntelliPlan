@@ -240,7 +240,7 @@ def linked_account_resources(accounts, course: str = "") -> list[dict]:
 
 
 def _catalogue_for_prompt() -> str:
-    return "\n".join(f"- {p.key}: {p.name} — {p.good_for}" for p in PROVIDERS)
+    return "\n".join(f"- {p.key}: {p.name}: {p.good_for}" for p in PROVIDERS)
 
 
 def build_prompt(block: dict) -> list[dict]:
@@ -254,7 +254,7 @@ def build_prompt(block: dict) -> list[dict]:
     system = (
         "You choose study resources for one block of a student's study plan. "
         "You pick which provider fits and what to search for. You never write "
-        "URLs — the application builds those from the provider and query you "
+        "URLs. The application builds those from the provider and query you "
         "return, so a provider key outside the list below is discarded.\n\n"
         "Available providers:\n" + _catalogue_for_prompt() + "\n\n"
         "Rules:\n"

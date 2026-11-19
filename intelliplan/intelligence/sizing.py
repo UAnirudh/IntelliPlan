@@ -196,7 +196,7 @@ def _word_count_required(text: str) -> int:
     """
     lower = text.lower()
     span = re.search(
-        r"(\d[\d,]*)\s*(?:-|–|—|to)\s*(\d[\d,]*)\s*(?:\+\s*)?words?\b", lower
+        r"(\d[\d,]*)\s*(?:-|–|\u2014|to)\s*(\d[\d,]*)\s*(?:\+\s*)?words?\b", lower
     )
     if span:
         lo, hi = _to_int(span.group(1)), _to_int(span.group(2))
@@ -221,13 +221,13 @@ def _page_signals(text: str) -> tuple[int, int]:
     to_write = 0
 
     for m in re.finditer(
-        r"(?:pages?|pp?\.)\s*(\d+)\s*(?:-|–|—|to|through)\s*(\d+)", lower
+        r"(?:pages?|pp?\.)\s*(\d+)\s*(?:-|–|\u2014|to|through)\s*(\d+)", lower
     ):
         lo, hi = _to_int(m.group(1)), _to_int(m.group(2))
         if hi > lo and (lo > PAGE_NUMBER_THRESHOLD or hi > PAGE_NUMBER_THRESHOLD):
             to_read = max(to_read, hi - lo + 1)
 
-    for m in re.finditer(r"(\d+)\s*(?:-|–|—|to)\s*(\d+)\s*pages?\b", lower):
+    for m in re.finditer(r"(\d+)\s*(?:-|–|\u2014|to)\s*(\d+)\s*pages?\b", lower):
         lo, hi = _to_int(m.group(1)), _to_int(m.group(2))
         if lo and hi >= lo and hi <= PAGE_NUMBER_THRESHOLD:
             to_write = max(to_write, (lo + hi) // 2)
@@ -239,7 +239,7 @@ def _page_signals(text: str) -> tuple[int, int]:
             # "page 7" is a location, not a length. A length requirement is
             # phrased as a count and stays small.
             if 0 < count <= PAGE_NUMBER_THRESHOLD and not re.search(
-                r"(?:pages?|pp?\.)\s*\d+\s*(?:-|–|—|to|through)", lower
+                r"(?:pages?|pp?\.)\s*\d+\s*(?:-|–|\u2014|to|through)", lower
             ):
                 to_write = count
 
@@ -270,7 +270,7 @@ def _problem_count(text: str) -> int:
 
     for m in re.finditer(
         r"(?:problems?|questions?|exercises?|items?|#)\s*(\d+)\s*"
-        r"(?:-|–|—|to|through|thru)\s*(\d+)",
+        r"(?:-|–|\u2014|to|through|thru)\s*(\d+)",
         lower,
     ):
         lo, hi = _to_int(m.group(1)), _to_int(m.group(2))
@@ -283,7 +283,7 @@ def _problem_count(text: str) -> int:
         best = max(best, _to_int(m.group(1)))
 
     # "#1-15" without the word "problems" in front.
-    for m in re.finditer(r"#\s*(\d+)\s*(?:-|–|—|to)\s*(\d+)", lower):
+    for m in re.finditer(r"#\s*(\d+)\s*(?:-|–|\u2014|to)\s*(\d+)", lower):
         lo, hi = _to_int(m.group(1)), _to_int(m.group(2))
         if hi >= lo and (hi - lo) < 200:
             best = max(best, hi - lo + 1)

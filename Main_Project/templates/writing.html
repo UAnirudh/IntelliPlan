@@ -191,7 +191,7 @@ function ipWriteRender() {
       </div>
     </div>`;
   if (!suggestions.length) {
-    html += '<div class="ipd-empty-solution" style="padding:1rem 0;">No suggestions — this draft reads clean.</div>';
+    html += '<div class="ipd-empty-solution" style="padding:1rem 0;">No suggestions. This draft reads clean.</div>';
   } else {
     html += suggestions.map(s => `
       <div class="suggestion">

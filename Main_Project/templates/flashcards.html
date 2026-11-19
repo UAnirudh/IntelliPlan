@@ -217,7 +217,7 @@ async function fcLoadDecks() {
     ['due', s.due || 0, 'due now'],
     ['new', s.new || 0, 'unseen'],
     ['cards', s.cards || 0, 'cards'],
-    ['recall', s.recall_rate == null ? '—' : Math.round(s.recall_rate * 100) + '%', 'recall this week'],
+    ['recall', s.recall_rate == null ? 'N/A' : Math.round(s.recall_rate * 100) + '%', 'recall this week'],
   ].map(([, value, label]) =>
     `<div><div class="fc-stat-num">${fcEsc(value)}</div><div class="fc-stat-label">${fcEsc(label)}</div></div>`
   ).join('');

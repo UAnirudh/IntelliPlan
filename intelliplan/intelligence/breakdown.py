@@ -266,8 +266,8 @@ def _fit_granularity(steps: list[Step], granularity: int) -> list[Step]:
         s = steps[i]
         half = _round5(s.minutes / 2)
         steps = steps[:i] + [
-            replace(s, text=f"{s.text} — first half", minutes=half),
-            replace(s, text=f"{s.text} — second half", minutes=max(MIN_STEP_MINUTES, s.minutes - half)),
+            replace(s, text=f"{s.text}: first half", minutes=half),
+            replace(s, text=f"{s.text}: second half", minutes=max(MIN_STEP_MINUTES, s.minutes - half)),
         ] + steps[i + 1:]
     return steps
 
@@ -353,7 +353,7 @@ def _generic_steps(title: str, description: str, total: int) -> list[Step]:
         return _allocate(labels, total)
     labels = [
         ("Gather what you need: the directions, notes and materials", 0.12, "", "generic"),
-        ("Do the first part — the piece you understand best", 0.38, "", "generic"),
+        ("Do the first part. The piece you understand best", 0.38, "", "generic"),
         ("Do the rest", 0.38, "", "generic"),
         ("Check it over and submit", 0.12, "", "generic"),
     ]

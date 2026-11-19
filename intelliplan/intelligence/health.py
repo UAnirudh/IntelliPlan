@@ -145,14 +145,14 @@ def _summary(score: int, delta: int, components: tuple[HealthComponent, ...]) ->
     negatives = [c for c in components if c.impact < 0]
     if not negatives:
         if delta > 0:
-            return f"Health up {delta} points — strong week."
-        return "Health is solid — no risks detected."
+            return f"Health up {delta} points. Strong week."
+        return "Health is solid. No risks detected."
     biggest = min(negatives, key=lambda c: c.impact)
     if delta < 0:
-        return f"Health dropped {abs(delta)} points — {biggest.reason.lower()}."
+        return f"Health dropped {abs(delta)} points: {biggest.reason.lower()}."
     if delta > 0:
-        return f"Health up {delta} points — watch: {biggest.reason.lower()}."
-    return f"Health steady — watch: {biggest.reason.lower()}."
+        return f"Health up {delta} points: watch: {biggest.reason.lower()}."
+    return f"Health steady: watch: {biggest.reason.lower()}."
 
 
 # ── Public API ───────────────────────────────────────────────────────

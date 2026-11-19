@@ -178,7 +178,7 @@
   <div class="page-header">
     <h1 class="page-title">Build on IntelliPlan</h1>
     <p class="page-subtitle">
-      A REST API for assignments, schedules, tests, and study data — the same
+      A REST API for assignments, schedules, tests, and study data. The same
       data a student sees on their own dashboard, and only ever their own.
     </p>
   </div>
@@ -205,7 +205,7 @@
       <div class="dev-step">
         <span class="dev-step__n">3</span>
         <h3>Copy the key once</h3>
-        <p>We store a hash, never the secret. Lose it and you roll it — we can't send it again.</p>
+        <p>We store a hash, never the secret. Lose it and you roll it. We can't send it again.</p>
       </div>
     </div>
   </section>
@@ -239,7 +239,7 @@
       </div>
       <span class="ipui-field__hint" id="devUseCaseHint">
         At least 40 characters. Say what the app does and which of these
-        endpoints it needs — that is what a reviewer goes on.
+        endpoints it needs. That is what a reviewer goes on.
       </span>
 
       <fieldset style="border:0;padding:0;margin:1.3rem 0 0;">
@@ -299,7 +299,7 @@
   <!-- ── Review queue ──────────────────────────────────────────────── -->
   <section class="dev-card" id="review-queue">
     <h2>Review queue</h2>
-    <p class="dev-card__lede">Applications waiting on a person. Approving mints the key and emails it to the applicant — it is never shown here.</p>
+    <p class="dev-card__lede">Applications waiting on a person. Approving mints the key and emails it to the applicant. It is never shown here.</p>
     <div id="devQueue"><div class="dev-empty">Loading…</div></div>
   </section>
   {% endif %}
@@ -322,7 +322,7 @@
     <pre><code>curl -H "X-API-Key: $INTELLIPLAN_KEY" \
   https://intelliplan.tech/api/v1/assignments</code></pre>
     <p>
-      There is a second scheme — <code>POST /api/v1/auth/token</code> exchanges an
+      There is a second scheme<code>POST /api/v1/auth/token</code> exchanges an
       email and password for a Bearer token that carries every scope. It exists for
       first-party clients (our MCP server, the browser extension) where you are
       handing your own password to your own tool. It cannot be revoked
@@ -335,7 +335,7 @@
     <p class="dev-card__lede">The machine-readable index lives at <a href="/api/v1/docs">/api/v1/docs</a>.</p>
     <div class="dev-endpoint">
       <code>GET /api/v1/health</code>
-      <span>Liveness. No credential — so you can tell "the API is down" from "my key is wrong" without spending your rate limit.</span>
+      <span>Liveness. No credential. So you can tell "the API is down" from "my key is wrong" without spending your rate limit.</span>
     </div>
     <div class="dev-endpoint">
       <code>GET /api/v1/me</code>
@@ -389,7 +389,7 @@
     </div>
     <div class="dev-endpoint">
       <code>GET · PATCH /api/v1/identity</code>
-      <span>The student's learning profile — grade level, focus areas, goals, availability.
+      <span>The student's learning profile. Grade level, focus areas, goals, availability.
         <span class="dev-endpoint__scope">read:identity · write:identity</span></span>
     </div>
   </section>
@@ -410,7 +410,7 @@
       <code>upstream_failed</code> · <code>server_error</code>
     </p>
     <p>
-      Limits are counted per key, not per IP — a shared school network is not one
+      Limits are counted per key, not per IP: a shared school network is not one
       bucket for the whole building. Your ceiling is on every response as
       <code>X-RateLimit-Limit</code>. A <code>429</code> means back off; it does not
       mean the key is in trouble.
@@ -430,8 +430,8 @@
     <h2>IndexNow</h2>
     <p>IntelliPlan hosts an IndexNow verification key and notifies participating search engines when public URLs change. Protocol guide: <a href="/indexnow">/indexnow</a>.</p>
     <div class="dev-endpoint"><code>GET /&lt;INDEXNOW_KEY&gt;.txt</code><span>Ownership verification key file, hosted at the site root.</span></div>
-    <div class="dev-endpoint"><code>POST /api/admin/indexnow/submit</code><span>Admin only — bulk submit from <code>{"urls":[…]}</code>, or the whole sitemap when omitted.</span></div>
-    <div class="dev-endpoint"><code>GET /api/admin/indexnow/status</code><span>Admin only — key, host, endpoint, and sitemap URL count.</span></div>
+    <div class="dev-endpoint"><code>POST /api/admin/indexnow/submit</code><span>Admin only. Bulk submit from <code>{"urls":[…]}</code>, or the whole sitemap when omitted.</span></div>
+    <div class="dev-endpoint"><code>GET /api/admin/indexnow/status</code><span>Admin only: key, host, endpoint, and sitemap URL count.</span></div>
   </section>
 </div>
 {% endblock %}
@@ -559,7 +559,7 @@ window.IPDev = (function () {
         var sel = window.getSelection();
         sel.removeAllRanges();
         sel.addRange(range);
-        IP.toast('Copy blocked by the browser — the key is selected, press Ctrl/Cmd+C.', 'info');
+        IP.toast('Copy blocked by the browser. The key is selected, press Ctrl/Cmd+C.', 'info');
       });
     });
     els.secret.scrollIntoView({ block: 'nearest' });
@@ -632,7 +632,7 @@ window.IPDev = (function () {
       if (!ok) return;
       json('/developers/keys/' + id + '/roll', { method: 'POST' }).then(function (r) {
         if (!r.ok) return IP.toast(r.body.message || 'Could not roll.', 'error');
-        showSecret(r.body.key, 'Rolled — here is the new key');
+        showSecret(r.body.key, 'Rolled. Here is the new key');
         loadKeys();
       });
     });
@@ -657,7 +657,7 @@ window.IPDev = (function () {
          rule is not discovered by round-trip. */
       if (payload.use_case.length < 40) {
         els.status.textContent =
-          'Add a bit more detail — ' + payload.use_case.length + ' of 40 characters.';
+          'Add a bit more detail: ' + payload.use_case.length + ' of 40 characters.';
         els.status.classList.add('is-error');
         document.getElementById('devUseCase').focus();
         return;
@@ -687,7 +687,7 @@ window.IPDev = (function () {
           return;
         }
         els.status.textContent = r.body.message || '';
-        if (r.body.key) showSecret(r.body.key, 'Approved — here is your key');
+        if (r.body.key) showSecret(r.body.key, 'Approved. Here is your key');
         els.form.reset();
         reflectReviewState();
         loadKeys();
@@ -715,7 +715,7 @@ window.IPDev = (function () {
               '<input class="ipui-field__input" type="text" placeholder=" " ' +
                      'id="devNote' + a.id + '" data-note="' + a.id + '" maxlength="500">' +
               '<label class="ipui-field__label" for="devNote' + a.id + '">' +
-                'Note to the applicant — required to deny</label>' +
+                'Note to the applicant. Required to deny</label>' +
             '</div>' +
           '</div>' +
           '<div class="dev-key__actions">' +

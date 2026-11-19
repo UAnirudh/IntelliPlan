@@ -203,19 +203,20 @@
   const esc = (s) => String(s == null ? '' : s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;')
     .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-  const list = (items) => (items || []).map(s => `<li>${esc(s)}</li>`).join('');
+  const policyCopy = (text) => esc(String(text).replace(/[ \t]*\u2014[ \t]*/g, ', '));
+  const list = (items) => (items || []).map(s => `<li>${policyCopy(s)}</li>`).join('');
 
   function renderClause(clause) {
     const before = clause.before
       ? `<div><span class="ip-policy-label">Previously</span>
-           <p class="ip-policy-verbatim">${esc(clause.before)}</p></div>` : '';
+           <p class="ip-policy-verbatim">${policyCopy(clause.before)}</p></div>` : '';
     const after = clause.after
       ? `<div style="margin-top:8px;"><span class="ip-policy-label">Now reads</span>
-           <p class="ip-policy-verbatim">${esc(clause.after)}</p></div>` : '';
+           <p class="ip-policy-verbatim">${policyCopy(clause.after)}</p></div>` : '';
     const text = clause.text
-      ? `<p class="ip-policy-verbatim">${esc(clause.text)}</p>` : '';
+      ? `<p class="ip-policy-verbatim">${policyCopy(clause.text)}</p>` : '';
     return `<div class="ip-policy-clause">
-      ${clause.heading ? `<div class="ip-policy-clause-heading">${esc(clause.heading)}</div>` : ''}
+      ${clause.heading ? `<div class="ip-policy-clause-heading">${policyCopy(clause.heading)}</div>` : ''}
       ${before}${after}${text}
     </div>`;
   }
@@ -260,7 +261,7 @@
       const clauses = (d.clauses || []).map(renderClause).join('');
       return `<h3>${esc(d.name)}${d.effective ? ' &middot; effective ' + esc(d.effective) : ''}</h3>
         ${summary ? `<p class="ip-policy-sub">What changed</p><ul>${summary}</ul>` : ''}
-        ${clauses ? `<p class="ip-policy-sub">The exact wording</p>${clauses}` : ''}`;
+        ${clauses ? `<p class="ip-policy-sub">Policy clauses</p>${clauses}` : ''}`;
     }).join('');
 
     const links = docs.map(d =>

@@ -193,13 +193,13 @@ async function ipParentLoadOverview(studentId) {
         <div class="pd-stat"><div class="pd-stat-val">${s.total_assignments ?? 0}</div><div class="pd-stat-label">Total</div></div>
         <div class="pd-stat"><div class="pd-stat-val">${s.completed ?? 0}</div><div class="pd-stat-label">Done</div></div>
         <div class="pd-stat"><div class="pd-stat-val">${s.overdue ?? 0}</div><div class="pd-stat-label">Overdue</div></div>
-        <div class="pd-stat"><div class="pd-stat-val">${s.avg_percent != null ? s.avg_percent + '%' : '—'}</div><div class="pd-stat-label">Avg %</div></div>`;
+        <div class="pd-stat"><div class="pd-stat-val">${s.avg_percent != null ? s.avg_percent + '%' : 'N/A'}</div><div class="pd-stat-label">Avg %</div></div>`;
     }
     const upHost = document.getElementById(`pdUpcoming-${studentId}`);
     if (upHost) {
       const items = (s.upcoming || []).slice(0, 6);
       upHost.innerHTML = items.length
-        ? items.map(u => `<li><div><strong>${ipParentEscape(u.title || 'Assignment')}</strong> <span style="color:var(--text-muted);">· ${ipParentEscape(u.course || '—')}</span></div><span class="pd-due">${ipParentEscape(u.due_date || 'no due date')}</span></li>`).join('')
+        ? items.map(u => `<li><div><strong>${ipParentEscape(u.title || 'Assignment')}</strong> <span style="color:var(--text-muted);">· ${ipParentEscape(u.course || 'N/A')}</span></div><span class="pd-due">${ipParentEscape(u.due_date || 'no due date')}</span></li>`).join('')
         : '<li class="pd-upcoming-empty">Nothing upcoming.</li>';
     }
   } catch (e) {

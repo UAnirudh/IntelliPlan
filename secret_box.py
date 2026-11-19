@@ -64,7 +64,7 @@ def _cipher():
     if not keys:
         if not _warned:
             _warned = True
-            print("[secret-box] DATA_ENCRYPTION_KEY is not set — third-party "
+            print("[secret-box] DATA_ENCRYPTION_KEY is not set: third-party "
                   "tokens are stored in plaintext. Set it in production.")
         return None
 

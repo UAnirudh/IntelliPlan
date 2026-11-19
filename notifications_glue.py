@@ -282,7 +282,7 @@ def _send_email(row: Any) -> bool:
     address = getattr(user, "email", None) if user else None
     if not address:
         raise PermanentDeliveryError("no email address on file")
-    body = f"{row.body}\n\n{_base_url()}{row.url}\n\n— IntelliPlan"
+    body = f"{row.body}\n\n{_base_url()}{row.url}\n\nIntelliPlan"
     if getattr(row, "kind", "") != EventKind.STREAK_AT_RISK.value:
         return bool(_send_email(address, row.title or "IntelliPlan", body))
     # Sent without the general reminder opt-in, so it carries its own way
@@ -982,7 +982,7 @@ def cron_notifications():
             return jsonify({
                 "status": "error",
                 "message": "unauthorized: no cron secret was sent. Set X-Cron-Token "
-                           "(or X-Cron-Secret) — in PowerShell the variable is "
+                           "(or X-Cron-Secret). In PowerShell the variable is "
                            "$env:CRON_SECRET, not $CRON_SECRET.",
             }), 401
         return jsonify({

@@ -25,7 +25,7 @@ from intelliplan.domain.plan import BriefingText
 logger = logging.getLogger(__name__)
 
 _SYSTEM_PROMPT = """\
-You are IntelliPlan's daily briefing writer — a calm, sharp academic \
+You are IntelliPlan's daily briefing writer: a calm, sharp academic \
 chief of staff for a student. You receive a JSON object of pre-computed \
 facts about the student's day. Write a short personal briefing.
 
@@ -33,19 +33,19 @@ Rules:
 - 2 to 4 sentences. No bullet points, no markdown, no emoji.
 - Present tense, second person ("you"), address the student by first name once.
 - Lead with the single most important thing (the top task or the health change).
-- Reference at most ONE number from the facts — the most decision-relevant one.
+- Reference at most ONE number from the facts. The most decision-relevant one.
 - Never invent facts. Only use what is in the JSON.
 - Do not mention priority scores or point values directly; translate them
   into plain language ("your highest priority", "worth a big chunk of your grade").
 - Tone: plain, factual, understated. Write like a competent human assistant
-  sending a quick update — not a motivational app. Never congratulatory or
+  sending a quick update, not a motivational app. Never congratulatory or
   hyped: no praise or cheerleading ("great job", "amazing", "crushing it",
   "you're on fire", "you've got this", "keep it up"), no exclamation marks.
 - When the day is light or the student is on track, state it plainly in a few
-  words and move on — do not celebrate it or pad it with encouragement.
+  words and move on. Do not celebrate it or pad it with encouragement.
 
 Respond with a JSON object:
-{"headline": "<one short sentence — the single most important takeaway>",
+{"headline": "<one short sentence. The single most important takeaway>",
  "body": "<1-3 sentences expanding on it>",
  "tone": "<one of: calm-focused | encouraging | heads-up>"}
 """
@@ -86,11 +86,11 @@ def fallback_brief(facts: dict[str, Any], student_name: str = "") -> BriefingTex
         bits: list[str] = []
         why = top.get("top_reason") or ""
         if why:
-            bits.append(f"It's your highest priority — {why.lower()}.")
+            bits.append(f"It's your highest priority: {why.lower()}.")
         if heaviest:
             bits.append(f"{heaviest} looks like your heaviest day, so getting this done early keeps the week manageable.")
         if health_delta < 0:
-            bits.append("Your academic health dipped — clearing this helps it recover.")
+            bits.append("Your academic health dipped. Clearing this helps it recover.")
         body = " ".join(bits) or "It's the highest-impact item on your list today."
         tone = "heads-up" if health_delta < 0 else "calm-focused"
 

@@ -209,7 +209,7 @@ def _apkg_cloze_models(conn: sqlite3.Connection) -> set[int]:
 #: Quizlet's own export dialog defaults to tab between term and definition
 #: and newline between rows, but students change both, so every common
 #: separator is accepted and the delimiter is detected when not given.
-_TERM_SEPARATORS = ("\t", " - ", " – ", " — ", "|", ";", ",")
+_TERM_SEPARATORS = ("\t", " - ", " – ", " \u2014 ", "|", ";", ",")
 _ROW_SEPARATORS = ("\n\n", "\n", "\r\n")
 
 
@@ -296,5 +296,5 @@ def _detect_term_separator(rows: list[str]) -> str:
 
 
 def _describe(sep: str) -> str:
-    return {"\t": "a tab", " - ": "a dash", " – ": "an en dash", " — ": "an em dash",
+    return {"\t": "a tab", " - ": "a dash", " – ": "an en dash", " \u2014 ": "an em dash",
             "|": "a pipe", ";": "a semicolon", ",": "a comma"}.get(sep, f"'{sep}'")

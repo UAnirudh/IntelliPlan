@@ -178,7 +178,7 @@ def placement_label(placed: Sequence[dict[str, Any]]) -> str:
     landed = [b.get("placed_label") for b in placed if b.get("placed_label")]
     missing = sum(1 for b in placed if b.get("unplaced"))
     if not landed:
-        return "No free time before it's due — add availability or move something." if missing else ""
+        return "No free time before it's due. Add availability or move something." if missing else ""
     if len(landed) == 1:
         text = f"Scheduled {landed[0]}"
     elif len(landed) == 2:

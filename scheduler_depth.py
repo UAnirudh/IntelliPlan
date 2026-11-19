@@ -266,7 +266,7 @@ def diagnose(tasks: Sequence[Mapping[str, Any]], capacity: Mapping[str, int],
     if roomiest:
         day, free = roomiest[0]
         suggestions.append(
-            f"{_weekday(day)} still has {_hm(free)} free — move something there.")
+            f"{_weekday(day)} still has {_hm(free)} free. Move something there.")
     if total_capacity and missing > total_capacity * 0.25:
         # A quarter of the week missing is not a scheduling problem.
         suggestions.append(

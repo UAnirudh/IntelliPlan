@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block page_title %}Weighted Grade Calculator — Free | IntelliPlan{% endblock %}
+{% block page_title %}Weighted Grade Calculator | Free | IntelliPlan{% endblock %}
 
 {% block meta_description %}Free weighted grade calculator. Enter each category weight and your average to find your overall class grade. Works for any weighted syllabus.{% endblock %}
 {% block og_type %}website{% endblock %}
@@ -84,7 +84,7 @@
     <div id="gRows"></div>
     <button class="add-row" type="button" onclick="addGRow()">+ Add category</button>
     <div class="g-result" id="gResult">
-      <div class="big" id="gValue">—</div>
+      <div class="big" id="gValue">N/A</div>
       <div class="sub" id="gSub">Enter your categories to see your overall grade</div>
     </div>
   </div>
@@ -140,7 +140,7 @@ function computeGrade() {
   var val = document.getElementById('gValue');
   var sub = document.getElementById('gSub');
   if (sumW <= 0) {
-    val.textContent = '—';
+    val.textContent = 'N/A';
     sub.textContent = 'Enter your categories to see your overall grade';
     return;
   }

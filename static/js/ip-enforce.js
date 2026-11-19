@@ -224,7 +224,7 @@
     el.innerHTML =
       '<div class="ipe-stakes__title">This session is losing its sparks</div>' +
       '<div class="ipe-stakes__count"><span class="ipe-stakes__num">0</span> forfeited</div>' +
-      '<div class="ipe-stakes__hint">Only sparks earned in this session — your balance is safe.</div>';
+      '<div class="ipe-stakes__hint">Only sparks earned in this session. Your balance is safe.</div>';
     (this.host || document.body).appendChild(el);
     this.el = el;
   };

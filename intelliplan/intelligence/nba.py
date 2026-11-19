@@ -125,7 +125,7 @@ REASON_LABELS: dict[str, str] = {
     "fits_the_gap": "It fits the time you actually have right now.",
     "your_best_time": "You finish this kind of work most reliably at this hour.",
     "already_started": "You are part-way through this already.",
-    "same_subject": "You are already in this subject — no context switch.",
+    "same_subject": "You are already in this subject. No context switch.",
     "long_stretch": "You have been working a long stretch without a break.",
     "over_capacity": "Today is already past what you usually sustain.",
     "low_completion_odds": "You historically do not finish sittings like this one.",

@@ -45,7 +45,7 @@
       {% for row in report.channels %}
       <tr>
         <td>{{ row.channel }}</td>
-        <td>{{ row.visitors or '—' }}</td>
+        <td>{{ row.visitors or 'N/A' }}</td>
         <td>{{ row.signups }}</td>
         <td>{{ '%.1f'|format(row.signup_rate * 100) }}%</td>
         <td>{{ '%.0f'|format(row.activation_rate * 100) }}%</td>
@@ -72,7 +72,7 @@
         </tbody>
       </table>
       {% else %}
-      <p class="ins-empty">Nothing recorded yet — either nobody has allowed analytics, or nothing has happened since the last purge.</p>
+      <p class="ins-empty">Nothing recorded yet. Either nobody has allowed analytics, or nothing has happened since the last purge.</p>
       {% endif %}
     </section>
 

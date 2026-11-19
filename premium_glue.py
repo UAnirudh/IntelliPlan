@@ -274,7 +274,7 @@ def _maybe_warn_low_budget(user: Any, state: dict) -> None:
                 f"(${state['remaining_usd']:.2f} of ${state['budget_usd']:.2f} left).\n\n"
                 "Plani will keep answering with the free models once it runs out. "
                 "You can add more, or link your own AI account, here:\n"
-                f"{base}/settings/ai\n\n— IntelliPlan"
+                f"{base}/settings/ai\n\nIntelliPlan"
             )
             if not sender(row.email, 'Your IntelliPlan AI budget is running low', body):
                 logger.warning('Low budget email sender did not confirm delivery')
@@ -306,7 +306,7 @@ def _maybe_warn_low_budget(user: Any, state: dict) -> None:
                     f"(${state['remaining_usd']:.2f} of ${state['budget_usd']:.2f} left).\n\n"
                     "Plani will keep answering with the free models once it runs out. "
                     "You can add more, or link your own AI account, here:\n"
-                    f"{(APP_BASE_URL or '').rstrip('/')}/settings/ai\n\n— IntelliPlan"
+                    f"{(APP_BASE_URL or '').rstrip('/')}/settings/ai\n\nIntelliPlan"
                 )
                 _send_email(row.email, "Your IntelliPlan AI budget is running low", body)
         except Exception as exc:

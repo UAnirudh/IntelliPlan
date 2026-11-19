@@ -159,7 +159,7 @@
     }).join('');
     var learned = insights
       ? '<div class="ft-learned"><div class="ft-learned-title">What IntelliPlan has learned about how you work</div><ul>' + insights + '</ul></div>'
-      : '<p class="ft-muted ft-small">Forecasts get personal as you tick blocks off — the plan learns when you really get work done.</p>';
+      : '<p class="ft-muted ft-small">Forecasts get personal as you tick blocks off. The plan learns when you really get work done.</p>';
 
     return '<details class="ft-forecast-details">' +
       '<summary class="ft-forecast-line">' + headline +
@@ -179,7 +179,7 @@
     var on = autopilotEnabled();
     var note = state.autopilotNote;
     var toggle = '<button type="button" class="ft-chip ft-auto-toggle' + (on ? ' is-on' : '') +
-      '" data-ft-autopilot-toggle aria-pressed="' + on + '" title="When on, IntelliPlan moves missed work, adds new assignments, follows deadlines your teacher moves and protects at-risk ones by itself — always with an undo.">' +
+      '" data-ft-autopilot-toggle aria-pressed="' + on + '" title="When on, IntelliPlan moves missed work, adds new assignments, follows deadlines your teacher moves and protects at-risk ones by itself. Always with an undo.">' +
       'Autopilot ' + (on ? 'on' : 'off') + '</button>';
     if (!note) return '<div class="ft-auto">' + toggle + '</div>';
     var reasons = (note.reasons || []).map(function (r) { return '<li>' + esc(r) + '</li>'; }).join('');
@@ -419,7 +419,7 @@
       })
       .catch(function () {
         if (seq !== state.seq) return;
-        result.innerHTML = '<div class="ft-error">You look offline — nothing was changed.</div>';
+        result.innerHTML = '<div class="ft-error">You look offline. Nothing was changed.</div>';
       });
   }
 
@@ -484,7 +484,7 @@
       .catch(function () {
         applyBtn.textContent = 'Apply';
         applyBtn.disabled = false;
-        document.getElementById('ftResult').innerHTML = '<div class="ft-error">You look offline — nothing was changed.</div>';
+        document.getElementById('ftResult').innerHTML = '<div class="ft-error">You look offline. Nothing was changed.</div>';
       });
   }
 
@@ -518,7 +518,7 @@
     state.returnFocus = trigger || document.activeElement;
     var overlay = sheet();
     document.getElementById('ftSheetTitle').textContent =
-      (INTENT_TITLES[intent] || 'Adjust') + (state.payload._title && intent !== 'done' ? ' — ' + state.payload._title : '');
+      (INTENT_TITLES[intent] || 'Adjust') + (state.payload._title && intent !== 'done' ? ': ' + state.payload._title : '');
     document.getElementById('ftResult').innerHTML = '';
     overlay.hidden = false;
     document.body.classList.add('ft-open');
@@ -557,8 +557,8 @@
       return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + d + '</svg>';
     };
     return [
-      { action: 'ft-push', label: 'Not today — push it', svg: '<span class="ip-arrow" aria-hidden="true"></span>', enabled: true },
-      { action: 'ft-done', label: 'Already done — take it off', svg: icon('<polyline points="20 6 9 17 4 12"/>'), enabled: true },
+      { action: 'ft-push', label: 'Not today. Push it', svg: '<span class="ip-arrow" aria-hidden="true"></span>', enabled: true },
+      { action: 'ft-done', label: 'Already done. Take it off', svg: icon('<polyline points="20 6 9 17 4 12"/>'), enabled: true },
     ];
   };
 
@@ -653,7 +653,7 @@
         if (window.IP && IP.toast) IP.toast('Your previous plan is back. Autopilot will leave it alone for today.', 'success');
       })
       .catch(function () {
-        if (window.IP && IP.toast) IP.toast('You look offline — nothing was changed.', 'error');
+        if (window.IP && IP.toast) IP.toast('You look offline. Nothing was changed.', 'error');
       });
   }
 
@@ -671,7 +671,7 @@
         } catch (e) {}
         renderBar();
         if (window.IP && IP.toast) {
-          IP.toast(next ? 'Autopilot is on — your plan will keep itself up to date.' : 'Autopilot is off — your plan only changes when you change it.', 'info');
+          IP.toast(next ? 'Autopilot is on. Your plan will keep itself up to date.' : 'Autopilot is off. Your plan only changes when you change it.', 'info');
         }
       })
       .catch(function () {});

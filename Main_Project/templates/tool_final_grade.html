@@ -4,9 +4,9 @@
 
 {% block meta_description %}Free final grade calculator. Enter your current grade, target grade, and final exam weight to see exactly what score you need. No sign-up.{% endblock %}
 {% block og_type %}website{% endblock %}
-{% block og_title %}Final Grade Calculator — What Do I Need on My Final?{% endblock %}
+{% block og_title %}Final Grade Calculator | What Do I Need on My Final?{% endblock %}
 {% block og_description %}Find out the exact score you need on your final exam to hit your target grade. Free and instant.{% endblock %}
-{% block twitter_title %}Final Grade Calculator — What Do I Need on My Final?{% endblock %}
+{% block twitter_title %}Final Grade Calculator. What Do I Need on My Final?{% endblock %}
 {% block twitter_description %}Enter your current grade, target grade, and final weight. Get the score you need. Free.{% endblock %}
 
 {% block head_extra %}
@@ -160,7 +160,7 @@ function calcFinal() {
     res.innerHTML = '<div class="big">You\'re set</div>Even a <strong>0%</strong> on the final keeps you at or above ' + want + '%. Your target is already locked in.';
   } else if (needed > 100) {
     res.className = 'calc-result show res-bad';
-    res.innerHTML = '<div class="big">' + rounded + '%</div>That\'s above 100%, so ' + want + '% isn\'t reachable from a ' + cur + '% with this final alone. You\'d need extra credit — or aim a little lower.';
+    res.innerHTML = '<div class="big">' + rounded + '%</div>That\'s above 100%, so ' + want + '% isn\'t reachable from a ' + cur + '% with this final alone. You\'d need extra credit. Or aim a little lower.';
   } else {
     res.className = 'calc-result show res-ok';
     res.innerHTML = '<div class="big">' + rounded + '%</div>You need <strong>' + rounded + '%</strong> on your final to finish the class with ' + want + '%.';

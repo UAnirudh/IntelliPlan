@@ -222,7 +222,7 @@
     return stages && stages.map(function (stage, index) {
       return [
         (index + 1) + '. ' + stage.title + ' · ' + stage.dates,
-        stage.link ? stage.link.title + ' — ' + stage.link.url : 'No reviewed source linked.',
+        stage.link ? stage.link.title + ': ' + stage.link.url : 'No reviewed source linked.',
         'Lessons: ' + stage.lessons.join(' / '),
         'Practice: ' + stage.practice, 'Project: ' + stage.project,
         'Exit check: ' + stage.exit, 'Spaced review: ' + stage.review

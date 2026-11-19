@@ -63,9 +63,12 @@
   function escape(text) {
     return String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
+  function prose(value) {
+    return String(value).replace(/[ \t]*\u2014[ \t]*/g, ', ');
+  }
   function render(value) {
     var text = normalize(value).slice(0, 120000);
-    if (!window.marked || !window.DOMPurify) return '<p>' + escape(text).replace(/\n/g, '<br>') + '</p>';
+    if (!window.marked || !window.DOMPurify) return '<p>' + escape(prose(text)).replace(/\n/g, '<br>') + '</p>';
     if (!parser) {
       parser = new window.marked.Marked({gfm: true, breaks: false});
       function placeholder(token) {
@@ -131,6 +134,12 @@
       FORBID_TAGS: ['script','style','iframe','svg','math','img','video','audio','form','input'],
     });
     var holder = document.createElement('div'); holder.innerHTML = safe;
+    var words = document.createTreeWalker(holder, NodeFilter.SHOW_TEXT);
+    while (words.nextNode()) {
+      var word = words.currentNode;
+      if (!word.parentElement.closest('code, pre')) word.data = prose(word.data);
+    }
+    holder.querySelectorAll('a[title]').forEach(function (link) { link.title = prose(link.title); });
     holder.querySelectorAll('[data-ip-math]').forEach(function (node) {
       var token = mathSources[Number(node.getAttribute('data-ip-math'))];
       if (!token) { node.removeAttribute('data-ip-math'); return; }
@@ -199,5 +208,5 @@
       setTimeout(function () { if (button.isConnected) button.textContent = 'Copy code'; }, 2000);
     }
   });
-  window.IPRichText = {normalize: normalize, render: render, speech: speech, plainText: plainText};
+  window.IPRichText = {normalize: normalize, render: render, speech: speech, plainText: plainText, prose: prose};
 })();

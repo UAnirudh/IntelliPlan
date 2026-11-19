@@ -684,7 +684,7 @@
       var n = inst.seats.length;
       if (!n) {
         return '<span class="ipui-voice__peek-text">Voice chat' +
-          '<span class="ipui-voice__peek-sub">Nobody in here yet — be first</span></span>';
+          '<span class="ipui-voice__peek-sub">Nobody in here yet. Be first</span></span>';
       }
       var shown = inst.seats.slice(0, 4);
       var extra = n - shown.length;

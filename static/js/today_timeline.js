@@ -383,7 +383,7 @@
       say(d.summary || "");
       (d.allowed ? el.confirmYes : el.confirmNo).focus();
     }).catch(function () {
-      say("You're offline — the move wasn't saved.");
+      say("You're offline. The move wasn't saved.");
       state.focusId = item.id;
       snapBack();
     });
@@ -412,7 +412,7 @@
       }
     }).catch(function () {
       el.confirmYes.disabled = false;
-      say("You're offline — the move wasn't saved.");
+      say("You're offline. The move wasn't saved.");
       state.focusId = p.item.id;
       snapBack();
     });

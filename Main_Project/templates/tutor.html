@@ -727,9 +727,12 @@ main {
       <button type="button" class="tutor-mobile-control no-glass" onclick="openTutorDrawer()" aria-label="Open chat history">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/></svg>
       </button>
-      <div class="tutor-workspace-heading">
-        <h1>Study &amp; learn</h1>
-        {% if assessment_protection %}<p>Assessment protection is on</p>{% endif %}
+      <div class="tutor-workspace-heading plani-heading">
+        {{ plani_avatar(30) }}
+        <div>
+          <h1>{{ assistant_name }} Tutor</h1>
+          {% if assessment_protection %}<p>Assessment protection is on</p>{% endif %}
+        </div>
       </div>
       <div class="tutor-workspace-actions">
         <a class="tutor-tools-link no-glass" href="/study-tools">All study tools <span class="ip-arrow" data-direction="up-right" aria-hidden="true"></span></a>
@@ -743,7 +746,7 @@ main {
     <div class="tutor-empty" id="tutorEmpty">
 
       <div id="tutorPlaniWrap">
-        {{ plani_avatar(112, 'plani-workspace-portrait', image_id='tutorPlaniSvg') }}
+        {{ plani_avatar(144, 'plani-workspace-portrait', image_id='tutorPlaniSvg') }}
       </div>
 
       <h2 class="tutor-empty-title">Study with {{ assistant_name }}</h2>
@@ -752,7 +755,7 @@ main {
     </div><!-- /tutor-empty -->
 
     <!-- Message thread -->
-    <div class="tutor-messages" id="tutorMessages" role="log" aria-live="polite" aria-label="Conversation with AI Tutor"></div>
+    <div class="tutor-messages" id="tutorMessages" role="log" aria-live="polite" aria-label="Conversation with {{ assistant_name }}"></div>
 
     <!-- Thinking dots -->
     <div class="tutor-thinking-row" id="tutorThinking" aria-label="AI Tutor is thinking">
@@ -840,7 +843,7 @@ main {
         </button>
       </div>
       <div class="tutor-audio-feedback" role="status" aria-live="polite"><span id="tutorAudioFeedback"></span><button type="button" id="tutorAudioPlay" class="no-glass" hidden>Play audio</button></div>
-      <p class="tutor-input-hint">AI can make mistakes — double-check important facts before using them in assignments.</p>
+      <p class="tutor-input-hint">AI can make mistakes. Check important facts before using them in assignments.</p>
     </div>
 
   </div><!-- /tutor-main -->
@@ -1631,7 +1634,7 @@ async function openSnapCamera() {
     });
     video.srcObject = snapStream;
   } catch (err) {
-    errEl.textContent = 'Camera unavailable — try uploading a photo instead.';
+    errEl.textContent = 'Camera unavailable. Try uploading a photo instead.';
     console.warn('Camera error:', err);
   }
 }
@@ -1649,7 +1652,7 @@ function captureSnapPhoto() {
   const video = document.getElementById('snapVideo');
   const canvas = document.getElementById('snapCanvas');
   if (!video.videoWidth) {
-    document.getElementById('snapCameraErr').textContent = 'Camera not ready yet — wait a moment.';
+    document.getElementById('snapCameraErr').textContent = 'Camera not ready yet. Wait a moment.';
     return;
   }
   canvas.width = video.videoWidth;
@@ -2248,7 +2251,7 @@ async function saveLearningProfile() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     learningProfile = data.profile;
-    status.textContent = 'Saved — Plani will use this from your next message.';
+    status.textContent = 'Saved. Plani will use this from your next message.';
   } catch (err) {
     status.textContent = 'Could not save. Try again.';
   }

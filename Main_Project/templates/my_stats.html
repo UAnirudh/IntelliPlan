@@ -216,7 +216,7 @@ function renderStats(d) {
     document.getElementById('msGradesSection').hidden = false;
     var gEl = document.getElementById('msGrades');
     gEl.innerHTML = d.grades.map(function(g) {
-      var pct = g.percentage != null ? Math.round(g.percentage) : '—';
+      var pct = g.percentage != null ? Math.round(g.percentage) : 'N/A';
       // Semantic tokens instead of a raw hue ramp so every palette/theme stays coherent
       var tone = g.percentage == null ? 'var(--text-primary)'
         : g.percentage >= 80 ? 'var(--low)'
@@ -244,7 +244,7 @@ function renderStats(d) {
   // Time management
   if (d.feedback_count > 0) {
     document.getElementById('msTimeSection').hidden = false;
-    var ratio = d.total_estimated_minutes > 0 ? (d.total_actual_minutes / d.total_estimated_minutes * 100).toFixed(0) + '%' : '—';
+    var ratio = d.total_estimated_minutes > 0 ? (d.total_actual_minutes / d.total_estimated_minutes * 100).toFixed(0) + '%' : 'N/A';
     document.getElementById('msTimeStats').innerHTML =
       statCard(d.feedback_count, 'Tasks Tracked') +
       statCard(Math.round(d.total_actual_minutes / 60) + 'h', 'Actual Time') +

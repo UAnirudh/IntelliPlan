@@ -215,7 +215,7 @@
       var strong = document.createElement("b");
       strong.textContent = a.title;
       li.appendChild(strong);
-      var tail = " — " + minutesLabel(a.minutes);
+      var tail = ": " + minutesLabel(a.minutes);
       var due = dueLabel(a.due_date);
       if (due) tail += ", " + due;
       li.appendChild(document.createTextNode(tail));
@@ -235,7 +235,7 @@
       top.days_away === 0 ? "due today" : "due in " + top.days_away + " days";
     var line =
       top.kind === "mastery"
-        ? "Most at risk: " + top.title + " — assessment in " + top.days_away +
+        ? "Most at risk: " + top.title + ". Assessment in " + top.days_away +
           " days and your grasp of it is still thin."
         : "Most at risk: " + top.title + " (" + when + ").";
     text(el.risk, line);

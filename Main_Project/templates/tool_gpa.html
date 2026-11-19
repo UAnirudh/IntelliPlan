@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 
-{% block page_title %}GPA Calculator — Weighted & Cumulative | IntelliPlan{% endblock %}
+{% block page_title %}GPA Calculator | Weighted & Cumulative | IntelliPlan{% endblock %}
 
 {% block meta_description %}Free GPA calculator for high school and college. Add courses, grades, and credits to get weighted, unweighted, or cumulative GPA on a 4.0 scale.{% endblock %}
 {% block og_type %}website{% endblock %}
-{% block og_title %}GPA Calculator — Free Weighted & Unweighted{% endblock %}
+{% block og_title %}GPA Calculator | Free Weighted & Unweighted{% endblock %}
 {% block og_description %}Calculate your weighted or unweighted GPA on a 4.0 scale in seconds. Free, no sign-up.{% endblock %}
-{% block twitter_title %}GPA Calculator — Free Weighted & Unweighted{% endblock %}
+{% block twitter_title %}GPA Calculator. Free Weighted & Unweighted{% endblock %}
 {% block twitter_description %}Add courses, grades, and credits. Get your GPA instantly. Free.{% endblock %}
 
 {% block head_extra %}
@@ -139,7 +139,7 @@
       <input class="calc-input" style="flex:1;min-width:120px;" type="number" id="priorCredits" aria-label="Prior total credits" inputmode="decimal" min="0" step="0.5" placeholder="Prior credits" oninput="computeGPA()"/>
     </div>
     <div class="gpa-result" id="gpaResult">
-      <div class="big" id="gpaValue">—</div>
+      <div class="big" id="gpaValue">N/A</div>
       <div class="sub" id="gpaSub">Enter grades and credits to see your GPA</div>
     </div>
   </div>
@@ -149,7 +149,7 @@
     <p>
       Each letter grade is worth points (A = 4.0, B = 3.0, C = 2.0, D = 1.0, F = 0). Multiply each class's
       points by its credit hours, add them all up, and divide by the total credits. On a
-      <strong>weighted</strong> scale, harder classes get a bonus — usually +1.0 for AP/IB and +0.5 for Honors.
+      <strong>weighted</strong> scale, harder classes get a bonus, usually +1.0 for AP/IB and +0.5 for Honors.
     </p>
 
     <h2>Track your real GPA automatically</h2>
@@ -227,7 +227,7 @@ function computeGPA() {
   var val = document.getElementById('gpaValue');
   var sub = document.getElementById('gpaSub');
   if (totalCredits <= 0) {
-    val.textContent = '—';
+    val.textContent = 'N/A';
     sub.textContent = 'Enter grades and credits to see your GPA';
     return;
   }

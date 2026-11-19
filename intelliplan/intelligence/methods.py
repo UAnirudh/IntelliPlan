@@ -175,7 +175,7 @@ def recommend(
                 steps=(StudyMethod("retrieval", "Quick recall practice", minutes),),
                 rationale=(
                     "Too short to learn something new, long enough for recall "
-                    "practice — which is where a short session pays best."
+                    "practice. Which is where a short session pays best."
                 ),
                 reason_codes=tuple(reasons),
             )
@@ -278,7 +278,7 @@ def recommend(
         ),
         rationale=(
             "Strong material with no assessment close by needs maintenance, "
-            "not re-teaching — a short spaced pass keeps it from decaying."
+            "not re-teaching: a short spaced pass keeps it from decaying."
         ),
         reason_codes=tuple(reasons),
     )

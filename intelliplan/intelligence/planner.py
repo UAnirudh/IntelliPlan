@@ -1589,12 +1589,12 @@ def _reasons_for(item: _Item, state: _DayState) -> tuple[str, ...]:
     is_last = item.part_index >= item.part_total
 
     if item.fixed:
-        out.append("You placed this here — the rest of the plan works around it.")
+        out.append("You placed this here. The rest of the plan works around it.")
 
     if task.due_date is not None:
         gap = (task.due_date - item.day).days
         if gap <= 0:
-            out.append("Due today — this is the last chance to work on it.")
+            out.append("Due today. This is the last chance to work on it.")
         elif gap == 1:
             out.append("Due tomorrow.")
         elif is_last:
@@ -1610,7 +1610,7 @@ def _reasons_for(item: _Item, state: _DayState) -> tuple[str, ...]:
             if task.kind in MEMORY_KINDS
             else "split to match your focus length"
         )
-        out.append(f"Sitting {item.part_index} of {item.part_total} — {why}.")
+        out.append(f"Sitting {item.part_index} of {item.part_total}: {why}.")
 
     if item.estimate.confidence >= 0.3 and abs(item.estimate.ratio - 1.0) >= 0.12:
         pct = int(round(abs(item.estimate.ratio - 1.0) * 100))
@@ -1618,13 +1618,13 @@ def _reasons_for(item: _Item, state: _DayState) -> tuple[str, ...]:
         out.append(f"Sized from your history: you take ~{pct}% {word} on this kind of work.")
 
     if task.priority >= 80:
-        out.append("High priority — placed early on purpose.")
+        out.append("High priority. Placed early on purpose.")
 
     if state.capacity and state.minutes <= state.capacity * 0.5:
         out.append("Landed here because this day was your lightest option.")
 
     if task.weak_concept_penalty >= 0.4:
-        out.append("Covers a concept you've struggled with before — extra time reserved.")
+        out.append("Covers a concept you've struggled with before. Extra time reserved.")
 
     return tuple(out)
 
@@ -1641,7 +1641,7 @@ def _notes(
         minutes = sum(d.minutes for d in deferred)
         notes.append(
             f"{minutes} minutes of work could not fit before its deadlines. "
-            f"You are over capacity — drop, shorten, or find more time."
+            f"You are over capacity: drop, shorten, or find more time."
         )
     if capacity and total > capacity * 0.9 and not deferred:
         notes.append("This is a full two weeks. There is very little slack left.")

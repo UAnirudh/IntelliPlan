@@ -281,7 +281,7 @@ function renderDetail(g) {
       <div style="display:flex;flex-direction:column;gap:1.25rem;">
         ${g.is_member ? `
         <div data-ipui="voice" class="ipui-voice" data-group="${g.id}"
-             data-title="Voice — ${esc(g.name)}"></div>` : ''}
+             data-title="Voice: ${esc(g.name)}"></div>` : ''}
 
         ${g.is_member ? `
         <div class="gr-panel">

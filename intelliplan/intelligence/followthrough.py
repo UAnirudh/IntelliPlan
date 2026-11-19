@@ -691,13 +691,13 @@ class FollowThroughModel:
         if worst[2] >= INSIGHT_Z and points(worst[1]) <= -5:
             out.append(Insight(
                 f"dow_{worst[0]}",
-                f"{names[worst[0]]} are your hardest day — about {abs(points(worst[1]))}% fewer planned sessions get done.",
+                f"{names[worst[0]]} are your hardest day, about {abs(points(worst[1]))}% fewer planned sessions get done.",
                 points(worst[1]), worst[2],
             ))
         if best[2] >= INSIGHT_Z and points(best[1]) >= 5:
             out.append(Insight(
                 f"dow_{best[0]}",
-                f"{names[best[0]]} are your most reliable day — about {points(best[1])}% more gets done.",
+                f"{names[best[0]]} are your most reliable day, about {points(best[1])}% more gets done.",
                 points(best[1]), best[2],
             ))
 
@@ -708,7 +708,7 @@ class FollowThroughModel:
             out.append(Insight(
                 "length",
                 f"Sessions longer than your usual ~{self.stamina_minutes} min are about "
-                f"{abs(points(length_delta))}% less likely to get finished — the plan keeps them short.",
+                f"{abs(points(length_delta))}% less likely to get finished. The plan keeps them short.",
                 points(length_delta), z_of("length"),
             ))
 
@@ -718,7 +718,7 @@ class FollowThroughModel:
             out.append(Insight(
                 "load",
                 f"After two hours of work in a day, your follow-through drops about "
-                f"{abs(points(load_delta))}% — the plan spreads heavy days out.",
+                f"{abs(points(load_delta))}%. The plan spreads heavy days out.",
                 points(load_delta), z_of("load"),
             ))
 
@@ -742,7 +742,7 @@ class FollowThroughModel:
             if strength >= INSIGHT_Z and points(beta) <= -6:
                 out.append(Insight(
                     f"course:{name}",
-                    f"{name.title()} sessions get skipped most — about {abs(points(beta))}% less often "
+                    f"{name.title()} sessions get skipped most, about {abs(points(beta))}% less often "
                     f"done than your other subjects, so they're placed where you're strongest.",
                     points(beta), strength,
                 ))

@@ -184,14 +184,14 @@ def normalize_blocks(raw_blocks, day_date=None):
         # rejected and named instead.
         if end <= start or end >= 24 * 60:
             errors.append({"index": i, "field": "end",
-                           "message": "Ends before it starts. A block cannot cross midnight — "
+                           "message": "Ends before it starts. A block cannot cross midnight: "
                                       "split it across two days."})
             continue
 
         length = end - start
         if length < MIN_BLOCK_MINUTES:
             errors.append({"index": i, "field": "end",
-                           "message": f"Too short — {MIN_BLOCK_MINUTES} minutes is the minimum."})
+                           "message": f"Too short: {MIN_BLOCK_MINUTES} minutes is the minimum."})
             continue
         if length > MAX_BLOCK_MINUTES:
             errors.append({"index": i, "field": "end",
@@ -446,5 +446,5 @@ def _summary(schedule):
                   for d in schedule for b in d["blocks"] if not b.get("is_break"))
     days = len(schedule)
     return (f"{work} block{'' if work == 1 else 's'} across "
-            f"{days} day{'' if days == 1 else 's'} — "
+            f"{days} day{'' if days == 1 else 's'}: "
             f"{minutes // 60}h {minutes % 60:02d}m of work, exactly where you put it.")

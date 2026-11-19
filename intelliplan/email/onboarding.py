@@ -65,7 +65,7 @@ STEPS: tuple[Step, ...] = (
     Step(
         key="onboarding_connect_v1",
         template="onboarding_connect",
-        subject="Connect your school — IntelliPlan does the rest",
+        subject="Connect your school. IntelliPlan does the rest",
         preheader="One connection and your assignments show up on their own.",
         day=2,
         goal="connected",

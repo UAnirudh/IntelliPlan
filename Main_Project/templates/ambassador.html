@@ -61,7 +61,7 @@
   <span class="amb-kicker" data-reveal>Campus Ambassador Program</span>
   <h1 class="amb-title" data-reveal>Help your classmates study smarter. Get rewarded for it.</h1>
   <p class="amb-lede" data-reveal>
-    Become an IntelliPlan Campus Ambassador at your school. Share what you already love with your friends, classmates, and study group — and earn a free month of IntelliPlan Pro for every friend who starts planning. They get one too.
+    Become an IntelliPlan Campus Ambassador at your school. Share what you already love with your friends, classmates, and study group. And earn a free month of IntelliPlan Pro for every friend who starts planning. They get one too.
   </p>
   <div class="amb-cta-row" data-reveal>
     {% if current_user.is_authenticated %}
@@ -104,7 +104,7 @@
     <h2 data-reveal>How it works</h2>
     <ol class="step-list">
       <li data-reveal><strong>Create your account</strong> at intelliplan.tech and grab your unique referral link from the ambassador dashboard. It looks like <code>intelliplan.tech/ref/your-code</code>.</li>
-      <li data-reveal><strong>Share it with students at your school.</strong> Drop it in your school Discord, GroupMe, Reddit, class chats, or your study-content TikTok bio — wherever students actually hang out.</li>
+      <li data-reveal><strong>Share it with students at your school.</strong> Drop it in your school Discord, GroupMe, Reddit, class chats, or your study-content TikTok bio. Wherever students actually hang out.</li>
       <li data-reveal><strong>Track your referrals</strong> in real time from your dashboard. We show you who signed up, your tier, and how close you are to the next reward.</li>
       <li data-reveal><strong>Get Pro.</strong> Your free month is added automatically the moment a friend activates. Nothing to claim, nothing to wait for.</li>
     </ol>
@@ -127,7 +127,7 @@
     <h2 data-reveal>Frequently asked</h2>
     <div class="amb-faq">
       <details data-reveal><summary>Who can become an ambassador?</summary>
-      <p>Any current high school or college student in good standing. You don't need a big social following — most ambassadors grow through their class chats, study groups, and school Discord servers.</p></details>
+      <p>Any current high school or college student in good standing. You don't need a big social following. Most ambassadors grow through their class chats, study groups, and school Discord servers.</p></details>
       <details data-reveal><summary>Does it cost anything?</summary>
       <p>No. The program is free to join. Rewards are Pro time rather than cash, so the people who join are the ones who actually use the planner.</p></details>
       <details data-reveal><summary>What counts as an "active referral"?</summary>
@@ -135,7 +135,7 @@
       <details data-reveal><summary>When do I get my free month?</summary>
       <p>Straight away. As soon as a friend you invited connects their school or builds a plan in their first week, 30 days are added to your account. You can see your plan and months on the <a href="/upgrade">plan page</a>.</p></details>
       <details data-reveal><summary>Can I represent more than one school?</summary>
-      <p>Yes — but most ambassadors focus on one campus. We'll feature you in multi-school spotlights if you grow IntelliPlan at more than one institution.</p></details>
+      <p>Yes. But most ambassadors focus on one campus. We'll feature you in multi-school spotlights if you grow IntelliPlan at more than one institution.</p></details>
     </div>
   </section>
 
@@ -145,7 +145,7 @@
     {% if current_user.is_authenticated %}
       <a class="btn-primary" style="padding:1rem 1.5rem;text-decoration:none;border-radius:12px;font-weight:700;" href="/ambassador/dashboard">Open my dashboard <span class="ip-arrow" aria-hidden="true"></span></a>
     {% else %}
-      <a class="btn-primary" style="padding:1rem 1.5rem;text-decoration:none;border-radius:12px;font-weight:700;" href="/register?ambassador=1">Become an ambassador — free</a>
+      <a class="btn-primary" style="padding:1rem 1.5rem;text-decoration:none;border-radius:12px;font-weight:700;" href="/register?ambassador=1">Become an ambassador: free</a>
     {% endif %}
   </div>
 </div>

@@ -62,7 +62,7 @@
           {% for key in ['d1', 'd7', 'd30'] %}
             {% set cell = row[key] %}
             {% if cell.rate is none %}
-              <td class="gr-na">—</td>
+              <td class="gr-na">N/A</td>
             {% else %}
               <td>{{ '%.0f'|format(cell.rate * 100) }}%<small>{{ cell.retained }}/{{ cell.eligible }}</small></td>
             {% endif %}

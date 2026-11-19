@@ -137,7 +137,7 @@ _RESEARCH_PAPER = StageTemplate(
               note="The largest single block, and the one that needs the outline "
                    "already done."),
         Stage("revise", "Revise for argument and structure", 0.15, depends_on=("draft",),
-              note="Deliberately a separate day from drafting — you cannot see "
+              note="Deliberately a separate day from drafting. You cannot see "
                    "your own draft clearly an hour after writing it."),
         Stage("proofread", "Proofread and check citations", 0.06, depends_on=("revise",),
               wants_one_sitting=True),
@@ -176,7 +176,7 @@ _EXAM = StageTemplate(
               note="The single highest-value hour in exam prep."),
         Stage("final_pass", "Light final pass", 0.08, depends_on=("mistakes",),
               wants_one_sitting=True,
-              note="Light on purpose — cramming the night before costs more in "
+              note="Light on purpose. Cramming the night before costs more in "
                    "sleep than it returns in recall."),
     ),
 )
@@ -303,12 +303,12 @@ def should_decompose(
     text = f"{title} {description[:400]}".lower()
 
     if problem_count >= 5:
-        return False, "Repetitive work — the parts are interchangeable."
+        return False, "Repetitive work. The parts are interchangeable."
     for word in _NEVER_DECOMPOSE:
         if word in text:
-            return False, "Repetitive work — the parts are interchangeable."
+            return False, "Repetitive work. The parts are interchangeable."
     if minutes < MIN_DECOMPOSE_MINUTES:
-        return False, f"Under {MIN_DECOMPOSE_MINUTES} minutes — stages would be overhead."
+        return False, f"Under {MIN_DECOMPOSE_MINUTES} minutes. Stages would be overhead."
     if _match_template(title, kind, description) is None:
         return False, "No recognisable shape to break this into."
     return True, ""

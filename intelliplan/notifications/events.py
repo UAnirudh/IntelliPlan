@@ -215,7 +215,7 @@ def _session_rescheduled(ctx: Mapping[str, Any]) -> tuple[str, str]:
     reason = _get(ctx, "reason")
     body = f"{count} {_plural(count, 'session', 'sessions')} moved"
     if reason:
-        body += f" — {reason}"
+        body += f": {reason}"
     return ("Plan updated", body + ".")
 
 
@@ -223,7 +223,7 @@ def _session_completed(ctx: Mapping[str, Any]) -> tuple[str, str]:
     title = _get(ctx, "title", "that session")
     minutes = ctx.get("actual_minutes")
     if minutes:
-        return ("Session logged", f"{title} — {minutes} min. Your estimates just got sharper.")
+        return ("Session logged", f"{title}: {minutes} min. Your estimates just got sharper.")
     return ("Session logged", f"{title} is done.")
 
 
@@ -238,7 +238,7 @@ def _deadline_approaching(ctx: Mapping[str, Any]) -> tuple[str, str]:
         days = None
     when = "due today" if days == 0 else ("due tomorrow" if days == 1 else f"due in {days} days")
     subject = f"{title} ({course})" if course else title
-    tail = f" — {remaining} min of work left on your plan." if remaining else "."
+    tail = f": {remaining} min of work left on your plan." if remaining else "."
     return ("Deadline coming up", f"{subject} is {when}{tail}")
 
 
@@ -278,7 +278,7 @@ def _streak_at_risk(ctx: Mapping[str, Any]) -> tuple[str, str]:
 def _inactive_check_in(ctx: Mapping[str, Any]) -> tuple[str, str]:
     return (
         "Your plan is here when you need it",
-        "No pressure — open IntelliPlan when you are ready to see what is next.",
+        "No pressure. Open IntelliPlan when you are ready to see what is next.",
     )
 
 

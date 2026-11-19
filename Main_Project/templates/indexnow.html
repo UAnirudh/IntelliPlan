@@ -68,7 +68,7 @@
 
   <div class="inx-card">
     <h2>IntelliPlan setup</h2>
-    <p class="inx-meta">Ownership verified via Option 1 — key file hosted at site root.</p>
+    <p class="inx-meta">Ownership verified via Option 1. Key file hosted at site root.</p>
     <div class="inx-kv">
       <div class="inx-kv-row">
         <div class="inx-kv-label">Host</div>
@@ -101,7 +101,7 @@
     <div class="inx-body">
       <p>Issue an HTTP GET request to the search engine endpoint. <code>url</code> must be URL-escaped (RFC-3986). <code>key</code> is 8–128 hex characters (a–z, A–Z, 0–9, dashes).</p>
       <pre>GET {{ indexnow_endpoint }}?url=url-changed&amp;key={{ indexnow_key }}&amp;keyLocation={{ indexnow_key_location | urlencode }}</pre>
-      <p>Example — notify that the landing page was updated:</p>
+      <p>Example. Notify that the landing page was updated:</p>
       <pre>curl "{{ indexnow_endpoint }}?url={{ app_base_url | urlencode }}&amp;key={{ indexnow_key }}&amp;keyLocation={{ indexnow_key_location | urlencode }}"</pre>
       <p>A successful request returns HTTP <strong>200</strong>. HTTP 200 only means the search engine received the URL.</p>
     </div>
@@ -161,7 +161,7 @@ Content-Type: application/json
         <tr><td>400</td><td>Bad request</td><td>Invalid format</td></tr>
         <tr><td>403</td><td>Forbidden</td><td>Key not valid (missing, or not in key file)</td></tr>
         <tr><td>422</td><td>Unprocessable</td><td>URL doesn't belong to host, or key format invalid</td></tr>
-        <tr><td>429</td><td>Too Many Requests</td><td>Rate limited — wait and retry</td></tr>
+        <tr><td>429</td><td>Too Many Requests</td><td>Rate limited. Wait and retry</td></tr>
       </tbody>
     </table>
     <p class="inx-body">Participating search engines share submitted URLs with each other automatically.</p>

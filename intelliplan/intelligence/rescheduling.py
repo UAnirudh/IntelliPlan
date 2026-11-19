@@ -76,11 +76,11 @@ INTENTS: dict[str, str] = {
     "skip_day": "Can't study that day",
     "limit_day": "Less time that day",
     "add_time": "Extra time that day",
-    "push": "Not today — push it",
+    "push": "Not today. Push it",
     "pin": "Keep it where I put it",
     "done": "Already done",
     "progress": "Did some of it",
-    "catch_up": "I'm behind — catch me up",
+    "catch_up": "I'm behind. Catch me up",
 }
 
 #: Furthest day an intent may name. Matches the override endpoint's bound.
@@ -976,7 +976,7 @@ def _headline(
     unfit = sum(d.minutes for d in after.deferred)
     if unfit:
         detail = (
-            f"{unfit} min of work has no room before its deadline — "
+            f"{unfit} min of work has no room before its deadline"
             "add time, or decide what to drop."
         )
     elif report_after is not None:
@@ -989,7 +989,7 @@ def _headline(
         elif watch:
             names = " and ".join(t.title for t in watch[:2])
             verb = "is" if len(watch[:2]) == 1 else "are"
-            detail = f"{names} {verb} tight — worth keeping an eye on."
+            detail = f"{names} {verb} tight. Worth keeping an eye on."
         else:
             detail = "Every deadline is still on track."
     else:
