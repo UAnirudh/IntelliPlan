@@ -363,7 +363,7 @@ button, .btn, [role="button"], .nav-tab, .sched-tab, .ipui-tab, .chip {
   /* Chips measured 23-29px tall (tutor modality/subject chips, the
      settings sidebar "Shown" toggles) and the announcement close 29px
      wide: under a fingertip. */
-  .tutor-modality-btn, .tutor-chip, .sb-cust-vis { min-height: 36px; }
+  .tutor-modality-btn, .sb-cust-vis { min-height: 36px; }
   .ipui-announce__close { min-width: 44px; }
 
   /* Long unbroken strings — API scopes, URLs, file names — ran off the

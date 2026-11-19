@@ -38,8 +38,6 @@ body:has(.tutor-shell) main { height: 100dvh; }
 .plani-welcome { color: var(--text-secondary); margin: 0 0 12px; font-size: .8rem; font-weight: 500; }
 .tutor-empty-title { font: 600 clamp(1.65rem, 3vw, 2.65rem)/1.14 var(--font-display, system-ui); letter-spacing: -.045em; text-wrap: balance; margin-bottom: 14px; }
 .tutor-empty-sub { max-width: 48ch; font-size: .9rem; line-height: 1.7; margin-bottom: 22px; }
-.tutor-chips { max-width: 620px; gap: 6px; margin-bottom: 22px; }
-.tutor-chip { border-radius: 12px; min-height: 36px; padding: 7px 12px; font-size: .76rem; background: transparent; }
 .tutor-suggestions { max-width: 640px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
 .tutor-sug-label { grid-column: 1 / -1; font-size: .78rem; margin-bottom: 3px; }
 .tutor-sug-card { border-radius: 18px; padding: 14px 16px; min-height: 62px; font-size: .82rem; line-height: 1.5; background: var(--bg-secondary); border-color: var(--border); box-shadow: none; backdrop-filter: none; }
@@ -54,7 +52,6 @@ body:has(.tutor-shell) main { height: 100dvh; }
 .tutor-assignment-bar { max-width: 820px; margin: 0 auto 12px; gap: 6px; }
 .tutor-assignment-bar button, .tutor-assignment-bar select { min-height: 36px; border-radius: 12px; font-size: .73rem; }
 .tutor-input-inner { border-radius: 14px; padding: 6px; background: var(--bg-secondary); border: 1px solid var(--border-strong); box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; align-items: flex-end; }
-.tutor-subject-pill { border-right: 0; border-radius: 14px; height: 44px; padding-inline: 9px; }
 #tutorInput { min-width: 0; min-height: 44px; padding: 10px 8px; font-size: .95rem; }
 #tutorSendBtn { border-radius: 16px; width: 44px; height: 44px; color: var(--on-ink); background: var(--ink); margin-left: auto; }
 .tutor-icon-btn { width: 38px; min-height: 44px; border-radius: 12px; }
@@ -94,8 +91,6 @@ body:has(.tutor-shell) main { height: 100dvh; }
   .tutor-workspace-header { padding: 8px 16px; }
   .tutor-workspace-heading p { display: none; }
   .tutor-workspace-actions a { min-height: 44px; font-size: .75rem; padding: 8px 12px; }
-  .tutor-mobile-bar { background: transparent; padding: 4px 12px; border-bottom: 0; }
-  .tutor-mobile-bar button { width: 44px; height: 44px; border-radius: 14px; }
   .tutor-icon-btn { width: 44px; }
   .tutor-profile-btn, .tutor-voice-row select { min-height: 44px; }
   .tutor-mobile-title { font-size: .95rem; }
@@ -104,19 +99,15 @@ body:has(.tutor-shell) main { height: 100dvh; }
   .plani-welcome { font-size: .75rem; margin-bottom: 9px; }
   .tutor-empty-title { font-size: 1.85rem; }
   .tutor-empty-sub { font-size: .85rem; margin-bottom: 16px; }
-  .tutor-chips { flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; width: 100%; padding: 4px; min-height: 56px; margin-bottom: 14px; }
-  .tutor-chips .tutor-chip { flex: 0 0 auto; white-space: nowrap; }
-  .tutor-chip { min-height: 44px; padding: 9px 12px; }
   .tutor-suggestions { grid-template-columns: minmax(0, 1fr); }
   .tutor-sug-card { min-height: 50px; }
   .tutor-msg-group { max-width: 100%; }
   .tutor-msg-group.user .tutor-bubble { max-width: min(86vw, 660px); }
   .tutor-flashcard { min-height: 170px; padding: 14px; }
   .tutor-flashcard-controls button { min-width: 92px; }
-  body.has-tabbar .tutor-input-wrap { padding: 10px 12px 12px; bottom: auto; }
+  body.has-tabbar .tutor-input-wrap { padding: 6px 0 8px; bottom: auto; }
   .tutor-input-inner { flex-wrap: wrap; border-radius: 22px; gap: 2px; }
   #tutorInput { order: -1; flex: 1 0 100%; max-height: 120px; padding: 10px; font-size: 16px; }
-  .tutor-subject-pill { margin-right: auto; }
   .tutor-assignment-bar { max-height: 160px; overflow-y: auto; overscroll-behavior: contain; }
   .plani-study-actions summary span { display: none; }
   .tutor-input-inner #tutorSendBtn { margin-left: auto; }

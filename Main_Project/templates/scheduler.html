@@ -986,15 +986,14 @@
 {% endblock %}
 
 {% block content %}
-<div class="ipd-page-header ipd-anim ipd-d1"
-     style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:1rem;">
+<div class="ipd-page-header ipd-anim ipd-d1 scheduler-heading">
   <div>
     <h1 class="ipd-page-title">Study scheduler</h1>
     <p class="ipd-page-subtitle">Plan your week around the time you have.</p>
   </div>
   <!-- The plan is only half of it. This is the other half, and it was
        previously reachable only by typing the URL. -->
-  <a href="/active" class="scheduler-study-link">Start studying</a>
+  <a href="/active" class="ip-action scheduler-study-link">Start studying <span class="ip-arrow" aria-hidden="true"></span></a>
 </div>
 
 <!-- ── TAB BAR ───────────────────────────────────────── -->
@@ -1007,8 +1006,8 @@
 
   <div class="scheduler-panel" id="inputPanel">
     {% if current_user.is_authenticated %}
-    <details class="assignment-queue planner-capture" id="plannerCapture">
-      <summary>Add work</summary>
+    <details class="ip-disclosure assignment-queue planner-capture" id="plannerCapture">
+      <summary><span>Add work</span><span class="ip-arrow" data-direction="down" data-arrow-kind="chevron" aria-hidden="true"></span></summary>
       <p><a href="/connect">Connect a school portal, calendar or Notion</a> · <a href="/flashcards/photo">Read a photo</a> · <a href="/classes#timetable">Set up a class timetable</a></p>
       <details id="plannerTodoist">
         <summary>Sync Todoist</summary>
@@ -1038,12 +1037,12 @@
     </details>
     {% endif %}
     <div class="scheduler-inputs">
-      <div class="input-group">
+      <div class="input-group scheduler-availability">
         <label class="form-label" for="hoursPerDay">Hours available per day</label>
         <input type="number" id="hoursPerDay" class="form-input" value="2" min="0.5" max="12" step="0.5" style="max-width:120px;" />
       </div>
-      <details class="scheduler-options">
-        <summary>Study window and task options</summary>
+      <details class="ip-disclosure scheduler-options">
+        <summary><span>Study window and task options</span><span class="ip-arrow" data-direction="down" data-arrow-kind="chevron" aria-hidden="true"></span></summary>
         <div class="scheduler-inputs">
           <div class="input-group">
             <label class="form-label" for="studyStartTime">Daily study window <span style="font-weight:400;">(optional)</span></label>
@@ -1077,8 +1076,8 @@
         </div>
       </details>
     </div>
-    <details class="assignment-queue" id="assignmentQueue">
-      <summary>Assignments <span id="assignmentQueueCount" class="assignment-queue-hint">Loading…</span></summary>
+    <details class="ip-disclosure assignment-queue" id="assignmentQueue">
+      <summary><span>Assignments <span id="assignmentQueueCount" class="assignment-queue-hint">Loading…</span></span><span class="ip-arrow" data-direction="down" data-arrow-kind="chevron" aria-hidden="true"></span></summary>
       <div class="assignment-queue-controls" role="group" aria-label="Filter assignments">
         <button class="btn-secondary btn-control" id="assignmentActionableFilter" type="button" aria-pressed="true">Needs attention</button>
         <button class="btn-secondary btn-control" id="assignmentWaitingFilter" type="button" aria-pressed="false">Waiting for grade</button>
@@ -1087,12 +1086,12 @@
       <div class="assignment-queue-list" id="assignmentQueueList"></div>
       <p class="assignment-queue-hint" id="assignmentQueueStatus" role="status" aria-live="polite"></p>
     </details>
-    <div style="display:flex; gap:10px; align-items:center; margin-top:1.5rem; flex-wrap:wrap;">
+    <div class="scheduler-plan-actions">
       <button class="btn-primary" id="generateBtn" type="button" onclick="generateSchedule()">Build study plan</button>
       <div id="savePanel" style="display:none; gap:8px; align-items:center; flex-wrap:wrap;">
         <input type="text" id="scheduleName" class="form-input" aria-label="Name for this schedule" placeholder="Schedule name..." style="max-width:200px;" />
         <button type="button" onclick="saveSchedule()" style="padding:12px 20px; border-radius:10px; border:1px solid var(--low); background:var(--low-bg); color:var(--low); cursor:pointer; font-family:var(--font-ui); font-size:0.88rem; font-weight:600; display:inline-flex; align-items:center; gap:6px;"><svg width="14" height="14"><use href="#i-save"/></svg> Save to dashboard</button>
-        <details class="scheduler-options"><summary>More plan actions</summary>
+        <details class="ip-disclosure scheduler-options"><summary><span>More plan actions</span><span class="ip-arrow" data-direction="down" data-arrow-kind="chevron" aria-hidden="true"></span></summary>
         <button type="button" onclick="saveToMemories()" style="padding:12px 20px; border-radius:10px; border:1px solid var(--accent); background:var(--accent-soft); color:var(--accent); cursor:pointer; font-family:var(--font-ui); font-size:0.88rem; font-weight:600; display:inline-flex; align-items:center; gap:6px;"><svg width="14" height="14"><use href="#i-save"/></svg> Save to memories</button>
         <button type="button" onclick="openInteractive()" style="padding:12px 20px; border-radius:10px; border:1px solid var(--accent); background:var(--accent); color:var(--on-accent, #fff); cursor:pointer; font-family:var(--font-ui); font-size:0.88rem; font-weight:600; display:inline-flex; align-items:center; gap:6px;"><span class="ip-arrow" style="--ip-arrow-size:14px" aria-hidden="true"></span> Open interactive view</button></details>
       </div>
@@ -1207,29 +1206,35 @@
      TAB 2, INTERACTIVE VIEW
 ══════════════════════════════════════════════════ -->
 <div class="sched-pane" id="pane-interactive" role="tabpanel" aria-labelledby="tab-interactive">
-  {% if current_user.is_authenticated %}
-  <details class="assignment-queue planner-capture" id="plannerCheckin">
-    <summary>Daily check-in</summary>
-    <p>Save a note for the day or pick your next step. These stay on this browser.</p>
-    <form id="plannerCheckinForm">
-      <label for="plannerCheckinDay">Day</label>
-      <input type="date" class="form-input" id="plannerCheckinDay" required>
-      <label for="plannerCheckinProgress">How did the plan go?</label>
-      <select class="form-input" id="plannerCheckinProgress">
-        <option value="">Choose if you like</option><option value="done">On track</option>
-        <option value="continue">Continue tomorrow</option><option value="rest">Take a break</option>
-      </select>
-      <label for="plannerCheckinNote">Note for this day</label>
-      <textarea class="form-input" id="plannerCheckinNote" rows="2" maxlength="400"></textarea>
-      <div class="planner-capture-actions">
-        <button class="btn-secondary" type="submit">Save check-in</button>
-        <button class="btn-secondary" type="button" id="plannerCheckinClear">Clear day</button>
-      </div>
-      <button class="btn-secondary" type="button" id="plannerCheckinAdjust" hidden>Review an adjustment</button>
-      <p role="status" id="plannerCheckinStatus"></p>
-    </form>
-  </details>
-  {% endif %}
+  <div class="scheduler-plan-tools">
+    {% if current_user.is_authenticated %}
+    <details class="ip-disclosure assignment-queue planner-capture" id="plannerCheckin">
+      <summary><span>Daily check-in</span><span class="ip-arrow" data-direction="down" data-arrow-kind="chevron" aria-hidden="true"></span></summary>
+      <p>Save a note for the day or pick your next step. These stay on this browser.</p>
+      <form id="plannerCheckinForm">
+        <label for="plannerCheckinDay">Day</label>
+        <input type="date" class="form-input" id="plannerCheckinDay" required>
+        <label for="plannerCheckinProgress">How did the plan go?</label>
+        <select class="form-input" id="plannerCheckinProgress">
+          <option value="">Choose if you like</option><option value="done">On track</option>
+          <option value="continue">Continue tomorrow</option><option value="rest">Take a break</option>
+        </select>
+        <label for="plannerCheckinNote">Note for this day</label>
+        <textarea class="form-input" id="plannerCheckinNote" rows="2" maxlength="400"></textarea>
+        <div class="planner-capture-actions">
+          <button class="btn-secondary" type="submit">Save check-in</button>
+          <button class="btn-secondary" type="button" id="plannerCheckinClear">Clear day</button>
+        </div>
+        <button class="btn-secondary" type="button" id="plannerCheckinAdjust" hidden>Review an adjustment</button>
+        <p role="status" id="plannerCheckinStatus"></p>
+      </form>
+    </details>
+    {% endif %}
+    <details class="ip-disclosure" id="plannerAdjustments">
+      <summary><span>Adjust the plan</span><span class="ip-arrow" data-direction="down" data-arrow-kind="chevron" aria-hidden="true"></span></summary>
+      <div data-ft-mount hidden></div>
+    </details>
+  </div>
 
   <div class="iv-context" id="ivContext" style="display:none;">
     <div class="ic-icon"><svg width="18" height="18"><use href="#i-sparkle"/></svg></div>
@@ -1238,8 +1243,6 @@
       <p id="ivContextBody">Pick a block to see its checklist. Each step has a tap-to-expand "why".</p>
     </div>
   </div>
-
-  <div data-ft-mount hidden></div>
 
   <div id="ivEmpty" class="iv-empty">
     {{ plani_avatar(64) }}
@@ -2497,10 +2500,10 @@ function renderInteractive() {
       <div class="iv-day-card ${isToday ? 'is-today' : ''}">
         <div class="iv-day-head">
           <div>
-            <div class="iv-day-name">${escapeText(day.day_name || '')}, ${escapeText(day.date || '')}${isToday ? '<span class="today-label">Today</span>' : ''}</div>
-            <div style="font-size:0.74rem;color:var(--text-muted);margin-top:2px;">${doneCount}/${work.length} blocks done · ${escapeText(String(day.total_hours || 0))}h</div>
+            <div class="iv-day-name">${escapeText([day.day_name, schedFmtDate(day.date)].filter(Boolean).join(', '))}${isToday ? '<span class="today-label">Today</span>' : ''}</div>
+            <p class="iv-day-progress">${doneCount} of ${work.length} blocks done</p>
           </div>
-          <div class="iv-day-meta"><svg><use href="#i-clock"/></svg> ${escapeText(String(day.total_hours || 0))}h</div>
+          <div class="iv-day-meta"><svg width="14" height="14" aria-hidden="true"><use href="#i-clock"/></svg> ${escapeText(String(day.total_hours || 0))}h</div>
         </div>
         <div class="iv-progress"><div class="iv-progress-bar" style="transform:scaleX(${pct / 100})"></div></div>
         <p class="planner-day-note" data-planner-day-note="${escapeText(String(day.date || '').slice(0, 10))}" hidden></p>
@@ -3105,7 +3108,7 @@ function renderIvBlock(b) {
       </div>
       <div class="iv-block-right">
         <div class="iv-duration">${escapeText(schedFmtMinutes(b.duration_minutes || 0))}</div>
-        <div style="display:flex;gap:4px;align-items:center;">
+        <div class="iv-block-actions">
           <button type="button" class="iv-grip" data-block-id="${escapeText(b.block_id)}" tabindex="-1" aria-hidden="true" title="Drag to reschedule">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>
           </button>

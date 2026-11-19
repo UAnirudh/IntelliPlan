@@ -206,23 +206,6 @@ main {
   margin-bottom: 1.75rem; max-width: 460px;
 }
 
-/* Subject chips (empty state) */
-.tutor-chips {
-  display: flex; flex-wrap: wrap; gap: 8px;
-  justify-content: center; margin-bottom: 2rem;
-}
-.tutor-chip {
-  padding: 7px 16px;
-  border-radius: 999px;
-  border: 1px solid var(--border-strong);
-  background:var(--glass-bg); -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6);
-  color: var(--text-secondary);
-  font-family: var(--ipd-font-body); font-size: 0.82rem; font-weight: 500;
-  cursor: pointer; transition: all 0.14s ease;
-}
-.tutor-chip:hover { background: var(--bg); color: var(--text-primary); border-color: var(--text-muted); }
-.tutor-chip.active { background: var(--text-primary); color: var(--bg); border-color: transparent; }
-
 /* Suggested questions */
 .tutor-suggestions { display: flex; flex-direction: column; gap: 7px; max-width: 520px; width: 100%; }
 .tutor-sug-label {
@@ -426,18 +409,6 @@ main {
   box-shadow: 0 0 0 3px var(--accent-soft),
               0 4px 24px rgba(0,0,0,0.08);
 }
-.tutor-subject-pill {
-  display: flex; align-items: center; gap: 5px;
-  padding: 0 13px; height: 50px;
-  border: none; border-right: 1px solid var(--border);
-  font-family: var(--ipd-font-mono); font-size: 0.72rem; font-weight: 700;
-  /* Quiet label, not an accent-filled chip — it's context, not an action. */
-  color: var(--text-secondary); background: transparent;
-  cursor: pointer; white-space: nowrap; flex-shrink: 0;
-  transition: background 0.13s, color 0.13s;
-  border-radius: 0;
-}
-.tutor-subject-pill:hover { background: var(--bg-elevated); color: var(--text-primary); }
 #tutorInput {
   flex: 1; border: none; background: transparent;
   padding: 14px 14px; font-family: var(--ipd-font-body); font-size: 0.92rem;
@@ -471,7 +442,7 @@ main {
 .tutor-icon-btn svg { width: 18px; height: 18px; }
 .tutor-icon-btn:hover { background: var(--bg-elevated); color: var(--text-primary); }
 .tutor-icon-btn:active { transform: scale(0.95); }
-.tutor-icon-btn.active { color: #fff; background: var(--accent); }
+.tutor-icon-btn.active { color: var(--on-accent, #fff); background: var(--accent); }
 .tutor-icon-btn.recording { color: #fff; background: var(--danger); animation: pulse-rec 1s ease-in-out infinite; }
 .tutor-icon-btn .ib-tip {
   position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
@@ -502,8 +473,7 @@ main {
 /* Tutor page owns the chat experience, hide global Plani widget here. */
 #planiBot, #planiWrap { display: none !important; }
 
-/* ── Mobile action bar (top of tutor-main) ── */
-.tutor-mobile-bar { display: none; }
+.tutor-mobile-control { display: none; }
 
 /* ── Message bubbles, polished ── */
 .tutor-msg-group.bot .tutor-bubble {
@@ -541,35 +511,6 @@ main {
   }
   .tutor-side-backdrop.is-open { display: block; }
 
-  .tutor-mobile-bar {
-    display: flex !important;
-    align-items: center; justify-content: space-between;
-    gap: 8px; padding: 8px 12px;
-    background:var(--glass-bg); -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6);
-    border-bottom: 1px solid var(--border);
-    flex-shrink: 0;
-  }
-  .tutor-mobile-bar button {
-    width: 38px; height: 38px;
-    border-radius: 10px;
-    border: 1px solid var(--border);
-    background: var(--bg);
-    color: var(--text-secondary);
-    display: inline-flex; align-items: center; justify-content: center;
-    cursor: pointer; transition: all 0.13s;
-  }
-  .tutor-mobile-bar button:active {
-    background: var(--accent-soft); color: var(--accent);
-    border-color: var(--border-accent); transform: scale(0.96);
-  }
-  .tutor-mobile-bar .tutor-mobile-title {
-    flex: 1; text-align: center;
-    font-family: var(--ipd-font-mono); font-size: 0.85rem; font-weight: 700;
-    color: var(--text-primary);
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-    padding: 0 4px;
-  }
-
   .tutor-msg-group { padding: 0.45rem 1rem; }
   .tutor-input-wrap {
     padding: 1.25rem 0.875rem calc(0.65rem + env(safe-area-inset-bottom));
@@ -583,7 +524,6 @@ main {
   .tutor-empty-title { font-size: 1.45rem; }
   .tutor-empty { padding: 1.5rem 1rem 1.5rem; }
   #tutorPlaniSvg { width: 82px; height: 82px; }
-  .tutor-subject-pill { padding: 0 10px; font-size: 0.7rem; height: 46px; }
   #tutorInput { font-size: 16px; min-height: 46px; } /* prevent iOS zoom */
   #tutorSendBtn { width: 46px; height: 46px; }
 }
@@ -592,12 +532,7 @@ main {
   .tutor-bubble { font-size: 0.92rem; padding: 10px 13px; }
   .tutor-empty-title { font-size: 1.35rem; }
   .tutor-empty-sub { font-size: 0.88rem; }
-  .tutor-chip { padding: 6px 12px; font-size: 0.78rem; }
   .tutor-input-wrap::before { display: none; }
-  /* At 390px the pill, three icons and Send left the text box ~70px wide
-     ("Ask anythi"). The subject is already shown by the chips above, and
-     the pill only focused the box, so it goes; the icons tighten. */
-  .tutor-subject-pill { display: none; }
   .tutor-icon-btn { width: 36px; margin: 5px 0; }
   #tutorInput { padding: 12px 12px; }
 }
@@ -789,20 +724,20 @@ main {
   <!-- ════ MAIN ════ -->
   <div class="tutor-main">
     <header class="tutor-workspace-header">
-      <div class="tutor-workspace-heading"><h1>Study &amp; learn</h1><p>{% if assessment_protection %}Assessment protection is on{% else %}A little clarity, one question at a time.{% endif %}</p></div>
-      <div class="tutor-workspace-actions"><a class="tutor-tools-link no-glass" href="/study-tools">All study tools <span class="ip-arrow" data-direction="up-right" aria-hidden="true"></span></a></div>
+      <button type="button" class="tutor-mobile-control no-glass" onclick="openTutorDrawer()" aria-label="Open chat history">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/></svg>
+      </button>
+      <div class="tutor-workspace-heading">
+        <h1>Study &amp; learn</h1>
+        {% if assessment_protection %}<p>Assessment protection is on</p>{% endif %}
+      </div>
+      <div class="tutor-workspace-actions">
+        <a class="tutor-tools-link no-glass" href="/study-tools">All study tools <span class="ip-arrow" data-direction="up-right" aria-hidden="true"></span></a>
+        <button type="button" class="tutor-mobile-control no-glass" onclick="startNewChat()" aria-label="Start a new chat">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+        </button>
+      </div>
     </header>
-
-    <!-- Mobile-only action bar -->
-    <div class="tutor-mobile-bar" role="toolbar" aria-label="Tutor actions">
-      <button type="button" onclick="openTutorDrawer()" aria-label="Open chat history">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-      </button>
-      <div class="tutor-mobile-title">AI Tutor</div>
-      <button type="button" onclick="startNewChat()" aria-label="Start a new chat">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      </button>
-    </div>
 
     <!-- Empty state: Plani centered -->
     <div class="tutor-empty" id="tutorEmpty">
@@ -812,32 +747,8 @@ main {
       </div>
 
       <h2 class="tutor-empty-title">What do you want to learn today?</h2>
-      <p class="tutor-empty-sub">Ask anything — math, science, history, coding, and more. Step-by-step teaching, not just answers.</p>
-
-      <div class="tutor-chips" id="tutorChips">
-        <button class="tutor-chip active" data-subject="General"          onclick="selectSubject(this)">General</button>
-        <button class="tutor-chip"        data-subject="Math"             onclick="selectSubject(this)">Math</button>
-        <button class="tutor-chip"        data-subject="Science"          onclick="selectSubject(this)">Science</button>
-        <button class="tutor-chip"        data-subject="History"          onclick="selectSubject(this)">History</button>
-        <button class="tutor-chip"        data-subject="English"          onclick="selectSubject(this)">English</button>
-        <button class="tutor-chip"        data-subject="Computer Science" onclick="selectSubject(this)">CS</button>
-        <button class="tutor-chip"        data-subject="Languages"        onclick="selectSubject(this)">Languages</button>
-        <button class="tutor-chip"        data-subject="Economics"        onclick="selectSubject(this)">Economics</button>
-        <button class="tutor-chip"        data-subject="Test Prep"        onclick="selectSubject(this)">Test Prep</button>
-      </div>
-
+      <p class="tutor-empty-sub">Get a hint, work through a problem, or test what you know.</p>
       <div class="tutor-suggestions" id="tutorSuggestions"></div>
-
-      <div class="tutor-capabilities" aria-label="More ways to ask">
-        <button type="button" class="tutor-capability no-glass" onclick="document.getElementById('snapBtn').click()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 6h4l2-3h6l2 3h4v15H3z"/><circle cx="12" cy="13" r="4"/></svg>
-          Add a photo
-        </button>
-        <button type="button" class="tutor-capability no-glass" onclick="toggleVoice()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"/></svg>
-          Speak your question
-        </button>
-      </div>
     </div><!-- /tutor-empty -->
 
     <!-- Message thread -->
@@ -855,8 +766,8 @@ main {
 
     <!-- ════ INPUT BAR (floating, anchored to .tutor-main) ════ -->
     <div class="tutor-input-wrap">
-      <details class="tutor-practice-drawer" data-no-motion>
-        <summary>Practice &amp; assignment tools <span>Checks, study maps and learning plans</span></summary>
+      <details class="tutor-practice-drawer ip-disclosure" data-no-motion>
+        <summary><span>Practice &amp; assignment tools</span><span class="ip-arrow" data-direction="down" data-arrow-kind="chevron" aria-hidden="true"></span></summary>
       <div class="tutor-assignment-bar">
         <button type="button" id="tutorAssignmentButton" onclick="loadTutorAssignments()" aria-controls="tutorAssignmentSelect">Study a Canvas assignment</button>
         <select id="tutorAssignmentSelect" aria-label="Choose a Canvas assignment" onchange="selectTutorAssignment()" hidden>
@@ -890,10 +801,20 @@ main {
         </button>
       </div>
       <div class="tutor-input-inner">
-        <button class="tutor-subject-pill no-glass" id="tutorSubjectPill" onclick="document.getElementById('tutorInput').focus()" title="Current subject">
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          <span id="tutorSubjectLabel">General</span>
-        </button>
+        <div class="tutor-subject-control">
+          <select id="tutorSubjectSelect" aria-label="Tutor subject" onchange="selectSubject(this.value)">
+            <option>General</option>
+            <option>Math</option>
+            <option>Science</option>
+            <option>History</option>
+            <option>English</option>
+            <option value="Computer Science">CS</option>
+            <option>Languages</option>
+            <option>Economics</option>
+            <option>Test Prep</option>
+          </select>
+          <span class="ip-arrow" data-direction="down" data-arrow-kind="chevron" aria-hidden="true"></span>
+        </div>
         <textarea id="tutorInput"
           placeholder="Ask anything…"
           rows="1"
@@ -1412,8 +1333,7 @@ async function startTutorCheck(area = document.getElementById('tutorCheckArea').
         discuss.type = 'button'; discuss.textContent = 'Talk it through with Plani';
         discuss.addEventListener('click', () => {
           const subject = area === 'math' ? 'Math' : 'English';
-          const chip = document.querySelector(`#tutorChips .tutor-chip[data-subject="${subject}"]`);
-          if (chip) selectSubject(chip);
+          selectSubject(subject);
           const input = document.getElementById('tutorInput');
           input.value = `Help me understand ${data.skill.title}. Ask me to explain my thinking, then help with one step at a time.`;
           autoResizeTutor(input); input.focus();
@@ -1451,14 +1371,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('tutorInput').focus();
 });
 
-function selectSubject(el) {
-  const subject = el.dataset.subject;
-  currentSubject = subject;
-  document.querySelectorAll('#tutorChips .tutor-chip').forEach(b =>
-    b.classList.toggle('active', b.dataset.subject === subject));
-  document.getElementById('tutorSubjectLabel').textContent = subject;
-  renderSuggestions(subject);
-  document.getElementById('tutorInput').focus();
+function selectSubject(subject) {
+  const field = document.getElementById('tutorSubjectSelect');
+  const requested = String(subject || '').toLowerCase();
+  const match = Array.from(field.options).find(option => option.value.toLowerCase() === requested);
+  currentSubject = match?.value || 'General';
+  field.value = currentSubject;
+  renderSuggestions(currentSubject);
 }
 
 async function loadConversations() {

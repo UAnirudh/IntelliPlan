@@ -68,9 +68,7 @@
       start.addEventListener('click', () => {
         dialog.close();
         const wanted = /math|algebra|calculus|geometry/i.test(plan.goal.subject) ? 'Math' : /english|writing|reading|literature/i.test(plan.goal.subject) ? 'English' : plan.goal.subject;
-        const chips = Array.from(document.querySelectorAll('#tutorChips .tutor-chip'));
-        const chip = chips.find(c => c.dataset.subject.toLowerCase() === wanted.toLowerCase()) || chips.find(c => c.dataset.subject === 'General');
-        if (chip) selectSubject(chip);
+        selectSubject(wanted);
         const input = el('tutorInput');
         const move = {
           diagnose: `Start with one diagnostic question: ${step.diagnostic}`,
