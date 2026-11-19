@@ -107,6 +107,33 @@ def test_the_sitemap_is_well_formed_and_not_empty(client):
     assert len(urls) > 20, f"only {len(urls)} URLs — did a filter go too far?"
 
 
+def test_matcha_comparison_and_calendar_guide_are_discoverable(client):
+    import xml.etree.ElementTree as ET
+
+    comparison = "/blog/intelliplan-vs-matcha"
+    guide = "/blog/fit-schoolwork-around-your-calendar"
+    paths = sitemap_paths(client)
+    assert len(paths) == len(set(paths))
+    assert comparison in paths and guide in paths
+    assert not any(path == "/test" or path.startswith("/test/") for path in paths)
+    assert "/demo/planner" not in paths
+
+    base = app_module.APP_BASE_URL.rstrip("/")
+    ns = {"s": "http://www.sitemaps.org/schemas/sitemap/0.9"}
+    urls = ET.fromstring(client.get("/sitemap.xml").get_data()).findall("s:url", ns)
+    dates = {node.findtext("s:loc", namespaces=ns): node.findtext("s:lastmod", namespaces=ns) for node in urls}
+    for path in (comparison, guide):
+        slug = path.rsplit("/", 1)[1]
+        article = app_module.blog_articles.get(slug)
+        assert dates[base + path] == article.get("updated", article["date"])
+        response = client.get(path)
+        assert response.status_code == 200
+        assert f'<link rel="canonical" href="{base + path}">' in response.get_data(as_text=True)
+        assert path.encode() in client.get("/blog").data
+    assert comparison.encode() in client.get("/compare").data
+    assert guide.encode() in client.get("/faq").data
+
+
 def test_indexnow_and_the_sitemap_agree(client):
     """IndexNow pushes URLs at search engines directly. Submitting a
     noindexed URL is a worse version of the same mistake."""

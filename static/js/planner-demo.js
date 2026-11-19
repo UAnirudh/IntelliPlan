@@ -2,19 +2,42 @@
 
 (() => {
   const examples = [
-    { id: 'fractions', title: 'Review fictional fraction exercises', minutes: 25 },
-    { id: 'poster', title: 'Outline an imaginary science poster', minutes: 25 },
-    { id: 'reading', title: 'Read a sample history chapter', minutes: 20 }
+    { title: 'Review fraction exercises', course: 'Math', minutes: 25 },
+    { title: 'Outline a science poster', course: 'Science', minutes: 25 },
+    { title: 'Read a history chapter', course: 'History', minutes: 20 }
   ];
   const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday'];
   const select = document.getElementById('demo-minutes');
   const status = document.getElementById('demo-status');
-  const result = document.getElementById('demo-result');
+  const empty = document.getElementById('demo-empty');
   const adjust = document.getElementById('demo-adjust');
+  const tabs = [...document.querySelectorAll('.sched-tab')];
+  const tabPanels = tabs.map(tab => document.getElementById(tab.getAttribute('aria-controls')));
   let tasks = [];
   let plan = [];
   let unplaced = [];
   let firstAvailableDay = 0;
+
+  function showTab(index, focus = false) {
+    tabs.forEach((tab, position) => {
+      const isSelected = position === index;
+      tab.setAttribute('aria-selected', String(isSelected));
+      tab.classList.toggle('active', isSelected);
+      tab.tabIndex = isSelected ? 0 : -1;
+      tabPanels[position].hidden = !isSelected;
+    });
+    if (focus) tabs[index].focus();
+  }
+
+  tabs.forEach((tab, index) => {
+    tab.addEventListener('click', () => showTab(index));
+    tab.addEventListener('keydown', event => {
+      const destination = { ArrowLeft: 1 - index, ArrowRight: 1 - index, Home: 0, End: 1 }[event.key];
+      if (destination === undefined) return;
+      event.preventDefault();
+      showTab(destination, true);
+    });
+  });
 
   function text(tag, content, className) {
     const element = document.createElement(tag);
@@ -34,15 +57,22 @@
     for (let day = 0; day < days.length; day += 1) {
       const blocks = plan.filter(block => block.day === day && !block.task.done);
       if (!blocks.length) continue;
-      const section = text('section', '', 'demo-day');
-      section.append(text('h3', days[day]));
-      const list = document.createElement('ol');
+      const section = text('section', '', 'iv-day-card');
+      const header = text('div', '', 'iv-day-head');
+      const minutes = blocks.reduce((sum, block) => sum + block.task.minutes, 0);
+      header.append(text('h3', days[day], 'iv-day-name'), text('span', `${minutes} min`, 'iv-day-meta'));
+      section.append(header);
+      const list = text('ol', '', 'demo-blocks');
       for (const block of blocks) {
-        const item = text('li', block.task.title);
-        item.append(text('span', `${clock(block.start)} to ${clock(block.start + block.task.minutes)}`, 'block-time'));
-        if (block.task.missed) item.append(text('span', 'Missed. Choose Adjust remaining work to find a later slot.', 'missed'));
+        const item = text('li', '', 'iv-block');
+        const body = text('div', '', 'iv-block-body');
+        body.append(text('div', block.task.title, 'iv-block-title'), text('div', block.task.course, 'iv-block-sub'));
+        if (block.task.missed) body.append(text('span', 'Missed · Find a later slot with Adjust remaining work.', 'missed'));
+        const right = text('div', '', 'iv-block-right');
+        right.append(text('span', `${block.task.minutes} min`, 'iv-duration'));
+        item.append(text('span', `${clock(block.start)} – ${clock(block.start + block.task.minutes)}`, 'iv-time'), body, right);
         const actions = text('div', '', 'block-actions');
-        const done = text('button', 'Mark complete');
+        const done = text('button', 'Mark done', 'secondary');
         done.type = 'button';
         done.setAttribute('aria-label', `Mark complete: ${block.task.title}`);
         done.addEventListener('click', () => {
@@ -52,7 +82,7 @@
           firstAvailableDay = Math.max(firstAvailableDay, block.day);
           render();
           status.textContent = `${block.task.title} marked complete. ${tasks.filter(task => !task.done).length} example tasks remain.`;
-          document.getElementById('demo-adjust').focus();
+          adjust.focus();
         });
         const miss = text('button', 'Mark missed', 'secondary');
         miss.type = 'button';
@@ -90,6 +120,10 @@
       finished.forEach(task => list.append(text('li', task.title)));
       completed.append(list);
     }
+    const count = document.getElementById('ivBlockCount');
+    const activeBlocks = plan.filter(block => !block.task.done).length;
+    count.textContent = activeBlocks;
+    count.hidden = !activeBlocks;
   }
 
   function build() {
@@ -114,10 +148,11 @@
       }
       if (!placed) unplaced.push(task);
     }
-    result.hidden = false;
+    empty.hidden = true;
     adjust.hidden = false;
     render();
-    status.textContent = `${plan.length} unfinished example tasks scheduled; ${unplaced.length} do not fit. Completed work stays complete.`;
+    status.textContent = `${plan.length} unfinished tasks scheduled. ${unplaced.length} could not be scheduled.`;
+    showTab(1);
     document.getElementById('plan-heading').focus();
   }
 
@@ -127,13 +162,22 @@
     unplaced = [];
     firstAvailableDay = 0;
     select.value = '30';
-    result.hidden = true;
+    empty.hidden = false;
     adjust.hidden = true;
-    status.textContent = 'Demo reset. Choose availability, then build the example plan.';
+    render();
+    showTab(0);
+    status.textContent = '';
   }
 
   document.getElementById('demo-build').addEventListener('click', build);
   adjust.addEventListener('click', build);
-  document.getElementById('demo-reset').addEventListener('click', () => { reset(); select.focus(); });
+  const resetButton = document.getElementById('demo-reset');
+  resetButton.addEventListener('click', () => {
+    reset();
+    status.textContent = 'Sample plan reset.';
+    select.focus();
+  });
+  document.getElementById('demo-tabs').hidden = false;
+  resetButton.hidden = false;
   reset();
 })();

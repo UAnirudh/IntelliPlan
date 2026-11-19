@@ -9,12 +9,24 @@
 {% block twitter_title %}IntelliPlan FAQ, Canvas, StudentVue & AI Study Planner{% endblock %}
 {% block twitter_description %}Everything students need to know about IntelliPlan: how it connects to Canvas and StudentVue, how it stays free for learners, and how it builds your study schedule.{% endblock %}
 
+{% set getting_started = [
+  ("Can I try IntelliPlan before connecting a school account?", "Yes. Use the sample planner to build a week, mark a study block complete or missed, and replan what remains. It uses fictional coursework and resets when you reload.", "/demo/planner", "Open the sample planner"),
+  ("Can study blocks fit around my calendar?", "Yes. Set study hours yourself or connect a supported calendar and grant availability access. IntelliPlan can plan around busy time from Google Calendar or Outlook and classes in your IntelliPlan timetable.", "/blog/fit-schoolwork-around-your-calendar", "Set up calendar-aware planning"),
+  ("Can I bring in Notion or Todoist tasks?", "If the integration is available for your account, choose a Notion database or up to four Todoist projects to include in your plan. School-managed accounts may limit which services you can connect.", "", ""),
+  ("Can I add classes or events from a photo?", "On supported accounts, review a photo before saving the extracted information as tasks, calendar events, or timetable entries. Check names, dates, and times in the preview before confirming.", "", ""),
+  ("What can I do once I’ve picked a study block?", "Open the block’s checklist or focus timer. Tutor can explain a step, show a graph, or generate practice questions and flashcards when available.", "/tutor", "Explore Tutor"),
+  ("How does IntelliPlan compare with Matcha?", "Both help schedule schoolwork around other commitments. Compare their calendar connections, study tools, and grade scenarios to see which fits how you work.", "/blog/intelliplan-vs-matcha", "Compare IntelliPlan and Matcha"),
+] %}
+
 {% block head_extra %}
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "FAQPage",
   "mainEntity": [
+    {% for question, answer, url, label in getting_started %}
+    {{ {"@type": "Question", "name": question, "acceptedAnswer": {"@type": "Answer", "text": answer}} | tojson }},
+    {% endfor %}
     {
       "@type": "Question",
       "name": "Can I use IntelliPlan to prioritize assignments for multiple classes?",
@@ -28,7 +40,7 @@
       "name": "How does IntelliPlan connect to school tools to import assignments?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "IntelliPlan integrates directly with Canvas LMS, StudentVue, and Schoology. After connecting your account, assignments import automatically and update when teachers make changes."
+        "text": "IntelliPlan integrates with Canvas LMS, StudentVUE, and Schoology where available. Assignments and deadline changes appear after the connection refreshes."
       }
     },
     {
@@ -68,7 +80,7 @@
       "name": "Is IntelliPlan compatible with Canvas and StudentVue?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Yes. IntelliPlan supports Canvas LMS, StudentVue, and Schoology natively, with export to Google Calendar and Notion. High school students using StudentVue can connect in minutes."
+        "text": "IntelliPlan supports Canvas and StudentVUE. Your school may control which connections you can use."
       }
     },
     {
@@ -100,7 +112,7 @@
       "name": "What happens if my teacher changes a due date?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "IntelliPlan re-syncs with your school tools automatically. When a due date changes in Canvas or StudentVue, your IntelliPlan priority list and schedule update to reflect it."
+        "text": "The new deadline appears after the connected source refreshes. You can rebuild your plan in the scheduler. If Autopilot is enabled, IntelliPlan can also adjust a saved plan after a supported refresh."
       }
     },
     {
@@ -283,6 +295,15 @@
   </p>
 
   <div class="faq-list">
+    {% for question, answer, url, label in getting_started %}
+    <details class="faq-item">
+      <summary>{{ question }} <span class="faq-chevron" aria-hidden="true">▾</span></summary>
+      <p class="faq-answer">
+        {{ answer }}
+        {% if url %}<a href="{{ url }}">{{ label }}</a>.{% endif %}
+      </p>
+    </details>
+    {% endfor %}
 
     <details class="faq-item">
       <summary>
@@ -338,9 +359,8 @@
         <span class="faq-chevron" aria-hidden="true">▾</span>
       </summary>
       <p class="faq-answer">
-        IntelliPlan integrates directly with Canvas LMS, StudentVue, and Schoology. After you connect your
-        account, IntelliPlan pulls your assignments automatically. You don't have to copy anything manually.
-        When your teacher updates a due date, IntelliPlan updates too.
+        IntelliPlan integrates with Canvas LMS, StudentVUE, and Schoology where available.
+        Assignments and deadline changes appear after the connection refreshes.
       </p>
     </details>
 
@@ -399,9 +419,9 @@
         <span class="faq-chevron" aria-hidden="true">▾</span>
       </summary>
       <p class="faq-answer">
-        Yes. IntelliPlan supports Canvas LMS and StudentVue natively. It also supports Schoology and exports
-        to Google Calendar and Notion. If your school uses Canvas or StudentVue, you can connect IntelliPlan
-        in a few minutes and see all your assignments ranked by priority immediately.
+        IntelliPlan supports Canvas and StudentVUE. Your school may control which connections you can use.
+        See the setup guides for <a href="/blog/how-to-use-canvas-with-a-study-planner">Canvas</a>
+        and <a href="/blog/studentvue-study-planner">StudentVUE</a>.
       </p>
     </details>
 
@@ -446,8 +466,9 @@
         <span class="faq-chevron" aria-hidden="true">▾</span>
       </summary>
       <p class="faq-answer">
-        IntelliPlan re-syncs with your school tools automatically. When a due date changes in Canvas or
-        StudentVue, your IntelliPlan priority list and schedule update to reflect it.
+        The new deadline appears after the connected source refreshes. You can rebuild your plan in
+        the scheduler. If Autopilot is enabled, IntelliPlan can also adjust a saved plan after a
+        supported refresh.
       </p>
     </details>
 

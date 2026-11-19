@@ -21,6 +21,70 @@ from __future__ import annotations
 
 ARTICLES: list[dict] = [
     {
+        "slug": "intelliplan-vs-matcha",
+        "kicker": "Comparison",
+        "title": "IntelliPlan vs Matcha",
+        "meta_title": "IntelliPlan vs Matcha | Study Planner Comparison",
+        "description": "Compare how IntelliPlan and Matcha schedule schoolwork, refresh connected calendars, and help you prepare for assignments and exams.",
+        "date": "2026-11-18",
+        "reading_time": 3,
+        "sections": [
+            {"paragraphs": [
+                "Both apps help students make time for assignments imported from Canvas or StudentVUE. IntelliPlan is a good fit if you want to try a sample planner before sharing school credentials, work through an assignment with visual tutoring, or check what you need on your remaining work to reach a target grade.",
+                "IntelliPlan published this comparison. We reviewed Matcha’s public FAQ and its November 6 comparison on November 18, 2026.",
+            ]},
+            {"h2": "Build around the week you already have", "paragraphs": [
+                "IntelliPlan can use busy time from calendars on the connected Google account, with permission to read availability. It also supports Outlook and a class timetable. Study estimates can adapt to recorded session history. Autopilot can revise a saved plan after supported sources refresh when it is enabled.",
+                "Matcha uses Google Calendar availability and completion history to plan sessions. It documents configurable refresh schedules for connected sources. In either app, a changed deadline can take time to appear after a teacher updates it.",
+            ], "links": [
+                {"url": "/blog/fit-schoolwork-around-your-calendar", "label": "Set up calendar-aware planning in IntelliPlan"},
+                {"url": "https://www.trymatcha.org/faq", "label": "Matcha FAQ"},
+            ]},
+            {"h2": "Bring in work and start a session", "paragraphs": [
+                "In IntelliPlan, eligible personal accounts can import tasks from up to four selected Todoist projects, and a Notion connection can import tasks from a selected database. On supported accounts you can review and confirm tasks, calendar events, or class entries from a photo. A planned block can open a focus timer and checklist.",
+                "Matcha also documents Todoist and Notion imports, turning a photo into tasks and events, and a Focus Lock timer that stays visible as you navigate.",
+            ], "links": [
+                {"url": "/demo/planner", "label": "Try building and adjusting a sample IntelliPlan week"},
+                {"url": "https://www.trymatcha.org/compare/intelliplan", "label": "Read Matcha’s November 6 comparison"},
+            ]},
+            {"h2": "Choose the support you need when you sit down to study", "paragraphs": [
+                "Matcha’s Mochi offers multiple-choice practice with explanations and accepts images and PDFs in chat. IntelliPlan Tutor can show graphs and tables, offer flashcards and quizzes, and build a study roadmap with resources. On supported accounts you can also start with an assignment from your planner.",
+                "Matcha shows what an upcoming assignment score would do to your class grade. IntelliPlan’s Grade Modeler lets you simulate scores across remaining assignments and work backward from a target, with category weighting for supported Canvas courses. The separate final-grade calculator can answer a quick what-if without an account.",
+            ], "links": [
+                {"url": "/tutor", "label": "Explore IntelliPlan Tutor"},
+                {"url": "/grademodel", "label": "Explore Grade Modeler"},
+                {"url": "/tools/final-grade-calculator", "label": "Try the public final-grade calculator"},
+            ]},
+        ],
+        "related": ["fit-schoolwork-around-your-calendar", "how-to-use-canvas-with-a-study-planner"],
+    },
+    {
+        "slug": "fit-schoolwork-around-your-calendar",
+        "kicker": "Planning",
+        "title": "How to Plan Homework Around Practice, Shifts, and Classes",
+        "meta_title": "Plan Homework Around Your Calendar | IntelliPlan",
+        "description": "Use calendar availability, movable study blocks, and realistic time estimates to fit homework around practice, shifts, and classes.",
+        "date": "2026-11-18",
+        "reading_time": 3,
+        "sections": [
+            {"paragraphs": [
+                "Start with commitments that already have a time. If practice ends at 5, block travel and dinner too. Then put the assignment with the nearest deadline or highest consequence into the first gap long enough to make progress.",
+                "For example, if you’re free from 6:15 to 7:30, give tomorrow’s math set 40 minutes, take a 10-minute break, and use the final 25 minutes to outline Friday’s essay. If math consistently takes longer than expected, split the set over two days or give it a longer block next week.",
+            ]},
+            {"h2": "Give the planner your real availability", "paragraphs": [
+                "In IntelliPlan, set your study hours in the scheduler. If you use Google Calendar, connect the account that holds your commitments and grant availability access so busy time can affect the plan. Outlook availability and your IntelliPlan class timetable can also affect the time available.",
+                "If an important commitment lives on a calendar you haven’t connected, block off the time yourself. Check the first plan for travel, meals, and breaks before you start following it.",
+            ]},
+            {"h2": "Adjust the work that remains", "paragraphs": [
+                "If practice runs late, move or rebuild the unfinished blocks from the scheduler. Review any work that no longer fits before its deadline. When a supported school connection refreshes and Autopilot is enabled, check the updated plan for changes.",
+                "In the sample planner, build a plan with 30 minutes available each afternoon. Mark the first block missed, then adjust remaining work. Try again with 60 minutes and see which tasks can now share a day.",
+            ], "links": [
+                {"url": "/demo/planner", "label": "Try the sample planner without a school account"},
+            ]},
+        ],
+        "related": ["intelliplan-vs-matcha", "how-to-use-canvas-with-a-study-planner", "studentvue-study-planner"],
+    },
+    {
         "slug": "how-to-study-for-finals-in-one-week",
         "kicker": "Finals",
         "title": "How to Study for Finals in One Week (Without Cramming)",

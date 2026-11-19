@@ -5081,68 +5081,51 @@ def founder_home_preview(asset=None):
 def robots_txt():
     return send_from_directory(app.static_folder, "robots.txt")
 
-def _sitemap_lastmod_for(template_name: str | None, fallback: str) -> str:
-    """Return an ISO-8601 lastmod for a sitemap URL.
-
-    Prefer the linked template's mtime — it's the closest proxy for "when
-    did this page actually change?". Falls back to ``fallback`` when the
-    template can't be stat'd (e.g. dynamic routes, missing files)."""
-    if template_name:
-        try:
-            path = os.path.join(app.template_folder or "", template_name)
-            if os.path.exists(path):
-                ts = os.path.getmtime(path)
-                return datetime.utcfromtimestamp(ts).strftime("%Y-%m-%d")
-        except Exception:
-            pass
-    return fallback
-
-
-# Canonical sitemap. Each entry: (path, template_or_None, default_lastmod,
-# changefreq, priority). Onboarding is intentionally absent — it's
-# Disallowed in robots.txt, so listing it in the sitemap is a conflict.
+# Canonical public URLs and their verified content modification dates.
+# Omit dates we cannot establish: a template's filesystem mtime changes when
+# the app is built, even when the page's content has stayed the same.
 _SITEMAP_ENTRIES = [
     # Public marketing
-    ("/",                                "landing.html",                  "2026-06-22", "weekly",  "1.0"),
-    ("/tutor",                           "tutor.html",                    "2026-06-22", "weekly",  "0.9"),
-    ("/faq",                             "faq.html",                      "2026-06-22", "monthly", "0.9"),
-    ("/pricing",                         "pricing.html",                  "2026-06-22", "monthly", "0.8"),
-    ("/compare",                         "compare.html",                  "2026-06-22", "monthly", "0.8"),
-    ("/about",                           "about.html",                    "2026-06-22", "monthly", "0.7"),
-    ("/contact",                         "contact.html",                  "2026-06-22", "yearly",  "0.5"),
-    ("/install",                         "install.html",                  "2026-06-22", "monthly", "0.6"),
-    ("/download",                        "download.html",                 "2026-08-14", "weekly",  "0.8"),
-    ("/legal",                           "legal.html",                    "2026-06-22", "yearly",  "0.3"),
-    ("/cookies",                         "cookies.html",                  "2026-08-26", "yearly",  "0.3"),
-    ("/ambassador",                      "ambassador.html",               "2026-06-22", "monthly", "0.7"),
-    ("/schools",                         "schools.html",                  "2026-06-22", "monthly", "0.7"),
-    ("/uk",                              "uk.html",                       "2026-06-22", "monthly", "0.7"),
-    ("/api-docs",                        "api_docs.html",                 "2026-06-22", "monthly", "0.5"),
+    ("/", None),
+    ("/tutor", None),
+    ("/faq", "2026-11-18"),
+    ("/pricing", None),
+    ("/compare", "2026-11-18"),
+    ("/about", None),
+    ("/contact", None),
+    ("/install", None),
+    ("/download", None),
+    ("/legal", None),
+    ("/cookies", None),
+    ("/ambassador", None),
+    ("/schools", None),
+    ("/uk", None),
+    ("/api-docs", None),
     # Blog
-    ("/blog",                            "blog_index.html",               "2026-06-22", "weekly",  "0.8"),
-    ("/blog/how-to-use-canvas-with-a-study-planner", "blog_canvas.html",  "2026-06-22", "monthly", "0.7"),
-    ("/blog/studentvue-study-planner",   "blog_studentvue.html",          "2026-06-22", "monthly", "0.7"),
-    ("/blog/how-to-prioritize-assignments", "blog_prioritize.html",       "2026-06-22", "monthly", "0.7"),
-    ("/blog/best-ai-study-planner",      "blog_best_ai_planner.html",     "2026-06-22", "monthly", "0.8"),
-    ("/blog/best-student-planner-app",   "blog_student_planner_app.html", "2026-06-22", "monthly", "0.8"),
-    ("/blog/ai-notetaker-for-students",  "blog_ai_notetaker.html",        "2026-06-22", "monthly", "0.8"),
-    ("/blog/what-is-a-good-gpa",         "blog_good_gpa.html",            "2026-06-22", "monthly", "0.8"),
-    ("/blog/ap-study-planner",           "blog_ap_study_planner.html",    "2026-06-22", "monthly", "0.8"),
+    ("/blog", None),
+    ("/blog/how-to-use-canvas-with-a-study-planner", None),
+    ("/blog/studentvue-study-planner", None),
+    ("/blog/how-to-prioritize-assignments", None),
+    ("/blog/best-ai-study-planner", None),
+    ("/blog/best-student-planner-app", None),
+    ("/blog/ai-notetaker-for-students", None),
+    ("/blog/what-is-a-good-gpa", None),
+    ("/blog/ap-study-planner", None),
     # Compare
-    ("/compare/intelliplan-vs-notion",       "compare_notion.html",       "2026-06-22", "monthly", "0.8"),
-    ("/compare/intelliplan-vs-myhomework",   "compare_myhomework.html",   "2026-06-22", "monthly", "0.8"),
-    ("/compare/intelliplan-vs-turbo-ai",     "compare_turbo.html",        "2026-06-22", "monthly", "0.8"),
-    ("/compare/intelliplan-vs-quizlet",      "compare_quizlet.html",      "2026-06-22", "monthly", "0.8"),
-    ("/compare/intelliplan-vs-mystudylife",  "compare_mystudylife.html",  "2026-06-22", "monthly", "0.8"),
+    ("/compare/intelliplan-vs-notion", None),
+    ("/compare/intelliplan-vs-myhomework", None),
+    ("/compare/intelliplan-vs-turbo-ai", None),
+    ("/compare/intelliplan-vs-quizlet", None),
+    ("/compare/intelliplan-vs-mystudylife", None),
     # Tools
-    ("/tools/final-grade-calculator",    "tool_final_grade.html",         "2026-06-22", "monthly", "0.9"),
-    ("/tools/gpa-calculator",            "tool_gpa.html",                 "2026-06-22", "monthly", "0.9"),
-    ("/tools/grade-calculator",          "tool_grade.html",               "2026-06-22", "monthly", "0.9"),
-    ("/tools/finals-countdown",          "tool_countdown.html",           "2026-06-22", "monthly", "0.7"),
-    ("/demo",                            "demo.html",                     "2026-09-25", "weekly",  "0.8"),
-    ("/tools/test-grade-calculator",     "tool_test_grade.html",          "2026-06-22", "monthly", "0.9"),
-    ("/tools/study-schedule-maker",      "tool_schedule_maker.html",      "2026-06-22", "monthly", "0.9"),
-    ("/tools/text-dissector",            "text_dissector.html",           "2026-06-22", "monthly", "0.8"),
+    ("/tools/final-grade-calculator", None),
+    ("/tools/gpa-calculator", None),
+    ("/tools/grade-calculator", None),
+    ("/tools/finals-countdown", None),
+    ("/demo", "2026-11-18"),
+    ("/tools/test-grade-calculator", None),
+    ("/tools/study-schedule-maker", None),
+    ("/tools/text-dissector", None),
     # Public product pages. The signed-in surface — /dashboard, /scheduler,
     # /gradebook, /streak and the rest — used to be listed here while
     # _NOINDEX_EXACT simultaneously told crawlers not to index it. A sitemap
@@ -5154,23 +5137,19 @@ _SITEMAP_ENTRIES = [
     # Only pages that pass _should_noindex belong here. sitemap_xml filters
     # on exactly that, so this list can no longer drift out of agreement
     # with it — see test_sitemap_seo.py.
-    ("/olympiad",                        "olympiad.html",                 "2026-06-22", "monthly", "0.85"),
-    ("/grademodel",                      "grademodel.html",               "2026-09-22", "monthly", "0.8"),
-    ("/lessons",                         "lessons.html",                  "2026-09-22", "monthly", "0.75"),
-    ("/groups",                          "groups.html",                   "2026-09-22", "monthly", "0.7"),
-    ("/math",                            "math.html",                     "2026-09-22", "monthly", "0.8"),
-    ("/learn",                           "study.html",                    "2026-06-22", "weekly",  "0.8"),
-    ("/focus",                           "focus.html",                    "2026-06-22", "weekly",  "0.7"),
-    ("/library",                         "library.html",                  "2026-06-22", "weekly",  "0.7"),
+    ("/olympiad", None),
+    ("/grademodel", None),
+    ("/lessons", None),
+    ("/groups", None),
+    ("/math", None),
+    ("/learn", None),
+    ("/focus", None),
+    ("/library", None),
 ]
 
-# Guides live in blog_articles.py, and the sitemap is generated from that same
-# list: an article cannot be published without also getting a URL for a
-# crawler, and none of the three places that render articles can disagree.
-# ``None`` for the template means "use the article's own date" rather than a
-# file mtime, which is the date the page shows the reader.
+# Registry articles use the same publication/revision dates as their pages.
 _SITEMAP_ENTRIES.extend(
-    (f"/blog/{article['slug']}", None, article["date"], "monthly", "0.7")
+    (f"/blog/{article['slug']}", article.get("updated") or article["date"])
     for article in blog_articles.all_articles()
 )
 
@@ -5206,17 +5185,15 @@ def _indexable_sitemap_entries():
 
 @app.route("/sitemap.xml")
 def sitemap_xml():
+    from xml.sax.saxutils import escape
+
     base = APP_BASE_URL.rstrip("/")
     parts = ['<?xml version="1.0" encoding="UTF-8"?>',
              '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
-    for path, tpl, default_lm, changefreq, priority in _indexable_sitemap_entries():
-        lastmod = _sitemap_lastmod_for(tpl, default_lm)
-        parts.append(
-            f"  <url><loc>{base}{path}</loc>"
-            f"<lastmod>{lastmod}</lastmod>"
-            f"<changefreq>{changefreq}</changefreq>"
-            f"<priority>{priority}</priority></url>"
-        )
+    for path, lastmod in _indexable_sitemap_entries():
+        location = escape(f"{base}{path}")
+        date_element = f"<lastmod>{lastmod}</lastmod>" if lastmod else ""
+        parts.append(f"  <url><loc>{location}</loc>{date_element}</url>")
     parts.append("</urlset>")
     xml = "\n".join(parts)
     return flask.Response(xml, mimetype="application/xml")

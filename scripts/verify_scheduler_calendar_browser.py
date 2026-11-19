@@ -191,8 +191,9 @@ def run_width(browser, width):
         if cookie.is_visible():
             cookie.click()
         expect(page.locator('#hoursPerDay')).to_be_visible()
-        expect(page.locator('#schedulerMethodNote')).to_contain_text(
-            'feasible plan from your assignments, deadlines and available study hours')
+        views = page.get_by_role('tablist', name='Study scheduler views')
+        expect(views.get_by_role('tab', name='Build a plan')).to_have_attribute('aria-selected', 'true')
+        expect(views.get_by_role('tab', name='My plan')).to_be_visible()
         expect(page.locator('.scheduler-loading p')).to_have_text(
             'Building a plan around your assignments and available study time…')
         page.wait_for_function('allAssignments.length === 2')
@@ -211,6 +212,7 @@ def run_width(browser, width):
         expect(page.locator('.assignment-queue-row')).to_have_count(2)
         checks.append('Waiting-grade filter and manual submission preserve submitted work without scheduling it')
         capture('waiting-for-grade-filter')
+        page.get_by_text('Study window and task options', exact=True).click()
         auto('outlook')
         expect(page.locator('#preferredTime')).to_have_value('afternoon')
         expect(page.locator('#hoursPerDay')).to_have_value('3.5')

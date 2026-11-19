@@ -102,4 +102,67 @@
   steps.forEach(step => step.addEventListener('change', () => {
     focusStatus.textContent = steps.filter(item => item.checked).length + ' of ' + steps.length + ' steps complete';
   }));
+
+  const homeLink = document.querySelector('.nav-links a[href="#home"]');
+  const faqLink = document.querySelector('.nav-links a[href="#faq"]');
+  function updateNav() {
+    const onFaq = location.hash === '#faq';
+    (onFaq ? homeLink : faqLink).removeAttribute('aria-current');
+    (onFaq ? faqLink : homeLink).setAttribute('aria-current', 'location');
+  }
+  window.addEventListener('hashchange', updateNav);
+  updateNav();
+
+  const plani = document.getElementById('plani');
+  const shadow = document.querySelector('.plani-shadow');
+  let planiMotion;
+  let shadowMotion;
+  function greet() {
+    if (reduceMotion.matches) return;
+    planiMotion?.cancel();
+    shadowMotion?.cancel();
+    planiMotion = plani.animate([
+      { transform: 'translateY(0) rotate(0)' },
+      { transform: 'translateY(-8px) rotate(-4deg)', offset: .32 },
+      { transform: 'translateY(1px) rotate(2deg)', offset: .75 },
+      { transform: 'none' },
+    ], { duration: 900, easing: 'ease-in-out' });
+    shadowMotion = shadow.animate([
+      { transform: 'scale(1)', opacity: 1 },
+      { transform: 'scale(.88)', opacity: .68, offset: .32 },
+      { transform: 'scale(1)', opacity: 1 },
+    ], { duration: 900, easing: 'ease-in-out' });
+  }
+
+  const hint = document.getElementById('hint-example');
+  hint.addEventListener('toggle', () => {
+    if (hint.open) greet();
+  });
+
+  const finalScore = document.getElementById('final-score');
+  const finalScoreValue = document.getElementById('final-score-value');
+  const gradeResult = document.getElementById('grade-result');
+  document.getElementById('grade-control').hidden = false;
+  document.getElementById('grade-result-label').textContent = 'Projected course grade';
+  finalScore.addEventListener('input', () => {
+    const score = finalScore.valueAsNumber;
+    const projectedGrade = (86 * 75 + score * 25) / 100;
+    finalScore.setAttribute('aria-valuetext', score + '%');
+    finalScoreValue.textContent = score + '%';
+    gradeResult.value = projectedGrade.toLocaleString('en-US', { maximumFractionDigits: 2 }) + '%';
+  });
+
+  const sections = new IntersectionObserver(entries => {
+    entries.forEach(({ target, isIntersecting }) => {
+      if (!isIntersecting) return;
+      sections.unobserve(target);
+      if (reduceMotion.matches) return;
+      target.animate([
+        { opacity: .65, transform: 'translateY(12px)' },
+        { opacity: 1, transform: 'none' },
+      ], { duration: 420, easing: 'ease-out' });
+      if (target.contains(plani)) greet();
+    });
+  }, { threshold: .18 });
+  document.querySelectorAll('[data-reveal]').forEach(element => sections.observe(element));
 })();

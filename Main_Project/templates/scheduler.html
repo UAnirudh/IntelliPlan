@@ -2,45 +2,12 @@
 {% block page_title %}Scheduler | IntelliPlan{% endblock %}
 
 {% block head_extra %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/scheduler-agenda.css') }}?v={{ asset_v }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/followthrough.css') }}?v={{ asset_v }}">
 <script defer src="{{ url_for('static', filename='js/followthrough.js') }}?v={{ asset_v }}"></script>
 <script defer src="{{ url_for('static', filename='js/planner-capture.js') }}?v={{ asset_v }}"></script>
 <style>
   /* ── IPD Tab bar ─────────────────────────────────── */
-  .sched-tabs {
-    display: inline-flex;
-    gap: 2px;
-    padding: 3px;
-    background: var(--bg);
-    border: 0;
-    border-radius: var(--ipd-radius-sm);
-    margin-bottom: 1.75rem;
-  }
-  .sched-tab {
-    border: 0; background: transparent; cursor: pointer;
-    padding: 8px 18px; border-radius: 8px;
-    font-family: var(--ipd-font-body); font-size: 0.82rem; font-weight: 600;
-    color: var(--text-muted);
-    display: inline-flex; align-items: center; gap: 6px;
-    transition: all 0.15s;
-    text-align: center;
-  }
-  .sched-tab:hover:not(.active) { color: var(--text-secondary); }
-  .sched-tab.active {
-    background: color-mix(in srgb, var(--bg-elevated) 76%, transparent);
-    color: var(--text-primary);
-    border: 0;
-    box-shadow: none;
-  }
-  .sched-tab svg { width: 14px; height: 14px; }
-  .sched-tab .tab-count {
-    color: var(--text-muted);
-    font-family: var(--ipd-font-body);
-    font-size: 0.76rem;
-    font-weight: 500;
-    font-variant-numeric: tabular-nums;
-  }
-
   .sched-pane { display: none; animation: ipd-fadeUp 0.4s var(--ipd-ease-out) both; }
   .sched-pane.active { display: block; }
 
@@ -363,22 +330,6 @@
     margin: 0.5rem 0; font-weight:600;
   }
 
-  .iv-day-card {
-    background: color-mix(in srgb, var(--bg-card) 68%, var(--bg)); -webkit-backdrop-filter:none; backdrop-filter:none; border: 0;
-    border-radius: var(--ipd-radius-lg); padding: 1.4rem;
-    margin-bottom: 1rem;
-  }
-  .iv-day-head {
-    display: flex; align-items: center; justify-content: space-between;
-    margin-bottom: 0.9rem; padding-bottom: 0.6rem;
-    border-bottom: 0;
-  }
-  .iv-day-name { font-family: var(--ipd-font-display); font-size: 1.05rem; font-weight:600; }
-  .iv-day-meta {
-    font-family: var(--ipd-font-mono); font-size: 0.72rem;
-    color: var(--text-muted); letter-spacing: 0.04em;
-    text-transform: uppercase;
-  }
   .iv-progress {
     height: 4px; background: var(--border); border-radius: 999px;
     overflow: hidden; margin-bottom: 0.9rem;
@@ -390,30 +341,6 @@
     transition: transform 0.5s var(--ipd-ease-out);
   }
 
-  .iv-block {
-    display: grid;
-    grid-template-columns: 136px minmax(0, 1fr) auto;
-    gap: 12px; align-items: flex-start;
-    padding: 14px 16px; margin-bottom: 8px;
-    border-radius: var(--ipd-radius-md);
-    background: var(--bg);
-    border: 1px solid var(--border);
-    cursor: pointer;
-    /* Named properties, not `all`. With `all`, every style touched during a
-       drag animates — including the drag proxy's position, which made it
-       trail the cursor by a full 180ms. */
-    transition: border-color 0.18s ease, box-shadow 0.18s ease,
-                transform 0.18s ease, opacity 0.18s ease;
-  }
-  .iv-block:hover {
-    border-color: var(--text-muted);
-    box-shadow: var(--shadow-sm);
-    transform: translateY(-1px);
-  }
-  .iv-block:focus-visible {
-    outline: 2px solid var(--focus-ring);
-    outline-offset: 2px;
-  }
   .iv-block.is-break { opacity: 0.6; cursor: default; }
   .iv-block.is-break:hover { transform: none; border-color: var(--border); box-shadow: none; }
   .iv-block.done { opacity: 0.5; }
@@ -502,30 +429,6 @@
     color: var(--danger-text); font-weight: 600;
   }
   /* See .time-slot — same overflow, same fix. */
-  .iv-time {
-    font-family: var(--ipd-font-mono); font-size: 0.72rem; font-weight: 500;
-    color: var(--text-muted); white-space: normal;
-    letter-spacing: 0.02em; overflow-wrap: break-word;
-    min-width: 0; padding-top: 2px; line-height: 1.45;
-  }
-  .iv-block-body { min-width: 0; }
-  .iv-block-title {
-    font-family: var(--ipd-font-body);
-    font-size: 0.9rem; font-weight: 600; color: var(--text-primary);
-    margin-bottom: 3px;
-    overflow: hidden; text-overflow: ellipsis;
-  }
-  .iv-block-sub {
-    display: flex; gap: 6px; flex-wrap: wrap;
-    font-size: 0.72rem; color: var(--text-muted);
-  }
-  .iv-meta {
-    display: inline; padding: 0; border: 0; border-radius: 0;
-    background: transparent;
-    font-family: var(--ipd-font-body); font-size: 0.72rem;
-    font-weight: 450; letter-spacing: 0;
-  }
-  .iv-meta + .iv-meta::before { content: "·"; margin-right: 6px; color: var(--text-muted); }
   /* Which sitting of a split assignment this block is. Sits beside the title
      rather than in the pill row below it, because "2 of 3" answers a question
      about the title itself — the row underneath is for course and due date. */
@@ -541,16 +444,6 @@
     font-variant-numeric: tabular-nums;
     vertical-align: baseline;
     white-space: nowrap;
-  }
-  .iv-block-right {
-    display: flex; flex-direction: column; align-items: flex-end; gap: 6px;
-  }
-  .iv-duration {
-    font-family: var(--ipd-font-mono); font-size: 0.72rem; font-weight: 700;
-    color: var(--text-secondary);
-    background: transparent; border: 0;
-    box-shadow: none;
-    padding: 0; border-radius: 0;
   }
   .iv-move {
     width: 24px; height: 24px; border-radius: 6px;
@@ -1101,14 +994,7 @@
 </div>
 
 <!-- ── TAB BAR ───────────────────────────────────────── -->
-<div class="sched-tabs" role="tablist" aria-label="Study scheduler views">
-  <button type="button" id="tab-creator" class="sched-tab active" data-tab="creator" role="tab" aria-selected="true" aria-controls="pane-creator">
-    Build a plan
-  </button>
-  <button type="button" id="tab-interactive" class="sched-tab" data-tab="interactive" role="tab" aria-selected="false" aria-controls="pane-interactive" tabindex="-1">
-    My plan <span class="tab-count" id="ivBlockCount" style="display:none;">0</span>
-  </button>
-</div>
+{% include "scheduler_tabs.html" %}
 
 <!-- ══════════════════════════════════════════════════
      TAB 1, CREATOR

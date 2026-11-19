@@ -1,0 +1,112 @@
+/* Shared by the signed-in scheduler and the public sample planner. */
+.sched-tabs {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--bg);
+  border: 0;
+  border-radius: var(--ipd-radius-sm);
+  margin-bottom: 1.75rem;
+}
+.sched-tab {
+  border: 0; background: transparent; cursor: pointer;
+  padding: 8px 18px; border-radius: 8px;
+  font-family: var(--ipd-font-body); font-size: 0.82rem; font-weight: 600;
+  color: var(--text-muted);
+  display: inline-flex; align-items: center; gap: 6px;
+  transition: all 0.15s;
+  text-align: center;
+}
+.sched-tab:hover:not(.active) { color: var(--text-secondary); }
+.sched-tab.active {
+  background: color-mix(in srgb, var(--bg-elevated) 76%, transparent);
+  color: var(--text-primary);
+  border: 0;
+  box-shadow: none;
+}
+.sched-tab svg { width: 14px; height: 14px; }
+.sched-tab .tab-count {
+  color: var(--text-muted);
+  font-family: var(--ipd-font-body);
+  font-size: 0.76rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.iv-day-card {
+  background: color-mix(in srgb, var(--bg-card) 68%, var(--bg)); -webkit-backdrop-filter:none; backdrop-filter:none; border: 0;
+  border-radius: var(--ipd-radius-lg); padding: 1.4rem;
+  margin-bottom: 1rem;
+}
+.iv-day-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 0.9rem; padding-bottom: 0.6rem;
+  border-bottom: 0;
+}
+.iv-day-name { font-family: var(--ipd-font-display); font-size: 1.05rem; font-weight:600; }
+.iv-day-meta {
+  font-family: var(--ipd-font-mono); font-size: 0.72rem;
+  color: var(--text-muted); letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.iv-block {
+  display: grid;
+  grid-template-columns: 136px minmax(0, 1fr) auto;
+  gap: 12px; align-items: flex-start;
+  padding: 14px 16px; margin-bottom: 8px;
+  border-radius: var(--ipd-radius-md);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  /* Named properties, not `all`. With `all`, every style touched during a
+     drag animates — including the drag proxy's position, which made it
+     trail the cursor by a full 180ms. */
+  transition: border-color 0.18s ease, box-shadow 0.18s ease,
+              transform 0.18s ease, opacity 0.18s ease;
+}
+.iv-block:hover {
+  border-color: var(--text-muted);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
+}
+.iv-block:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.iv-time {
+  font-family: var(--ipd-font-mono); font-size: 0.72rem; font-weight: 500;
+  color: var(--text-muted); white-space: normal;
+  letter-spacing: 0.02em; overflow-wrap: break-word;
+  min-width: 0; padding-top: 2px; line-height: 1.45;
+}
+.iv-block-body { min-width: 0; }
+.iv-block-title {
+  font-family: var(--ipd-font-body);
+  font-size: 0.9rem; font-weight: 600; color: var(--text-primary);
+  margin-bottom: 3px;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.iv-block-sub {
+  display: flex; gap: 6px; flex-wrap: wrap;
+  font-size: 0.72rem; color: var(--text-muted);
+}
+.iv-meta {
+  display: inline; padding: 0; border: 0; border-radius: 0;
+  background: transparent;
+  font-family: var(--ipd-font-body); font-size: 0.72rem;
+  font-weight: 450; letter-spacing: 0;
+}
+.iv-meta + .iv-meta::before { content: "·"; margin-right: 6px; color: var(--text-muted); }
+
+.iv-block-right {
+  display: flex; flex-direction: column; align-items: flex-end; gap: 6px;
+}
+.iv-duration {
+  font-family: var(--ipd-font-mono); font-size: 0.72rem; font-weight: 700;
+  color: var(--text-secondary);
+  background: transparent; border: 0;
+  box-shadow: none;
+  padding: 0; border-radius: 0;
+}

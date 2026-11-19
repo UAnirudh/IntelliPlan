@@ -1,0 +1,8 @@
+<div class="sched-tabs" role="tablist" aria-label="Study scheduler views">
+  <button type="button" id="tab-creator" class="sched-tab active" data-tab="creator" role="tab" aria-selected="true" aria-controls="pane-creator">
+    Build a plan
+  </button>
+  <button type="button" id="tab-interactive" class="sched-tab" data-tab="interactive" role="tab" aria-selected="false" aria-controls="pane-interactive" tabindex="-1">
+    My plan <span class="tab-count" id="ivBlockCount" {% if demo_mode %}hidden{% else %}style="display:none;"{% endif %}>0</span>
+  </button>
+</div>

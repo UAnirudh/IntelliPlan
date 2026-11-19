@@ -140,6 +140,11 @@
         {% for item in section.list %}<li>{{ item }}</li>{% endfor %}
         {% if section.list_style == "ol" %}</ol>{% else %}</ul>{% endif %}
       {% endif %}
+      {% if section.links %}
+      <ul>
+        {% for link in section.links %}<li><a href="{{ link.url }}">{{ link.label }}</a></li>{% endfor %}
+      </ul>
+      {% endif %}
     {% endfor %}
   </div>
 
