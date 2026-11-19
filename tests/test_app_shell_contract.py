@@ -26,7 +26,11 @@ def _tab_labels(html: str) -> list[str]:
 
 def test_web_tabs_match_the_app_tabs_in_order():
     app = re.findall(r'title:\s*"([^"]+)"', APP_TABS)
-    assert _tab_labels(TABBAR) == app == ["Today", "Due", "Plan", "Grades", "Plani", "Menu"]
+    assert app == ["Today", "Due", "Plan", "Grades", "Plani", "Menu"]
+    assert _tab_labels(TABBAR) == app[:-1]
+    trigger = re.search(r'<button[^>]*id="ipMenuOpen"[^>]*>(.*?)</button>', TABBAR, re.S)
+    assert trigger and 'aria-label="Extra tools"' in trigger[0]
+    assert 'href="#i-ellipsis"' in trigger[1]
 
 
 def test_shell_only_renders_for_signed_in_app_pages():

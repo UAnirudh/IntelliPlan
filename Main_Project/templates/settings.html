@@ -591,12 +591,11 @@
     <div class="integration-row" id="sidebarSetting">
       <div>
         <div class="integration-label">Sidebar</div>
-        <div class="integration-sub" id="sidebarModeHint">Auto shrinks it to icons on laptop-sized windows. Saved on this device.</div>
+        <div class="integration-sub" id="sidebarModeHint">Auto retract shows icons until you hover or tab into the sidebar. Saved on this device.</div>
       </div>
       <div class="ip-seg" role="radiogroup" aria-label="Sidebar layout" id="sidebarModeSeg">
-        <button type="button" role="radio" data-mode="auto" aria-checked="true">Auto</button>
-        <button type="button" role="radio" data-mode="expanded" aria-checked="false">Expanded</button>
-        <button type="button" role="radio" data-mode="collapsed" aria-checked="false">Icons only</button>
+        <button type="button" role="radio" data-mode="auto" aria-checked="true">Auto retract</button>
+        <button type="button" role="radio" data-mode="expanded" aria-checked="false">Always show labels</button>
       </div>
     </div>
 
@@ -1521,7 +1520,7 @@ function saveAnimSetting(key, value) {
     const sync = () => {
       const mode = window.IPSidebar.getMode();
       btns.forEach(b => {
-        const on = b.dataset.mode === mode;
+        const on = b.dataset.mode === (mode === 'collapsed' ? 'auto' : mode);
         b.setAttribute('aria-checked', on ? 'true' : 'false');
         b.tabIndex = on ? 0 : -1;
       });

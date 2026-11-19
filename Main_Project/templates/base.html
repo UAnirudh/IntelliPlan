@@ -10,8 +10,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
   <title>{% block page_title %}IntelliPlan | Free AI Study Planner and Homework Organizer{% endblock %}</title>
   {# Per-request CSP nonce so future inline scripts can opt out of 'unsafe-inline' incrementally. #}
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   {# Canonical: forces Google to consolidate http/https + trailing-slash variants
      onto the single HTTPS URL. `canonical_url` is set by App.py's after_request
      hook from the public request URL; fallback derives it from request.path. #}
@@ -70,8 +68,6 @@
   <meta name="twitter:image" content="{% block twitter_image %}https://intelliplan.tech/static/og-image.png{% endblock %}">
 
   {# DNS warm-up for the third parties we always hit (fonts + model API). #}
-  <link rel="dns-prefetch" href="https://fonts.googleapis.com">
-  <link rel="dns-prefetch" href="https://fonts.gstatic.com">
 
   {# ── Global structured data (every page) ──────────────────────
      Organization + WebSite give Google the entity graph it needs to
@@ -123,7 +119,6 @@
     "publisher": { "@id": "https://intelliplan.tech/#organization" }
   }
   </script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
 
   {# OpenDyslexic — loaded but only applied when the user opts in via
      <html data-a11y-dyslexia="1">. Self-hosting via jsDelivr CDN keeps it
@@ -154,11 +149,9 @@
     })();
     (function(){
       try {
-        var m = localStorage.getItem('ip_side_mode') || 'auto';
-        var w = window.innerWidth;
-        if (m === 'collapsed' || (m === 'auto' && w >= 769 && w <= 1600))
-          document.documentElement.setAttribute('data-side-rail', '');
-      } catch (e) { /* fail-quiet: full sidebar */ }
+        if (localStorage.getItem('ip_side_mode') === 'expanded') return;
+      } catch (_) {}
+      document.documentElement.setAttribute('data-side-rail', '');
     })();
   </script>
 
@@ -573,6 +566,7 @@ body {
       <feBlend in="SourceGraphic" in2="ipmGooed"/>
     </filter>
     {# Selected icons from Lucide 0.468.0. See static/vendor/lucide/LICENSE. #}
+  <symbol id="i-ellipsis" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1.6" fill="currentColor" stroke="none"/></symbol>
     <symbol id="i-dashboard" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1" />
   <rect width="7" height="7" x="14" y="3" rx="1" />
   <rect width="7" height="7" x="14" y="14" rx="1" />
@@ -662,10 +656,6 @@ body {
     <div class="logo-icon"><img src="/static/icons/icon-192.png" alt="IntelliPlan logo"></div>
     <span class="logo-text">Intelli<span>Plan</span></span>
   </a>
-  <button type="button" class="side-collapse-btn" id="sideCollapseBtn" aria-label="Collapse sidebar" aria-controls="sideNavList" aria-expanded="true">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/><path d="M15 10l-2 2 2 2"/></svg>
-  </button>
-
   <button type="button" class="side-quick-add" id="sideQuickAdd" aria-label="Quick add a task">
     <span class="side-icon"><svg aria-hidden="true"><use href="#i-plus"/></svg></span>
     <span style="flex:1;text-align:left;">Quick add</span>
@@ -698,98 +688,100 @@ body {
       <span class="side-icon"><svg><use href="#i-study"/></svg></span>Study &amp; Learn
     </a>
 
-    <details class="side-more" {% if active_page in _more_nav_pages %}open{% endif %}>
-      <summary class="side-more-summary"><span>More</span><span class="side-more-count">Tools &amp; progress</span></summary>
+    <details class="side-more" id="sideTools">
+      <summary class="side-more-summary side-link" aria-label="Extra tools" title="Extra tools">
+        <span class="side-icon"><svg aria-hidden="true"><use href="#i-ellipsis"/></svg></span>
+      </summary>
       {% if is_founder and founder_mode %}
       <a href="/founder" data-nav-item="founder" class="side-link {% if active_page == 'founder' %}active{% endif %}">
         <span class="side-icon"><svg><use href="#i-chart-bar"/></svg></span>Founder console
       </a>
       {% endif %}
       <h2 class="side-section-label">Study &amp; explore</h2>
-    <a href="/foundations" data-nav-item="primer" class="side-link {% if active_page == 'primer' %}active{% endif %}">
-      <span class="side-icon"><svg><use href="#i-book"/></svg></span>Foundations
-    </a>
-    <a href="/memories" data-nav-item="memories" class="side-link {% if active_page == 'memories' %}active{% endif %}">
-      <span class="side-icon"><svg><use href="#i-save"/></svg></span>Memories
-    </a>
-    <a href="/flashcards" data-nav-item="flashcards" class="side-link {% if active_page == 'flashcards' %}active{% endif %}">
-      <span class="side-icon"><svg><use href="#i-clipboard"/></svg></span>Flashcards
-    </a>
-    <a href="/my-courses" data-nav-item="courses" class="side-link {% if active_page == 'courses' %}active{% endif %}">
-      <span class="side-icon"><svg><use href="#i-graduation"/></svg></span>Courses
-    </a>
-    <a href="/features" data-nav-item="features" class="side-link {% if active_page == 'features' %}active{% endif %}">
-      <span class="side-icon"><svg><use href="#i-lightning"/></svg></span>Ideas
-    </a>
+      <a href="/foundations" data-nav-item="primer" class="side-link {% if active_page == 'primer' %}active{% endif %}">
+        <span class="side-icon"><svg><use href="#i-book"/></svg></span>Foundations
+      </a>
+      <a href="/memories" data-nav-item="memories" class="side-link {% if active_page == 'memories' %}active{% endif %}">
+        <span class="side-icon"><svg><use href="#i-save"/></svg></span>Memories
+      </a>
+      <a href="/flashcards" data-nav-item="flashcards" class="side-link {% if active_page == 'flashcards' %}active{% endif %}">
+        <span class="side-icon"><svg><use href="#i-clipboard"/></svg></span>Flashcards
+      </a>
+      <a href="/my-courses" data-nav-item="courses" class="side-link {% if active_page == 'courses' %}active{% endif %}">
+        <span class="side-icon"><svg><use href="#i-graduation"/></svg></span>Courses
+      </a>
+      <a href="/features" data-nav-item="features" class="side-link {% if active_page == 'features' %}active{% endif %}">
+        <span class="side-icon"><svg><use href="#i-lightning"/></svg></span>Ideas
+      </a>
 
       <h2 class="side-section-label">Progress</h2>
-    <a href="/gradebook" data-nav-item="gradebook" class="side-link {% if active_page in ['gradebook','grademodel'] %}active{% endif %}">
-      <span class="side-icon"><svg><use href="#i-modeler"/></svg></span>Grade Modeler
-    </a>
-    <a href="/streak" data-nav-item="streak" class="side-link {% if active_page == 'streak' %}active{% endif %}">
-      <span class="side-icon"><svg><use href="#i-fire"/></svg></span>Streak
-      <span class="side-link-meta" id="sideStreakMeta" hidden></span>
-    </a>
-    <a href="/pet" data-nav-item="pet" class="side-link {% if active_page == 'pet' %}active{% endif %}">
-      <span class="side-icon"><svg><use href="#i-sparkle"/></svg></span>My Pet
-      <span class="side-link-meta" id="sidePetMeta" hidden></span>
-    </a>
-    <a href="/balance" data-nav-item="balance" class="side-link {% if active_page == 'balance' %}active{% endif %}">
-      <span class="side-icon"><svg><use href="#i-sparkle"/></svg></span>Balance
-    </a>
-    <a href="/my-stats" data-nav-item="my_stats" class="side-link {% if active_page == 'my_stats' %}active{% endif %}">
-      <span class="side-icon"><svg><use href="#i-modeler"/></svg></span>My Stats
-    </a>
+      <a href="/gradebook" data-nav-item="gradebook" class="side-link {% if active_page in ['gradebook','grademodel'] %}active{% endif %}">
+        <span class="side-icon"><svg><use href="#i-modeler"/></svg></span>Grade Modeler
+      </a>
+      <a href="/streak" data-nav-item="streak" class="side-link {% if active_page == 'streak' %}active{% endif %}">
+        <span class="side-icon"><svg><use href="#i-fire"/></svg></span>Streak
+        <span class="side-link-meta" id="sideStreakMeta" hidden></span>
+      </a>
+      <a href="/pet" data-nav-item="pet" class="side-link {% if active_page == 'pet' %}active{% endif %}">
+        <span class="side-icon"><svg><use href="#i-sparkle"/></svg></span>My Pet
+        <span class="side-link-meta" id="sidePetMeta" hidden></span>
+      </a>
+      <a href="/balance" data-nav-item="balance" class="side-link {% if active_page == 'balance' %}active{% endif %}">
+        <span class="side-icon"><svg><use href="#i-sparkle"/></svg></span>Balance
+      </a>
+      <a href="/my-stats" data-nav-item="my_stats" class="side-link {% if active_page == 'my_stats' %}active{% endif %}">
+        <span class="side-icon"><svg><use href="#i-modeler"/></svg></span>My Stats
+      </a>
 
+      <h2 class="side-section-label">Workspace settings</h2>
+      <button type="button" id="sideCustomizeBtn" class="side-link side-customize-btn" aria-label="Customize sidebar">
+        <span class="side-icon"><svg><use href="#i-settings"/></svg></span>
+        <span style="flex:1;text-align:left;">Customize sidebar</span>
+      </button>
+
+      <div class="side-foot">
+        <button type="button" class="side-link no-glass" data-ip-feedback-open>
+          <span class="side-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 5H4v12h4v3l4-3h8z"/></svg></span>Send feedback
+        </button>
+        <button type="button" class="side-link no-glass" data-ip-bug-report><span class="side-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 21V4m0 0c5-4 11 4 16 0v10c-5 4-11-4-16 0"/></svg></span>Report a bug</button>
+        {% if workspace_owner_admin %}<a href="/teacher/demo" class="side-link"><span class="side-icon"><svg><use href="#i-study"/></svg></span>Teacher preview</a>{% endif %}
+        <button type="button" class="side-link no-glass" data-appearance-open><span class="side-icon"><svg><use href="#i-sparkle"/></svg></span>Appearance</button>
+        {% if workspace_owner_admin %}<a href="/admin/accounts" class="side-link"><span class="side-icon"><svg><use href="#i-settings"/></svg></span>Account access</a>{% endif %}
+        {% if workspace_role == 'teacher' %}<a href="/teacher" class="side-link"><span class="side-icon"><svg><use href="#i-study"/></svg></span>Teacher dashboard</a>{% elif workspace_role == 'parent' %}<a href="/parent" class="side-link"><span class="side-icon"><svg><use href="#i-study"/></svg></span>Family dashboard</a>{% endif %}
+        {% if workspace_school_admin %}
+          <a href="/school-admin" class="side-link {% if active_page == 'school_admin' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-settings"/></svg></span>District tools</a>
+        {% endif %}
+        {% if logged_in %}
+          <a href="/settings" class="side-link {% if active_page == 'settings' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-settings"/></svg></span>Settings</a>
+          <form action="/logout" method="POST" style="margin:0;">
+            <button type="submit" class="side-link side-logout"><span class="side-icon"><svg><use href="#i-logout"/></svg></span>Logout</button>
+          </form>
+        {% else %}
+          <a href="/login" class="side-link {% if active_page == 'login' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-login"/></svg></span>Login</a>
+        {% endif %}
+        {% if is_founder %}
+        <details class="founder-mode-form">
+          <summary class="founder-mode-button" aria-label="Workspace mode"><span class="side-icon" aria-hidden="true"><svg><use href="#i-settings"/></svg></span>Workspace mode</summary>
+          <form action="/api/founder/mode" method="POST" class="founder-mode-options">
+            <button type="submit" name="mode" value="normal">My account</button>
+            <button type="submit" name="mode" value="founder">Founder console</button>
+            <button type="submit" name="mode" value="student_preview">Preview student</button>
+            <button type="submit" name="mode" value="teacher_preview">Preview teacher</button>
+            <button type="submit" name="mode" value="family_preview">Preview family</button>
+          </form>
+        </details>
+        {% endif %}
+        <div class="side-foot-row">
+          <time class="nav-date" id="dateBadgeSide"></time>
+          <span style="flex:1"></span>
+          <label class="toggle" title="Toggle dark mode" aria-label="Toggle dark mode">
+            <input type="checkbox" id="themeToggleSide" aria-label="Toggle dark mode" />
+            <div class="toggle-track"></div>
+            <div class="toggle-knob"></div>
+          </label>
+        </div>
+      </div>
     </details>
-  </div>
-
-  {# Sidebar customizer trigger #}
-  <button type="button" id="sideCustomizeBtn" class="side-customize-btn" aria-label="Customize sidebar">
-    <span class="side-icon"><svg><use href="#i-settings"/></svg></span>
-    <span style="flex:1;text-align:left;">Customize sidebar</span>
-  </button>
-
-  <div class="side-spacer"></div>
-
-  <div class="side-foot">
-    <button type="button" class="side-link no-glass" data-ip-bug-report><span class="side-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 21V4m0 0c5-4 11 4 16 0v10c-5 4-11-4-16 0"/></svg></span>Report a bug</button>
-    {% if workspace_owner_admin %}<a href="/teacher/demo" class="side-link"><span class="side-icon"><svg><use href="#i-study"/></svg></span>Teacher preview</a>{% endif %}
-    <button type="button" class="side-link no-glass" data-appearance-open><span class="side-icon"><svg><use href="#i-sparkle"/></svg></span>Appearance</button>
-    {% if workspace_owner_admin %}<a href="/admin/accounts" class="side-link"><span class="side-icon"><svg><use href="#i-settings"/></svg></span>Account access</a>{% endif %}
-    {% if workspace_role == 'teacher' %}<a href="/teacher" class="side-link"><span class="side-icon"><svg><use href="#i-study"/></svg></span>Teacher dashboard</a>{% elif workspace_role == 'parent' %}<a href="/parent" class="side-link"><span class="side-icon"><svg><use href="#i-study"/></svg></span>Family dashboard</a>{% endif %}
-    {% if workspace_school_admin %}
-      <a href="/school-admin" class="side-link {% if active_page == 'school_admin' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-settings"/></svg></span>District tools</a>
-    {% endif %}
-    {% if logged_in %}
-      <a href="/settings" class="side-link {% if active_page == 'settings' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-settings"/></svg></span>Settings</a>
-      <form action="/logout" method="POST" style="margin:0;">
-        <button type="submit" class="side-link side-logout"><span class="side-icon"><svg><use href="#i-logout"/></svg></span>Logout</button>
-      </form>
-    {% else %}
-      <a href="/login" class="side-link {% if active_page == 'login' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-login"/></svg></span>Login</a>
-    {% endif %}
-    {% if is_founder %}
-    <details class="founder-mode-form">
-      <summary class="founder-mode-button" aria-label="Workspace mode"><span class="side-icon" aria-hidden="true"><svg><use href="#i-settings"/></svg></span>Workspace mode</summary>
-      <form action="/api/founder/mode" method="POST" class="founder-mode-options">
-        <button type="submit" name="mode" value="normal">My account</button>
-        <button type="submit" name="mode" value="founder">Founder console</button>
-        <button type="submit" name="mode" value="student_preview">Preview student</button>
-        <button type="submit" name="mode" value="teacher_preview">Preview teacher</button>
-        <button type="submit" name="mode" value="family_preview">Preview family</button>
-      </form>
-    </details>
-    {% endif %}
-    <div class="side-foot-row">
-      <time class="nav-date" id="dateBadgeSide"></time>
-      <span style="flex:1"></span>
-      <label class="toggle" title="Toggle dark mode" aria-label="Toggle dark mode">
-        <input type="checkbox" id="themeToggleSide" aria-label="Toggle dark mode" />
-        <div class="toggle-track"></div>
-        <div class="toggle-knob"></div>
-      </label>
-    </div>
   </div>
 </aside>
 
@@ -889,25 +881,27 @@ body {
            /focus, /lessons, etc. and filing them as "Page with redirect".
            Only public, indexable destinations live here. ── #}
       <div class="nav-group">
-        <a href="/tutor"   class="nav-tab nav-tab-tutor {% if active_page == 'tutor' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-tutor"/></svg></span><span class="nav-label">AI Tutor</span></a>
-        <a href="/demo" class="nav-tab {% if active_page == 'demo' %}active{% endif %}"><span class="nav-label">Demo</span></a>
-        <a href="/teacher" class="nav-tab {% if active_page == 'teacher' %}active{% endif %}"><span class="nav-label">For teachers</span></a>
+        <a href="/faq" class="nav-tab {% if active_page == 'faq' %}active{% endif %}"><span class="nav-label">FAQ</span></a>
+        <a href="/blog" class="nav-tab {% if active_page == 'blog' %}active{% endif %}"><span class="nav-label">Blog</span></a>
       </div>
-      <details class="nav-marketing-more" {% if active_page in ['about','compare','faq','text_dissector','download'] %}open{% endif %}>
-        <summary class="nav-marketing-summary">More</summary>
+      <details class="nav-marketing-more" data-action-menu>
+        <summary class="nav-marketing-summary" aria-label="Explore IntelliPlan" title="Explore IntelliPlan">
+          <svg width="20" height="20" aria-hidden="true"><use href="#i-ellipsis"/></svg>
+        </summary>
         <div class="nav-marketing-panel">
+          <a href="/tutor" class="nav-tab"><span class="nav-label">AI Tutor</span></a>
+          <a href="/demo" class="nav-tab"><span class="nav-label">Demo</span></a>
+          <a href="/teacher" class="nav-tab"><span class="nav-label">For teachers</span></a>
           <a href="/tools/text-dissector" class="nav-tab {% if active_page == 'text_dissector' %}active{% endif %}"><span class="nav-label">Text Dissector</span></a>
           <a href="/about" class="nav-tab {% if active_page == 'about' %}active{% endif %}"><span class="nav-label">About</span></a>
           <a href="/compare" class="nav-tab {% if active_page == 'compare' %}active{% endif %}"><span class="nav-label">Compare</span></a>
-          <a href="/faq" class="nav-tab {% if active_page == 'faq' %}active{% endif %}"><span class="nav-label">FAQ</span></a>
           <a href="https://mintlify.wiki/UAnirudh/IntelliPlan/" target="_blank" rel="noopener noreferrer" class="nav-tab" aria-label="IntelliPlan documentation (opens in a new tab)"><span class="nav-label">Docs</span></a>
-          <a href="/download" class="nav-tab {% if active_page == 'download' %}active{% endif %}"><span class="nav-label">Download</span></a>
+          <a href="/install" class="nav-tab"><span class="nav-label">Install IntelliPlan</span></a>
         </div>
       </details>
       <div class="nav-divider" aria-hidden="true"></div>
       <div class="nav-group">
         <a href="/login" class="nav-tab {% if active_page == 'login' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-login"/></svg></span><span class="nav-label">Log in</span></a>
-        <a href="/login" class="nav-tab nav-cta"><span class="nav-label">Get started</span></a>
       </div>
       {% endif %}
         <!-- <a class="discord-btn" href="https://discord.gg/34FYWhJQMU" target="_blank" rel="noopener noreferrer">
@@ -1731,7 +1725,7 @@ if (mobileMenuBtn) {
     Array.from(list.querySelectorAll('.side-section-label')).forEach(heading => {
       const sectionLinks = [];
       let nextHeading = heading.nextElementSibling;
-      while (nextHeading && !nextHeading.matches('.side-section-label')) {
+      while (nextHeading && !nextHeading.matches('.side-section-label, .side-more')) {
         if (nextHeading.matches('[data-nav-item]')) sectionLinks.push(nextHeading);
         nextHeading = nextHeading.nextElementSibling;
       }

@@ -48,7 +48,9 @@
       collapsed = !collapsed; write(key, collapsed); apply();
       animatePanel(parent.querySelector('.tutor-main') || parent);
     });
-    if (options.floating) {
+    if (options.mount) {
+      document.querySelector(options.mount).appendChild(button);
+    } else if (options.floating) {
       var header = parent.querySelector('.tutor-workspace-actions');
       if (header) header.prepend(button);
       else parent.querySelector('.tutor-main').prepend(button);
@@ -62,44 +64,28 @@
     desktop.addEventListener('change', apply);
     apply();
   }
-  function extraTools() {
-    var nav = document.getElementById('sideNavList');
-    if (!nav) return;
-    var extras = ['memories', 'flashcards', 'courses', 'streak', 'pet', 'balance', 'features', 'my_stats'];
-    var links = Array.from(nav.querySelectorAll('[data-nav-item]')).filter(function (link) {
-      return extras.indexOf(link.dataset.navItem) >= 0;
+  function actionMenus() {
+    var menus = document.querySelectorAll('details[data-action-menu]');
+    if (!menus.length) return;
+    document.addEventListener('click', function (event) {
+      menus.forEach(function (menu) {
+        if (!menu.open) return;
+        if (!menu.contains(event.target)) {
+          menu.open = false;
+        } else if (event.target.closest('.ip-action-menu__panel button')) {
+          if (menu.contains(document.activeElement)) menu.querySelector('summary').focus();
+          menu.open = false;
+        }
+      });
     });
-    if (!links.length) return;
-    links.forEach(function (link) { link.classList.add('side-extra-link'); });
-    var button = document.createElement('button');
-    button.className = 'side-link side-extra-toggle no-glass';
-    button.type = 'button';
-    var icon = document.createElement('span');
-    icon.className = 'side-icon';
-    icon.textContent = '⋯';
-    icon.setAttribute('aria-hidden', 'true');
-    var label = document.createTextNode('');
-    button.append(icon, label);
-    button.setAttribute('aria-controls', links.map(function (link, index) {
-      link.id = link.id || 'side-extra-' + index; return link.id;
-    }).join(' '));
-    var expanded = !read('ip_panel_extra-tools');
-    // First visit starts with a compact, useful set. A visible active tool
-    // always stays in the list, including when the extras are minimized.
-    try { if (localStorage.getItem('ip_panel_extra-tools') === null) expanded = false; } catch (_) { expanded = false; }
-    function apply() {
-      nav.dataset.extraCollapsed = expanded ? 'false' : 'true';
-      label.nodeValue = expanded ? 'Fewer tools' : 'More tools';
-      button.setAttribute('aria-expanded', String(expanded));
-      button.setAttribute('aria-label', expanded ? 'Show fewer tools' : 'Show more tools');
-    }
-    button.addEventListener('click', function () { expanded = !expanded; write('ip_panel_extra-tools', !expanded); apply(); });
-    nav.appendChild(button);
-    // Custom ordering moves the actual links. Keep this disclosure after
-    // them without changing their saved relative order or visibility.
-    new MutationObserver(function () { if (nav.lastElementChild !== button) nav.appendChild(button); })
-      .observe(nav, {childList: true});
-    apply();
+    document.addEventListener('keydown', function (event) {
+      if (event.defaultPrevented || event.key !== 'Escape') return;
+      menus.forEach(function (menu) {
+        if (!menu.open) return;
+        if (menu.contains(document.activeElement)) menu.querySelector('summary').focus();
+        menu.open = false;
+      });
+    });
   }
   function policyLinks() {
     var source = document.getElementById('ipWorkspacePolicy');
@@ -164,9 +150,9 @@
   }
   function init() {
     appearance();
-    extraTools();
+    actionMenus();
     panel({parent: '.tutor-shell', target: '.tutor-side', id: 'tutor-history', label: 'chat history', floating: true});
-    panel({parent: '.ipd-columns', target: ':scope > :last-child', id: 'dashboard-overview', label: 'overview'});
+    panel({parent: '.ipd-columns', target: ':scope > :last-child', id: 'dashboard-overview', label: 'overview', mount: '#dashboardActions'});
     panel({parent: '.learning-workspace', target: '.learning-guide', id: 'study-guide', label: 'study guide'});
     policyLinks();
     // The phone menu is derived from the sidebar when opened.

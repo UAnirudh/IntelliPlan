@@ -2,7 +2,7 @@
  *
  * Mode lives in localStorage 'ip_side_mode': 'auto' (default) | 'expanded'
  * | 'collapsed'. It is a per-device preference on purpose: the same student
- * wants the rail on a laptop and the full sidebar on a desktop monitor.
+ * can keep labels visible when they prefer a fixed layout.
  *
  * The <head> bootstrap in base.html applies the same rule before first
  * paint; this file keeps it current on resize and wires the controls.
@@ -13,7 +13,6 @@
 
   var KEY = 'ip_side_mode';
   var MODES = ['auto', 'expanded', 'collapsed'];
-  var LAPTOP = window.matchMedia('(min-width: 769px) and (max-width: 1600px)');
   var PEEK_DELAY_MS = 140;
   var root = document.documentElement;
   var sessionMode = null;
@@ -27,7 +26,7 @@
   }
 
   function isRail(mode) {
-    return mode === 'collapsed' || (mode === 'auto' && LAPTOP.matches);
+    return mode !== 'expanded';
   }
 
   function apply() {
@@ -37,13 +36,6 @@
     else root.removeAttribute('data-side-rail');
     root.setAttribute('data-side-mode', mode);
 
-    var btn = document.getElementById('sideCollapseBtn');
-    if (btn) {
-      var label = rail ? 'Expand sidebar' : 'Collapse sidebar';
-      btn.setAttribute('aria-label', label);
-      btn.setAttribute('title', label + ' (Ctrl+\\)');
-      btn.setAttribute('aria-expanded', rail ? 'false' : 'true');
-    }
     if (!rail) endPeek();
     document.dispatchEvent(new CustomEvent('ip:sidebar-mode', { detail: { mode: mode, rail: rail } }));
   }
@@ -66,6 +58,8 @@
   // ── Peek (hover / focus expands the rail as an overlay) ─────────────
   var side = null;
   var peekTimer = 0;
+  var tools = null;
+  var keyboardFocus = false;
   var suppressPeek = false;
 
   function startPeek(immediate) {
@@ -78,32 +72,51 @@
   function endPeek() {
     clearTimeout(peekTimer);
     if (side) side.classList.remove('is-peek');
+    if (tools) tools.open = false;
   }
 
   function wire() {
     side = document.querySelector('body.has-side .app-side');
-    var btn = document.getElementById('sideCollapseBtn');
-    if (btn) btn.addEventListener('click', function (e) { e.preventDefault(); toggle(); });
-
+    tools = document.getElementById('sideTools');
     if (side) {
       side.addEventListener('mouseenter', function () { startPeek(false); });
       side.addEventListener('mouseleave', function () {
         suppressPeek = false;
-        if (!side.contains(document.activeElement) || document.activeElement === document.body) endPeek();
+        if (!keyboardFocus && root.hasAttribute('data-side-rail')) endPeek();
       });
-      // Keyboard users get labels the moment focus enters the rail.
-      side.addEventListener('focusin', function (e) {
-        if (e.target.matches(':focus-visible')) startPeek(true);
+      side.addEventListener('pointerdown', function () {
+        keyboardFocus = false;
+        suppressPeek = false;
       });
-      side.addEventListener('focusout', function (e) {
-        if (!side.contains(e.relatedTarget)) suppressPeek = false;
-        if (!side.contains(e.relatedTarget) && !side.matches(':hover')) endPeek();
+      side.addEventListener('focusin', function (event) {
+        keyboardFocus = event.target.matches(':focus-visible');
+        if (keyboardFocus) startPeek(true);
       });
-      side.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape' && side.classList.contains('is-peek')) {
+      side.addEventListener('focusout', function (event) {
+        if (side.contains(event.relatedTarget)) return;
+        keyboardFocus = false;
+        suppressPeek = false;
+        if (!side.matches(':hover')) endPeek();
+      });
+      side.addEventListener('keydown', function (event) {
+        if (event.key !== 'Escape') return;
+        if (tools && tools.open) {
+          event.preventDefault();
+          tools.querySelector('summary').focus();
+          tools.open = false;
+        } else if (side.classList.contains('is-peek')) {
+          event.preventDefault();
+          suppressPeek = true;
           endPeek();
-          if (document.activeElement && side.contains(document.activeElement)) document.activeElement.blur();
         }
+      });
+    }
+    if (tools) {
+      tools.addEventListener('toggle', function () {
+        if (tools.open) startPeek(true);
+      });
+      document.addEventListener('pointerdown', function (event) {
+        if (!side.contains(event.target) && !keyboardFocus) endPeek();
       });
     }
 
@@ -116,9 +129,6 @@
 
     apply();
   }
-
-  if (LAPTOP.addEventListener) LAPTOP.addEventListener('change', apply);
-  else if (LAPTOP.addListener) LAPTOP.addListener(apply);
 
   // Another tab changed the preference.
   window.addEventListener('storage', function (e) { if (e.key === KEY) { sessionMode = null; apply(); } });

@@ -7,7 +7,7 @@
   --glass: linear-gradient(145deg, #263b46b8, #101e28dd 64%);
   --edge: #c6f0ff30;
   --ease: cubic-bezier(.2,.75,.2,1);
-  font: 16px/1.55 system-ui, sans-serif;
+  font: 16px/1.55 var(--ip-ui-face, system-ui), sans-serif;
   color: var(--ink);
   background: var(--night);
 }

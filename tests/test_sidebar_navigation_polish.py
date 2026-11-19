@@ -36,4 +36,6 @@ def test_secondary_destinations_are_tucked_under_more_disclosures():
     assert sidebar.index('data-nav-item="command_center"') < sidebar.index('<details class="side-more"')
     assert sidebar.index('data-nav-item="study_hub"') < sidebar.index('<details class="side-more"')
     assert '<details class="nav-more-disclosure"' in template
-    assert "Tools &amp; progress" in template
+    assert sidebar.count('aria-label="Extra tools"') == 1
+    assert 'href="#i-ellipsis"' in sidebar
+    assert 'class="side-more" id="sideTools">' in sidebar

@@ -126,7 +126,6 @@ body.has-side.has-own-chat .command-chat .command-chat__composer #chatInput {
   .command-chat .command-chat__header { min-height: 54px; padding: 6px 0; }
   .command-chat .command-chat__actions { gap: 5px; }
   .command-chat .command-chat__btn { font-size: .72rem; padding: 9px 11px; }
-  .command-chat__actions > a:first-of-type { display: none; }
   .command-chat .command-chat__inner { padding: 18px 0; }
   .command-chat .command-chat__intro { padding-top: 10px; }
   .command-chat .command-chat__intro h2 { font-size: clamp(2rem, 7.7vw, 3rem); }

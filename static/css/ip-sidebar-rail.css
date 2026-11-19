@@ -4,7 +4,7 @@
    <html data-side-rail> is set before first paint by the bootstrap in
    base.html <head> and kept current by ip-sidebar-rail.js. It means:
    "the sidebar is a 64px icon rail right now", either because the mode
-   is Collapsed, or the mode is Auto and the window is laptop-sized.
+   is Auto or kept in its legacy Collapsed mode.
 
    The rail never reflows the page to show labels. Hover (with intent
    delay) or keyboard focus adds .is-peek, which widens the sidebar as an
@@ -19,22 +19,6 @@
 body.has-side .app-side .side-foot .side-link { width: 100%; min-height: 44px; line-height: 1.4; }
 .app-side .side-foot button.side-link { background: transparent; text-align: left; }
 .app-side .side-foot .side-icon { flex-shrink: 0; }
-
-/* ── Collapse / expand button (always present on desktop) ─────────── */
-.side-collapse-btn {
-  position: absolute; top: 20px; right: 10px;
-  width: 26px; height: 26px;
-  display: inline-grid; place-items: center;
-  border: 0; border-radius: 7px; padding: 0;
-  background: transparent; color: var(--text-muted);
-  cursor: pointer;
-  opacity: 1; transition: background 0.14s, color 0.14s;
-}
-.app-side:hover .side-collapse-btn,
-.side-collapse-btn:focus-visible { opacity: 1; }
-.side-collapse-btn:hover { background: var(--bg-elevated); color: var(--text-primary); }
-.side-collapse-btn svg { width: 16px; height: 16px; transition: transform 0.2s ease; }
-body.has-side .side-logo { padding-right: 40px; }
 
 @media (min-width: 769px) {
   html[data-side-rail] { --side-w: var(--side-rail-w); }
@@ -93,10 +77,6 @@ body.has-side .side-logo { padding-right: 40px; }
   html[data-side-rail] body.has-side .app-side:not(.is-peek) .side-customize-btn > span:not(.side-icon),
   html[data-side-rail] body.has-side .app-side:not(.is-peek) .logo-text,
   html[data-side-rail] body.has-side .app-side:not(.is-peek) .side-foot-row { display: none; }
-  html[data-side-rail] body.has-side .app-side:not(.is-peek) .side-collapse-btn {
-    display: inline-grid; position: relative; top: auto; right: auto;
-    width: 44px; min-height: 36px; margin: 4px 0 8px;
-  }
   html[data-side-rail] body.has-side .app-side:not(.is-peek) .side-section-label,
   html[data-side-rail] body.has-side .app-side:not(.is-peek) .side-link-meta { display: none !important; }
   html[data-side-rail] body.has-side .app-side:not(.is-peek) .side-customize-btn { border-color: transparent; }
@@ -108,7 +88,6 @@ body.has-side .side-logo { padding-right: 40px; }
     width: 3px; border-radius: 0 3px 3px 0; background: var(--accent);
   }
 
-  html[data-side-rail] body.has-side .side-collapse-btn svg { transform: rotate(180deg); }
 }
 
 @media (prefers-reduced-motion: reduce) {

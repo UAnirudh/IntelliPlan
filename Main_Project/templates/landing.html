@@ -314,13 +314,7 @@
   <div class="plani-week-copy">
     <h2 id="plani-week-title">A week with Plani</h2>
     <p>See what’s due first, how long each task might take, and what you can fit in.</p>
-    <div class="hero-mini-actions">
-      {# Desktop first: it is the only one of the three that is a real
-         download rather than an add-to-home-screen instruction. #}
-      <a href="/download" class="btn-secondary mini-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-download"/></svg> Desktop app</a>
-      <a href="/install" class="btn-secondary mini-btn">Install App</a>
-      <a href="/install/ios" class="btn-secondary mini-btn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-apple"/></svg> iPhone Install</a>
-    </div>
+    <a class="landing-install-link" href="/install">Install IntelliPlan</a>
   </div>
   <div class="plani-week-card" aria-label="Sample weekly plan">
     <div class="preview-card">
@@ -1139,29 +1133,10 @@
 <section class="cta-section">
   <h2 class="cta-title">Ready to stop winging it?</h2>
   <p class="cta-subtitle">Join students who use IntelliPlan to stay ahead, cut study stress, and plan your week in minutes. Free to start, no extra hurdles.</p>
-  {# Same two labels as the hero. The hero was rewritten and this was not,
-     which left the page opening with "Build my week, free" and closing with
-     "Get Started Free" for the identical destination. #}
   <div class="cta-actions">
-    <a href="/login" class="btn-primary cta-btn u-sheen">Build my week, free</a>
-    <a href="#how-it-works" class="cta-ghost-btn cta-btn">See how it sorts a real week</a>
-  </div>
-  <div class="cta-links-row">
-    <a href="/compare" class="cta-link">Compare to other planners</a>
-    <span class="cta-link-divider">·</span>
-    <a href="/faq" class="cta-link">FAQ</a>
+    <a href="{{ '/command-center' if current_user.is_authenticated else '/login' }}" class="btn-primary cta-btn u-sheen">Plan with Plani</a>
   </div>
 </section>
-</div>
-
-<div class="mobile-cta-bar" id="mobileCTABar">
-  <button class="mobile-cta-minimize" id="mobileCTAMinimize" aria-label="Minimize bar" onclick="toggleMobileCTA()">
-    <span id="mobileCTAChevron" class="ip-arrow" data-direction="up" data-arrow-kind="chevron" style="--ip-arrow-size:14px" aria-hidden="true"></span>
-  </button>
-  <div class="mobile-cta-buttons" id="mobileCTAButtons">
-    <a href="/login" class="mobile-cta-primary">Get Started Free</a>
-    <a href="/demo/planner" class="mobile-cta-secondary">Demo</a>
-  </div>
 </div>
 
 <style>
@@ -1339,7 +1314,6 @@
   }
 
   .hero-actions,
-  .hero-mini-actions,
   .demo-actions,
   .cta-actions {
     display: flex;
@@ -1349,9 +1323,8 @@
 
   .cta-actions { justify-content: center; align-items: center; }
 
-  .hero-btn, .mini-btn, .demo-btn, .cta-btn { text-decoration: none; }
+  .hero-btn, .demo-btn, .cta-btn { text-decoration: none; }
 
-  .hero-mini-actions { margin-top: 1rem; }
 
   .hero-trust-row {
     display: flex;
@@ -1527,7 +1500,6 @@
   .hero-badge        { animation: heroRise 0.6s 0.05s var(--ease-out) both; }
   .hero-subtitle     { animation: heroRise 0.6s 0.16s var(--ease-out) both; }
   .hero-actions      { animation: heroRise 0.6s 0.24s var(--ease-out) both; }
-  .hero-mini-actions { animation: heroRise 0.6s 0.30s var(--ease-out) both; }
   .hero-trust-row    { animation: heroRise 0.6s 0.36s var(--ease-out) both; }
   .hero-preview      { animation: heroRise 0.8s 0.18s var(--ease-out) both; }
 
@@ -2059,52 +2031,6 @@
   .cta-section .btn-primary:hover {
     background: #f0efec;
   }
-  .cta-ghost-btn {
-    display: inline-flex; align-items: center; justify-content: center;
-    padding: 10px 22px;
-    background: rgba(255,255,255,0.07);
-    color: rgba(255,255,255,0.85);
-    border: 1px solid rgba(255,255,255,0.15);
-    border-radius: var(--r-full);
-    font-family: var(--font-ui); font-size: 0.87rem; font-weight: 600;
-    text-decoration: none; cursor: pointer;
-    transition: all 0.15s ease;
-    white-space: nowrap; letter-spacing: -0.01em;
-  }
-  .cta-ghost-btn:hover {
-    background: rgba(255,255,255,0.12);
-    border-color: rgba(255,255,255,0.25);
-    color: #ffffff;
-  }
-
-  .cta-links-row {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.6rem;
-    flex-wrap: wrap;
-    margin-top: 1.5rem;
-  }
-
-  .cta-link {
-    font-family: var(--font-ui);
-    font-size: 0.84rem;
-    color: rgba(255,255,255,0.65);
-    text-decoration: none;
-    transition: color 0.15s;
-  }
-
-  .cta-link:hover { color: rgba(255,255,255,0.7); }
-
-  .cta-link-divider {
-    color: rgba(255,255,255,0.18);
-    font-size: 0.88rem;
-  }
-
-  /* ── Mobile sticky bar ───────────────────────────────────── */
-  .mobile-cta-bar { display: none; }
-  .mobile-cta-minimize { display: none; }
-
   /* ── Responsive ──────────────────────────────────────────── */
   @media (max-width: 1024px) {
     .hero { grid-template-columns: 1fr; gap: 2rem; padding-top: 2.5rem; }
@@ -2120,84 +2046,17 @@
     .hero { padding: 2rem 0 1.5rem; }
     .hero-title { font-size: 2.2rem; }
     .hero-subtitle { font-size: 0.98rem; }
-    .hero-actions, .hero-mini-actions, .demo-actions, .cta-actions {
+    .hero-actions, .demo-actions, .cta-actions {
       flex-direction: column;
       align-items: stretch;
     }
-    .hero-btn, .mini-btn, .demo-btn, .cta-btn { width: 100%; text-align: center; }
+    .hero-btn, .demo-btn, .cta-btn { width: 100%; text-align: center; }
     .hero-preview { display: none; }
     .features-grid { grid-template-columns: 1fr; }
     .integration-grid { grid-template-columns: repeat(2, 1fr); }
     .demo-panel-header { padding-bottom: 1rem; }
-    .cta-section { padding-bottom: 9.5rem; }
-    /* The install banner (bottom-right) is redundant on the landing page — the
-       top-nav "Install" entry and the sticky CTA already cover conversion — and
-       it collided with the Plani avatar + CTA bar, cluttering the whole bottom
-       edge. Hide it here so the mobile bottom zone has a single clear action. */
+
     #installBanner { display: none !important; }
-    .mobile-cta-minimize { display: flex; }
-    .mobile-cta-bar {
-      display: flex;
-      flex-direction: column;
-      align-items: stretch;
-      gap: 0.4rem;
-      position: fixed;
-      left: 0.75rem;
-      right: 0.75rem;
-      /* Sit clear of the Plani avatar (bottom-left, ~52px) and the iOS home
-         indicator so nothing overlaps the primary CTA. */
-      bottom: calc(70px + env(safe-area-inset-bottom));
-      z-index: 9998;
-      transition: transform 0.28s cubic-bezier(0.16,1,0.3,1);
-    }
-    /* While the hero's own buttons are on screen, the sticky bar would
-       only repeat them — on top of the hero copy. It slides in once they
-       scroll away. */
-    .mobile-cta-bar.at-hero { transform: translateY(calc(100% + 90px)); pointer-events: none; }
-    .mobile-cta-bar.minimized .mobile-cta-buttons { display: none; }
-    .mobile-cta-bar.minimized .mobile-cta-minimize { border-radius: 999px; }
-    .mobile-cta-minimize {
-      display: flex; align-items: center; justify-content: center;
-      gap: 6px; align-self: flex-end;
-      background: var(--bg-card); border: 1px solid var(--border);
-      border-radius: 12px 12px 0 0; padding: 6px 14px;
-      color: var(--text-muted); cursor: pointer;
-      font-family: var(--font-ui); font-size: 0.72rem; font-weight: 600;
-      box-shadow: 0 -2px 10px rgba(0,0,0,0.08);
-      transition: background 0.14s, color 0.14s;
-    }
-    .mobile-cta-minimize:hover { background: var(--accent-soft); color: var(--accent); }
-    .mobile-cta-bar.minimized .mobile-cta-minimize {
-      border-radius: 14px; padding: 7px 18px;
-      background: var(--bg-card);
-    }
-    .mobile-cta-buttons {
-      display: grid;
-      grid-template-columns: 1fr 0.62fr;
-      gap: 0.5rem;
-    }
-    .mobile-cta-primary, .mobile-cta-secondary {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      text-decoration: none;
-      text-align: center;
-      border-radius: 12px;
-      /* Compact but still a comfortable 44px touch target. */
-      min-height: 44px;
-      padding: 0 0.9rem;
-      font-family: var(--font-ui);
-      font-weight: 600;
-      font-size: 0.85rem;
-      letter-spacing: -0.01em;
-      box-shadow: 0 4px 16px -6px rgba(0,0,0,0.22);
-    }
-    .mobile-cta-primary { background: var(--accent); color: var(--on-accent, #fff); }
-    .mobile-cta-secondary {
-      background: var(--bg-card);
-      color: var(--text-primary);
-      border: 1px solid var(--border);
-    }
     .floating-badge { right: 0.5rem; bottom: -14px; font-size: 0.72rem; padding: 0.5rem 0.85rem; }
   }
 
@@ -2317,40 +2176,6 @@
     var outer = document.querySelector('.demo-video-outer');
     outer.innerHTML = '<iframe class="demo-iframe" src="https://www.loom.com/embed/6ea3633efb3b4a5c94e3732e1ca978ba?autoplay=1&hide_owner=true&hide_share=true&hide_title=true&hideEmbedTopBar=true" frameborder="0" allowfullscreen allow="autoplay; fullscreen"></iframe>';
   }
-</script>
-
-<script>
-/* ── Mobile CTA bar minimize ────────────────────────── */
-(function() {
-  const BAR_KEY = 'mobileCTAMinimized';
-  const bar = document.getElementById('mobileCTABar');
-  const chevron = document.getElementById('mobileCTAChevron');
-  if (!bar) return;
-
-  function setMinimized(minimized) {
-    bar.classList.toggle('minimized', minimized);
-    if (chevron) {
-      chevron.dataset.direction = minimized ? 'down' : 'up';
-    }
-    localStorage.setItem(BAR_KEY, minimized ? '1' : '0');
-  }
-
-  window.toggleMobileCTA = function() {
-    setMinimized(!bar.classList.contains('minimized'));
-  };
-
-  if (localStorage.getItem(BAR_KEY) === '1') {
-    setMinimized(true);
-  }
-
-  const heroActions = document.querySelector('.hero-actions');
-  if (heroActions && 'IntersectionObserver' in window) {
-    bar.classList.add('at-hero');
-    new IntersectionObserver(function (entries) {
-      bar.classList.toggle('at-hero', entries[0].isIntersecting);
-    }).observe(heroActions);
-  }
-})();
 </script>
 
 {% endblock %}

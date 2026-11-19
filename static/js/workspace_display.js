@@ -35,7 +35,8 @@
     function show(open) {
       controls.hidden = !open;
       toggle.setAttribute('aria-expanded', String(open));
-      if (open) inputs[0].focus(); else toggle.focus();
+      if (open) inputs[0].focus();
+      else toggle.closest('details').querySelector('summary').focus();
     }
     toggle.addEventListener('click', function () { show(controls.hidden); });
     document.getElementById('workspaceClose').addEventListener('click', function () { show(false); });

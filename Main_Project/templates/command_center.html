@@ -11,10 +11,15 @@
   <div class="command-chat__header">
     <h1 class="command-chat__title">Command Center</h1>
     <div class="command-chat__actions">
-      <button type="button" class="command-chat__btn" id="workspaceCustomize" aria-expanded="false" aria-controls="workspaceControls">Appearance</button>
-      <a href="/dashboard#tlCard" class="command-chat__btn">Your day</a>
-      <a href="/oauth/outlook" class="command-chat__btn" id="outlookConnect" hidden>Connect Outlook</a>
       <button type="button" id="newConversation" class="command-chat__btn">New chat</button>
+      <details class="ip-action-menu" data-action-menu>
+        <summary aria-label="Workspace actions" title="Workspace actions"><svg aria-hidden="true"><use href="#i-ellipsis"/></svg></summary>
+        <div class="ip-action-menu__panel">
+          <button type="button" id="workspaceCustomize" aria-expanded="false" aria-controls="workspaceControls">Appearance</button>
+          <a href="/dashboard#tlCard">Your day</a>
+          <a href="/oauth/outlook" id="outlookConnect" hidden>Connect Outlook</a>
+        </div>
+      </details>
     </div>
   </div>
 

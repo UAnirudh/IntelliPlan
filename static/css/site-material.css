@@ -1,10 +1,18 @@
 /* Shared material and controls for IntelliPlan's web surfaces. */
+@font-face {
+  font-family: "Inter Variable";
+  src: url("../vendor/inter/InterVariable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --ip-night: #09141c;
   --ip-paper: #eff7fa;
   --ip-ice: #a0dfef;
   --ip-warm: #eacb81;
-  --ip-ui-face: system-ui, sans-serif;
+  --ip-ui-face: -apple-system, BlinkMacSystemFont, "Inter Variable", "Segoe UI", system-ui, sans-serif;
   --ip-material-ease: cubic-bezier(.2, .75, .2, 1);
   --on-accent: #102c3d;
   --ip-action-base: #b8e4ee;
@@ -118,6 +126,7 @@ html[data-a11y-contrast="1"] body.has-side { --bg: inherit; --bg-elevated: inher
 /* Use the etched backdrop across the public landing page. App content stays
    on solid surfaces for readable tables and long study sessions. */
 .site-landing #main-content { position: relative; isolation: isolate; }
+.site-landing #planiBot { display: none; }
 :root[data-theme="dark"]:not([data-palette]):not([data-a11y-contrast="1"]) .site-landing #main-content::before {
   content: "";
   position: fixed;
@@ -624,10 +633,72 @@ body #tutorPlaniSvg.plani-workspace-portrait { width: auto; height: clamp(76px, 
   .plani-home-hero .hero-price-note { order: 5; }
   .plani-home-hero .hero-trust-row { order: 6; justify-content: center; }
   .site-landing .plani-week-preview { grid-template-columns: minmax(0, 1fr); }
-  .plani-week-copy .hero-mini-actions { flex-direction: row; align-items: center; }
-  .plani-week-copy .mini-btn { width: auto; }
   .command-chat__intro .command-chat__portrait { height: 76px; }
   body #tutorPlaniSvg.plani-workspace-portrait { height: 72px; }
 }
 
 .plani-connection-links { display: grid; gap: 8px; margin-top: 20px; }
+
+.landing-install-link {
+  display: inline-block;
+  margin-top: .9rem;
+  color: var(--text-secondary);
+  text-underline-offset: .2em;
+}
+.landing-install-link:hover { color: var(--text-primary); }
+
+.ip-action-menu { position: relative; }
+.ip-action-menu > summary {
+  width: 44px;
+  min-height: 44px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  list-style: none;
+}
+.ip-action-menu > summary::-webkit-details-marker { display: none; }
+.ip-action-menu > summary::marker { content: ""; }
+.ip-action-menu > summary svg { width: 20px; height: 20px; }
+.ip-action-menu__panel {
+  position: absolute;
+  z-index: 12;
+  inset: calc(100% + 6px) 0 auto auto;
+  min-width: max(176px, 100%);
+  padding: 5px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--bg-card);
+  box-shadow: var(--shadow-lg);
+}
+.ip-action-menu__panel > :is(button, a) {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 42px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  font: 520 .875rem/1.3 var(--font-ui);
+  color: var(--text-primary);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.ip-action-menu__panel > [hidden] { display: none; }
+.ip-action-menu__panel .fluid-panel-toggle svg { flex-shrink: 0; }
+.ip-action-menu > summary:hover,
+.ip-action-menu[open] > summary,
+.ip-action-menu__panel > :is(button, a):hover {
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+}
+:is(.ip-action-menu > summary, .nav-marketing-summary, .ip-action-menu__panel > button, .ip-action-menu__panel > a):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}

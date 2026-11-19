@@ -18,13 +18,15 @@ function page(owner, storage = new Map(), blocked = false) {
   const host = element({'data-chat-owner': owner});
   host.querySelectorAll = () => [width];
   const ids = Object.fromEntries(['workspaceControls','workspaceCustomize','workspaceSettingStatus','workspaceClose','workspaceReset'].map(id => [id, element()]));
+  const menu = element();
+  ids.workspaceCustomize.closest = () => ({querySelector: () => menu});
   vm.runInNewContext(source, {
     document: {querySelector: () => host, getElementById: id => ids[id], addEventListener: (_, fn) => {boot = fn;}},
     localStorage: { getItem: key => storage.get(key) || null,
       setItem(key, value) { if (blocked) throw new Error('storage unavailable'); storage.set(key, value); } }
   });
   boot();
-  return { host, ids, width, change(value) {width.value = value; width.events.change();} };
+  return { host, ids, width, menu, change(value) {width.value = value; width.events.change();} };
 }
 
 test('stored display values cannot inject styles or unrecognized attributes', () => {
@@ -66,5 +68,5 @@ test('customization supports Escape, focus return, reset and unavailable storage
   p.ids.workspaceControls.events.keydown({key:'Escape', preventDefault(){}});
   assert.equal(p.ids.workspaceControls.hidden, true);
   assert.equal(p.ids.workspaceCustomize.attributes['aria-expanded'], 'false');
-  assert.equal(p.ids.workspaceCustomize.focused, true);
+  assert.equal(p.menu.focused, true);
 });

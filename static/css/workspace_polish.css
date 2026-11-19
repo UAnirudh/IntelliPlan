@@ -122,7 +122,6 @@ body.has-side .sched-pane #generateBtn {
   body.has-side .app-side { inset: 0 auto 0 0; width: var(--side-w); border-radius: 0; border-right: 0; }
   html[data-side-rail] body.has-side .app-side { width: var(--side-peek-w); clip-path: inset(0 calc(var(--side-peek-w) - var(--side-rail-w)) 0 0); }
   html[data-side-rail] body.has-side .app-side.is-peek { clip-path: inset(0 -40px 0 0); border-radius: 0 var(--r-xl) var(--r-xl) 0; background: var(--bg-elevated) !important; }
-  html[data-side-rail] body.has-side .app-side:not(.is-peek) .side-collapse-btn { position: absolute; top: 20px; left: 16px; right: auto; width: 32px; min-height: 32px; margin: 0; }
 }
 @media (prefers-reduced-motion: reduce) { body.has-side * { scroll-behavior: auto; } }
 

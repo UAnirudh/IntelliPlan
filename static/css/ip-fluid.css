@@ -150,16 +150,11 @@ body.has-side .learning-policy-grid .learning-consent:has(input:checked) { backg
     position: relative;
     z-index: 1;
   }
-  body.has-side [data-extra-collapsed="true"] .side-extra-link:not(.active) { display: none !important; }
-  body.has-side .side-extra-toggle { width: 100%; text-align: left; background: transparent; border: 0; font-family: var(--font-ui); cursor: pointer; }
-  body.has-side .side-extra-toggle .side-icon { font-size: 24px; line-height: .5; }
   body.has-side .side-nav-list { flex: 1; min-height: 0; overflow-y: auto; }
   body.has-side .side-nav-list .side-link { flex-shrink: 0; }
-  body.has-side .side-spacer { display: none; }
   body.has-side .side-foot { flex-shrink: 0; }
   body.has-side .side-logo, body.has-side .side-search, body.has-side .side-quick-add { flex-shrink: 0; }
   body.has-side :is(.side-search, .side-quick-add) { border-radius: 14px; box-shadow: none; min-height: 44px; }
-  body.has-side .side-collapse-btn { opacity: 1; width: 32px; height: 32px; top: 20px; right: 10px; border-radius: 10px; }
   html[data-side-rail] body.has-side .app-side {
     width: var(--side-peek-w);
     background-image: none;
@@ -168,8 +163,7 @@ body.has-side .learning-policy-grid .learning-consent:has(input:checked) { backg
     transition: clip-path .28s var(--fluid-ease);
   }
   html[data-side-rail] body.has-side .app-side.is-peek { clip-path: inset(0 -40px 0 0 round 26px); border-radius: 26px; }
-  html[data-side-rail] body.has-side .app-side:not(.is-peek) .side-logo { visibility: hidden; min-height: 48px; }
-  html[data-side-rail] body.has-side .app-side:not(.is-peek) .side-collapse-btn { display: inline-grid; left: 19px; right: auto; }
+  html[data-side-rail] body.has-side .app-side:not(.is-peek) .side-logo { width: calc(var(--side-rail-w) - 20px); min-height: 44px; padding-inline: 0; justify-content: center; }
   body.has-side main { padding-inline: clamp(20px, 3vw, 48px); }
   body.has-side:has(.tutor-shell) main { padding: 0 !important; margin: 0 !important; }
   body.has-side .tutor-shell { padding: 12px 12px 12px 0; gap: 12px; }
@@ -321,7 +315,7 @@ body .tutor-practice-drawer .tutor-assignment-bar { padding: 14px; margin-top: 4
 .tutor-audio-feedback:has(span:empty):not(:has(button:not([hidden]))) { display: none; }
 body #tutorAudioPlay { color: var(--accent); background: transparent; border: 0; padding: 8px; font: inherit; cursor: pointer; }
 body #tutorAudioPlay[hidden] { display: none; }
-body.has-side.has-own-chat .ip-fb :is(.ip-fb-trigger, .ip-fb-hide) { display: none; }
+body.has-side .ip-fb :is(.ip-fb-trigger, .ip-fb-hide) { display: none; }
 @media (min-width: 769px) {
   body.has-side .app-side {
     background: color-mix(in srgb, var(--bg-card) 24%, var(--bg));
