@@ -64,6 +64,11 @@
       <div style="margin-bottom:0.75rem;color:var(--accent);"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-link"/></svg></div>
       <h1 class="login-title">Connect your school</h1>
       <p class="login-subtitle">Link your LMS so IntelliPlan can pull your assignments</p>
+      {% if current_user.is_authenticated %}
+      <p><a href="/scheduler?capture=1">Paste assignments</a> or <a href="/classes#timetable">add your class schedule</a> without linking a portal.</p>
+      {% else %}
+      <p><a href="/demo/planner">Try a sample week before connecting</a>.</p>
+      {% endif %}
     </div>
     {# Canvas access tokens last about an hour and are refreshed silently. A
        student who revoked IntelliPlan in Canvas, or whose school rotated its

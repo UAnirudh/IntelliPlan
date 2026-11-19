@@ -13,9 +13,9 @@
   ("Can I try IntelliPlan before connecting a school account?", "Yes. Use the sample planner to build a week, mark a study block complete or missed, and replan what remains. It uses fictional coursework and resets when you reload.", "/demo/planner", "Open the sample planner"),
   ("Can study blocks fit around my calendar?", "Yes. Set study hours yourself or connect a supported calendar and grant availability access. IntelliPlan can plan around busy time from Google Calendar or Outlook and classes in your IntelliPlan timetable.", "/blog/fit-schoolwork-around-your-calendar", "Set up calendar-aware planning"),
   ("Can I bring in Notion or Todoist tasks?", "If the integration is available for your account, choose a Notion database or up to four Todoist projects to include in your plan. School-managed accounts may limit which services you can connect.", "", ""),
-  ("Can I add classes or events from a photo?", "On supported accounts, review a photo before saving the extracted information as tasks, calendar events, or timetable entries. Check names, dates, and times in the preview before confirming.", "", ""),
+  ("Can I add classes without connecting a school portal?", "Yes. Paste one class per line or use the timetable’s photo option where available. Check the preview before saving. For assignments, paste a task list into the scheduler.", "/classes#timetable", "Open the class timetable"),
   ("What can I do once I’ve picked a study block?", "Open the block’s checklist or focus timer. Tutor can explain a step, show a graph, or generate practice questions and flashcards when available.", "/tutor", "Explore Tutor"),
-  ("How does IntelliPlan compare with Matcha?", "Both help schedule schoolwork around other commitments. Compare their calendar connections, study tools, and grade scenarios to see which fits how you work.", "/blog/intelliplan-vs-matcha", "Compare IntelliPlan and Matcha"),
+  ("How does IntelliPlan compare with Matcha?", "Both help schedule schoolwork around other commitments. Compare their calendar connections, study tools, and grade scenarios to see which fits how you work.", url_for('compare_matcha'), "Compare IntelliPlan and Matcha"),
 ] %}
 
 {% block head_extra %}
@@ -421,7 +421,8 @@
       <p class="faq-answer">
         IntelliPlan supports Canvas and StudentVUE. Your school may control which connections you can use.
         See the setup guides for <a href="/blog/how-to-use-canvas-with-a-study-planner">Canvas</a>
-        and <a href="/blog/studentvue-study-planner">StudentVUE</a>.
+        and <a href="/blog/studentvue-study-planner">StudentVUE</a>. Schools that allow API access can also use
+        the <a href="/schoology">Schoology connection</a>.
       </p>
     </details>
 

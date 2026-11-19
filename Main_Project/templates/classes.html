@@ -46,15 +46,24 @@
   <div class="tt-head">
     <div>
       <h2 id="ttHeading">Timetable</h2>
-      <p>When your classes meet. Your study plan works around them, and your day on the dashboard fills itself in. Import from your school, scan a photo of your schedule, or type them in.</p>
+      <p>Enter when your classes meet so the planner can use the time around them.</p>
     </div>
     <div class="tt-actions">
       <button type="button" class="tt-btn tt-btn-primary" id="ttImport">Import from school</button>
       <label class="tt-btn tt-file">Scan a photo<input type="file" id="ttPhoto" accept="image/jpeg,image/png,image/webp,image/gif"></label>
+      <button type="button" class="tt-btn" id="ttPasteToggle" aria-expanded="false" aria-controls="ttPasteForm">Paste schedule</button>
       <button type="button" class="tt-btn" id="ttAddToggle" aria-expanded="false" aria-controls="ttAddForm">Add a class</button>
     </div>
   </div>
   <p class="tt-status" id="ttStatus" role="status" aria-live="polite"></p>
+
+  <form class="tt-section" id="ttPasteForm" hidden>
+    <label class="tt-field" for="ttPasteText">Paste one class per line
+      <textarea class="form-input" id="ttPasteText" rows="4" maxlength="8000" required aria-describedby="ttPasteHint"></textarea>
+    </label>
+    <p id="ttPasteHint">Use a line like <code>Biology | Mon, Wed | 09:00–09:50</code>. Times use a 24-hour clock. You can also paste class, days, and time-range columns from a spreadsheet.</p>
+    <button type="submit" class="tt-btn tt-btn-primary">Review classes</button>
+  </form>
 
   <form class="tt-section" id="ttAddForm" hidden>
     <h3>Add a class</h3>
@@ -79,7 +88,7 @@
   </form>
 
   <div class="tt-section" id="ttDraftsWrap" hidden>
-    <h3>From your photo: check these, then save</h3>
+    <h3>Review classes before saving</h3>
     <ul class="tt-list" id="ttDrafts"></ul>
     <div class="tt-class-foot">
       <button type="button" class="tt-btn tt-btn-primary" id="ttDraftsSave">Save these classes</button>

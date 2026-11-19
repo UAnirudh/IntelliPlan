@@ -5099,6 +5099,7 @@ _SITEMAP_ENTRIES = [
     ("/cookies", None),
     ("/ambassador", None),
     ("/schools", None),
+    ("/schoology", "2026-11-18"),
     ("/uk", None),
     ("/api-docs", None),
     # Blog
@@ -5149,7 +5150,7 @@ _SITEMAP_ENTRIES = [
 
 # Registry articles use the same publication/revision dates as their pages.
 _SITEMAP_ENTRIES.extend(
-    (f"/blog/{article['slug']}", article.get("updated") or article["date"])
+    (blog_articles.article_path(article), article.get("updated") or article["date"])
     for article in blog_articles.all_articles()
 )
 
@@ -5555,6 +5556,11 @@ def faq():
 def compare():
     return render_template("compare.html", active_page="compare")
 
+
+@app.get("/compare/intelliplan-vs-matcha")
+def compare_matcha():
+    return _render_registry_article(blog_articles.get("intelliplan-vs-matcha"), active_page="compare")
+
 @app.route("/pricing")
 def pricing():
     from growth_glue import billing_enabled
@@ -5615,6 +5621,11 @@ def ambassador_dashboard():
 def schools():
     return render_template("schools.html", active_page="schools")
 
+
+@app.get("/schoology")
+def schoology():
+    return render_template("schoology.html", active_page="schools")
+
 @app.route("/uk")
 def uk_landing():
     return render_template("uk.html", active_page="uk")
@@ -5634,7 +5645,8 @@ def blog_ap_study_planner():
 @app.route("/blog")
 def blog_index():
     return render_template("blog_index.html", active_page="blog",
-                           articles=blog_articles.all_articles())
+                           articles=blog_articles.all_articles(),
+                           article_path=blog_articles.article_path)
 
 
 @app.route("/blog/<slug>")
@@ -5653,11 +5665,18 @@ def blog_article(slug):
         return render_template("error.html", error_code=404,
                                error_id="BLOG-NOT-FOUND",
                                message="That guide does not exist. Browse all guides instead."), 404
+    path = blog_articles.article_path(article)
+    if request.path != path:
+        return redirect(path, code=301)
+    return _render_registry_article(article, active_page="blog")
+
+
+def _render_registry_article(article, active_page):
     related = [
         candidate for related_slug in article.get("related", ())
         if (candidate := blog_articles.resolve(related_slug))
     ]
-    canonical = f"{APP_BASE_URL}/blog/{article['slug']}"
+    canonical = APP_BASE_URL.rstrip("/") + blog_articles.article_path(article)
     article_json_ld = json.dumps({
         "@context": "https://schema.org",
         "@type": "Article",
@@ -5672,9 +5691,10 @@ def blog_article(slug):
         "publisher": {"@type": "Organization", "name": "IntelliPlan", "url": APP_BASE_URL},
     }, ensure_ascii=False)
     return render_template("blog_article.html", article=article,
+                           article_path=blog_articles.article_path,
                            related_articles=related,
                            article_json_ld=article_json_ld,
-                           active_page="blog")
+                           active_page=active_page)
 
 @app.route("/olympiad")
 def olympiad_page():

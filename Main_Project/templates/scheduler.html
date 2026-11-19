@@ -10,6 +10,7 @@
   /* ── IPD Tab bar ─────────────────────────────────── */
   .sched-pane { display: none; animation: ipd-fadeUp 0.4s var(--ipd-ease-out) both; }
   .sched-pane.active { display: block; }
+  .planner-day-note { overflow-wrap: anywhere; white-space: pre-wrap; margin: 0 0 12px; padding: 8px 12px; border-radius: 10px; background: var(--accent-soft); color: var(--text-secondary); font-size: .85rem; }
 
   /* ── Creator panel ─────────────────────────────── */
   .scheduler-panel {
@@ -1005,7 +1006,7 @@
     {% if current_user.is_authenticated %}
     <details class="assignment-queue planner-capture" id="plannerCapture">
       <summary>Add work</summary>
-      <p><a href="/connect">Connect a school portal, calendar or Notion</a> · <a href="/flashcards/photo">Read a photo</a></p>
+      <p><a href="/connect">Connect a school portal, calendar or Notion</a> · <a href="/flashcards/photo">Read a photo</a> · <a href="/classes#timetable">Set up a class timetable</a></p>
       <details id="plannerTodoist">
         <summary>Sync Todoist</summary>
         <p>Choose the projects you want in your plan. Your Todoist tasks stay read-only.</p>
@@ -1221,6 +1222,7 @@
         <button class="btn-secondary" type="submit">Save check-in</button>
         <button class="btn-secondary" type="button" id="plannerCheckinClear">Clear day</button>
       </div>
+      <button class="btn-secondary" type="button" id="plannerCheckinAdjust" hidden>Review an adjustment</button>
       <p role="status" id="plannerCheckinStatus"></p>
     </form>
   </details>
@@ -2498,9 +2500,12 @@ function renderInteractive() {
           <div class="iv-day-meta"><svg><use href="#i-clock"/></svg> ${escapeText(String(day.total_hours || 0))}h</div>
         </div>
         <div class="iv-progress"><div class="iv-progress-bar" style="transform:scaleX(${pct / 100})"></div></div>
+        <p class="planner-day-note" data-planner-day-note="${escapeText(String(day.date || '').slice(0, 10))}" hidden></p>
         ${(day.blocks || []).map(b => renderIvBlock(b)).join('')}
       </div>`;
   }).join('');
+
+  host.dispatchEvent(new Event('planner-days-rendered'));
 
   // Wire click + keyboard handlers
   host.querySelectorAll('.iv-block').forEach(el => {

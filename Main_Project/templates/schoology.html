@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block page_title %}Schoology Study Planner | IntelliPlan{% endblock %}
+{% block meta_description %}Plan Schoology assignments around classes, practice, and work. Try a fictional schedule and learn which Schoology permissions a connection needs.{% endblock %}
+
+{% block head_extra %}
+<style>
+  .schoology-guide { max-width: 740px; margin: auto; padding: clamp(30px, 6vw, 70px) 18px; }
+  .schoology-guide h1 { font-size: clamp(2.3rem, 6vw, 4rem); line-height: 1.08; letter-spacing: -.05em; }
+  .schoology-guide section { margin-top: 38px; }
+  .schoology-guide :is(p, li) { line-height: 1.7; }
+  .schoology-guide .schoology-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; margin-top: 20px; }
+  .schoology-guide a:not(.btn) { text-underline-offset: .2em; }
+</style>
+{% endblock %}
+
+{% block content %}
+<article class="schoology-guide">
+  <h1>Make time for your Schoology assignments</h1>
+  <p>Use assignment due dates from Schoology to make a study plan that fits around class, practice, and work. You can try the planner with sample assignments before connecting anything.</p>
+  <div class="schoology-actions">
+    <a class="btn btn-primary" href="/demo/planner">Try the sample planner</a>
+    <a href="/connect">See school connection options</a>
+  </div>
+
+  <section aria-labelledby="schoology-setup">
+    <h2 id="schoology-setup">Connect when your school allows it</h2>
+    <ol>
+      <li>Confirm with your school that it permits the connection and gives your account access to Schoology API credentials.</li>
+      <li>Sign in to IntelliPlan, open the school connection screen, and choose Schoology.</li>
+      <li>Check the imported assignments and deadlines before building a plan. The items available depend on what the school publishes through the connection.</li>
+    </ol>
+    <p>Submit your work in Schoology. You can remove the connection in IntelliPlan or revoke your API key in Schoology. <a href="https://uc.powerschool-docs.com/en/schoology/latest/api-key-management">PowerSchool’s API key documentation</a>.</p>
+  </section>
+
+  <section aria-labelledby="schoology-manual">
+    <h2 id="schoology-manual">Start with your own list</h2>
+    <p>If your school limits API access, sign in to <a href="/scheduler?capture=1">paste a list of assignments</a> and review it before adding tasks. You can also <a href="/classes#timetable">paste a class timetable or scan your schedule</a> to show the planner when you are busy.</p>
+  </section>
+
+  <p><a href="/blog/how-to-use-schoology-assignments">More help with Schoology assignments</a> · <a href="/schools">Information for schools</a></p>
+</article>
+{% endblock %}

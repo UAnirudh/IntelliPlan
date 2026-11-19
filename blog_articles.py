@@ -22,6 +22,7 @@ from __future__ import annotations
 ARTICLES: list[dict] = [
     {
         "slug": "intelliplan-vs-matcha",
+        "path": "/compare/intelliplan-vs-matcha",
         "kicker": "Comparison",
         "title": "IntelliPlan vs Matcha",
         "meta_title": "IntelliPlan vs Matcha | Study Planner Comparison",
@@ -30,7 +31,7 @@ ARTICLES: list[dict] = [
         "reading_time": 3,
         "sections": [
             {"paragraphs": [
-                "Both apps help students make time for assignments imported from Canvas or StudentVUE. IntelliPlan is a good fit if you want to try a sample planner before sharing school credentials, work through an assignment with visual tutoring, or check what you need on your remaining work to reach a target grade.",
+                "Both apps help students make time for assignments imported from Canvas or StudentVUE. IntelliPlan is a good fit if your school uses Schoology, you want to try a sample planner before connecting an account, or you want to work backward from a target grade.",
                 "IntelliPlan published this comparison. We reviewed Matcha’s public FAQ and its November 6 comparison on November 18, 2026.",
             ]},
             {"h2": "Build around the week you already have", "paragraphs": [
@@ -55,8 +56,19 @@ ARTICLES: list[dict] = [
                 {"url": "/grademodel", "label": "Explore Grade Modeler"},
                 {"url": "/tools/final-grade-calculator", "label": "Try the public final-grade calculator"},
             ]},
+            {"h2": "Check your school, device, and plan", "paragraphs": [
+                "IntelliPlan supports Schoology at schools that allow its API connection. It can be installed as a web app on supported browsers and offers a school information page and developer documentation. Use the pricing page for current free and paid plan details.",
+                "Matcha’s FAQ lists Canvas and StudentVUE as its school connections. It says Matcha is currently free and plans to introduce subscriptions.",
+            ], "links": [
+                {"url": "/schoology", "label": "See Schoology setup"},
+                {"url": "/install", "label": "Install IntelliPlan"},
+                {"url": "/schools", "label": "IntelliPlan for schools"},
+                {"url": "/api-docs", "label": "Developer documentation"},
+                {"url": "/pricing", "label": "See current IntelliPlan pricing"},
+                {"url": "https://www.trymatcha.org/faq", "label": "See Matcha’s current FAQ"},
+            ]},
         ],
-        "related": ["fit-schoolwork-around-your-calendar", "how-to-use-canvas-with-a-study-planner"],
+        "related": ["fit-schoolwork-around-your-calendar", "how-to-use-canvas-with-a-study-planner", "spaced-repetition-for-students"],
     },
     {
         "slug": "fit-schoolwork-around-your-calendar",
@@ -499,16 +511,20 @@ ARTICLES: list[dict] = [
         "meta_title": "Spaced Repetition for Students, Explained | IntelliPlan",
         "description": "Why spacing beats cramming, what the forgetting curve means for your week, and how to run spaced review without a complex system.",
         "date": "2026-10-09",
+        "updated": "2026-11-18",
         "reading_time": 5,
         "sections": [
             {"paragraphs": [
-                "Spaced repetition is the practice of reviewing material at increasing intervals instead of all at once. It sounds like a small scheduling detail. It is one of the most reliable findings in learning research, and it is the difference between knowing something in June and knowing it next year.",
-                "The mechanism is forgetting. Each time you retrieve something after partial forgetting, the memory gets harder to lose. Reviewing while it is still fresh feels smoother and does much less.",
+                "Spaced practice means revisiting material in separate sessions. For example, recall the phases of mitosis on Monday and revisit the ones you missed on Wednesday. Practice recalling the answer before you look it up.",
+                "A review by Cepeda and colleagues found that the gap that produced the best later recall depended on how long people needed to remember the material. Dunlosky and colleagues rated both practice testing and distributed practice highly across several kinds of material and assessment.",
+            ], "links": [
+                {"url": "https://pubmed.ncbi.nlm.nih.gov/16719566/", "label": "Cepeda et al. (2006), quantitative review of distributed practice"},
+                {"url": "https://doi.org/10.1177/1529100612453266", "label": "Dunlosky et al. (2013), review of learning techniques"},
             ]},
-            {"h2": "The forgetting curve, in practice",
+            {"h2": "How long should a study block be?",
             "paragraphs": [
-                "New material decays fastest in the first day or two. If you never revisit it, most of it is gone within a week. If you revisit it once after a day, then after three days, then after a week, the decay flattens each time.",
-                "You do not need exact intervals. A workable student version: same day or next day, again in three days, again in a week, again before the test. The order matters less than the fact that each review happens after you have started to lose it.",
+                "Give each block a finish you can recognize. Ten minutes might fit a short vocabulary review. A multi-step practice problem might need 40 minutes so you can solve it and check the reasoning. These are starting points you can adjust from your own experience.",
+                "For a Friday quiz, try recalling the core ideas on Monday, applying them to new questions on Wednesday, and revisiting the ones you missed on Thursday. Set each session long enough to answer and check the questions you chose.",
             ]},
             {"h2": "What belongs in a spaced system",
             "paragraphs": [
@@ -1485,3 +1501,7 @@ def resolve(slug: str) -> dict | None:
 def all_articles() -> list[dict]:
     """Newest first, which is the order the index and sitemap render."""
     return sorted(ARTICLES, key=lambda article: article["date"], reverse=True)
+
+
+def article_path(article: dict) -> str:
+    return article.get("path") or f"/blog/{article['slug']}"

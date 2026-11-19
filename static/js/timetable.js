@@ -17,6 +17,7 @@
   var el = {
     status: $("ttStatus"), list: $("ttList"), today: $("ttToday"),
     importBtn: $("ttImport"), photo: $("ttPhoto"),
+    pasteToggle: $("ttPasteToggle"), pasteForm: $("ttPasteForm"), pasteText: $("ttPasteText"),
     addToggle: $("ttAddToggle"), addForm: $("ttAddForm"), addDays: $("ttNewDays"), addRot: $("ttNewRot"),
     draftsWrap: $("ttDraftsWrap"), drafts: $("ttDrafts"), draftsSave: $("ttDraftsSave"), draftsDiscard: $("ttDraftsDiscard"),
     kind: $("ttKind"), length: $("ttLength"), lengthWrap: $("ttLengthWrap"),
@@ -25,7 +26,7 @@
     skipStart: $("ttSkipStart"), skipEnd: $("ttSkipEnd"), skipLabel: $("ttSkipLabel"), skipAdd: $("ttSkipAdd"),
     skips: $("ttSkips")
   };
-  var state = { data: null, drafts: [] };
+  var state = { data: null, draftRevision: 0, draftSource: "manual" };
 
   function pad(n) { return (n < 10 ? "0" : "") + n; }
   function localDate() {
@@ -347,20 +348,67 @@
     }).catch(function () { el.importBtn.disabled = false; say("Network error.", true); });
   });
 
+  function clearDrafts() {
+    state.draftRevision += 1;
+    el.drafts.replaceChildren();
+    el.draftsWrap.hidden = true;
+  }
+
+  function showDrafts(rows, source) {
+    state.draftSource = source;
+    el.drafts.replaceChildren();
+    rows.forEach(function (row) { el.drafts.appendChild(classEditor(row, true)); });
+    el.draftsWrap.hidden = false;
+    say("Review " + rows.length + (rows.length === 1 ? " class." : " classes."));
+    var first = el.drafts.querySelector("input");
+    if (first) first.focus();
+  }
+
+  el.pasteToggle.addEventListener("click", function () {
+    el.pasteForm.hidden = !el.pasteForm.hidden;
+    el.pasteToggle.setAttribute("aria-expanded", String(!el.pasteForm.hidden));
+    if (!el.pasteForm.hidden) el.pasteText.focus();
+  });
+
+  el.pasteForm.addEventListener("submit", function (event) {
+    event.preventDefault();
+    if (el.draftsSave.disabled) return;
+    clearDrafts();
+    var lines = el.pasteText.value.split(/\r?\n/).filter(function (line) { return line.trim(); });
+    if (lines.length > 30) return say("Paste up to 30 classes at a time.", true);
+    var rows = [];
+    for (var index = 0; index < lines.length; index += 1) {
+      var parts = lines[index].trim().split(/\s*(?:\||\t)\s*/);
+      var course = parts[0];
+      var days = (parts[1] || "").split(/[\s,]+/).filter(Boolean).map(function (day) {
+        return WEEKDAYS.find(function (abbr) { return abbr.toLowerCase() === day.toLowerCase(); });
+      });
+      var time = /^(\d\d:\d\d)\s*[-–—]\s*(\d\d:\d\d)$/.exec(parts[2] || "");
+      var valid = function (clock) { return /^([01]\d|2[0-3]):[0-5]\d$/.test(clock); };
+      if (parts.length !== 3 || !course || course.length > 256 || !days.length ||
+          days.includes(undefined) || !time || !valid(time[1]) || !valid(time[2]) || time[1] >= time[2]) {
+        return say("Check line " + (index + 1) + ". Use a class, weekdays like Mon or Wed, and a time range like 09:00–09:50.", true);
+      }
+      rows.push({ course: course, weekdays: Array.from(new Set(days)), start: time[1], end: time[2], source: "manual" });
+    }
+    if (!rows.length) return say("Paste at least one class.", true);
+    showDrafts(rows, "manual");
+  });
+
   el.photo.addEventListener("change", function () {
     var file = el.photo.files && el.photo.files[0];
     if (!file) return;
+    el.photo.value = "";
+    if (el.draftsSave.disabled) return;
+    clearDrafts();
+    var revision = state.draftRevision;
     var form = new FormData();
     form.append("image", file);
     say("Reading your schedule photo…");
     call("POST", "/api/timetable/photo", form).then(function (res) {
-      el.photo.value = "";
+      if (revision !== state.draftRevision) return;
       var d = res.data || {};
       if (!res.ok || d.status !== "ok") return say(d.message || "Couldn't read that photo. Add your classes by hand.", true);
-      state.drafts = d.classes || [];
-      el.drafts.innerHTML = "";
-      state.drafts.forEach(function (c) { el.drafts.appendChild(classEditor(c, true)); });
-      el.draftsWrap.hidden = false;
       var hint = d.rotation_hint;
       if (hint && hint.kind && state.data.settings.kind === "none") {
         el.kind.value = hint.kind;
@@ -368,10 +416,10 @@
         el.lengthWrap.hidden = hint.kind !== "cycle";
         fillTodayIs(draftSettings());
       }
-      say("Found " + state.drafts.length + " class" + (state.drafts.length === 1 ? "" : "es") + ". Check them, then save.");
-      var first = el.drafts.querySelector("input");
-      if (first) first.focus();
-    }).catch(function () { el.photo.value = ""; say("Network error.", true); });
+      showDrafts(d.classes || [], "photo");
+    }).catch(function () {
+      if (revision === state.draftRevision) say("Network error.", true);
+    });
   });
 
   el.draftsSave.addEventListener("click", function () {
@@ -379,21 +427,22 @@
       .filter(function (r) { return r.course; });
     if (!rows.length) return say("There are no classes left to save.", true);
     el.draftsSave.disabled = true;
-    call("POST", "/api/timetable/classes/bulk", { source: "photo", classes: rows }).then(function (res) {
+    var source = state.draftSource;
+    call("POST", "/api/timetable/classes/bulk", { source: source, classes: rows }).then(function (res) {
       el.draftsSave.disabled = false;
       if (!res.ok || res.data.status !== "ok") return say(res.data.message || "Couldn't save those classes.", true);
       state.data = res.data;
-      el.drafts.innerHTML = "";
-      el.draftsWrap.hidden = true;
+      clearDrafts();
+      if (source === "manual") el.pasteText.value = "";
       renderList();
       say("Saved " + res.data.saved + " classes.");
     }).catch(function () { el.draftsSave.disabled = false; say("Network error.", true); });
   });
 
   el.draftsDiscard.addEventListener("click", function () {
-    el.drafts.innerHTML = "";
-    el.draftsWrap.hidden = true;
-    say("Photo results discarded.");
+    if (el.draftsSave.disabled) return;
+    clearDrafts();
+    say("Draft classes discarded.");
   });
 
   call("GET", "/api/timetable?date=" + encodeURIComponent(localDate())).then(function (res) {

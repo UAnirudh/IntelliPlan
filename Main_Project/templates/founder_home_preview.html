@@ -29,6 +29,7 @@
         <h1 id="welcome">A study plan <span>that fits.</span></h1>
         <p>See what’s due, find time around the rest of your day, and start with one clear next step.</p>
         <a class="primary" href="/demo/planner">Open the sample planner <span aria-hidden="true">↗</span></a>
+        <a class="text-link manual-start" href="/scheduler?capture=1">Start with a pasted task list</a>
       </div>
 
       <div class="workbench">
@@ -138,10 +139,10 @@
         <a class="text-link" href="/faq">Read the full FAQ <span aria-hidden="true">↗</span></a>
       </div>
       <div class="question-list" data-reveal>
-        <details><summary>Can I try it without a school account?</summary><p>Yes. The <a href="/demo/planner">sample planner</a> lets you build and adjust a week with fictional assignments. You can also try the public <a href="/tools/final-grade-calculator">final grade calculator</a>.</p></details>
+        <details><summary>Can I plan without connecting a school portal?</summary><p>Yes. Start with the <a href="/demo/planner">sample planner</a> or sign in to <a href="/scheduler?capture=1">paste your tasks</a>. You can also <a href="/classes#timetable">paste or scan your class schedule</a>.</p></details>
         <details><summary>Can it work around practice or a shift?</summary><p>Yes. Set your own study hours or give IntelliPlan calendar access so it can use busy time when scheduling your work.</p></details>
         <details><summary>What if a teacher moves a deadline?</summary><p>IntelliPlan can update your plan after a supported connection refreshes. You can also rebuild it yourself from the scheduler.</p></details>
-        <details><summary>How does IntelliPlan compare with Matcha?</summary><p>Both help plan study time around classes and commitments. See how they differ on <a href="/blog/intelliplan-vs-matcha">planning, tutoring, and grade scenarios</a>.</p></details>
+        <details><summary>How does IntelliPlan compare with Matcha?</summary><p>Both help plan study time around classes and commitments. See how they differ on <a href="{{ url_for('compare_matcha') }}">planning, tutoring, and grade scenarios</a>.</p></details>
       </div>
     </section>
   </main>

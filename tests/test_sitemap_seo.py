@@ -21,7 +21,7 @@ import App as app_module
 
 #: Every comparison page. These rank for "<competitor> alternative", so an
 #: orphan among them is lost traffic rather than a tidiness problem.
-COMPARE_SLUGS = ("notion", "myhomework", "mystudylife", "quizlet", "turbo-ai")
+COMPARE_SLUGS = ("notion", "myhomework", "mystudylife", "quizlet", "turbo-ai", "matcha")
 
 
 @pytest.fixture
@@ -110,11 +110,15 @@ def test_the_sitemap_is_well_formed_and_not_empty(client):
 def test_matcha_comparison_and_calendar_guide_are_discoverable(client):
     import xml.etree.ElementTree as ET
 
-    comparison = "/blog/intelliplan-vs-matcha"
+    comparison = "/compare/intelliplan-vs-matcha"
     guide = "/blog/fit-schoolwork-around-your-calendar"
     paths = sitemap_paths(client)
     assert len(paths) == len(set(paths))
     assert comparison in paths and guide in paths
+    assert "/schoology" in paths
+    assert "/blog/intelliplan-vs-matcha" not in paths
+    previous = client.get("/blog/intelliplan-vs-matcha")
+    assert previous.status_code == 301 and previous.headers["Location"] == comparison
     assert not any(path == "/test" or path.startswith("/test/") for path in paths)
     assert "/demo/planner" not in paths
 

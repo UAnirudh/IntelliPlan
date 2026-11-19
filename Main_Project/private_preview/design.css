@@ -100,6 +100,7 @@ h1 span { display: block; color: var(--blue); }
 .story-copy h2 { max-width: 17ch; font-size: clamp(2rem, 4.2vw, 3.8rem); line-height: 1.04; letter-spacing: -.057em; text-wrap: balance; }
 .story-copy p { margin-top: 15px; max-width: 43ch; color: var(--muted); }
 .text-link { display: inline-block; margin-top: 17px; color: var(--blue); font-weight: 650; text-underline-offset: .24em; }
+.lead .manual-start { display: block; width: fit-content; font-size: .9rem; }
 .tutor-example { display: grid; grid-template-columns: .75fr 1.25fr; align-items: center; gap: 15px; min-width: 0; padding: clamp(14px, 2.5vw, 30px); border-radius: 27px; background: linear-gradient(148deg, #263455, #1a233b); }
 .plani-scene { display: grid; place-items: center; isolation: isolate; }
 .plani-scene > * { grid-area: 1/1; }

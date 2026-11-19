@@ -14,13 +14,13 @@
     let payload = null;
     let revision = 0;
     if (new URLSearchParams(location.search).get('capture') === '1') {
+      byId('plannerCapture').open = true;
       try {
         const draft = JSON.parse(sessionStorage.getItem('ip_photo_planner_draft') || 'null');
         sessionStorage.removeItem('ip_photo_planner_draft');
         if (draft && owner && draft.owner === owner && Date.now() - draft.at < 120000 &&
             typeof draft.text === 'string' && draft.text.length <= 12000) {
           text.value = draft.text;
-          byId('plannerCapture').open = true;
           status.textContent = 'Keep one task per line, then select Review tasks.';
         }
       } catch (_) { /* The paste field remains available. */ }
@@ -113,20 +113,42 @@
     const note = byId('plannerCheckinNote');
     const progress = byId('plannerCheckinProgress');
     const status = byId('plannerCheckinStatus');
+    const adjustment = byId('plannerCheckinAdjust');
     const now = new Date();
     const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
-    day.value = local.toISOString().slice(0, 10);
+    const agenda = byId('ivDays');
+    const today = local.toISOString().slice(0, 10);
+    const adjustments = {
+      continue: ['catch_up', 'Preview a catch-up plan'],
+      rest: ['skip_day', 'Preview taking the rest of today off'],
+    };
+    day.value = today;
+    let savedAdjustment;
     function read() {
       const stored = JSON.parse(localStorage.getItem(key) || '{}');
       return stored && typeof stored === 'object' && !Array.isArray(stored) ? stored : {};
+    }
+    function renderDayNotes() {
+      let entries;
+      try { entries = read(); } catch (_) { return; }
+      agenda.querySelectorAll('[data-planner-day-note]').forEach(card => {
+        const text = entries[card.dataset.plannerDayNote]?.note;
+        card.textContent = typeof text === 'string' ? text : '';
+        card.hidden = !card.textContent;
+      });
     }
     function load() {
       try {
         const entry = read()[day.value] || {};
         note.value = entry.note || '';
         progress.value = entry.progress || '';
+        savedAdjustment = day.value === today && Object.hasOwn(adjustments, entry.progress)
+          ? adjustments[entry.progress] : undefined;
+        adjustment.hidden = !savedAdjustment;
+        if (savedAdjustment) adjustment.textContent = savedAdjustment[1];
         status.textContent = '';
       } catch (_) {
+        adjustment.hidden = true;
         status.textContent = 'Browser storage is unavailable.';
       }
     }
@@ -138,6 +160,7 @@
         else entries[day.value] = {note: note.value.trim(), progress: progress.value};
         const recent = Object.keys(entries).sort().slice(-30);
         localStorage.setItem(key, JSON.stringify(Object.fromEntries(recent.map(date => [date, entries[date]]))));
+        renderDayNotes();
         load();
         status.textContent = clear ? 'Cleared this day.' : 'Saved in this browser.';
       } catch (_) {
@@ -145,11 +168,22 @@
       }
     }
     day.addEventListener('change', load);
+    progress.addEventListener('change', () => { adjustment.hidden = true; });
+    adjustment.addEventListener('click', () => {
+      if (!savedAdjustment || adjustment.hidden) return;
+      if (!window.FT?.available()) {
+        status.textContent = 'Build and save a plan before previewing an adjustment.';
+        return;
+      }
+      window.FT.open(savedAdjustment[0], {}, adjustment);
+    });
     checkin.addEventListener('submit', event => {
       event.preventDefault();
       write(false);
     });
     byId('plannerCheckinClear').addEventListener('click', () => write(true));
+    agenda.addEventListener('planner-days-rendered', renderDayNotes);
+    renderDayNotes();
     load();
   }
 

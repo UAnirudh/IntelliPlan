@@ -9,6 +9,7 @@ import pytest
 
 import App
 import secret_box
+from intelliplan.api import todoist
 from intelliplan.persistence.codec import pack_document
 from intelliplan.persistence.lms_grants import SCHEMAS
 from intelliplan.persistence.mongo import MongoStore
@@ -26,8 +27,8 @@ def environment(monkeypatch):
     client = mongomock.MongoClient()
     store = MongoStore('mongodb://test', 'lms', client_factory=lambda *a, **k: client)
     store.transaction = lambda work: work(store.database, None)
-    store.database.users.insert_many([{'id': 1, 'email': 'owner@example.invalid'},
-                                     {'id': 2, 'email': 'peer@example.invalid'}])
+    store.database.users.insert_many([{'id': 1, 'email': 'owner@example.invalid', 'birth_year': 2000},
+                                     {'id': 2, 'email': 'peer@example.invalid', 'birth_year': 2000}])
     app.extensions['mongo_store'] = store
     login = LoginManager(app)
     login.user_loader(MongoAccounts(store).get)
@@ -39,6 +40,10 @@ def environment(monkeypatch):
             view_func=getattr(App, 'api_' + name + '_status'))
         app.add_url_rule('/disconnect/' + provider, endpoint='disconnect_' + provider,
             view_func=getattr(App, 'api_' + name + '_disconnect'), methods=['POST'])
+    monkeypatch.setenv('TODOIST_CLIENT_ID', 'fixture-client')
+    monkeypatch.setenv('TODOIST_CLIENT_SECRET', 'fixture-secret')
+    monkeypatch.setattr(todoist, '_list', lambda *_: [{'id': 'test-project', 'name': 'School project'}])
+    app.register_blueprint(todoist.bp)
     app.add_url_rule('/callback/<provider>', view_func=App.api_lms_callback)
     app.add_url_rule('/moodle/connect', view_func=App.api_lms_connect_moodle_manual, methods=['POST'])
     yield app, store, repos
@@ -68,20 +73,29 @@ def connect(repo, identity=1, **values):
 def test_status_disconnect_isolation_and_source_metadata(environment, provider):
     app, store, repos = environment
     repo = repos[provider]
-    grant = connect(repo)
+    if provider == 'todoist':
+        status_path = disconnect_path = '/api/todoist/connection'
+        disconnect_method = 'DELETE'
+        token_fields = {'token_expires_at': utcnow() + timedelta(hours=1)}
+    else:
+        status_path = '/status/' + provider
+        disconnect_path = '/disconnect/' + provider
+        disconnect_method = 'POST'
+        token_fields = {}
+    grant = connect(repo, **token_fields)
     collection = store.database[repo.collection_name]
     collection.update_one({'id': grant.id}, {'$set': {'future_field': 'retain'}})
-    updated = connect(repo)
+    updated = connect(repo, **token_fields)
     assert updated.id == grant.id
     assert collection.find_one({'id': grant.id})['future_field'] == 'retain'
     assert all(secret_box.is_encrypted(collection.find_one({'id': grant.id})[key]) for key in repo.secrets)
     assert 'synthetic-access' not in repr(updated) and 'synthetic-ws' not in repr(updated)
-    assert sign_in(app).get('/status/' + provider).get_json()['connected'] is True
+    assert sign_in(app).get(status_path).get_json()['connected'] is True
     peer = sign_in(app, 2)
-    assert peer.get('/status/' + provider).get_json()['connected'] is False
-    assert peer.post('/disconnect/' + provider).status_code == 200
+    assert peer.get(status_path).get_json()['connected'] is False
+    assert peer.open(disconnect_path, method=disconnect_method).status_code == 200
     assert repo.get(1) is not None
-    assert sign_in(app).post('/disconnect/' + provider).status_code == 200
+    assert sign_in(app).open(disconnect_path, method=disconnect_method).status_code == 200
     assert repo.get(1) is None
     assert 'sqlalchemy' not in app.extensions
 
