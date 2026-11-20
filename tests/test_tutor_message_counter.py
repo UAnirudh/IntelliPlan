@@ -213,6 +213,19 @@ def test_provider_failure_releases_the_reserved_message(tutor_client, user_id, m
     assert _used(user_id) == 0
 
 
+def test_empty_provider_reply_refunds_the_turn_without_saving_it(tutor_client, user_id, monkeypatch):
+    _stub_tutor_turn(monkeypatch, model_reply="  \n")
+    saved = []
+    monkeypatch.setattr(chatbot_api, "_save_conversation", lambda *args: saved.append(args))
+    response = tutor_client.post("/api/tutor", json={
+        "messages": [{"role": "user", "content": "How do equivalent fractions work?"}],
+    })
+    assert response.status_code == 503
+    assert response.get_json()["error"] == "ai_unavailable"
+    assert not saved
+    assert _used(user_id) == 0
+
+
 def test_unconfigured_provider_is_reported_as_retryable_and_refunds_message(
         tutor_client, user_id, monkeypatch):
     real_llm_chat = chatbot_api._llm_chat

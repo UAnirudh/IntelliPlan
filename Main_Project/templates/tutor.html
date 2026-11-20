@@ -2642,7 +2642,7 @@ async function sendTutorMessage() {
   if (simpleRead) a11yPrefix.push('Use plain, short sentences and simple vocabulary appropriate for a struggling reader.');
   const prefixStr = a11yPrefix.length ? `[${a11yPrefix.join(' ')}]\n` : '';
 
-  addTutorMsg('user', text || '(image attached)');
+  const pendingBubble = addTutorMsg('user', text || '(image attached)');
   const userMessage = { role: 'user', content: `[Subject: ${currentSubject}]\n${prefixStr}${text || 'What is shown in this image?'}` };
   tutorHistory.push(userMessage);
   scrollBottom();
@@ -2694,7 +2694,7 @@ async function sendTutorMessage() {
     if (data.error === 'safety_unavailable') {
       throw new Error('The safety check is temporarily unavailable. Your question is ready to retry in a moment.');
     }
-    if (!res.ok && !(data && data.reply)) throw new Error(data.message || data.error || `HTTP ${res.status}`);
+    if (!res.ok) throw new Error(data.reply || data.message || 'The tutor could not finish this turn. Try again.');
     reply = (window.IPRichText ? window.IPRichText.normalize(data.reply || '') : String(data.reply || '')).trim();
     if (!reply) throw new Error('The tutor did not return an explanation. Your question is ready to try again.');
     receivedReply = true;
@@ -2705,7 +2705,7 @@ async function sendTutorMessage() {
     if (data.assignment_context) {
       const context = data.assignment_context;
       document.getElementById('tutorAssignmentStatus').textContent =
-        `Studying ${context.title}: ${context.files_read.length} file(s) read` +
+        `Studying ${context.title}: ${Array.isArray(context.files_read) ? context.files_read.length : 0} file(s) read` +
         (context.files_skipped ? `, ${context.files_skipped} unavailable` : '') + '.';
     }
     if (data.modality) {
@@ -2716,13 +2716,14 @@ async function sendTutorMessage() {
       const isNew = data.conversation_id !== conversationId;
       conversationId = data.conversation_id;
       if (isNew || data.title) {
-        await refreshConversationList(data.title);
+        refreshConversationList();
       }
     }
   } catch (err) {
     console.error('Tutor error:', err);
     reply = err.message || 'Connection issue, check your internet and try again.';
     if (!receivedReply) {
+      pendingBubble?.closest?.('.tutor-msg-group')?.remove();
       if (tutorHistory[tutorHistory.length - 1] === userMessage) tutorHistory.pop();
       if (!input.value.trim()) input.value = text;
       if (hasImage && !pendingImageB64) {
@@ -2807,11 +2808,14 @@ function renderPremiumMeta(meta, clarifying) {
   wrap.appendChild(line);
 }
 
-async function refreshConversationList(latestTitle) {
+let tutorListRefreshSerial = 0;
+async function refreshConversationList() {
+  const requestSerial = ++tutorListRefreshSerial;
   try {
     const res = await fetch('/api/tutor/conversations');
     if (!res.ok) return;
     const data = await res.json();
+    if (requestSerial !== tutorListRefreshSerial) return;
     conversationList = data.conversations || [];
     renderHistory();
   } catch (err) { /* ignore */ }

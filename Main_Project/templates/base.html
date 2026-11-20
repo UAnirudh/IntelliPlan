@@ -208,7 +208,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/ip-ui.css') }}?v={{ asset_v }}">
   {# Finishing layer: type ramp, z-scale, cross-document view transitions,
      tabular figures. Loads last so its tokens win where they overlap. #}
-  <style>@view-transition { navigation: auto; }</style>
+  {% include "partials/page_motion.html" %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/ip-premium.css') }}?v={{ asset_v }}">
   {# Phone corrections. Loads after ip-premium for the same reason
      ip-premium loads after ip-ui — it exists to win specificity ties
@@ -496,6 +496,7 @@ body {
 {%- set _app_tabbar = logged_in and active_page in _app_pages -%}
 <body class="{% if active_page in _app_pages %}has-side{% endif %}{% if _app_tabbar %} has-tabbar{% endif %}{% if active_page == 'landing' %} site-landing{% endif %}{% if active_page in ['command_center','tutor','study_hub'] %} has-own-chat{% endif %}"
       {% if current_user is defined and current_user.is_authenticated %}data-user-id="{{ current_user.id }}"{% endif %}{% if _reading_progress %}data-reading-progress{% endif %}{% block body_attrs %}{% endblock %}>
+<div class="ip-page-curtain" aria-hidden="true"></div>
 <div class="ip-progress" aria-hidden="true"></div>
 {# One skip link. There were two — .a11y-skip and .skip-to-content — both
    pointing at #main-content with identical text, so every screen reader

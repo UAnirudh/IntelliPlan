@@ -6,7 +6,7 @@
   <title>{% block page_title %}Your students | IntelliPlan{% endblock %}</title>
   <link rel="icon" href="/static/icons/icon-192.png">
   {% include "partials/site_theme_init.html" %}
-  <style>@view-transition { navigation: auto; }</style>
+  {% include "partials/page_motion.html" %}
   {% block head_extra %}{% endblock %}
   <link rel="stylesheet" href="/static/css/adult_workspace.css?v={{ asset_v }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/site-material.css') }}?v={{ asset_v }}">
@@ -14,6 +14,7 @@
 {% set adult_teacher = current_user.role == 'teacher' %}
 {% set adult_home = '/teacher' if adult_teacher else family_home_url|default('/parent') %}
 <body class="adult-workspace" data-parent-mode="{{ 'true' if parent_mode else 'false' }}" data-user-id="{{ current_user.id }}">
+<div class="ip-page-curtain" aria-hidden="true"></div>
   <a href="#adult-content" class="adult-skip">Skip to content</a>
   <div class="adult-layout">
     <aside class="adult-rail" aria-label="{{ 'Teacher' if adult_teacher else 'Family' }} navigation">

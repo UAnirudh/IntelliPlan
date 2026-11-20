@@ -1,0 +1,38 @@
+.ip-page-curtain { display: none; }
+
+@media (prefers-reduced-motion: no-preference) {
+  html[data-page-motion]:not([data-ui-motion="reduce"]):not([data-a11y-motion="reduce"]):not(.a11y-reduce-motion) .ip-page-curtain {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 2147483647;
+    pointer-events: none;
+    background:
+      radial-gradient(ellipse at 50% 100%, color-mix(in srgb, var(--accent, #77aec9) 18%, transparent), transparent 65%),
+      color-mix(in srgb, var(--bg, #14202a) 94%, var(--accent, #77aec9));
+    box-shadow: 0 -12px 42px #0002;
+  }
+  .ip-page-curtain::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent, #77aec9), transparent);
+    opacity: .65;
+  }
+  html[data-page-motion="leave"] .ip-page-curtain {
+    animation: ip-page-cover 175ms cubic-bezier(.45, .05, .25, 1) both;
+  }
+  html[data-page-motion="arrive"] .ip-page-curtain {
+    animation: ip-page-reveal 370ms cubic-bezier(.65, 0, .22, 1) both;
+  }
+}
+
+@keyframes ip-page-cover {
+  from { transform: translateY(102%); }
+  to { transform: translateY(0); }
+}
+@keyframes ip-page-reveal {
+  from { transform: translateY(0); }
+  to { transform: translateY(-104%); }
+}

@@ -235,39 +235,7 @@
   })();
 
   /* ─────────────────────────────────────────────
-     5. VIEW TRANSITION GUARD
-
-     A cross-document transition holds the outgoing frame until the new
-     document is ready to paint. On a slow route that reads as a frozen
-     page, so opt the navigation out once it has taken too long — the
-     browser then does a plain load, which is what it would have done
-     before this layer existed.
-     ───────────────────────────────────────────── */
-  (function viewTransitionGuard() {
-    if (!('onpagereveal' in window) || !window.navigation) return;
-
-    function transition(e) {
-      var motion = e.viewTransition;
-      if (!motion) return null;
-      motion.ready.catch(function () {});
-      motion.finished.catch(function () {});
-      motion.updateCallbackDone.catch(function () {});
-      return motion;
-    }
-    window.addEventListener('pageswap', function (e) {
-      var motion = transition(e);
-      if (!motion) return;
-      if (reducedMotion()) { motion.skipTransition(); return; }
-      var deadline = setTimeout(function () {
-        try { motion.skipTransition(); } catch (err) { /* already done */ }
-      }, 450);
-      motion.finished.then(function () { clearTimeout(deadline); }, function () { clearTimeout(deadline); });
-    });
-    window.addEventListener('pagereveal', transition);
-  })();
-
-  /* ─────────────────────────────────────────────
-     6. NAVIGATION PROGRESS
+     5. NAVIGATION PROGRESS
 
      Answers the complaint this file exists to answer: clicking something
      that navigates, and watching the page sit still until the server

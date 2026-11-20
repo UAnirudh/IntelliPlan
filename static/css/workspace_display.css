@@ -58,30 +58,6 @@
 .command-chat .command-chat__btn { min-height: 40px; border: 0; border-radius: 999px; padding: 10px 14px; background: transparent; }
 .command-chat #newConversation, .command-chat .command-chat__btn:hover { background: var(--workspace-soft); }
 .command-chat .command-chat__inner { width: var(--workspace-measure); max-width: none; padding: 32px 0; box-sizing: border-box; }
-.command-chat .command-chat__intro { margin: 0; padding: 12px 0 24px; }
-.command-chat .command-chat__intro h2 { font-size: clamp(1.9rem, 3.6vw, 2.7rem); font-weight: 650; letter-spacing: -.04em; line-height: 1.08; margin-bottom: 20px; text-wrap: balance; }
-.command-chat .command-chat__prompts { display: grid; gap: 6px; list-style: none; padding: 0; margin: 18px 0 0; border: 0; }
-/* Action rows follow Primer's ActionList pattern using native controls. */
-body .command-chat .command-chat__prompts li > :is(button, a) {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  width: 100%;
-  gap: 3px;
-  min-height: 52px;
-  padding: 10px 12px;
-  border: 0;
-  border-radius: 14px;
-  background: transparent !important;
-  text-align: left;
-}
-body .command-chat .command-chat__prompts li > :is(button, a):hover {
-  background: var(--workspace-soft) !important;
-}
-.command-chat__prompts li > :is(button, a):focus-visible {
-  outline: 2px solid var(--workspace-accent);
-  outline-offset: -2px;
-}
 .command-chat .command-chat__message { font-size: var(--workspace-type); margin-top: var(--workspace-space); line-height: 1.75; }
 .command-chat .command-chat__message--user { border: 1px solid color-mix(in srgb, var(--workspace-accent) 18%, var(--border)); background: color-mix(in srgb, var(--workspace-accent) 7%, var(--bg-card)); border-radius: 18px; padding: 13px 18px; }
 .command-chat .command-chat__message--assistant { width: 100%; max-width: 100%; }
@@ -127,34 +103,78 @@ body.has-side.has-own-chat .command-chat .command-chat__composer #chatInput {
   .command-chat .command-chat__actions { gap: 5px; }
   .command-chat .command-chat__btn { font-size: .72rem; padding: 9px 11px; }
   .command-chat .command-chat__inner { padding: 18px 0; }
-  .command-chat .command-chat__intro { padding-top: 10px; }
-  .command-chat .command-chat__intro h2 { font-size: clamp(2rem, 7.7vw, 3rem); }
   body.has-side .command-chat .command-chat__composer { margin-bottom: 8px; }
   .workspace-controls { top: 54px; right: 12px; padding: 20px; }
   .command-chat[data-display-plan="agenda"] .command-chat__schedule-days > div { grid-template-columns: 1fr; gap: 5px; }
 }
 @media (max-width: 380px) { .workspace-controls__grid { grid-template-columns: 1fr; } }
 
-/* Keep prompts, conversation, and composer in the same visual family. */
-.command-chat .command-chat__prompts {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+/* Command Center keeps one reading column and a lighter empty state. */
+.command-chat:has(#chatIntro) {
+  background: radial-gradient(ellipse at 50% 28%, color-mix(in srgb, var(--accent) 9%, transparent), transparent 56%), var(--bg);
+}
+.command-chat__intro {
+  display: grid; justify-items: center; text-align: center;
+  margin: auto 0; padding: clamp(12px, 3vh, 32px) 0;
+}
+.command-chat__halo {
+  position: relative; isolation: isolate; display: grid; place-items: center;
+  width: clamp(94px, 16vw, 160px); aspect-ratio: 1.35; margin-bottom: min(3vh, 22px);
+}
+.command-chat__halo::before {
+  content: ""; position: absolute; inset: 16% -12%; z-index: -1;
+  border-radius: 50%; transform: rotate(-13deg);
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, transparent);
+  background: radial-gradient(ellipse, color-mix(in srgb, var(--accent) 15%, transparent), transparent 72%);
+}
+.command-chat__halo .command-chat__portrait {
+  width: auto; height: 100%; max-height: clamp(68px, 13vh, 115px); margin: 0;
+  filter: drop-shadow(0 12px 18px #13212a33);
+}
+.command-chat__intro h2 {
+  font: 660 clamp(2.15rem, 6vw, 4.2rem)/1.02 var(--font-ui);
+  letter-spacing: -.065em; text-wrap: balance; margin: 0;
+}
+.command-chat__intro > p { max-width: 38ch; color: var(--text-secondary); margin: 12px auto 0; text-wrap: balance; }
+.command-chat__prompts {
+  display: flex; justify-content: center; gap: 7px; flex-wrap: wrap;
+  list-style: none; margin: clamp(14px, 3vh, 24px) 0 0; padding: 0;
 }
 body .command-chat .command-chat__prompts li > :is(button, a) {
-  height: 100%;
-  min-height: 82px;
-  padding: 16px;
-  border: 0;
-  border-radius: 18px;
-  background: transparent !important;
+  display: inline-flex; align-items: center; min-height: 43px; gap: 12px;
+  padding: 8px 14px; border: 1px solid var(--border); border-radius: 999px;
+  color: var(--text-primary); background: transparent !important;
+  box-shadow: none !important; font: 550 .87rem var(--font-ui);
+  cursor: pointer; text-decoration: none;
+  transition: border-color .18s, background .18s, translate .18s;
 }
 body .command-chat .command-chat__prompts li > :is(button, a):hover {
+  border-color: var(--accent);
   background: var(--workspace-soft) !important;
+  translate: 0 -1px;
 }
-body.has-side .command-chat .command-chat__composer {
-  background: var(--workspace-soft) !important;
+.command-chat__prompts li > :is(button, a):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.command-chat .command-chat__composer {
+  box-sizing: border-box; width: var(--workspace-measure); flex: 0 0 auto;
+  border-radius: 24px; padding: 14px 16px 10px; background: var(--workspace-soft);
 }
-@media (max-width: 520px) {
-  .command-chat .command-chat__prompts { grid-template-columns: 1fr; }
-  body .command-chat .command-chat__prompts li > :is(button, a) { min-height: 64px; padding: 12px 14px; }
+.command-chat .command-chat__composer-footer { margin-top: 1px; }
+.command-chat__calendar { font-size: .75rem; letter-spacing: .005em; }
+.command-chat__calendar::before {
+  content: ""; display: inline-block; width: 6px; height: 6px; margin-inline-end: 7px;
+  vertical-align: .08em; background: var(--text-muted); border-radius: 50%;
+}
+.command-chat__calendar[data-connected="true"]::before { background: var(--accent); }
+@media (min-width: 769px) and (min-height: 650px) {
+  .command-chat:has(#chatIntro) .command-chat__thread { flex: 0 1 auto; margin-top: auto; }
+  body.has-side .command-chat:has(#chatIntro) .command-chat__composer { margin-bottom: auto; }
+}
+@media (max-height: 620px) {
+  .command-chat__intro { padding-block: 7px; }
+  .command-chat__halo { margin-bottom: 10px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-a11y-motion="reduce"]):not([data-ui-motion="reduce"]) .command-chat__halo .command-chat__portrait {
+    animation: plani-home-hover 6s ease-in-out infinite;
+  }
 }

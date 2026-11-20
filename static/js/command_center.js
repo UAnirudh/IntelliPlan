@@ -268,9 +268,12 @@
         if (data.google) names.push('Google Calendar');
         if (data.outlook) names.push('Outlook');
         if (state) {
-          state.textContent = names.length
-            ? 'Schedules ' + assistantName() + ' makes are added to ' + names.join(' and ') + '.'
-            : 'No calendar connected. Schedules stay in IntelliPlan until you connect one in Settings.';
+          state.dataset.connected = String(names.length > 0);
+          state.textContent = names.length ? names.join(' · ') : 'IntelliPlan calendar';
+          state.title = names.length
+            ? 'Connected calendars for your study plan'
+            : 'Plans stay in IntelliPlan until you connect an external calendar.';
+          state.hidden = false;
         }
         var link = document.getElementById('outlookConnect');
         if (link && data.outlook_configured && !data.outlook) link.hidden = false;
@@ -304,7 +307,10 @@
     });
     inner.addEventListener('click', function (e) {
       var b = e.target.closest('[data-prompt]');
-      if (b) submit(b.dataset.prompt);
+      if (!b || sending || input.value.trim()) return;
+      input.value = b.dataset.prompt;
+      input.dispatchEvent(new Event('input'));
+      input.focus();
     });
     document.getElementById('newConversation').addEventListener('click', function () {
       ++requestSerial;
@@ -316,6 +322,6 @@
     window.addEventListener('resize', measurePhoneTop);
     restore();
     showCalendarState();
-    input.focus();
+    if (window.matchMedia('(pointer: fine)').matches) input.focus({ preventScroll: true });
   });
 })();

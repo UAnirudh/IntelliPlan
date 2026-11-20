@@ -1,0 +1,18 @@
+<script>
+  (() => {
+    try {
+      const marker = sessionStorage.getItem('intelliplan.page-motion');
+      if (!marker) return;
+      sessionStorage.removeItem('intelliplan.page-motion');
+      const trip = JSON.parse(marker);
+      const navigation = performance.getEntriesByType('navigation')[0];
+      const followedRedirect = navigation?.redirectCount > 0 && document.referrer === trip.from;
+      if ((trip.url === location.pathname + location.search || followedRedirect) &&
+          Date.now() - trip.at < 20000 && Date.now() >= trip.at) {
+        document.documentElement.dataset.pageMotion = 'arrive';
+      }
+    } catch (_) {}
+  })();
+</script>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/ip-page-motion.css') }}?v={{ asset_v }}">
+<script defer src="{{ url_for('static', filename='js/ip-page-motion.js') }}?v={{ asset_v }}"></script>
