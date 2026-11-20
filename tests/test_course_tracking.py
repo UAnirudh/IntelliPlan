@@ -451,9 +451,11 @@ def test_connect_buttons_come_from_a_fixed_table(client):
 
     user_id = _make_user()
     known = _tool("connect_account", {"service": "Canvas"}, user_id)
+    calendar = _tool("connect_account", {"service": "Google Calendar"}, user_id)
     unknown = _tool("connect_account", {"service": "https://evil.example"}, user_id)
 
-    assert known["link"] == {"label": "Connect Canvas", "url": "/oauth/canvas"}
+    assert known["link"] == {"label": "Set up Canvas", "url": "/login/canvas"}
+    assert calendar["link"] == {"label": "Connect Google Calendar", "url": "/oauth/google"}
     assert unknown["link"]["url"] == "/connect"
     assert all(url.startswith("/") for _, url in plani_agent.CONNECT_LINKS.values())
 
