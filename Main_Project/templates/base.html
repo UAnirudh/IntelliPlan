@@ -208,6 +208,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/ip-ui.css') }}?v={{ asset_v }}">
   {# Finishing layer: type ramp, z-scale, cross-document view transitions,
      tabular figures. Loads last so its tokens win where they overlap. #}
+  <style>@view-transition { navigation: auto; }</style>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/ip-premium.css') }}?v={{ asset_v }}">
   {# Phone corrections. Loads after ip-premium for the same reason
      ip-premium loads after ip-ui — it exists to win specificity ties

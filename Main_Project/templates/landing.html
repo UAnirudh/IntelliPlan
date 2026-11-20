@@ -262,7 +262,7 @@
       <h1 class="plani-home-title" id="plani-home-title">Make time to study.</h1>
       <p class="plani-home-subtitle">Plani fits schoolwork around your week.</p>
       <a href="{{ '/command-center' if current_user.is_authenticated else '/login' }}" class="ip-action ip-action--primary plani-home-button">Plan with Plani <span class="ip-arrow" aria-hidden="true"></span></a>
-      <p class="plani-home-count" id="planiHomeCount" hidden></p>
+      <p class="plani-home-count" id="planiHomeCount" hidden><strong></strong> <span></span></p>
     </div>
   </div>
 </section>
@@ -1849,7 +1849,10 @@
     var accounts = document.getElementById('planiHomeCount');
     var count = data.students;
     accounts.hidden = !Number.isSafeInteger(count) || count < 0;
-    accounts.textContent = accounts.hidden ? '' : count.toLocaleString() + (count === 1 ? ' account' : ' accounts');
+    if (!accounts.hidden) {
+      accounts.querySelector('strong').textContent = count.toLocaleString();
+      accounts.querySelector('span').textContent = count === 1 ? 'account' : 'accounts';
+    }
     shown += showStat(document.getElementById('statIntegrations'), data.integrations_supported, '+');
     shown += showStat(document.getElementById('statHours'),       data.hours_saved,         'h');
     shown += showStat(document.getElementById('statSessions'),    data.study_sessions,      '+');
@@ -1862,19 +1865,32 @@
     });
   }
 
+  var statsLoadedAt = 0;
+  var statsPending = false;
   function loadStats() {
-    // no-store plus a unique query string: the count has to come from the
-    // database on every load, not from the browser's or an edge's copy.
-    fetch('/api/stats?t=' + Date.now(), { cache: 'no-store' })
-      .then(function(r) { return r.json(); })
+    if (statsPending || Date.now() - statsLoadedAt < 30000) return;
+    statsPending = true;
+    fetch('/api/stats', { cache: 'no-store' })
+      .then(function(r) {
+        if (!r.ok) throw new Error('Could not load stats');
+        return r.json();
+      })
       .then(renderStats)
-      .catch(function() {
-        // The API is unreachable, so there is nothing true to show.
-        renderStats({});
+      .catch(function() { renderStats({}); })
+      .finally(function() {
+        statsLoadedAt = Date.now();
+        statsPending = false;
       });
   }
 
   loadStats();
+  window.addEventListener('pageshow', loadStats);
+  document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'visible') loadStats();
+  });
+  setInterval(function() {
+    if (document.visibilityState === 'visible') loadStats();
+  }, 60000);
 
   // ── Demo placeholder click ────────────────────────────────────
   function handleDemoClick() {

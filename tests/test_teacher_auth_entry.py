@@ -37,7 +37,8 @@ def test_teacher_signup_signin_and_student_consent_flow(client, monkeypatch):
             'canvas_token': 'synthetic-token',
         })
 
-        def read_canvas(url, headers):
+        def read_canvas(url, headers, *, require_complete=False):
+            assert require_complete
             if url == 'https://canvas.example.test/api/v1/courses/14/assignments':
                 return [{'name': 'Read Chapter 2', 'due_at': None, 'submission': 'private'}]
             assert url == 'https://canvas.example.test/api/v1/courses?enrollment_type=teacher&enrollment_state=active'

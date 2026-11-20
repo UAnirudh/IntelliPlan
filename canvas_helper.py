@@ -35,7 +35,11 @@ def _strip_html(s):
 _MAX_PAGES = 50
 
 
-def _get_list(url, headers, timeout=15):
+class CanvasListUnavailable(Exception):
+    """A complete Canvas list could not be read."""
+
+
+def _get_list(url, headers, timeout=15, *, require_complete=False):
     """GET a Canvas list endpoint and return *every* page of it.
 
     Canvas defaults to **ten** items per page. Asking for per_page=100 moves
@@ -56,7 +60,11 @@ def _get_list(url, headers, timeout=15):
         try:
             resp = requests.get(next_url, headers=headers, timeout=timeout)
             page = resp.json()
-        except Exception:
+            if require_complete and not resp.ok:
+                raise ValueError("Canvas rejected a list request.")
+        except Exception as exc:
+            if require_complete:
+                raise CanvasListUnavailable from exc
             break
         if not isinstance(page, list):
             # An error body ({"errors": [...]}) rather than a list of items.
@@ -69,18 +77,28 @@ def _get_list(url, headers, timeout=15):
             except Exception:
                 path = "?"
             print(f"[canvas] {getattr(resp, 'status_code', '?')} non-list body from {path}")
+            if require_complete:
+                raise CanvasListUnavailable
             break
         out.extend(page)
 
         # Canvas paginates via RFC 5988 Link headers; requests parses them.
         try:
             nxt = resp.links.get("next", {}).get("url")
-        except Exception:
+        except Exception as exc:
+            if require_complete:
+                raise CanvasListUnavailable from exc
             nxt = None
-        if not nxt or nxt == next_url:
+        if not nxt:
+            return out
+        if require_complete and (nxt == next_url or urlparse(nxt).netloc != urlparse(url).netloc
+                                 or urlparse(nxt).scheme != urlparse(url).scheme):
+            raise CanvasListUnavailable
+        if nxt == next_url:
             break
         next_url = nxt
-
+    if require_complete:
+        raise CanvasListUnavailable
     return out
 
 

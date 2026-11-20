@@ -15,6 +15,9 @@
   const status = document.getElementById('agendaStatus');
   const items = document.getElementById('agendaItems');
   const exams = document.getElementById('agendaExams');
+  const range = document.getElementById('agendaRange');
+  const viewButtons = Array.from(document.querySelectorAll('[data-agenda-view]'));
+  let view = 'day';
   const form = document.getElementById('agendaActivity');
   const activityStatus = document.getElementById('agendaActivityStatus');
   const find = document.getElementById('agendaFind');
@@ -26,6 +29,9 @@
   const dateTitle = new Intl.DateTimeFormat(undefined, {
     weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
   });
+  const monthTitle = new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' });
+  const shortDay = new Intl.DateTimeFormat(undefined, { weekday: 'short' });
+  const shortDate = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' });
   const clock = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' });
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
   const labels = { class: 'Class', study: 'Study', break: 'Break', busy: 'Calendar', commitment: 'Activity' };
@@ -35,9 +41,10 @@
   date.value = params.get('date') || today();
   if (!date.value) date.value = today();
 
-  async function readDay(day, signal, duration) {
+  async function readDay(day, signal, duration, days = 1) {
     const query = new URLSearchParams({ date: day, tz: timezone });
     if (duration) query.set('duration', duration);
+    if (days > 1) query.set('days', days);
     const response = await fetch('/api/scheduler/calendar?' + query, { signal, cache: 'no-store' });
     const data = await response.json();
     if (!response.ok) throw new Error(data.message || 'Could not load your calendar.');
@@ -92,43 +99,152 @@
     exams.hidden = !rows.length;
   }
 
+  function selectView(next) {
+    view = next;
+    viewButtons.forEach(button => button.setAttribute('aria-pressed', String(button.dataset.agendaView === view)));
+    form.closest('details').hidden = next !== 'day';
+    document.getElementById('agendaPrev').setAttribute('aria-label', 'Previous ' + view);
+    document.getElementById('agendaNext').setAttribute('aria-label', 'Next ' + view);
+    load();
+  }
+
+  function period(day) {
+    const start = new Date(day + 'T12:00');
+    if (view === 'day') return { start: day, days: 1, title: dateTitle.format(start) };
+    if (view === 'week') {
+      start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
+      const end = new Date(start);
+      end.setDate(end.getDate() + 6);
+      return { start: dateValue(start), days: 7, title: shortDate.format(start) + ' to ' + shortDate.format(end) };
+    }
+    start.setDate(1);
+    const days = new Date(start.getFullYear(), start.getMonth() + 1, 0).getDate();
+    return { start: dateValue(start), days, title: monthTitle.format(start) };
+  }
+
+  function dayButton(day, label) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = label;
+    button.setAttribute('aria-label', dateTitle.format(new Date(day + 'T12:00')));
+    if (day === today()) button.setAttribute('aria-current', 'date');
+    button.addEventListener('click', () => {
+      changeDay(day, false);
+      selectView('day');
+      date.focus();
+    });
+    return button;
+  }
+
+  function renderWeek(days) {
+    return days.map(day => {
+      const section = document.createElement('section');
+      section.className = 'agenda-week-day';
+      const label = document.createElement('h3');
+      label.appendChild(dayButton(day.date, dateTitle.format(new Date(day.date + 'T12:00'))));
+      section.appendChild(label);
+      if (day.exams.length) {
+        const note = document.createElement('p');
+        note.textContent = day.exams.map(exam => exam.title + ' tomorrow').join(' · ');
+        section.appendChild(note);
+      }
+      const rows = document.createElement('ol');
+      rows.className = 'agenda-items';
+      rows.append(...day.items.map(item => renderItem(item, day.date)));
+      if (day.items.length) section.appendChild(rows);
+      else {
+        const empty = document.createElement('p');
+        empty.textContent = 'Open day';
+        section.appendChild(empty);
+      }
+      return section;
+    });
+  }
+
+  function renderMonth(days) {
+    const first = new Date(days[0].date + 'T12:00');
+    const cells = [];
+    for (let index = 0; index < 7; index++) {
+      const label = document.createElement('span');
+      label.className = 'agenda-month-weekday';
+      label.textContent = shortDay.format(new Date(2026, 0, 5 + index));
+      cells.push(label);
+    }
+    for (let index = 0; index < (first.getDay() + 6) % 7; index++) {
+      const spacer = document.createElement('span');
+      spacer.setAttribute('aria-hidden', 'true');
+      cells.push(spacer);
+    }
+    for (const day of days) {
+      const cell = dayButton(day.date, String(Number(day.date.slice(-2))));
+      const count = day.items.filter(item => item.kind !== 'break').length;
+      if (count || day.exams.length) {
+        const detail = document.createElement('span');
+        detail.className = 'agenda-month-count';
+        detail.textContent = day.exams.length ? 'Exam prep' : count + (count === 1 ? ' item' : ' items');
+        cell.setAttribute('aria-label', cell.getAttribute('aria-label') + ', ' + detail.textContent);
+        cell.appendChild(detail);
+      }
+      cells.push(cell);
+    }
+    return cells;
+  }
+
   async function load() {
     if (dayRequest) dayRequest.abort();
     if (!date.value) return;
     const day = date.value;
+    const selection = period(day);
     const request = new AbortController();
     dayRequest = request;
-    heading.textContent = dateTitle.format(new Date(day + 'T12:00'));
+    heading.textContent = selection.title;
     status.textContent = 'Loading calendar…';
     items.replaceChildren();
     exams.hidden = true;
+    range.hidden = true;
+    range.replaceChildren();
     try {
-      const data = await readDay(day, request.signal);
+      const data = await readDay(selection.start, request.signal, undefined, selection.days);
       if (request.signal.aborted) return;
-      items.replaceChildren(...data.items.map(item => renderItem(item, day)));
-      renderExams(data.exams, day);
-      status.textContent = data.calendar_unavailable ? 'Some connected calendars could not refresh.' :
-        data.items.length ? '' : 'Nothing scheduled for this day.';
+      status.textContent = data.calendar_unavailable ? 'Some connected calendars could not refresh.' : '';
+      if (view === 'day') {
+        items.replaceChildren(...data.items.map(item => renderItem(item, day)));
+        renderExams(data.exams, day);
+        if (!data.calendar_unavailable && !data.items.length) status.textContent = 'Nothing scheduled for this day.';
+      } else {
+        range.className = 'agenda-' + view;
+        range.replaceChildren(...(view === 'month' ? renderMonth(data.days) : renderWeek(data.days)));
+        range.hidden = false;
+      }
     } catch (error) {
       if (!request.signal.aborted) status.textContent = error.message || 'Could not load your calendar.';
     }
   }
 
-  function changeDay(day) {
+  function changeDay(day, refresh = true) {
     date.value = day;
     if (slotRequest) slotRequest.abort();
     form.elements.start.value = '';
     form.elements.end.value = '';
     activityStatus.textContent = '';
-    load();
+    if (refresh) load();
   }
 
   function shiftDay(delta) {
     const next = new Date((date.value || today()) + 'T12:00');
-    next.setDate(next.getDate() + delta);
+    if (view === 'month') {
+      const original = next.getDate();
+      next.setDate(1);
+      next.setMonth(next.getMonth() + delta);
+      const last = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate();
+      next.setDate(Math.min(original, last));
+    } else {
+      next.setDate(next.getDate() + (view === 'week' ? 7 : 1) * delta);
+    }
     changeDay(dateValue(next));
   }
 
+  viewButtons.forEach(button => button.addEventListener('click', () => selectView(button.dataset.agendaView)));
   date.addEventListener('change', () => changeDay(date.value || today()));
   document.getElementById('agendaPrev').addEventListener('click', () => shiftDay(-1));
   document.getElementById('agendaNext').addEventListener('click', () => shiftDay(1));

@@ -541,8 +541,15 @@ body.has-side.has-own-chat .tutor-suggestions .tutor-sug-card {
 .plani-home-count {
   margin: 0;
   color: var(--text-secondary);
-  font-size: .85rem;
+  font: 600 clamp(.95rem, 1.5vw, 1.12rem)/1.1 var(--font-ui);
   font-variant-numeric: tabular-nums;
+}
+.plani-home-count strong {
+  color: var(--text-primary);
+  font-size: clamp(1.7rem, 4vw, 2.4rem);
+  font-weight: 800;
+  letter-spacing: -.045em;
+  margin-inline-end: .18em;
 }
 .plani-home-art {
   position: relative;
@@ -773,4 +780,65 @@ body.has-side .ipa-assignment-picker { padding: 0; border: 0; background: transp
 }
 @media (min-width: 769px) and (max-width: 950px) {
   body.has-side .ipd-columns { grid-template-columns: minmax(0, 1fr); }
+}
+
+
+.ipa-task-instructions { margin-block: .8rem; }
+.ipa-switch-track, .ipa-switch-knob { pointer-events: none; }
+.ipa-task-instructions p { white-space: pre-wrap; overflow-wrap: anywhere; }
+#ipaInstructionText { max-height: 14rem; overflow: auto; }
+#ipaInstructionRule { border-radius: 10px; padding: .65rem .85rem; background: var(--accent-soft); }
+#ipaCheckResource { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .5rem; align-items: center; }
+#ipaCheckResource label { grid-column: 1 / -1; font-size: .85rem; }
+.ipa-local-recording:not([hidden]) { display: flex; flex-wrap: wrap; gap: .45rem; align-items: center; }
+.ipa-local-recording p { flex: 1 0 100%; }
+
+.connection-check { margin-block: 20px; padding: 14px; border-radius: 14px; background: var(--bg-elevated); }
+.connection-check h2 { margin: 0; font-size: 1rem; letter-spacing: -.015em; }
+.connection-check p { margin: 6px 0 12px; color: var(--text-secondary); font-size: .85rem; }
+.connection-check ul { list-style: none; padding: 0; margin-block: 10px 0; }
+.connection-check li { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 5px 12px; padding-block: 6px; font-size: .84rem; }
+.connection-check li span { color: var(--text-secondary); }
+
+/* Keep the workspace frame still while the new page settles into it. */
+#main-content, #adult-content { view-transition-name: ip-page; }
+.adult-rail { view-transition-name: ip-sidebar; }
+
+::view-transition-group(ip-page),
+::view-transition-group(ip-sidebar) { animation-duration: 0s; }
+::view-transition-old(ip-sidebar),
+::view-transition-new(ip-sidebar) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  ::view-transition-old(root), ::view-transition-new(root) { animation-duration: 130ms; }
+  ::view-transition-old(ip-page) {
+    animation: ip-vt-exit 120ms ease-in both;
+    mix-blend-mode: normal;
+  }
+  ::view-transition-new(ip-page) {
+    animation: ip-vt-enter 270ms cubic-bezier(.21, .84, .28, 1) both;
+    mix-blend-mode: normal;
+  }
+}
+@keyframes ip-vt-exit {
+  to { opacity: 0; transform: translateY(-3px); }
+}
+@keyframes ip-vt-enter {
+  from { opacity: 0; transform: translateY(9px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+html.a11y-reduce-motion::view-transition-old(*),
+html.a11y-reduce-motion::view-transition-new(*),
+html[data-a11y-motion="reduce"]::view-transition-old(*),
+html[data-a11y-motion="reduce"]::view-transition-new(*),
+html[data-ui-motion="reduce"]::view-transition-old(*),
+html[data-ui-motion="reduce"]::view-transition-new(*) {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(*), ::view-transition-new(*) { animation: none; }
 }

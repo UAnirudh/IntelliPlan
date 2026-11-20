@@ -1,7 +1,10 @@
 (() => {
   'use strict';
   const byId = (id) => document.getElementById(id);
-  const state = { links: [], selected: null, latestNote: null, generation: 0, controller: null };
+  const state = { links: [], selected: null, latestNote: null, generation: 0, controller: null, summary: null };
+  byId('familyUpcomingWindow').addEventListener('change', () => {
+    if (state.summary) renderUpcoming(state.summary.upcoming, state.summary.work_status);
+  });
   const current = (studentId, generation) => state.selected === studentId && state.generation === generation;
   const status = (message) => { byId('familyStatus').textContent = message || ''; };
   byId('familyToday').textContent = new Date().toLocaleDateString(undefined,
@@ -24,7 +27,9 @@
   async function loadLinks() {
     const data = await api('/api/roles/links');
     state.links = (data.links || []).filter((link) => link.relationship === 'parent');
-    byId('familyLinkCount').textContent = `${state.links.filter((link) => link.accepted).length} connected`;
+    const connected = state.links.filter(link => link.accepted).length;
+    const pending = state.links.length - connected;
+    byId('familyLinkCount').textContent = connected + ' connected' + (pending ? ' · ' + pending + ' awaiting approval' : '');
     const host = byId('familyStudents');
     host.replaceChildren();
     if (!state.links.length) {
@@ -63,6 +68,7 @@
     state.generation++;
     state.selected = null;
     state.latestNote = null;
+    state.summary = null;
     byId('familyDetail').hidden = true;
     byId('familyRetry').hidden = true;
     byId('familyNudge').querySelector('button[type="submit"]').disabled = true;
@@ -102,7 +108,17 @@
       host.append(row);
       return;
     }
-    items.slice(0, 6).forEach((item) => {
+    const nextWeek = new Date();
+    nextWeek.setDate(nextWeek.getDate() + 7);
+    const visible = byId('familyUpcomingWindow').value === 'all'
+      ? items : items.filter(item => item.due_date && new Date(item.due_date + 'T12:00:00') < nextWeek);
+    if (!visible.length) {
+      const row = document.createElement('li');
+      row.textContent = 'Nothing with a due date in the next seven days.';
+      host.append(row);
+      return;
+    }
+    visible.forEach((item) => {
       const row = document.createElement('li');
       const text = document.createElement('div');
       const title = document.createElement('strong');
@@ -191,6 +207,10 @@
       if (!current(link.student_id, generation)) return;
       const summary = data.summary || {};
       if (summary.status !== 'ok') throw new Error('Their work summary is temporarily unavailable.');
+      state.summary = summary;
+      const categories = { work: 'Assignments', study: 'Recorded study', tools: 'Tool access', foundations: 'Foundations practice' };
+      const shared = (summary.scopes || []).map(scope => categories[scope]).filter(Boolean);
+      byId('familySharing').textContent = shared.length ? 'Sharing ' + shared.join(' · ') : 'No categories shared.';
       byId('familySelectedName').textContent = data.student.name;
       byId('familyAsOf').textContent = `Updated ${new Date(summary.as_of).toLocaleString()}${summary.work_source ? ' · ' + summary.work_source : ''}`;
       byId('familyStudyDays').textContent = window.AdultProgress.value(summary, 'study_days_7d', 'study');

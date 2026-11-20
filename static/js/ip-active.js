@@ -77,6 +77,7 @@
     $('ipaEmpty').hidden = true;
     $('ipaCard').hidden = false;
     paintCanvasTools();
+    paintInstructions();
 
     $('ipaTitle').textContent = block.title || 'Study session';
     $('ipaCourse').textContent = block.course || 'Study';
@@ -95,7 +96,7 @@
           course: block.course || '',
           due_date: block.due_date || '',
           duration_minutes: block.planned_minutes || 0,
-          description: block.description || '',
+          description: assignmentInstructions(block),
           notes: (block.reasons && block.reasons.join(' ')) || ''
         });
       };
@@ -235,6 +236,7 @@
         ? 'Pick the work you want to focus on.'
         : 'You can study with a session of your own.';
       paintCanvasTools();
+      paintInstructions();
     }).catch(function () { $('ipaAssignmentStatus').textContent = 'Assignments unavailable. Your timer and current plan still work.'; });
     select.addEventListener('change', function () {
       if (IPA.session && !IPA.session.ended_at) return;
@@ -451,6 +453,7 @@
         IPA.plan.assignment_url = plan.assignment_url;
         IPA.plan.description = plan.description;
         paintCanvasTools();
+        paintInstructions();
       }
       status('Session started.');
     }).catch(function (err) {
@@ -586,26 +589,78 @@
     });
   }
 
-  // Capture only on request. The stream stays in this page and never enters
-  // the session payload, persistence layer, recorder, or AI pipeline.
+  // The student chooses a tab. Live preview and optional clips stay in
+  // this page, outside the session payload and AI pipeline.
   var sharedScreen = null;
   var screenRequest = 0;
   var screenStarted = 0;
   var screenTicker = null;
+  var mediaAllowed = true;
+
+  function linkedAssignment(block) {
+    if (!block || block.task_id == null) return null;
+    return assignmentChoices.find(function (choice) {
+      var taskId = String(block.task_id);
+      var choiceId = String(choice.task_id || choice.id);
+      return (taskId === choiceId || taskId === choice.source + ':' + choiceId)
+        && choice.title === block.title && (choice.course || '') === (block.course || '');
+    });
+  }
+
+  function assignmentInstructions(block) {
+    var row = linkedAssignment(block);
+    return String((row && row.description) || (block && block.description) || '').trim().slice(0, 12000);
+  }
+
+  function paintInstructions() {
+    var panel = $('ipaInstructions');
+    if (!panel) return;
+    var text = assignmentInstructions(IPA.plan);
+    var line = $('ipaInstructionText');
+    if (!text) {
+      panel.hidden = true;
+      return;
+    }
+    if (line.textContent !== text) {
+      line.textContent = text;
+      $('ipaResourceResult').hidden = true;
+      $('ipaCheckResource').reset();
+    }
+    panel.hidden = false;
+    var rule = text.split(/(?<=[.!?])\s+|\n/).find(function (part) {
+      return part.length <= 300 && /\b(no (?:ai|chatgpt|outside sources)|closed.book|open.book|only (?:use|the assigned|the provided)|do not use|may use|is prohibited|are allowed)\b/i.test(part);
+    });
+    $('ipaInstructionRule').hidden = !rule;
+    $('ipaInstructionRule').textContent = rule ? 'Check this instruction before using outside help: ' + rule : '';
+    if (rule) panel.open = true;
+  }
+
+  function resourceAddress(value) {
+    try {
+      var url = new URL(value);
+      return url.protocol === 'https:' && !url.username && !url.password ? url.origin + url.pathname : null;
+    } catch (_) { return null; }
+  }
+
+  function checkResource(event) {
+    event.preventDefault();
+    var url = resourceAddress($('ipaResourceUrl').value.trim());
+    var references = assignmentInstructions(IPA.plan).match(/https:\/\/[^\s<>"']+/g) || [];
+    var result = $('ipaResourceResult');
+    if (!url) result.textContent = 'Enter a secure https link.';
+    else if (url === resourceAddress(canvasLink() || '')) result.textContent = 'This is the linked Canvas assignment.';
+    else if (references.some(link => resourceAddress(link.replace(/[).,;]+$/, '')) === url)) {
+      result.textContent = 'This link appears in the instructions. Check the surrounding text for how it may be used.';
+    } else {
+      result.textContent = 'This link is not listed in the instructions. Check with your teacher before using it.';
+    }
+    result.hidden = false;
+  }
 
   function canvasLink() {
     if (!IPA.plan) return null;
-    var candidate = IPA.plan.assignment_url;
-    if (!candidate && IPA.plan.task_id != null) {
-      var row = assignmentChoices.find(function (choice) {
-        if (choice.source !== 'canvas') return false;
-        var taskId = String(IPA.plan.task_id).replace(/^canvas:/, '');
-        var choiceId = String(choice.task_id || choice.id).replace(/^canvas:/, '');
-        return choiceId === taskId && choice.title === IPA.plan.title
-          && (choice.course || '') === (IPA.plan.course || '');
-      });
-      candidate = row && row.assignment_url;
-    }
+    var row = linkedAssignment(IPA.plan);
+    var candidate = IPA.plan.assignment_url || (row && row.source === 'canvas' && row.assignment_url);
     if (!candidate) return null;
     try {
       var url = new URL(candidate);
@@ -625,14 +680,16 @@
     else link.removeAttribute('href');
     var button = $('ipaScreenShare');
     if (!button) return;
-    button.hidden = !url || !IPA.running || IPA.saving || !navigator.mediaDevices?.getDisplayMedia;
+    button.hidden = !mediaAllowed || !url || !IPA.running || IPA.saving || !navigator.mediaDevices?.getDisplayMedia;
     button.textContent = sharedScreen ? 'Stop sharing' : 'Share Canvas tab';
+    paintRecording();
   }
 
   function stopScreen(message) {
     screenRequest += 1;
     if (screenTicker) window.clearInterval(screenTicker);
     screenTicker = null;
+    stopRecording();
     if (sharedScreen) sharedScreen.getTracks().forEach(function (track) { track.stop(); });
     sharedScreen = null;
     var video = $('ipaScreenVideo');
@@ -650,7 +707,7 @@
 
   async function shareCanvas() {
     if (sharedScreen) { stopScreen('Tab sharing stopped. Your timer is still running.'); return; }
-    if (!IPA.running || !canvasLink()) return;
+    if (!mediaAllowed || !IPA.running || !canvasLink()) return;
     var request = ++screenRequest;
     var button = $('ipaScreenShare');
     button.disabled = true;
@@ -673,9 +730,10 @@
       screenStarted = Date.now();
       $('ipaScreenVideo').srcObject = stream;
       $('ipaScreenPreview').hidden = false;
+      $('ipaScreenPreview').open = true;
       var progress = $('ipaScreenStatus');
       progress.hidden = false;
-      progress.textContent = 'Sharing a browser tab. The preview stays on this device.';
+      progress.textContent = 'Sharing your selected tab. Check that your Canvas assignment is in the preview.';
       var time = $('ipaScreenTime');
       time.hidden = false;
       function updateShareTime() {
@@ -692,6 +750,83 @@
     } finally {
       if (request === screenRequest) button.disabled = false;
     }
+  }
+
+  var recorder = null;
+  var recordedClip = null;
+  var recordTimer = null;
+
+  function paintRecording() {
+    var group = $('ipaLocalRecording');
+    if (!group) return;
+    var active = !!(sharedScreen && window.MediaRecorder);
+    group.hidden = !active && !recordedClip;
+    $('ipaRecordTab').hidden = !active;
+    $('ipaRecordTab').disabled = !!(recorder && recorder.state === 'inactive');
+    $('ipaRecordTab').textContent = recorder ? 'Stop recording' : 'Record tab locally';
+    $('ipaDownloadClip').hidden = !recordedClip;
+    $('ipaDiscardClip').hidden = !recordedClip;
+  }
+
+  function stopRecording() {
+    if (recorder && recorder.state !== 'inactive') recorder.stop();
+    window.clearTimeout(recordTimer);
+  }
+
+  function discardRecording() {
+    recordedClip = null;
+    $('ipaRecordStatus').textContent = 'Up to two minutes. Tab video only. Saved to your device only if you download it.';
+    paintRecording();
+  }
+
+  function toggleRecording() {
+    if (recorder) { stopRecording(); return; }
+    if (!sharedScreen || !window.MediaRecorder || !IPA.running) return;
+    if (recordedClip) {
+      $('ipaRecordStatus').textContent = 'Download or discard your last clip to start another one.';
+      return;
+    }
+    try {
+      var current = new MediaRecorder(sharedScreen, { videoBitsPerSecond: 600000 });
+      var chunks = [];
+      var size = 0;
+      current.addEventListener('dataavailable', function (event) {
+        if (!event.data.size) return;
+        size += event.data.size;
+        if (size <= 16 * 1024 * 1024) chunks.push(event.data);
+        else stopRecording();
+      });
+      current.addEventListener('error', function () {
+        chunks = [];
+        $('ipaRecordStatus').textContent = 'Your browser could not record this tab.';
+        stopRecording();
+      });
+      current.addEventListener('stop', function () {
+        window.clearTimeout(recordTimer);
+        recorder = null;
+        recordedClip = chunks.length ? new Blob(chunks, { type: current.mimeType }) : null;
+        $('ipaRecordStatus').textContent = recordedClip ? 'Clip ready to download or discard.' : 'No clip was saved.';
+        paintRecording();
+      });
+      current.start(1000);
+      recorder = current;
+      recordTimer = window.setTimeout(stopRecording, 120000);
+      $('ipaRecordStatus').textContent = 'Recording this tab on your device.';
+    } catch (_) {
+      $('ipaRecordStatus').textContent = 'Your browser could not record this tab.';
+    }
+    paintRecording();
+  }
+
+  function downloadRecording() {
+    if (!recordedClip) return;
+    var url = URL.createObjectURL(recordedClip);
+    var link = document.createElement('a');
+    link.href = url;
+    link.download = 'intelliplan-study.' + (recordedClip.type.includes('mp4') ? 'mp4' : 'webm');
+    link.click();
+    window.setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    discardRecording();
   }
 
   // ── Focus tracking ──────────────────────────────────────────────────
@@ -753,6 +888,8 @@
 
   var cameraPolicyGeneration = 0;
   function denyCameraCheckIn(reason) {
+    mediaAllowed = false;
+    stopScreen();
     stopTracker();
     $('ipaFocusToggle').checked = false;
     $('ipaFocusToggle').disabled = true;
@@ -831,6 +968,7 @@
           'Looks like you stepped away. Want to pause the timer so this doesn\'t count as study time?';
         $('ipaNudge').hidden = false;
       },
+      onFraming: paintFraming,
       onCameraStatus: function (info) {
         $('ipaFocusNote').textContent = info.message;
         /* The toggle used to be forced back on whenever the camera failed,
@@ -849,6 +987,9 @@
         if (selfWrap) selfWrap.hidden = !info.ok;
         if (!info.ok) hideSelfView();
         if (info.ok) {
+          $('ipaFocusPanel').open = true;
+          showSelfView();
+          paintFraming('Center the area you want to show. Tilt the camera down a little if your face is at the bottom of the preview.');
           refreshCameras();
           sendHeartbeat(undefined, true);
         }
@@ -955,6 +1096,10 @@
     setControls('none');
 
     $('ipaScreenShare')?.addEventListener('click', shareCanvas);
+    $('ipaCheckResource')?.addEventListener('submit', checkResource);
+    $('ipaRecordTab')?.addEventListener('click', toggleRecording);
+    $('ipaDiscardClip')?.addEventListener('click', discardRecording);
+    $('ipaDownloadClip')?.addEventListener('click', downloadRecording);
     $('ipaStart').addEventListener('click', start);
     $('ipaPause').addEventListener('click', togglePause);
     $('ipaDone').addEventListener('click', function () { openFinish(true); });
@@ -1065,11 +1210,19 @@
      make "nothing leaves your device" checkable instead of asserted, and a
      separate capture would prove nothing about the first. */
 
+  function paintFraming(message) {
+    var hint = $('ipaFraming');
+    if (!hint) return;
+    hint.hidden = !message;
+    if (hint.textContent !== message) hint.textContent = message;
+  }
+
   function hideSelfView() {
     var video = $('ipaSelfView');
     var note = $('ipaSelfViewNote');
     var btn = $('ipaSelfViewBtn');
     if (!video) return;
+    paintFraming('');
     var camera = window.IPFocus && window.IPFocus.activeCamera();
     if (camera) camera.detachPreview(video);
     video.srcObject = null;
@@ -1081,13 +1234,11 @@
     }
   }
 
-  function toggleSelfView() {
+  function showSelfView() {
     var video = $('ipaSelfView');
     var note = $('ipaSelfViewNote');
     var btn = $('ipaSelfViewBtn');
     if (!video || !btn) return;
-
-    if (!video.hidden) { hideSelfView(); return; }
 
     var camera = window.IPFocus && window.IPFocus.activeCamera();
     if (!camera || !camera.attachPreview(video)) {
@@ -1110,6 +1261,10 @@
     btn.setAttribute('aria-expanded', 'true');
   }
 
-  window.toggleSelfView = toggleSelfView;
+  window.toggleSelfView = function () {
+    var video = $('ipaSelfView');
+    if (video && !video.hidden) hideSelfView();
+    else showSelfView();
+  };
 
 })();

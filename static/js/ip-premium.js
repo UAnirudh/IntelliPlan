@@ -246,17 +246,24 @@
   (function viewTransitionGuard() {
     if (!('onpagereveal' in window) || !window.navigation) return;
 
+    function transition(e) {
+      var motion = e.viewTransition;
+      if (!motion) return null;
+      motion.ready.catch(function () {});
+      motion.finished.catch(function () {});
+      motion.updateCallbackDone.catch(function () {});
+      return motion;
+    }
     window.addEventListener('pageswap', function (e) {
-      if (!e.viewTransition) return;
-      if (reducedMotion()) { e.viewTransition.skipTransition(); return; }
-      /* 600ms was long enough to be felt as a stall on top of a request
-         that had already taken its time. The transition itself is now
-         ~240ms end to end, so anything past 300 is the browser waiting,
-         not the animation running. */
-      setTimeout(function () {
-        try { e.viewTransition.skipTransition(); } catch (err) { /* already done */ }
-      }, 300);
+      var motion = transition(e);
+      if (!motion) return;
+      if (reducedMotion()) { motion.skipTransition(); return; }
+      var deadline = setTimeout(function () {
+        try { motion.skipTransition(); } catch (err) { /* already done */ }
+      }, 450);
+      motion.finished.then(function () { clearTimeout(deadline); }, function () { clearTimeout(deadline); });
     });
+    window.addEventListener('pagereveal', transition);
   })();
 
   /* ─────────────────────────────────────────────

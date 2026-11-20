@@ -12,6 +12,12 @@
       <button class="btn-secondary" type="button" id="agendaToday">Today</button>
     </div>
   </div>
+  <div class="agenda-period" role="group" aria-label="Calendar view">
+    <button type="button" data-agenda-view="day" aria-pressed="true">Day</button>
+    <button type="button" data-agenda-view="week" aria-pressed="false">Week</button>
+    <button type="button" data-agenda-view="month" aria-pressed="false">Month</button>
+  </div>
+  <div id="agendaRange" hidden></div>
   <ul class="agenda-exams" id="agendaExams" hidden></ul>
   <p id="agendaStatus" role="status"></p>
   <ol class="agenda-items" id="agendaItems" aria-labelledby="agendaDayHeading"></ol>

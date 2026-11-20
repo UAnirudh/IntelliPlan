@@ -9735,9 +9735,11 @@ def onedrive_disconnect():
 
 @app.route("/calendar/connections")
 def calendar_connections():
-    outlook = outlook_accounts().get(current_user.id) if current_user.is_authenticated else None
+    uid = current_user.id if current_user.is_authenticated else None
+    outlook = outlook_accounts().get(uid) if uid is not None else None
     return flask.jsonify({
         "google": bool(get_google_token()) if GCAL_AVAILABLE else False,
+        "google_linked": bool(google_accounts().get(uid)) if uid is not None and GCAL_AVAILABLE else False,
         "outlook": bool(outlook),
         "outlook_configured": bool(OUTLOOK_AVAILABLE and outlook_calendar_helper.configured()),
         "outlook_account": (outlook.account_email if outlook else None),
@@ -10337,8 +10339,7 @@ def calendar_free_slot():
     except (TypeError, ValueError):
         return flask.jsonify(error_code='invalid_date_range', connected=False, available=False), 400
     uid = current_user.id
-    connected = bool(GoogleIntegration.query.with_entities(GoogleIntegration.id).filter_by(user_id=uid).first()
-                     or OutlookIntegration.query.with_entities(OutlookIntegration.id).filter_by(user_id=uid).first())
+    connected = bool(google_accounts().get(uid) or outlook_accounts().get(uid))
     if not connected:
         return flask.jsonify(slot='', connected=False, available=False)
     try:

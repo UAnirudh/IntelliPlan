@@ -466,3 +466,26 @@ def test_scheduler_calendar_withholds_suggestion_when_provider_fails(client, mon
     assert client.get("/api/scheduler/calendar").get_json()["calendar_unavailable"] is True
     assert client.get("/api/scheduler/calendar?duration=60").status_code == 503
     assert client.get("/api/scheduler/calendar?duration=not-a-number").status_code == 400
+
+
+
+def test_scheduler_calendar_reads_a_month_in_one_calendar_query(client, monkeypatch):
+    login(client, make_user())
+    calls = []
+    last = MONDAY + timedelta(days=30)
+
+    def busy(days, start, require_complete):
+        calls.append((days, start, require_complete))
+        return {last: [(12 * 60, 13 * 60)]}
+
+    monkeypatch.setattr(App, "_calendar_busy_by_date", busy)
+    response = client.get(f"/api/scheduler/calendar?date={MONDAY}&days=31")
+    assert response.status_code == 200
+    days = response.get_json()["days"]
+    assert len(days) == 31
+    assert days[0]["date"] == MONDAY.isoformat()
+    assert days[-1]["items"][0]["kind"] == "busy"
+    assert calls == [(31, MONDAY, True)]
+    assert client.get("/api/scheduler/calendar?days=32").status_code == 400
+    assert client.get("/api/scheduler/calendar?days=invalid").status_code == 400
+    assert client.get("/api/scheduler/calendar?days=7&duration=30").status_code == 400

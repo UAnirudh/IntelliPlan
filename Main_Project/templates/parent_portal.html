@@ -40,6 +40,7 @@
               <p class="family-eyebrow">CURRENT SNAPSHOT</p>
               <h2 id="familySelectedName">Student</h2>
               <p id="familyAsOf" class="family-muted"></p>
+              <p id="familySharing" class="family-muted"></p>
               <div class="family-metrics">
                 <div><strong id="familyStudyDays">N/A</strong><span>days with a recorded session</span></div>
                 <div><strong id="familySessions">N/A</strong><span>sessions recorded</span></div>
@@ -68,6 +69,11 @@
 
           <section class="family-card family-upcoming" aria-labelledby="familyUpcomingTitle">
             <div class="family-section-heading"><div><p class="family-eyebrow">AHEAD ON THE CALENDAR</p><h2 id="familyUpcomingTitle">Coming up</h2></div><span>Student controlled data</span></div>
+            <label for="familyUpcomingWindow" class="family-muted">Show assignments</label>
+            <select id="familyUpcomingWindow">
+              <option value="7">Next 7 days</option>
+              <option value="all">All upcoming</option>
+            </select>
             <ul id="familyUpcomingList"></ul>
           </section>
 

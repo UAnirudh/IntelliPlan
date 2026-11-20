@@ -881,8 +881,16 @@
     </script>
 
     {% if current_user.is_authenticated %}
+    <section class="connection-check" aria-labelledby="connectionCheckTitle">
+      <h2 id="connectionCheckTitle">Connection check</h2>
+      <p>Check which accounts are linked and whether calendars and task apps can sync.</p>
+      <button type="button" class="ip-action" id="runConnectionCheck">Check connections</button>
+      <ul id="connectionCheckResults" aria-live="polite" hidden></ul>
+    </section>
+    <script src="/static/js/connection-check.js?v={{ asset_v }}" defer></script>
     <nav class="plani-connection-links" aria-label="Calendar and task connections">
       <a class="ip-action" href="/settings#integrationsWrap">Manage calendars and Notion <span class="ip-arrow" aria-hidden="true"></span></a>
+      <a class="ip-action" href="/settings/ai">OpenAI settings <span class="ip-arrow" aria-hidden="true"></span></a>
       {% if todoist_ready %}
       <a class="ip-action" href="/scheduler?capture=1">Manage Todoist projects <span class="ip-arrow" aria-hidden="true"></span></a>
       {% endif %}

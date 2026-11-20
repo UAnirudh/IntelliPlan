@@ -139,3 +139,41 @@
   .agenda-item-start { grid-column: 2; }
   .agenda-date-nav { gap: 5px; }
 }
+
+
+.agenda-period {
+  display: inline-flex; gap: 3px; padding: 3px; margin-block: 18px 10px;
+  background: var(--bg-elevated); border-radius: 999px;
+}
+.agenda-period button, .agenda-week-day h3 button {
+  border: 0; color: var(--text-secondary); background: transparent; font: inherit;
+  cursor: pointer; border-radius: 999px; padding: 8px 16px;
+}
+.agenda-period button[aria-pressed="true"] {
+  background: var(--bg-card); color: var(--text-primary); box-shadow: var(--shadow-sm); font-weight: 650;
+}
+.agenda-week { display: grid; gap: 12px; margin-block: 10px 24px; }
+.agenda-week-day { border-radius: 14px; padding: 6px 0; background: var(--bg-card); }
+.agenda-week-day h3 { margin: 0; font-size: 1rem; }
+.agenda-week-day h3 button { font-weight: 650; color: var(--text-primary); }
+.agenda-week-day button[aria-current="date"] { color: var(--accent); }
+.agenda-week-day p { margin: 6px 16px; color: var(--text-secondary); font-size: .85rem; }
+.agenda-week-day .agenda-items { margin: 0 6px; }
+.agenda-month {
+  display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: clamp(3px, .8vw, 8px);
+  margin-block: 8px 24px;
+}
+.agenda-month-weekday { text-align: center; color: var(--text-secondary); font-size: .78rem; padding: 8px 0; }
+.agenda-month button {
+  display: grid; align-content: start; text-align: left; min-width: 0; min-height: 65px; gap: 5px;
+  padding: clamp(4px, 1.1vw, 12px); background: var(--bg-elevated);
+  border: 1px solid transparent; color: var(--text-primary); border-radius: 12px; cursor: pointer;
+  font: 650 .95rem var(--font-ui);
+}
+.agenda-month button:hover, .agenda-month button[aria-current="date"] {
+  background: var(--accent-soft); border-color: var(--accent);
+}
+.agenda-month-count { color: var(--text-secondary); font-size: clamp(.58rem, 1vw, .78rem); font-weight: 500; overflow-wrap: anywhere; }
+@media (max-width: 420px) {
+  .agenda-month button { min-height: 54px; border-radius: 8px; }
+}

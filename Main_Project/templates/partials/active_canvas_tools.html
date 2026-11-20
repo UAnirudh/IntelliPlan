@@ -1,3 +1,14 @@
+<details class="ip-disclosure ipa-task-instructions" id="ipaInstructions" hidden>
+  <summary>Assignment instructions</summary>
+  <p id="ipaInstructionText"></p>
+  <p id="ipaInstructionRule" hidden></p>
+  <form id="ipaCheckResource">
+    <label for="ipaResourceUrl">Check a resource link against the instructions</label>
+    <input class="form-input" type="url" maxlength="2048" id="ipaResourceUrl" autocomplete="off" placeholder="https://…" required>
+    <button type="submit" class="ipa-btn ipa-btn--ghost">Check link</button>
+  </form>
+  <p id="ipaResourceResult" role="status" hidden></p>
+</details>
 <div class="ipa-canvas" id="ipaCanvasTools" hidden>
   <a class="ipa-btn" id="ipaCanvasLink" target="_blank" rel="noopener noreferrer">Open in Canvas <span class="ip-arrow" data-direction="up-right" aria-hidden="true"></span></a>
   {% if focus_allowed %}
@@ -8,5 +19,11 @@
     <summary>Preview the shared tab</summary>
     <video id="ipaScreenVideo" playsinline autoplay muted aria-label="Local preview of your shared tab"></video>
   </details>
+  <div class="ipa-local-recording" id="ipaLocalRecording" hidden>
+    <button type="button" class="ipa-btn ipa-btn--ghost" id="ipaRecordTab">Record tab locally</button>
+    <button type="button" class="ipa-btn ipa-btn--ghost" id="ipaDownloadClip" hidden>Download clip</button>
+    <button type="button" class="ipa-btn ipa-btn--ghost" id="ipaDiscardClip" hidden>Discard</button>
+    <p class="ipa-screen-status" id="ipaRecordStatus" role="status">Up to two minutes. Tab video only. Saved to your device only if you download it.</p>
+  </div>
   {% endif %}
 </div>

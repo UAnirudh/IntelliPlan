@@ -177,7 +177,7 @@ def teacher_canvas_courses(course_id=None):
     if current_user.role != "teacher" or not _adult_account(current_user):
         abort(403)
     from App import _lms_policy_allowed, get_active_account
-    from canvas_helper import _base, _get_list, _headers
+    from canvas_helper import CanvasListUnavailable, _base, _get_list, _headers
     from school_pilot import enabled
     if enabled() or not _lms_policy_allowed("canvas"):
         return jsonify(error="canvas_teacher_access_unavailable"), 403
@@ -186,8 +186,12 @@ def teacher_canvas_courses(course_id=None):
             or not account.get("canvas_teacher_read_only")):
         return jsonify(error="teacher_canvas_oauth_required"), 409
     base = _base(account["canvas_url"])
-    courses = _get_list(f"{base}/courses?enrollment_type=teacher&enrollment_state=active",
-                        _headers(account["canvas_token"]))
+    headers = _headers(account["canvas_token"])
+    try:
+        courses = _get_list(f"{base}/courses?enrollment_type=teacher&enrollment_state=active",
+                            headers, require_complete=True)
+    except CanvasListUnavailable:
+        return jsonify(error="canvas_teacher_sync_failed"), 502
     result = [
         {"id": str(course["id"]), "name": str(course.get("name") or "Canvas course")}
         for course in courses if isinstance(course, dict) and str(course.get("id", "")).isdigit()
@@ -199,7 +203,10 @@ def teacher_canvas_courses(course_id=None):
     else:
         if not any(course["id"] == str(course_id) for course in result):
             abort(404)
-        rows = _get_list(f"{base}/courses/{course_id}/assignments", _headers(account["canvas_token"]))
+        try:
+            rows = _get_list(f"{base}/courses/{course_id}/assignments", headers, require_complete=True)
+        except CanvasListUnavailable:
+            return jsonify(error="canvas_teacher_sync_failed"), 502
         response = jsonify(assignments=[
             {"name": str(row.get("name") or "Assignment"), "due_at": row.get("due_at")}
             for row in rows if isinstance(row, dict)

@@ -267,7 +267,14 @@
         if (!faces || !faces.length) {
           return { state: STATE.ABSENT, confidence: 0.7, source: 'camera' };
         }
-        return self._classify(faces[0]);
+        var sample = self._classify(faces[0]);
+        var box = faces[0].boundingBox;
+        if (!box) return sample;
+        var y = (box.y + box.height / 2) / self.canvas.height;
+        if (y > 0.7) sample.framing = 'Tilt the camera down a little to center your face.';
+        else if (y < 0.28) sample.framing = 'Tilt the camera up a little to center your face.';
+        else sample.framing = 'Your face is in frame.';
+        return sample;
       })
       .catch(function () {
         return { state: STATE.UNKNOWN, confidence: 0, source: 'camera' };
@@ -445,6 +452,8 @@
     this.onBucket = options.onBucket || function () {};
     this.onDistraction = options.onDistraction || function () {};
     this.onCameraStatus = options.onCameraStatus || function () {};
+    this.onFraming = options.onFraming || function () {};
+    this.framingHistory = '';
 
     this.presence = null;
     this.camera = null;
@@ -560,6 +569,11 @@
 
     this.camera.sample().then(function (cameraSample) {
       if (!self.running || generation !== self.generation || self.camera !== camera) return;
+      // Require two consistent readings before changing the local hint.
+      if (cameraSample.framing && cameraSample.framing === self.framingHistory) {
+        self.onFraming(cameraSample.framing);
+      }
+      self.framingHistory = cameraSample.framing || '';
       self._record(self._fuse(presenceSample, cameraSample));
     });
   };

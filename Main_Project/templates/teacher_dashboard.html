@@ -4,6 +4,15 @@
 {% block content %}
 <style>
   .td-shell { display: flex; flex-direction: column; gap: 1.75rem; }
+  .td-course-panel { background: var(--bg-card); padding: 16px; border-radius: 16px; }
+  .td-course-panel summary { cursor: pointer; font-weight: 650; }
+  .td-course-panel form { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 14px; }
+  .td-course-panel input { min-width: 0; max-width: 100%; }
+  #tdCanvasCourses { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; padding: 0; }
+  #tdCanvasAssignments { padding-inline-start: 1.2rem; }
+  #tdCanvasAssignments li { padding-block: .4rem; }
+  #tdAssignmentPanel label { display: block; margin-block: 8px; }
+  #tdAssignmentCount { font-size: .82rem; color: var(--text-secondary); }
   .td-toolbar { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: flex-start; }
   .td-invite {
     display: flex; gap: 0.5rem; flex: 1; min-width: 280px;
@@ -99,7 +108,7 @@
 </div>
 
 <div class="td-shell">
-  <details{% if request.args.get('canvas') == 'setup' %} open{% endif %}>
+  <details class="td-course-panel"{% if request.args.get('canvas') == 'setup' %} open{% endif %}>
     <summary>Your Canvas courses</summary>
     {% if request.args.get('canvas') == 'setup' %}<p role="status">Canvas sign-in is unavailable. Ask your school to enable the scoped IntelliPlan Developer Key.</p>{% endif %}
     <form action="/oauth/canvas" method="get">
@@ -111,14 +120,29 @@
     <button type="button" class="btn-secondary" id="tdLoadCanvas">Load Canvas courses</button>
     <p id="tdCanvasStatus" role="status"></p>
     <ul id="tdCanvasCourses"></ul>
-    <ul id="tdCanvasAssignments" aria-label="Selected course assignments"></ul>
+    <div id="tdAssignmentPanel" hidden>
+      <label for="tdAssignmentSearch">Find an assignment in this course</label>
+      <input type="search" id="tdAssignmentSearch" placeholder="Search by title" autocomplete="off">
+      <p id="tdAssignmentCount" role="status"></p>
+      <ul id="tdCanvasAssignments" aria-label="Selected course assignments"></ul>
+    </div>
   </details>
   <script>
+  const tdAssignmentSearch = document.getElementById('tdAssignmentSearch');
+  tdAssignmentSearch.addEventListener('input', () => {
+    const items = [...document.querySelectorAll('#tdCanvasAssignments li')];
+    const query = tdAssignmentSearch.value.trim().toLowerCase();
+    for (const item of items) item.hidden = !item.dataset.title.includes(query);
+    document.getElementById('tdAssignmentCount').textContent =
+      items.filter(item => !item.hidden).length + ' of ' + items.length + ' assignments';
+  });
   document.getElementById('tdLoadCanvas').addEventListener('click', async event => {
     const button = event.currentTarget;
     const status = document.getElementById('tdCanvasStatus');
     const list = document.getElementById('tdCanvasCourses');
     const assignments = document.getElementById('tdCanvasAssignments');
+    const assignmentPanel = document.getElementById('tdAssignmentPanel');
+    assignmentPanel.hidden = true;
     button.disabled = true;
     status.textContent = 'Loading courses…';
     list.replaceChildren();
@@ -129,7 +153,9 @@
       if (!response.ok) {
         status.textContent = response.status === 409
           ? 'First connect your teacher account through your school’s Canvas OAuth setup.'
-          : 'Canvas access is unavailable for this workspace.';
+          : response.status === 502
+            ? 'Canvas did not finish loading. Retry, or reconnect if your school changed the permission.'
+            : 'Canvas access is unavailable for this workspace.';
         return;
       }
       for (const course of result.courses) {
@@ -141,18 +167,25 @@
         open.addEventListener('click', async () => {
           const controls = list.querySelectorAll('button');
           controls.forEach(control => { control.disabled = true; });
+          assignmentPanel.hidden = true;
           assignments.replaceChildren();
+          tdAssignmentSearch.value = '';
           status.textContent = 'Loading assignments…';
           try {
             const result = await fetch('/api/teacher/canvas/courses/' + encodeURIComponent(course.id) + '/assignments', {cache: 'no-store'});
             if (!result.ok) throw new Error('Unable to load assignments');
             const data = await result.json();
-            for (const assignment of data.assignments) {
+            const ordered = [...data.assignments].sort((a, b) =>
+              (a.due_at || '9999').localeCompare(b.due_at || '9999') || a.name.localeCompare(b.name));
+            for (const assignment of ordered) {
               const entry = document.createElement('li');
+              entry.dataset.title = assignment.name.toLowerCase();
               entry.textContent = assignment.name + (assignment.due_at ? ' · ' + new Date(assignment.due_at).toLocaleDateString() : '');
               assignments.appendChild(entry);
             }
             status.textContent = data.assignments.length ? course.name : 'No assignments found.';
+            assignmentPanel.hidden = !data.assignments.length;
+            tdAssignmentSearch.dispatchEvent(new Event('input'));
           } catch {
             status.textContent = 'Assignments could not be loaded.';
           } finally {

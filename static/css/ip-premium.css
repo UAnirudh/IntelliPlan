@@ -195,29 +195,6 @@ time, .nav-date {
    the page body changes. Chrome 126+ honours this; every other browser
    ignores the whole block and navigates exactly as it does today.
    ═══════════════════════════════════════════ */
-@view-transition { navigation: auto; }
-
-/* Deliberately faster than the --dur tokens the rest of the app uses.
-   A cross-document transition does not begin until the new document is
-   ready to paint, so whatever this costs is spent *after* the user has
-   already waited out the request. Anything longer than ~2 frames of
-   settle reads as the app being slow rather than as polish. */
-@media (prefers-reduced-motion: no-preference) {
-  ::view-transition-old(root) {
-    animation: ip-vt-exit 90ms var(--ease-swift) both;
-  }
-  ::view-transition-new(root) {
-    animation: ip-vt-enter 150ms var(--ease-swift) both;
-  }
-}
-
-@keyframes ip-vt-exit {
-  to { opacity: 0; transform: translateY(-4px); }
-}
-@keyframes ip-vt-enter {
-  from { opacity: 0; transform: translateY(6px); }
-}
-
 /* ── Navigation progress bar ──────────────────────────────────────────
    The real source of "I clicked and nothing happened" on this app is not
    any animation: it is that a cross-document view transition holds the
@@ -282,15 +259,6 @@ body > footer      { view-transition-name: ip-footer; }
   /* Hold steady: no cross-fade on chrome that exists on both pages. */
   animation: none;
   mix-blend-mode: normal;
-}
-
-/* The site's own reduce-motion switch has to win over the media query,
-   because a user who set it in Settings did not set it in their OS. */
-html.a11y-reduce-motion::view-transition-old(root),
-html.a11y-reduce-motion::view-transition-new(root),
-html[data-a11y-motion="reduce"]::view-transition-old(root),
-html[data-a11y-motion="reduce"]::view-transition-new(root) {
-  animation: none;
 }
 
 /* ═══════════════════════════════════════════

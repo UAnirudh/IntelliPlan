@@ -510,7 +510,7 @@
 
     {% include "partials/active_canvas_tools.html" %}
 
-    <details class="ipa-focus">
+    <details class="ipa-focus" id="ipaFocusPanel">
       <summary>Camera check-in</summary>
       <div class="ipa-focus-row">
         <div>
@@ -541,6 +541,7 @@
       </ul>
 
       <p class="ipa-focus-note" id="ipaFocusMethod" hidden></p>
+      <p class="ipa-focus-note" id="ipaFraming" role="status" hidden></p>
       {% if focus_allowed %}{% include 'partials/study_camera_source.html' %}{% endif %}
       <div id="ipaSelfViewWrap" hidden>
         <button type="button" class="ipa-selfview-toggle" id="ipaSelfViewBtn"

@@ -374,13 +374,9 @@ html[data-theme="dark"][data-ui-accent="amber"] { --accent: #efc083; --accent-so
 .workspace-appearance select { width: 180px; }
 .workspace-appearance > p { color: var(--text-muted); font-size: .8rem; line-height: 1.6; }
 @media (prefers-reduced-motion: no-preference) {
-  ::view-transition-old(root) { animation-duration: 120ms; }
-  ::view-transition-new(root) { animation-duration: 200ms; }
   .workspace-appearance[open] { animation: workspace-dialog-in 180ms var(--fluid-ease); }
 }
 @keyframes workspace-dialog-in { from { opacity: 0; transform: translateY(8px) scale(.99); } to { opacity: 1; transform: none; } }
-html[data-ui-motion="reduce"]::view-transition-old(root),
-html[data-ui-motion="reduce"]::view-transition-new(root) { animation: none !important; }
 
 /* Conversation surfaces: quiet charcoal canvas, readable inline answers, and
    only purposeful interactive content gets a contained surface. */

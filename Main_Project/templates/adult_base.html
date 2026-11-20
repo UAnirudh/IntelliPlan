@@ -6,6 +6,7 @@
   <title>{% block page_title %}Your students | IntelliPlan{% endblock %}</title>
   <link rel="icon" href="/static/icons/icon-192.png">
   {% include "partials/site_theme_init.html" %}
+  <style>@view-transition { navigation: auto; }</style>
   {% block head_extra %}{% endblock %}
   <link rel="stylesheet" href="/static/css/adult_workspace.css?v={{ asset_v }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/site-material.css') }}?v={{ asset_v }}">

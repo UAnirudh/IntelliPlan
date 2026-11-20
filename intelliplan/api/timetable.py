@@ -31,7 +31,7 @@ from __future__ import annotations
 import base64
 import json
 import logging
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from flask import Blueprint, current_app, jsonify, request
 from intelliplan.persistence.timetable import TimetableError, timetable_repository, SETTINGS_FIELDS
@@ -592,17 +592,18 @@ def _timeline_payload(uid, day, now=None):
     return payload
 
 
-def _weekly_busy(uid, day):
+def _weekly_commitments(uid):
     from intelliplan.persistence.identity import identities
-    from scheduler_engine import DAY_ABBR, parse_commitments
+    from scheduler_engine import parse_commitments
     identity = identities().get(uid)
-    return parse_commitments(identity.weekly_commitments if identity else "").get(DAY_ABBR[day.weekday()], [])
+    return parse_commitments(identity.weekly_commitments if identity else "")
 
 
 @bp.route("/api/scheduler/calendar", methods=["GET"])
 def scheduler_calendar():
     from intelliplan.scheduler_clock import now_for
     from intelliplan.services.calendar_slots import first_opening
+    from scheduler_engine import DAY_ABBR
 
     uid, err = _guard()
     if err:
@@ -612,6 +613,10 @@ def scheduler_calendar():
     day = _parse_date(raw_day) if raw_day else now.date()
     if day is None or (day - now.date()).days not in range(-366, 367):
         return _fail("Choose a date within one year of today.")
+    days = request.args.get("days", type=int) if "days" in request.args else 1
+    if (days is None or not 1 <= days <= 31 or (day - now.date()).days + days - 1 > 366
+            or (days > 1 and "duration" in request.args)):
+        return _fail("Choose up to 31 days within one year of today.")
     duration = request.args.get("duration", type=int)
     if "duration" in request.args and (duration is None or not 15 <= duration <= 240):
         return _fail("Choose an activity length between 15 minutes and 4 hours.")
@@ -621,25 +626,36 @@ def scheduler_calendar():
     meetings = [r.to_meeting() for r in _class_rows(uid)]
     unavailable = False
     try:
-        busy = (_app()._calendar_busy_by_date(1, start=day, require_complete=True) or {}).get(day, [])
+        busy = _app()._calendar_busy_by_date(days, start=day, require_complete=True) or {}
     except CalendarUnavailable:
         unavailable = True
-        busy = _calendar_busy(day)
-    agenda = timeline_service.build_timeline(
-        day, schedule_data=data, progress=progress, meetings=meetings,
-        rotation=rotation, bell=bell, busy=busy, commitments=_weekly_busy(uid, day),
-    )
-    payload = {
-        "status": "ok",
-        "items": agenda["items"],
-        "exams": timeline_service.tomorrow_exams(day, data, progress),
-        "calendar_unavailable": unavailable,
-    }
-    if duration is not None:
-        if unavailable:
+        if duration is not None:
             return _fail("Calendar availability couldn't be checked. Try again before adding an activity.", 503)
+        busy = _app()._calendar_busy_by_date(days, start=day) or {}
+
+    weekly = _weekly_commitments(uid)
+    agendas = []
+    for offset in range(days):
+        current = day + timedelta(days=offset)
+        agenda = timeline_service.build_timeline(
+            current, schedule_data=data, progress=progress, meetings=meetings,
+            rotation=rotation, bell=bell, busy=busy.get(current, ()),
+            commitments=weekly.get(DAY_ABBR[current.weekday()], ()),
+        )
+        agendas.append({
+            "date": current.isoformat(),
+            "items": agenda["items"],
+            "exams": timeline_service.tomorrow_exams(current, data, progress),
+        })
+
+    payload = {"status": "ok", "calendar_unavailable": unavailable}
+    if days > 1:
+        payload["days"] = agendas
+    else:
+        payload.update(agendas[0])
+    if duration is not None:
         earliest = now.hour * 60 + now.minute + 1 if day == now.date() else 0
-        intervals = [(item["start_minute"], item["end_minute"]) for item in agenda["items"]]
+        intervals = [(item["start_minute"], item["end_minute"]) for item in payload["items"]]
         payload["opening"] = first_opening(intervals, duration, earliest=earliest) if day >= now.date() else None
     return _app()._no_store(jsonify(payload))
 
@@ -681,7 +697,8 @@ def today_timeline_move():
         return _fail("There's no saved plan to move blocks in yet.", 404)
     rotation, bell = _rotation(uid)
     meetings = [r.to_meeting() for r in _class_rows(uid)]
-    busy = _calendar_busy(day) + _weekly_busy(uid, day)
+    from scheduler_engine import DAY_ABBR
+    busy = _calendar_busy(day) + _weekly_commitments(uid).get(DAY_ABBR[day.weekday()], [])
     check = timeline_service.check_move(
         day, block_id, start, schedule_data=data, meetings=meetings,
         rotation=rotation, bell=bell, busy=busy,
