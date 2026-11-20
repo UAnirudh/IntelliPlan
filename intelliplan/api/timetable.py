@@ -80,13 +80,16 @@ def _fail(message, code=400, **extra):
     return jsonify({"status": "error", "message": message, **extra}), code
 
 
-def _guard():
-    """``(user_id, None)`` or ``(None, error_response)``."""
+def timetable_enabled():
     App = _app()
     store = current_app.extensions.get('mongo_store')
     flag = store.database.feature_flags.find_one({'key': FLAG_KEY}) if store is not None else None
-    enabled = (flag is None or flag.get('enabled') is True) if store is not None else App.feature_enabled(FLAG_KEY)
-    if not enabled:
+    return (flag is None or flag.get('enabled') is True) if store is not None else App.feature_enabled(FLAG_KEY)
+
+
+def _guard():
+    """``(user_id, None)`` or ``(None, error_response)``."""
+    if not timetable_enabled():
         return None, _fail("Not found.", 404)
     if not current_user.is_authenticated:
         return None, _fail("Sign in to keep a timetable.", 401)
@@ -602,8 +605,6 @@ def _weekly_commitments(uid):
 @bp.route("/api/scheduler/calendar", methods=["GET"])
 def scheduler_calendar():
     from intelliplan.scheduler_clock import now_for
-    from intelliplan.services.calendar_slots import first_opening
-    from scheduler_engine import DAY_ABBR
 
     uid, err = _guard()
     if err:
@@ -621,6 +622,18 @@ def scheduler_calendar():
     if "duration" in request.args and (duration is None or not 15 <= duration <= 240):
         return _fail("Choose an activity length between 15 minutes and 4 hours.")
 
+    try:
+        payload = calendar_agenda(uid, day, now, days=days, duration=duration)
+    except CalendarUnavailable:
+        return _fail("Calendar availability couldn't be checked. Try again before adding an activity.", 503)
+    return _app()._no_store(jsonify(payload))
+
+
+def calendar_agenda(uid, day, now, *, days=1, duration=None):
+    """Shared scheduler agenda for a signed-in owner's validated date range."""
+    from intelliplan.services.calendar_slots import first_opening
+    from scheduler_engine import DAY_ABBR
+
     _row, data, progress = _active_plan(uid)
     rotation, bell = _rotation(uid)
     meetings = [r.to_meeting() for r in _class_rows(uid)]
@@ -630,7 +643,7 @@ def scheduler_calendar():
     except CalendarUnavailable:
         unavailable = True
         if duration is not None:
-            return _fail("Calendar availability couldn't be checked. Try again before adding an activity.", 503)
+            raise
         busy = _app()._calendar_busy_by_date(days, start=day) or {}
 
     weekly = _weekly_commitments(uid)
@@ -657,7 +670,7 @@ def scheduler_calendar():
         earliest = now.hour * 60 + now.minute + 1 if day == now.date() else 0
         intervals = [(item["start_minute"], item["end_minute"]) for item in payload["items"]]
         payload["opening"] = first_opening(intervals, duration, earliest=earliest) if day >= now.date() else None
-    return _app()._no_store(jsonify(payload))
+    return payload
 
 
 @bp.route("/api/today/timeline", methods=["GET"])

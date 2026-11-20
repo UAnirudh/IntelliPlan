@@ -88,6 +88,86 @@ def signed_client(account):
     return client
 
 
+def test_agent_calendar_uses_the_real_agenda_and_withholds_incomplete_openings(account, monkeypatch):
+    from intelliplan.services.calendar_availability import CalendarUnavailable
+
+    monkeypatch.setattr(App, 'feature_enabled', lambda key: True)
+    monkeypatch.setattr(App, '_calendar_busy_by_date',
+                        lambda days, start, **kwargs: {start: [(15 * 60, 17 * 60)]})
+    args = {'date': '2026-10-20', 'duration': 45}
+    result = tool(account, 'get_calendar', args)
+    assert result['opening'] == {'start': '17:00', 'end': '17:45'}
+    assert result['days'][0]['items'] == [
+        {'title': 'Busy', 'kind': 'busy', 'start': '15:00', 'end': '17:00'}]
+    assert 'error' in tool(account, 'get_calendar', {**args, 'days': 2})
+    assert 'error' in tool(account, 'get_calendar', {'date': '2026-02-30'})
+
+    def unavailable(days, start, *, require_complete=False):
+        if require_complete:
+            raise CalendarUnavailable(('google',))
+        return {}
+
+    monkeypatch.setattr(App, '_calendar_busy_by_date', unavailable)
+    assert tool(account, 'get_calendar', args).get('opening') is None
+    assert tool(account, 'get_calendar')['calendar_unavailable'] is True
+
+
+def test_calendar_proposal_requires_owner_confirmation_and_current_policy(account, monkeypatch):
+    import google_calendar_helper
+
+    monkeypatch.setattr(plani, 'ai_available', lambda **kwargs: True)
+    monkeypatch.setattr(plani, 'build_agent_context', lambda uid: '')
+    monkeypatch.setattr('intelliplan.retrieval.retrieve_context', lambda *a: '')
+    monkeypatch.setattr(plani.ai_firewall, 'guard', lambda *a, **k: SimpleNamespace(
+        max_output_tokens=1400, plan='free'))
+    monkeypatch.setattr(plani.ai_firewall, 'record_tokens', lambda *a: None)
+    event = {'title': 'Robotics', 'date': '2026-10-21', 'start': '16:00', 'end': '17:00'}
+    marker = json.dumps({'action': 'add_calendar_event', 'arguments': event})
+    monkeypatch.setattr(plani, 'ai_chat', lambda *a, **k: f'[[IP_ACTION]]{marker}[[/IP_ACTION]]')
+    monkeypatch.setattr(App, 'get_google_token', lambda user_id: {'token': str(user_id)})
+    writer = Mock(return_value=(1, 0, str(account[0])))
+    monkeypatch.setattr(google_calendar_helper, 'add_reviewed_events', writer)
+
+    client = signed_client(account)
+    headers = {'X-IntelliPlan-Chat-Owner': str(account[0]), 'X-Timezone': 'America/Los_Angeles'}
+    response = client.post('/api/plani/agent', headers=headers,
+                           json={'message': 'Add robotics tomorrow from 4 to 5 PM.'})
+    assert response.status_code == 200
+    card = response.json['confirmations'][0]
+    assert {key: card[key] for key in event} == event
+    token = card['token']
+    assert token not in json.dumps(response.json['tool_log'])
+    writer.assert_not_called()
+
+    path = '/api/plani/confirm-calendar'
+    assert client.post(path, json={'token': token}).status_code == 409
+    assert client.post(path, headers=headers, json={'token': token + 'bad'}).status_code == 400
+    assert client.post(path, headers=headers, json={'title': 'Different event'}).status_code == 400
+    writer.assert_not_called()
+
+    saved = client.post(path, headers=headers, json={'token': token})
+    assert saved.json == {'created': 1, 'skipped': 0}
+    grant, events = writer.call_args.args
+    assert grant == {'token': str(account[0])}
+    assert events[0]['start'] == {'dateTime': '2026-10-21T23:00:00Z'}
+    restrict(account, {'calendar': False})
+    assert client.post(path, headers=headers, json={'token': token}).status_code == 403
+    writer.assert_called_once()
+
+
+def test_active_study_link_selects_the_owned_unfinished_block(account, monkeypatch):
+    monkeypatch.setattr(App, 'feature_enabled', lambda key: True)
+    unfinished = {'assignment': 'Biology lab', 'block_id': 'lab-2'}
+    day = '2026-10-21'
+    schedule = {'schedule': [{'date': day, 'blocks': [
+        {'assignment': 'Biology lab', 'block_id': 'lab-1'}, unfinished]}]}
+    monkeypatch.setattr('intelliplan.api.timetable._active_plan',
+                        lambda uid: (None, schedule, {'lab-1': {'done': True}}))
+    result = tool(account, 'open_active_study', {'title': 'biology lab'})
+    assert result['link']['url'] == f'/active?block=lab-2&date={day}'
+    assert 'error' in tool(account, 'open_active_study', {'title': 'missing'})
+
+
 def test_plani_uses_allowlisted_text_only_action_markers_with_legacy_support():
     marker = lambda value: f'[[IP_ACTION]]{json.dumps(value)}[[/IP_ACTION]]'
     reply = 'I will do that. ' + marker({

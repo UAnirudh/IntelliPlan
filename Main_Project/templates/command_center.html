@@ -18,6 +18,7 @@
       <details class="ip-action-menu" data-action-menu>
         <summary aria-label="Workspace actions" title="Workspace actions"><svg aria-hidden="true"><use href="#i-ellipsis"/></svg></summary>
         <div class="ip-action-menu__panel">
+          <button type="button" id="commandCapabilities">What {{ assistant_name }} can do</button>
           <button type="button" id="workspaceCustomize" aria-expanded="false" aria-controls="workspaceControls">Appearance</button>
           <a href="/dashboard#tlCard">Your day</a>
           <a href="/oauth/outlook" id="outlookConnect" hidden>Connect Outlook</a>
@@ -25,6 +26,20 @@
       </details>
     </div>
   </div>
+
+  <dialog class="command-chat__guide" id="commandGuide" aria-labelledby="commandGuideTitle">
+    <form method="dialog">
+      <h2 id="commandGuideTitle">Ask {{ assistant_name }} to</h2>
+      <button class="command-chat__btn">Close</button>
+    </form>
+    <ul class="command-chat__prompts" aria-label="Example requests">
+      <li><button type="button" data-prompt="What is on my calendar tomorrow? Find me a free 45-minute window."><strong>Find time tomorrow</strong><span class="ip-arrow" aria-hidden="true"></span></button></li>
+      <li><button type="button" data-prompt="Add robotics to Google Calendar tomorrow from 4 to 5 PM."><strong>Add a calendar activity</strong><span class="ip-arrow" aria-hidden="true"></span></button></li>
+      <li><button type="button" data-prompt="I cannot study tonight. Move my study blocks to another day."><strong>Rearrange my study plan</strong><span class="ip-arrow" aria-hidden="true"></span></button></li>
+      <li><button type="button" data-prompt="Open Active Study for my biology lab."><strong>Open an Active Study block</strong><span class="ip-arrow" aria-hidden="true"></span></button></li>
+    </ul>
+    <p>{{ assistant_name }} can also manage tasks, check grades, save notes, track outside courses, and open tools across IntelliPlan.</p>
+  </dialog>
 
   <aside class="workspace-controls" id="workspaceControls" aria-label="Customize your workspace" hidden>
     <div class="workspace-controls__heading"><div><h2>Page appearance</h2></div><button type="button" id="workspaceClose" class="command-chat__btn" aria-label="Close workspace customization">Close</button></div>

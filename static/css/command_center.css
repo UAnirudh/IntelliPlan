@@ -199,3 +199,22 @@ details.command-remind{display:block;background:transparent;border-color:var(--b
 .command-chat__link{display:inline-flex;align-items:center;min-height:38px;padding:8px 16px;border-radius:999px;border:1px solid var(--border-accent);background:var(--accent-soft);color:var(--text-primary);font-size:.86rem;font-weight:600;text-decoration:none;transition:border-color .12s}
 .command-chat__link:hover{border-color:var(--accent)}
 .command-chat__link:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.command-chat__confirmation,
+.command-chat__guide {
+  color: var(--text-primary);
+  background: var(--surface, var(--bg));
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 18px;
+}
+.command-chat__confirmation { width: fit-content; max-width: 100%; margin: 6px 0 16px; }
+.command-chat__confirmation p { margin: 7px 0; color: var(--text-secondary); }
+.command-chat__confirmation [role="status"]:empty { display: none; }
+.command-chat__confirmation .command-chat__link { cursor: pointer; }
+.command-chat__confirmation .command-chat__link[hidden] { display: none; }
+.command-chat__guide { width: min(470px, calc(100% - 32px)); margin: auto; }
+.command-chat__guide::backdrop { background: #10182388; }
+.command-chat__guide form { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.command-chat__guide h2 { margin: 0; font-size: 1.1rem; }
+.command-chat__guide .command-chat__prompts { margin: 16px 0; }
+.command-chat__guide p { margin: 0; color: var(--text-secondary); font-size: .9rem; }

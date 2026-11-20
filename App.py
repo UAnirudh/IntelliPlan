@@ -23354,6 +23354,7 @@ limiter.limit("30 per minute")(app.view_functions["command_center.api_today"])
 limiter.limit("6 per hour")(app.view_functions["command_center.api_today_refresh"])
 limiter.exempt(app.view_functions["command_center.cron_refresh_briefings"])
 limiter.limit("20 per minute")(app.view_functions["plani_agent.plani_agent"])
+limiter.limit("20 per minute")(app.view_functions["plani_agent.confirm_calendar"])
 
 
 def _existing_columns(table_name):

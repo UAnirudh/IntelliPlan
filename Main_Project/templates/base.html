@@ -496,7 +496,7 @@ body {
 {%- set _app_tabbar = logged_in and active_page in _app_pages -%}
 <body class="{% if active_page in _app_pages %}has-side{% endif %}{% if _app_tabbar %} has-tabbar{% endif %}{% if active_page == 'landing' %} site-landing{% endif %}{% if active_page in ['command_center','tutor','study_hub'] %} has-own-chat{% endif %}"
       {% if current_user is defined and current_user.is_authenticated %}data-user-id="{{ current_user.id }}"{% endif %}{% if _reading_progress %}data-reading-progress{% endif %}{% block body_attrs %}{% endblock %}>
-<div class="ip-page-curtain" aria-hidden="true"></div>
+{% include 'partials/page_curtain.html' %}
 <div class="ip-progress" aria-hidden="true"></div>
 {# One skip link. There were two — .a11y-skip and .skip-to-content — both
    pointing at #main-content with identical text, so every screen reader

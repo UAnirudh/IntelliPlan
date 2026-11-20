@@ -124,11 +124,11 @@ test('transport failure restores the draft and removes the unprocessed turn', as
   assert.deepEqual(JSON.parse(h.storage.get(STORE)).history, []);
   assert.match(h.ids.chatInner.children.at(-1).innerHTML, /Check your connection/);
 });
-test('New chat also suppresses navigation queued by the old reply', async () => {
+test('Navigation offers a link and waits for the user to open it', async () => {
   const h = harness('17'); h.submit();
   h.requests[0].resolve({ status: 200, json: async () => ({ status: 'ok', reply: 'Open plan', navigate: '/scheduler' }) });
   await flush();
-  assert.equal(h.timers.length, 1);
-  h.reset(); h.timers[0]();
+  assert.equal(h.timers.length, 0);
+  assert.equal(h.ids.chatInner.children.at(-1).children[0].href, '/scheduler');
   assert.equal(h.location.href, undefined);
 });

@@ -117,10 +117,10 @@ def photo_schedule():
 @flashcards_bp.post('/api/calendar/personal-events')
 @flashcards_bp.post('/api/flashcards/photo/calendar')
 def photo_calendar():
-    from App import _calendar_policy_allowed, _no_store, get_google_token
-    from flask import g
+    from App import _calendar_policy_allowed, _no_store
     from intelliplan.learning.photo_schedule import calendar_events, calendar_file
     from intelliplan.scheduler_clock import timezone_for
+    from intelliplan.services.reviewed_calendar import publish_google
 
     if not current_user.is_authenticated:
         return jsonify(message='Sign in to export events.'), 401
@@ -135,21 +135,8 @@ def photo_calendar():
     except ValueError as exc:
         return jsonify(message=str(exc)), 400
     if body.get('destination') == 'google':
-        token = get_google_token(user_id=current_user.id)
-        if not token:
-            return jsonify(message='Connect Google Calendar in Settings first, or download the calendar file.'), 409
-        try:
-            from google_calendar_helper import add_reviewed_events
-            from intelliplan.persistence.google import google_accounts
-            created, skipped, refreshed = add_reviewed_events(token, events)
-            proof = getattr(g, '_google_grant', None)
-            if proof and refreshed and refreshed != token.get('token'):
-                google_accounts().refresh(current_user.id, proof[1], json.dumps({**token, 'token': refreshed}))
-            return _no_store(jsonify(created=created, skipped=skipped))
-        except Exception as exc:
-            logger.warning('Reviewed calendar write failed (%s)', type(exc).__name__)
-            return _no_store(current_app.make_response((jsonify(
-                message='Google Calendar could not finish. Retry to add any remaining events.'), 502)))
+        result, status = publish_google(events, current_user.id)
+        return _no_store(current_app.make_response((jsonify(result), status)))
     return _no_store(current_app.response_class(calendar_file(events), mimetype='text/calendar',
         headers={'Content-Disposition': 'attachment; filename="intelliplan-events.ics"'}))
 

@@ -78,7 +78,8 @@
   function renderLinks(links) {
     var safe = (links || []).filter(function (l) {
       return l && typeof l.url === 'string' && typeof l.label === 'string' &&
-        (/^\/[a-z0-9\-\/]*$/i.test(l.url) || /^https:\/\//i.test(l.url));
+        (/^\/(?:[a-z0-9][a-z0-9/-]*)?$/i.test(l.url) || /^https:\/\//i.test(l.url)
+          || /^\/active\?block=[\w%+.-]+&date=\d{4}-\d{2}-\d{2}$/.test(l.url));
     });
     if (!safe.length) return;
     var row = document.createElement('div');
@@ -108,6 +109,54 @@
     card.innerHTML = '<header><div><p>' + (preview ? 'Preview · not saved' : 'Saved study plan') + '</p><h2>' + esc(schedule.total_study_time || 'Study plan') +
       '</h2></div>' + (preview ? '' : '<a href="/scheduler">Open in Scheduler</a>') + '</header><div class="command-chat__schedule-days">' + days + '</div>';
     inner.appendChild(card);
+  }
+
+  function renderConfirmations(events) {
+    if (!Array.isArray(events)) return;
+    events.forEach(function (event) {
+      var card = document.createElement('section');
+      card.className = 'command-chat__confirmation';
+      var title = document.createElement('strong');
+      title.textContent = event.title;
+      var time = document.createElement('p');
+      time.textContent = event.date + ' · ' + event.start + ' to ' + event.end
+        + (event.timezone ? ' · ' + event.timezone : '');
+      var button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'command-chat__link';
+      button.textContent = 'Add to Google Calendar';
+      var status = document.createElement('p');
+      status.setAttribute('role', 'status');
+      button.addEventListener('click', async function () {
+        button.disabled = true;
+        status.textContent = 'Adding event…';
+        try {
+          var response = await fetch('/api/plani/confirm-calendar', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', 'X-IntelliPlan-Chat-Owner': owner },
+            body: JSON.stringify({ token: event.token })
+          });
+          var result = await response.json();
+          if (result.error === 'account_changed') {
+            sessionStorage.removeItem(STORE);
+            location.reload();
+            return;
+          }
+          if (!response.ok) throw new Error(result.message || 'Could not add this event. Try again.');
+          if (!result.created && !result.skipped) throw new Error('Google Calendar did not return a save confirmation.');
+          var receipt = result.created ? 'Added to Google Calendar' : 'Already in Google Calendar';
+          card.remove();
+          push({ t: 'action', text: receipt + ': ' + event.title });
+          save();
+        } catch (error) {
+          status.textContent = error.message || 'Could not add this event. Try again.';
+          button.disabled = false;
+        }
+      });
+      [title, time, button, status].forEach(function (element) { card.appendChild(element); });
+      inner.appendChild(card);
+    });
   }
 
   function push(item) {
@@ -159,7 +208,8 @@
     fetch('/api/plani/agent', {
       method: 'POST',
       credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json', 'X-IntelliPlan-Chat-Owner': owner },
+      headers: { 'Content-Type': 'application/json', 'X-IntelliPlan-Chat-Owner': owner,
+        'X-Timezone': Intl.DateTimeFormat().resolvedOptions().timeZone || '' },
       body: JSON.stringify({ messages: history.slice(-12) })
     })
       .then(function (r) {
@@ -208,14 +258,9 @@
         if (data.status === 'ok') history.push({ role: 'assistant', content: reply });
         if (data.schedule) push({ t: 'schedule', schedule: data.schedule });
         if (data.links && data.links.length) push({ t: 'links', links: data.links });
+        else if (data.navigate) push({ t: 'links', links: [{ label: 'Open page', url: data.navigate }] });
+        renderConfirmations(data.confirmations);
         save();
-        // Plani's navigate_to tool: go where it said, after the reply has
-        // been read. The conversation is saved, so coming back restores it.
-        if (data.navigate && /^\/[a-z0-9\-\/]*$/i.test(data.navigate)) {
-          setTimeout(function () {
-            if (requestId === requestSerial) location.href = data.navigate;
-          }, 1200);
-        }
       })
       .catch(function () {
         if (requestId !== requestSerial) return;
@@ -305,13 +350,20 @@
         submit();
       }
     });
-    inner.addEventListener('click', function (e) {
+    var guide = document.getElementById('commandGuide');
+    function promptClick(e) {
       var b = e.target.closest('[data-prompt]');
       if (!b || sending || input.value.trim()) return;
+      if (guide && guide.open) guide.close();
       input.value = b.dataset.prompt;
       input.dispatchEvent(new Event('input'));
       input.focus();
-    });
+    }
+    inner.addEventListener('click', promptClick);
+    if (guide) {
+      document.getElementById('commandCapabilities').addEventListener('click', function () { guide.showModal(); });
+      guide.addEventListener('click', promptClick);
+    }
     document.getElementById('newConversation').addEventListener('click', function () {
       ++requestSerial;
       try { sessionStorage.removeItem(STORE); } catch (e) {}
