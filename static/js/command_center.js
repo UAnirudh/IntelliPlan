@@ -135,12 +135,8 @@
     var old = document.getElementById('chatTyping');
     if (old) old.remove();
     if (!show) return;
-    var el = document.createElement('div');
-    el.id = 'chatTyping';
-    el.className = 'command-chat__typing';
-    el.setAttribute('aria-label', assistantName() + ' is working');
-    el.innerHTML = '<span></span><span></span><span></span>';
-    inner.appendChild(el);
+    var template = document.getElementById('chatTypingTemplate');
+    if (template) inner.appendChild(template.content.cloneNode(true));
     scrollDown();
   }
 

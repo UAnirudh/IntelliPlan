@@ -538,6 +538,12 @@ body.has-side.has-own-chat .tutor-suggestions .tutor-sug-card {
   padding-inline: 22px;
   border-radius: 999px;
 }
+.plani-home-count {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: .85rem;
+  font-variant-numeric: tabular-nums;
+}
 .plani-home-art {
   position: relative;
   display: grid;
@@ -569,6 +575,15 @@ body.has-side.has-own-chat .tutor-suggestions .tutor-sug-card {
   display: block;
   filter: drop-shadow(0 14px 20px #04111966);
 }
+@keyframes plani-shadow {
+  0%, 100% { opacity: .75; scale: 1; }
+  50% { opacity: .42; scale: .92; }
+}
+@keyframes plani-page-turn {
+  0%, 100% { transform: translateY(0) rotate(-6deg); }
+  35% { transform: translateY(-4px) rotate(7deg); }
+  62% { transform: translateY(-2px) rotate(-2deg); }
+}
 @keyframes plani-home-hover {
   0%, 100% { transform: translateY(0) rotate(-1deg); }
   50% { transform: translateY(-8px) rotate(1deg); }
@@ -576,6 +591,13 @@ body.has-side.has-own-chat .tutor-suggestions .tutor-sug-card {
 @media (prefers-reduced-motion: no-preference) {
   html:not([data-ui-motion="reduce"]):not([data-a11y-motion="reduce"]) .plani-home-portrait {
     animation: plani-home-hover 7s ease-in-out infinite;
+  }
+  html:not([data-ui-motion="reduce"]):not([data-a11y-motion="reduce"]) .plani-home-art::after {
+    animation: plani-shadow 7s ease-in-out infinite;
+  }
+  html:not([data-ui-motion="reduce"]):not([data-a11y-motion="reduce"]) .plani-working {
+    transform-origin: 50% 83%;
+    animation: plani-page-turn 1.65s ease-in-out infinite;
   }
 }
 html[data-ui-mascot="hidden"] .plani-home-art { display: none; }

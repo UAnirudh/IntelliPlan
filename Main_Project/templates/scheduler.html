@@ -1068,6 +1068,7 @@
             </div>
             <span class="form-hint" id="autoTimeHint"></span>
           </div>
+          <label class="agenda-pack-option"><input type="checkbox" id="schedPackDays"> Allow more sessions on busy days</label>
           <div class="input-group" style="flex:1;">
             <label class="form-label">Add custom tasks (optional)</label>
             <div class="custom-tasks-wrap">
@@ -1183,9 +1184,9 @@
   {# Shown only when the plan came from the offline cache. #}
   <p id="schedCacheAge" class="ipd-cache-age" hidden></p>
 
-  <div class="scheduler-loading" id="schedulerLoading" style="display:none;">
-    <div class="spinner"></div>
-    <p>Building a plan around your assignments and available study time…</p>
+  <div class="scheduler-loading" id="schedulerLoading" role="status" style="display:none;">
+    {{ plani_avatar(48, 'plani-working') }}
+    <p>{{ assistant_name }} is finding study time around your week…</p>
   </div>
 
   <div id="scheduleResults" style="display:none;">
@@ -1260,6 +1261,8 @@
 <!-- ══════════════════════════════════════════════════
      CHECKLIST DRAWER
 ══════════════════════════════════════════════════ -->
+{% include "partials/scheduler_calendar.html" %}
+<script src="/static/js/scheduler-calendar.js?v={{ asset_v }}" defer></script>
 <div class="iv-move-menu" id="ivMoveMenu" role="menu" aria-label="Move block"></div>
 
 <div class="ck-overlay" id="ckOverlay" onclick="if(event.target===this)closeChecklist()"></div>
@@ -1713,6 +1716,7 @@ function switchTab(name) {
     p.classList.toggle('active', p.id === 'pane-' + name);
   });
   if (name === 'interactive') renderInteractive();
+  if (name === 'calendar') document.dispatchEvent(new Event('scheduler:calendar'));
   try { localStorage.setItem('ip_scheduler_tab', name); } catch(e) {}
 }
 const schedulerTabs = Array.from(document.querySelectorAll('.sched-tab'));
@@ -2048,6 +2052,7 @@ function generateSchedule(extra) {
       assignments: allAssignments, hours_per_day: hours, preferred_time: time,
       custom_tasks: customTasks, clarifications: _clarifyAnswers,
       study_start_time: studyStartTime, study_end_time: studyEndTime,
+      pack_days: document.getElementById('schedPackDays').checked,
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
     }, extra || {}))
   })
@@ -2178,6 +2183,7 @@ async function autoSaveSchedule() {
       _progressSyncEnabled = true;
       pushProgress();
       if (window.FT) FT.refresh();
+      if (_currentTab === 'calendar') document.dispatchEvent(new Event('scheduler:calendar'));
     }
   } catch (e) { /* the manual save button remains */ }
 }
@@ -3380,7 +3386,7 @@ function dismissSavedPlan() {
   // Refreshes the forecast and lets Autopilot catch the plan up.
   if (window.FT) FT.planLoaded();
   try {
-    if (!captureViewRequested && localStorage.getItem('ip_scheduler_tab') === 'interactive') switchTab('interactive');
+    if (!captureViewRequested && _currentTab === 'creator' && localStorage.getItem('ip_scheduler_tab') === 'interactive') switchTab('interactive');
   } catch(e) {}
 }).catch(() => {});
 {% endblock %}

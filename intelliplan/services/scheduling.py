@@ -1124,6 +1124,7 @@ def plan_to_schedule_data(
         {
             "task_id": d.task_id,
             "title": d.title,
+            "kind": d.kind,
             "minutes": d.minutes,
             "due_date": d.due_date.isoformat() if d.due_date else None,
             "reason": d.reason,
@@ -1144,6 +1145,7 @@ def plan_to_schedule_data(
                 {
                     "task_id": block.get("task_id"),
                     "title": block.get("parent_title") or block.get("assignment") or "Task",
+                    "kind": block.get("kind"),
                     "minutes": int(block.get("duration_minutes") or 0),
                     "due_date": block.get("due_date") or None,
                     "deadline_at": block.get("deadline_at"),

@@ -56,6 +56,7 @@ from intelliplan.domain.timetable import (
     rotation_label,
 )
 from intelliplan.services import timeline as timeline_service
+from intelliplan.services.calendar_availability import CalendarUnavailable
 
 logger = logging.getLogger(__name__)
 
@@ -591,6 +592,58 @@ def _timeline_payload(uid, day, now=None):
     return payload
 
 
+def _weekly_busy(uid, day):
+    from intelliplan.persistence.identity import identities
+    from scheduler_engine import DAY_ABBR, parse_commitments
+    identity = identities().get(uid)
+    return parse_commitments(identity.weekly_commitments if identity else "").get(DAY_ABBR[day.weekday()], [])
+
+
+@bp.route("/api/scheduler/calendar", methods=["GET"])
+def scheduler_calendar():
+    from intelliplan.scheduler_clock import now_for
+    from intelliplan.services.calendar_slots import first_opening
+
+    uid, err = _guard()
+    if err:
+        return err
+    now = now_for(uid)
+    raw_day = request.args.get("date")
+    day = _parse_date(raw_day) if raw_day else now.date()
+    if day is None or (day - now.date()).days not in range(-366, 367):
+        return _fail("Choose a date within one year of today.")
+    duration = request.args.get("duration", type=int)
+    if "duration" in request.args and (duration is None or not 15 <= duration <= 240):
+        return _fail("Choose an activity length between 15 minutes and 4 hours.")
+
+    _row, data, progress = _active_plan(uid)
+    rotation, bell = _rotation(uid)
+    meetings = [r.to_meeting() for r in _class_rows(uid)]
+    unavailable = False
+    try:
+        busy = (_app()._calendar_busy_by_date(1, start=day, require_complete=True) or {}).get(day, [])
+    except CalendarUnavailable:
+        unavailable = True
+        busy = _calendar_busy(day)
+    agenda = timeline_service.build_timeline(
+        day, schedule_data=data, progress=progress, meetings=meetings,
+        rotation=rotation, bell=bell, busy=busy, commitments=_weekly_busy(uid, day),
+    )
+    payload = {
+        "status": "ok",
+        "items": agenda["items"],
+        "exams": timeline_service.tomorrow_exams(day, data, progress),
+        "calendar_unavailable": unavailable,
+    }
+    if duration is not None:
+        if unavailable:
+            return _fail("Calendar availability couldn't be checked. Try again before adding an activity.", 503)
+        earliest = now.hour * 60 + now.minute + 1 if day == now.date() else 0
+        intervals = [(item["start_minute"], item["end_minute"]) for item in agenda["items"]]
+        payload["opening"] = first_opening(intervals, duration, earliest=earliest) if day >= now.date() else None
+    return _app()._no_store(jsonify(payload))
+
+
 @bp.route("/api/today/timeline", methods=["GET"])
 def today_timeline():
     uid, err = _guard()
@@ -628,7 +681,7 @@ def today_timeline_move():
         return _fail("There's no saved plan to move blocks in yet.", 404)
     rotation, bell = _rotation(uid)
     meetings = [r.to_meeting() for r in _class_rows(uid)]
-    busy = _calendar_busy(day)
+    busy = _calendar_busy(day) + _weekly_busy(uid, day)
     check = timeline_service.check_move(
         day, block_id, start, schedule_data=data, meetings=meetings,
         rotation=rotation, bell=bell, busy=busy,

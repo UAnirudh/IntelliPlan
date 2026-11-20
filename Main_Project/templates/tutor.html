@@ -758,11 +758,11 @@ main {
     <div class="tutor-messages" id="tutorMessages" role="log" aria-live="polite" aria-label="Conversation with {{ assistant_name }}"></div>
 
     <!-- Thinking dots -->
-    <div class="tutor-thinking-row" id="tutorThinking" aria-label="AI Tutor is thinking">
+    <div class="tutor-thinking-row" id="tutorThinking" role="status" aria-label="{{ assistant_name }} is thinking">
       <div class="tutor-avatar bot" aria-hidden="true">
-        {{ plani_avatar(24) }}
+        {{ plani_avatar(24, 'plani-working') }}
       </div>
-      <div class="tutor-thinking-dots">
+      <div class="tutor-thinking-dots" aria-hidden="true">
         <div class="tutor-dot"></div><div class="tutor-dot"></div><div class="tutor-dot"></div>
       </div>
     </div>

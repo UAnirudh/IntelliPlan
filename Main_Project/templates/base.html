@@ -751,14 +751,6 @@ body {
         {% if workspace_school_admin %}
           <a href="/school-admin" class="side-link {% if active_page == 'school_admin' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-settings"/></svg></span>District tools</a>
         {% endif %}
-        {% if logged_in %}
-          <a href="/settings" class="side-link {% if active_page == 'settings' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-settings"/></svg></span>Settings</a>
-          <form action="/logout" method="POST" style="margin:0;">
-            <button type="submit" class="side-link side-logout"><span class="side-icon"><svg><use href="#i-logout"/></svg></span>Logout</button>
-          </form>
-        {% else %}
-          <a href="/login" class="side-link {% if active_page == 'login' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-login"/></svg></span>Login</a>
-        {% endif %}
         {% if is_founder %}
         <details class="founder-mode-form">
           <summary class="founder-mode-button" aria-label="Workspace mode"><span class="side-icon" aria-hidden="true"><svg><use href="#i-settings"/></svg></span>Workspace mode</summary>
@@ -782,6 +774,16 @@ body {
         </div>
       </div>
     </details>
+  </div>
+  <div class="side-account" aria-label="Account">
+    {% if logged_in %}
+      <a href="/settings" class="side-link {% if active_page == 'settings' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-settings"/></svg></span>Settings</a>
+      <form action="/logout" method="POST" style="margin:0;">
+        <button type="submit" class="side-link side-logout"><span class="side-icon"><svg><use href="#i-logout"/></svg></span>Logout</button>
+      </form>
+    {% else %}
+      <a href="/login" class="side-link {% if active_page == 'login' %}active{% endif %}"><span class="side-icon"><svg><use href="#i-login"/></svg></span>Login</a>
+    {% endif %}
   </div>
 </aside>
 
@@ -1062,9 +1064,9 @@ body {
 
     <div id="planiMessages" role="log" aria-live="polite"></div>
 
-    <div id="planiTyping" aria-label="{{ assistant_name }} is typing">
+    <div id="planiTyping" role="status" aria-label="{{ assistant_name }} is typing">
       <div class="plani-msg-avatar" aria-hidden="true">
-        {{ plani_avatar(24) }}
+        {{ plani_avatar(24, 'plani-working') }}
       </div>
       <div class="plani-dots">
         <div class="plani-dots-goo ipm-goo">

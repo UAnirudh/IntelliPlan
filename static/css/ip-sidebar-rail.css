@@ -15,10 +15,11 @@
 :root { --side-rail-w: 64px; --side-peek-w: 244px; }
 
 /* Links and form actions share the same row, including during rail peek. */
-.app-side .side-foot > form { margin: 0; width: 100%; }
-body.has-side .app-side .side-foot .side-link { width: 100%; min-height: 44px; line-height: 1.4; }
-.app-side .side-foot button.side-link { background: transparent; text-align: left; }
-.app-side .side-foot .side-icon { flex-shrink: 0; }
+.app-side .side-account { flex: 0 0 auto; margin-top: auto; padding-block: 4px; }
+.app-side :is(.side-foot, .side-account) > form { margin: 0; width: 100%; }
+body.has-side .app-side :is(.side-foot, .side-account) .side-link { width: 100%; min-height: 44px; line-height: 1.4; }
+.app-side :is(.side-foot, .side-account) button.side-link { background: transparent; text-align: left; }
+.app-side :is(.side-foot, .side-account) .side-icon { flex-shrink: 0; }
 
 @media (min-width: 769px) {
   html[data-side-rail] { --side-w: var(--side-rail-w); }

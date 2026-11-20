@@ -430,3 +430,39 @@ def test_flag_off_404s(client):
         db.session.commit()
     assert client.get("/api/today/timeline").status_code == 404
     assert client.get("/api/timetable").status_code == 404
+
+
+
+def test_scheduler_calendar_uses_saved_plan_and_availability(client, monkeypatch):
+    uid = make_user()
+    login(client, uid)
+    add_class(client, course="Chemistry", weekdays="Mon", start="15:00", end="15:30")
+    with App.app.app_context():
+        App._get_or_create_identity(uid).weekly_commitments = "Robotics Mon 5pm-6pm"
+        db.session.commit()
+    exam = dict(block("exam", "Mock geometry exam", 16 * 60, 17 * 60),
+                kind="exam", due_date=(MONDAY + timedelta(days=1)).isoformat())
+    save_plan(uid, [exam])
+    monkeypatch.setattr(App, "_calendar_busy_by_date",
+                        lambda *a, **k: {MONDAY: [(18 * 60, 19 * 60)]})
+    response = client.get(f"/api/scheduler/calendar?date={MONDAY}&duration=60")
+    assert response.status_code == 200
+    body = response.get_json()
+    assert [item["kind"] for item in body["items"]] == ["class", "study", "commitment", "busy"]
+    assert body["opening"] == {"start": "19:00", "end": "20:00"}
+    assert body["exams"] == [{"title": "Mock geometry exam", "review": [MONDAY.isoformat(), "16:00"],
+                              "unscheduled": False}]
+
+
+def test_scheduler_calendar_withholds_suggestion_when_provider_fails(client, monkeypatch):
+    login(client, make_user())
+
+    def busy(*args, require_complete=False, **kwargs):
+        if require_complete:
+            raise App.CalendarUnavailable(("google",))
+        return {}
+
+    monkeypatch.setattr(App, "_calendar_busy_by_date", busy)
+    assert client.get("/api/scheduler/calendar").get_json()["calendar_unavailable"] is True
+    assert client.get("/api/scheduler/calendar?duration=60").status_code == 503
+    assert client.get("/api/scheduler/calendar?duration=not-a-number").status_code == 400

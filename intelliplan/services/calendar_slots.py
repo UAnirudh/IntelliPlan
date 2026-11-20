@@ -27,3 +27,19 @@ def free_time_summary(intervals, *, not_before=7 * 60):
         hour, minute = divmod(preferred, 60)
         slot = f'{hour % 12 or 12}:{minute:02d} {"PM" if hour >= 12 else "AM"}'
     return {'slot': slot, 'free_hours': len(slots) / 2, 'available': bool(slots)}
+
+
+
+def first_opening(intervals, duration, *, earliest=0):
+    """Prefer an after-school opening, then look earlier in the day."""
+    earliest = max(7 * 60, -(-earliest // 15) * 15)
+    latest = 22 * 60 - duration + 1
+    for start, stop in ((max(15 * 60, earliest), latest), (earliest, min(15 * 60, latest))):
+        for minute in range(start, stop, 15):
+            end = minute + duration
+            if all(end <= a or minute >= b for a, b in intervals):
+                return {
+                    'start': f'{minute // 60:02d}:{minute % 60:02d}',
+                    'end': f'{end // 60:02d}:{end % 60:02d}',
+                }
+    return None

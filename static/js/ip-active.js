@@ -260,7 +260,7 @@
     });
   }
 
-  function loadNext() {
+  function loadNext(blockId, blockDate) {
     var generation = ++assignmentGeneration;
     if ($('ipaAssignmentSelect')) {
       $('ipaAssignmentSelect').value = '';
@@ -271,7 +271,8 @@
       .then(function (data) {
         if (generation !== assignmentGeneration) return;
         if (data.session) return resume(data.session);
-        return api('/api/active/next').then(function (next) {
+        var query = blockId ? '?' + new URLSearchParams({ block_id: blockId, date: blockDate || '' }) : '';
+        return api('/api/active/next' + query).then(function (next) {
           if (generation !== assignmentGeneration) return;
           if (!next.next) {
             IPA.plan = null;
@@ -284,7 +285,9 @@
                either way rather than only a link away from here. */
             var hasPlan = !!next.has_plan;
             var finished = hasPlan && !!next.all_done;
-            $('ipaEmptyMsg').textContent = finished
+            $('ipaEmptyMsg').textContent = next.requested_block_missing
+              ? 'This block is no longer open. Select an assignment or start a session below.'
+              : finished
               ? 'Everything in your plan is done. Start another session if you want to keep going.'
               : hasPlan
                 ? 'Nothing left scheduled for now. You can still start a session below.'
@@ -595,8 +598,11 @@
     var candidate = IPA.plan.assignment_url;
     if (!candidate && IPA.plan.task_id != null) {
       var row = assignmentChoices.find(function (choice) {
-        return choice.source === 'canvas' && String(choice.task_id || choice.id) === String(IPA.plan.task_id)
-          && choice.title === IPA.plan.title && (choice.course || '') === (IPA.plan.course || '');
+        if (choice.source !== 'canvas') return false;
+        var taskId = String(IPA.plan.task_id).replace(/^canvas:/, '');
+        var choiceId = String(choice.task_id || choice.id).replace(/^canvas:/, '');
+        return choiceId === taskId && choice.title === IPA.plan.title
+          && (choice.course || '') === (IPA.plan.course || '');
       });
       candidate = row && row.assignment_url;
     }
@@ -1049,7 +1055,8 @@
       } catch (e) { /* nothing useful to do here */ }
     });
 
-    loadNext();
+    var params = new URLSearchParams(location.search);
+    loadNext(params.get('block'), params.get('date'));
   });
 
   /* ── Self-view ────────────────────────────────────────────────────────

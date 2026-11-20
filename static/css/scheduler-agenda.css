@@ -110,3 +110,32 @@
   box-shadow: none;
   padding: 0; border-radius: 0;
 }
+
+
+.scheduler-calendar { padding-block: 18px 28px; }
+.agenda-heading { display: flex; justify-content: space-between; align-items: end; gap: 10px 24px; flex-wrap: wrap; }
+.agenda-heading h2 { margin: 0; letter-spacing: -.035em; font-size: clamp(1.55rem, 4vw, 2.2rem); }
+.agenda-heading p, #agendaStatus, #agendaActivityStatus { color: var(--text-secondary); font-size: .88rem; margin: 8px 0; }
+.agenda-date-nav, .agenda-actions, .agenda-find, .agenda-activity-time { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.agenda-date-nav .btn-secondary { min-width: 42px; min-height: 42px; display: inline-grid; place-items: center; }
+.agenda-date-nav .form-input { width: auto; min-height: 42px; }
+.agenda-exams { padding: 10px 14px; border-radius: 12px; background: var(--accent-soft); list-style: none; font-size: .9rem; }
+.agenda-exams li + li { margin-top: 6px; }
+.agenda-items { list-style: none; padding: 0; margin: 10px 0 24px; }
+.agenda-item { display: grid; grid-template-columns: minmax(96px, 140px) minmax(0, 1fr) auto; gap: 8px 16px; align-items: center; padding: 13px 10px; }
+.agenda-item:nth-child(odd) { background: var(--bg-elevated); border-radius: 11px; }
+.agenda-item small { display: block; color: var(--text-secondary); }
+.agenda-item time { color: var(--text-secondary); font-size: .82rem; font-variant-numeric: tabular-nums; }
+.agenda-item strong { overflow-wrap: anywhere; }
+.agenda-item-start { font-size: .86rem; font-weight: 600; white-space: nowrap; }
+.agenda-activity { max-width: 660px; }
+.agenda-activity form { display: grid; gap: 12px; padding-block: 12px; }
+.agenda-activity label { display: grid; gap: 4px; font-size: .88rem; }
+.agenda-activity-time label { min-width: 0; flex: 1 1 128px; }
+.agenda-pack-option { display: flex; gap: 8px; align-items: center; font-size: .88rem; align-self: center; }
+
+@media (max-width: 600px) {
+  .agenda-item { grid-template-columns: 94px minmax(0, 1fr); gap: 5px 12px; }
+  .agenda-item-start { grid-column: 2; }
+  .agenda-date-nav { gap: 5px; }
+}

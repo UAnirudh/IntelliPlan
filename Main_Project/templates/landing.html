@@ -262,6 +262,7 @@
       <h1 class="plani-home-title" id="plani-home-title">Make time to study.</h1>
       <p class="plani-home-subtitle">Plani fits schoolwork around your week.</p>
       <a href="{{ '/command-center' if current_user.is_authenticated else '/login' }}" class="ip-action ip-action--primary plani-home-button">Plan with Plani <span class="ip-arrow" aria-hidden="true"></span></a>
+      <p class="plani-home-count" id="planiHomeCount" hidden></p>
     </div>
   </div>
 </section>
@@ -326,11 +327,6 @@
 <!-- ── LIVE STATS STRIP (replaces the static proof-strip) ──────── -->
 <section class="stats-strip" aria-label="Live usage stats">
   <div class="stats-strip-inner">
-    <div class="stat-item">
-      <div class="stat-number" id="statStudents">-</div>
-      <div class="stat-label">students organized</div>
-    </div>
-    <div class="stat-divider"></div>
     <div class="stat-item">
       <div class="stat-number" id="statIntegrations">-</div>
       <div class="stat-label">school tools supported</div>
@@ -1850,7 +1846,10 @@
 
   function renderStats(data) {
     var shown = 0;
-    shown += showStat(document.getElementById('statStudents'),    data.students,            '+');
+    var accounts = document.getElementById('planiHomeCount');
+    var count = data.students;
+    accounts.hidden = !Number.isSafeInteger(count) || count < 0;
+    accounts.textContent = accounts.hidden ? '' : count.toLocaleString() + (count === 1 ? ' account' : ' accounts');
     shown += showStat(document.getElementById('statIntegrations'), data.integrations_supported, '+');
     shown += showStat(document.getElementById('statHours'),       data.hours_saved,         'h');
     shown += showStat(document.getElementById('statSessions'),    data.study_sessions,      '+');
@@ -1875,23 +1874,7 @@
       });
   }
 
-  // ── Trigger stats load when the strip scrolls into view ──────
-  // (Feels more alive than loading on page load before anyone sees it)
-  if ('IntersectionObserver' in window) {
-    var statsObserver = new IntersectionObserver(function(entries) {
-      entries.forEach(function(entry) {
-        if (entry.isIntersecting) {
-          loadStats();
-          statsObserver.disconnect();
-        }
-      });
-    }, { threshold: 0.2 });
-    var stripEl = document.querySelector('.stats-strip');
-    if (stripEl) statsObserver.observe(stripEl);
-  } else {
-    // Fallback for older browsers
-    loadStats();
-  }
+  loadStats();
 
   // ── Demo placeholder click ────────────────────────────────────
   function handleDemoClick() {

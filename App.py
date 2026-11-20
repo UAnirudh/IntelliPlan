@@ -5043,8 +5043,9 @@ def _no_store(resp):
 @app.route("/api/stats")
 def public_stats():
     """Returns live site stats for the landing page. No auth required."""
+    total_users = None
     try:
-        total_users = User.query.count()
+        total_users = account_repository().count()
         total_assignments = DismissedAssignment.query.count()  # assignments completed
         total_study_sessions = StudySession.query.filter_by(completed=True).count()
         integrations_supported = 5
@@ -5071,7 +5072,7 @@ def public_stats():
         # Nulls, not invented traction. The page drops any stat it cannot
         # read, and drops the whole strip when it can read none of them.
         return _no_store(jsonify({
-            "students": None,
+            "students": total_users,
             "integrations_supported": None,
             "hours_saved": None,
             "study_sessions": None,
@@ -5798,6 +5799,11 @@ def grades():
 @app.route("/scheduler")
 def scheduler():
     return render_template("scheduler.html", active_page="scheduler", load_saved=False)
+
+@app.route("/scheduler/calendar")
+def scheduler_calendar_page():
+    return flask.redirect("/scheduler?view=calendar")
+
 
 @app.route("/scheduler/saved")
 def scheduler_saved():
@@ -12445,7 +12451,7 @@ def _planner_task_rows(normalized_assignments, custom_tasks, descriptions=None, 
     pressure", which is the truth, rather than as urgency we made up.
     """
     _KIND_WORDS = (
-        ("exam", ("exam", "final", "midterm")),
+        ("exam", ("exam", "midterm")),
         ("test", ("test", "quiz")),
         ("project", ("project", "essay", "paper", "presentation", "report")),
         ("lab", ("lab",)),
@@ -12458,7 +12464,7 @@ def _planner_task_rows(normalized_assignments, custom_tasks, descriptions=None, 
             return declared
         text = (title or "").lower()
         for kind, words in _KIND_WORDS:
-            if any(w in text for w in words):
+            if any(re.search(rf"\b{word}s?\b", text) for word in words):
                 return kind
         return "homework"
 
@@ -12590,7 +12596,7 @@ def _priority_score_for(assignment):
 
 def _build_planner_schedule(normalized_assignments, custom_tasks, uid, gid,
                             availability, commitments, preferred_time, hours_per_day,
-                            dna=None, *, record_version=True):
+                            dna=None, *, record_version=True, pack_days=False):
     """Run the v2 planner and return ``schedule_data``, or None to fall back.
 
     Returning None rather than raising is deliberate: if anything here is
@@ -12598,7 +12604,7 @@ def _build_planner_schedule(normalized_assignments, custom_tasks, uid, gid,
     error page. The failure is logged loudly so it does not stay hidden.
     """
     try:
-        from intelliplan.intelligence.planner import PlannerConfig
+        from intelliplan.intelligence.planner import PlannerConfig, PlannerWeights
         from intelliplan.services.scheduling import SchedulingService, StudentContext
         from intelliplan.scheduler_clock import now_for
         planning_now = now_for(uid)
@@ -12639,7 +12645,7 @@ def _build_planner_schedule(normalized_assignments, custom_tasks, uid, gid,
             busy_by_date=_planner_busy_by_date(require_complete=True),
             **_followthrough_extras(uid, gid),
         )
-        config = PlannerConfig()
+        config = PlannerConfig(weights=PlannerWeights(crowding=0)) if pack_days else PlannerConfig()
         service = SchedulingService(
             context, config, follow_through=_followthrough_on(uid),
         )
@@ -13065,6 +13071,7 @@ def generate_schedule():
                 normalized_assignments, custom_task_rows, uid, gid,
                 availability, commitments, preferred_time, hours_per_day,
                 dna=dna,
+                pack_days=data.get("pack_days") is True,
             )
         except CalendarUnavailable as exc:
             return flask.jsonify(exc.response()), 503

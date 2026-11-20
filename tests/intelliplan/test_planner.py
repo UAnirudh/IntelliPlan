@@ -731,3 +731,12 @@ def test_stages_sharing_a_day_still_read_in_order():
     plan = build_plan(tasks, caps(300, days=1), today=TODAY)
     order = [s.stage_index for s in plan.days[0].sessions]
     assert order == sorted(order)
+
+
+
+def test_untimed_exam_tomorrow_keeps_review_on_the_day_before():
+    exam = task("exam", kind="exam", est_minutes=30, due_date=TODAY + timedelta(days=1))
+    assert days_used(build_plan([exam], caps([60, 120]), today=TODAY), exam.id) == [TODAY]
+    no_time_today = build_plan([exam], caps([0, 120]), today=TODAY)
+    assert days_used(no_time_today, exam.id) == []
+    assert no_time_today.deferred[0].kind == "exam"

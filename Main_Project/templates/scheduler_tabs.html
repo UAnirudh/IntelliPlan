@@ -5,4 +5,7 @@
   <button type="button" id="tab-interactive" class="sched-tab" data-tab="interactive" role="tab" aria-selected="false" aria-controls="pane-interactive" tabindex="-1">
     My plan <span class="tab-count" id="ivBlockCount" {% if demo_mode %}hidden{% else %}style="display:none;"{% endif %}>0</span>
   </button>
+  {% if not demo_mode %}
+  <button type="button" id="tab-calendar" class="sched-tab" data-tab="calendar" role="tab" aria-selected="false" aria-controls="pane-calendar" tabindex="-1">Calendar</button>
+  {% endif %}
 </div>

@@ -83,6 +83,12 @@
     </div>
   </form>
 </section>
+<template id="chatTypingTemplate">
+  <div id="chatTyping" class="command-chat__typing" role="status">
+    {{ plani_avatar(32, 'plani-working') }}
+    <span>{{ assistant_name }} is working</span>
+  </div>
+</template>
 <script src="/static/js/command_center.js?v={{ asset_v }}" defer></script>
 <script src="/static/js/command_family_note.js?v={{ asset_v }}" defer></script>
 <script src="/static/js/workspace_display.js?v={{ asset_v }}" defer></script>

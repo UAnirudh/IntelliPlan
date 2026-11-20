@@ -229,6 +229,7 @@ class PlannerWeights:
     concept_stack: float = 2.5    # cost of piling unfamiliar concepts up
     follow_through: float = 8.0   # expected value lost to a skipped sitting
     stability: float = 10.0       # cost of moving work the student already saw
+    crowding: float = 8.0         # cost of asking for more than three sittings a day
 
 
 @dataclass(frozen=True, slots=True)
@@ -316,6 +317,7 @@ class Deferral:
     reason: str
     deadline_at: datetime | None = None
     depends_on: tuple[str, ...] = ()
+    kind: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -713,6 +715,7 @@ def _placement_cost(
     # the ninetieth of a full one is not. This is what flattens the week
     # without ever hard-forbidding a heavy day the deadline demands.
     cost = weights.load * (utilisation ** 2)
+    cost += weights.crowding * max(0, len(state.sittings) - 2) ** 2
 
     # Pull important work earlier. Scaled by priority so a critical exam
     # moves several days and a low-stakes worksheet barely moves at all.
@@ -906,6 +909,10 @@ def _build_items(
             latest = hard_latest = horizon_end
         else:
             hard_latest = min(task.due_date, horizon_end)
+            if (task.kind in {"exam", "test"} and task.deadline_at is None
+                    and task.due_date == today + timedelta(days=1)):
+                # With no confirmed exam time, get the review in the day before.
+                hard_latest = today
             latest = task.due_date - timedelta(days=buffer_days)
             # An overdue or imminent task cannot have buffer it does not have.
             latest = max(today, min(latest, hard_latest))
@@ -1519,6 +1526,7 @@ def _materialise(
             Deferral(
                 task_id=head.task.id,
                 title=head.task.title,
+                kind=head.task.kind,
                 minutes=sum(i.minutes for i in group),
                 due_date=head.task.due_date,
                 reason=head.defer_reason or "Did not fit in the available time.",

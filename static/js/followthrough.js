@@ -504,6 +504,9 @@
     if (typeof renderSchedule === 'function') renderSchedule(_lastScheduleData);
     if (typeof renderInteractive === 'function') renderInteractive();
     if (typeof updateBadge === 'function') updateBadge();
+    if (document.getElementById('tab-calendar')?.getAttribute('aria-selected') === 'true') {
+      document.dispatchEvent(new Event('scheduler:calendar'));
+    }
     if (body.forecast || (body.risk && body.risk.after)) state.forecast = null;
     FT.refresh();
   }

@@ -146,6 +146,7 @@ def build_timeline(
     bell: Mapping[str, Sequence[Any]] | None = None,
     busy: Iterable[tuple[int, int]] = (),
     now: datetime | None = None,
+    commitments: Iterable[tuple[int, int]] = (),
 ) -> dict[str, Any]:
     """Everything the timeline draws for ``day``, sorted by start time."""
     items: list[dict[str, Any]] = []
@@ -159,7 +160,6 @@ def build_timeline(
             continue
         key = block_key(block, index)
         is_break = bool(block.get("is_break"))
-        state = progress.get(key) if isinstance(progress.get(key), Mapping) else {}
         title = str(block.get("assignment") or ("Break" if is_break else "Study block"))
         items.append({
             "id": key,
@@ -173,16 +173,24 @@ def build_timeline(
             "end_minute": span[1],
             "label": f"{_fmt12(span[0])} – {_fmt12(span[1])}",
             "movable": not is_break,
-            "done": bool(state.get("done")),
+            "done": _completed(block, progress, index),
             "conflict": bool(block.get("conflict")),
         })
 
-    for start, end in sorted(_merge(busy)):
+    reserved = [
+        (kind, title, source, start, end)
+        for kind, title, source, intervals in (
+            ("busy", "Busy", "From your calendar", busy),
+            ("commitment", "Weekly activity", "From your availability", commitments),
+        )
+        for start, end in _merge(intervals)
+    ]
+    for kind, title, source, start, end in reserved:
         items.append({
-            "id": f"busy-{start}-{end}",
-            "kind": "busy",
-            "title": "Busy",
-            "subtitle": "From your calendar",
+            "id": f"{kind}-{start}-{end}",
+            "kind": kind,
+            "title": title,
+            "subtitle": source,
             "start": fmt_clock(start),
             "end": _end_clock(end),
             "start_minute": start,
@@ -191,7 +199,7 @@ def build_timeline(
             "movable": False,
         })
 
-    order = {"class": 0, "busy": 1, "study": 2, "break": 3}
+    order = {"class": 0, "busy": 1, "commitment": 1, "study": 2, "break": 3}
     items.sort(key=lambda i: (i["start_minute"], order.get(i["kind"], 9), i["end_minute"]))
 
     # The visible range: the default day, stretched to whatever is on it, on
@@ -225,6 +233,37 @@ def build_timeline(
                 "rotation_label": rotation_label(when, rotation),
             }
     return payload
+
+
+def _completed(block, progress, index):
+    state = (progress or {}).get(block_key(block, index))
+    return bool(block.get("done") or state is True or (isinstance(state, Mapping) and state.get("done")))
+
+
+def tomorrow_exams(day, schedule_data, progress):
+    """Aggregate study blocks and deferrals into one reminder per exam."""
+    tomorrow = (day + timedelta(days=1)).isoformat()
+    data = schedule_data or {}
+    exams = {}
+    for review_day in (day, day + timedelta(days=1)):
+        for index, block in enumerate(day_blocks(data, review_day)):
+            if block.get("kind") not in ("exam", "test") or block.get("due_date") != tomorrow:
+                continue
+            span = _block_minutes(block)
+            if span is None or _completed(block, progress, index):
+                continue
+            title = block.get("parent_title") or block.get("assignment") or "Exam"
+            task_id = str(block.get("task_id") or title)
+            review = (review_day.isoformat(), fmt_clock(span[0]))
+            exam = exams.setdefault(task_id, {"title": title, "review": review, "unscheduled": False})
+            exam["review"] = min(exam["review"], review)
+    for task in data.get("deferred") or ():
+        if task.get("kind") in ("exam", "test") and task.get("due_date") == tomorrow:
+            title = task.get("title") or "Exam"
+            task_id = str(task.get("task_id") or title)
+            exam = exams.setdefault(task_id, {"title": title, "review": None, "unscheduled": False})
+            exam["unscheduled"] = True
+    return list(exams.values())
 
 
 def _merge(intervals: Iterable[tuple[int, int]]) -> list[tuple[int, int]]:

@@ -341,12 +341,19 @@ def create_active_blueprint(deps: ActiveDeps) -> Blueprint:
         # holding nothing but breaks. Reporting only ``next: null`` made the
         # client tell a student who had finished their plan to go and make
         # one, which reads as the app having lost their schedule.
+        from intelliplan.services.timeline import block_key
+        requested = request.args.get("block_id", "").strip()[:128]
+        requested_day = request.args.get("date", "").strip()[:10]
         days = plan.get("schedule", []) or []
         has_plan = bool(days)
         saw_workable_block = False
 
         for day in days:
-            for block in day.get("blocks", []) or []:
+            if requested and requested_day and day.get("date") != requested_day:
+                continue
+            for index, block in enumerate(day.get("blocks", []) or []):
+                if requested and block_key(block, index) != requested:
+                    continue
                 if block.get("is_break"):
                     continue
                 saw_workable_block = True
@@ -375,7 +382,8 @@ def create_active_blueprint(deps: ActiveDeps) -> Blueprint:
         return jsonify({
             "next": None,
             "has_plan": has_plan,
-            "all_done": has_plan and saw_workable_block,
+            "all_done": has_plan and saw_workable_block and not requested,
+            **({"requested_block_missing": True} if requested else {}),
         })
 
     return bp

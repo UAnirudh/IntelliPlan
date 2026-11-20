@@ -89,25 +89,22 @@ def _get_repository() -> ActiveSessionRepository:
 def _get_plan() -> dict[str, Any] | None:
     """The student's current saved schedule, as ``schedule_data``."""
     from App import SavedSchedule, db
-    import json
+    from intelliplan.persistence.schedule_plans import plans
+    from intelliplan.persistence.json_values import loads_exact
 
     uid = _current_user_id()
     gid = None if uid else _guest_session_id()
     try:
-        query = SavedSchedule.query.filter(SavedSchedule.is_active.is_(True))
         if uid:
-            query = query.filter(SavedSchedule.user_id == uid)
+            row = plans().active(uid)
         elif gid:
-            query = query.filter(
-                SavedSchedule.user_id.is_(None),
-                SavedSchedule.guest_session_id == gid,
-            )
+            row = SavedSchedule.query.filter_by(is_active=True, user_id=None, guest_session_id=gid).order_by(
+                SavedSchedule.created_at.desc()).first()
         else:
             return None
-        row = query.order_by(SavedSchedule.created_at.desc()).first()
         if row is None:
             return None
-        data = json.loads(row.schedule_data) if isinstance(row.schedule_data, str) else row.schedule_data
+        data = loads_exact(row.schedule_data) if isinstance(row.schedule_data, str) else row.schedule_data
         if not isinstance(data, dict):
             return None
         _mark_done_blocks(data, row.progress_json)

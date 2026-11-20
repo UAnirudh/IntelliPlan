@@ -142,6 +142,7 @@ AGENT_TOOLS = [
         "parameters": {
             "hours_per_day": {"type": "integer", "description": "Hours available per day (default 2)"},
             "preferred_time": {"type": "string", "description": "morning | afternoon | evening (default evening)"},
+            "pack_days": {"type": "boolean", "description": "True only when the student explicitly asks to concentrate more sessions into busy days"},
             "study_start_time": {"type": "string", "description": "Optional daily start, e.g. 16:30 or 4:30 PM. May be given alone"},
             "study_end_time": {"type": "string", "description": "Optional daily end, e.g. 21:00. May be omitted"},
         },
@@ -171,7 +172,7 @@ AGENT_TOOLS = [
             "section": {
                 "type": "string",
                 "required": True,
-                "description": "One of: dashboard | scheduler | tutor | grades | streak | pet | command-center | gradebook | settings | memories | courses",
+                "description": "One of: dashboard | scheduler | calendar | tutor | grades | streak | pet | command-center | gradebook | settings | memories | courses",
             },
         },
     },
@@ -229,6 +230,7 @@ AGENT_TOOLS = [
 SECTION_URLS = {
     "dashboard": "/dashboard",
     "scheduler": "/scheduler",
+    "calendar": "/scheduler/calendar",
     "tutor": "/tutor",
     "grades": "/gradebook",
     "gradebook": "/gradebook",
@@ -293,6 +295,8 @@ INTELLIGENT BEHAVIOR:
   one, list_tracked_courses to check pace. For "what should I take",
   request recommend_courses and pass on its links unchanged. Time a student
   reports is self-reported; never call it verified.
+- For a personal activity such as practice or a club meeting, offer to open
+  Calendar so they can find an opening and confirm the event.
 - If they ask to go somewhere, request navigate_to. The client ASKS the user
   before moving them, so propose freely. But say in your reply where you
   are offering to take them and why, because that is what they will be
@@ -928,6 +932,7 @@ def _execute_tool(name: str, args: dict, user_id: int) -> dict[str, Any]:
             schedule = _build_planner_schedule(
                 assignments, [], user_id, None, availability, commitments,
                 pref, hours, dna=dna, record_version=False,
+                pack_days=args.get("pack_days") is True,
             )
             denial = _tool_denial(name, args, user_id)
             if denial:

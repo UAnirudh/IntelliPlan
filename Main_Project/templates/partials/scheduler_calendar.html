@@ -1,0 +1,49 @@
+<section class="sched-pane scheduler-calendar" id="pane-calendar" role="tabpanel" aria-labelledby="tab-calendar">
+  {% if current_user.is_authenticated %}
+  <div class="agenda-heading">
+    <div>
+      <h2 id="agendaDayHeading">Your day</h2>
+      <p>Classes, study time, and everything you’ve set aside.</p>
+    </div>
+    <div class="agenda-date-nav" role="group" aria-label="Calendar date">
+      <button class="btn-secondary" type="button" id="agendaPrev" aria-label="Previous day"><span class="ip-arrow" data-direction="left" aria-hidden="true"></span></button>
+      <input class="form-input" aria-label="Choose a day" type="date" id="agendaDate" required>
+      <button class="btn-secondary" type="button" id="agendaNext" aria-label="Next day"><span class="ip-arrow" aria-hidden="true"></span></button>
+      <button class="btn-secondary" type="button" id="agendaToday">Today</button>
+    </div>
+  </div>
+  <ul class="agenda-exams" id="agendaExams" hidden></ul>
+  <p id="agendaStatus" role="status"></p>
+  <ol class="agenda-items" id="agendaItems" aria-labelledby="agendaDayHeading"></ol>
+  <details class="ip-disclosure agenda-activity">
+    <summary><span>Add an activity</span><span class="ip-arrow" data-direction="down" data-arrow-kind="chevron" aria-hidden="true"></span></summary>
+    <form id="agendaActivity">
+      <label>Activity name <input class="form-input" name="title" maxlength="160" placeholder="e.g. Robotics practice" required></label>
+      <div class="agenda-activity-time">
+        <label>Start <input class="form-input" name="start" type="time" required></label>
+        <label>End <input class="form-input" name="end" type="time" required></label>
+      </div>
+      <div class="agenda-find">
+        <button class="btn-secondary" type="button" id="agendaFind">Find an opening</button>
+        <label><span class="sr-only">Activity length</span>
+          <select class="form-input" name="duration">
+            <option value="30">30 minutes</option>
+            <option value="60" selected>1 hour</option>
+            <option value="90">90 minutes</option>
+            <option value="120">2 hours</option>
+          </select>
+        </label>
+      </div>
+      <div class="agenda-actions">
+        <button type="submit" class="btn-primary" value="google">Add to Google Calendar</button>
+        <button type="submit" class="btn-secondary" value="file">Download calendar file</button>
+      </div>
+      <p id="agendaActivityStatus" role="status"></p>
+    </form>
+  </details>
+  {% else %}
+  <h2>Your calendar</h2>
+  <p>Sign in to see your saved study blocks, classes, and calendar commitments together.</p>
+  <a class="btn-primary" href="/login?next=/scheduler%3Fview%3Dcalendar">Sign in</a>
+  {% endif %}
+</section>

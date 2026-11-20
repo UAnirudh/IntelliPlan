@@ -114,6 +114,7 @@ def photo_schedule():
         raise study.InvalidPhoto(str(exc)) from exc
 
 
+@flashcards_bp.post('/api/calendar/personal-events')
 @flashcards_bp.post('/api/flashcards/photo/calendar')
 def photo_calendar():
     from App import _calendar_policy_allowed, _no_store, get_google_token
@@ -146,7 +147,7 @@ def photo_calendar():
                 google_accounts().refresh(current_user.id, proof[1], json.dumps({**token, 'token': refreshed}))
             return _no_store(jsonify(created=created, skipped=skipped))
         except Exception as exc:
-            logger.warning('Reviewed photo calendar write failed (%s)', type(exc).__name__)
+            logger.warning('Reviewed calendar write failed (%s)', type(exc).__name__)
             return _no_store(current_app.make_response((jsonify(
                 message='Google Calendar could not finish. Retry to add any remaining events.'), 502)))
     return _no_store(current_app.response_class(calendar_file(events), mimetype='text/calendar',
