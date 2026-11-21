@@ -218,3 +218,25 @@ details.command-remind{display:block;background:transparent;border-color:var(--b
 .command-chat__guide h2 { margin: 0; font-size: 1.1rem; }
 .command-chat__guide .command-chat__prompts { margin: 16px 0; }
 .command-chat__guide p { margin: 0; color: var(--text-secondary); font-size: .9rem; }
+
+/* The empty-state shortcuts are quiet, generous entry points to planning. */
+body .command-chat .command-chat__shortcuts {
+  width: min(100%, 560px); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+body .command-chat .command-chat__intro .command-chat__shortcuts li > :is(button, a) {
+  width: 100%; min-height: 76px; justify-content: space-between; text-align: left;
+  padding: 16px 18px; border-radius: 16px;
+  background: color-mix(in srgb, var(--bg) 88%, var(--accent)) !important;
+}
+.command-chat__shortcut-copy { display: grid; gap: 5px; }
+.command-chat__shortcut-copy strong { font-size: .91rem; font-weight: 650; }
+.command-chat__shortcut-copy small { color: var(--text-secondary); font-size: .76rem; font-weight: 400; }
+.command-chat__shortcuts .ip-arrow { flex: none; color: var(--text-secondary); }
+@media (max-width: 480px) {
+  body .command-chat .command-chat__shortcuts { grid-template-columns: 1fr; }
+  body .command-chat .command-chat__intro .command-chat__shortcuts li > :is(button, a) { min-height: 62px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  body .command-chat .command-chat__intro .command-chat__shortcuts li > :is(button, a) { transition: none; }
+}

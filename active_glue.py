@@ -66,9 +66,12 @@ def _focus_allowed() -> bool:
         # focus data without an authenticated account and its policy checks.
         return False
     try:
+        from child_privacy import hold_reason
         from intelliplan.learning import policy
         policy.invalidate_cache()
-        return policy.decision(current_user, 'focus')[0]
+        return (not hold_reason(current_user, require_known_age=True)
+                and policy.decision(current_user, 'study')[0]
+                and policy.decision(current_user, 'focus')[0])
     except Exception:
         logger.warning('Focus permission unavailable', exc_info=True)
         return False

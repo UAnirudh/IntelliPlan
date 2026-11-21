@@ -690,9 +690,9 @@ body {
       <span class="side-icon"><svg><use href="#i-study"/></svg></span>Study &amp; Learn
     </a>
 
-    <a href="/streak" data-nav-item="streak" class="side-link {% if active_page == 'streak' %}active{% endif %}">
+    <a href="/streak" data-nav-item="streak" {% if current_user.is_authenticated and current_user.role not in ['teacher', 'parent'] %}data-streak-chip{% endif %} class="side-link {% if active_page == 'streak' %}active{% endif %}">
       <span class="side-icon"><svg><use href="#i-fire"/></svg></span>Streak
-      <span class="side-link-meta" id="sideStreakMeta" hidden></span>
+      <span class="side-link-meta" id="sideStreakMeta" data-streak-chip-count hidden></span>
     </a>
 
     <details class="side-more" id="sideTools">
@@ -912,6 +912,12 @@ body {
     </nav>
 
     <div class="header-actions">
+      {% if _app_tabbar and current_user.is_authenticated and current_user.role not in ['teacher', 'parent'] %}
+      <a class="study-streak-chip" href="/streak" data-streak-chip hidden>
+        <span class="study-streak-chip__mark" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#i-fire"/></svg></span>
+        <span class="study-streak-chip__text"><strong data-streak-chip-count></strong><small>study streak</small></span>
+      </a>
+      {% endif %}
       {# Three bars that rotate into an X, rather than two SVGs swapped by
          innerHTML. The swap was instant and re-parsed markup on every tap;
          this animates and touches only a class. (Skiper 99's MenuIcon.) #}

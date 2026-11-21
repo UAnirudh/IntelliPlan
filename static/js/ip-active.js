@@ -272,6 +272,7 @@
     return api('/api/active/current')
       .then(function (data) {
         if (generation !== assignmentGeneration) return;
+        syncMediaPermission(data);
         if (data.session) return resume(data.session);
         var query = blockId ? '?' + new URLSearchParams({ block_id: blockId, date: blockDate || '' }) : '';
         return api('/api/active/next' + query).then(function (next) {
@@ -447,7 +448,7 @@
     }).then(function (data) {
       if (!data.session) throw new Error('Could not start the session.');
       var plan = IPA.plan;
-      if (data.focus_allowed === false) denyCameraCheckIn(data.focus_reason);
+      syncMediaPermission(data);
       resume(data.session);
       if (String(data.session.task_id || '') === String(plan.task_id || '') && data.session.title === plan.title) {
         IPA.plan.assignment_url = plan.assignment_url;
@@ -595,7 +596,7 @@
   var screenRequest = 0;
   var screenStarted = 0;
   var screenTicker = null;
-  var mediaAllowed = true;
+  var mediaAllowed = false;
 
   function linkedAssignment(block) {
     if (!block || block.task_id == null) return null;
@@ -716,8 +717,14 @@
         audio: false, video: { displaySurface: 'browser', frameRate: { ideal: 5, max: 10 } },
         selfBrowserSurface: 'exclude', monitorTypeSurfaces: 'exclude', surfaceSwitching: 'exclude'
       });
+      var permission = await api('/api/active/focus-permission').catch(function () { return null; });
+      if (!permission || permission.allowed !== true) {
+        stream.getTracks().forEach(function (item) { item.stop(); });
+        denyCameraCheckIn(permission && permission.reason);
+        return;
+      }
       var track = stream.getVideoTracks()[0];
-      if (request !== screenRequest || !IPA.running) {
+      if (request !== screenRequest || !IPA.running || !mediaAllowed) {
         stream.getTracks().forEach(function (item) { item.stop(); });
         return;
       }
@@ -781,7 +788,7 @@
 
   function toggleRecording() {
     if (recorder) { stopRecording(); return; }
-    if (!sharedScreen || !window.MediaRecorder || !IPA.running) return;
+    if (!mediaAllowed || !sharedScreen || !window.MediaRecorder || !IPA.running) return;
     if (recordedClip) {
       $('ipaRecordStatus').textContent = 'Download or discard your last clip to start another one.';
       return;
@@ -804,7 +811,7 @@
       current.addEventListener('stop', function () {
         window.clearTimeout(recordTimer);
         recorder = null;
-        recordedClip = chunks.length ? new Blob(chunks, { type: current.mimeType }) : null;
+        recordedClip = mediaAllowed && chunks.length ? new Blob(chunks, { type: current.mimeType }) : null;
         $('ipaRecordStatus').textContent = recordedClip ? 'Clip ready to download or discard.' : 'No clip was saved.';
         paintRecording();
       });
@@ -819,7 +826,7 @@
   }
 
   function downloadRecording() {
-    if (!recordedClip) return;
+    if (!mediaAllowed || !recordedClip) return;
     var url = URL.createObjectURL(recordedClip);
     var link = document.createElement('a');
     link.href = url;
@@ -887,8 +894,18 @@
   }
 
   var cameraPolicyGeneration = 0;
+  function syncMediaPermission(data) {
+    if (data.focus_allowed === true) {
+      mediaAllowed = true;
+      paintCanvasTools();
+    } else {
+      denyCameraCheckIn(data.focus_reason);
+    }
+  }
+
   function denyCameraCheckIn(reason) {
     mediaAllowed = false;
+    discardRecording();
     stopScreen();
     stopTracker();
     $('ipaFocusToggle').checked = false;
@@ -896,7 +913,7 @@
     var note = $('ipaFocusNote');
     note.textContent = reason === 'sign_in_required'
       ? 'Sign in to enable camera check-ins. Your guest study timer still works. '
-      : 'Camera check-ins are unavailable under your current school settings.';
+      : 'Camera and tab sharing require an age-eligible account with workspace permission. Your timer still works.';
     if (reason === 'sign_in_required') {
       var signIn = document.createElement('a');
       signIn.href = '/login?next=%2Factive';

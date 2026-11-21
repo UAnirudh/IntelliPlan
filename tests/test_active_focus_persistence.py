@@ -186,6 +186,22 @@ def test_school_focus_denial_disables_camera_but_keeps_timer_usable(study):
     assert response.get_json()['session']['focus']['samples'] == 0
 
 
+def test_legacy_account_without_age_can_resume_timer_without_media(study):
+    client, sid = study
+    with App.app.app_context():
+        uid = App.db.session.get(App.ActiveSession, sid).user_id
+        App.db.session.get(App.User, uid).birth_year = None
+        App.db.session.commit()
+    data = client.get('/api/active/current').get_json()
+    assert data['session']['id'] == sid
+    assert data['focus_allowed'] is False
+    assert client.get('/api/active/focus-permission').get_json()['allowed'] is False
+    assert client.post('/api/active/camera-pairs', json={'share_video': True}).status_code == 403
+    response = client.post(f'/api/active/{sid}/heartbeat', json={
+        'enable_focus': True, 'focus': {'summary': summary(10, 8, 2)}})
+    assert response.get_json()['session']['focus']['samples'] == 0
+
+
 def test_revocation_stops_new_counts_and_does_not_erase_earlier_counts(study):
     client, sid = study
     path = f'/api/active/{sid}/heartbeat'

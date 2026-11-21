@@ -43,7 +43,7 @@
     if (event.animationName === 'ip-page-cover') navigate();
     if (event.animationName === 'ip-page-reveal') clear();
   });
-  if (root.dataset.pageMotion === 'arrive') recovery = setTimeout(clear, 600);
+  if (root.dataset.pageMotion === 'arrive') recovery = setTimeout(clear, 900);
 
   window.addEventListener('click', event => {
     if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey
@@ -62,7 +62,7 @@
     clear();
     target = url;
     root.dataset.pageMotion = 'leave';
-    timer = setTimeout(navigate, 240);
+    timer = setTimeout(navigate, 650);
   });
 
   window.addEventListener('pageshow', event => { if (event.persisted) clear(); });

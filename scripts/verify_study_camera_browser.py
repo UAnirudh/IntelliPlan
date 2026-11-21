@@ -114,6 +114,7 @@ with sync_playwright() as p:
         if essential.is_visible():
             essential.click()
         page.locator('#ipaStart').wait_for(state='visible')
+        page.locator('#ipaFocusPanel > summary').click()
         # Wait for the menu's first asynchronous toggle/enumeration to finish
         # before replacing the list provider for the reversed-response case.
         page.evaluate('''() => {
@@ -173,7 +174,8 @@ with sync_playwright() as p:
         page.locator('#ipaPause').click()
         page.wait_for_function('window.IPFocus.activeCamera() !== null')
         page.wait_for_timeout(4500)
-        page.locator('#ipaSelfViewBtn').click()
+        if not page.locator('#ipaSelfView').evaluate('video => Boolean(video.srcObject)'):
+            page.locator('#ipaSelfViewBtn').click()
         page.wait_for_function("document.querySelector('#ipaSelfView').srcObject !== null")
         page.wait_for_function("document.querySelector('#ipaCameraSource').options.length > 2")
         device_value = page.locator('#ipaCameraSource option[value^="device:"]').first.get_attribute('value')

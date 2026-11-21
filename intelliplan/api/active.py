@@ -144,12 +144,13 @@ def create_active_blueprint(deps: ActiveDeps) -> Blueprint:
         # Keep the app navigation in the same place as the rest of the desktop
         # workspace. Moving it into a top bar on this one page made the whole
         # interface jump as soon as a student started a study session.
+        focus_allowed = deps.focus_allowed()
         return render_template(
             "active_mobile.html" if _wants_phone_layout() else "active.html",
             active_page="active",
-            focus_allowed=deps.focus_allowed(),
+            focus_allowed=focus_allowed,
             focus_requires_sign_in=deps.current_user_id() is None,
-            camera_pairing_allowed=deps.current_user_id() is not None,
+            camera_pairing_allowed=focus_allowed and deps.current_user_id() is not None,
         )
 
     # ── lifecycle ─────────────────────────────────────────────────────
@@ -198,7 +199,9 @@ def create_active_blueprint(deps: ActiveDeps) -> Blueprint:
         # come back as "resume?" today.
         repo.expire_stale(user_id=uid, guest_id=gid)
         row = repo.active(user_id=uid, guest_id=gid)
-        return jsonify({"session": row.to_dict() if row else None})
+        allowed = deps.focus_allowed()
+        return jsonify(session=row.to_dict() if row else None, focus_allowed=allowed,
+                       focus_reason=_focus_reason(allowed)), 200, {'Cache-Control': 'no-store'}
 
     @bp.route('/api/active/focus-permission', methods=['GET'])
     def focus_permission():

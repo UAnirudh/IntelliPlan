@@ -819,3 +819,36 @@ body.has-side .ipa-assignment-picker { padding: 0; border: 0; background: transp
   68% { transform: translateY(3px) scale(.97) rotate(-4deg); }
   100% { transform: translateY(0) scale(1) rotate(0); }
 }
+
+/* A small, persistent reminder of progress throughout the student workspace. */
+.study-streak-chip {
+  display: inline-flex; align-items: center; gap: 7px; flex: none;
+  padding: 4px 10px 4px 5px; border: 1px solid rgba(190, 119, 39, .28);
+  border-radius: 999px; background: rgba(245, 183, 89, .12);
+  color: var(--text-primary); text-decoration: none; line-height: 1.1;
+}
+.study-streak-chip[hidden] { display: none; }
+.study-streak-chip:hover { background: rgba(245, 183, 89, .2); }
+.study-streak-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.study-streak-chip__mark {
+  width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%;
+  color: #9a5013; background: #f9d9a0;
+}
+.study-streak-chip__mark svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 2; }
+.study-streak-chip[data-today-complete] .study-streak-chip__mark { background: #d9edce; color: #366f36; }
+.study-streak-chip__text { display: grid; gap: 2px; white-space: nowrap; }
+.study-streak-chip__text strong { font-size: .8rem; font-weight: 750; }
+.study-streak-chip__text small { color: var(--text-secondary); font-size: .62rem; }
+@media (max-width: 768px) {
+  .study-streak-chip { padding: 3px 8px 3px 3px; gap: 5px; }
+  .study-streak-chip__mark { width: 27px; height: 27px; }
+  .study-streak-chip__text small { display: none; }
+}
+.side-link[data-streak-chip] .side-icon { color: #c77b27; }
+.side-link[data-streak-chip][data-today-complete] .side-icon { color: #e7a652; }
+.side-link[data-streak-chip] .side-link-meta {
+  background: color-mix(in srgb, #db9a46 17%, transparent);
+  color: var(--text-primary);
+  border-radius: 999px;
+  padding-inline: .45em;
+}

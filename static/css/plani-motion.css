@@ -74,8 +74,9 @@ html[data-ui-mascot="hidden"] .plani-motion { display: none !important; }
     }
     [data-plani-pose="hello"] .plani-motion__arm--right { animation: plani-wave .92s .18s both; }
     [data-plani-pose="hello"] .plani-motion__eye i { animation: plani-blink .9s .14s both; }
-    [data-plani-pose="travel"] .plani-motion__arm--right { animation: plani-wave 360ms both; }
-    [data-plani-pose="travel"] .plani-motion__eye i { animation: plani-blink 350ms both; }
+    [data-plani-pose="travel"] .plani-motion__arm--left { animation: plani-fidget 1.15s ease-in-out both; }
+    [data-plani-pose="travel"] .plani-motion__arm--right { animation: plani-wave 1.15s ease-in-out both; }
+    [data-plani-pose="travel"] .plani-motion__eye i { animation: plani-blink 1.15s ease-in-out both; }
     [data-plani-pose="cheer"] .plani-motion__arm--left { animation: plani-fidget 720ms both; }
     [data-plani-pose="cheer"] .plani-motion__arm--right { animation: plani-wave 720ms both; }
     [data-plani-pose="cheer"] .plani-motion__eye i { animation: plani-blink 720ms both; }

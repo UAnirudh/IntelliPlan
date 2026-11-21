@@ -22,10 +22,10 @@
     opacity: .65;
   }
   html[data-page-motion="leave"] .ip-page-curtain {
-    animation: ip-page-cover 175ms cubic-bezier(.45, .05, .25, 1) both;
+    animation: ip-page-cover 520ms cubic-bezier(.45, .05, .25, 1) both;
   }
   html[data-page-motion="arrive"] .ip-page-curtain {
-    animation: ip-page-reveal 370ms cubic-bezier(.65, 0, .22, 1) both;
+    animation: ip-page-reveal 650ms cubic-bezier(.65, 0, .22, 1) both;
   }
   html[data-page-motion]:not([data-ui-mascot="hidden"]):not([data-ui-motion="reduce"]):not([data-a11y-motion="reduce"]):not(.a11y-reduce-motion) .ip-page-traveler {
     position: fixed;
@@ -48,10 +48,10 @@
     filter: drop-shadow(0 9px 11px #0003);
   }
   html[data-page-motion="leave"] .ip-page-traveler > span {
-    animation: ip-plani-hop-in 175ms cubic-bezier(.25, .72, .45, 1) both;
+    animation: ip-plani-hop-in 520ms cubic-bezier(.25, .72, .45, 1) both;
   }
   html[data-page-motion="arrive"] .ip-page-traveler > span {
-    animation: ip-plani-hop-out 370ms ease-out both;
+    animation: ip-plani-hop-out 650ms ease-out both;
   }
 }
 
@@ -65,6 +65,7 @@
 }
 @keyframes ip-plani-hop-in {
   from { opacity: 0; transform: translateY(34px) rotate(-14deg) scale(.74); }
+  65% { opacity: 1; transform: translateY(-10px) rotate(7deg) scale(1.06); }
   to { opacity: 1; transform: translateY(0) rotate(-5deg) scale(1); }
 }
 @keyframes ip-plani-hop-out {

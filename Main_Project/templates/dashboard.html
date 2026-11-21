@@ -430,7 +430,8 @@
   margin-top: 12px;
 }
 .ipd-grade-bar-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
 }
@@ -439,14 +440,11 @@
   font-size: 0.76rem;
   font-weight: 600;
   color: var(--text-secondary);
-  width: 90px;
-  flex-shrink: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .ipd-grade-bar-track {
-  flex: 1;
   height: 6px;
   background: var(--border);
   border-radius: 3px;
@@ -463,9 +461,7 @@
   font-family: var(--ipd-font-mono);
   font-size: 0.72rem;
   color: var(--text-muted);
-  width: 36px;
   text-align: right;
-  flex-shrink: 0;
 }
 
 /* ── Right column: Coming up ──────────────────────────────── */
@@ -827,9 +823,6 @@ body.has-tabbar:has(.ipd-modal-overlay[style*="flex"]) .ip-tabbar { visibility: 
       <div class="ipd-sched-sub" id="ipdSchedSub"></div>
       <div id="ipdSchedBlocks" style="margin-top:6px;"></div>
     </div>
-
-    {# Study Buddies: who studied today, the shared streak, a nudge. #}
-    {% if current_user.is_authenticated %}{% include "partials/buddies_card.html" %}{% endif %}
 
     {# Grade Modeler teaser #}
     <div class="ipd-grade-card" id="ipdGradeCard">
