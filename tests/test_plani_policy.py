@@ -407,6 +407,73 @@ def test_chat_schedule_uses_real_planner_when_provider_is_down(account, monkeypa
     provider.assert_not_called()
 
 
+@pytest.mark.parametrize('messages', [
+    [{'role': 'user', 'content': 'Plan my week using my assignments and connected calendar.'}],
+    [{'role': 'user', 'content': 'Help me plan this week around my upcoming work. Ask me what time I have available.'},
+     {'role': 'assistant', 'content': 'What time do you have free?'},
+     {'role': 'user', 'content': 'Can you just plan it based on what you have connected'},
+     {'role': 'assistant', 'content': 'Plani is temporarily unavailable.'},
+     {'role': 'user', 'content': 'Can you just plan it based on what you have connected'}],
+])
+def test_chat_plans_connected_week_without_ai_or_calendar_writes(account, monkeypatch, messages):
+    fixture_generation(monkeypatch, real_planning=True)
+    provider = Mock(side_effect=AssertionError('the fixed action must not reach an AI provider'))
+    monkeypatch.setattr(plani, 'ai_available', provider)
+    monkeypatch.setattr(plani, 'ai_chat', provider)
+    busy = Mock(return_value={datetime(2026, 10, 20).date(): [(15 * 60, 19 * 60)]})
+    monkeypatch.setattr(App, '_planner_busy_by_date', busy)
+    monkeypatch.setattr(App, 'collect_lms_assignments_for_user', lambda uid: [{
+        'id': 'fixture-1', 'source': 'canvas', 'title': 'Robotics worksheet', 'course': 'Engineering',
+        'due_date': '2026-10-21', 'estimated_time': 45}])
+    export = Mock(side_effect=AssertionError('planning around an event is read-only'))
+    monkeypatch.setattr(App, 'get_google_token', export)
+    monkeypatch.setattr(App, 'get_outlook_token', export)
+
+    response = signed_client(account).post('/api/plani/agent', json={'messages': messages})
+    assert response.status_code == 200, response.json
+    assert response.json['reply'] == 'Your study plan is ready.'
+    assert response.json['schedule']['preview'] is False
+    blocks = [block for day in response.json['schedule']['schedule']
+              for block in day['blocks'] if not block.get('is_break')]
+    assert blocks and all(block['task_id'] == 'canvas:fixture-1' for block in blocks)
+    for block in blocks:
+        start = datetime.fromisoformat(block['start_iso'])
+        end = datetime.fromisoformat(block['end_iso'])
+        assert end <= datetime(2026, 10, 20, 15) or start >= datetime(2026, 10, 20, 19)
+    assert any(call.kwargs.get('require_complete') for call in busy.call_args_list)
+    with App.app.app_context():
+        assert App.SavedSchedule.query.filter_by(user_id=account[0], is_active=True).count() == 1
+        assert App.DayArchive.query.filter_by(user_id=account[0], item_type='schedule').count() == 1
+        assert App.CourseNote.query.filter_by(user_id=account[0]).count() == 0
+    provider.assert_not_called()
+    export.assert_not_called()
+
+
+def test_chat_returns_real_plan_before_ai_can_fail_in_a_followup_round(account, monkeypatch):
+    from ai_provider import AIUnavailable
+
+    add_task(account)
+    fixture_generation(monkeypatch)
+    monkeypatch.setattr(App, '_planner_busy_by_date', lambda **kwargs: {})
+    monkeypatch.setattr(plani, 'ai_available', lambda **kwargs: True)
+    monkeypatch.setattr(plani, 'build_agent_context', lambda uid: '')
+    monkeypatch.setattr('intelliplan.retrieval.retrieve_context', lambda *a: '')
+    note = '[[IP_ACTION]]{"action":"save_note","arguments":{"title":"Study Schedule","content":"Invented"}}[[/IP_ACTION]]'
+    plan = '[[IP_ACTION]]{"action":"generate_schedule","arguments":{}}[[/IP_ACTION]]'
+    model = Mock(side_effect=[note + plan, AIUnavailable('offline')])
+    monkeypatch.setattr(plani, 'ai_chat', model)
+
+    response = signed_client(account).post('/api/plani/agent',
+        json={'message': 'Build a study plan around my homework for the next several days.'})
+    assert response.status_code == 200, response.json
+    assert response.json['schedule']['schedule']
+    assert response.json['tool_log'][0]['result'].get('error')
+    assert not any('saved to memories' in text.lower() for text in response.json['actions'])
+    model.assert_called_once()
+    with App.app.app_context():
+        assert App.CourseNote.query.filter_by(user_id=account[0]).count() == 0
+
+
 def test_chat_schedule_preserves_canvas_morning_deadline_in_student_zone(account, monkeypatch):
     from datetime import datetime
     provider = fixture_generation(monkeypatch)

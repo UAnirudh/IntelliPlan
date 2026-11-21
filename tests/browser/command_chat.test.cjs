@@ -132,3 +132,16 @@ test('Navigation offers a link and waits for the user to open it', async () => {
   assert.equal(h.ids.chatInner.children.at(-1).children[0].href, '/scheduler');
   assert.equal(h.location.href, undefined);
 });
+test('Old and new memory badges stay hidden without hiding the saved plan', async () => {
+  const badge = { t: 'action', text: '✓ Saved to memories: Study Schedule' };
+  const h = harness('17', { [STORE]: JSON.stringify({ owner: '17', history: [], log: [badge] }) });
+  assert.equal(h.ids.chatInner.children.length, 0);
+  h.submit('Plan my week');
+  h.requests[0].resolve({ status: 200, json: async () => ({
+    status: 'ok', reply: 'Your study plan is ready.', actions: [badge.text],
+    schedule: { schedule: [{ day_name: 'Monday', blocks: [{ assignment: 'Reading' }] }] },
+  }) });
+  await flush();
+  assert.match(h.ids.chatInner.children.at(-1).innerHTML, /Reading/);
+  assert.equal(JSON.parse(h.storage.get(STORE)).log.some(item => item.t === 'action'), false);
+});

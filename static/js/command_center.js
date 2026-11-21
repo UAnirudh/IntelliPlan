@@ -160,6 +160,7 @@
   }
 
   function push(item) {
+    if (item.t === 'action' && /^[✓→\s]*saved to memories\b/i.test(item.text)) return;
     log.push(item);
     if (item.t === 'msg') return renderMsg(item.role, item.text);
     else if (item.t === 'action') renderAction(item.text);
@@ -238,7 +239,7 @@
           var reply = data.reply || data.message || 'Plani could not complete that. Please try again.';
           var actions = data.actions || [];
           actions.forEach(function (a) { push({ t: 'action', text: a }); });
-          if (actions.length) {
+          if (actions.length || data.refresh) {
             // A tool may have completed before the model/provider failed.
             // Close that turn in history so the next request does not repeat
             // the original action without the user asking again.
@@ -247,8 +248,10 @@
           } else {
             removePendingUser(content, userMessage);
             restoreDraft(content);
-            push({ t: 'msg', role: 'assistant', text: reply + ' You can retry from the composer.' });
+            push({ t: 'msg', role: 'assistant', text: reply +
+                (data.retryable === false ? '' : ' You can retry from the composer.') });
           }
+          if (data.schedule) push({ t: 'schedule', schedule: data.schedule });
           save();
           return;
         }

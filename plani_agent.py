@@ -174,13 +174,14 @@ AGENT_TOOLS = [
     },
     {
         "name": "generate_schedule",
-        "description": "Generate a study schedule from pending tasks, save it as active, and add it to connected calendars.",
+        "description": "Build and save a study plan from pending tasks, using saved preferences and connected calendars. Set export_calendar to false unless the student asks to publish blocks.",
         "parameters": {
             "hours_per_day": {"type": "integer", "description": "Hours available per day (default 2)"},
             "preferred_time": {"type": "string", "description": "morning | afternoon | evening (default evening)"},
             "pack_days": {"type": "boolean", "description": "True only when the student explicitly asks to concentrate more sessions into busy days"},
             "study_start_time": {"type": "string", "description": "Optional daily start, e.g. 16:30 or 4:30 PM. May be given alone"},
             "study_end_time": {"type": "string", "description": "Optional daily end, e.g. 21:00. May be omitted"},
+            "export_calendar": {"type": "boolean", "description": "Whether to publish blocks to connected calendars"},
         },
     },
     {
@@ -259,7 +260,7 @@ AGENT_TOOLS = [
     },
     {
         "name": "save_note",
-        "description": "Save a note to the user's memories. Use this to persist schedules, study plans, reminders, or important info the user wants to remember.",
+        "description": "Save a note to Memories only when the student explicitly asks to save a note.",
         "parameters": {
             "course": {"type": "string", "required": True, "description": "Course name or 'General' for non-course notes"},
             "title": {"type": "string", "required": True, "description": "Note title"},
@@ -369,9 +370,12 @@ INTELLIGENT BEHAVIOR:
 SCHEDULING. VERY IMPORTANT:
 When the user asks you to create and save a study plan:
 1. First, use create_task for any new assignments they explicitly ask you to add.
-2. Then request generate_schedule to build a full study plan from ALL pending tasks.
-3. After generating, save a summary note using save_note (course="General", title="Study Schedule: [date]") so it persists in their memories.
-4. Tell the user the schedule is saved and visible on both the Scheduler page and Dashboard.
+2. Then request generate_schedule. Use the connected data and saved preferences
+   when the student asks to go ahead or use what is connected. Leave unspecified
+   study hours and windows to the planner. A connected calendar informs the
+   schedule. Set export_calendar to false unless the student asks to publish it.
+3. A successful plan is already saved and archived. Report the planner result.
+   Use save_note only for a separate note explicitly requested by the student.
 When the user only asks a question or wants a preview, inspect the plan and
 propose changes without saving tasks or a replacement plan.
 
@@ -1186,13 +1190,14 @@ def _execute_tool(name: str, args: dict, user_id: int) -> dict[str, Any]:
                 logger.warning("plani schedule archive skipped: %s", _arch_e)
             db.session.commit()
             exports = {}
+            export_calendar = args.get("export_calendar", True) is True
             # Export after persistence: an unavailable third-party calendar
             # must never discard the plan the student just created.
             try:
                 from App import get_google_token
                 from google_calendar_helper import add_schedule_to_calendar
                 from intelliplan.scheduler_clock import timezone_for
-                google_token = get_google_token() if _capabilities_allowed(_tool_user(user_id), 'calendar') else None
+                google_token = get_google_token() if export_calendar and _capabilities_allowed(_tool_user(user_id), 'calendar') else None
                 if google_token and _capabilities_allowed(_tool_user(user_id), 'calendar'):
                     zone, offset = timezone_for(user_id)
                     ids, _new_token, skipped = add_schedule_to_calendar(
@@ -1204,7 +1209,7 @@ def _execute_tool(name: str, args: dict, user_id: int) -> dict[str, Any]:
             try:
                 from App import get_outlook_token, outlook_calendar_helper
                 from intelliplan.scheduler_clock import timezone_for
-                outlook_token = get_outlook_token() if _capabilities_allowed(_tool_user(user_id), 'calendar') else None
+                outlook_token = get_outlook_token() if export_calendar and _capabilities_allowed(_tool_user(user_id), 'calendar') else None
                 if outlook_token and _capabilities_allowed(_tool_user(user_id), 'calendar'):
                     # The student's own zone, so blocks land at the hour the
                     # plan says rather than at that hour in California. The
@@ -1219,14 +1224,14 @@ def _execute_tool(name: str, args: dict, user_id: int) -> dict[str, Any]:
             except Exception as exc:
                 logger.warning("Outlook calendar export from Plani failed: %s", exc)
             return {"status": "ok",
-                "calendar_connected": bool(exports) or _has_calendar(),
+                "calendar_connected": (bool(exports) or _has_calendar()) if export_calendar else None,
                 "message": f"Schedule generated: {schedule.get('total_study_time', '')}. "
                            "It is saved on the Scheduler page, the Dashboard, and Memories.",
                 "days": len(schedule.get("schedule", [])),
                 "overview": schedule.get("overview", ""),
                 "schedule": schedule,
                 "calendar_exports": exports,
-                "calendar_export_restricted": not _capabilities_allowed(_tool_user(user_id), 'calendar')}
+                "calendar_export_restricted": export_calendar and not _capabilities_allowed(_tool_user(user_id), 'calendar')}
         except CalendarUnavailable as exc:
             return {'error': 'calendar_unavailable', 'message': str(exc), 'retryable': True}
         except AIBlocked as e:
@@ -1395,8 +1400,6 @@ def _humanize_action(tool: str, args: dict, result: dict) -> str | None:
         elif result.get("calendar_connected") is False:
             line += " · no calendar connected, so nothing was added to one"
         return line
-    if tool == "save_note":
-        return f"✓ Saved to memories: {result.get('title', '')}"
     if tool == "adjust_schedule" and result.get('status') == 'ok':
         return ('Previewed study plan changes' if result.get('preview')
                 else 'Updated your saved study plan; assignment deadlines are unchanged')
@@ -1408,6 +1411,59 @@ def _humanize_action(tool: str, args: dict, result: dict) -> str | None:
 
 
 MAX_TOOL_ROUNDS = 5
+
+
+_PLAN_WEEK = re.compile(
+    r'(?:(?:can you |please )?(?:just )?plan (?:my|this|the) week'
+    r'|help me plan this week around my upcoming work)'
+    r'(?: (?:based on|using) (?:what(?: you have| is) connected|'
+    r'my (?:connected accounts|assignments and connected calendar)))?')
+_PLAN_WITH_CONNECTIONS = re.compile(
+    r'(?:can you |please )?(?:just )?plan it (?:based on|using) '
+    r'what(?: you have| is) connected')
+_NOTE_REQUEST = re.compile(
+    r'\bremember\b|\b(?:save|store|keep|make|take|write|jot|add|create|put|record)\b'
+    r'[^.!?\n]{0,100}\b(?:notes?|memories)\b', re.IGNORECASE)
+
+
+def _requests_week_plan(messages):
+    """Recognize fixed scheduler commands without interpreting arbitrary text."""
+    if messages[-1]['role'] != 'user':
+        return False
+    latest = messages[-1]['content'].strip().casefold().rstrip('.?!')
+    if _PLAN_WEEK.fullmatch(latest):
+        return True
+    if not _PLAN_WITH_CONNECTIONS.fullmatch(latest):
+        return False
+    for turn in reversed(messages[:-1]):
+        if turn['role'] != 'user':
+            continue
+        prior = turn['content'].strip().casefold().rstrip('.?!')
+        if _PLAN_WITH_CONNECTIONS.fullmatch(prior):
+            continue
+        # The old shortcut included a separate instruction to ask for hours.
+        prior = prior.removesuffix('. ask me what time i have available')
+        return bool(_PLAN_WEEK.fullmatch(prior))
+    return False
+
+
+def _plan_result_response(result, *, actions=(), links=(), refresh=False, tool_log=()):
+    if result.get('status') == 'ok' and result.get('schedule'):
+        return jsonify(status='ok', reply='Your study plan is ready.',
+                       schedule=dict(result['schedule'], preview=False),
+                       actions=actions, links=links, refresh=True, tool_log=tool_log)
+
+    error = result.get('error', 'planning_failed')
+    messages = {
+        'policy_restricted': 'Planning in Command Center is unavailable in this workspace.',
+        'provider_restricted': 'Planning in Command Center is unavailable under your workspace’s AI settings.',
+        'policy_unavailable': 'Workspace permissions could not be checked. Try again shortly.',
+        'account_access_changed': 'Your account access changed. Try again from Command Center.',
+        'No pending tasks to schedule.': 'There are no pending assignments to plan. Add or sync work and try again.',
+    }
+    reply = result.get('message') or messages.get(error) or error
+    return jsonify(status='error', error=error, reply=reply, actions=actions, links=links,
+                   refresh=refresh, tool_log=tool_log, retryable=bool(result.get('retryable'))), 409
 
 
 # ── Standing context ─────────────────────────────────────────────────
@@ -1786,6 +1842,11 @@ def plani_agent():
         return jsonify({"status": "error",
             "reply": "No messages provided."}), 400
 
+    if _requests_week_plan(messages):
+        # This path runs the existing first-party allocator, with the same
+        # owner and policy checks, and sends no conversation to an AI provider.
+        return _plan_result_response(_execute_tool('generate_schedule', {'export_calendar': False}, user_id))
+
     # The agent loop can make MAX_TOOL_ROUNDS model calls for one message, so
     # it is the most expensive surface in the product per request and goes
     # through the same allowance as the tutor.
@@ -1862,25 +1923,29 @@ def plani_agent():
             )
         except AIBlocked as e:
             return jsonify(status='error', error=e.reason, reply=e.message,
-                           actions=actions, tool_log=tool_log), e.status
+                           actions=actions, tool_log=tool_log, refresh=refresh_ui,
+                           schedule=schedule_preview), e.status
         except AIQuotaExhausted as e:
             wait = e.retry_after
             logger.info("Plani agent out of AI quota: %s", e)
             return jsonify({"status": "error", "error": "ai_quota_exhausted",
                 "reply": e.user_message(),
                 "retry_after": wait,
-                "actions": actions, "tool_log": tool_log}), 503, {"Retry-After": str(wait)} if wait else {}
+                "actions": actions, "tool_log": tool_log, "refresh": refresh_ui,
+                "schedule": schedule_preview}), 503, {"Retry-After": str(wait)} if wait else {}
         except AIUnavailable as e:
             logger.error("Plani agent has no AI backend: %s", e)
             return jsonify({"status": "error", "error": "ai_unavailable",
                 "reply": "Plani's AI is not reachable right now. This is on our side, not yours.",
                 "retryable": True,
-                "actions": actions, "tool_log": tool_log}), 503
+                "actions": actions, "tool_log": tool_log, "refresh": refresh_ui,
+                "schedule": schedule_preview}), 503
         except Exception as e:
             logger.error("Plani LLM call failed: %s", e)
             return jsonify({"status": "error",
                 "reply": "I hit a snag talking to the AI. Try again in a moment.",
-                "actions": actions, "tool_log": tool_log}), 502
+                "actions": actions, "tool_log": tool_log, "refresh": refresh_ui,
+                "schedule": schedule_preview}), 502
 
         if _processing_state(user_id) != processing_state:
             return jsonify(status='error', error='account_access_changed',
@@ -1904,10 +1969,19 @@ def plani_agent():
         llm_messages.append({"role": "assistant", "content": reply})
         results_text = []
         confirmations = []
+        plan_result = None
         for tc in tool_calls:
             name = tc.get("name", "")
             args = tc.get("args", {}) or {}
-            result = _execute_tool(name, args, user_id)
+            if name == 'generate_schedule':
+                if plan_result is not None:
+                    continue
+                args = {'export_calendar': False, **args}
+                result = plan_result = _execute_tool(name, args, user_id)
+            elif name == 'save_note' and not _NOTE_REQUEST.search(last_user):
+                result = {'error': 'The student did not ask to save a separate note.'}
+            else:
+                result = _execute_tool(name, args, user_id)
             token = result.pop('confirmation_token', None)
             if token:
                 confirmations.append(dict(result['event'], token=token))
@@ -1940,6 +2014,12 @@ def plani_agent():
                            confirmations=confirmations, actions=actions, links=links, navigate=navigate_url,
                            schedule=schedule_preview, refresh=refresh_ui, tool_log=tool_log)
 
+        if plan_result is not None:
+            # The allocator knows whether it saved a plan. Return its plan
+            # card or concrete error without another trip to the model.
+            return _plan_result_response(plan_result, actions=actions, links=links,
+                                         refresh=refresh_ui, tool_log=tool_log)
+
         llm_messages.append({"role": "user",
             "content": "ACTION RESULTS:\n" + "\n".join(results_text) +
                        "\n\nNow give the user a brief natural-language reply."})
@@ -1966,12 +2046,13 @@ def plani_agent():
         final = _strip_action_blocks(final)
     except AIBlocked as e:
         return jsonify(status='error', error=e.reason, reply=e.message,
-                       actions=actions, tool_log=tool_log), e.status
+                           actions=actions, tool_log=tool_log, refresh=refresh_ui,
+                           schedule=schedule_preview), e.status
     except Exception:
         logger.warning('Plani final response unavailable', exc_info=True)
         return jsonify(status='error', error='ai_unavailable',
                        reply='The final reply could not be generated. Check the action results below.',
-                       actions=actions, tool_log=tool_log, refresh=refresh_ui), 502
+                       actions=actions, tool_log=tool_log, refresh=refresh_ui, schedule=schedule_preview), 502
     safety_response = _moderation_response(generation_window, output=final)
     if safety_response is not None:
         return safety_response
