@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from 'partials/plani_avatar.html' import plani_avatar with context %}
+{% from 'partials/plani_avatar.html' import plani_avatar, plani_motion with context %}
 
 {% block content %}
 <style>
@@ -738,7 +738,7 @@ body.has-tabbar:has(.ipd-modal-overlay[style*="flex"]) .ip-tabbar { visibility: 
 
 {% if logged_in %}
 <section class="plani-streak-strip" data-study-streak hidden aria-label="Study streak">
-  {{ plani_avatar(74) }}
+  {{ plani_motion(74, 'hello') }}
   <div>
     <strong data-streak-count></strong>
     <p data-streak-message></p>

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from 'partials/plani_avatar.html' import plani_avatar with context %}
+{% from 'partials/plani_avatar.html' import plani_avatar, plani_motion with context %}
 {% block page_title %}AI Tutor, Study Tutor | IntelliPlan{% endblock %}
 {% block meta_description %}Ask anything and learn step by step. IntelliPlan's AI tutor covers math, science, history, coding, languages, and more, free for every student.{% endblock %}
 {% block og_title %}AI Tutor, Free AI Study Tutor for Students{% endblock %}
@@ -760,7 +760,7 @@ main {
     <!-- Thinking dots -->
     <div class="tutor-thinking-row" id="tutorThinking" role="status" aria-label="{{ assistant_name }} is thinking">
       <div class="tutor-avatar bot" aria-hidden="true">
-        {{ plani_avatar(24, 'plani-working') }}
+        {{ plani_motion(32, 'think') }}
       </div>
       <div class="tutor-thinking-dots" aria-hidden="true">
         <div class="tutor-dot"></div><div class="tutor-dot"></div><div class="tutor-dot"></div>

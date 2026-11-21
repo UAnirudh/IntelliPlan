@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from 'partials/plani_avatar.html' import plani_avatar with context %}
+{% from 'partials/plani_avatar.html' import plani_motion with context %}
 
 {# See the note in install.html: this template was serving base.html's
    default title and description. It backs /learn, /study and
@@ -1643,7 +1643,7 @@ async function completeSession() {
   document.getElementById('completeCard').innerHTML = `
     <div class="sp">
       <div class="comp-card">
-        <span class="comp-emoji plani-study-win">${streakRes?.bonus_points > 0 ? {{ plani_avatar(92)|string|tojson }} : emoji}</span>
+        <span class="comp-emoji plani-study-win">${streakRes?.bonus_points > 0 ? {{ plani_motion(92, 'cheer')|string|tojson }} : emoji}</span>
         <div class="comp-title">Session Complete!</div>
         <div class="comp-sub">${sub}</div>
         <div class="comp-stats">

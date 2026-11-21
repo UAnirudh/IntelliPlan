@@ -4,3 +4,15 @@
      src="{{ url_for('static', filename='plani-notebook-avatar.webp') }}?v={{ asset_v }}"
      width="{{ size }}" height="{{ size }}" alt="" aria-hidden="true">
 {%- endmacro %}
+
+{% macro plani_motion(size, pose, classes='') -%}
+<span class="plani-motion{% if classes %} {{ classes }}{% endif %}" data-plani-pose="{{ pose }}"
+      style="--plani-size:{{ size }}px;--plani-cloth:url('{{ url_for('static', filename='plani-notebook-avatar.webp') }}?v={{ asset_v }}')"
+      aria-hidden="true">
+  <span class="plani-motion__arm plani-motion__arm--left"></span>
+  <span class="plani-motion__arm plani-motion__arm--right"></span>
+  {{ plani_avatar(size) }}
+  <span class="plani-motion__eye plani-motion__eye--left"><i></i></span>
+  <span class="plani-motion__eye plani-motion__eye--right"><i></i></span>
+</span>
+{%- endmacro %}

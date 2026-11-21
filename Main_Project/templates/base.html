@@ -1,4 +1,4 @@
-{% from 'partials/plani_avatar.html' import plani_avatar with context -%}
+{% from 'partials/plani_avatar.html' import plani_avatar, plani_motion with context -%}
 <!DOCTYPE html>
 <html lang="en" data-theme="dark">
 <head>
@@ -1064,7 +1064,7 @@ body {
 
     <div id="planiTyping" role="status" aria-label="{{ assistant_name }} is typing">
       <div class="plani-msg-avatar" aria-hidden="true">
-        {{ plani_avatar(24, 'plani-working') }}
+        {{ plani_motion(26, 'think') }}
       </div>
       <div class="plani-dots">
         <div class="plani-dots-goo ipm-goo">

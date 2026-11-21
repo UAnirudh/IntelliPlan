@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from 'partials/plani_avatar.html' import plani_avatar with context %}
+{% from 'partials/plani_avatar.html' import plani_motion with context %}
 
 {% block content %}
 <div class="ipd-page-header streak-page-head ipd-anim ipd-d1">
@@ -16,7 +16,7 @@
 <div id="streakApp" class="streak-shell">
   <div class="streak-hero-card" id="streakHero">
     <div class="streak-flame-stage" aria-hidden="true">
-      <span class="streak-flame-emoji">{{ plani_avatar(96) }}<svg class="plani-portrait-fallback" aria-hidden="true" width="48" height="48"><use href="#i-fire"/></svg></span>
+      <span class="streak-flame-emoji">{{ plani_motion(96, 'hello') }}<svg class="plani-portrait-fallback" aria-hidden="true" width="48" height="48"><use href="#i-fire"/></svg></span>
       <span class="streak-flame-aura"></span>
       <span class="streak-spark s1"></span>
       <span class="streak-spark s2"></span>

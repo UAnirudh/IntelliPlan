@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "partials/plani_avatar.html" import plani_avatar with context %}
+{% from "partials/plani_avatar.html" import plani_motion with context %}
 {% block page_title %}Welcome | IntelliPlan{% endblock %}
 
 {% block head_extra %}
@@ -304,7 +304,7 @@
   <div class="onb-card">
     <!-- ── STEP: INTRO (choose mode) ── -->
     <section id="onbIntro" class="onb-section">
-      {{ plani_avatar(96, 'plani-workspace-portrait') }}
+      {{ plani_motion(96, 'hello', 'plani-workspace-portrait') }}
       <h1 class="onb-title">Meet {{ assistant_name }}</h1>
       <p class="onb-sub">I'll help you make your first plan. Start with the basics, then connect your school when you're ready. You can change everything later in Settings.</p>
       <div class="onb-intro-actions">

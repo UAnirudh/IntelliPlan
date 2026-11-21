@@ -128,7 +128,8 @@ body.has-side.has-own-chat .command-chat .command-chat__composer #chatInput {
   background: radial-gradient(ellipse, color-mix(in srgb, var(--accent) 15%, transparent), transparent 72%);
 }
 .command-chat__halo .command-chat__portrait {
-  width: auto; height: 100%; max-height: clamp(68px, 13vh, 115px); margin: 0;
+  --portrait-edge: clamp(68px, min(13vh, 20vw), 115px);
+  width: var(--portrait-edge); height: var(--portrait-edge); margin: 0;
   filter: drop-shadow(0 12px 18px #13212a33);
 }
 .command-chat__intro h2 {
@@ -174,7 +175,7 @@ body .command-chat .command-chat__prompts li > :is(button, a):hover {
   .command-chat__halo { margin-bottom: 10px; }
 }
 @media (prefers-reduced-motion: no-preference) {
-  html:not([data-a11y-motion="reduce"]):not([data-ui-motion="reduce"]) .command-chat__halo .command-chat__portrait {
+  html:not([data-a11y-motion="reduce"]):not([data-ui-motion="reduce"]):not(.a11y-reduce-motion) .command-chat__halo .command-chat__portrait {
     animation: plani-home-hover 6s ease-in-out infinite;
   }
 }

@@ -1,5 +1,5 @@
 ﻿{% extends "base.html" %}
-{% from 'partials/plani_avatar.html' import plani_avatar with context %}
+{% from 'partials/plani_avatar.html' import plani_avatar, plani_motion with context %}
 {% block page_title %}Scheduler | IntelliPlan{% endblock %}
 
 {% block head_extra %}
@@ -1185,7 +1185,7 @@
   <p id="schedCacheAge" class="ipd-cache-age" hidden></p>
 
   <div class="scheduler-loading" id="schedulerLoading" role="status" style="display:none;">
-    {{ plani_avatar(48, 'plani-working') }}
+    {{ plani_motion(60, 'think') }}
     <p>{{ assistant_name }} is finding study time around your week…</p>
   </div>
 

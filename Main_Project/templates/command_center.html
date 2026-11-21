@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from 'partials/plani_avatar.html' import plani_avatar with context %}
+{% from 'partials/plani_avatar.html' import plani_avatar, plani_motion with context %}
 {% block page_title %}Command Center | IntelliPlan{% endblock %}
 {% block content %}
 <link rel="stylesheet" href="/static/css/command_center.css?v={{ asset_v }}">
@@ -65,7 +65,7 @@
   <div class="command-chat__thread" id="chatThread" aria-live="polite" aria-label="Conversation" tabindex="-1">
     <div class="command-chat__inner" id="chatInner">
       <div class="command-chat__intro" id="chatIntro">
-        <div class="command-chat__halo">{{ plani_avatar(112, 'command-chat__portrait') }}</div>
+        <div class="command-chat__halo">{{ plani_motion(112, 'hello', 'command-chat__portrait') }}</div>
         <h2>What are we planning?</h2>
         <p>Bring {{ assistant_name }} a deadline, a busy week, or a change of plans.</p>
         <ul class="command-chat__prompts" aria-label="Planning shortcuts">
@@ -94,7 +94,7 @@
 </section>
 <template id="chatTypingTemplate">
   <div id="chatTyping" class="command-chat__typing" role="status">
-    {{ plani_avatar(32, 'plani-working') }}
+    {{ plani_motion(38, 'think') }}
     <span>{{ assistant_name }} is working</span>
   </div>
 </template>

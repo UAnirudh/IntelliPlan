@@ -586,11 +586,6 @@ body.has-side.has-own-chat .tutor-suggestions .tutor-sug-card {
   0%, 100% { opacity: .75; scale: 1; }
   50% { opacity: .42; scale: .92; }
 }
-@keyframes plani-page-turn {
-  0%, 100% { transform: translateY(0) rotate(-6deg); }
-  35% { transform: translateY(-4px) rotate(7deg); }
-  62% { transform: translateY(-2px) rotate(-2deg); }
-}
 @keyframes plani-home-hover {
   0%, 100% { transform: translateY(0) rotate(-1deg); }
   50% { transform: translateY(-8px) rotate(1deg); }
@@ -601,10 +596,6 @@ body.has-side.has-own-chat .tutor-suggestions .tutor-sug-card {
   }
   html:not([data-ui-motion="reduce"]):not([data-a11y-motion="reduce"]) .plani-home-art::after {
     animation: plani-shadow 7s ease-in-out infinite;
-  }
-  html:not([data-ui-motion="reduce"]):not([data-a11y-motion="reduce"]) .plani-working {
-    transform-origin: 50% 83%;
-    animation: plani-page-turn 1.65s ease-in-out infinite;
   }
 }
 html[data-ui-mascot="hidden"] .plani-home-art { display: none; }
@@ -633,7 +624,6 @@ html[data-ui-mascot="hidden"] .plani-home-art { display: none; }
 .plani-hub-heading { margin-bottom: 20px; }
 .plani-hub-heading .hub-hero-sub { margin-bottom: 0; }
 .plani-scheduler-heading .plani-portrait { width: clamp(54px, 8vw, 94px); height: auto; }
-.command-chat__intro .command-chat__portrait { width: auto; height: clamp(84px, 15vh, 136px); margin-bottom: 14px; }
 
 .plani-day {
   display: flex;
@@ -654,7 +644,6 @@ html[data-ui-mascot="hidden"] .plani-home-art { display: none; }
 body #tutorPlaniSvg.plani-workspace-portrait { width: auto; height: clamp(86px, 15vh, 132px); }
 @media (max-width: 768px) {
   .site-landing .plani-week-preview { grid-template-columns: minmax(0, 1fr); }
-  .command-chat__intro .command-chat__portrait { height: 92px; }
   body #tutorPlaniSvg.plani-workspace-portrait { height: clamp(74px, 13vh, 104px); }
   .plani-hub-heading .plani-portrait { width: clamp(56px, 18vw, 90px); height: auto; }
   .ipd-header-actions > .ip-action { flex: 1 1 max-content; }
@@ -820,7 +809,7 @@ body.has-side .ipa-assignment-picker { padding: 0; border: 0; background: transp
 .plani-streak-week [data-complete] i { background: #e6a74a; opacity: 1; }
 .plani-streak-week [aria-current="date"] { background: var(--accent-soft); color: var(--text-primary); }
 @media (prefers-reduced-motion: no-preference) {
-  html:not([data-ui-motion="reduce"]):not([data-a11y-motion="reduce"]):not(.a11y-reduce-motion) .plani-study-win img {
+  html:not([data-ui-motion="reduce"]):not([data-a11y-motion="reduce"]):not(.a11y-reduce-motion) .plani-study-win .plani-motion {
     animation: plani-streak-celebrate 720ms cubic-bezier(.2,.7,.3,1) both;
   }
 }
