@@ -799,3 +799,34 @@ body.has-side .ipa-assignment-picker { padding: 0; border: 0; background: transp
 .connection-check ul { list-style: none; padding: 0; margin-block: 10px 0; }
 .connection-check li { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 5px 12px; padding-block: 6px; font-size: .84rem; }
 .connection-check li span { color: var(--text-secondary); }
+.plani-streak-strip {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px 18px;
+  padding: 14px 20px;
+  margin-bottom: 18px;
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--accent) 9%, var(--surface, var(--bg)));
+}
+.plani-streak-strip[hidden] { display: none; }
+.plani-streak-strip img { flex: none; object-fit: contain; }
+.plani-streak-strip strong { font-size: clamp(1.25rem, 2.5vw, 1.65rem); display: block; line-height: 1.1; }
+.plani-streak-strip p { margin: 4px 0 0; color: var(--text-secondary); font-size: .86rem; }
+.plani-streak-strip a { margin-inline-start: auto; }
+.plani-streak-week { margin: 0; padding: 0; list-style: none; display: flex; gap: 5px; }
+.plani-streak-week li { width: 29px; text-align: center; border-radius: 9px; padding: 5px 0; font-size: .7rem; color: var(--text-secondary); }
+.plani-streak-week i { display: block; width: 7px; height: 7px; border-radius: 100%; margin: 4px auto 1px; background: currentColor; opacity: .35; }
+.plani-streak-week [data-complete] i { background: #e6a74a; opacity: 1; }
+.plani-streak-week [aria-current="date"] { background: var(--accent-soft); color: var(--text-primary); }
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-ui-motion="reduce"]):not([data-a11y-motion="reduce"]):not(.a11y-reduce-motion) .plani-study-win img {
+    animation: plani-streak-celebrate 720ms cubic-bezier(.2,.7,.3,1) both;
+  }
+}
+@keyframes plani-streak-celebrate {
+  0% { transform: translateY(10px) scale(.88) rotate(-8deg); }
+  38% { transform: translateY(-15px) scale(1.06) rotate(9deg); }
+  68% { transform: translateY(3px) scale(.97) rotate(-4deg); }
+  100% { transform: translateY(0) scale(1) rotate(0); }
+}

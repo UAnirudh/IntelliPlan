@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from 'partials/plani_avatar.html' import plani_avatar with context %}
 
 {# See the note in install.html: this template was serving base.html's
    default title and description. It backs /learn, /study and
@@ -1029,7 +1030,8 @@ async function studyRequest(path, body) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 60000);
   try {
-    const response = await fetch(path, {method: 'POST', headers: {'Content-Type':'application/json'},
+    const response = await fetch(path, {method: 'POST', headers: {'Content-Type':'application/json',
+      'X-Timezone': Intl.DateTimeFormat().resolvedOptions().timeZone || ''},
       body: JSON.stringify(body), signal: controller.signal});
     const data = await response.json();
     if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('The server returned an unreadable response. Try again.');
@@ -1054,7 +1056,9 @@ async function init() {
 
 async function loadProfile() {
   try {
-    const r = await fetch('/study/points');
+    const r = await fetch('/study/points', {
+      headers: { 'X-Timezone': Intl.DateTimeFormat().resolvedOptions().timeZone || '' }
+    });
     const d = await r.json();
     if (d.status === 'ok') {
       G.totalPts = d.total_points || 0;
@@ -1639,7 +1643,7 @@ async function completeSession() {
   document.getElementById('completeCard').innerHTML = `
     <div class="sp">
       <div class="comp-card">
-        <span class="comp-emoji">${emoji}</span>
+        <span class="comp-emoji plani-study-win">${streakRes?.bonus_points > 0 ? {{ plani_avatar(92)|string|tojson }} : emoji}</span>
         <div class="comp-title">Session Complete!</div>
         <div class="comp-sub">${sub}</div>
         <div class="comp-stats">
@@ -1774,6 +1778,7 @@ async function updateStreak(epoch = studySessionEpoch) {
       if (d.streak_event) showToast(d.streak_event.message);
       updateChips();
       renderStreakTab();
+      window.dispatchEvent(new Event('intelliplan:streak-updated'));
       saveLocal();
       return d;
     }

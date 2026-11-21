@@ -486,7 +486,7 @@ body {
 
 {# Active uses the same desktop sidebar as the rest of the workspace. Keeping
    the navigation anchored prevents a disruptive top-bar swap on entry. #}
-{% set _app_pages = ['dashboard','scheduler','active','study','learn','streak','tutor','priority','classes','grades','grademodel','gradebook','dismissed','tests','profiles','settings','lessons','groups','writing','math','extractor','focus','library','meetings','themes','study_hub','olympiad','memories','pet','command_center','primer','balance','features','accessibility','text_dissector','my_stats','school_admin','courses','flashcards','founder'] %}
+{% set _app_pages = ['dashboard','scheduler','active','study','learn','streak','tutor','priority','classes','grades','grademodel','gradebook','dismissed','tests','profiles','settings','lessons','groups','writing','math','extractor','focus','library','meetings','themes','study_hub','olympiad','memories','command_center','primer','balance','features','accessibility','text_dissector','my_stats','school_admin','courses','flashcards','founder'] %}
 {# Reading progress belongs on long-form pages only. On an app screen the
    scroll length is the size of a list, not the length of an argument, so a
    progress bar there measures nothing the reader cares about. #}
@@ -651,7 +651,7 @@ body {
      APP SIDEBAR (desktop), only for in-app pages
 ══════════════════════════════════════ -->
 {%- set _study_sub = ['tutor','priority','classes','grades','dismissed','tests','study','learn','focus','library','streak','lessons','writing','math','extractor','meetings','groups','study_hub'] -%}
-{%- set _more_nav_pages = ['primer','memories','flashcards','courses','features','gradebook','grademodel','streak','pet','balance','my_stats','priority','classes','grades','dismissed','tests','tutor','study','learn','focus','library','lessons','writing','math','extractor','meetings','groups','connect','settings','teacher','parent','school_admin'] -%}
+{%- set _more_nav_pages = ['primer','memories','flashcards','courses','features','gradebook','grademodel','balance','my_stats','priority','classes','grades','dismissed','tests','tutor','study','learn','focus','library','lessons','writing','math','extractor','meetings','groups','connect','settings','teacher','parent','school_admin'] -%}
 {% if active_page in _app_pages %}
 <aside class="app-side" aria-label="Primary navigation">
   <a href="/" class="side-logo" aria-label="IntelliPlan home">
@@ -690,6 +690,11 @@ body {
       <span class="side-icon"><svg><use href="#i-study"/></svg></span>Study &amp; Learn
     </a>
 
+    <a href="/streak" data-nav-item="streak" class="side-link {% if active_page == 'streak' %}active{% endif %}">
+      <span class="side-icon"><svg><use href="#i-fire"/></svg></span>Streak
+      <span class="side-link-meta" id="sideStreakMeta" hidden></span>
+    </a>
+
     <details class="side-more" id="sideTools">
       <summary class="side-more-summary side-link" aria-label="Extra tools" title="Extra tools">
         <span class="side-icon"><svg aria-hidden="true"><use href="#i-ellipsis"/></svg></span>
@@ -719,14 +724,6 @@ body {
       <h2 class="side-section-label">Progress</h2>
       <a href="/gradebook" data-nav-item="gradebook" class="side-link {% if active_page in ['gradebook','grademodel'] %}active{% endif %}">
         <span class="side-icon"><svg><use href="#i-modeler"/></svg></span>Grade Modeler
-      </a>
-      <a href="/streak" data-nav-item="streak" class="side-link {% if active_page == 'streak' %}active{% endif %}">
-        <span class="side-icon"><svg><use href="#i-fire"/></svg></span>Streak
-        <span class="side-link-meta" id="sideStreakMeta" hidden></span>
-      </a>
-      <a href="/pet" data-nav-item="pet" class="side-link {% if active_page == 'pet' %}active{% endif %}">
-        <span class="side-icon"><svg><use href="#i-sparkle"/></svg></span>My Pet
-        <span class="side-link-meta" id="sidePetMeta" hidden></span>
       </a>
       <a href="/balance" data-nav-item="balance" class="side-link {% if active_page == 'balance' %}active{% endif %}">
         <span class="side-icon"><svg><use href="#i-sparkle"/></svg></span>Balance
@@ -845,7 +842,6 @@ body {
         <span class="nav-more-head">Progress</span>
         <a href="/gradebook" class="nav-tab {% if active_page in ['gradebook','grademodel'] %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-modeler"/></svg></span><span class="nav-label">Grade Modeler</span></a>
         <a href="/streak"   class="nav-tab {% if active_page == 'streak' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-fire"/></svg></span><span class="nav-label">Streak</span><span class="nav-link-meta" id="navStreakMeta" hidden></span></a>
-        <a href="/pet"      class="nav-tab {% if active_page == 'pet' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-sparkle"/></svg></span><span class="nav-label">My Pet</span><span class="nav-link-meta" id="navPetMeta" hidden></span></a>
         <a href="/balance"  class="nav-tab {% if active_page == 'balance' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-heart"/></svg></span><span class="nav-label">Balance</span></a>
         <a href="/my-stats" class="nav-tab {% if active_page == 'my_stats' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-chart-bar"/></svg></span><span class="nav-label">My Stats</span></a>
         <a href="/features" class="nav-tab {% if active_page == 'features' %}active{% endif %}"><span class="nav-tab-icon"><svg><use href="#i-lightning"/></svg></span><span class="nav-label">Ideas</span></a>
@@ -1744,14 +1740,7 @@ if (mobileMenuBtn) {
   const applyHidden = applyLayout;
 
   function labelFor(link) {
-    /* The link's own text, minus anything that is not part of its name.
-
-       Reading textContent wholesale was fine while the badges were empty,
-       but Streak and My Pet fill theirs in from the API — so once a user
-       had a streak the customizer started listing "Streak 4d" and
-       "My Pet L10". Walk the direct children and take only the bare text
-       nodes: the icon is an <svg> and every badge is a <span>, so what is
-       left is exactly the label. */
+    // Read only direct text nodes, excluding the live streak count and icon.
     var out = '';
     for (var n = link.firstChild; n; n = n.nextSibling) {
       if (n.nodeType === 3) out += n.nodeValue;
@@ -2801,136 +2790,8 @@ window.addEventListener('load',()=>{
 })();
 </script>
 
-{# ══════════════════════════════════════════════════════════════
-   GLOBAL STREAK + PET CONTEXT
-   Keeps useful counts beside their navigation links as plain text and
-   grants the once-per-day visit XP automatically.
-══════════════════════════════════════════════════════════════ #}
 {% if logged_in %}
-<style>
-  /* XP earned floating toast */
-  .pet-xp-toast {
-    position: fixed;
-    bottom: 24px;
-    left: 50%;
-    transform: translateX(-50%) translateY(20px);
-    background: var(--ink);
-    color: var(--on-ink);
-    padding: 10px 20px;
-    border-radius: 999px;
-    font-family: var(--font-ui, sans-serif);
-    font-weight: 700;
-    font-size: 0.9rem;
-    box-shadow: 0 10px 28px -8px rgba(28,25,20,0.32);
-    z-index: 9999;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.3s ease, transform 0.4s var(--ease-out);
-  }
-  .pet-xp-toast.show {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
-  }
-  .pet-evolve-flash {
-    position: fixed;
-    inset: 0;
-    background: rgba(var(--accent-shadow), 0.12);
-    z-index: 9998;
-    pointer-events: none;
-    opacity: 0;
-    animation: petEvolveFlash 1.8s ease-out;
-  }
-  @keyframes petEvolveFlash {
-    0% { opacity: 0; transform: scale(0.4); }
-    30% { opacity: 1; transform: scale(1.1); }
-    100% { opacity: 0; transform: scale(1.5); }
-  }
-</style>
-
-<div id="petXpToast" class="pet-xp-toast" role="status" aria-live="polite"></div>
-
-<script>
-(function(){
-  const tz = (typeof Intl !== 'undefined') ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'UTC';
-
-  function showXpToast(text){
-    const el = document.getElementById('petXpToast');
-    if (!el) return;
-    el.textContent = text;
-    el.classList.add('show');
-    setTimeout(() => el.classList.remove('show'), 2400);
-  }
-
-  function flashEvolve(){
-    const f = document.createElement('div');
-    f.className = 'pet-evolve-flash';
-    document.body.appendChild(f);
-    setTimeout(() => f.remove(), 1800);
-  }
-
-  function renderRewards(data){
-    if (!data || data.status !== 'ok') return;
-    const streak = Math.max(0, Number(data.streak) || 0);
-    const level = Math.max(1, Number(data.level) || 1);
-    const streakText = streak === 1 ? '1 day' : `${streak} days`;
-    [['sideStreakMeta', streakText, streak > 0], ['navStreakMeta', streakText, streak > 0],
-     ['sidePetMeta', `Level ${level}`, true], ['navPetMeta', `Level ${level}`, true]]
-      .forEach(([id, text, visible]) => {
-        const el = document.getElementById(id);
-        if (!el) return;
-        el.textContent = text;
-        el.hidden = !visible;
-      });
-  }
-
-  async function loadStatus(){
-    try {
-      const r = await fetch('/api/pet/status', { headers: { 'X-Requested-With': 'XHR' }, credentials: 'same-origin' });
-      if (!r.ok) return null;
-      const data = await r.json();
-      renderRewards(data);
-      return data;
-    } catch (e) { return null; }
-  }
-
-  async function pingDailyVisit(){
-    try {
-      const r = await fetch('/api/pet/visit', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({ timezone: tz })
-      });
-      if (!r.ok) return;
-      const data = await r.json();
-      if (data && data.awarded) {
-        const a = data.awarded;
-        showXpToast('+' + a.delta + ' XP. Daily visit');
-        if (a.evolved) {
-          flashEvolve();
-          setTimeout(() => showXpToast('Your pet evolved!'), 1100);
-        }
-        // Refresh after a beat so the inline count reflects today's visit.
-        setTimeout(loadStatus, 600);
-      }
-    } catch (e) { /* silent */ }
-  }
-
-  // Expose for child pages to use after task-complete / schedule-gen
-  window.intelliplanRefreshPet = loadStatus;
-  window.intelliplanShowPetToast = showXpToast;
-
-  // Boot
-  function boot(){
-    loadStatus().then(() => pingDailyVisit());
-  }
-  if (document.readyState === 'complete' || document.readyState === 'interactive') {
-    setTimeout(boot, 200);
-  } else {
-    document.addEventListener('DOMContentLoaded', () => setTimeout(boot, 200));
-  }
-})();
-</script>
+<script defer src="{{ url_for('static', filename='js/study-streak-summary.js') }}?v={{ asset_v }}"></script>
 
 {# ── Digital Balance heartbeat + time-aware wellness nudger ──
      Pings the server every 60s while the tab is visible, then asks the

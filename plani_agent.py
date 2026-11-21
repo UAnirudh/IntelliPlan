@@ -208,7 +208,7 @@ AGENT_TOOLS = [
             "dashboard, scheduler, calendar, classes, tutor, grades, gradebook, tests, "
             "priority, done, active-study, focus, study, flashcards, learn, library, "
             "extractor, math, writing, courses, memories, meetings, groups, "
-            "streak, pet, connect, settings, command-center."
+            "streak, connect, settings, command-center."
         ),
         "parameters": {
             "section": {
@@ -278,7 +278,6 @@ SECTION_URLS = {
     "grades": "/grades",
     "gradebook": "/gradebook",
     "streak": "/streak",
-    "pet": "/pet",
     "command-center": "/command-center",
     "command_center": "/command-center",
     "settings": "/settings",
@@ -1548,7 +1547,7 @@ def _has_calendar() -> bool:
 def build_agent_context(user_id: int) -> str:
     """Only consented account context permitted by the current policy."""
     from App import (
-        ManualTask, SavedSchedule, CourseNote, UserStreak, PlaniPet,
+        ManualTask, SavedSchedule, CourseNote,
         StudyPoints, StudySession, UserIdentity, db,
         build_student_context, _ai_personalization_enabled,
         _summarize_grade_signals, _fetch_grades_for_personalization,
@@ -1726,19 +1725,9 @@ def build_agent_context(user_id: int) -> str:
     if _capabilities_allowed(user, 'uploads'):
         parts.append(_ctx_section("MEMORIES", _safe(_memories, []) or []))
 
-    # ── Momentum: streak, pet, sparks, study history ────────────────
+    # ── Momentum: streak, sparks, study history ────────────────
     def _momentum():
         out = []
-        st = UserStreak.query.filter_by(user_id=user_id).first()
-        if st:
-            out.append(
-                f"Task streak: {st.current_streak} days (best {st.longest_streak}), "
-                f"{st.freezes_available} freezes left."
-            )
-        pet = PlaniPet.query.filter_by(user_id=user_id).first()
-        if pet:
-            out.append(f"Study pet: {getattr(pet, 'name', 'Pet')}, "
-                       f"level {getattr(pet, 'level', 1)}.")
         pts = StudyPoints.query.filter_by(user_id=user_id).first()
         if pts:
             out.append(f"Sparks: {pts.spark_balance} balance, level {pts.level}, "

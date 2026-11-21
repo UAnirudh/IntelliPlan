@@ -2842,10 +2842,10 @@ def passive_freezes_due(p, today=None):
     p.shop_purchases = json.dumps(history[-200:])
     return amount
 
-def reconcile_missed_streak(p):
+def reconcile_missed_streak(p, today=None):
     if not p.last_active_date or int(p.streak_count or 0) <= 0:
         return None
-    today = datetime.now().date()
+    today = today or datetime.now().date()
     try:
         last = datetime.strptime(p.last_active_date[:10], "%Y-%m-%d").date()
     except Exception:
@@ -11859,10 +11859,6 @@ def dismiss():
                 _record_streak_qualifying_action(current_user.id, data.get("timezone"))
             except Exception as e:
                 print(f"[streak] error on dismiss: {e}")
-            try:
-                _award_pet_xp(current_user.id, "task_completed", browser_tz=data.get("timezone"))
-            except Exception as e:
-                print(f"[pet] error on dismiss: {e}")
             # Bust the LMS cache so the dismissed task vanishes immediately
             try:
                 invalidate_lms_cache_for_user(current_user.id)
@@ -14370,10 +14366,6 @@ def manual_update_task():
             _record_streak_qualifying_action(current_user.id, data.get("timezone"))
         except Exception as e:
             print(f"[streak] error on task complete: {e}")
-        try:
-            _award_pet_xp(current_user.id, "task_completed", browser_tz=data.get("timezone"))
-        except Exception as e:
-            print(f"[pet] error on task complete: {e}")
     if current_user.is_authenticated:
         try: invalidate_lms_cache_for_user(current_user.id)
         except Exception: pass
@@ -14484,14 +14476,6 @@ def _record_streak_qualifying_action(user_id: int, browser_tz: str | None = None
         app_analytics.track(user_id, "streak_freeze_earned", {
             "milestone_day": result.current_streak,
         })
-
-    # ── Plani Pet: feed XP for streak milestones (3, 7, 14, 30, 60, 100)
-    try:
-        milestone_event = pet_engine.streak_milestone_event(result.current_streak)
-        if milestone_event:
-            _award_pet_xp(user_id, milestone_event, browser_tz=browser_tz)
-    except Exception as e:
-        print(f"[pet] streak-milestone error: {e}")
 
     return {
         "current_streak": result.current_streak,
@@ -14814,14 +14798,7 @@ def pet_rename():
 
 @app.route("/pet")
 def pet_page():
-    """Full pet page — like a Tamagotchi dashboard."""
-    if not current_user.is_authenticated:
-        return flask.redirect("/login")
-    return flask.render_template(
-        "pet.html",
-        active_page="pet",
-        logged_in=True,
-    )
+    return flask.redirect(url_for("streak"), code=301)
 
 
 @app.route("/api/pet/care", methods=["POST"])
@@ -18016,8 +17993,24 @@ def study_get_points():
     uid = current_user.id if current_user.is_authenticated else None
     gid = None if uid else get_guest_session_id()
     try:
+        from intelliplan.scheduler_clock import now_for
+        if request.args.get("summary") == "1":
+            if not uid:
+                return flask.jsonify(status="error", message="Sign in to see your streak."), 401
+            today = now_for(uid).date()
+            profile = StudyPoints.query.filter_by(user_id=uid).first()
+            history = safe_json_load(profile.streak_history, []) if profile else []
+            count = (profile.streak_count or 0) if profile else 0
+            best = max(count, (profile.longest_streak or 0) if profile else 0)
+            if count and profile.last_active_date:
+                last = date.fromisoformat(profile.last_active_date[:10])
+                if (today - last).days - 1 > (profile.streak_freeze_count or 0):
+                    count = 0
+            return _no_store(flask.jsonify(status="ok", streak_count=count,
+                longest_streak=best, streak_history=history, today=today.isoformat()))
+        now = now_for(uid) if request.headers.get("X-Timezone") else datetime.now()
         p = get_study_profile(uid, gid)
-        streak_event = reconcile_missed_streak(p)
+        streak_event = reconcile_missed_streak(p, now.date())
         tier = current_study_tier(p.streak_count)
         p.freeze_capacity = tier["freeze_cap"]
         weekly_quests = ensure_weekly_quests(p)
@@ -18027,7 +18020,6 @@ def study_get_points():
         cosmetics = safe_json_load(p.active_cosmetics, {})
         booster = safe_json_load(p.active_booster, None)
         level_info = level_for_sparks(p.sparks_earned_total)
-        now = datetime.now()
         today_str = now.strftime("%Y-%m-%d")
         at_risk = bool(p.last_active_date != today_str and now.hour >= 18 and int(p.streak_count or 0) > 0)
         repair_until = p.repair_eligible_until.isoformat() if p.repair_eligible_until else None
@@ -18111,8 +18103,11 @@ def study_update_streak():
     if questions_answered < 5:
         return flask.jsonify({"status": "error", "message": "Complete at least 5 questions to count toward your streak."})
     try:
+        today = date.fromisoformat(today_str)
         p = get_study_profile(uid, gid)
-        streak_event = reconcile_missed_streak(p)
+        from intelliplan.scheduler_clock import now_for
+        local_today = now_for(uid).date() if request.headers.get("X-Timezone") else None
+        streak_event = reconcile_missed_streak(p, local_today)
         history = safe_json_load(p.streak_history, [])
         last = p.last_active_date
         bonus_points = 0
@@ -18121,7 +18116,7 @@ def study_update_streak():
         freeze_awarded = 0
         if last == today_str:
             return flask.jsonify({"status": "ok", "streak_count": p.streak_count, "bonus_points": 0, "total_points": p.total_points, "spark_balance": p.spark_balance, "streak_history": history, "longest_streak": p.longest_streak or p.streak_count, "streak_event": streak_event})
-        yesterday = (datetime.strptime(today_str, "%Y-%m-%d") - timedelta(days=1)).strftime("%Y-%m-%d")
+        yesterday = (today - timedelta(days=1)).isoformat()
         if last == yesterday:
             p.streak_count += 1
         elif last == "":

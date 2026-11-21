@@ -102,13 +102,6 @@ export const SIDEBAR: NavItem[] = [
     blurb: "Daily streak, Sparks and the shop",
   },
   {
-    key: "pet",
-    label: "My Pet",
-    icon: "paw-outline",
-    route: "/pet",
-    blurb: "Grows as you study",
-  },
-  {
     key: "balance",
     label: "Balance",
     icon: "leaf-outline",
@@ -148,7 +141,7 @@ export const MORE_ITEMS = SIDEBAR.filter(
 const MORE_GROUP_KEYS = [
   { label: "Plan & focus", keys: ["command_center", "active"] },
   { label: "Study", keys: ["memories", "study_hub", "flashcards", "courses", "foundations"] },
-  { label: "Progress", keys: ["streak", "pet", "balance"] },
+  { label: "Progress", keys: ["streak", "balance"] },
   { label: "Explore", keys: ["features", "my_stats"] },
 ] as const;
 

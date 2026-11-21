@@ -30,7 +30,7 @@ const STARTERS = [
 const INTERNAL_ROUTES: Record<string, string> = {
   "/dashboard": "/(tabs)/today", "/scheduler": "/(tabs)/plan", "/tutor": "/(tabs)/plani",
   "/grades": "/(tabs)/grades", "/gradebook": "/(tabs)/grades", "/streak": "/streak",
-  "/pet": "/pet", "/command-center": "/command-center", "/settings": "/settings", "/memories": "/memories",
+  "/pet": "/streak", "/command-center": "/command-center", "/settings": "/settings", "/memories": "/memories",
 };
 
 const WEBSITE_PAGES: Record<string, string> = { "/my-courses": "courses", "/foundations": "foundations" };

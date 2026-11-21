@@ -1,22 +1,22 @@
 {% extends "base.html" %}
+{% from 'partials/plani_avatar.html' import plani_avatar with context %}
 
 {% block content %}
 <div class="ipd-page-header streak-page-head ipd-anim ipd-d1">
   <div>
-    <div class="ipd-kicker">Momentum</div>
-    <h1 class="ipd-page-title">Streak</h1>
-    <p class="ipd-page-subtitle">Protect your daily momentum, spend Sparks, and unlock streak rewards.</p>
+    <h1 class="ipd-page-title">Your study streak</h1>
+    <p class="ipd-page-subtitle">Finish 5 practice questions to mark today.</p>
   </div>
-  <a class="ipd-btn ipd-btn-primary streak-study-cta" href="/study">
+  <a class="ipd-btn ipd-btn-primary streak-study-cta" href="/learn">
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-rocket"/></svg>
-    Study now
+    Practice now
   </a>
 </div>
 
 <div id="streakApp" class="streak-shell">
   <div class="streak-hero-card" id="streakHero">
     <div class="streak-flame-stage" aria-hidden="true">
-      <span class="streak-flame-emoji"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#E07A2A" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><use href="#i-fire"/></svg></span>
+      <span class="streak-flame-emoji">{{ plani_avatar(96) }}<svg class="plani-portrait-fallback" aria-hidden="true" width="48" height="48"><use href="#i-fire"/></svg></span>
       <span class="streak-flame-aura"></span>
       <span class="streak-spark s1"></span>
       <span class="streak-spark s2"></span>
@@ -521,7 +521,9 @@ function filterShop(kind) {
 }
 
 async function loadStreakPage() {
-  const data = await fetch('/study/points').then(r => r.json()).catch(() => ({ status:'error' }));
+  const data = await fetch('/study/points', {
+    headers: { 'X-Timezone': Intl.DateTimeFormat().resolvedOptions().timeZone || '' }
+  }).then(r => r.json()).catch(() => ({ status:'error' }));
   if (data.status !== 'ok') {
     showToast('Could not load streak data.');
     return;
@@ -546,9 +548,14 @@ function tierColor() {
   return colorMap[streakState.active_cosmetics?.streak_color] || streakState.streak_tier?.color || '#f97316';
 }
 
+function streakLocalDate(day) {
+  return [day.getFullYear(), day.getMonth() + 1, day.getDate()]
+    .map(value => String(value).padStart(2, '0')).join('-');
+}
+
 function renderHero() {
   const tier = streakState.streak_tier || { name:'Spark', bonus:5 };
-  const today = new Date().toISOString().split('T')[0];
+  const today = streakLocalDate(new Date());
   const doneToday = (streakState.streak_history || []).includes(today);
   const title = streakState.active_cosmetics?.title;
   document.getElementById('streakHero').style.setProperty('--tier', tierColor());
@@ -570,7 +577,7 @@ function renderAlerts() {
   risk.hidden = !streakState.at_risk || streakState.repair_available;
   repair.hidden = !streakState.repair_available;
   if (!risk.hidden) {
-    risk.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-warning"/></svg><span>Your streak is at risk. Finish a short study session today.</span><button onclick="location.href='/study'">Study</button>`;
+    risk.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-warning"/></svg><span>Finish a short practice session to mark today.</span><button onclick="location.href='/learn'">Practice</button>`;
   }
   if (!repair.hidden) {
     repair.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-warning"/></svg><span>Your streak can still be repaired for ${streakState.repair_cost || 0} Sparks.</span><button onclick="repairStreak()">Repair</button>`;
@@ -580,12 +587,12 @@ function renderAlerts() {
 function renderWeek() {
   const history = new Set(streakState.streak_history || []);
   const today = new Date();
-  const todayStr = today.toISOString().split('T')[0];
+  const todayStr = streakLocalDate(today);
   const names = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const html = Array.from({ length:7 }, (_, idx) => {
     const d = new Date(today);
     d.setDate(today.getDate() - (6 - idx));
-    const ds = d.toISOString().split('T')[0];
+    const ds = streakLocalDate(d);
     const done = history.has(ds);
     return `<div class="week-day">
       <div class="week-dot ${done ? 'done' : ''} ${ds === todayStr ? 'today' : ''}">${done ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>' : ''}</div>
