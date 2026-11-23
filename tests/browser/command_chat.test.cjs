@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const path = require('node:path');
 const source = fs.readFileSync(path.join(__dirname, '../../static/js/command_center.js'), 'utf8');
+const coverage = fs.readFileSync(path.join(__dirname, '../../static/js/plan-coverage.js'), 'utf8');
 const STORE = 'ip_cc_thread_v2';
 function harness(owner, initial = {}) {
   const storage = new Map(Object.entries(initial)), requests = [], timers = [];
@@ -31,6 +32,7 @@ function harness(owner, initial = {}) {
       ? Promise.resolve({ json: async () => ({}) })
       : new Promise((resolve, reject) => requests.push({ options, resolve, reject })),
   });
+  vm.runInContext(coverage, context);
   vm.runInContext(source, context); boot();
   return { storage, requests, ids, timers, location, reloads: () => reloads,
     submit(text = 'New task') { ids.chatInput.value = text; ids.chatComposer.events.submit({ preventDefault() {} }); },
@@ -41,6 +43,26 @@ function saved(owner) {
     log: [{ t: 'msg', role: 'user', text: 'Private prior question' }] });
 }
 async function flush() { await new Promise(resolve => setImmediate(resolve)); }
+test('Shows the earliest unmet deadline and combines split work in a zero-session preview', async () => {
+  const h = harness('17');
+  h.submit('Plan my week');
+  h.requests[0].resolve({ status: 409, json: async () => ({
+    status: 'error', reply: 'No sessions fit.', retryable: false,
+    schedule: { preview: true, schedule: [], deferred: [
+      { task_id: 'essay', title: 'Essay', minutes: 40, due_date: '2026-11-26' },
+      { task_id: 'math', title: '<Algebra>', minutes: 15, deadline_at: '2026-11-25T08:30:00' },
+      { task_id: 'math', title: '<Algebra>', minutes: 20, due_date: '2026-11-25' }
+    ] },
+  }) });
+  await flush();
+  const card = h.ids.chatInner.children.at(-1).innerHTML;
+  assert.match(card, /Preview · not saved/);
+  assert.match(card, /1h 15m still needs time/);
+  assert.match(card, /35m to schedule · due 2026-11-25 at 8:30 AM/);
+  assert.equal(card.match(/&lt;Algebra&gt;/g).length, 1);
+  assert.ok(card.indexOf('&lt;Algebra&gt;') < card.indexOf('Essay'));
+  assert.doesNotMatch(card, /Open in Scheduler/);
+});
 test('matching account restores its conversation and sends the owner contract', () => {
   const h = harness('17', { [STORE]: saved('17') }); h.submit();
   assert.equal(h.ids.chatInner.children[0].innerHTML, 'Private prior question');

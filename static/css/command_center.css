@@ -240,3 +240,14 @@ body .command-chat .command-chat__intro .command-chat__shortcuts li > :is(button
 @media (prefers-reduced-motion: reduce) {
   body .command-chat .command-chat__intro .command-chat__shortcuts li > :is(button, a) { transition: none; }
 }
+.command-chat__coverage {
+  padding: 12px 16px;
+  background: color-mix(in srgb, #bc7c30 8%, transparent);
+  border-top: 1px solid var(--border);
+}
+.command-chat__coverage h3 { margin: 0; font-size: .91rem; }
+.command-chat__coverage ul { list-style: none; padding: 0; margin: 8px 0; }
+.command-chat__coverage li { display: grid; gap: 2px; padding-block: 5px; overflow-wrap: anywhere; }
+.command-chat__coverage li strong { font-size: .84rem; }
+.command-chat__coverage li span, .command-chat__coverage li small { font-size: .77rem; color: var(--text-secondary); }
+.command-chat__coverage details { margin-bottom: 8px; font-size: .82rem; }

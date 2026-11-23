@@ -1249,6 +1249,11 @@ document.querySelectorAll('.profile-tab').forEach(tab => {
     document.getElementById('pane-' + tab.dataset.pane).classList.add('visible');
   });
 });
+function selectAvailabilityFromHash() {
+  if (location.hash === '#pane-schedule') document.querySelector('.profile-tab[data-pane="schedule"]')?.click();
+}
+selectAvailabilityFromHash();
+window.addEventListener('hashchange', selectAvailabilityFromHash);
 
 /* ── Availability time-block UI ─────────────────── */
 const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];

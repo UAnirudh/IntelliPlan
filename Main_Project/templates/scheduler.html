@@ -6,6 +6,7 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/scheduler-agenda.css') }}?v={{ asset_v }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/followthrough.css') }}?v={{ asset_v }}">
 <script defer src="{{ url_for('static', filename='js/followthrough.js') }}?v={{ asset_v }}"></script>
+<script src="{{ url_for('static', filename='js/plan-coverage.js') }}?v={{ asset_v }}"></script>
 <script defer src="{{ url_for('static', filename='js/planner-draft.js') }}?v={{ asset_v }}"></script>
 <script defer src="{{ url_for('static', filename='js/planner-capture.js') }}?v={{ asset_v }}"></script>
 <style>
@@ -2295,7 +2296,9 @@ function fmtMinutes(mins) {
    predicted. A schedule that cannot fit is useful information; a pretty
    calendar hiding it is worse than no calendar. */
 function renderCapacitySummary(data) {
-  const deferred = Array.isArray(data.deferred) ? data.deferred : [];
+  const coverage = window.IPPlanCoverage;
+  const remainder = coverage.summarize(data);
+  const deferred = remainder.tasks;
   // The planner now reports what it reserved and what it could not fit, in
   // minutes and in words. "3 tasks could not be placed" is not something a
   // student can act on; "your week is 2h10m short, Sunday has 3h free" is.
@@ -2309,9 +2312,8 @@ function renderCapacitySummary(data) {
 
   let headline;
   if (total && capacity && shortfall > 0) {
-    headline = 'You have about ' + fmtMinutes(total) + ' of work and ' +
-               fmtMinutes(capacity) + ' of free time before these are due: ' +
-               'roughly ' + fmtMinutes(shortfall) + ' short.';
+    headline = 'The planning window has about ' + fmtMinutes(total) + ' of work and ' +
+               fmtMinutes(capacity) + ' of available study time.';
   } else if (deferred.length) {
     headline = deferred.length === 1
       ? 'One task could not be placed in your free hours.'
@@ -2326,8 +2328,8 @@ function renderCapacitySummary(data) {
           <li>
             <span class="cap-deferred__title">${escapeText(d.title || 'Task')}</span>
             ${d.minutes ? `<span class="cap-deferred__mins">${escapeText(fmtMinutes(d.minutes))}</span>` : ''}
-            ${d.due_date ? `<span class="cap-deferred__due">due ${escapeText(String(d.due_date).slice(0, 10))}</span>` : ''}
-            ${d.reason ? `<div class="cap-deferred__why">${escapeText(d.reason)}</div>` : ''}
+            ${d.deadline ? `<span class="cap-deferred__due">due ${escapeText(coverage.due(d.deadline))}</span>` : ''}
+            ${d.reasons.length ? `<div class="cap-deferred__why">${escapeText(d.reasons.join(' '))}</div>` : ''}
           </li>`).join('')}
       </ul>` : '';
 
@@ -2336,13 +2338,13 @@ function renderCapacitySummary(data) {
     ? `<ul class="cap-deferred">${report.suggestions.map(x =>
          `<li><span class="cap-deferred__title">${escapeText(x)}</span></li>`).join('')}</ul>`
     : `<p class="cap-next">What helps: move a due date, add free hours in
-        <a href="/settings">Settings</a>, or start the tightest one today.</p>`;
+        <a href="/settings#pane-schedule">Settings</a>, or start the tightest one today.</p>`;
 
   return `
     <div class="capacity-warning" role="status">
       <div class="cap-head">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><use href="#i-alert"/></svg>
-        <span>Not everything fits</span>
+        <span>${remainder.minutes ? escapeText(coverage.duration(remainder.minutes) + ' still needs time') : 'Not everything fits'}</span>
       </div>
       <p class="cap-headline">${escapeText(headline)}</p>
       ${list}

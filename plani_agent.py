@@ -1160,12 +1160,16 @@ def _execute_tool(name: str, args: dict, user_id: int) -> dict[str, Any]:
             if _processing_state(user_id) != generation_state:
                 return {'error': 'account_access_changed'}
             if not schedule or not any(
-                not block.get("is_break")
+                not block.get("is_break") and not block.get("unplaced")
                 for day in schedule.get("schedule", [])
                 for block in day.get("blocks", [])
             ):
-                return {"error": "No study work fits your available time. Your existing plan is unchanged.",
-                        "planning_failed": True}
+                preview = schedule if schedule and schedule.get('deferred') else None
+                return {"error": "planning_failed", "planning_failed": True,
+                        "message": ("I couldn’t place a study session in your available time. "
+                                    + ("Review the work that needs time below." if preview else
+                                       "Review your availability in Settings and try again.")),
+                        "schedule": preview}
             if _processing_state(user_id) != generation_state:
                 return {'error': 'account_access_changed'}
             sched_name = f"Plani Schedule {datetime.now().strftime('%b %d')}"
@@ -1448,7 +1452,9 @@ def _requests_week_plan(messages):
 
 def _plan_result_response(result, *, actions=(), links=(), refresh=False, tool_log=()):
     if result.get('status') == 'ok' and result.get('schedule'):
-        return jsonify(status='ok', reply='Your study plan is ready.',
+        reply = ('I saved the sessions that fit. Review the remaining work below.'
+                 if result['schedule'].get('deferred') else 'Your study plan is ready.')
+        return jsonify(status='ok', reply=reply,
                        schedule=dict(result['schedule'], preview=False),
                        actions=actions, links=links, refresh=True, tool_log=tool_log)
 
@@ -1461,8 +1467,10 @@ def _plan_result_response(result, *, actions=(), links=(), refresh=False, tool_l
         'No pending tasks to schedule.': 'There are no pending assignments to plan. Add or sync work and try again.',
     }
     reply = result.get('message') or messages.get(error) or error
+    preview = dict(result['schedule'], preview=True) if result.get('schedule') else None
     return jsonify(status='error', error=error, reply=reply, actions=actions, links=links,
-                   refresh=refresh, tool_log=tool_log, retryable=bool(result.get('retryable'))), 409
+                   schedule=preview, refresh=refresh, tool_log=tool_log,
+                   retryable=bool(result.get('retryable'))), 409
 
 
 # ── Standing context ─────────────────────────────────────────────────

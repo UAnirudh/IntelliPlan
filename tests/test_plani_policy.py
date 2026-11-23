@@ -474,6 +474,26 @@ def test_chat_returns_real_plan_before_ai_can_fail_in_a_followup_round(account, 
         assert App.CourseNote.query.filter_by(user_id=account[0]).count() == 0
 
 
+def test_week_planner_returns_unplaced_work_without_overwriting_active_plan(account, monkeypatch):
+    add_task(account)
+    fixture_generation(monkeypatch)
+    deferred = {'title': 'Manual algebra', 'minutes': 60, 'due_date': '2026-10-20'}
+    monkeypatch.setattr(App, '_build_planner_schedule', lambda *a, **kw: {
+        'schedule': [], 'deferred': [deferred], 'overloaded': True})
+    with App.app.app_context():
+        saved = App.SavedSchedule(user_id=account[0], name='Earlier plan',
+                                  schedule_data='{"schedule":[]}', is_active=True)
+        App.db.session.add(saved)
+        App.db.session.commit()
+        old_id = saved.id
+    response = signed_client(account).post('/api/plani/agent', json={'message': 'Plan my week'})
+    assert response.status_code == 409
+    assert response.json['schedule']['preview'] is True
+    assert response.json['schedule']['deferred'] == [deferred]
+    with App.app.app_context():
+        assert App.SavedSchedule.query.filter_by(user_id=account[0], is_active=True).one().id == old_id
+
+
 def test_chat_schedule_preserves_canvas_morning_deadline_in_student_zone(account, monkeypatch):
     from datetime import datetime
     provider = fixture_generation(monkeypatch)

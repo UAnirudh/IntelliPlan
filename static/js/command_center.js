@@ -98,17 +98,39 @@
   function renderSchedule(schedule) {
     if (!schedule || !Array.isArray(schedule.schedule)) return;
     var days = schedule.schedule.slice(0, 7).map(function (day) {
-      var blocks = (day.blocks || []).filter(function (b) { return !b.is_break; }).map(function (b) {
+      var blocks = (day.blocks || []).filter(function (b) { return !b.is_break && !b.unplaced; }).map(function (b) {
         return '<li><time>' + esc(String(b.time_slot || '').split(/\s*[-–]\s*/)[0]) + '</time><span>' + esc(b.assignment || b.title) + '</span></li>';
       }).join('');
-      return '<div><h3>' + esc(day.day_name || day.date) + '</h3><ul>' + (blocks || '<li>Free</li>') + '</ul></div>';
+      return '<div><h3>' + esc(day.day_name || day.date) + '</h3><ul>' + (blocks || '<li>No study block scheduled</li>') + '</ul></div>';
     }).join('');
     var card = document.createElement('section');
     card.className = 'command-chat__schedule';
     var preview = schedule.preview === true;
     card.innerHTML = '<header><div><p>' + (preview ? 'Preview · not saved' : 'Saved study plan') + '</p><h2>' + esc(schedule.total_study_time || 'Study plan') +
-      '</h2></div>' + (preview ? '' : '<a href="/scheduler">Open in Scheduler</a>') + '</header><div class="command-chat__schedule-days">' + days + '</div>';
+      '</h2></div>' + (preview ? '' : '<a href="/scheduler">Open in Scheduler</a>') + '</header>' +
+      renderCoverage(schedule) + (days ? '<div class="command-chat__schedule-days">' + days + '</div>' : '');
     inner.appendChild(card);
+  }
+
+  function renderCoverage(schedule) {
+    var coverage = window.IPPlanCoverage;
+    if (!coverage) return '';
+    var remaining = coverage.summarize(schedule);
+    if (!remaining.tasks.length) return '';
+    var label = remaining.minutes ? coverage.duration(remaining.minutes) + ' still needs time' : 'Work still needs time';
+    var rows = remaining.tasks.map(function (task) {
+      var details = [];
+      if (task.minutes) details.push(coverage.duration(task.minutes) + ' to schedule');
+      if (task.deadline) details.push('due ' + coverage.due(task.deadline));
+      return '<li><strong>' + esc(task.title) + '</strong>' +
+        (details.length ? '<span>' + esc(details.join(' · ')) + '</span>' : '') +
+        (task.reasons.length ? '<small>' + esc(task.reasons.join(' ')) + '</small>' : '') + '</li>';
+    });
+    var more = rows.length > 3 ? '<details><summary>Show ' + (rows.length - 3) +
+      ' more</summary><ul>' + rows.slice(3).join('') + '</ul></details>' : '';
+    return '<section class="command-chat__coverage" aria-label="Unscheduled work"><h3>' + esc(label) +
+      '</h3><ul>' + rows.slice(0, 3).join('') + '</ul>' + more +
+      '<a href="/settings#pane-schedule">Review study availability</a></section>';
   }
 
   function renderConfirmations(events) {
