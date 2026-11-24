@@ -187,6 +187,25 @@ def test_the_compare_hub_links_all_of_its_spokes(client):
     assert not missing, f"/compare does not link: {missing}"
 
 
+def test_compare_hub_uses_documented_competitor_features(client):
+    body = client.get("/compare").get_data(as_text=True)
+    assert 'href="https://shovelapp.io/"' in body
+    assert "Canvas, Brightspace, Moodle and Google Classroom" in body
+    assert "Use Auto-plan" in body
+    assert "7-day planner trial" in body
+    assert "Scout AI" in body
+    assert 'href="https://mystudylife.com/b2b/"' in body
+    assert "Only IntelliPlan supports" not in body
+
+
+def test_mystudylife_comparison_matches_the_hub(client):
+    body = client.get("/compare/intelliplan-vs-mystudylife").get_data(as_text=True)
+    assert "Both MyStudyLife and IntelliPlan help students plan their week with AI" in body
+    assert 'href="https://mystudylife.com/b2b/"' in body
+    assert "Canvas assignment import" in body
+    assert "manual planner" not in body.lower()
+
+
 def test_every_comparison_page_still_renders(client):
     for slug in COMPARE_SLUGS:
         response = client.get(f"/compare/intelliplan-vs-{slug}")
