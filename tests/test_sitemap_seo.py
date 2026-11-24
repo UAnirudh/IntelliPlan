@@ -13,7 +13,9 @@ to index a page and the X-Robots-Tag header told it not to.
 
 from __future__ import annotations
 
+import json
 import re
+from html import unescape
 from html.parser import HTMLParser
 
 import pytest
@@ -127,7 +129,7 @@ def test_matcha_comparison_and_calendar_guide_are_discoverable(client):
     ns = {"s": "http://www.sitemaps.org/schemas/sitemap/0.9"}
     urls = ET.fromstring(client.get("/sitemap.xml").get_data()).findall("s:url", ns)
     dates = {node.findtext("s:loc", namespaces=ns): node.findtext("s:lastmod", namespaces=ns) for node in urls}
-    for path in (comparison, guide):
+    for path in (comparison, guide, "/study-planner"):
         slug = path.rsplit("/", 1)[1]
         article = app_module.blog_articles.get(slug)
         assert dates[base + path] == article.get("updated", article["date"])
@@ -371,3 +373,39 @@ def test_public_website_copy_has_no_em_dash(client):
         parser.feed(response.get_data(as_text=True))
         failures.extend((path, text.strip()) for text in parser.copy if "\u2014" in text)
     assert not failures
+
+
+def test_public_planner_example_and_alias(client):
+    path = "/study-planner"
+    assert path in sitemap_paths(client)
+    assert path in _internal_links(client, "/")
+    assert path in _internal_links(client, "/faq")
+    previous = client.get("/blog/study-planner")
+    assert previous.status_code == 301 and previous.headers["Location"] == path
+    body = client.get(path).get_data(as_text=True)
+    assert "25 minutes" in body and "50 minutes" in body and "15 minutes" in body
+    assert "/demo/planner" in _internal_links(client, path)
+
+
+@pytest.mark.parametrize("path", ["/", "/faq"])
+def test_faq_metadata_matches_visible_copy(client, path):
+    body = client.get(path).get_data(as_text=True)
+    entries = [
+        json.loads(block)
+        for block in re.findall(r'<script type="application/ld\+json">(.*?)</script>', body, re.S)
+    ]
+    visible = unescape(SCRIPT_RE.sub(" ", body))
+    faq, = [entry for entry in entries if entry.get("@type") == "FAQPage"]
+    for item in faq["mainEntity"]:
+        assert item["name"] in visible
+        assert item["acceptedAnswer"]["text"] in visible
+    assert not any("aggregateRating" in entry for entry in entries)
+
+
+def test_public_ai_reference_points_to_current_site_pages(client):
+    body = client.get("/llms.txt").get_data(as_text=True)
+    assert "accounts for children under 13 are unavailable" in body
+    urls = re.findall(r"\]\(https://intelliplan\.tech(/[^)]+)\)", body)
+    assert "/study-planner" in urls and "/legal" in urls
+    for path in urls:
+        assert client.get(path).status_code == 200, path

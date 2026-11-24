@@ -786,6 +786,16 @@ main {
         <button type="button" id="tutorPathButton" onclick="showTutorPracticePath()">My practice path</button>
         <button type="button" id="educationPlanOpen">My learning plan</button>
         <span id="tutorCheckStatus" role="status" aria-live="polite"></span>
+        {% if not assessment_protection %}
+        <section class="tutor-math-tools" aria-label="Visual math tools">
+          <strong>Explore the math</strong>
+          <ul>
+            <li><a href="https://polypad.amplify.com/templates" target="_blank" rel="noopener noreferrer">Polypad by Amplify <span class="ip-arrow" data-direction="up-right" aria-hidden="true"></span></a> <span>Model fractions and algebra with tiles.</span></li>
+            <li><a href="https://www.desmos.com/calculator" target="_blank" rel="noopener noreferrer">Desmos Graphing Calculator <span class="ip-arrow" data-direction="up-right" aria-hidden="true"></span></a> <span>Plot functions and compare their graphs.</span></li>
+          </ul>
+          <p>Each tool opens in a new tab. Tell {{ assistant_name }} what you changed and what surprised you to get a follow-up question.</p>
+        </section>
+        {% endif %}
       </div>
       </details>
       <div id="tutorImgPreview" class="tutor-img-preview" style="display:none;">

@@ -21,6 +21,42 @@ from __future__ import annotations
 
 ARTICLES: list[dict] = [
     {
+        "slug": "study-planner",
+        "path": "/study-planner",
+        "kicker": "Planner",
+        "title": "A study planner that shows what fits",
+        "meta_title": "Calendar-Aware Study Planner | IntelliPlan",
+        "description": "Schedule assignments around your real availability, see which deadlines need more study time, and try a sample week before connecting an account.",
+        "date": "2026-11-23",
+        "reading_time": 3,
+        "sections": [
+            {"paragraphs": [
+                "IntelliPlan turns assignments into study blocks around your available hours. Command Center and Scheduler both show work the plan couldn’t place, including how many minutes remain and the earliest affected deadline. You can try the workflow with fictional coursework before connecting accounts.",
+            ], "links": [{"url": "/demo/planner", "label": "Try the sample week"}]},
+            {"h2": "What goes into the plan?", "list_style": "ol", "list": [
+                "Bring in assignments from a supported school connection, or add them yourself. Check that due dates and time estimates match your coursework.",
+                "Set your study hours and add commitments such as work, travel, and practice. A connected Google or Outlook calendar can supply busy time where you grant access. Your class timetable can also reserve time.",
+                "Review the proposed blocks and remaining work together. If you have a tight deadline, check how much time is still missing before you commit to the week.",
+            ], "links": [
+                {"url": "/blog/how-to-use-canvas-with-a-study-planner", "label": "Plan around Canvas assignments"},
+                {"url": "/blog/studentvue-study-planner", "label": "Plan around StudentVUE assignments"},
+                {"url": "/schoology", "label": "Check Schoology connection requirements"},
+            ]},
+            {"h2": "Worked example: two assignments and one free hour", "paragraphs": [
+                "Suppose Monday has 60 minutes of usable study time after practice, travel, and dinner. You estimate 25 minutes to review for a quiz due Tuesday at 8:30 a.m. and 50 minutes to finish a reading due Tuesday evening. Both are due before your next available study block.",
+                "That is 75 minutes of work for 60 available minutes. Even before breaks or work that cannot be split, at least 15 minutes need another slot. If the plan places 25 minutes of quiz review and 35 minutes of reading, it shows the reading with 15 minutes left to schedule. If the quiz didn’t fit, its morning deadline would appear ahead of the evening reading.",
+                "Use the availability shortcut when you can genuinely free up more time. If you can’t, check whether your estimate is realistic or ask the teacher about the deadline. When none of the work can fit, Command Center returns a preview and preserves your previous saved plan.",
+            ]},
+            {"h2": "When a commitment moves", "paragraphs": [
+                "Refresh the connected source if the change is recent. Then review the remaining work in Scheduler and adjust the plan. On eligible accounts, Autopilot can rebuild a saved plan after supported sources refresh when enabled. Review any work the updated plan still can’t place.",
+            ], "links": [
+                {"url": "/blog/fit-schoolwork-around-your-calendar", "label": "Set up calendar-aware planning"},
+                {"url": "/compare/intelliplan-vs-matcha", "label": "Compare IntelliPlan and Matcha"},
+            ]},
+        ],
+        "related": ["fit-schoolwork-around-your-calendar", "reset-your-study-plan-after-a-missed-day"],
+    },
+    {
         "slug": "turn-a-task-list-into-a-study-plan",
         "kicker": "Planning",
         "title": "Turn a Messy Task List Into a Study Plan",

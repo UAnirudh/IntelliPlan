@@ -569,3 +569,24 @@ def test_study_map_with_no_readable_sources_does_not_call_ai(client, monkeypatch
     assert result.status_code == 200
     assert result.json['status'] == 'limited'
     assert result.json['files_skipped'] == 2
+
+
+def test_visual_math_tools_are_opt_in_links_and_respect_assessment_mode(client, monkeypatch):
+    from intelliplan.learning import policy
+
+    math_urls = (
+        'https://polypad.amplify.com/templates',
+        'https://www.desmos.com/calculator',
+    )
+    html = client.get('/tutor').get_data(as_text=True)
+    for url in math_urls:
+        assert f'href="{url}" target="_blank" rel="noopener noreferrer"' in html
+        assert f'src="{url}' not in html
+
+    original = policy.effective
+    monkeypatch.setattr(policy, 'effective', lambda user: {
+        **original(user), 'assessment_protection': True,
+    })
+    html = client.get('/tutor').get_data(as_text=True)
+    assert 'Assessment protection is on' in html
+    assert all(url not in html for url in math_urls)

@@ -1,6 +1,6 @@
 {# Show extended SEO links + trust badges only on public marketing pages #}
 {% set _p = request.path or '/' %}
-{% set _marketing = _p in ['/', '/faq', '/compare', '/about', '/contact', '/legal', '/install', '/download', '/blog', '/uk', '/schools', '/olympiad', '/tutor', '/api-docs', '/developers'] or _p.startswith('/blog/') or _p.startswith('/compare/') or _p.startswith('/tools/') %}
+{% set _marketing = _p in ['/', '/study-planner', '/faq', '/compare', '/about', '/contact', '/legal', '/install', '/download', '/blog', '/uk', '/schools', '/olympiad', '/tutor', '/api-docs', '/developers'] or _p.startswith('/blog/') or _p.startswith('/compare/') or _p.startswith('/tools/') %}
 {% set _trust = _p in ['/', '/about'] %}
 
 {# Glass-calm state coverage for the footer's inline-styled links. Inline
@@ -57,6 +57,7 @@
       <a class="sk-link" href="/cookies" style="font-family:var(--font-ui); font-size:0.78rem; color:var(--footer-text); text-decoration:none; font-weight:500; opacity:0.7;">Cookies</a>
       <a class="sk-link" href="/about" style="font-family:var(--font-ui); font-size:0.78rem; color:var(--footer-text); text-decoration:none; font-weight:500; opacity:0.7;">About</a>
       <a class="sk-link" href="/faq" style="font-family:var(--font-ui); font-size:0.78rem; color:var(--footer-text); text-decoration:none; font-weight:500; opacity:0.7;">FAQ</a>
+      <a class="sk-link" href="/study-planner" style="font-family:var(--font-ui); font-size:0.78rem; color:var(--footer-text); text-decoration:none; font-weight:500; opacity:0.7;">Study planner</a>
       <a class="sk-link" href="https://mintlify.wiki/UAnirudh/IntelliPlan/" target="_blank" rel="noopener noreferrer" aria-label="IntelliPlan documentation (opens in a new tab)" style="font-family:var(--font-ui); font-size:0.78rem; color:var(--footer-text); text-decoration:none; font-weight:500; opacity:0.7;">Docs</a>
       <a class="sk-link" href="/blog" style="font-family:var(--font-ui); font-size:0.78rem; color:var(--footer-text); text-decoration:none; font-weight:500; opacity:0.7;">Guides</a>
       <a class="sk-link" href="/olympiad" style="font-family:var(--font-ui); font-size:0.78rem; color:var(--footer-text); text-decoration:none; font-weight:500; opacity:0.7;">Olympiad Prep</a>

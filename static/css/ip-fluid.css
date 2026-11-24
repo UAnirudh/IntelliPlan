@@ -309,6 +309,18 @@ body .tutor-input-inner > :is(.tutor-icon-btn, #tutorSendBtn) { grid-row: 2; wid
 body #snapBtn { grid-column: 2; } body #micBtn { grid-column: 3; } body #ttsBtn { grid-column: 4; } body #tutorSendBtn { grid-column: 5; }
 body .tutor-input-hint { max-width: 65ch; margin: 10px auto 0; font-size: .72rem; line-height: 1.6; text-wrap: pretty; }
 .tutor-practice-drawer { margin: 0 4px 12px; }
+.tutor-math-tools {
+  flex: 0 0 100%;
+  padding-top: 12px;
+  border-top: 1px solid var(--workspace-edge);
+  font-size: .8125rem;
+  color: var(--text-secondary);
+}
+.tutor-math-tools strong { color: var(--text-primary); }
+.tutor-math-tools ul { display: grid; gap: 4px; margin: 6px 0; padding: 0; list-style: none; }
+.tutor-math-tools a { display: inline-flex; align-items: center; gap: 6px; padding: 6px 0; }
+.tutor-math-tools li > span { display: inline-block; padding-inline-start: 4px; }
+.tutor-math-tools p { margin: 4px 0 0; line-height: 1.5; }
 .tutor-practice-drawer summary { padding: 8px 4px; color: var(--text-secondary); font-size: .8rem; cursor: pointer; line-height: 1.6; }
 body .tutor-practice-drawer .tutor-assignment-bar { padding: 14px; margin-top: 4px; border: 1px solid var(--workspace-edge); border-radius: 18px; background: var(--bg-card); max-height: min(260px, 30dvh); overflow: auto; }
 .tutor-audio-feedback { font-size: .75rem; line-height: 1.5; padding-inline: 12px; color: var(--text-muted); }

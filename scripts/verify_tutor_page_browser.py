@@ -130,6 +130,14 @@ with sync_playwright() as p:
         assert page.locator('#tutorInput').is_visible()
         assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
         page.locator('.tutor-practice-drawer summary').click()
+        for name, url in (
+            ('Polypad by Amplify', 'https://polypad.amplify.com/templates'),
+            ('Desmos Graphing Calculator', 'https://www.desmos.com/calculator'),
+        ):
+            link = page.get_by_role('link', name=name)
+            expect(link).to_be_visible()
+            expect(link).to_have_attribute('href', url)
+            expect(link).to_have_attribute('rel', 'noopener noreferrer')
         assert page.locator('#educationPlanOpen').is_visible()
         page.locator('.tutor-practice-drawer summary').click()
         # Start at the beginning of an overflowing welcome, including the mascot.

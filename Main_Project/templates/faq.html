@@ -12,6 +12,7 @@
 {% set getting_started = [
   ("Can I try IntelliPlan before connecting a school account?", "Yes. Use the sample planner to build a week, mark a study block complete or missed, and replan what remains. It uses fictional coursework and resets when you reload.", "/demo/planner", "Open the sample planner"),
   ("Can study blocks fit around my calendar?", "Yes. Set study hours yourself or connect a supported calendar and grant availability access. IntelliPlan can plan around busy time from Google Calendar or Outlook and classes in your IntelliPlan timetable.", "/blog/fit-schoolwork-around-your-calendar", "Set up calendar-aware planning"),
+  ("What happens if some assignments won’t fit?", "Command Center and Scheduler list work that still needs time, ordered by deadline. If none of the work fits, Command Center shows a preview so you can keep the plan you already saved.", "/study-planner", "See an example"),
   ("Can I bring in Notion or Todoist tasks?", "If the integration is available for your account, choose a Notion database or up to four Todoist projects to include in your plan. School-managed accounts may limit which services you can connect.", "", ""),
   ("Can I add classes without connecting a school portal?", "Yes. Paste one class per line or use the timetable’s photo option where available. Check the preview before saving. For assignments, paste a task list into the scheduler.", "/classes#timetable", "Open the class timetable"),
   ("What can I do once I’ve picked a study block?", "Open the block’s checklist or focus timer. Tutor can explain a step, show a graph, or generate practice questions and flashcards when available.", "/tutor", "Explore Tutor"),
@@ -25,128 +26,8 @@
   "@type": "FAQPage",
   "mainEntity": [
     {% for question, answer, url, label in getting_started %}
-    {{ {"@type": "Question", "name": question, "acceptedAnswer": {"@type": "Answer", "text": answer}} | tojson }},
+    {{ {"@type": "Question", "name": question, "acceptedAnswer": {"@type": "Answer", "text": answer}} | tojson }}{{ "," if not loop.last }}
     {% endfor %}
-    {
-      "@type": "Question",
-      "name": "Can I use IntelliPlan to prioritize assignments for multiple classes?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Yes. IntelliPlan pulls assignments from all connected classes, Canvas, StudentVue, or Schoology, and ranks them across every subject simultaneously using due date, point value, and difficulty. You get one unified priority list."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "How does IntelliPlan connect to school tools to import assignments?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "IntelliPlan integrates with Canvas LMS, StudentVUE, and Schoology where available. Assignments and deadline changes appear after the connection refreshes."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "What are the benefits of using a study plan generator like IntelliPlan?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "IntelliPlan eliminates the time students waste deciding what to work on. It identifies the most urgent tasks based on real deadlines, estimates task duration, and builds a schedule around your free time. The time you used to spend sorting portals goes to the work itself."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Can IntelliPlan help me reduce the time spent figuring out what to do?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Yes. IntelliPlan's core purpose is to answer 'what should I work on right now?' automatically. It gives you a ranked task list and a full weekly schedule so you skip the decision paralysis and get straight to studying."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Is IntelliPlan free for students?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "{% if billing_enabled %}The planner is free for every student: school imports, AI study schedules, grade modeling and reminders, with {{ free_ai_allowance }} AI generations a month. IntelliPlan Pro (${{ pro_prices['month'] }} a month or ${{ pro_prices['year'] }} a year) is optional and removes that monthly limit.{% else %}IntelliPlan is completely free for all students. Every feature is available with no extra tiers and no sign-up barriers.{% endif %}"
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Can I customize the schedule IntelliPlan generates?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Yes. You can adjust time estimates, change task priorities, move sessions, and block unavailable times. The AI adapts your entire schedule whenever you make a change."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Is IntelliPlan compatible with Canvas and StudentVue?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "IntelliPlan supports Canvas and StudentVUE. Your school may control which connections you can use."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Does IntelliPlan work for high school students?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Yes. IntelliPlan works for both high school and college students. High school students often use StudentVue, which IntelliPlan connects to directly, something most competing planners don't support."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "How is IntelliPlan different from MyStudyLife or Shovel?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "IntelliPlan connects to StudentVue, which neither MyStudyLife nor Shovel supports. IntelliPlan also includes a built-in Grade Modeler, AI-generated schedules, and a Study & Learn tool for flashcards, all in one app. Shovel does not make its full scheduling tools available to every user."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Does IntelliPlan replace my school portal like Canvas or StudentVue?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "No. IntelliPlan reads your assignments from those portals and organizes them. You still submit work through Canvas or StudentVue. IntelliPlan just tells you what to do and when to do it."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "What happens if my teacher changes a due date?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "The new deadline appears after the connected source refreshes. You can rebuild your plan in the scheduler. If Autopilot is enabled, IntelliPlan can also adjust a saved plan after a supported refresh."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Can I use IntelliPlan on my phone?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Yes. IntelliPlan is a Progressive Web App (PWA) available on iPhone and Android. You can install it from the website, no App Store required for Android, and it installs like a native app on iPhone via Safari."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Is there a free alternative to Turbo AI or TurboLearn?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Yes. IntelliPlan is a free alternative to Turbo AI for students. Like Turbo AI it turns recorded lectures, audio files, PDFs, pasted text, and YouTube videos into notes, flashcards, and quizzes. Unlike note-only apps, it also imports assignments from Canvas, StudentVue, and Schoology, prioritizes them, builds a weekly study schedule, tracks grades, and includes an AI tutor."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Can IntelliPlan turn a recorded lecture into notes and flashcards?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Yes. Record a lecture directly in IntelliPlan or upload an audio file (mp3, m4a, wav, webm, or ogg) and it transcribes the audio with AI, then generates notes, flashcards, and a quiz you can study right away."
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "Can IntelliPlan make flashcards and a quiz from a YouTube video?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "Yes. Paste a YouTube link and IntelliPlan pulls the video's transcript, then generates notes, flashcards, and a quiz from it. You can also paste a transcript or upload a PDF if a video has no captions available."
-      }
-    }
   ]
 }
 </script>
@@ -397,7 +278,8 @@
         <span class="faq-chevron" aria-hidden="true">▾</span>
       </summary>
       <p class="faq-answer">
-        {% if billing_enabled %}The planner is free for every student: school imports, AI study schedules, grade modeling and reminders, with {{ free_ai_allowance }} AI generations a month. IntelliPlan Pro (${{ pro_prices['month'] }} a month or ${{ pro_prices['year'] }} a year) is optional and removes that monthly limit. <a href="/pricing">See pricing</a>.{% else %}IntelliPlan is completely free for all students. Every feature is available with no extra tiers and no sign-up barriers.{% endif %}
+        IntelliPlan has a free plan. AI usage limits and any available upgrades are listed on the
+        <a href="/pricing">pricing page</a>.
       </p>
     </details>
 
@@ -443,10 +325,9 @@
         <span class="faq-chevron" aria-hidden="true">▾</span>
       </summary>
       <p class="faq-answer">
-        IntelliPlan connects to StudentVue, which neither MyStudyLife nor Shovel supports. IntelliPlan also
-        includes a built-in Grade Modeler (simulate your final grade before you take a test), AI-generated
-        schedules, and a Study &amp; Learn tool for flashcards, all in one app. Shovel does not make its
-        full scheduling tools available to every user. See the full <a href="/compare" style="color:var(--accent)">comparison here</a>.
+        IntelliPlan can import StudentVUE assignments, find study time around your commitments, and show which
+        assignments still need time. You can also use the Grade Modeler to try out scores and Study &amp; Learn
+        to practice with flashcards. See the <a href="/compare" style="color:var(--accent)">planner comparisons</a>.
       </p>
     </details>
 
