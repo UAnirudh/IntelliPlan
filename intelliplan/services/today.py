@@ -76,6 +76,12 @@ class TodayService:
 
     # ── public API ───────────────────────────────────────────────────
 
+    def first_priority(self, user_id: int, *, today: date):
+        """Read the first ranked assignment without building or saving a briefing."""
+        assignments = tuple(self._assignments.for_user(user_id, today))
+        context = priority_engine.PriorityContext.from_assignments(today, assignments)
+        return next(iter(priority_engine.rank(assignments, context)), None)
+
     def build(self, user_id: int, *, force_brief: bool = False) -> TodayPayload:
         now = self._now()
         today = now.date()

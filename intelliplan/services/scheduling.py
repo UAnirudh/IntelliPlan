@@ -709,22 +709,31 @@ class SchedulingService:
             model=self.model, config=self._config,
             completion=self.completion_fn(), assess=assess,
         )
-        placed_new = {
-            s.task_id for s in result.plan.sessions
-            if s.task_id in {t.id for t in new_tasks}
-        }
         facts = {t.key for t in triggers} & ap.HARD_FACTS
         if not facts and result.moved_sittings == 0:
-            # A risk trigger that the do-no-harm rule declined: the minimal
-            # plan won, so there is nothing worth telling anyone about.
-            return None
-        if facts == {"new_work"} and not placed_new and result.moved_sittings == 0:
+            # A risk trigger that the do-no-harm rule declined.
             return None
 
         data = self.to_schedule_data(result.plan, now=now)
+        new_ids = {task.id for task in new_tasks}
+        remaining_new = sum(
+            item['minutes'] for item in data.get('deferred', ())
+            if item.get('task_id') in new_ids
+        )
+        placed_new = {
+            block['task_id']
+            for day in data.get('schedule', ()) for block in day.get('blocks', ())
+            if block.get('task_id') in new_ids
+        }
+        if facts == {"new_work"} and not placed_new and not remaining_new and result.moved_sittings == 0:
+            return None
         if result.report_after is not None:
             data["forecast"] = result.report_after.to_dict()
         headline, reasons = ap.explain(triggers, result.moved_sittings)
+        if remaining_new:
+            reasons.append(f"{remaining_new} min of new work still need study time.")
+            if not placed_new and result.moved_sittings == 0:
+                headline = "New assignments need study time."
         entry = {
             "at": now.isoformat(timespec="seconds"),
             "headline": headline,

@@ -123,6 +123,7 @@ with sync_playwright() as p:
         page.route('**/*', route)
         if width == 1440:
             page.add_init_script('''navigator.mediaDevices.getDisplayMedia = async function (options) {
+              window.fixturePickerCount = (window.fixturePickerCount || 0) + 1;
               if (options.audio !== false) throw Error('Audio must be off');
               const canvas = document.createElement('canvas');
               canvas.width = 640; canvas.height = 360;
@@ -242,6 +243,20 @@ with sync_playwright() as p:
             snapshots = [data for path, data in sent if path == '/api/tutor/vision']
             assert len(snapshots) == 1 and snapshots[0]['source'] == 'tab_snapshot'
             assert snapshots[0]['image_b64']
+            page.locator('.tutor-practice-drawer summary').click()
+            page.get_by_label('Keep this tab shared while Tutor is open').check()
+            button.click()
+            dialog.get_by_role('button', name='Discard').click()
+            expect(page.get_by_role('button', name='Stop sharing tab')).to_be_visible()
+            count = page.evaluate('fixturePickerCount')
+            page.get_by_role('button', name='Take another tab snapshot').click()
+            dialog.get_by_role('button', name='Attach snapshot').click()
+            assert page.evaluate('fixturePickerCount') == count
+            assert page.evaluate("fixtureCaptureTrack.readyState === 'live'")
+            page.get_by_role('button', name='Stop sharing tab').click()
+            assert page.evaluate("fixtureCaptureTrack.readyState === 'ended'")
+            expect(page.locator('#tutorImgPreview')).to_be_hidden()
+            assert len([data for path, data in sent if path == '/api/tutor/vision']) == 1
         page.get_by_role('link', name='All study tools', exact=False).click()
         page.locator('#hubToolSearch').fill('flashcards')
         assert page.locator('#hubGrid .hub-card:visible').count() == 2

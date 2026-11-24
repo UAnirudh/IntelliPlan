@@ -21,6 +21,63 @@ from __future__ import annotations
 
 ARTICLES: list[dict] = [
     {
+        "slug": "intelliplan-vs-reclaim",
+        "path": "/compare/intelliplan-vs-reclaim",
+        "kicker": "Comparison",
+        "title": "IntelliPlan vs Reclaim for students",
+        "meta_title": "IntelliPlan vs Reclaim | Study and Calendar Planning",
+        "description": "Compare Reclaim’s flexible Focus Time and task integrations with IntelliPlan’s homework imports, deadline coverage, and study sessions.",
+        "date": "2026-11-24",
+        "reading_time": 3,
+        "sections": [
+            {"paragraphs": ["Reclaim helps protect flexible time for focus, habits, and work. IntelliPlan builds a coursework plan around your available time and shows which assignments still need a slot. The best starting point is the calendar or school portal you already use."]},
+            {"h2": "How each app protects study time", "paragraphs": ["Reclaim’s current documentation explains how its Focus Time agent protects work windows and recommends tasks inside them. Reclaim Chat can preview a calendar block for your approval. IntelliPlan can place coursework into specific sessions, then show the assignments it couldn’t fit before their deadlines."], "links": [
+                {"url": "https://help.reclaim.ai/en/articles/16558552-tasks-overview-decide-what-to-work-on-when", "label": "Reclaim’s guide to tasks and Focus Time"},
+                {"url": "/study-planner", "label": "How IntelliPlan builds a study plan"},
+            ]},
+            {"h2": "Try it with a moved commitment", "paragraphs": ["Add a 50-minute reading due tomorrow, then move practice into your normal study hour. In Reclaim, see whether the protected Focus Time moves and the reading is easy to find. In IntelliPlan, regenerate the study plan and check its remaining-work list. This gives you a quick way to judge whether you can adjust before the deadline."], "links": [{"url": "/demo/planner", "label": "Try the synthetic study week"}]},
+        ],
+        "related": ["study-planner", "intelliplan-vs-motion"],
+    },
+    {
+        "slug": "intelliplan-vs-todoist",
+        "path": "/compare/intelliplan-vs-todoist",
+        "kicker": "Comparison",
+        "title": "IntelliPlan vs Todoist for coursework",
+        "meta_title": "IntelliPlan vs Todoist | Homework and Time Blocking",
+        "description": "Compare Todoist projects and calendar time blocking with IntelliPlan’s school imports, homework scheduling, and study tools.",
+        "date": "2026-11-24",
+        "reading_time": 3,
+        "sections": [
+            {"paragraphs": ["Todoist is designed to capture and organize tasks across projects. IntelliPlan connects a student’s assignments, available study hours, and study practice. You can keep a Todoist project for everyday tasks and import selected projects into IntelliPlan where the connection is available."]},
+            {"h2": "Time blocking an assignment", "paragraphs": ["Todoist’s calendar layout lets you drag a task onto the day and adjust its duration. Todoist lists that layout under Pro and Business. In IntelliPlan, give the planner a deadline, duration, and study availability, then review its proposed study blocks and remaining work."], "links": [
+                {"url": "https://www.todoist.com/help/todoist/get-started/plan-your-day-with-the-today-view-UVUXaiSs", "label": "Todoist’s guide to the Today calendar"},
+                {"url": "/study-planner", "label": "How IntelliPlan schedules assignments"},
+            ]},
+            {"h2": "A two-day test", "paragraphs": ["Add a 90-minute essay and two 45-minute study windows. In Todoist, try blocking the work in your calendar. In IntelliPlan, try scheduling the sessions around the commitments you already have. Now remove one window and see how quickly you can identify the time left to find."], "links": [{"url": "/demo/planner", "label": "Try IntelliPlan without connecting accounts"}]},
+        ],
+        "related": ["study-planner", "intelliplan-vs-reclaim"],
+    },
+    {
+        "slug": "intelliplan-vs-studysmarter",
+        "path": "/compare/intelliplan-vs-studysmarter",
+        "kicker": "Comparison",
+        "title": "IntelliPlan vs StudySmarter",
+        "meta_title": "IntelliPlan vs StudySmarter | Study Planning and Flashcards",
+        "description": "Compare StudySmarter’s flashcards and revision tools with IntelliPlan’s deadline-aware study planner, calendar, and guided Tutor.",
+        "date": "2026-11-24",
+        "reading_time": 3,
+        "sections": [
+            {"paragraphs": ["StudySmarter emphasizes turning study material into flashcards, summaries, and revision. IntelliPlan brings coursework and school deadlines into a calendar-aware planner, with options for tutoring, flashcards, and active study."]},
+            {"h2": "Organizing revision and schoolwork", "paragraphs": ["StudySmarter publishes multiple flashcard study modes and tools for working with notes. IntelliPlan is a good fit when revision competes with homework, classes, and activities. You can build study blocks around available time and use Plani to work through a concept or quiz yourself."], "links": [
+                {"url": "https://www.studysmarter.co.uk/", "label": "StudySmarter’s study tools"},
+                {"url": "/tutor", "label": "Explore Plani Tutor"},
+            ]},
+            {"h2": "Check your actual workflow", "paragraphs": ["Use the same fictional vocabulary list and a test next Friday. Compare how easily you can review the concepts you missed and find a realistic time to return to them. If your assignments come from a school portal, check the connection before choosing a planner."], "links": [{"url": "/faq", "label": "Check IntelliPlan’s school connections"}]},
+        ],
+        "related": ["study-planner", "intelliplan-vs-shovel"],
+    },
+    {
         "slug": "intelliplan-vs-shovel",
         "path": "/compare/intelliplan-vs-shovel",
         "kicker": "Comparison",

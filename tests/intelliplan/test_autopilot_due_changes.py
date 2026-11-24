@@ -85,3 +85,20 @@ def test_the_plan_follows_a_deadline_pulled_earlier():
     ]
     assert late == []
 
+
+
+def test_autopilot_reports_new_work_that_cannot_fit_without_moving_sessions():
+    svc = SchedulingService(StudentContext(availability=FULL_WEEK))
+    scheduled = {"id": "t1", "title": "Problem set", "kind": "homework",
+                 "due_date": (TODAY + timedelta(days=4)).isoformat(), "est_minutes": 30}
+    impossible = {"id": "t2", "title": "Unannounced quiz review", "kind": "homework",
+                  "due_date": NOW.replace(hour=8).isoformat(), "est_minutes": 45}
+    data = svc.to_schedule_data(svc.plan([scheduled], today=TODAY, now=NOW), now=NOW)
+    run = svc.autopilot(data, {}, [scheduled, impossible], today=TODAY, now=NOW)
+    assert run is not None
+    assert "new_work" in run.triggers
+    assert run.headline == "New assignments need study time."
+    assert run.replan.moved_sittings == 0
+    assert not run.new_task_ids
+    assert any(item.get("task_id") == "t2" and item["minutes"] == 45 for item in run.data["deferred"])
+    assert svc.autopilot(run.data, {}, [scheduled, impossible], today=TODAY, now=NOW) is None

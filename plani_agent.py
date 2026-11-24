@@ -1450,6 +1450,41 @@ def _requests_week_plan(messages):
     return False
 
 
+_FIRST_PRIORITY_REQUESTS = {
+    'what should i do first',
+    'look at my upcoming assignments and help me choose what to do first',
+}
+
+
+def _first_priority_response(user_id):
+    from command_center_glue import _build_service
+
+    denial = _tool_denial('get_today_plan', {}, user_id)
+    if denial:
+        return jsonify(status='error', error=denial['error'],
+                       reply=denial.get('message') or 'Your settings do not allow Plani to read your assignments.'), 403
+    try:
+        first = _build_service().first_priority(user_id, today=now_for(user_id).date())
+    except Exception:
+        logger.exception('Could not rank assignments for the priority shortcut')
+        return jsonify(status='error', error='priority_unavailable', retryable=True,
+                       reply='I couldn’t load your assignments. Try again shortly.'), 503
+    if _tool_denial('get_today_plan', {}, user_id):
+        return jsonify(status='error', error='account_access_changed',
+                       reply='Your account access changed. Try again from Command Center.'), 409
+    if first is None:
+        return jsonify(status='ok', reply='No pending assignments to prioritize. Add an assignment or refresh your school connection.')
+    assignment, _ = first
+    details = []
+    if assignment.due_date:
+        details.append(f"due {assignment.due_date.strftime('%b')} {assignment.due_date.day}")
+    if assignment.est_minutes:
+        details.append(f"about {assignment.est_minutes} min")
+    suffix = f" ({', '.join(details)})" if details else ""
+    return jsonify(status='ok', reply=f'Start with {assignment.title}{suffix}.',
+                   links=[{'url': '/priority', 'label': 'See assignment priorities'}])
+
+
 def _plan_result_response(result, *, actions=(), links=(), refresh=False, tool_log=()):
     if result.get('status') == 'ok' and result.get('schedule'):
         reply = ('I saved the sessions that fit. Review the remaining work below.'
@@ -1843,6 +1878,10 @@ def plani_agent():
         # This path runs the existing first-party allocator, with the same
         # owner and policy checks, and sends no conversation to an AI provider.
         return _plan_result_response(_execute_tool('generate_schedule', {'export_calendar': False}, user_id))
+
+    if (messages[-1]['role'] == 'user'
+            and messages[-1]['content'].strip().casefold().rstrip('.?!') in _FIRST_PRIORITY_REQUESTS):
+        return _first_priority_response(user_id)
 
     # The agent loop can make MAX_TOOL_ROUNDS model calls for one message, so
     # it is the most expensive surface in the product per request and goes

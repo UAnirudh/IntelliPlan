@@ -5114,7 +5114,7 @@ def robots_txt():
 # the app is built, even when the page's content has stayed the same.
 _SITEMAP_ENTRIES = [
     # Public marketing
-    ("/", "2026-11-23"),
+    ("/", "2026-11-24"),
     ("/tutor", None),
     ("/faq", "2026-11-23"),
     ("/pricing", None),
@@ -5590,7 +5590,7 @@ def compare_matcha():
     return _render_registry_article(blog_articles.get("intelliplan-vs-matcha"), active_page="compare")
 
 
-@app.get('/compare/<any("intelliplan-vs-shovel","intelliplan-vs-motion"):slug>')
+@app.get('/compare/<any("intelliplan-vs-shovel","intelliplan-vs-motion","intelliplan-vs-reclaim","intelliplan-vs-todoist","intelliplan-vs-studysmarter"):slug>')
 def compare_registry_article(slug):
     return _render_registry_article(blog_articles.get(slug), active_page="compare")
 

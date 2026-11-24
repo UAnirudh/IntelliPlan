@@ -289,6 +289,16 @@
         <span style="display:block; font-weight:700; font-size:0.95rem; color:var(--text-primary); margin-bottom:0.2rem;">IntelliPlan vs Motion</span>
         <span style="font-size:0.82rem; color:var(--text-secondary); line-height:1.5;">Compare planning for coursework with scheduling for team projects.</span>
       </a>
+      {% for slug, name, text in [
+        ('reclaim', 'Reclaim', 'Compare flexible focus time with coursework scheduling.'),
+        ('todoist', 'Todoist', 'Compare project lists, time blocking, and school imports.'),
+        ('studysmarter', 'StudySmarter', 'Compare flashcard practice and deadline-aware study planning.')
+      ] %}
+      <a href="{{ url_for('compare_registry_article', slug='intelliplan-vs-' ~ slug) }}" style="display:block; padding:1rem 1.15rem; border:1px solid var(--glass-border); border-radius:var(--r-md); background:var(--glass-bg); text-decoration:none;">
+        <span style="display:block; font-weight:700; font-size:0.95rem; color:var(--text-primary); margin-bottom:0.2rem;">IntelliPlan vs {{ name }}</span>
+        <span style="font-size:0.82rem; color:var(--text-secondary); line-height:1.5;">{{ text }}</span>
+      </a>
+      {% endfor %}
       <a href="/compare/intelliplan-vs-notion" style="display:block; padding:1rem 1.15rem; border:1px solid var(--glass-border); border-radius:var(--r-md); background:var(--glass-bg); text-decoration:none;">
         <span style="display:block; font-weight:700; font-size:0.95rem; color:var(--text-primary); margin-bottom:0.2rem;">IntelliPlan vs Notion</span>
         <span style="font-size:0.82rem; color:var(--text-secondary); line-height:1.5;">A database you build yourself, versus a planner that arrives already knowing your deadlines.</span>

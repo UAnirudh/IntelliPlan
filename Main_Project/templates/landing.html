@@ -5,7 +5,7 @@
   ("How does IntelliPlan build a study plan?", "IntelliPlan combines your assignments and deadlines with the time you have available. It places study sessions into open hours and shows which work still needs time.", "/study-planner", "See a worked example"),
   ("Can I import assignments from my school?", "IntelliPlan supports Canvas, StudentVUE, and Schoology where your school permits a connection. You can also add homework yourself.", "/faq", "Check connection details"),
   ("Can I try the study planner without an account?", "Yes. The sample week uses fictional coursework. You can build a plan and try moving missed work before connecting your own accounts.", "/demo/planner", "Try the sample planner"),
-  ("Is IntelliPlan free to start?", "Yes. See the pricing page for the current free features, AI usage limits, and any paid options.", "/pricing", "See pricing"),
+  ("What can I do with the free AI study planner?", "Try the sample week without an account. With a free account, you can add assignments, set study hours, and organize a weekly plan. AI usage limits apply.", "/pricing", "See the free plan and limits"),
   ("Can I plan around practice, work, and other commitments?", "Yes. Set study hours and, if you choose, connect a supported Google or Outlook calendar for busy time. Class timetables and the commitments you enter can also shape the plan.", "/blog/fit-schoolwork-around-your-calendar", "Set up calendar-aware planning"),
   ("What can Plani Tutor help with?", "Plani can explain steps, guide practice, and help you review material. Where available, you can use quizzes, flashcards, or visual explanations.", "/tutor", "Explore Tutor"),
   ("How can I check whether IntelliPlan fits my needs?", "Compare the school connections, calendar options, and study tools you need. You can also try the same sample week alongside the tools you already use.", "/compare", "Compare study planners"),
@@ -16,7 +16,7 @@
 {% block page_title %}Free AI Study Planner for Students | IntelliPlan{% endblock %}
 
 {# These override the base.html global defaults, no duplicate tags emitted. #}
-{% block meta_description %}Free AI study planner that imports Canvas, StudentVue, and Schoology assignments, prioritizes deadlines, builds weekly schedules, and includes an AI tutor.{% endblock %}
+{% block meta_description %}Try IntelliPlan’s free AI study planner with a sample week. Schedule homework around your calendar, see which deadlines need more time, and get step-by-step help from Plani.{% endblock %}
 {% block og_title %}IntelliPlan - Free AI Study Planner for Students{% endblock %}
 {% block og_description %}Connect Canvas, StudentVue, or Schoology. IntelliPlan ranks assignments, builds a weekly study plan, exports to Google Calendar, and gives students a built-in AI tutor.{% endblock %}
 {% block og_image %}https://intelliplan.tech/static/og-image.png{% endblock %}
@@ -109,8 +109,8 @@
 
 <section class="plani-week-preview" aria-labelledby="plani-week-title">
   <div class="plani-week-copy">
-    <h2 id="plani-week-title" class="plani-heading">{{ plani_avatar(52, 'plani-workspace-portrait') }}<span>A week with Plani</span></h2>
-    <p>See what’s due first, how long each task might take, and what you can fit in.</p>
+    <h2 id="plani-week-title" class="plani-heading">{{ plani_avatar(52, 'plani-workspace-portrait') }}<span>Try the free AI study planner</span></h2>
+    <p>Build a weekly study schedule with sample assignments. See what fits around classes and commitments, and what still needs time. Try it without an account.</p>
     <div class="plani-week-actions">
       <a class="ip-action" href="/demo/planner">Try a sample plan <span class="ip-arrow" aria-hidden="true"></span></a>
       <a class="landing-install-link" href="/install">Install IntelliPlan</a>

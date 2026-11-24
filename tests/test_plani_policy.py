@@ -1411,3 +1411,31 @@ def test_chat_adjustment_explains_calendar_outage_and_retains_plan(account, monk
     with App.app.app_context():
         row = App.db.session.get(App.SavedSchedule, row_id)
         assert (row.schedule_data, row.progress_json) == (original, progress)
+
+
+def test_first_priority_shortcut_uses_local_ranking_and_rechecks_account_policy(account, monkeypatch):
+    import command_center_glue
+
+    read = []
+    assignment = SimpleNamespace(title='Chemistry review', due_date=None, est_minutes=25)
+    def rank(user_id, *, today):
+        read.append(user_id)
+        return assignment, None
+
+    def unexpected_ai(*args, **kwargs):
+        pytest.fail('Priority shortcut used the AI provider')
+
+    monkeypatch.setattr(command_center_glue, '_build_service', lambda: SimpleNamespace(first_priority=rank))
+    monkeypatch.setattr(plani.ai_firewall, 'guard', unexpected_ai)
+    monkeypatch.setattr(plani, '_tool_denial', lambda *a: None)
+    payload = {'message': 'What should I do first?'}
+    response = signed_client(account).post('/api/plani/agent', json=payload)
+    assert response.status_code == 200
+    assert response.json['reply'] == 'Start with Chemistry review (about 25 min).'
+    assert len(read) == 1
+
+    monkeypatch.setattr(plani, '_tool_denial', lambda *a: {'error': 'personalization_required'})
+    denied = signed_client(account).post('/api/plani/agent', json=payload)
+    assert denied.status_code == 403
+    assert denied.json['error'] == 'personalization_required'
+    assert len(read) == 1

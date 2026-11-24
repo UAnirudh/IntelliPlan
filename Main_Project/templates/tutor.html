@@ -647,6 +647,13 @@ main {
   box-shadow: var(--shadow-lg); width: 100%; max-width: 640px;
   max-height: 86vh; overflow-y: auto; padding: 1.25rem;
 }
+.tutor-tab-active:not([hidden]) {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: 8px; padding: 8px 12px; margin: 0 4px 8px;
+  border: 1px solid var(--border); border-radius: 12px;
+  background: var(--bg-card); color: var(--text-secondary); font-size: .8rem;
+}
+.tutor-tab-active button { font: inherit; color: var(--accent); border: 0; background: transparent; cursor: pointer; }
 .tutor-panel h3 { margin: 0; font-family: var(--ipd-font-display); font-size: 1.1rem; }
 .tutor-panel h4 {
   margin: 1.25rem 0 0.5rem; font-size: 0.82rem; letter-spacing: 0.04em;
@@ -789,7 +796,10 @@ main {
         {% if not assessment_protection %}
         {% if logged_in %}
         <div class="tutor-math-tools">
-          <button type="button" id="tutorShareTab" onclick="captureTutorTab()" hidden>Attach a tab snapshot</button>
+          <div id="tutorTabControls" hidden>
+            <button type="button" id="tutorShareTab" onclick="captureTutorTab()">Attach a tab snapshot</button>
+            <label><input type="checkbox" id="tutorKeepTab"> Keep this tab shared while Tutor is open</label>
+          </div>
           <p id="tutorTabStatus" role="status"></p>
         </div>
         {% endif %}
@@ -804,6 +814,12 @@ main {
         {% endif %}
       </div>
       </details>
+      {% if logged_in and not assessment_protection %}
+      <div id="tutorTabActive" class="tutor-tab-active" hidden>
+        <span role="status">Tab shared. Snapshots are sent only when you attach and send them.</span>
+        <button type="button" onclick="stopTutorTab()">Stop sharing tab</button>
+      </div>
+      {% endif %}
       <div id="tutorImgPreview" class="tutor-img-preview" style="display:none;">
         {# Transparent 1x1 placeholder rather than src="" or no src at all:
            an empty src makes some browsers re-request the current document,
@@ -1638,9 +1654,30 @@ let snapStream = null;
 
 const tabShareButton = document.getElementById('tutorShareTab');
 if (tabShareButton && navigator.mediaDevices?.getDisplayMedia && window.HTMLDialogElement) {
-  tabShareButton.hidden = false;
+  document.getElementById('tutorTabControls').hidden = false;
 }
 let pendingScreenSnapshot = false;
+let tutorTabStream = null;
+let tutorTabGeneration = 0;
+
+function stopTutorTab() {
+  tutorTabGeneration++;
+  const shared = tutorTabStream;
+  tutorTabStream = null;
+  if (shared) shared.getTracks().forEach(track => track.stop());
+  document.getElementById('tutorTabActive').hidden = true;
+  tabShareButton.textContent = 'Attach a tab snapshot';
+  const review = document.getElementById('tutorTabReview');
+  if (review.open) review.close('cancel');
+  if (pendingScreenSnapshot) clearSnapImage();
+}
+
+if (tabShareButton) {
+  document.getElementById('tutorKeepTab').addEventListener('change', event => {
+    if (!event.target.checked) stopTutorTab();
+  });
+  window.addEventListener('pagehide', stopTutorTab);
+}
 
 async function captureTutorTab() {
   const status = document.getElementById('tutorTabStatus');
@@ -1648,13 +1685,15 @@ async function captureTutorTab() {
   const frame = document.getElementById('tutorTabFrame');
   tabShareButton.disabled = true;
   status.textContent = '';
-  let stream, readinessTimeout;
+  const generation = ++tutorTabGeneration;
+  let stream = tutorTabStream, readinessTimeout;
   const video = document.createElement('video');
   try {
-    stream = await navigator.mediaDevices.getDisplayMedia({
+    stream ||= await navigator.mediaDevices.getDisplayMedia({
       audio: false, video: { displaySurface: 'browser', frameRate: { ideal: 5 } },
       selfBrowserSurface: 'exclude', monitorTypeSurfaces: 'exclude', surfaceSwitching: 'exclude'
     });
+    if (generation !== tutorTabGeneration) return;
     const track = stream.getVideoTracks()[0];
     if (track?.getSettings().displaySurface !== 'browser') {
       status.textContent = 'Choose one browser tab in the sharing picker.';
@@ -1667,6 +1706,7 @@ async function captureTutorTab() {
       video.play(),
       new Promise((_, reject) => { readinessTimeout = setTimeout(reject, 5000); })
     ]);
+    if (generation !== tutorTabGeneration) return;
     if (!video.videoWidth || track.readyState !== 'live') throw new Error('Tab frame unavailable');
     const canvas = document.createElement('canvas');
     const scale = Math.min(1, 1440 / Math.max(video.videoWidth, video.videoHeight));
@@ -1677,11 +1717,19 @@ async function captureTutorTab() {
     frame.hidden = false;
     review.returnValue = '';
     review.showModal();
+    if (document.getElementById('tutorKeepTab').checked && tutorTabStream !== stream) {
+      tutorTabStream = stream;
+      document.getElementById('tutorTabActive').hidden = false;
+      tabShareButton.textContent = 'Take another tab snapshot';
+      track.addEventListener('ended', () => {
+        if (tutorTabStream === stream) stopTutorTab();
+      }, { once: true });
+    }
   } catch (_) {
     status.textContent = 'No snapshot was taken. Choose a study tab to try again.';
   } finally {
     clearTimeout(readinessTimeout);
-    if (stream) stream.getTracks().forEach(track => track.stop());
+    if (stream && tutorTabStream !== stream) stream.getTracks().forEach(track => track.stop());
     video.srcObject = null;
     tabShareButton.disabled = false;
   }
