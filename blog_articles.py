@@ -21,6 +21,44 @@ from __future__ import annotations
 
 ARTICLES: list[dict] = [
     {
+        "slug": "intelliplan-vs-nerdania",
+        "path": "/compare/intelliplan-vs-nerdania",
+        "kicker": "Comparison",
+        "title": "IntelliPlan vs Nerdania for exam prep",
+        "meta_title": "IntelliPlan vs Nerdania | Free Study Planner Comparison",
+        "description": "Compare planning from class notes for one exam with organizing assignments and study blocks across a school week.",
+        "date": "2026-11-24",
+        "reading_time": 3,
+        "sections": [
+            {"paragraphs": ["Nerdania starts with class material and an exam date. IntelliPlan starts with the assignments, deadlines, and commitments already competing for your time. Both approaches can help during exam season, depending on what you need to work out first."]},
+            {"h2": "Choosing what to review", "paragraphs": ["Nerdania describes generating a day-by-day review plan, flashcards, and a quiz from notes or slides you provide. That can help when a stack of material is the main obstacle. In IntelliPlan, Plani Tutor can guide practice, and the planner can place review sessions alongside the rest of your workload."], "links": [
+                {"url": "https://www.nerdania.com/", "label": "Nerdania’s study plan workflow"},
+                {"url": "/tutor", "label": "Explore guided practice with Plani"},
+            ]},
+            {"h2": "Try an exam week with two other deadlines", "paragraphs": ["Set a biology exam for Friday, a lab due Wednesday, and an essay due Thursday. Give yourself only an hour on Tuesday. In a notes-first workflow, check whether the biology plan gives you the right topics to review. In IntelliPlan, check whether your available time still covers the lab and essay. If it doesn’t, the remaining-work list shows what needs time first."], "links": [{"url": "/demo/planner", "label": "Try a sample school week without an account"}]},
+        ],
+        "related": ["study-planner", "intelliplan-vs-studysmarter"],
+    },
+    {
+        "slug": "intelliplan-vs-plannly",
+        "path": "/compare/intelliplan-vs-plannly",
+        "kicker": "Comparison",
+        "title": "IntelliPlan vs Plannly",
+        "meta_title": "IntelliPlan vs Plannly | Free Planners for Students",
+        "description": "Compare Plannly’s offline planner and syllabus-based revision with IntelliPlan’s school connections and calendar-aware scheduling.",
+        "date": "2026-11-24",
+        "reading_time": 3,
+        "sections": [
+            {"paragraphs": ["Plannly advertises offline planning and the ability to start without an account. IntelliPlan is designed around coursework from supported school connections and busy time from supported calendars. Both can help answer what to study today."]},
+            {"h2": "An exam routine or a connected school week", "paragraphs": ["Plannly says it spreads syllabus topics across the days before an exam, respects days off, and rolls missed work into the next plan. IntelliPlan can bring deadlines in from Canvas, StudentVUE, or Schoology where access is available. Its schedule surfaces work that couldn’t be placed before a deadline."], "links": [
+                {"url": "https://plannly.org/", "label": "Plannly’s features and planning workflow"},
+                {"url": "/faq", "label": "Check IntelliPlan’s connection options"},
+            ]},
+            {"h2": "Test the difference with one disrupted week", "paragraphs": ["Start with two days off and a math exam next Friday. Miss one study session and move a homework deadline earlier. In Plannly, see where the missed exam topic goes. In IntelliPlan, check whether the new deadline and remaining homework are visible when you review the plan. Use fictional assignments for the comparison so you can try it before sharing school information."], "links": [{"url": "/demo/planner", "label": "Try replanning a fictional week"}]},
+        ],
+        "related": ["study-planner", "intelliplan-vs-nerdania"],
+    },
+    {
         "slug": "intelliplan-vs-reclaim",
         "path": "/compare/intelliplan-vs-reclaim",
         "kicker": "Comparison",

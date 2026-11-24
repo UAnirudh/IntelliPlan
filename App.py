@@ -5590,7 +5590,7 @@ def compare_matcha():
     return _render_registry_article(blog_articles.get("intelliplan-vs-matcha"), active_page="compare")
 
 
-@app.get('/compare/<any("intelliplan-vs-shovel","intelliplan-vs-motion","intelliplan-vs-reclaim","intelliplan-vs-todoist","intelliplan-vs-studysmarter"):slug>')
+@app.get('/compare/<any("intelliplan-vs-shovel","intelliplan-vs-motion","intelliplan-vs-reclaim","intelliplan-vs-todoist","intelliplan-vs-studysmarter","intelliplan-vs-nerdania","intelliplan-vs-plannly"):slug>')
 def compare_registry_article(slug):
     return _render_registry_article(blog_articles.get(slug), active_page="compare")
 
