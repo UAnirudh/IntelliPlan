@@ -21,6 +21,66 @@ from __future__ import annotations
 
 ARTICLES: list[dict] = [
     {
+        "slug": "intelliplan-vs-shovel",
+        "path": "/compare/intelliplan-vs-shovel",
+        "kicker": "Comparison",
+        "title": "IntelliPlan vs Shovel for students",
+        "meta_title": "IntelliPlan vs Shovel | Study Planner Comparison",
+        "description": "Compare Shovel's Cushion and school imports with IntelliPlan's deadline coverage, calendar planning, and tutoring.",
+        "date": "2026-11-23",
+        "reading_time": 3,
+        "sections": [
+            {"paragraphs": [
+                "Shovel and IntelliPlan both turn assignments into study blocks and flag work that may miss a deadline. Shovel is a strong option if your school uses Brightspace or Moodle. IntelliPlan is worth trying if you use StudentVUE or Schoology, or want a planner that also gives you study practice and grade modeling.",
+            ]},
+            {"h2": "Compare school connections first", "paragraphs": [
+                "Shovel lists Canvas, Brightspace, Moodle, Google Classroom, and PDF syllabus import. IntelliPlan supports Canvas, StudentVUE, and Schoology where available. Check which connection your school actually allows before choosing a planner.",
+            ], "links": [
+                {"url": "https://shovelapp.io/", "label": "Shovel’s official planner and integration overview"},
+                {"url": "/faq", "label": "Check IntelliPlan’s school connections"},
+            ]},
+            {"h2": "Run the same deadline test", "paragraphs": [
+                "Give each planner one free hour and add a 45-minute lab plus a 30-minute reading due before your next open slot. Shovel’s Cushion shows how far short you are. IntelliPlan’s Scheduler and Command Center list work that still needs time and its deadlines. With these estimates at least 15 minutes need another slot. Check whether you can identify the affected assignment and change the plan without re-entering your work.",
+            ], "links": [{"url": "/demo/planner", "label": "Try IntelliPlan with a fictional week"}]},
+            {"h2": "What happens after the plan?", "paragraphs": [
+                "Shovel publishes AI connectors for students who want to manage plans through supported external assistants. In IntelliPlan, Command Center can draft a week in the app, and Tutor can help you reason through a problem. Try the Grade Modeler if deciding which assignment to prioritize depends on how much it counts.",
+            ], "links": [
+                {"url": "/tutor", "label": "See Plani Tutor"},
+                {"url": "/grademodel", "label": "See Grade Modeler"},
+            ]},
+        ],
+        "related": ["study-planner", "intelliplan-vs-matcha"],
+    },
+    {
+        "slug": "intelliplan-vs-motion",
+        "path": "/compare/intelliplan-vs-motion",
+        "kicker": "Comparison",
+        "title": "IntelliPlan vs Motion for students",
+        "meta_title": "IntelliPlan vs Motion | Calendar Planning for Students",
+        "description": "Compare Motion's work calendar, priorities, and deadlines with IntelliPlan's course imports, study blocks, and tutoring.",
+        "date": "2026-11-23",
+        "reading_time": 3,
+        "sections": [
+            {"paragraphs": [
+                "Motion automatically schedules tasks and tracks dependencies for work and team projects. IntelliPlan schedules coursework around available study time and links it with tutoring and practice. Start with where your deadlines live and what you do once a work block starts.",
+            ]},
+            {"h2": "A deadline on a team project or in a course", "paragraphs": [
+                "Motion describes custom scheduling windows, deadlines, task priorities, and project dependencies. IntelliPlan can bring in assignments from supported school portals and supply busy time from connected calendars. If you rely on a school import, confirm that your portal and school permissions work before migrating.",
+            ], "links": [
+                {"url": "https://www.usemotion.com/features/ai-task-manager", "label": "Motion’s official task manager overview"},
+                {"url": "/study-planner", "label": "See how IntelliPlan builds a plan"},
+            ]},
+            {"h2": "Try a week with a late change", "paragraphs": [
+                "Pick a week with a class, work shift, and essay. Move the shift two hours later after you make the first plan. Motion advertises automatic rescheduling when the day changes, plus deadline warnings. In IntelliPlan, check the imported commitment and review which remaining blocks and deadlines need your attention after replanning.",
+                "If the essay is still missing time, compare how quickly you can see the shortfall, decide whether to move another commitment, and start your next block.",
+            ], "links": [{"url": "/demo/planner", "label": "Try IntelliPlan with a fictional week"}]},
+            {"h2": "From the calendar to the task", "paragraphs": [
+                "Motion fits team workflows with assigned work and dependencies. IntelliPlan puts class planning alongside Active Study, practice questions, and an AI tutor. For a student, test whether you can go from an upcoming deadline to a useful study session without recreating context in another app.",
+            ], "links": [{"url": "/tutor", "label": "See Plani Tutor"}]},
+        ],
+        "related": ["study-planner", "intelliplan-vs-shovel"],
+    },
+    {
         "slug": "study-planner",
         "path": "/study-planner",
         "kicker": "Planner",

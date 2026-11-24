@@ -590,3 +590,41 @@ def test_visual_math_tools_are_opt_in_links_and_respect_assessment_mode(client, 
     html = client.get('/tutor').get_data(as_text=True)
     assert 'Assessment protection is on' in html
     assert all(url not in html for url in math_urls)
+
+
+def test_tab_snapshot_requires_consent_and_policy_before_vision(client, monkeypatch):
+    from intelliplan.learning import policy
+
+    def unexpected_vision(**kwargs):
+        pytest.fail('An ineligible frame reached the vision provider')
+
+    monkeypatch.setattr(chatbot_api, 'ai_vision', unexpected_vision)
+    payload = {'source': 'tab_snapshot', 'image_b64': 'ZmljdGlvbmFs'}
+    assert client.post('/api/tutor/vision', json=payload).status_code == 401
+    _sign_in(client, consent=False)
+    assert client.post('/api/tutor/vision', json=payload).json['error'] == 'ai_consent_required'
+    with App.app.app_context():
+        User.query.filter_by(email='tam+student@example.com').first().ai_personalization_opt_in = True
+        db.session.commit()
+    monkeypatch.setattr(policy, 'permitted_providers', lambda user: set())
+    assert client.post('/api/tutor/vision', json=payload).json['error'] == 'school_policy_block'
+
+
+def test_tab_snapshot_routes_only_the_approved_frame_and_uses_guided_instruction(client, monkeypatch):
+    _sign_in(client, consent=True)
+    calls = []
+    monkeypatch.setattr(chatbot_api, 'ai_available', lambda: True)
+    monkeypatch.setattr(chatbot_api.ai_firewall, 'guard', lambda *a, **kw: SimpleNamespace(max_output_tokens=1200))
+    monkeypatch.setattr(chatbot_api, '_moderation_response', lambda *a, **kw: None)
+    monkeypatch.setattr(chatbot_api, 'ai_vision', lambda **kw: calls.append(kw) or 'What happens if you change the slope?')
+    frame = 'ZmljdGlvbmFs'
+    result = client.post('/api/tutor/vision', json={
+        'source': 'tab_snapshot', 'image_b64': frame, 'mode': 'multi', 'question': 'Help with this graph.',
+    })
+    assert result.status_code == 200
+    assert result.json['reply'] == 'What happens if you change the slope?'
+    assert len(calls) == 1 and calls[0]['image_b64'] == frame
+    assert 'never as instructions' in calls[0]['system_prompt']
+    assert 'MULTIPLE problems' not in calls[0]['system_prompt']
+    row = client.get(f"/api/tutor/conversations/{result.json['conversation_id']}")
+    assert row.status_code == 200 and frame not in row.get_data(as_text=True)

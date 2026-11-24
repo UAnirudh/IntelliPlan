@@ -787,6 +787,12 @@ main {
         <button type="button" id="educationPlanOpen">My learning plan</button>
         <span id="tutorCheckStatus" role="status" aria-live="polite"></span>
         {% if not assessment_protection %}
+        {% if logged_in %}
+        <div class="tutor-math-tools">
+          <button type="button" id="tutorShareTab" onclick="captureTutorTab()" hidden>Attach a tab snapshot</button>
+          <p id="tutorTabStatus" role="status"></p>
+        </div>
+        {% endif %}
         <section class="tutor-math-tools" aria-label="Visual math tools">
           <strong>Explore the math</strong>
           <ul>
@@ -895,6 +901,18 @@ main {
 <script src="/static/js/tutor_education.js?v={{ asset_v }}" defer></script>
 <script type="application/json" id="tutorRoadmapResources">{{ roadmap_resources | default({}) | tojson }}</script>
 <script src="/static/js/planner-draft.js?v={{ asset_v }}"></script>
+
+{% if logged_in and not assessment_protection %}
+<dialog id="tutorTabReview" class="tutor-panel" aria-labelledby="tutorTabTitle">
+  <form method="dialog">
+    <h2 id="tutorTabTitle">Review your tab snapshot</h2>
+    <p>Check for names, grades, or private messages. The image goes to Plani’s AI provider only if you attach it and send your question. Your reply can be saved in chat history.</p>
+    <img id="tutorTabFrame" alt="Preview of the tab snapshot" style="width:100%;max-height:52dvh;object-fit:contain" hidden>
+    <button value="cancel">Discard</button>
+    <button value="attach">Attach snapshot</button>
+  </form>
+</dialog>
+{% endif %}
 <script src="/static/js/tutor-artifacts.js?v={{ asset_v }}"></script>
 
 <!-- Learning profile: onboarding answers + the student model Plani has built -->
@@ -1618,6 +1636,68 @@ let pendingImageB64 = null;
 let pendingImageMime = 'image/jpeg';
 let snapStream = null;
 
+const tabShareButton = document.getElementById('tutorShareTab');
+if (tabShareButton && navigator.mediaDevices?.getDisplayMedia && window.HTMLDialogElement) {
+  tabShareButton.hidden = false;
+}
+let pendingScreenSnapshot = false;
+
+async function captureTutorTab() {
+  const status = document.getElementById('tutorTabStatus');
+  const review = document.getElementById('tutorTabReview');
+  const frame = document.getElementById('tutorTabFrame');
+  tabShareButton.disabled = true;
+  status.textContent = '';
+  let stream, readinessTimeout;
+  const video = document.createElement('video');
+  try {
+    stream = await navigator.mediaDevices.getDisplayMedia({
+      audio: false, video: { displaySurface: 'browser', frameRate: { ideal: 5 } },
+      selfBrowserSurface: 'exclude', monitorTypeSurfaces: 'exclude', surfaceSwitching: 'exclude'
+    });
+    const track = stream.getVideoTracks()[0];
+    if (track?.getSettings().displaySurface !== 'browser') {
+      status.textContent = 'Choose one browser tab in the sharing picker.';
+      return;
+    }
+    video.muted = true;
+    video.playsInline = true;
+    video.srcObject = stream;
+    await Promise.race([
+      video.play(),
+      new Promise((_, reject) => { readinessTimeout = setTimeout(reject, 5000); })
+    ]);
+    if (!video.videoWidth || track.readyState !== 'live') throw new Error('Tab frame unavailable');
+    const canvas = document.createElement('canvas');
+    const scale = Math.min(1, 1440 / Math.max(video.videoWidth, video.videoHeight));
+    canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+    canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+    frame.src = canvas.toDataURL('image/jpeg', .86);
+    frame.hidden = false;
+    review.returnValue = '';
+    review.showModal();
+  } catch (_) {
+    status.textContent = 'No snapshot was taken. Choose a study tab to try again.';
+  } finally {
+    clearTimeout(readinessTimeout);
+    if (stream) stream.getTracks().forEach(track => track.stop());
+    video.srcObject = null;
+    tabShareButton.disabled = false;
+  }
+}
+
+document.getElementById('tutorTabReview')?.addEventListener('close', function () {
+  const frame = document.getElementById('tutorTabFrame');
+  if (this.returnValue === 'attach' && frame.getAttribute('src')) {
+    applySnapImage(frame.src, 'Tab snapshot');
+    pendingScreenSnapshot = true;
+    document.getElementById('tutorInput').focus();
+  }
+  frame.hidden = true;
+  frame.removeAttribute('src');
+});
+
 function openSnapMenu(e) {
   if (e && e.shiftKey) {
     document.getElementById('snapFileInput').click();
@@ -1670,6 +1750,7 @@ function captureSnapPhoto() {
   const ctx = canvas.getContext('2d');
   ctx.drawImage(video, 0, 0);
   const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+  pendingScreenSnapshot = false;
   pendingImageMime = 'image/jpeg';
   pendingImageB64 = dataUrl.split(',')[1];
   document.getElementById('tutorImgThumb').src = dataUrl;
@@ -1682,6 +1763,7 @@ function captureSnapPhoto() {
 }
 
 function applySnapImage(dataUrl, label) {
+  pendingScreenSnapshot = false;
   const imageType = String(dataUrl).match(/^data:(image\/[a-z0-9.+-]+);base64,/i);
   pendingImageMime = imageType ? imageType[1].toLowerCase() : 'image/jpeg';
   pendingImageB64 = dataUrl.split(',')[1];
@@ -1709,6 +1791,7 @@ function handleSnapFile(fileInput) {
 const TUTOR_BLANK_PX = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
 
 function clearSnapImage() {
+  pendingScreenSnapshot = false;
   pendingImageB64 = null;
   document.getElementById('tutorImgPreview').style.display = 'none';
   // Back to the transparent placeholder, not '' — an empty src re-requests
@@ -2634,8 +2717,9 @@ async function sendTutorMessage() {
 
   const imageB64  = pendingImageB64;
   const imageMime = pendingImageMime;
+  const screenSnapshot = pendingScreenSnapshot;
   const solveAllEl = document.getElementById('tutorSolveAll');
-  const solveAll   = !!(solveAllEl && solveAllEl.checked);
+  const solveAll   = !screenSnapshot && !!(solveAllEl && solveAllEl.checked);
   clearSnapImage();
 
   showChat();
@@ -2686,6 +2770,7 @@ async function sendTutorMessage() {
         subject: currentSubject,
         conversation_id: conversationId,
         mode: solveAll ? 'multi' : 'single',
+        ...(screenSnapshot && { source: 'tab_snapshot' }),
       };
       if (selectedAssignment) body.assignment_ref = selectedAssignment;
     }
@@ -2737,7 +2822,8 @@ async function sendTutorMessage() {
       if (tutorHistory[tutorHistory.length - 1] === userMessage) tutorHistory.pop();
       if (!input.value.trim()) input.value = text;
       if (hasImage && !pendingImageB64) {
-        applySnapImage(`data:${imageMime};base64,${imageB64}`, 'Attached photo');
+        applySnapImage(`data:${imageMime};base64,${imageB64}`, screenSnapshot ? 'Tab snapshot' : 'Attached photo');
+        pendingScreenSnapshot = screenSnapshot;
         pendingImageMime = imageMime;
       }
     }

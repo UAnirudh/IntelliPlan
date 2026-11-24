@@ -251,3 +251,7 @@ body .command-chat .command-chat__intro .command-chat__shortcuts li > :is(button
 .command-chat__coverage li strong { font-size: .84rem; }
 .command-chat__coverage li span, .command-chat__coverage li small { font-size: .77rem; color: var(--text-secondary); }
 .command-chat__coverage details { margin-bottom: 8px; font-size: .82rem; }
+
+#commandSavedCoverage:not(:empty) { margin: 18px auto 0; max-width: 550px; text-align: start; }
+#commandSavedCoverage .command-chat__coverage { border-radius: 10px; }
+.command-chat__saved-label { margin: 0 0 6px; font-size: .8rem; color: var(--text-secondary); }

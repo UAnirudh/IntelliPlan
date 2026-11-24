@@ -133,6 +133,37 @@
       '<a href="/settings#pane-schedule">Review study availability</a></section>';
   }
 
+  async function showUpcomingCoverage() {
+    var holder = document.getElementById('commandSavedCoverage');
+    if (!holder || !window.IPPlanCoverage) return;
+    try {
+      var response = await fetch('/schedule/saved', { cache: 'no-store' });
+      if (!response.ok) return;
+      var saved = await response.json();
+      var deferred = saved.data && saved.data.deferred;
+      if (saved.status !== 'ok' || !Array.isArray(deferred)) return;
+      var now = new Date();
+      var end = new Date(now);
+      end.setDate(end.getDate() + 7);
+      var dateKey = function (date) {
+        return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'),
+          String(date.getDate()).padStart(2, '0')].join('-');
+      };
+      var startKey = dateKey(now), endKey = dateKey(end);
+      var upcoming = deferred.filter(function (item) {
+        var due = item?.deadline_at || item?.due_date;
+        var day = typeof due === 'string' ? due.slice(0, 10) : '';
+        return day >= startKey && day <= endKey;
+      });
+      if (upcoming.length) {
+        holder.innerHTML = '<p class="command-chat__saved-label">From your saved plan</p>' +
+          renderCoverage({ deferred: upcoming });
+      }
+    } catch (_) {
+      // A saved-plan preview is optional; the composer still works on its own.
+    }
+  }
+
   function renderConfirmations(events) {
     if (!Array.isArray(events)) return;
     events.forEach(function (event) {
@@ -399,6 +430,7 @@
     window.addEventListener('resize', measurePhoneTop);
     restore();
     showCalendarState();
+    showUpcomingCoverage();
     if (window.matchMedia('(pointer: fine)').matches) input.focus({ preventScroll: true });
   });
 })();

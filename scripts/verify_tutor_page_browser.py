@@ -109,7 +109,7 @@ with sync_playwright() as p:
                     body = {'profile': {}, 'modality': {'mode': 'auto'}}
                 elif parsed.path == '/api/tutor/adaptive/modality':
                     sent.append((parsed.path, json.loads(req.post_data)))
-                elif parsed.path == '/api/tutor':
+                elif parsed.path in ('/api/tutor', '/api/tutor/vision'):
                     sent.append((parsed.path, json.loads(req.post_data)))
                     body = {'reply': reply, 'clarify': True}
                 elif parsed.path == '/api/tutor/speak':
@@ -121,6 +121,30 @@ with sync_playwright() as p:
             return handler.abort()
 
         page.route('**/*', route)
+        if width == 1440:
+            page.add_init_script('''navigator.mediaDevices.getDisplayMedia = async function (options) {
+              if (options.audio !== false) throw Error('Audio must be off');
+              const canvas = document.createElement('canvas');
+              canvas.width = 640; canvas.height = 360;
+              const stream = canvas.captureStream(10);
+              const track = stream.getVideoTracks()[0];
+              window.fixtureCaptureTrack = track;
+              track.getSettings = () => ({displaySurface: window.fixtureSurface || 'browser'});
+              const ctx = canvas.getContext('2d');
+              const paint = () => {
+                ctx.fillStyle = "#36637f";
+                ctx.fillRect(0, 0, 640, 360);
+                ctx.font = "36px sans-serif";
+                ctx.fillStyle = "white";
+                ctx.fillText("Example graph: y = 2x", 40, 90);
+              };
+              paint();
+              const timer = setInterval(() => {
+                if (track.readyState === 'ended') clearInterval(timer);
+                else paint();
+              }, 80);
+              return stream;
+            };''')
         page.goto('https://tutor.test/study-and-learn', wait_until='networkidle')
         page.evaluate("document.documentElement.dataset.theme = '" + theme + "'")
         essential = page.get_by_role('button', name='Essential only', exact=True)
@@ -193,6 +217,31 @@ with sync_playwright() as p:
         assert page.get_by_role('button', name='Saved learning conversation', exact=True).is_visible()
         if width <= 768:
             page.get_by_role('button', name='Close chat history', exact=True).click()
+        if width == 1440:
+            page.locator('.tutor-practice-drawer summary').click()
+            button = page.get_by_role('button', name='Attach a tab snapshot')
+            page.evaluate("window.fixtureSurface = 'window'")
+            button.click()
+            expect(page.locator('#tutorTabStatus')).to_contain_text('Choose one browser tab')
+            assert page.evaluate("fixtureCaptureTrack.readyState === 'ended'")
+            page.evaluate("window.fixtureSurface = 'browser'")
+            button.click()
+            dialog = page.get_by_role('dialog', name='Review your tab snapshot')
+            expect(dialog).to_be_visible()
+            assert page.evaluate("fixtureCaptureTrack.readyState === 'ended'")
+            dialog.get_by_role('button', name='Discard').click()
+            assert not any(path == '/api/tutor/vision' for path, _ in sent)
+            button.click()
+            dialog.get_by_role('button', name='Attach snapshot').click()
+            expect(page.locator('#tutorImgName')).to_have_text('Tab snapshot')
+            assert not any(path == '/api/tutor/vision' for path, _ in sent)
+            page.locator('.tutor-practice-drawer summary').click()
+            page.locator('#tutorInput').fill('Help me interpret this example graph.')
+            page.locator('#tutorSendBtn').click()
+            page.wait_for_function("document.getElementById('tutorSendBtn').disabled === false")
+            snapshots = [data for path, data in sent if path == '/api/tutor/vision']
+            assert len(snapshots) == 1 and snapshots[0]['source'] == 'tab_snapshot'
+            assert snapshots[0]['image_b64']
         page.get_by_role('link', name='All study tools', exact=False).click()
         page.locator('#hubToolSearch').fill('flashcards')
         assert page.locator('#hubGrid .hub-card:visible').count() == 2

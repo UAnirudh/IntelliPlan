@@ -6,7 +6,7 @@ const path = require('node:path');
 const source = fs.readFileSync(path.join(__dirname, '../../static/js/command_center.js'), 'utf8');
 const coverage = fs.readFileSync(path.join(__dirname, '../../static/js/plan-coverage.js'), 'utf8');
 const STORE = 'ip_cc_thread_v2';
-function harness(owner, initial = {}) {
+function harness(owner, initial = {}, savedPlan) {
   const storage = new Map(Object.entries(initial)), requests = [], timers = [];
   const location = { reload() { reloads++; } };
   let boot, reloads = 0;
@@ -19,6 +19,7 @@ function harness(owner, initial = {}) {
       } };
   }
   const ids = Object.fromEntries(['chatThread', 'chatInner', 'chatInput', 'sendMessage', 'chatComposer', 'newConversation'].map(id => [id, element()]));
+  if (savedPlan) ids.commandSavedCoverage = element();
   const host = { getAttribute: name => name === 'data-chat-owner' ? owner : 'Plani' };
   const context = vm.createContext({
     document: { getElementById: id => ids[id] || null,
@@ -30,6 +31,7 @@ function harness(owner, initial = {}) {
     location, setTimeout: callback => timers.push(callback),
     fetch: (url, options) => url === '/calendar/connections'
       ? Promise.resolve({ json: async () => ({}) })
+      : url === '/schedule/saved' ? Promise.resolve({ ok: true, json: async () => savedPlan })
       : new Promise((resolve, reject) => requests.push({ options, resolve, reject })),
   });
   vm.runInContext(coverage, context);
@@ -166,4 +168,22 @@ test('Old and new memory badges stay hidden without hiding the saved plan', asyn
   await flush();
   assert.match(h.ids.chatInner.children.at(-1).innerHTML, /Reading/);
   assert.equal(JSON.parse(h.storage.get(STORE)).log.some(item => item.t === 'action'), false);
+});
+
+test('The opening view flags upcoming work from a saved plan without making a chat request', async () => {
+  const date = new Date();
+  date.setDate(date.getDate() + 2);
+  const due = [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0')].join('-');
+  const h = harness('17', {}, { status: 'ok', data: { deferred: [
+    { title: '<Lab>', minutes: 20, due_date: due },
+    { title: 'Past homework', minutes: 30, due_date: '2001-01-01' },
+    { title: 'Future homework', minutes: 30, due_date: '2999-01-01' },
+  ] } });
+  await flush();
+  assert.match(h.ids.commandSavedCoverage.innerHTML, /From your saved plan/);
+  assert.match(h.ids.commandSavedCoverage.innerHTML, /20m still needs time/);
+  assert.match(h.ids.commandSavedCoverage.innerHTML, /&lt;Lab&gt;/);
+  assert.doesNotMatch(h.ids.commandSavedCoverage.innerHTML, /Past homework|Future homework/);
+  assert.equal(h.requests.length, 0);
 });

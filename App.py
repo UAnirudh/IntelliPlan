@@ -5590,6 +5590,11 @@ def compare_matcha():
     return _render_registry_article(blog_articles.get("intelliplan-vs-matcha"), active_page="compare")
 
 
+@app.get('/compare/<any("intelliplan-vs-shovel","intelliplan-vs-motion"):slug>')
+def compare_registry_article(slug):
+    return _render_registry_article(blog_articles.get(slug), active_page="compare")
+
+
 @app.get("/study-planner")
 def study_planner_overview():
     return _render_registry_article(blog_articles.get("study-planner"), active_page="study-planner")

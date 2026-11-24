@@ -24,7 +24,7 @@ import App as app_module
 
 #: Every comparison page. These rank for "<competitor> alternative", so an
 #: orphan among them is lost traffic rather than a tidiness problem.
-COMPARE_SLUGS = ("notion", "myhomework", "mystudylife", "quizlet", "turbo-ai", "matcha")
+COMPARE_SLUGS = ("notion", "myhomework", "mystudylife", "quizlet", "turbo-ai", "matcha", "shovel", "motion")
 
 
 @pytest.fixture
@@ -129,7 +129,8 @@ def test_matcha_comparison_and_calendar_guide_are_discoverable(client):
     ns = {"s": "http://www.sitemaps.org/schemas/sitemap/0.9"}
     urls = ET.fromstring(client.get("/sitemap.xml").get_data()).findall("s:url", ns)
     dates = {node.findtext("s:loc", namespaces=ns): node.findtext("s:lastmod", namespaces=ns) for node in urls}
-    for path in (comparison, guide, "/study-planner"):
+    for path in (comparison, guide, "/study-planner",
+                 "/compare/intelliplan-vs-shovel", "/compare/intelliplan-vs-motion"):
         slug = path.rsplit("/", 1)[1]
         article = app_module.blog_articles.get(slug)
         assert dates[base + path] == article.get("updated", article["date"])
