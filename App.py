@@ -5135,7 +5135,7 @@ _SITEMAP_ENTRIES = [
     ("/blog/how-to-use-canvas-with-a-study-planner", None),
     ("/blog/studentvue-study-planner", None),
     ("/blog/how-to-prioritize-assignments", None),
-    ("/blog/best-ai-study-planner", None),
+    ("/blog/best-ai-study-planner", "2026-11-24"),
     ("/blog/best-student-planner-app", None),
     ("/blog/ai-notetaker-for-students", None),
     ("/blog/what-is-a-good-gpa", None),
