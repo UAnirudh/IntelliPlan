@@ -4,10 +4,10 @@
 
 {# Canonical, og:url, og:type emitted globally by base.html. #}
 {% block meta_description %}Compare IntelliPlan, Shovel, and MyStudyLife side by side. Canvas and StudentVue support, AI scheduling, Grade Modeling, and free access for students.{% endblock %}
-{% block og_title %}IntelliPlan vs Shovel vs MyStudyLife, Best Canvas & StudentVue Study Planner{% endblock %}
-{% block og_description %}Side-by-side comparison of the top student study planners. Only IntelliPlan supports StudentVue, AI scheduling, and Grade Modeling, all free to start.{% endblock %}
-{% block twitter_title %}IntelliPlan vs Shovel vs MyStudyLife, Best Canvas & StudentVue Study Planner{% endblock %}
-{% block twitter_description %}Side-by-side comparison of the top student study planners. Only IntelliPlan supports StudentVue, AI scheduling, and Grade Modeling, all free to start.{% endblock %}
+{% block og_title %}IntelliPlan vs Shovel vs MyStudyLife | Compare Study Planners{% endblock %}
+{% block og_description %}Compare supported school platforms, study planning, and free or trial options for IntelliPlan, Shovel, and MyStudyLife.{% endblock %}
+{% block twitter_title %}IntelliPlan vs Shovel vs MyStudyLife | Compare Study Planners{% endblock %}
+{% block twitter_description %}Compare supported school platforms, study planning, and free or trial options for IntelliPlan, Shovel, and MyStudyLife.{% endblock %}
 
 {% block content %}
 
@@ -40,7 +40,8 @@
     border-bottom: 2px solid var(--border-strong);
     white-space: nowrap;
   }
-  .compare-table th:first-child { width: 40%; }
+  .compare-table th:first-child { width: 22%; }
+  .compare-page td a, .compare-page .summary-desc a { color: var(--accent); text-decoration: underline; }
   .compare-table th.col-intelliplan {
     background: var(--accent-soft);
     color: var(--accent);
@@ -60,12 +61,6 @@
   .compare-table td.col-intelliplan { background: var(--accent-soft); }
   .compare-table tbody tr:hover td { background: var(--bg-elevated); }
   .compare-table tbody tr:hover td.col-intelliplan { background: var(--accent-mid); }
-  /* Honest competitor rows: a present feature reads positive (--low), a
-     missing one stays neutral rather than an alarm-red X — no fake
-     checkmark-wall scare tactics. */
-  .check { color: var(--low); display: inline-flex; align-items: center; }
-  .cross { color: var(--text-muted); display: inline-flex; align-items: center; opacity: 0.7; }
-  .note { font-size: 0.82rem; color: var(--text-muted); }
   .winner-badge {
     display: inline-block;
     background: var(--accent);
@@ -117,7 +112,7 @@
     display: inline-block;
   }
   .verdict-best { background: var(--accent-soft); color: var(--accent); }
-    .verdict-limited { background: var(--medium-bg); color: var(--medium); }
+  .verdict-limited { background: var(--medium-bg); color: var(--medium); }
   .verdict-manual { background: var(--bg-elevated); color: var(--text-muted); }
   .compare-cta {
     text-align: center;
@@ -156,25 +151,25 @@
     <h1 class="page-title">IntelliPlan vs Shovel vs MyStudyLife</h1>
     <p class="page-subtitle">
       Looking for the best study planner that actually connects to Canvas or StudentVue?
-      Here's a complete side-by-side breakdown so you can choose without guessing.
+      Compare which school platforms you can connect, how each app plans study time, and what you can try for free.
     </p>
   </div>
 
   <div class="compare-summary">
     <div class="summary-card featured ipd-anim ipd-d1">
       <h2 class="summary-product featured">IntelliPlan <span class="winner-badge">Recommended</span></h2>
-      <p class="summary-desc">Free AI planner with Canvas, StudentVue, and Schoology integration. Includes AI scheduling, Grade Modeler, and flashcards.</p>
+      <p class="summary-desc">Import assignments from a supported school platform. IntelliPlan plans study blocks around your availability and has practice tools and a Grade Modeler.</p>
       <span class="summary-verdict verdict-best">Free to start</span>
     </div>
     <div class="summary-card ipd-anim ipd-d2">
       <h2 class="summary-product">Shovel</h2>
-      <p class="summary-desc">Canvas and Brightspace sync with time-blocking. No StudentVue. Full scheduling features are not available to every user.</p>
-      <span class="summary-verdict verdict-limited">Limited scheduling</span>
+      <p class="summary-desc"><a href="https://shovelapp.io/">Shovel</a> imports schoolwork and offers one-click Auto-plan to schedule study sessions in your free time.</p>
+      <span class="summary-verdict verdict-limited">7-day trial</span>
     </div>
     <div class="summary-card ipd-anim ipd-d3">
       <h2 class="summary-product">MyStudyLife</h2>
-      <p class="summary-desc">Free cross-platform scheduler with manual entry. No LMS integration. No AI scheduling or Grade Modeler.</p>
-      <span class="summary-verdict verdict-manual">Manual entry only</span>
+      <p class="summary-desc"><a href="https://mystudylife.com/tour/">MyStudyLife</a> combines school timetables, homework and exam reminders. Its Scout AI can plan your week and help you prepare for an exam.</p>
+      <span class="summary-verdict verdict-manual">Free plan with limits</span>
     </div>
   </div>
 
@@ -190,76 +185,34 @@
       </thead>
       <tbody>
         <tr>
-          <td>Canvas LMS integration</td>
-          <td class="col-intelliplan"><span class="check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></span> <span class="note">Free</span></td>
-          <td><span class="check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></span> <span class="note">Limited access</span></td>
-          <td><span class="cross"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-x-circle"/></svg></span></td>
+          <td>School connections</td>
+          <td class="col-intelliplan">Canvas, StudentVue, Schoology and <a href="/faq">other supported platforms</a></td>
+          <td>Canvas, Brightspace, Moodle and Google Classroom are listed on <a href="https://shovelapp.io/">Shovel’s site</a>. Syllabus import is also available.</td>
+          <td><a href="https://mystudylife.com/">MyStudyLife lists Canvas and Blackboard</a>; its <a href="https://mystudylife.com/b2b/">school offering</a> documents automatic Canvas assignment import.</td>
         </tr>
         <tr>
-          <td>StudentVue integration</td>
-          <td class="col-intelliplan"><span class="check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></span></td>
-          <td><span class="cross"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-x-circle"/></svg></span></td>
-          <td><span class="cross"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-x-circle"/></svg></span></td>
+          <td>Study planning</td>
+          <td class="col-intelliplan">Build a study schedule around deadlines and available hours.</td>
+          <td>Use Auto-plan to fill available time with study sessions or move blocks yourself.</td>
+          <td>Ask <a href="https://mystudylife.com/faq/">Scout AI</a> to plan your week or build an exam revision plan.</td>
         </tr>
         <tr>
-          <td>Schoology integration</td>
-          <td class="col-intelliplan"><span class="check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></span></td>
-          <td><span class="cross"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-x-circle"/></svg></span></td>
-          <td><span class="cross"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-x-circle"/></svg></span></td>
+          <td>Grades</td>
+          <td class="col-intelliplan">Use the <a href="/grademodel">Grade Modeler</a> to test how an upcoming score may affect your grade.</td>
+          <td>Set a <a href="https://help.shovelapp.io/en/calendar/create-your-schedule">course grading rubric</a>.</td>
+          <td><a href="https://mystudylife.com/tour/">Log scores and grades</a> to see averages and trends.</td>
         </tr>
         <tr>
-          <td>AI-generated study schedule</td>
-          <td class="col-intelliplan"><span class="check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></span></td>
-          <td><span class="cross"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-x-circle"/></svg></span></td>
-          <td><span class="cross"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-x-circle"/></svg></span></td>
+          <td>Google Calendar</td>
+          <td class="col-intelliplan">Export study sessions to Google Calendar.</td>
+          <td><a href="https://help.shovelapp.io/en/calendar/connect-google-calendar">Import Google Calendar events</a> into Shovel; the documented connection is one-way.</td>
+          <td><a href="https://mystudylife.com/tour/">Mirror to Google Calendar</a>; <a href="https://mystudylife.com/msl-plus/">MSL+</a> includes calendar import.</td>
         </tr>
         <tr>
-          <td>Grade Modeler</td>
-          <td class="col-intelliplan"><span class="check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></span></td>
-          <td><span class="cross"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-x-circle"/></svg></span></td>
-          <td><span class="cross"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-x-circle"/></svg></span></td>
-        </tr>
-        <tr>
-          <td>Flashcard / quiz generator</td>
-          <td class="col-intelliplan"><span class="check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></span></td>
-          <td><span class="cross"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-x-circle"/></svg></span></td>
-          <td><span class="cross"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-x-circle"/></svg></span></td>
-        </tr>
-        <tr>
-          <td>Google Calendar export</td>
-          <td class="col-intelliplan"><span class="check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></span></td>
-          <td><span class="cross"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-x-circle"/></svg></span></td>
-          <td><span class="check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></span></td>
-        </tr>
-        <tr>
-          <td>Free plan available</td>
-          <td class="col-intelliplan"><span class="check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></span></td>
-          <td><span class="note">Limited access</span></td>
-          <td><span class="check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></span></td>
-        </tr>
-        <tr>
-          <td>Mobile app</td>
-          <td class="col-intelliplan"><span class="check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></span> <span class="note">PWA</span></td>
-          <td><span class="check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></span> <span class="note">Native</span></td>
-          <td><span class="check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></span> <span class="note">Native</span></td>
-        </tr>
-        <tr>
-          <td>Time estimation per task</td>
-          <td class="col-intelliplan"><span class="check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></span></td>
-          <td><span class="check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></span></td>
-          <td><span class="cross"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-x-circle"/></svg></span></td>
-        </tr>
-        <tr>
-          <td>Automatic assignment sync</td>
-          <td class="col-intelliplan"><span class="check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></span></td>
-          <td><span class="check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></span> <span class="note">Canvas/Brightspace</span></td>
-          <td><span class="cross"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-x-circle"/></svg></span> <span class="note">Manual only</span></td>
-        </tr>
-        <tr>
-          <td>Works for high school students</td>
-          <td class="col-intelliplan"><span class="check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></span> <span class="note">StudentVue support</span></td>
-          <td><span class="note">Partial</span></td>
-          <td><span class="check"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-check-circle"/></svg></span></td>
+          <td>Free access</td>
+          <td class="col-intelliplan">Free to start</td>
+          <td><a href="https://shovelapp.io/">7-day planner trial</a>, then a paid subscription</td>
+          <td><a href="https://mystudylife.com/msl-plus/">Free plan</a> with task and Scout AI limits</td>
         </tr>
       </tbody>
     </table>
@@ -311,7 +264,7 @@
       </a>
       <a href="/compare/intelliplan-vs-mystudylife" style="display:block; padding:1rem 1.15rem; border:1px solid var(--glass-border); border-radius:var(--r-md); background:var(--glass-bg); text-decoration:none;">
         <span style="display:block; font-weight:700; font-size:0.95rem; color:var(--text-primary); margin-bottom:0.2rem;">IntelliPlan vs MyStudyLife</span>
-        <span style="font-size:0.82rem; color:var(--text-secondary); line-height:1.5;">A timetable that shows what is due, versus a plan that decides what to do first.</span>
+        <span style="font-size:0.82rem; color:var(--text-secondary); line-height:1.5;">Compare Scout and Plani, school connections, and how each planner handles exam prep.</span>
       </a>
       <a href="/compare/intelliplan-vs-quizlet" style="display:block; padding:1rem 1.15rem; border:1px solid var(--glass-border); border-radius:var(--r-md); background:var(--glass-bg); text-decoration:none;">
         <span style="display:block; font-weight:700; font-size:0.95rem; color:var(--text-primary); margin-bottom:0.2rem;">IntelliPlan vs Quizlet</span>
@@ -326,7 +279,7 @@
 
   <div class="compare-cta">
     <h2>IntelliPlan is free to start</h2>
-    <p>Connect Canvas or StudentVue and see your priorities in under 5 minutes. Start free with no barriers.</p>
+    <p>Connect a supported school platform or enter your schoolwork manually to start planning.</p>
     {# .compare-cta-actions was already defined in this page's CSS but
        never used — the two buttons were separated by two &nbsp;, which
        gives no gap control and collapses into a ragged stack on a narrow
