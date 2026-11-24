@@ -51,7 +51,7 @@ def install_canvas(monkeypatch, *, course, groups, assignments, submissions):
             return _Resp([course])
         return _Resp([])
 
-    monkeypatch.setattr(canvas_helper, "requests", types.SimpleNamespace(get=fake_get))
+    monkeypatch.setattr(canvas_helper, "_canvas_get", fake_get)
 
 
 def history_course(monkeypatch, **kwargs):
@@ -193,7 +193,7 @@ def test_a_failed_assignment_groups_call_does_not_lose_the_course(monkeypatch):
             return _Resp([PERFECT["course"]])
         return _Resp([])
 
-    monkeypatch.setattr(canvas_helper, "requests", types.SimpleNamespace(get=fake_get))
+    monkeypatch.setattr(canvas_helper, "_canvas_get", fake_get)
     course = next(c for c in canvas_helper.get_gradebook_detail("https://x", "tok")
                   if "History" in c["course"])
     assert course["percentage"] == 100.0

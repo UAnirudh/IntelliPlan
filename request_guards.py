@@ -38,12 +38,23 @@ UNSAFE_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 #: Paths where a cross-origin caller is the entire point. Each authenticates
 #: by something other than the session cookie, so riding the cookie gains an
 #: attacker nothing.
+EXEMPT_PATHS = frozenset({
+    # OAuth providers redirect to these GET routes. Keep each exemption
+    # exact so nearby session-authenticated POST routes remain protected.
+    "/oauth/canvas/callback",
+    "/oauth/google/callback",
+    "/oauth2callback",   # Google redirect URI alias
+    "/oauth/outlook/callback",
+    "/oauth/notion/callback",
+})
+
 EXEMPT_PREFIXES = (
-    "/oauth",            # provider redirects back to us
-    "/oauth2callback",
     "/api/lms/callback",
-    "/api/auth/",        # extension bearer-token endpoints
-    "/api/extension/",
+    # /api/auth/ deliberately is NOT exempt. It holds the bearer-token
+    # endpoints (which send no Origin and so pass anyway) but also
+    # /api/auth/password, which is session-cookie authenticated: exempting
+    # the prefix exempted the one endpoint that actually needs the check.
+    "/api/extension/",   # header-token endpoints; chrome-extension origin allowed
     "/webhook",          # provider-signed callbacks
 )
 
@@ -77,7 +88,9 @@ def allowed_hosts() -> set[str]:
 
 
 def is_exempt(path: str) -> bool:
-    return any(path.startswith(prefix) for prefix in EXEMPT_PREFIXES)
+    return path in EXEMPT_PATHS or any(
+        path.startswith(prefix) for prefix in EXEMPT_PREFIXES
+    )
 
 
 def cross_site_violation() -> str | None:

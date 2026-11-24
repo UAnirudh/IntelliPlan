@@ -18,6 +18,8 @@ Nothing here touches the network.
 """
 
 from datetime import timedelta
+import os
+from urllib.parse import parse_qs
 
 import pytest
 
@@ -56,21 +58,31 @@ def _wipe():
 
 @pytest.fixture
 def keys(monkeypatch):
+    for name in list(os.environ):
+        if name.startswith("CANVAS_CLIENT_"):
+            monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("CANVAS_CLIENT_ID", "1000")
     monkeypatch.setenv("CANVAS_CLIENT_SECRET", "secret")
     monkeypatch.delenv("CANVAS_SCOPES", raising=False)
 
 
+@pytest.fixture
+def school_keys(keys, monkeypatch):
+    suffix = canvas_oauth._host_key_suffix(BASE)
+    monkeypatch.setenv(f"CANVAS_CLIENT_ID_ORIGIN_{suffix}", "2000")
+    monkeypatch.setenv(f"CANVAS_CLIENT_SECRET_ORIGIN_{suffix}", "school-secret")
+
+
 # ── Scopes ────────────────────────────────────────────────────────
 
-def test_an_unscoped_key_is_asked_unscoped(keys):
+def test_an_unscoped_key_is_asked_unscoped(school_keys):
     """Canvas rejects a scope param on a key with enforcement off, so the
     default must stay silent about scopes."""
     url = canvas_oauth.get_canvas_auth_url("st", canvas_base=BASE)
     assert "scope=" not in url
 
 
-def test_turning_scopes_on_asks_for_the_endpoints_we_call(keys, monkeypatch):
+def test_turning_scopes_on_asks_for_the_endpoints_we_call(school_keys, monkeypatch):
     monkeypatch.setenv("CANVAS_SCOPES", "default")
     url = canvas_oauth.get_canvas_auth_url("st", canvas_base=BASE)
     assert "scope=" in url
@@ -84,20 +96,113 @@ def test_an_explicit_scope_list_is_sent_verbatim(keys, monkeypatch):
     assert scopes == ("url:GET|/api/v1/courses", "url:GET|/api/v1/users/:id")
 
 
-def test_one_school_can_enforce_scopes_while_the_public_canvas_does_not(keys, monkeypatch):
+def test_one_school_can_enforce_scopes_while_the_public_canvas_does_not(school_keys, monkeypatch):
     """Enforcement is a per-instance decision, so the override has to be too."""
-    monkeypatch.setenv("CANVAS_SCOPES_SCHOOL_INSTRUCTURE_COM", "default")
+    monkeypatch.setattr(canvas_oauth, "DEFAULT_CANVAS_BASE", "https://canvas.instructure.com")
+    monkeypatch.setenv(
+        f"CANVAS_SCOPES_ORIGIN_{canvas_oauth._host_key_suffix(BASE)}", "default")
     scoped = canvas_oauth.get_canvas_auth_url("st", canvas_base=BASE)
     public = canvas_oauth.get_canvas_auth_url("st", canvas_base="https://canvas.instructure.com")
     assert "scope=" in scoped
     assert "scope=" not in public
 
 
-def test_an_explicit_argument_still_wins_over_the_environment(keys, monkeypatch):
+def test_an_explicit_argument_still_wins_over_the_environment(school_keys, monkeypatch):
     monkeypatch.setenv("CANVAS_SCOPES", "default")
     url = canvas_oauth.get_canvas_auth_url("st", canvas_base=BASE, scopes=["url:GET|/api/v1/only"])
     assert "only" in url
     assert "assignment_groups" not in url
+
+
+def test_global_credentials_are_reserved_for_the_default_canvas(keys):
+    assert canvas_oauth._client_credentials(canvas_oauth.DEFAULT_CANVAS_BASE) == (
+        "1000", "secret")
+    assert canvas_oauth.oauth_is_configured(canvas_oauth.DEFAULT_CANVAS_BASE)
+
+
+def test_code_exchange_uses_pinned_https_with_encoded_form(keys, monkeypatch):
+    captured = {}
+
+    class Response:
+        status_code = 200
+
+        @staticmethod
+        def json():
+            return {"access_token": "access", "refresh_token": "refresh"}
+
+    def fake_request(url, method, **kwargs):
+        captured.update(url=url, method=method, **kwargs)
+        return Response()
+
+    monkeypatch.setattr(canvas_oauth.net_guard, "pinned_https_request", fake_request)
+    tokens = canvas_oauth.exchange_canvas_code("code-value", canvas_oauth.DEFAULT_CANVAS_BASE)
+
+    assert tokens["access_token"] == "access"
+    assert captured["method"] == "POST"
+    assert captured["url"] == f"{canvas_oauth.DEFAULT_CANVAS_BASE}/login/oauth2/token"
+    assert captured["headers"]["Content-Type"] == "application/x-www-form-urlencoded"
+    assert parse_qs(captured["data"])["client_secret"] == ["secret"]
+    assert parse_qs(captured["data"])["code"] == ["code-value"]
+
+
+def test_refresh_and_revoke_use_pinned_https(keys, monkeypatch):
+    calls = []
+
+    class Response:
+        status_code = 200
+
+        @staticmethod
+        def json():
+            return {"access_token": "new-access"}
+
+    def fake_request(url, method, **kwargs):
+        calls.append((url, method, kwargs))
+        return Response()
+
+    monkeypatch.setattr(canvas_oauth.net_guard, "pinned_https_request", fake_request)
+    refreshed = canvas_oauth.refresh_canvas_token("refresh", canvas_oauth.DEFAULT_CANVAS_BASE)
+    canvas_oauth.revoke_canvas_token("access", canvas_oauth.DEFAULT_CANVAS_BASE)
+
+    assert refreshed["access_token"] == "new-access"
+    assert [call[1] for call in calls] == ["POST", "DELETE"]
+    assert parse_qs(calls[0][2]["data"])["client_secret"] == ["secret"]
+    assert calls[1][2]["headers"]["Authorization"] == "Bearer access"
+
+
+def test_global_credentials_do_not_configure_an_unregistered_custom_host(keys):
+    assert canvas_oauth._client_credentials(BASE) == (None, None)
+    assert not canvas_oauth.oauth_is_configured(BASE)
+
+
+def test_a_complete_custom_host_pair_is_used_instead_of_global(keys, monkeypatch):
+    suffix = canvas_oauth._host_key_suffix(BASE)
+    monkeypatch.setenv(f"CANVAS_CLIENT_ID_ORIGIN_{suffix}", "2000")
+    monkeypatch.setenv(f"CANVAS_CLIENT_SECRET_ORIGIN_{suffix}", "school-secret")
+    assert canvas_oauth._client_credentials(BASE) == ("2000", "school-secret")
+
+
+@pytest.mark.parametrize("partial_name,partial_value", [
+    ("CANVAS_CLIENT_ID_ORIGIN_", "2000"),
+    ("CANVAS_CLIENT_SECRET_ORIGIN_", "school-secret"),
+])
+def test_a_partial_custom_pair_never_borrows_global_credentials(
+        keys, monkeypatch, partial_name, partial_value):
+    monkeypatch.setenv(partial_name + canvas_oauth._host_key_suffix(BASE), partial_value)
+    cid, secret = canvas_oauth._client_credentials(BASE)
+    assert (cid, secret) != ("2000", "secret")
+    assert not canvas_oauth.oauth_is_configured(BASE)
+
+
+def test_origin_credential_names_do_not_collide_for_dot_and_hyphen_hosts(keys, monkeypatch):
+    configured = "https://canvas.school.edu"
+    impostor = "https://canvas-school.edu"
+    configured_suffix = canvas_oauth._host_key_suffix(configured)
+    impostor_suffix = canvas_oauth._host_key_suffix(impostor)
+    monkeypatch.setenv(f"CANVAS_CLIENT_ID_ORIGIN_{configured_suffix}", "school-id")
+    monkeypatch.setenv(f"CANVAS_CLIENT_SECRET_ORIGIN_{configured_suffix}", "school-secret")
+    assert configured_suffix != impostor_suffix
+    assert canvas_oauth._client_credentials(configured) == ("school-id", "school-secret")
+    assert canvas_oauth._client_credentials(impostor) == (None, None)
 
 
 # ── Disconnect ────────────────────────────────────────────────────

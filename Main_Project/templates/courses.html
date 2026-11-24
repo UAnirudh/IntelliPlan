@@ -1,47 +1,110 @@
 {% extends "base.html" %}
-{% block page_title %}Courses | IntelliPlan{% endblock %}
+{% block page_title %}Learning | IntelliPlan{% endblock %}
 
 {% block content %}
 <link rel="stylesheet" href="/static/css/courses.css?v={{ asset_v }}">
 
-<div class="ipd-page-header ipd-anim ipd-d1">
+<div class="ipd-page-header ipd-anim ipd-d1 lac-page-header">
   <div>
-    <div class="ipd-kicker">Outside school</div>
-    <h1 class="ipd-page-title">Courses</h1>
-    <p class="ipd-page-subtitle">Paste a link to anything you are learning on your own. Set a weekly goal, and IntelliPlan puts the time on your plan and tells you when you fall behind it.</p>
+    <div class="ipd-kicker">LEARNING STUDIO</div>
+    <h1 class="ipd-page-title">Courses &amp; activities</h1>
+    <p class="ipd-page-subtitle">Make steady progress across the things you’re learning, building, and showing up for.</p>
   </div>
+  <a class="lac-plani-cta" href="/command-center" aria-label="Ask Plani to plan your learning">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v3m0 12v3M3 12h3m12 0h3M5.64 5.64l2.12 2.12m8.48 8.48 2.12 2.12m0-12.72-2.12 2.12m-8.48 8.48-2.12 2.12"/><circle cx="12" cy="12" r="4"/></svg>
+    <span>Plan with Plani</span>
+    <svg class="lac-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
+  </a>
 </div>
 
 <div class="crs-shell">
-  <form class="crs-add" id="crsAddForm" novalidate>
-    <div class="crs-add__field crs-add__field--url">
-      <label class="crs-label" for="crsUrl">Course link</label>
-      <input class="form-input" id="crsUrl" type="url" inputmode="url" autocomplete="off"
-             placeholder="khanacademy.org/math/algebra" maxlength="500" required>
+  <section class="lac-overview" aria-label="Your learning progress this week">
+    <div class="lac-overview__head"><div><span class="lac-overview__eyebrow">AT A GLANCE</span><h2>Your week, in progress</h2></div><p id="learningOverviewStatus" aria-live="polite">Adding up your learning time…</p></div>
+    <div class="lac-metrics">
+      <article class="lac-metric"><span class="lac-metric__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><div><span class="lac-metric__label">Time logged</span><strong id="learningMetricMinutes">—</strong><small>this week</small></div></article>
+      <article class="lac-metric"><span class="lac-metric__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 19V5m0 14h16M8 15l3-4 3 2 5-7"/></svg></span><div><span class="lac-metric__label">Weekly target</span><strong id="learningMetricGoal">—</strong><small>across your goals</small></div></article>
+      <article class="lac-metric"><span class="lac-metric__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></span><div><span class="lac-metric__label">Goals reached</span><strong id="learningMetricDone">—</strong><small>this week</small></div></article>
+      <article class="lac-metric"><span class="lac-metric__icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 14 8l5 1-4 3 .8 5-3.8-2.5L8.2 17 9 12l-4-3 5-1z"/></svg></span><div><span class="lac-metric__label">Best rhythm</span><strong id="learningMetricStreak">—</strong><small>weeks in a row</small></div></article>
     </div>
-    <div class="crs-add__field">
-      <label class="crs-label" for="crsTitle">Name <span class="crs-optional">optional</span></label>
-      <input class="form-input" id="crsTitle" type="text" autocomplete="off" maxlength="160" placeholder="Algebra 1">
+    <div class="lac-total-progress">
+      <div class="lac-total-progress__line"><span>Combined weekly progress</span><strong id="learningMetricPercent">—</strong></div>
+      <div class="lac-total-progress__track" id="learningProgressTrack" role="progressbar" aria-label="Combined weekly learning goal" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="learningProgressFill"></i></div>
     </div>
-    <div class="crs-add__field crs-add__field--goal">
-      <label class="crs-label" for="crsGoal">Each week</label>
-      <select class="form-input" id="crsGoal">
-        <option value="30">30 min</option>
-        <option value="60">1 hour</option>
-        <option value="120" selected>2 hours</option>
-        <option value="180">3 hours</option>
-        <option value="300">5 hours</option>
-      </select>
+  </section>
+
+  <div class="lac-add-grid">
+    <section class="lac-add-panel" aria-labelledby="linkedCourseHeading">
+      <div class="lac-add-panel__head"><span class="lac-step">01</span><div><h2 id="linkedCourseHeading">Link an online course</h2><p>Set a weekly target and track supported course progress with the browser extension.</p></div></div>
+      <form class="crs-add" id="crsAddForm" novalidate>
+        <div class="crs-add__field crs-add__field--url">
+          <label class="crs-label" for="crsUrl">Course link</label>
+          <input class="form-input" id="crsUrl" type="url" inputmode="url" autocomplete="off"
+                 placeholder="khanacademy.org/math/algebra" maxlength="500" required>
+        </div>
+        <div class="crs-add__field">
+          <label class="crs-label" for="crsTitle">Name <span class="crs-optional">optional</span></label>
+          <input class="form-input" id="crsTitle" type="text" autocomplete="off" maxlength="160" placeholder="Algebra 1">
+        </div>
+        <div class="crs-add__field crs-add__field--goal">
+          <label class="crs-label" for="crsGoal">Weekly target</label>
+          <select class="form-input" id="crsGoal">
+            <option value="30">30 min</option><option value="60">1 hour</option><option value="120" selected>2 hours</option><option value="180">3 hours</option><option value="300">5 hours</option>
+          </select>
+        </div>
+        <button type="submit" class="btn-primary crs-add__go" id="crsAddBtn">Track course</button>
+        <p class="crs-msg" id="crsAddMsg" role="status" aria-live="polite"></p>
+      </form>
+      <a class="lac-help-link" href="/extension">See how verified progress works <span aria-hidden="true">→</span></a>
+    </section>
+
+    <section class="lac-section" id="activities" aria-labelledby="lacHeading">
+    <div class="lac-heading">
+      <span class="lac-step">02</span><div><h2 id="lacHeading">Track another commitment</h2>
+        <p class="lac-sub">Classes, clubs, extracurriculars, or an online course you want to track with your own check-ins.</p></div>
     </div>
-    <button type="submit" class="btn-primary crs-add__go" id="crsAddBtn">Track it</button>
-    <p class="crs-msg" id="crsAddMsg" role="status" aria-live="polite"></p>
-  </form>
+    <form class="lac-add" id="lacAddForm" novalidate>
+      <div class="lac-field lac-field--title">
+        <label class="crs-label" for="lacTitle">Name</label>
+        <input class="form-input" id="lacTitle" type="text" maxlength="160" placeholder="Robotics club or study group" aria-describedby="lacTitleHelp" required>
+        <small class="lac-field-help" id="lacTitleHelp">Choose a name you’ll recognize when you check in.</small>
+      </div>
+      <div class="lac-field">
+        <label class="crs-label" for="lacCategory">Type</label>
+        <select class="form-input" id="lacCategory">
+          <option value="online_course">Online course · check-ins</option><option value="class">Class</option><option value="club">Club</option>
+          <option value="extracurricular">Extracurricular</option><option value="activity">Other</option>
+        </select>
+      </div>
+      <div class="lac-field lac-field--goal">
+        <label class="crs-label" for="lacGoal">Each week</label>
+        <select class="form-input" id="lacGoal"><option value="30">30 min</option><option value="60">1 hour</option><option value="120" selected>2 hours</option><option value="180">3 hours</option><option value="300">5 hours</option></select>
+      </div>
+      <button type="submit" class="btn-primary" id="lacAddBtn">Add</button>
+      <details class="lac-preferences">
+        <summary>Preferred days or time <span>(optional)</span></summary>
+        <div class="lac-preferences__body">
+          <fieldset class="lac-days"><legend>Best days</legend>
+            <label><input type="checkbox" value="monday"><span>Mon</span></label><label><input type="checkbox" value="tuesday"><span>Tue</span></label><label><input type="checkbox" value="wednesday"><span>Wed</span></label><label><input type="checkbox" value="thursday"><span>Thu</span></label><label><input type="checkbox" value="friday"><span>Fri</span></label><label><input type="checkbox" value="saturday"><span>Sat</span></label><label><input type="checkbox" value="sunday"><span>Sun</span></label>
+          </fieldset>
+          <div class="lac-field"><label class="crs-label" for="lacPreferredTime">Best time</label><input class="form-input" id="lacPreferredTime" type="text" maxlength="40" placeholder="After school or 4:30 PM"></div>
+        </div>
+        <p>These guide planning; the scheduler may choose another available time.</p>
+      </details>
+      <p class="lac-msg" id="lacAddMsg" role="status" aria-live="polite"></p>
+    </form>
+    </section>
+  </div>
 
   <section aria-labelledby="crsListHeading">
-    <h2 class="crs-h" id="crsListHeading">This week</h2>
+    <div class="lac-list-heading"><div><span class="lac-overview__eyebrow">YOUR TRACKED WORK</span><h2 class="crs-h" id="crsListHeading">Online courses</h2></div><span class="lac-list-heading__note">Updated as you log time</span></div>
     <div id="crsList" class="crs-list" aria-live="polite">
-      <p class="crs-loading">Loading your courses…</p>
+      <div class="lac-skeleton" aria-hidden="true"><i></i><i></i><i></i></div>
     </div>
+  </section>
+
+  <section class="lac-tracked" aria-labelledby="lacTrackedHeading">
+    <div class="lac-list-heading"><div><span class="lac-overview__eyebrow">YOUR TRACKED WORK</span><h2 class="crs-h" id="lacTrackedHeading">Classes, clubs &amp; activities</h2></div><span class="lac-list-heading__note">Check in to build your rhythm</span></div>
+    <div class="lac-list" id="lacList" aria-live="polite"><div class="lac-skeleton" aria-hidden="true"><i></i><i></i></div></div>
   </section>
 
   <section class="crs-find" aria-labelledby="crsFindHeading">
@@ -63,4 +126,7 @@
 </div>
 
 <script src="/static/js/courses.js?v={{ asset_v }}" defer></script>
+<link rel="stylesheet" href="/static/css/learning_activities.css?v={{ asset_v }}">
+<script src="/static/js/learning_overview.js?v={{ asset_v }}" defer></script>
+<script src="/static/js/learning_activities.js?v={{ asset_v }}" defer></script>
 {% endblock %}

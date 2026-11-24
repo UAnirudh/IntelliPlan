@@ -312,45 +312,48 @@
        is showing a product artifact, so giving it physical presence sells it
        better than a flat screenshot would. #}
     <div class="hero-preview" aria-label="Sample weekly plan" data-float style="--ipm-float-y:10px; --ipm-float-dur:9s;">
-      <div class="preview-card" data-tilt="5">
+      <div class="preview-card" data-tilt="5" aria-label="Sample study plan card">
         <div class="preview-header">
-          <div class="preview-title">This Week's Priorities</div>
-          <div class="preview-pill">4h 30m planned</div>
+          <div class="preview-heading" aria-labelledby="preview-title">
+            <span class="preview-eyebrow">Your week at a glance</span>
+            <div class="preview-title" id="preview-title">This Week's Priorities</div>
+          </div>
+          <div class="preview-pill"><span class="preview-pill-dot" aria-hidden="true"></span>4h 30m planned</div>
         </div>
 
         <div class="preview-list">
           <div class="task task-high">
-            <div class="task-dot"></div>
+            <div class="task-dot" aria-hidden="true"></div>
             <div class="task-main">
               <div class="task-name">Calc BC, Related Rates</div>
-              <div class="task-meta">High priority • due tomorrow</div>
+              <div class="task-meta"><span class="task-priority">High priority</span><span class="task-separator" aria-hidden="true">·</span><span>Due tomorrow</span></div>
             </div>
             <div class="task-time">45m</div>
           </div>
 
           <div class="task task-medium">
-            <div class="task-dot"></div>
+            <div class="task-dot" aria-hidden="true"></div>
             <div class="task-main">
               <div class="task-name">AP Bio, Ch. 7 quiz prep</div>
-              <div class="task-meta">Medium priority • this week</div>
+              <div class="task-meta"><span class="task-priority">Medium priority</span><span class="task-separator" aria-hidden="true">·</span><span>This week</span></div>
             </div>
             <div class="task-time">30m</div>
           </div>
 
           <div class="task task-low">
-            <div class="task-dot"></div>
+            <div class="task-dot" aria-hidden="true"></div>
             <div class="task-main">
               <div class="task-name">English, Essay outline</div>
-              <div class="task-meta">Low priority • later this week</div>
+              <div class="task-meta"><span class="task-priority">Low priority</span><span class="task-separator" aria-hidden="true">·</span><span>Later this week</span></div>
             </div>
             <div class="task-time">25m</div>
           </div>
 
           <div class="task task-accent">
-            <div class="task-dot"></div>
+            <div class="task-dot" aria-hidden="true"></div>
             <div class="task-main">
               <div class="task-name">Physics, Problem set #4</div>
-              <div class="task-meta">Auto-scheduled into your calendar</div>
+              <div class="task-meta"><span class="task-scheduled-dot" aria-hidden="true"></span><span>Auto-scheduled into your calendar</span></div>
             </div>
             <div class="task-time">60m</div>
           </div>
@@ -1420,6 +1423,18 @@
     margin-bottom: 1.1rem;
   }
 
+  .preview-heading { display: grid; gap: 0.2rem; min-width: 0; }
+
+  .preview-eyebrow {
+    color: var(--text-muted);
+    font-family: var(--font-mono, var(--font-ui));
+    font-size: 0.66rem;
+    font-weight: 600;
+    letter-spacing: 0.075em;
+    line-height: 1.3;
+    text-transform: uppercase;
+  }
+
   .preview-title {
     font-family: var(--font-display);
     font-size: 1.1rem;
@@ -1427,6 +1442,9 @@
   }
 
   .preview-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
     font-family: var(--font-ui);
     font-size: 0.82rem;
     background: var(--accent-soft);
@@ -1435,6 +1453,15 @@
     border-radius: 999px;
     font-weight: 700;
     white-space: nowrap;
+  }
+
+  .preview-pill-dot,
+  .task-scheduled-dot {
+    width: 0.45rem;
+    height: 0.45rem;
+    border-radius: 50%;
+    background: var(--accent);
+    flex: 0 0 auto;
   }
 
   .preview-list { display: flex; flex-direction: column; gap: 0.8rem; }
@@ -1448,10 +1475,10 @@
     border: 1px solid transparent;
   }
 
-  .task-high   { background: var(--high-bg); }
-  .task-medium { background: var(--medium-bg); }
-  .task-low    { background: var(--low-bg); }
-  .task-accent { background: var(--accent-soft); }
+  .task-high   { background: var(--high-bg); border-color: color-mix(in srgb, var(--high) 16%, var(--border)); }
+  .task-medium { background: var(--medium-bg); border-color: color-mix(in srgb, var(--medium) 16%, var(--border)); }
+  .task-low    { background: var(--low-bg); border-color: color-mix(in srgb, var(--low) 16%, var(--border)); }
+  .task-accent { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 16%, var(--border)); }
 
   .task-dot {
     width: 10px;
@@ -1474,13 +1501,33 @@
     margin-bottom: 0.15rem;
   }
 
-  .task-meta { color: var(--text-muted); font-size: 0.8rem; }
+  .task-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.28rem;
+    color: var(--text-muted);
+    font-size: 0.76rem;
+    line-height: 1.45;
+  }
+
+  .task-priority {
+    color: var(--text-secondary);
+    font-weight: 600;
+  }
+
+  .task-high .task-priority { color: var(--high); }
+  .task-medium .task-priority { color: var(--medium); }
+  .task-low .task-priority { color: var(--low); }
+  .task-separator { opacity: 0.7; }
 
   .task-time {
     font-size: 0.8rem;
     font-weight: 700;
     color: var(--text-primary);
     white-space: nowrap;
+    min-width: 2.7rem;
+    text-align: right;
   }
 
   .floating-badge {

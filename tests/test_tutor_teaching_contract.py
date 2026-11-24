@@ -23,11 +23,24 @@ def test_premium_and_adaptive_use_shared_question_led_contract():
     prompt = build_adaptive_prompt({'profile': {'explanation_style': 'detailed', 'explanation_length': 'long'}},
                                    use_voice=True)
     assert QUESTION_LED_GUIDANCE in prompt
-    assert 'type="svg-exercise"' in prompt
-    assert 'Never emit HTML, JavaScript or external assets' in prompt
+    assert 'svg-exercise' in prompt
+    assert 'Never emit HTML, JavaScript, styles or external assets' in prompt
+    assert 'type="graph"' in prompt
+    assert 'geometry' in prompt
+    assert 'pacing' in prompt
     assert 'full step-by-step breakdowns' not in prompt
     assert 'If they request a direct answer, answer clearly' not in prompt
     assert 'read aloud' in prompt
+
+
+def test_text_prompts_allow_renderable_latex():
+    from chatbot_api import TUTOR_SYSTEM_PROMPT
+    assert '$...$' in TUTOR_SYSTEM_PROMPT
+    assert '$$...$$' in TUTOR_SYSTEM_PROMPT
+    assert 'does not render LaTeX' not in TUTOR_SYSTEM_PROMPT
+    prompt = build_adaptive_prompt({'profile': {}})
+    assert '$...$' in prompt
+    assert 'does not render LaTeX' not in prompt
 
 
 @pytest.fixture

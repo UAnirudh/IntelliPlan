@@ -151,6 +151,7 @@
 
   function render(data) {
     var courses = (data && data.courses) || [];
+    window.dispatchEvent(new CustomEvent('ip-learning-data', { detail: { type: 'courses', items: courses } }));
     list.textContent = '';
     if (!courses.length) {
       list.appendChild(el('p', 'crs-empty',
@@ -204,6 +205,19 @@
 
   api('/api/courses').then(render).catch(function (err) {
     list.textContent = '';
+    window.dispatchEvent(new CustomEvent('ip-learning-data', { detail: { type: 'courses', error: true } }));
     list.appendChild(el('p', 'crs-empty', err.message));
+    var retry = el('button', 'lac-retry', 'Retry');
+    retry.type = 'button';
+    retry.addEventListener('click', function () {
+      list.textContent = '';
+      list.appendChild(el('div', 'lac-skeleton'));
+      api('/api/courses').then(render).catch(function (retryError) {
+        list.textContent = '';
+        list.appendChild(el('p', 'crs-empty', retryError.message));
+        list.appendChild(retry);
+      });
+    });
+    list.appendChild(retry);
   });
 })();

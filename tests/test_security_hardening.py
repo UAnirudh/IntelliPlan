@@ -208,8 +208,43 @@ def test_reads_are_never_blocked(client):
 
 def test_oauth_callbacks_stay_reachable(client):
     """Providers redirect back to us cross-origin by design."""
-    for path in ("/oauth/google/callback", "/api/lms/callback/blackboard"):
+    for path in (
+        "/oauth/canvas/callback",
+        "/oauth/google/callback",
+        "/oauth2callback",
+        "/oauth/outlook/callback",
+        "/oauth/notion/callback",
+        "/api/lms/callback/blackboard",
+    ):
         assert request_guards.is_exempt(path)
+
+
+def test_oauth_disconnect_posts_from_another_site_are_refused(client):
+    """Same-site sibling origins still need the Origin check."""
+    for path in (
+        "/oauth/canvas/disconnect",
+        "/oauth/google/disconnect",
+        "/oauth/google-drive/disconnect",
+        "/oauth/outlook/disconnect",
+        "/oauth/onedrive/disconnect",
+    ):
+        response = client.post(
+            path,
+            base_url="https://intelliplan.tech",
+            headers={"Origin": "https://parent.intelliplan.tech"},
+        )
+        assert response.status_code == 403, path
+
+
+def test_oauth_callback_exemptions_are_exact(client):
+    for path in (
+        "/oauth/canvas/callback/extra",
+        "/oauth/google/callback-evil",
+        "/oauth2callback/extra",
+        "/oauth/outlook/callback/extra",
+        "/oauth/notion/callback-evil",
+    ):
+        assert not request_guards.is_exempt(path), path
 
 
 def test_the_extension_is_allowed(client):

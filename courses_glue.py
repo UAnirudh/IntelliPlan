@@ -234,7 +234,7 @@ class CourseError(ValueError):
 
 def add_course(user: Any, url_raw: object, title_raw: object = "",
                goal_raw: object = None) -> Any:
-    from App import TrackedCourse, db
+    from App import CourseNote, TrackedCourse, db
 
     url = rules.clean_url(url_raw)
     if not url:
@@ -257,6 +257,18 @@ def add_course(user: Any, url_raw: object, title_raw: object = "",
     db.session.add(course)
     db.session.flush()
     _sync_week_task(course, 0, _today_for(user))
+    # Make a tracked online course searchable in Plani's knowledge base too.
+    # Progress still lives in CourseCheckin; this note records the commitment.
+    db.session.add(CourseNote(
+        user_id=user.id,
+        course_name=course.title,
+        course_id=f"tracked-course:{course.id}",
+        course_source="learning_activity",
+        note_date=_today_for(user).isoformat(),
+        title="Learning commitment",
+        text_content=(f"Category: online course\nWeekly goal: {course.weekly_goal_minutes} minutes\n"
+                      f"Link: {course.url}"),
+    ))
     db.session.commit()
     _invalidate_plan(user.id)
     return course

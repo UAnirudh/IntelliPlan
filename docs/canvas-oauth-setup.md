@@ -50,20 +50,27 @@ Trigger a redeploy. The "Continue with Canvas" button at
 
 For each additional Canvas (e.g. `canvas.school.edu`), the school's
 Canvas admin has to repeat the steps above on their own instance. Once
-they do, give IntelliPlan their ID/Key as per-host env vars:
+they do, give IntelliPlan their ID/Key as per-origin env vars. The suffix
+is the uppercase hexadecimal encoding of the lowercase canonical origin
+(`scheme://host:port`; HTTPS uses port 443 by default):
 
 ```
-CANVAS_CLIENT_ID_CANVAS_SCHOOL_EDU=12345...
-CANVAS_CLIENT_SECRET_CANVAS_SCHOOL_EDU=long_secret...
+CANVAS_CLIENT_ID_ORIGIN_68747470733A2F2F63616E7661732E7363686F6F6C2E6564753A343433=12345...
+CANVAS_CLIENT_SECRET_ORIGIN_68747470733A2F2F63616E7661732E7363686F6F6C2E6564753A343433=long_secret...
 ```
 
-The convention is: take the Canvas host (`canvas.school.edu`), replace
-`.` and `-` with `_`, uppercase, and prefix with `CANVAS_CLIENT_ID_` /
-`CANVAS_CLIENT_SECRET_`.
+This encoding keeps different hostnames and ports distinct. The per-origin
+variables use the `CANVAS_CLIENT_ID_ORIGIN_` and
+`CANVAS_CLIENT_SECRET_ORIGIN_` prefixes. The per-origin scope override uses
+`CANVAS_SCOPES_ORIGIN_` with the same suffix. If you currently use the older
+host-replacement variable names, rename each custom Canvas ID, secret, and
+scope override to the per-origin form before deploying this version.
 
-`canvas_oauth.py` looks up the per-host override first and falls back to
-the global `CANVAS_CLIENT_ID` / `CANVAS_CLIENT_SECRET` so the public free
-Canvas keeps working without extra config.
+The global `CANVAS_CLIENT_ID` / `CANVAS_CLIENT_SECRET` pair is used only
+with `CANVAS_DEFAULT_BASE` (the default Canvas origin, which defaults to
+`https://canvas.instructure.com`). Every custom Canvas instance needs its
+own complete per-host ID/secret pair as shown above. A partial per-host pair
+does not fall back to or combine with the global credentials.
 
 ## Scoped Developer Keys
 
@@ -89,7 +96,7 @@ while the public Canvas does not gets a per-host override, using the same
 host convention as the client ID:
 
 ```
-CANVAS_SCOPES_CANVAS_SCHOOL_EDU=default
+CANVAS_SCOPES_ORIGIN_68747470733A2F2F63616E7661732E7363686F6F6C2E6564753A343433=default
 ```
 
 When you turn enforcement on in Canvas, tick the same endpoints listed in
