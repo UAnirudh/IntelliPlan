@@ -678,6 +678,23 @@ main {
 .tutor-mistake-meta { color: var(--text-muted); font-size: 0.7rem; }
 .tutor-mistake-meta button { margin-left: 6px; padding: 2px 5px; border: 1px solid var(--border); border-radius: 5px; background: transparent; color: var(--text-secondary); cursor: pointer; }
 .tutor-panel-empty { font-size: 0.78rem; color: var(--text-muted); }
+
+.tutor-test-prep {
+  flex: 0 1 auto;
+  max-height: 45vh;
+  overflow-y: auto;
+  margin: 0 auto 0.5rem;
+  width: min(94%, 680px);
+}
+.tutor-test-prep summary { cursor: pointer; font-weight: 650; }
+.tutor-test-prep form { display: grid; gap: 0.35rem; }
+.tutor-test-prep form span { color: var(--text-secondary); font-weight: normal; }
+.tutor-test-prep :is(input, textarea) {
+  width: 100%; box-sizing: border-box; color: var(--text-primary);
+  background: var(--bg-elevated); border: 1px solid var(--border-strong); border-radius: 8px;
+  padding: 0.4rem 0.6rem; font: inherit;
+}
+.tutor-test-prep button { justify-self: start; }
 </style>
 {% endblock %}
 
@@ -760,6 +777,24 @@ main {
       <p class="tutor-empty-sub">Get a hint, work through a problem, or test what you know.</p>
       <div class="tutor-suggestions" id="tutorSuggestions"></div>
     </div><!-- /tutor-empty -->
+
+    {% if current_user.is_authenticated and not assessment_protection %}
+    <details id="tutorTestPrep" class="tutor-math-tools tutor-test-prep" data-no-motion>
+      <summary>20-minute test prep</summary>
+      <p id="tutorTestPrepStatus" role="status">Choose an upcoming test or enter one below.</p>
+      <ul id="tutorTestPrepItems" aria-label="Upcoming tests" hidden></ul>
+      <form id="tutorTestPrepForm" aria-label="Customize test practice">
+        <label for="tutorTestPrepTitle">Test or topic</label>
+        <input id="tutorTestPrepTitle" required maxlength="180" placeholder="e.g. Geometry: parallel lines">
+        <label for="tutorTestPrepCourse">Course <span>(optional)</span></label>
+        <input id="tutorTestPrepCourse" maxlength="100" placeholder="e.g. Geometry">
+        <label for="tutorTestPrepFormat">Teacher’s question format or rubric <span>(optional)</span></label>
+        <textarea id="tutorTestPrepFormat" rows="2" maxlength="900" placeholder="e.g. Two-column proofs only; deduct for missing reasons"></textarea>
+        <p>Review the draft before sending it to Tutor. Nothing is booked or sent automatically.</p>
+        <button type="submit">Draft my practice session</button>
+      </form>
+    </details>
+    {% endif %}
 
     <!-- Message thread -->
     <div class="tutor-messages" id="tutorMessages" role="log" aria-live="polite" aria-label="Conversation with {{ assistant_name }}"></div>
@@ -915,6 +950,7 @@ main {
   <section id="educationMilestones" hidden aria-label="Learning milestones"></section>
 </dialog>
 <script src="/static/js/tutor_education.js?v={{ asset_v }}" defer></script>
+{% if current_user.is_authenticated and not assessment_protection %}<script src="/static/js/test-prep.js?v={{ asset_v }}" defer></script>{% endif %}
 <script type="application/json" id="tutorRoadmapResources">{{ roadmap_resources | default({}) | tojson }}</script>
 <script src="/static/js/planner-draft.js?v={{ asset_v }}"></script>
 
@@ -1413,9 +1449,11 @@ let learningProfile = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
   renderSuggestions('General');
-  await loadConversations();
+  const fromTestPrep = !!document.getElementById('tutorTestPrep')
+    && new URLSearchParams(window.location.search).has('test-prep');
+  await loadConversations(!fromTestPrep);
   loadAdaptiveProfile();
-  document.getElementById('tutorInput').focus();
+  if (!document.getElementById('tutorTestPrep')?.open) document.getElementById('tutorInput').focus();
 });
 
 function selectSubject(subject) {
@@ -1427,7 +1465,7 @@ function selectSubject(subject) {
   renderSuggestions(currentSubject);
 }
 
-async function loadConversations() {
+async function loadConversations(autoOpen = true) {
   const version = conversationLoadVersion;
   try {
     const res = await fetch('/api/tutor/conversations');
@@ -1436,7 +1474,7 @@ async function loadConversations() {
     if (version !== conversationLoadVersion) return;
     conversationList = data.conversations || [];
     renderHistory();
-    if (conversationList.length && !document.getElementById('tutorInput').value.trim() && !tutorHistory.length) {
+    if (autoOpen && conversationList.length && !document.getElementById('tutorInput').value.trim() && !tutorHistory.length) {
       await loadConversation(conversationList[0].id);
     }
   } catch (err) {
