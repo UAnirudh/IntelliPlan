@@ -14,6 +14,7 @@ from __future__ import annotations
 import logging
 from datetime import date, datetime, timedelta
 from typing import Any, Iterable, Mapping, Sequence
+from urllib.parse import urlencode
 
 from intelliplan.notifications.events import EventKind, NotificationEvent
 
@@ -65,6 +66,10 @@ def _blocks(plan: Mapping[str, Any] | None) -> list[tuple[dict, dict]]:
     return out
 
 
+def _session_key(block: Mapping[str, Any]) -> str:
+    return str(block.get("block_id") or block.get("id") or "")
+
+
 def session_reminders(
     plan: Mapping[str, Any] | None,
     user_id: int,
@@ -87,18 +92,21 @@ def session_reminders(
         if start is None or not (now <= start <= horizon):
             continue
         minutes_until = max(0, int((start - now).total_seconds() // 60))
+        key = _session_key(block)
+        day_date = day.get("date")
+        url = "/active?" + urlencode({"block": key, "date": day_date}) if key and day_date else "/active"
         events.append(
             NotificationEvent(
                 kind=EventKind.SESSION_UPCOMING,
                 user_id=user_id,
-                dedupe_key=f"{block.get('id')}:{day.get('date')}",
+                dedupe_key=f"{block.get('id') or key}:{day_date}",
                 context={
                     "title": block.get("parent_title") or block.get("assignment"),
                     "course": block.get("course"),
                     "minutes_until": minutes_until,
                     "planned_minutes": block.get("duration_minutes"),
                 },
-                url="/active",
+                url=url,
                 entity_key=str(block.get("parent_title") or block.get("assignment") or ""),
             )
         )
@@ -122,7 +130,8 @@ def missed_sessions(
     events: list[NotificationEvent] = []
 
     for day, block in _blocks(plan):
-        if block.get("done") or str(block.get("id")) in started:
+        key = _session_key(block)
+        if block.get("done") or key in started or str(block.get("id") or "") in started:
             continue
         end = _parse_iso(block.get("end_iso"))
         if end is None or end > cutoff:
@@ -135,7 +144,7 @@ def missed_sessions(
             NotificationEvent(
                 kind=EventKind.SESSION_MISSED,
                 user_id=user_id,
-                dedupe_key=f"{block.get('id')}:{day.get('date')}",
+                dedupe_key=f"{block.get('id') or key}:{day.get('date')}",
                 context={
                     "title": block.get("parent_title") or block.get("assignment"),
                     "course": block.get("course"),

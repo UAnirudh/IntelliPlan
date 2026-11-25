@@ -437,6 +437,48 @@ def test_session_reminder_fires_inside_the_lead_window():
     assert len(events) == 1
     assert events[0].kind is EventKind.SESSION_UPCOMING
     assert events[0].entity_key == "Essay"
+    assert events[0].url == f"/active?block=b1&date={TODAY.isoformat()}"
+
+
+def test_reminder_links_use_the_same_block_id_active_study_uses():
+    p = plan()
+    p["schedule"][0]["blocks"][0]["block_id"] = "d1-b1"
+    event, = sources.session_reminders(p, 1, NOW)
+    assert event.url == f"/active?block=d1-b1&date={TODAY.isoformat()}"
+    assert event.dedupe_key == f"b1:{TODAY.isoformat()}"
+    assert sources.missed_sessions(p, 1, NOW + timedelta(hours=2), ["d1-b1"]) == []
+
+
+def test_notification_sweep_matches_blocks_on_the_students_local_clock(monkeypatch):
+    from types import SimpleNamespace
+
+    import notifications_glue
+    from intelliplan.learning import policy
+    from intelliplan.notifications.preferences import Preferences
+
+    student = SimpleNamespace(id=1)
+    prefs = Preferences(user_id=1, tz_name="America/Los_Angeles", channels={Channel.PUSH})
+    scheduled = plan()
+    scheduled["schedule"][0]["blocks"][0]["start_iso"] = f"{TODAY.isoformat()}T17:20:00"
+    scheduled["schedule"][0]["blocks"][0]["end_iso"] = f"{TODAY.isoformat()}T18:20:00"
+    delivered = []
+
+    def enqueue_many(events, preferences):
+        assert preferences == prefs
+        delivered.extend(events)
+        return len(events)
+
+    monkeypatch.setattr(policy, "decision", lambda *_: (True, None))
+    monkeypatch.setattr(notifications_glue, "_preferences_for", lambda _: prefs)
+    monkeypatch.setattr(notifications_glue, "_plan_for", lambda _: scheduled)
+    monkeypatch.setattr(notifications_glue, "_started_block_ids", lambda _: ())
+    monkeypatch.setattr(notifications_glue, "get_dispatcher", lambda: SimpleNamespace(enqueue_many=enqueue_many))
+    utc_now = prefs.to_utc(datetime.combine(TODAY, datetime.min.time()).replace(hour=17))
+
+    notifications_glue.sweep_user(student, now=utc_now)
+
+    upcoming, = [event for event in delivered if event.kind is EventKind.SESSION_UPCOMING]
+    assert upcoming.context["minutes_until"] == 20
 
 
 def test_session_reminder_does_not_fire_too_early():

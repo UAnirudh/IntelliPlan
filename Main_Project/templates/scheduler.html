@@ -1289,6 +1289,7 @@
   <div class="ck-foot">
     <div class="ck-progress"><div class="ck-progress-bar" id="ckProgressBar"></div></div>
     <div class="ck-progress-text" id="ckProgressText">0 / 0</div>
+    <a class="ck-redirect" id="ckActive" href="/active" hidden>Open in Active Study</a>
     <a class="ck-redirect" id="ckFocus" href="/focus" hidden>Start focus timer</a>
     <a class="ck-redirect" id="ckRedirect" href="#" target="_self" style="display:none;">
       <span class="ip-arrow" aria-hidden="true"></span> <span id="ckRedirectLabel">Open</span>
@@ -3213,6 +3214,11 @@ function openChecklist(blockId) {
   focusLink.hidden = !Number.isInteger(focusMinutes) || focusMinutes < 1 || focusMinutes > 180;
   focusLink.dataset.minutes = focusMinutes;
   focusLink.dataset.title = String(block.assignment || '').slice(0, 200);
+  const activeLink = document.getElementById('ckActive');
+  const day = (_lastScheduleData.schedule || []).find(d => (d.blocks || []).includes(block));
+  activeLink.hidden = !_progressSyncEnabled || !day?.date || block.is_break || s.done;
+  activeLink.href = activeLink.hidden ? '/active' :
+    '/active?' + new URLSearchParams({ block: blockId, date: day.date });
   const redirect = block.redirect;
   const link = document.getElementById('ckRedirect');
   if (redirect && redirect.href) {

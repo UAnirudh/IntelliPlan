@@ -238,3 +238,18 @@ def test_slot_mix_follows_the_clock():
     mix = slot_mix_for_windows([W((10, 0), (12, 0)), W((18, 0), (20, 0))])
     assert mix == {"morning": 0.5, "evening": 0.5}
     assert slot_mix_for_windows([]) == {"evening": 1.0}
+
+
+def test_repeat_unchecked_prompt_requires_separate_recent_days_and_accounts_for_completions():
+    from intelliplan.intelligence.followthrough import recurring_unchecked_slot
+
+    today = date(2026, 11, 25)
+    rows = [
+        {"key": str(offset), "date": (today - timedelta(days=offset)).isoformat(),
+         "minutes": 30, "slot": "afternoon", "done": False}
+        for offset in (1, 2, 3, 24)
+    ]
+    assert recurring_unchecked_slot([rows[0], rows[1], rows[1], rows[3]], today) is None
+    assert recurring_unchecked_slot(rows, today) == "afternoon"
+    completed = {**rows[2], "key": "completed", "done": True}
+    assert recurring_unchecked_slot([*rows, completed], today) is None

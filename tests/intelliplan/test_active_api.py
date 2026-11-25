@@ -352,6 +352,20 @@ def test_next_skips_breaks_and_finished_blocks(ctx):
     assert body["next"]["reasons"]
 
 
+def test_reminder_link_selects_exact_block_without_starting_a_session(ctx):
+    planned_day = ctx.plan["schedule"][0]["date"]
+    result = ctx.client.get("/api/active/next", query_string={
+        "block_id": "b3", "date": planned_day,
+    }).get_json()
+    assert result["next"]["block_id"] == "b3"
+    assert result["next"]["planned_minutes"] == 30
+    assert not ctx.repo.rows
+    stale = ctx.client.get("/api/active/next", query_string={
+        "block_id": "b3", "date": "1900-01-01",
+    }).get_json()
+    assert stale["next"] is None and stale["requested_block_missing"]
+
+
 def test_next_is_null_with_no_plan(ctx):
     ctx.plan["schedule"] = []
     assert ctx.client.get("/api/active/next").get_json()["next"] is None
