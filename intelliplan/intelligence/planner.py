@@ -837,6 +837,7 @@ def build_plan(
     # Local search frees space the greedy pass did not have. Retry anything
     # it gave up on before telling the student it will not fit.
     _retry_deferred(items, days, state, config, ctx)
+    _recover_by_relocating_sessions(items, days, state, config, ctx)
     # When the week genuinely does not hold everything, decide *what* gets
     # dropped on value rather than on whatever the greedy order happened to
     # place first.
@@ -1220,8 +1221,9 @@ def _place_best(
     # Price days cheaply first, then replay the clock in preference order.
     # The first feasible day is exactly the minimum the exhaustive scan
     # would choose, including the original chronological tie ordering.
+    horizon = ctx.horizon if ctx else len(days)
     priced = sorted((
-        (_placement_cost(item, d, state[d], len(days), config.weights, ctx,
+        (_placement_cost(item, d, state[d], horizon, config.weights, ctx,
                          check_clock=False), d) for d in candidates
     ))
     best_day = next((d for cost, d in priced if cost != math.inf
@@ -1265,6 +1267,80 @@ def _retry_deferred(
     unplaced = _allocation_order([it for it in items if it.day is None])
     for item in unplaced:
         _place_best(item, days, state, config, by_task, ctx)
+
+
+# Each attempt may replay exact clock windows on multiple days.
+_MAX_RECOVERY_ATTEMPTS = 64
+
+
+def _recover_by_relocating_sessions(
+    items: list[_Item],
+    days: Sequence[date],
+    state: dict[date, _DayState],
+    config: PlannerConfig,
+    ctx: _Context,
+) -> None:
+    """Make room for deferred work by relocating up to two movable sessions."""
+    unplaced = _allocation_order([it for it in items if it.day is None])
+    if not unplaced or len(days) < 2:
+        return
+    by_task = _index_by_task(items)
+    attempts = 0
+    moves: list[tuple[_Item, date, str]] = []
+
+    def restore(checkpoint):
+        while len(moves) > checkpoint:
+            other, original_day, reason = moves.pop()
+            if other.day is not None:
+                state[other.day].remove(other)
+            other.day = original_day
+            other.defer_reason = reason
+            state[original_day].add(other)
+
+    def try_place(item, allowed, moves_left):
+        nonlocal attempts
+        if _place_best(item, allowed, state, config, by_task, ctx):
+            return True
+        if not moves_left or any(p.day is None for dep in item.task.depends_on
+                                 for p in by_task.get(dep, ())):
+            return False
+
+        reason = item.defer_reason
+        lo, hi = _dep_bounds(item, by_task)
+        for day in allowed:
+            if not item.earliest <= day <= item.hard_latest:
+                continue
+            if (lo is not None and day < lo) or (hi is not None and day > hi):
+                continue
+            current = state[day]
+            need = current.minutes + item.minutes - current.capacity
+            movable = sorted(
+                (other for other in current.sittings.values()
+                 if not other.fixed and other.minutes >= need
+                 and other.earliest < other.hard_latest),
+                key=lambda other: (other.anchor == day, _value(other), other.task.id, other.part_index),
+            )
+            alternatives = tuple(d for d in allowed if d != day)
+            for other in movable:
+                if attempts >= _MAX_RECOVERY_ATTEMPTS:
+                    return False
+                attempts += 1
+                checkpoint = len(moves)
+                moves.append((other, day, other.defer_reason))
+                current.remove(other)
+                other.day = None
+                if (try_place(other, alternatives, moves_left - 1)
+                        and _place_best(item, (day,), state, config, by_task, ctx)):
+                    return True
+                restore(checkpoint)
+                item.defer_reason = reason
+        return False
+
+    for item in unplaced:
+        if attempts >= _MAX_RECOVERY_ATTEMPTS:
+            break
+        try_place(item, days, 2)
+        moves.clear()
 
 
 def _optimise(

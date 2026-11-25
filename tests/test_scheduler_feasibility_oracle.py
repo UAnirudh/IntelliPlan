@@ -38,6 +38,31 @@ def test_descendant_deadline_propagates_through_chain_in_every_input_order(order
         ('a', DAY), ('b', DAY), ('c', DAY), ('x', DAY + timedelta(days=1))]
 
 
+def test_planner_relocates_flexible_sessions_to_fit_all_work():
+    tomorrow = DAY + timedelta(days=1)
+    later = DAY + timedelta(days=2)
+    tasks = [
+        PlannerTask(id='reading', title='Reading', est_minutes=25, due_date=later,
+                    priority=60, calibrated=True),
+        PlannerTask(id='quiz', title='Quiz', est_minutes=40, due_date=DAY,
+                    priority=60, calibrated=True),
+        PlannerTask(id='review', title='Review', est_minutes=25, due_date=tomorrow,
+                    priority=60, calibrated=True),
+        PlannerTask(id='worksheet', title='Worksheet', est_minutes=35, due_date=tomorrow,
+                    priority=20, calibrated=True),
+    ]
+    plan = build_plan(tasks, [DayCapacity(DAY, 80), DayCapacity(tomorrow, 30),
+                              DayCapacity(later, 50)], today=DAY)
+
+    assert not plan.deferred
+    assert {session.task_id: (session.day, session.minutes) for session in plan.sessions} == {
+        'quiz': (DAY, 40),
+        'worksheet': (DAY, 35),
+        'review': (tomorrow, 25),
+        'reading': (later, 25),
+    }
+
+
 def feasible_assignment(rows, capacities):
     """All declared work fits when one enumerated assignment obeys the inputs."""
     for assignment in product(range(len(capacities)), repeat=len(rows)):
