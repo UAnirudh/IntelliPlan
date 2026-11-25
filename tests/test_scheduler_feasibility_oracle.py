@@ -63,6 +63,47 @@ def test_planner_relocates_flexible_sessions_to_fit_all_work():
     }
 
 
+@pytest.mark.parametrize(('rows', 'capacities', 'placed', 'deferred'), [
+    ([('reading', 30, 10, 0, ()), ('essay', 60, 100, 0, ('reading',)),
+      ('quiz', 30, 20, 0, ())], [60], {'reading', 'quiz'}, {'essay'}),
+    ([('reading', 30, 1, 0, ()), ('essay', 30, 100, 0, ('reading',)),
+      ('project', 30, 75, 1, ())], [60, 0], {'reading', 'essay'}, {'project'}),
+    ([('quiz', 30, 45, 0, ()), ('review', 30, 45, 0, ()),
+      ('project', 60, 85, 1, ())], [60, 0], {'quiz', 'review'}, {'project'}),
+    ([('quiz', 30, 20, 0, ()), ('project', 30, 85, 1, ())],
+     [30, 0], {'project'}, {'quiz'}),
+])
+def test_overload_triage_preserves_prerequisites_and_only_improves_value(
+    rows, capacities, placed, deferred
+):
+    tasks = [PlannerTask(id=key, title=key, est_minutes=minutes, priority=priority,
+                         calibrated=True, due_date=DAY + timedelta(days=due),
+                         depends_on=parents, sittings=((None, minutes),))
+             for key, minutes, priority, due, parents in rows]
+    plan = build_plan(tasks, [DayCapacity(DAY + timedelta(days=offset), cap)
+                              for offset, cap in enumerate(capacities)], today=DAY)
+    assert {session.task_id for session in plan.sessions} == placed
+    assert {item.task_id for item in plan.deferred} == deferred
+    assert sum(session.minutes for session in plan.sessions) + sum(
+        item.minutes for item in plan.deferred
+    ) == sum(row[1] for row in rows)
+
+
+def test_overload_triage_can_free_the_only_contiguous_clock_window():
+    tomorrow = DAY + timedelta(days=1)
+    windows = ((datetime(2026, 10, 19, 8), datetime(2026, 10, 19, 8, 20)),
+               (datetime(2026, 10, 19, 10), datetime(2026, 10, 19, 10, 45)))
+    review = PlannerTask(id='review', title='Review', est_minutes=30, priority=20,
+                         calibrated=True, due_date=DAY, sittings=((None, 30),))
+    project = PlannerTask(id='project', title='Project', est_minutes=35, priority=95,
+                          calibrated=True, due_date=tomorrow, sittings=((None, 35),))
+    plan = build_plan([review, project], [DayCapacity(DAY, 65, clock_windows=windows),
+                                         DayCapacity(tomorrow, 0)], today=DAY)
+    assert [(session.task_id, session.day, session.minutes)
+            for session in plan.sessions] == [('project', DAY, 35)]
+    assert [(item.task_id, item.minutes) for item in plan.deferred] == [('review', 30)]
+
+
 def feasible_assignment(rows, capacities):
     """All declared work fits when one enumerated assignment obeys the inputs."""
     for assignment in product(range(len(capacities)), repeat=len(rows)):
