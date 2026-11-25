@@ -165,9 +165,17 @@ def test_canvas_connections_remain_usable_without_school_oauth(client, monkeypat
     monkeypatch.setattr(App, "canvas_oauth_any_configured", lambda: False)
     response = client.get("/api/integrations/status")
     canvas = next(item for item in response.json["integrations"] if item["id"] == "canvas")
-    assert {method["key"] for method in canvas["methods"]} == {"calendar_feed", "token"}
+    assert {method["key"] for method in canvas["methods"]} == {"calendar_feed"}
     assert "no-store" in response.headers["Cache-Control"]
     assert b'href="/login/canvas"' in client.get("/connect").data
+
+
+def test_canvas_catalogue_shows_test_token_only_when_available(client, monkeypatch):
+    monkeypatch.setattr(App, "_canvas_token_testing_available", lambda: True)
+    response = client.get("/api/integrations/status")
+    canvas = next(item for item in response.json["integrations"] if item["id"] == "canvas")
+    assert "token" in {method["key"] for method in canvas["methods"]}
+    assert b'id="canvasTokenForm"' in client.get("/login/canvas").data
 
 
 def test_the_payload_carries_what_the_ui_needs(client):

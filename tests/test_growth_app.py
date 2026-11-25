@@ -60,6 +60,44 @@ def sign_in(client, uid):
         s["ip_founder_mode"] = True
 
 
+def test_study_review_csv_groups_local_weeks_and_requires_paid_access(client, monkeypatch):
+    from intelliplan import scheduler_clock
+
+    now = datetime(2026, 11, 25, 20)
+    monkeypatch.setattr(App, "utcnow", lambda: now)
+    monkeypatch.setattr(scheduler_clock, "timezone_for", lambda uid: ("America/Los_Angeles", 0))
+    url = "/my-stats/weekly-review"
+    assert client.get(url + "?format=csv").location.startswith("/login")
+    with App.app.app_context():
+        paid = make_user(paid_until=now + timedelta(days=31))
+        free = make_user()
+        db.session.add_all([
+            App.TaskFeedback(user_id=paid, title="Private title", completed_at=datetime(2026, 11, 23, 7, 59)),
+            App.StudySession(user_id=paid, completed=True, duration_seconds=150, created_at=datetime(2026, 11, 23, 8)),
+            App.StudySession(user_id=paid, completed=False, duration_seconds=900, created_at=now),
+            App.StudySession(user_id=free, completed=True, duration_seconds=1800, created_at=now),
+        ])
+        db.session.commit()
+    try:
+        sign_in(client, free)
+        assert client.get(url + "?format=csv").location.endswith("/upgrade")
+        assert client.get("/api/my-stats").status_code == 200
+        sign_in(client, paid)
+        assert b"Weekly study review" in client.get(url).data
+        downloaded = client.get(url + "?format=csv")
+        assert "no-store" in downloaded.headers["Cache-Control"]
+        assert "attachment" in downloaded.headers["Content-Disposition"]
+        lines = downloaded.get_data(as_text=True).splitlines()
+        assert lines[1:3] == ["2026-11-23,0,1,2", "2026-11-16,1,0,0"]
+        assert len(lines) == 13
+        assert "Private title" not in downloaded.get_data(as_text=True)
+    finally:
+        with App.app.app_context():
+            App.TaskFeedback.query.filter_by(user_id=paid).delete()
+            App.StudySession.query.filter(App.StudySession.user_id.in_([paid, free])).delete()
+            db.session.commit()
+
+
 # ── Metering ─────────────────────────────────────────────────────────
 
 
@@ -417,12 +455,15 @@ def test_portal_requires_login(client, stripe_stub):
 
 
 def test_public_pages_only_mention_pro_once_billing_is_on(client, monkeypatch):
-    for path in ("/pricing", "/faq", "/legal"):
-        assert b"completely free" in client.get(path).data or b"Free forever" in client.get(path).data
-    assert b"$48" not in client.get("/pricing").data
+    pricing = client.get("/pricing").data
+    assert b"A free planner for your school week." in pricing
+    assert b"$48" not in pricing and b"A 12-week study review" not in pricing
+    assert b"free plan" in client.get("/faq").data
+    assert b'id="t-pro"' not in client.get("/legal").data
     monkeypatch.setenv("BILLING_ENABLED", "1")
     pricing = client.get("/pricing").data
     assert b"$5" in pricing and b"$48" in pricing and b"No tiers" not in pricing
+    assert b"A 12-week study review" in pricing
     assert b"no extra tiers" not in client.get("/faq").data
     assert b"There are no extra tiers" not in client.get("/legal").data
 

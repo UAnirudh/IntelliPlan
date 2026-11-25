@@ -333,9 +333,9 @@
 </style>
 <div class="pricing-page">
   <p class="page-kicker ipd-anim">{% if billing_enabled %}Pricing{% else %}Free plan{% endif %}</p>
-  <h1 class="pricing-title ipd-anim" style="animation-delay:0.05s">{% if billing_enabled %}The planner is free. Pro only lifts the AI limit.{% else %}Free forever. No tiers. No catch.{% endif %}</h1>
+  <h1 class="pricing-title ipd-anim" style="animation-delay:0.05s">A free planner for your school week.</h1>
   <p class="pricing-subtitle ipd-anim" style="animation-delay:0.1s">
-    {% if billing_enabled %}Connect your school tools, auto-prioritize every assignment and build a study schedule without paying anything. The free plan includes {{ free_ai_allowance }} AI generations a month; Pro removes that limit for students who lean on the tutor every day.{% else %}IntelliPlan is free for students. Connect your school tools, auto-prioritize every assignment, and build a study schedule with AI today. No sign-up barriers, no locked features, and no hidden hurdles.{% endif %}
+    {% if billing_enabled %}Connect your school tools, auto-prioritize every assignment and build a study schedule without paying anything. The free plan includes {{ free_ai_allowance }} AI generations a month. Pro adds a 12-week study review and AI generations without IntelliPlan's monthly cap.{% else %}IntelliPlan is free for students. Connect your school tools, auto-prioritize every assignment, and build a study schedule with AI today. Core study and planning tools are included.{% endif %}
   </p>
 
   <div class="pricing-cards">
@@ -373,7 +373,9 @@
       <p class="pricing-price-note">or ${{ pro_prices['year'] }} a year, {{ pro_yearly_saving }}% less.</p>
       <ul class="pricing-features">
         <li><strong>Everything in Free</strong></li>
-        <li><span><strong>Unlimited AI generations</strong> for the tutor, schedules and study sets</span></li>
+        <li><span><strong>A 12-week study review</strong> to compare study time, sessions and task check-ins</span></li>
+        <li>Download your weekly review as a spreadsheet (CSV)</li>
+        <li>No monthly IntelliPlan cap on AI generations for tutoring, schedules and study sets</li>
         <li>A parent can pay through a link, no account needed</li>
         <li>Invite a friend and you both get 30 days of Pro</li>
         <li>Cancel any time and keep the free plan</li>
@@ -392,7 +394,7 @@
       <h2 id="pricing-why">And what it does not mean here.</h2>
       <ul class="pricing-rationale-list">
         {% if billing_enabled %}
-        <li><strong>The planner is never the upsell.</strong> Imports, scheduling, grade modeling and reminders are free. <a href="/upgrade">Pro</a> (${{ pro_prices['month'] }} a month or ${{ pro_prices['year'] }} a year) only lifts the monthly cap on AI generations, and a friend you invite earns you both a free month.</li>
+        <li><strong>The planner is never the upsell.</strong> Imports, scheduling, grade modeling and reminders are free. <a href="/upgrade">Pro</a> (${{ pro_prices['month'] }} a month or ${{ pro_prices['year'] }} a year) adds a 12-week study review, spreadsheet exports and AI generations without a monthly IntelliPlan cap.</li>
         {% else %}
         <li><strong>Nothing is held back for a paid tier.</strong> There is no paid tier. AI scheduling, grade modeling and the tutor are the product, not the upsell.</li>
         {% endif %}
@@ -419,12 +421,12 @@
 
     <details class="pricing-faq-item">
       <summary>Is IntelliPlan really free forever?</summary>
-      <p>{% if billing_enabled %}The planner is, yes. Connecting Canvas, StudentVue or Schoology, building study schedules, modeling grades and getting reminders cost nothing and have no time limit. The only thing Pro changes is the monthly limit on AI generations.{% else %}Yes. IntelliPlan is free forever with no sign-up barriers. You can connect Canvas, StudentVue, or Schoology, build AI study schedules, model your grades, and use the built-in study tools without any feature gates.{% endif %}</p>
+      <p>{% if billing_enabled %}The planner is, yes. Connecting Canvas, StudentVue or Schoology, building study schedules, modeling grades and getting reminders cost nothing and have no time limit. Pro adds longer activity history, spreadsheet exports and AI generations without a monthly IntelliPlan cap.{% else %}Yes. IntelliPlan is free forever with no sign-up barriers. You can connect Canvas, StudentVue, or Schoology, build AI study schedules, model your grades, and use the built-in study tools without any feature gates.{% endif %}</p>
     </details>
 
     <details class="pricing-faq-item">
       <summary>How does IntelliPlan stay free?</summary>
-      <p>{% if billing_enabled %}AI answers are the part that costs money to run, so that is the only part with a limit. Students who use the tutor heavily can pay for Pro, and that keeps the planner free for everyone else.{% else %}IntelliPlan is built for students first. We keep the core planning experience fully accessible so every student can benefit from assignment prioritization, scheduling, and tutoring without friction.{% endif %}</p>
+      <p>{% if billing_enabled %}An optional paid plan helps cover the cost of AI and adds tools for reviewing study habits over time. The core planner is free for everyone.{% else %}IntelliPlan is built for students first. We keep the core planning experience fully accessible so every student can benefit from assignment prioritization, scheduling, and tutoring without friction.{% endif %}</p>
     </details>
 
     <details class="pricing-faq-item">
@@ -434,7 +436,7 @@
 
     <details class="pricing-faq-item">
       <summary>Are there any limits on the free plan?</summary>
-      <p>{% if billing_enabled %}One: {{ free_ai_allowance }} AI generations a month, counted once per request no matter how much work the answer takes. It resets on the first of each month. Nothing else is limited, and nothing you have made is locked when you reach it.{% else %}IntelliPlan gives students access to scheduling, grade modeling, assignment prioritization, and AI study tools. The experience is designed to support students without hiding key features behind separate account levels.{% endif %}</p>
+      <p>{% if billing_enabled %}One: {{ free_ai_allowance }} AI generations a month, counted once per request no matter how much work the answer takes. It resets on the first of each month. You can still open your saved plans and study materials when you reach the cap.{% else %}IntelliPlan gives students access to scheduling, grade modeling, assignment prioritization, and AI study tools. The experience is designed to support students without hiding key features behind separate account levels.{% endif %}</p>
     </details>
 
     {% if billing_enabled %}

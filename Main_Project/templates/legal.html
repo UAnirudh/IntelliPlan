@@ -297,7 +297,7 @@
     <div class="legal-body">
 
       <h3 id="t-service">1. What IntelliPlan is</h3>
-      <p>IntelliPlan is {% if billing_enabled %}an AI-powered academic planning tool for students, free to use, with an optional paid plan described in section 6a.{% else %}a free AI-powered academic planning tool for students.{% endif %} It connects to your school's learning management system (Canvas, Schoology, StudentVue) and Google Calendar to pull your assignments, then uses AI to generate personalized study schedules and provide tutoring help. {% if billing_enabled %}Every feature is available on the free plan; the only limit is a monthly number of AI generations, which the optional paid plan removes.{% else %}There are no extra tiers, account levels, or locked features. Every feature is available to every user at no cost.{% endif %}</p>
+      <p>IntelliPlan is {% if billing_enabled %}an AI-powered academic planning tool for students, free to use, with an optional paid plan described in section 6a.{% else %}a free AI-powered academic planning tool for students.{% endif %} It connects to your school's learning management system (Canvas, Schoology, StudentVue) and Google Calendar to pull your assignments, then uses AI to generate personalized study schedules and provide tutoring help. {% if billing_enabled %}The free plan includes school connections, planning and study tools. The optional Pro plan adds a weekly study review and removes the monthly IntelliPlan cap on AI generations.{% else %}The planner, school connections and core study tools are available at no cost.{% endif %}</p>
 
       <h3 id="t-account">2. Your account</h3>
       <p>You are responsible for keeping your account secure. IntelliPlan supports Google OAuth sign-in; we never see or store your Google password. School credentials for Canvas, Schoology, or StudentVue may be stored encrypted, solely so we can fetch your assignments. You may disconnect any integration at any time from Settings.</p>
@@ -326,7 +326,7 @@
 
       {% if billing_enabled %}
       <h3 id="t-pro">6a. IntelliPlan Pro (optional paid plan)</h3>
-      <p>The planner, school integrations, grade tools and reminders are free. The free plan includes {{ free_ai_allowance }} AI generations per calendar month. IntelliPlan Pro removes that limit and costs ${{ pro_prices['month'] }} a month or ${{ pro_prices['year'] }} a year, charged through Stripe.</p>
+      <p>The planner, school integrations, grade tools and reminders are free. The free plan includes {{ free_ai_allowance }} AI generations per calendar month. IntelliPlan Pro removes that monthly IntelliPlan limit, includes a 12-week study review and CSV export, and costs ${{ pro_prices['month'] }} a month or ${{ pro_prices['year'] }} a year, charged through Stripe.</p>
       <ul>
         <li><strong>Renewal.</strong> Pro renews automatically at the end of each paid month or year until it is cancelled.</li>
         <li><strong>Cancelling.</strong> You can cancel at any time from <a href="/upgrade">Your plan</a> or from the link in the Stripe receipt. Pro stays on until the end of the period already paid for, then the account returns to the free plan. Nothing is deleted.</li>

@@ -7431,6 +7431,9 @@ def api_integrations_status():
     if not (CANVAS_OAUTH_AVAILABLE and canvas_oauth_any_configured()):
         canvas = next(item for item in catalogue if item["id"] == "canvas")
         canvas["methods"] = [method for method in canvas["methods"] if method["key"] != "oauth"]
+    if not _canvas_token_testing_available():
+        canvas = next(item for item in catalogue if item["id"] == "canvas")
+        canvas["methods"] = [method for method in canvas["methods"] if method["key"] != "token"]
     return _no_store(flask.jsonify(status="ok", integrations=catalogue))
 
 
@@ -8691,11 +8694,14 @@ def connect_account():
                            blackboard_ready=all(_blackboard_credentials()),
                            todoist_ready=todoist.configured() and todoist.allowed(current_user))
 
+def _canvas_token_testing_available():
+    return is_owner(current_user) and not school_pilot.enabled() and _lms_policy_allowed("canvas")
+
+
 @app.route("/login/canvas", methods=["GET", "POST"])
 @limiter.limit("12 per minute;60 per hour", methods=["POST"])
 def login_canvas():
-    token_testing = (is_owner(current_user) and not school_pilot.enabled()
-                     and _lms_policy_allowed("canvas"))
+    token_testing = _canvas_token_testing_available()
     error = None
     if request.method == "POST":
         if not token_testing:
@@ -15358,7 +15364,70 @@ def admin_bug_reports():
 def my_stats_page():
     if not current_user.is_authenticated:
         return flask.redirect("/login")
-    return flask.render_template("my_stats.html", active_page="my_stats", logged_in=True)
+    from growth_glue import current_plan
+
+    return flask.render_template("my_stats.html", active_page="my_stats", logged_in=True,
+                                 weekly_review_available=current_plan() == "paid")
+
+
+@app.route("/my-stats/weekly-review")
+def weekly_study_review():
+    """A private, local-week view over the existing study and task logs."""
+    from csv import writer
+    from io import StringIO
+
+    from growth_glue import current_plan
+    from intelliplan.scheduler_clock import timezone_for
+    from time_utils import to_local, to_utc
+
+    if not current_user.is_authenticated:
+        return redirect("/login?next=/my-stats/weekly-review")
+    if current_plan() != "paid":
+        return redirect("/upgrade")
+
+    uid = current_user.id
+    now = utcnow()
+    zone, offset = timezone_for(uid)
+    today = to_local(now, zone, offset).date()
+    monday = today - timedelta(days=today.weekday())
+    first_week = monday - timedelta(weeks=11)
+    since = to_utc(datetime.combine(first_week, datetime.min.time()), zone, offset)
+    weeks = {first_week + timedelta(weeks=i): [0, 0, 0] for i in range(12)}
+
+    def week_for(timestamp):
+        day = to_local(timestamp, zone, offset).date()
+        return day - timedelta(days=day.weekday())
+
+    completions = db.session.query(TaskFeedback.completed_at).filter(
+        TaskFeedback.user_id == uid, TaskFeedback.completed_at >= since,
+        TaskFeedback.completed_at <= now,
+    )
+    for (completed_at,) in completions:
+        week = weeks.get(week_for(completed_at))
+        if week is not None:
+            week[0] += 1
+
+    sessions = db.session.query(StudySession.created_at, StudySession.duration_seconds).filter(
+        StudySession.user_id == uid, StudySession.completed.is_(True),
+        StudySession.created_at >= since, StudySession.created_at <= now,
+    )
+    for started_at, duration in sessions:
+        week = weeks.get(week_for(started_at))
+        if week is not None:
+            week[1] += 1
+            week[2] += max(0, duration or 0)
+
+    rows = [(start.isoformat(), tasks, sessions, seconds // 60)
+            for start, (tasks, sessions, seconds) in reversed(weeks.items())]
+    if request.args.get("format") == "csv":
+        content = StringIO()
+        csv = writer(content)
+        csv.writerow(("Week starting", "Task check-ins", "Study sessions", "Study minutes"))
+        csv.writerows(rows)
+        response = flask.Response(content.getvalue(), mimetype="text/csv")
+        response.headers["Content-Disposition"] = 'attachment; filename="intelliplan-weekly-review.csv"'
+        return _no_store(response)
+    return _no_store(flask.make_response(render_template("weekly_study_review.html", rows=rows)))
 
 
 @app.route("/api/my-stats")

@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block page_title %}Weekly study review | IntelliPlan{% endblock %}
+{% block content %}
+<section style="max-width:52rem;margin:2rem auto;padding:0 1rem;" aria-labelledby="reviewTitle">
+  <a href="/my-stats">Back to My Stats</a>
+  <h1 id="reviewTitle">Weekly study review</h1>
+  <p>See how your study time and task check-ins changed over the last 12 weeks. The current week is still in progress.</p>
+  <p><a class="btn-secondary" href="/my-stats/weekly-review?format=csv">Download spreadsheet (CSV)</a></p>
+  <div style="overflow-x:auto">
+    <table style="width:100%;text-align:left;border-collapse:separate;border-spacing:0 .65rem;">
+      <thead><tr><th scope="col">Week starting</th><th scope="col">Task check-ins</th><th scope="col">Study sessions</th><th scope="col">Study minutes</th></tr></thead>
+      <tbody>
+      {% for start, tasks, sessions, minutes in rows %}
+      <tr><th scope="row"><time datetime="{{ start }}">{{ start }}</time></th><td>{{ tasks }}</td><td>{{ sessions }}</td><td>{{ minutes }}</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
