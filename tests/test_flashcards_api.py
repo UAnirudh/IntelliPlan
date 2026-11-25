@@ -37,6 +37,8 @@ def client():
 def _wipe():
     for table in ("fc_reviews", "fc_cards", "fc_decks"):
         db.session.execute(text(f"DELETE FROM {table}"))
+    _doomed_ids = [u.id for u in User.query.filter(User.email.like("fc+%")).all()]
+    App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
     User.query.filter(User.email.like("fc+%")).delete(synchronize_session=False)
     db.session.commit()
 

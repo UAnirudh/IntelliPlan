@@ -39,6 +39,8 @@ def owners(monkeypatch):
         App.db.session.rollback()
         for model in (App.GoogleIntegration, App.OutlookIntegration, App.UserStreak):
             model.query.filter(model.user_id.in_(ids)).delete(synchronize_session=False)
+        _doomed_ids = [u.id for u in App.User.query.filter(App.User.id.in_(ids)).all()]
+        App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
         App.User.query.filter(App.User.id.in_(ids)).delete(synchronize_session=False)
         App.db.session.commit()
 

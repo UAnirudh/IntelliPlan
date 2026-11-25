@@ -50,6 +50,8 @@ def client(monkeypatch):
         yield c
     with App.app.app_context():
         App.StudyMastery.query.filter_by(user_id=uid).delete()
+        _doomed_ids = [u.id for u in App.User.query.filter_by(id=uid).all()]
+        App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
         App.User.query.filter_by(id=uid).delete()
         App.db.session.commit()
     App.limiter.enabled = True

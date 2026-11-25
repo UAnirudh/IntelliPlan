@@ -29,6 +29,8 @@ def client():
     App.limiter.enabled = False
     with App.app.test_client() as c:
         with App.app.app_context():
+            _doomed_ids = [u.id for u in User.query.filter(User.email.like("clarify+%")).all()]
+            App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
             User.query.filter(User.email.like("clarify+%")).delete(
                 synchronize_session=False)
             db.session.commit()

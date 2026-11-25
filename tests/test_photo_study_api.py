@@ -86,6 +86,8 @@ def client(monkeypatch):
     with App.app.app_context():
         for table in (store.REVIEWS, store.CARDS, store.DECKS):
             db.session.execute(delete(table).where(table.c.user_id.in_(uid_list)))
+        _doomed_ids = [u.id for u in User.query.filter(User.id.in_(uid_list)).all()]
+        App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
         User.query.filter(User.id.in_(uid_list)).delete(synchronize_session=False)
         for uid in uid_list:
             db.session.execute(

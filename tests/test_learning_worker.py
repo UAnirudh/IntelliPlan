@@ -45,6 +45,8 @@ def queued_course(monkeypatch):
         for name in ('Lesson', 'Job'):
             policy.models()[name].query.filter_by(course_id=cid).delete()
         policy.models()['Course'].query.filter_by(id=cid).delete()
+        _doomed_ids = [u.id for u in App.User.query.filter_by(id=uid).all()]
+        App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
         App.User.query.filter_by(id=uid).delete()
         flag = App.FeatureFlag.query.filter_by(key='school_course_generator').one()
         if created_flag:

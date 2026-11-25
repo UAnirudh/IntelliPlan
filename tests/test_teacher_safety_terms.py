@@ -46,6 +46,8 @@ def classroom(monkeypatch):
         M['Audit'].query.filter(M['Audit'].organization_id.in_([result['health'], result['other']])).delete(synchronize_session=False)
         M['Membership'].query.filter(M['Membership'].user_id.in_(users.values())).delete(synchronize_session=False)
         M['Organization'].query.filter(M['Organization'].id.in_([result['health'], result['other'], result['school'], result['district']])).delete(synchronize_session=False)
+        _doomed_ids = [u.id for u in App.User.query.filter(App.User.id.in_(users.values())).all()]
+        App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
         App.User.query.filter(App.User.id.in_(users.values())).delete(synchronize_session=False)
         App.db.session.commit()
 

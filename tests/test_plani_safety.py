@@ -136,6 +136,7 @@ def agent_account():
         uid = user.id
     yield uid
     with App.app.app_context():
+        App.UserIdentity.query.filter_by(user_id=uid).delete(synchronize_session=False)
         App.db.session.delete(App.db.session.get(App.User, uid))
         App.db.session.commit()
 

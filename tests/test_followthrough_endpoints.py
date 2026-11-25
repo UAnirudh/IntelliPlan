@@ -49,6 +49,8 @@ def _clean():
     )
     FeatureFlag.query.filter_by(key="followthrough_engine").delete()
     ModelPrior.query.delete()
+    _doomed_ids = [u.id for u in User.query.filter(User.email.like("ft+%")).all()]
+    App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
     User.query.filter(User.email.like("ft+%")).delete(synchronize_session=False)
     db.session.commit()
 

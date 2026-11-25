@@ -208,6 +208,8 @@ def student(request):
     one was covered when this feature landed."""
     from App import LinkedAccount, User, db
     with App.app.app_context():
+        _doomed_ids = [u.id for u in User.query.filter(User.email.like("feeduser+%")).all()]
+        App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
         User.query.filter(User.email.like("feeduser+%")).delete(synchronize_session=False)
         db.session.commit()
         u = User(email="feeduser+a@example.com",
@@ -220,6 +222,8 @@ def student(request):
     def cleanup():
         with App.app.app_context():
             LinkedAccount.query.filter_by(user_id=uid).delete()
+            _doomed_ids = [u.id for u in User.query.filter_by(id=uid).all()]
+            App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
             User.query.filter_by(id=uid).delete()
             db.session.commit()
     request.addfinalizer(cleanup)

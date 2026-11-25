@@ -30,6 +30,8 @@ def _cleanup(uid: int) -> None:
     App.SavedSchedule.query.filter_by(user_id=uid).delete(synchronize_session=False)
     App.DismissedAssignment.query.filter_by(user_id=uid).delete(synchronize_session=False)
     App.ManualTask.query.filter_by(user_id=uid).delete(synchronize_session=False)
+    _doomed_ids = [u.id for u in App.User.query.filter_by(id=uid).all()]
+    App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
     App.User.query.filter_by(id=uid).delete(synchronize_session=False)
     App.db.session.commit()
 

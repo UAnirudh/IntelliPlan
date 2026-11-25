@@ -29,6 +29,8 @@ def client():
 
 def make_user(email: str) -> int:
     with App.app.app_context():
+        _doomed_ids = [u.id for u in User.query.filter_by(email=email).all()]
+        App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
         User.query.filter_by(email=email).delete(synchronize_session=False)
         db.session.commit()
         user = User(email=email,
@@ -43,6 +45,8 @@ def cleanup(user_id: int) -> None:
     with App.app.app_context():
         MediaBalancePrefs.query.filter_by(user_id=user_id).delete(
             synchronize_session=False)
+        _doomed_ids = [u.id for u in User.query.filter_by(id=user_id).all()]
+        App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
         User.query.filter_by(id=user_id).delete(synchronize_session=False)
         db.session.commit()
 

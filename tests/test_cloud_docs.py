@@ -542,6 +542,8 @@ def _wipe():
         OneDriveIntegration.query.filter(OneDriveIntegration.user_id.in_(ids)).delete(synchronize_session=False)
         OutlookIntegration.query.filter(OutlookIntegration.user_id.in_(ids)).delete(synchronize_session=False)
         App.LinkedAccount.query.filter(App.LinkedAccount.user_id.in_(ids)).delete(synchronize_session=False)
+    _doomed_ids = [u.id for u in User.query.filter(User.email.like("clouddocs+%")).all()]
+    App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
     User.query.filter(User.email.like("clouddocs+%")).delete(synchronize_session=False)
     db.session.commit()
 

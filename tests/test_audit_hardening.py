@@ -29,6 +29,8 @@ def client():
 def user_id():
     email = "audit+hardening@example.com"
     with App.app.app_context():
+        _doomed_ids = [u.id for u in User.query.filter_by(email=email).all()]
+        App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
         User.query.filter_by(email=email).delete(synchronize_session=False)
         db.session.commit()
         user = User(email=email,
@@ -40,6 +42,8 @@ def user_id():
     yield uid
     with App.app.app_context():
         UserIdentity.query.filter_by(user_id=uid).delete(synchronize_session=False)
+        _doomed_ids = [u.id for u in User.query.filter_by(id=uid).all()]
+        App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
         User.query.filter_by(id=uid).delete(synchronize_session=False)
         db.session.commit()
 

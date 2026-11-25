@@ -33,6 +33,8 @@ def client():
 def user_id():
     email = "sync+ledger@example.com"
     with App.app.app_context():
+        _doomed_ids = [u.id for u in User.query.filter_by(email=email).all()]
+        App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
         User.query.filter_by(email=email).delete(synchronize_session=False)
         db.session.commit()
         user = User(email=email,
@@ -45,6 +47,8 @@ def user_id():
     with App.app.app_context():
         App.SyncOp.query.filter_by(user_id=uid).delete(synchronize_session=False)
         DismissedAssignment.query.filter_by(user_id=uid).delete(synchronize_session=False)
+        _doomed_ids = [u.id for u in User.query.filter_by(id=uid).all()]
+        App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
         User.query.filter_by(id=uid).delete(synchronize_session=False)
         db.session.commit()
 
@@ -172,6 +176,8 @@ def test_one_students_op_id_cannot_satisfy_anothers(client, user_id):
     A cross-user hit would leak one student's response body to the other."""
     other_email = "sync+other@example.com"
     with App.app.app_context():
+        _doomed_ids = [u.id for u in User.query.filter_by(email=other_email).all()]
+        App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
         User.query.filter_by(email=other_email).delete(synchronize_session=False)
         db.session.commit()
         other = User(email=other_email,
@@ -192,6 +198,8 @@ def test_one_students_op_id_cannot_satisfy_anothers(client, user_id):
         with App.app.app_context():
             App.SyncOp.query.filter_by(user_id=other_id).delete(synchronize_session=False)
             DismissedAssignment.query.filter_by(user_id=other_id).delete(synchronize_session=False)
+            _doomed_ids = [u.id for u in User.query.filter_by(id=other_id).all()]
+            App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
             User.query.filter_by(id=other_id).delete(synchronize_session=False)
             db.session.commit()
 

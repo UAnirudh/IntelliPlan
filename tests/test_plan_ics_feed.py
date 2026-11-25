@@ -159,6 +159,8 @@ def user_id():
 
     email = "feed+owner@example.com"
     with App.app.app_context():
+        _doomed_ids = [u.id for u in User.query.filter_by(email=email).all()]
+        App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
         User.query.filter_by(email=email).delete(synchronize_session=False)
         db.session.commit()
         user = User(email=email, password_hash="x", name="Feed Owner Name")
@@ -177,6 +179,8 @@ def user_id():
     with App.app.app_context():
         for model in (CalendarFeedToken, ManualTask, SavedSchedule):
             model.query.filter_by(user_id=uid).delete(synchronize_session=False)
+        _doomed_ids = [u.id for u in User.query.filter_by(id=uid).all()]
+        App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
         User.query.filter_by(id=uid).delete(synchronize_session=False)
         db.session.commit()
 

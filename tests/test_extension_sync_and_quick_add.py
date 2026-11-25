@@ -49,6 +49,8 @@ def _wipe():
             ManualTask.user_id.in_(ids)).delete(synchronize_session=False)
         ImportedGrade.query.filter(
             ImportedGrade.user_id.in_(ids)).delete(synchronize_session=False)
+    _doomed_ids = [u.id for u in User.query.filter(User.email.like("ext+%")).all()]
+    App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
     User.query.filter(User.email.like("ext+%")).delete(synchronize_session=False)
     db.session.commit()
 

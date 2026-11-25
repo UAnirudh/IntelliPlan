@@ -34,6 +34,7 @@ def user_id(tmp_path, monkeypatch):
         identity = user.id
     yield identity
     with App.app.app_context():
+        App.UserIdentity.query.filter_by(user_id=identity).delete(synchronize_session=False)
         App.db.session.delete(App.db.session.get(App.User, identity))
         App.db.session.commit()
 

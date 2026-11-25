@@ -22,6 +22,7 @@ def client():
         App.ProductEvent.query.filter(App.ProductEvent.user_id.in_(user_ids)).delete(
             synchronize_session=False
         ) if user_ids else None
+        App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(user_ids)).delete(synchronize_session=False)
         App.User.query.filter(App.User.id.in_(user_ids)).delete(synchronize_session=False) if user_ids else None
         App.db.session.commit()
     App.limiter.enabled = previous_limiter

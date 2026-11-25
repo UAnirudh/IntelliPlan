@@ -33,6 +33,8 @@ def _wipe():
     StudyGroupMember.query.delete()
     StudyGroup.query.filter(StudyGroup.name.like("voicetest%")).delete(
         synchronize_session=False)
+    _doomed_ids = [u.id for u in User.query.filter(User.email.like("voice+%")).all()]
+    App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
     User.query.filter(User.email.like("voice+%")).delete(synchronize_session=False)
     db.session.commit()
 

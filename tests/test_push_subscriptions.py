@@ -45,6 +45,8 @@ def client():
 def user_id():
     email = "push+devices@example.com"
     with App.app.app_context():
+        _doomed_ids = [u.id for u in User.query.filter_by(email=email).all()]
+        App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
         User.query.filter_by(email=email).delete(synchronize_session=False)
         db.session.commit()
         user = User(email=email,
@@ -56,6 +58,8 @@ def user_id():
     yield uid
     with App.app.app_context():
         PushSubscription.query.filter_by(user_id=uid).delete(synchronize_session=False)
+        _doomed_ids = [u.id for u in User.query.filter_by(id=uid).all()]
+        App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
         User.query.filter_by(id=uid).delete(synchronize_session=False)
         db.session.commit()
 
@@ -118,6 +122,8 @@ def test_unsubscribe_removes_only_the_signed_in_users_current_browser(client, us
     finally:
         with App.app.app_context():
             PushSubscription.query.filter_by(user_id=other_id).delete(synchronize_session=False)
+            _doomed_ids = [u.id for u in User.query.filter_by(id=other_id).all()]
+            App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
             User.query.filter_by(id=other_id).delete(synchronize_session=False)
             db.session.commit()
 
@@ -387,6 +393,8 @@ def test_reminders_carry_a_ttl_that_outlives_a_pocketed_phone(monkeypatch):
         finally:
             PushSubscription.query.filter_by(user_id=user.id).delete(
                 synchronize_session=False)
+            _doomed_ids = [u.id for u in User.query.filter_by(id=user.id).all()]
+            App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
             User.query.filter_by(id=user.id).delete(synchronize_session=False)
             db.session.commit()
 

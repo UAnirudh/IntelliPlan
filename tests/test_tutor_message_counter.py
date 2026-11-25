@@ -20,6 +20,8 @@ def user_id():
     App.app.config["TESTING"] = True
     with App.app.app_context():
         db.create_all()
+        _doomed_ids = [u.id for u in User.query.filter_by(email="counter+student@example.com").all()]
+        App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
         User.query.filter_by(email="counter+student@example.com").delete()
         user = User(email="counter+student@example.com", password_hash="", birth_year=2005)
         db.session.add(user)
@@ -27,6 +29,8 @@ def user_id():
         uid = user.id
     yield uid
     with App.app.app_context():
+        _doomed_ids = [u.id for u in User.query.filter_by(id=uid).all()]
+        App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
         User.query.filter_by(id=uid).delete()
         db.session.commit()
 

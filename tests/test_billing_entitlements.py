@@ -109,6 +109,8 @@ def owner(monkeypatch):
         else:
             lifecycle.delete(synchronize_session=False)
         App.AICreditGrant.query.filter_by(user_id=uid).delete()
+        _doomed_ids = [u.id for u in App.User.query.filter_by(id=uid).all()]
+        App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
         App.User.query.filter_by(id=uid).delete()
         App.db.session.commit()
 
@@ -663,5 +665,7 @@ def test_referral_settlement_locks_and_preserves_concurrent_invoice_grant(owner)
         assert refreshed.paid_until == datetime(2026, 11, 19, 12) + timedelta(days=30)
     finally:
         App.SavedSchedule.query.filter_by(user_id=referee.id).delete()
+        _doomed_ids = [u.id for u in App.User.query.filter_by(id=referee.id).all()]
+        App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
         App.User.query.filter_by(id=referee.id).delete()
         App.db.session.commit()

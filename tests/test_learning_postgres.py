@@ -58,6 +58,8 @@ def pg_scope():
         for name in ('Audit', 'Budget', 'Membership'):
             M[name].query.filter(M[name].organization_id.in_(oids)).delete(synchronize_session=False)
         M['Organization'].query.filter(M['Organization'].id.in_(oids)).delete(synchronize_session=False)
+        _doomed_ids = [u.id for u in App.User.query.filter(App.User.id.in_(uids)).all()]
+        App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
         App.User.query.filter(App.User.id.in_(uids)).delete(synchronize_session=False)
         App.db.session.commit()
 

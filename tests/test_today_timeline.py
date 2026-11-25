@@ -43,6 +43,8 @@ def _clean():
     TimetableSettings.query.delete()
     SavedSchedule.query.filter(SavedSchedule.user_id.isnot(None)).delete(synchronize_session=False)
     FeatureFlag.query.filter_by(key="timetable").delete()
+    _doomed_ids = [u.id for u in User.query.filter(User.email.like("tt+%")).all()]
+    App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
     User.query.filter(User.email.like("tt+%")).delete(synchronize_session=False)
     db.session.commit()
 

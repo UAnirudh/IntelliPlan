@@ -232,5 +232,7 @@ def test_the_glue_reads_the_timezone_off_the_streak_row():
             # up rather than poisoning the rest of the run.
             db.session.rollback()
             UserStreak.query.filter_by(user_id=user_id).delete()
+            _doomed_ids = [u.id for u in User.query.filter_by(id=user_id).all()]
+            App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
             User.query.filter_by(id=user_id).delete()
             db.session.commit()

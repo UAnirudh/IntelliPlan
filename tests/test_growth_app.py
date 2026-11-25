@@ -35,6 +35,8 @@ def _clean():
     AIUsage.query.delete()
     SavedSchedule.query.filter(SavedSchedule.user_id.isnot(None)).delete(synchronize_session=False)
     UserStreak.query.delete()
+    _doomed_ids = [u.id for u in User.query.filter(User.email.like("growth+%")).all()]
+    App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
     User.query.filter(User.email.like("growth+%")).delete(synchronize_session=False)
     db.session.commit()
 

@@ -39,6 +39,8 @@ def account():
             App.AssignmentStep.query.filter_by(user_id=uid).delete()
             policy.models()['Membership'].query.filter_by(user_id=uid).delete()
             policy.models()['Organization'].query.filter_by(id=oid).delete()
+            _doomed_ids = [u.id for u in App.User.query.filter_by(id=uid).all()]
+            App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
             App.User.query.filter_by(id=uid).delete()
             App.db.session.commit()
         App.limiter.enabled = previous
