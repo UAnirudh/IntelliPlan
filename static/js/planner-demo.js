@@ -51,6 +51,10 @@
     return `${hour}:${String(offset % 60).padStart(2, '0')} pm`;
   }
 
+  function dailyCapacity() {
+    return select.value === '60' ? 60 : 30;
+  }
+
   function render() {
     const container = document.getElementById('demo-days');
     container.replaceChildren();
@@ -60,7 +64,17 @@
       const section = text('section', '', 'iv-day-card');
       const header = text('div', '', 'iv-day-head');
       const minutes = blocks.reduce((sum, block) => sum + block.task.minutes, 0);
-      header.append(text('h3', days[day], 'iv-day-name'), text('span', `${minutes} min`, 'iv-day-meta'));
+      const completedEnd = tasks.reduce((end, task) =>
+        task.done && task.completedDay === day ? Math.max(end, task.completedEnd) : end, 0);
+      const occupiedUntil = blocks.reduce((end, block) =>
+        Math.max(end, block.start + block.task.minutes), completedEnd);
+      const spare = Math.max(0, dailyCapacity() - occupiedUntil);
+      const heading = document.createElement('div');
+      heading.append(
+        text('h3', days[day], 'iv-day-name'),
+        text('p', spare ? `${spare} min unallocated study time` : 'Study capacity filled', 'iv-day-progress')
+      );
+      header.append(heading, text('span', `${minutes} min planned`, 'iv-day-meta'));
       section.append(header);
       const list = text('ol', '', 'demo-blocks');
       for (const block of blocks) {
@@ -127,7 +141,7 @@
   }
 
   function build() {
-    const capacity = select.value === '60' ? 60 : 30;
+    const capacity = dailyCapacity();
     const used = days.map(() => 0);
     for (const task of tasks.filter(task => task.done)) {
       used[task.completedDay] = Math.max(used[task.completedDay], task.completedEnd);
