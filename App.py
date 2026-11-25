@@ -5721,6 +5721,11 @@ def _render_registry_article(article, active_page):
                            article_path=blog_articles.article_path,
                            related_articles=related,
                            article_json_ld=article_json_ld,
+                           # Counted from the body, and formatted here, so the
+                           # byline cannot disagree with the article it sits on.
+                           display_date=blog_articles.display_date(
+                               article.get("updated") or article["date"]),
+                           reading_time=blog_articles.reading_minutes(article),
                            active_page=active_page)
 
 @app.route("/olympiad")
