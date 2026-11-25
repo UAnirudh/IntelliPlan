@@ -72,9 +72,9 @@
       <p><a href="https://developerdocs.instructure.com/services/canvas/oauth2/file.developer_keys" target="_blank" rel="noopener noreferrer">Canvas Developer Key setup</a></p>
     </details>
 
-    <form class="login-form canvas-connect__section" method="POST" action="/login/calendar-feed">
+    <form id="calendar-feed" class="login-form canvas-connect__section" method="POST" action="/login/calendar-feed">
       <h2>Connect a calendar link</h2>
-      <p>In Canvas, open <strong>Calendar → Calendar Feed</strong> and copy the link. This imports due dates. Grades require school sign-in.</p>
+      <p>Copy your school calendar's subscription link. In Canvas, use <strong>Calendar → Calendar Feed</strong>. In Brightspace, enable feeds in <strong>Calendar → Settings</strong>, then choose <strong>Subscribe</strong>. Calendar links import dates and events only.</p>
       <div class="form-group">
         <label class="form-label" for="canvasFeedUrl">Calendar feed link</label>
         <input id="canvasFeedUrl" name="feed_url" class="form-input" type="text" autocomplete="off"

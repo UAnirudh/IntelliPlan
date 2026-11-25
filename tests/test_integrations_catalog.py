@@ -181,12 +181,13 @@ def test_the_payload_carries_what_the_ui_needs(client):
                 assert key in m
 
 
-def test_brightspace_is_marked_coming_soon_rather_than_offered(client):
-    """It has no credentials configured, so a Connect button would just
-    fail. Saying 'coming soon' is the honest version."""
+def test_brightspace_offers_only_calendar_import(client):
     data = client.get("/api/integrations/status").get_json()
     bs = next(i for i in data["integrations"] if i["id"] == "brightspace")
-    assert bs["coming_soon"] is True
+    assert bs["no_grades"] is True
+    assert [method["key"] for method in bs["methods"]] == ["calendar_feed"]
+    assert bs["methods"][0]["start_url"] == "/login/canvas#calendar-feed"
+    assert 'id="calendar-feed"' in client.get("/login/canvas").get_data(as_text=True)
 
 
 # ── A signed-in student ──────────────────────────────────────────────

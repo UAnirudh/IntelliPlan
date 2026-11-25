@@ -6466,6 +6466,26 @@ def _classroom_get_userinfo(access_token):
         print(f"[classroom] userinfo error: {e}")
     return {}
 
+def _classroom_list_rows(url, headers, key, **filters):
+    """Follow Google's page tokens while retaining the original filters."""
+    rows = []
+    params = {"pageSize": 50, **filters}
+    seen_tokens = set()
+    for _ in range(40):
+        response = requests.get(url, headers=headers, params=params, timeout=20)
+        response.raise_for_status()
+        page = response.json()
+        rows.extend(page.get(key) or [])
+        token = page.get("nextPageToken")
+        if not token:
+            return rows
+        if token in seen_tokens:
+            raise ValueError("Google Classroom repeated a page token")
+        seen_tokens.add(token)
+        params = {**params, "pageToken": token}
+    raise ValueError("Google Classroom exceeded the page limit")
+
+
 def _classroom_fetch_assignments(access_token):
     """Fetch active courses and their pending (or overdue) coursework for the
     connected user. Returns a list of dicts shaped to match the unified-tasks
@@ -6473,14 +6493,10 @@ def _classroom_fetch_assignments(access_token):
     out = []
     headers = {"Authorization": f"Bearer {access_token}"}
     try:
-        cr = requests.get(
+        courses = _classroom_list_rows(
             "https://classroom.googleapis.com/v1/courses",
-            headers=headers, params={"courseStates": "ACTIVE", "pageSize": 50}, timeout=20,
+            headers, "courses", courseStates="ACTIVE",
         )
-        if cr.status_code != 200:
-            print(f"[classroom] courses HTTP {cr.status_code}: {cr.text[:200]}")
-            return out
-        courses = cr.json().get("courses", []) or []
     except Exception as e:
         print(f"[classroom] courses fetch failed: {e}")
         return out
@@ -6491,13 +6507,10 @@ def _classroom_fetch_assignments(access_token):
         if not cid:
             continue
         try:
-            wr = requests.get(
+            items = _classroom_list_rows(
                 f"https://classroom.googleapis.com/v1/courses/{cid}/courseWork",
-                headers=headers, params={"pageSize": 50}, timeout=20,
+                headers, "courseWork", courseWorkStates="PUBLISHED",
             )
-            if wr.status_code != 200:
-                continue
-            items = wr.json().get("courseWork", []) or []
         except Exception as e:
             print(f"[classroom] coursework error for {cid}: {e}")
             continue
@@ -6923,11 +6936,46 @@ def _moodle_call(moodle_url, ws_token, function, **params):
         raise RuntimeError(f"Moodle error: {j.get('message') or j.get('errorcode')}")
     return j
 
+def _moodle_fetch_action_events(moodle_url, ws_token, today):
+    """Read calendar tasks when the school does not expose assignments."""
+    out = []
+    try:
+        result = _moodle_call(
+            moodle_url, ws_token, "core_calendar_get_action_events_by_timesort",
+            timesortfrom=int(utcnow().replace(tzinfo=timezone.utc).timestamp()) - 14 * 86400,
+            limitnum=50,
+        )
+    except Exception as exc:
+        print(f"[moodle] events fetch failed: {type(exc).__name__}")
+        return out
+    for event in (result.get("events") or []) if isinstance(result, dict) else []:
+        title = (event.get("name") or "").strip()
+        try:
+            due = datetime.fromtimestamp(int(event.get("timesort") or event.get("timestart")), timezone.utc).date()
+        except (TypeError, ValueError, OverflowError, OSError):
+            continue
+        days = (due - today).days
+        if not title or days < -14:
+            continue
+        course = event.get("course") or {}
+        priority = compute_priority(days, 0, title)
+        out.append({
+            "id": f"mdl-{event.get('id', '')}",
+            "course_id": str(course.get("id") or ""),
+            "title": title,
+            "course": course.get("fullname") or "Moodle",
+            "due_date": due.isoformat(),
+            "priority": priority,
+            "source": "moodle",
+            "estimated_time": 60,
+            "difficulty": "Medium",
+            "color": PRIORITY_COLORS.get(priority, "#f59e0b"),
+        })
+    return out
+
+
 def _moodle_fetch_assignments(moodle_url, ws_token, moodle_user_id=None):
-    """Fetch upcoming Moodle assignments. Tries mod_assign_get_assignments first
-    (per-course assignment list); falls back to core_calendar_get_action_events
-    if not allowed. Both functions are normally exposed by the default Moodle
-    mobile/web service, but each site can restrict them."""
+    """Fetch Moodle assignments, using calendar tasks if permissions differ."""
     out = []
     today = date.today()
     # Step 1: list the user's courses so we can fetch their assignments.
@@ -6940,43 +6988,11 @@ def _moodle_fetch_assignments(moodle_url, ws_token, moodle_user_id=None):
             uid = site.get("userid")
             courses = _moodle_call(moodle_url, ws_token,
                                    "core_enrol_get_users_courses", userid=int(uid)) if uid else []
-    except Exception as e:
-        print(f"[moodle] courses fetch failed: {e}")
+    except Exception as exc:
+        print(f"[moodle] courses fetch failed: {type(exc).__name__}")
         courses = []
     if not isinstance(courses, list) or not courses:
-        # Fallback to action events if courses can't be listed.
-        try:
-            evs = _moodle_call(moodle_url, ws_token,
-                               "core_calendar_get_action_events_by_timesort",
-                               timesortfrom=int(utcnow().timestamp()) - 14 * 86400,
-                               limitnum=100)
-            for e in (evs.get("events", []) or []) if isinstance(evs, dict) else []:
-                ts = e.get("timesort") or e.get("timestart")
-                if not ts:
-                    continue
-                due = datetime.utcfromtimestamp(int(ts)).date()
-                days = (due - today).days
-                if days < -14:
-                    continue
-                title = (e.get("name") or "").strip()
-                if not title:
-                    continue
-                priority = compute_priority(days, 0, title)
-                out.append({
-                    "id": f"mdl-{e.get('id', '')}",
-                    "course_id": str(e.get("course", {}).get("id") or ""),
-                    "title": title,
-                    "course": (e.get("course") or {}).get("fullname") or "Moodle",
-                    "due_date": due.strftime("%Y-%m-%d"),
-                    "priority": priority,
-                    "source": "moodle",
-                    "estimated_time": 60,
-                    "difficulty": "Medium",
-                    "color": PRIORITY_COLORS.get(priority, "#f59e0b"),
-                })
-        except Exception as e:
-            print(f"[moodle] events fetch failed: {e}")
-        return out
+        return _moodle_fetch_action_events(moodle_url, ws_token, today)
 
     # Step 2: fetch assignments for the courses we found.
     course_ids = []
@@ -6991,11 +7007,11 @@ def _moodle_fetch_assignments(moodle_url, ws_token, moodle_user_id=None):
         for i, cid in enumerate(course_ids[:50]):
             params[f"courseids[{i}]"] = cid
         result = _moodle_call(moodle_url, ws_token, "mod_assign_get_assignments", **params)
-    except Exception as e:
-        print(f"[moodle] assignments fetch failed: {e}")
-        return out
+    except Exception as exc:
+        print(f"[moodle] assignments fetch failed: {type(exc).__name__}")
+        return _moodle_fetch_action_events(moodle_url, ws_token, today)
     if not isinstance(result, dict):
-        return out
+        return _moodle_fetch_action_events(moodle_url, ws_token, today)
     for course in result.get("courses", []) or []:
         cid = course.get("id")
         cname = course.get("fullname") or course_names.get(cid) or "Moodle"
@@ -8783,16 +8799,15 @@ def login_calendar_feed():
         print(f"[calendar-feed] import failed: {e}")
         return render_template(
             "login_canvas.html", active_page="login",
-            error="Could not read that calendar feed. Copy the link again from Canvas.",
+            error="Could not read that calendar feed. Copy the subscription link again from your school calendar.",
             canvas_oauth_available=(CANVAS_OAUTH_AVAILABLE and canvas_oauth_any_configured()),
         )
 
     if not assignments:
         return render_template(
             "login_canvas.html", active_page="login",
-            error=("That feed loaded but has no upcoming assignments in it. "
-                   "Check you copied the Calendar Feed link and that your "
-                   "courses are showing in the Canvas calendar."),
+            error=("That feed loaded but has no upcoming dates IntelliPlan can import. "
+                   "Check that your subscription includes a course calendar with upcoming dates."),
             canvas_oauth_available=(CANVAS_OAUTH_AVAILABLE and canvas_oauth_any_configured()),
         )
 

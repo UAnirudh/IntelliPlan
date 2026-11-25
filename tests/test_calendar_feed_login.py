@@ -120,6 +120,28 @@ def test_the_connected_feed_actually_produces_tasks(client, future_feed):
     assert "Lab report" in titles
 
 
+def test_brightspace_calendar_subscription_produces_tasks(client, monkeypatch):
+    from datetime import date, timedelta
+
+    due = date.today() + timedelta(days=3)
+    body = (
+        "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//D2L//Brightspace//EN\r\n"
+        "BEGIN:VEVENT\r\nUID:synthetic-brightspace-event\r\n"
+        f"DTSTART:{due:%Y%m%d}T200000Z\r\n"
+        "SUMMARY:Geometry problem set\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n"
+    ).encode()
+    serve(monkeypatch, body)
+    response = client.post("/login/calendar-feed", data={
+        "feed_url": "https://school.example.invalid/d2l/le/calendar/feed/synthetic/calendar.ics",
+    })
+    assert response.status_code == 302
+    tasks = _all_tasks(client.get("/tasks/unified").get_json())
+    assert [(task["title"], task["due_date"]) for task in tasks] == [
+        ("Geometry problem set", due.isoformat())
+    ]
+    assert client.get("/grades/data").get_json() == []
+
+
 def test_the_course_name_survives_into_the_planner(client, future_feed):
     client.post("/login/calendar-feed", data={"feed_url": FEED_URL})
     tasks = _all_tasks(client.get("/tasks/unified").get_json())
@@ -165,7 +187,7 @@ def test_an_empty_feed_is_rejected_at_connect_time(client, monkeypatch):
     serve(monkeypatch, canvas_feed())
     r = client.post("/login/calendar-feed", data={"feed_url": FEED_URL})
     assert r.status_code == 200
-    assert "no upcoming assignments" in r.get_data(as_text=True)
+    assert "no upcoming dates IntelliPlan can import" in r.get_data(as_text=True)
     with client.session_transaction() as sess:
         assert sess.get("login_type") != "calendar_feed", "must not connect an empty feed"
 

@@ -247,15 +247,16 @@ BRIGHTSPACE = Integration(
     id="brightspace",
     name="D2L Brightspace",
     category="lms",
-    brings="Assignments and due dates",
-    coming_soon=True,
+    brings="Course dates published to your Brightspace calendar",
+    no_grades=True,
     methods=(
         Method(
-            key="oauth",
-            label="Sign in with Brightspace",
-            how="Not available yet. Join the waitlist and we will email you.",
-            friction="instant",
-            start_post="/api/lms/connect/brightspace",
+            key="calendar_feed",
+            label="Use a Brightspace calendar link",
+            how="In Brightspace Calendar, enable Calendar Feeds in Settings, "
+                "then choose Subscribe and copy the link for your course.",
+            start_url="/login/canvas#calendar-feed",
+            note="Available if your school enables calendar feeds. Direct sign-in is still pending.",
         ),
     ),
 )
@@ -264,7 +265,7 @@ CALENDAR_FEED = Integration(
     id="calendar_feed",
     name="Calendar link",
     category="lms",
-    brings="Everything due, from any school platform",
+    brings="Upcoming dates published to a school calendar feed",
     no_grades=True,
     methods=(
         Method(
@@ -274,8 +275,8 @@ CALENDAR_FEED = Integration(
                 "platform and paste it.",
             friction="low",
             start_url="/login/canvas#calendar-feed",
-            note="Works on Canvas, Blackboard, Moodle and Google Calendar. "
-                 "Needs nothing from your school.",
+            note="Use a subscription link from Canvas, Blackboard, Moodle, Brightspace "
+                 "or another platform that offers one.",
         ),
     ),
 )
