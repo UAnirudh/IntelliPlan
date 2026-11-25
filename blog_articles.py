@@ -2707,12 +2707,18 @@ def get(slug: str) -> dict | None:
 def resolve(slug: str) -> dict | None:
     """A ``{slug, title}`` reference for any published guide, old or new.
 
-    Related links render only the slug and the title, so a registry article
-    and a legacy template are interchangeable here.
+    Related links render the title, so a registry article and a legacy
+    template are interchangeable here. A guide with its own ``path`` (the
+    comparisons under /compare) carries it as well, so the link points at
+    the URL that serves the page instead of bouncing through /blog for a
+    301 on every click.
     """
     article = BY_SLUG.get(slug)
     if article:
-        return {"slug": article["slug"], "title": article["title"]}
+        reference = {"slug": article["slug"], "title": article["title"]}
+        if article.get("path"):
+            reference["path"] = article["path"]
+        return reference
     title = LEGACY_TITLES.get(slug)
     return {"slug": slug, "title": title} if title else None
 
