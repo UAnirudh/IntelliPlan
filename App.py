@@ -7425,6 +7425,9 @@ def api_integrations_status():
             unavailable.add(provider)
 
     catalogue = integrations_catalog.catalog_payload(connected, details, unavailable)
+    if not all(_blackboard_credentials()):
+        blackboard = next(item for item in catalogue if item["id"] == "blackboard")
+        blackboard["methods"] = [method for method in blackboard["methods"] if method["key"] != "oauth"]
     if not (CANVAS_OAUTH_AVAILABLE and canvas_oauth_any_configured()):
         canvas = next(item for item in catalogue if item["id"] == "canvas")
         canvas["methods"] = [method for method in canvas["methods"] if method["key"] != "oauth"]
@@ -8685,6 +8688,7 @@ def connect_account():
     from intelliplan.api import todoist
 
     return render_template("connect.html", active_page="login",
+                           blackboard_ready=all(_blackboard_credentials()),
                            todoist_ready=todoist.configured() and todoist.allowed(current_user))
 
 @app.route("/login/canvas", methods=["GET", "POST"])
@@ -8768,8 +8772,8 @@ def login_canvas():
         canvas_oauth_available=(CANVAS_OAUTH_AVAILABLE and canvas_oauth_any_configured()),
     )
 
-@app.route("/login/calendar-feed", methods=["POST"])
-@limiter.limit("12 per minute;60 per hour")
+@app.route("/login/calendar-feed", methods=["GET", "POST"])
+@limiter.limit("12 per minute;60 per hour", methods=["POST"])
 def login_calendar_feed():
     """Connect using the calendar feed URL every Canvas user already has.
 
@@ -8782,6 +8786,12 @@ def login_calendar_feed():
     It carries due dates, not grades. That is stated on the page rather than
     left for a student to discover when the gradebook is empty.
     """
+    def show_form(error=None):
+        return render_template("login_canvas.html", active_page="login", calendar_only=True, error=error)
+
+    if request.method == "GET":
+        return show_form()
+
     feed_url = (request.form.get("feed_url") or "").strip()
     profile_name = (request.form.get("profile_name") or "").strip() or "Calendar Feed"
 
@@ -8791,25 +8801,14 @@ def login_calendar_feed():
         assignments = ics_feed.import_assignments(feed_url)
         stored_url = ics_feed.normalize_feed_url(feed_url)
     except ics_feed.FeedError as e:
-        return render_template(
-            "login_canvas.html", active_page="login", error=str(e),
-            canvas_oauth_available=(CANVAS_OAUTH_AVAILABLE and canvas_oauth_any_configured()),
-        )
+        return show_form(str(e))
     except Exception as e:
         print(f"[calendar-feed] import failed: {e}")
-        return render_template(
-            "login_canvas.html", active_page="login",
-            error="Could not read that calendar feed. Copy the subscription link again from your school calendar.",
-            canvas_oauth_available=(CANVAS_OAUTH_AVAILABLE and canvas_oauth_any_configured()),
-        )
+        return show_form("Could not read that calendar feed. Copy the subscription link again from your school calendar.")
 
     if not assignments:
-        return render_template(
-            "login_canvas.html", active_page="login",
-            error=("That feed loaded but has no upcoming dates IntelliPlan can import. "
-                   "Check that your subscription includes a course calendar with upcoming dates."),
-            canvas_oauth_available=(CANVAS_OAUTH_AVAILABLE and canvas_oauth_any_configured()),
-        )
+        return show_form("That feed loaded but has no upcoming dates IntelliPlan can import. "
+                         "Check that your subscription includes a course calendar with upcoming dates.")
 
     creds = {"feed_url": stored_url}
     if current_user.is_authenticated:

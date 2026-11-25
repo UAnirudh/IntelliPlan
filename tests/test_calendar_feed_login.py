@@ -120,19 +120,23 @@ def test_the_connected_feed_actually_produces_tasks(client, future_feed):
     assert "Lab report" in titles
 
 
-def test_brightspace_calendar_subscription_produces_tasks(client, monkeypatch):
+@pytest.mark.parametrize(("vendor", "feed_path"), [
+    ("Brightspace", "/d2l/le/calendar/feed/synthetic/calendar.ics"),
+    ("Blackboard", "/learn/api/v1/calendar/synthetic/calendar.ics"),
+])
+def test_school_calendar_subscription_produces_tasks(client, monkeypatch, vendor, feed_path):
     from datetime import date, timedelta
 
     due = date.today() + timedelta(days=3)
     body = (
-        "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//D2L//Brightspace//EN\r\n"
-        "BEGIN:VEVENT\r\nUID:synthetic-brightspace-event\r\n"
+        f"BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//{vendor}//Calendar//EN\r\n"
+        "BEGIN:VEVENT\r\nUID:synthetic-school-event\r\n"
         f"DTSTART:{due:%Y%m%d}T200000Z\r\n"
         "SUMMARY:Geometry problem set\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n"
     ).encode()
     serve(monkeypatch, body)
     response = client.post("/login/calendar-feed", data={
-        "feed_url": "https://school.example.invalid/d2l/le/calendar/feed/synthetic/calendar.ics",
+        "feed_url": f"https://school.example.invalid{feed_path}",
     })
     assert response.status_code == 302
     tasks = _all_tasks(client.get("/tasks/unified").get_json())

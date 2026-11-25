@@ -211,6 +211,13 @@ BLACKBOARD = Integration(
     disconnect_url="/api/lms/disconnect/blackboard",
     methods=(
         Method(
+            key="calendar_feed",
+            label="Use a Blackboard calendar link",
+            how="In Blackboard Ultra, open Calendar settings and choose Share Calendar, if available.",
+            start_url="/login/calendar-feed",
+            note="Imports dates and events from the shared calendar across all courses.",
+        ),
+        Method(
             key="oauth",
             label="Sign in through your school",
             how="Paste your school's Blackboard address, then sign in there.",
@@ -255,7 +262,7 @@ BRIGHTSPACE = Integration(
             label="Use a Brightspace calendar link",
             how="In Brightspace Calendar, enable Calendar Feeds in Settings, "
                 "then choose Subscribe and copy the link for your course.",
-            start_url="/login/canvas#calendar-feed",
+            start_url="/login/calendar-feed",
             note="Available if your school enables calendar feeds. Direct sign-in is still pending.",
         ),
     ),
@@ -274,7 +281,7 @@ CALENDAR_FEED = Integration(
             how="Find the calendar feed or subscribe link in your school "
                 "platform and paste it.",
             friction="low",
-            start_url="/login/canvas#calendar-feed",
+            start_url="/login/calendar-feed",
             note="Use a subscription link from Canvas, Blackboard, Moodle, Brightspace "
                  "or another platform that offers one.",
         ),
