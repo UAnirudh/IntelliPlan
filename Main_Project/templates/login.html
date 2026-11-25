@@ -136,7 +136,7 @@
       <a href="/login/account" class="btn-secondary">Sign In</a>
     </div>
 
-    <details class="school-login">
+    <details class="school-login" id="school-login">
       <summary>
         <span>Connect a school account<span class="school-login-hint">Continue as a guest, without signing up</span></span>
       </summary>
@@ -196,6 +196,15 @@
   </div>
 </div>
 <script>
+// Sign-up links to /login#school-login: open the guest school-connect block
+// so someone who follows a "Get started" CTA still lands on the no-account path.
+if (window.location.hash === '#school-login') {
+  const guestDetails = document.getElementById('school-login');
+  if (guestDetails) {
+    guestDetails.open = true;
+    guestDetails.scrollIntoView({ block: 'center' });
+  }
+}
 function ipAuthGoogleLogin(e) {
   const params = new URLSearchParams(window.location.search);
   const returnTo = params.get('return_to') || '';
