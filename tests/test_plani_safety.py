@@ -8,6 +8,7 @@ import requests
 from uuid import uuid4
 
 import plani_safety as safety
+from db_test_support import delete_identities_for
 
 
 def turns(*texts):
@@ -136,7 +137,7 @@ def agent_account():
         uid = user.id
     yield uid
     with App.app.app_context():
-        App.UserIdentity.query.filter_by(user_id=uid).delete(synchronize_session=False)
+        delete_identities_for(App.User.query.filter_by(id=uid))
         App.db.session.delete(App.db.session.get(App.User, uid))
         App.db.session.commit()
 

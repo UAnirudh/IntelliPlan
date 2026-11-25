@@ -13,6 +13,7 @@ from datetime import date, datetime, timedelta
 import pytest
 
 import App
+from db_test_support import delete_identities_for
 import ai_provider
 import growth_glue
 from App import AIUsage, SavedSchedule, User, UserStreak, db
@@ -35,8 +36,7 @@ def _clean():
     AIUsage.query.delete()
     SavedSchedule.query.filter(SavedSchedule.user_id.isnot(None)).delete(synchronize_session=False)
     UserStreak.query.delete()
-    _doomed_ids = [u.id for u in User.query.filter(User.email.like("growth+%")).all()]
-    App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
+    delete_identities_for(User.query.filter(User.email.like("growth+%")))
     User.query.filter(User.email.like("growth+%")).delete(synchronize_session=False)
     db.session.commit()
 

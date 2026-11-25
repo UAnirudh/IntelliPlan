@@ -4,6 +4,7 @@ from uuid import uuid4
 import pytest
 
 import App
+from db_test_support import delete_identities_for
 import active_glue
 from intelliplan.learning import policy
 
@@ -36,9 +37,7 @@ def study():
             models['Organization'].query.filter(models['Organization'].id.in_(org_ids)).delete(synchronize_session=False)
         App.ActiveFocusSample.query.filter_by(session_id=sid).delete()
         App.ActiveSession.query.filter_by(id=sid).delete()
-        App.UserIdentity.query.filter_by(user_id=uid).delete()
-        _doomed_ids = [u.id for u in App.User.query.filter_by(id=uid).all()]
-        App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
+        delete_identities_for(App.User.query.filter_by(id=uid))
         App.User.query.filter_by(id=uid).delete()
         App.db.session.commit()
     App.limiter.enabled = previous

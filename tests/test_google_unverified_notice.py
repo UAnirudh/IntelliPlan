@@ -14,6 +14,7 @@ from __future__ import annotations
 import pytest
 
 import App
+from db_test_support import delete_identities_for
 from App import User, db
 
 
@@ -24,15 +25,13 @@ def client(monkeypatch):
     monkeypatch.setenv("GOOGLE_CLIENT_ID", "test-client-id")
     with App.app.test_client() as c:
         with App.app.app_context():
-            _doomed_ids = [u.id for u in User.query.filter(User.email.like("gnotice+%")).all()]
-            App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
+            delete_identities_for(User.query.filter(User.email.like("gnotice+%")))
             User.query.filter(User.email.like("gnotice+%")).delete(
                 synchronize_session=False)
             db.session.commit()
         yield c
         with App.app.app_context():
-            _doomed_ids = [u.id for u in User.query.filter(User.email.like("gnotice+%")).all()]
-            App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
+            delete_identities_for(User.query.filter(User.email.like("gnotice+%")))
             User.query.filter(User.email.like("gnotice+%")).delete(
                 synchronize_session=False)
             db.session.commit()

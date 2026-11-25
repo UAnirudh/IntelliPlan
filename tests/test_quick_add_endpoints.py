@@ -19,6 +19,7 @@ from datetime import datetime
 import pytest
 
 import App
+from db_test_support import delete_identities_for
 import plan_insert_glue
 import quick_add_glue
 from App import ExtensionToken, ManualCourse, ManualTask, SavedSchedule, User, db
@@ -49,8 +50,7 @@ def _wipe():
     if ids:
         for model in (ManualTask, SavedSchedule, ManualCourse, ExtensionToken):
             model.query.filter(model.user_id.in_(ids)).delete(synchronize_session=False)
-    _doomed_ids = [u.id for u in User.query.filter(User.email.like("qa+%")).all()]
-    App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
+    delete_identities_for(User.query.filter(User.email.like("qa+%")))
     User.query.filter(User.email.like("qa+%")).delete(synchronize_session=False)
     db.session.commit()
 

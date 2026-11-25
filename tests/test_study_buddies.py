@@ -19,6 +19,7 @@ from datetime import date, timedelta
 import pytest
 
 import App
+from db_test_support import delete_identities_for
 from App import (ActiveSession, BuddyNudge, ImportedGrade, ManualTask, NotificationOutbox,
                  StudyBuddy, User, UserStreak, bcrypt, db)
 from intelliplan.services import buddies as rules
@@ -56,8 +57,7 @@ def _wipe():
         ).delete(synchronize_session=False)
         for model in (UserStreak, ActiveSession, ImportedGrade, ManualTask, NotificationOutbox):
             model.query.filter(model.user_id.in_(ids)).delete(synchronize_session=False)
-        _doomed_ids = [u.id for u in User.query.filter(User.id.in_(ids)).all()]
-        App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
+        delete_identities_for(User.query.filter(User.id.in_(ids)))
         User.query.filter(User.id.in_(ids)).delete(synchronize_session=False)
     db.session.commit()
 

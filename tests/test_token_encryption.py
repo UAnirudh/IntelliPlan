@@ -16,6 +16,7 @@ from cryptography.fernet import Fernet
 from sqlalchemy import text
 
 import App
+from db_test_support import delete_identities_for
 import secret_box
 from App import GoogleIntegration, LMSToken, User, db
 
@@ -57,8 +58,7 @@ def _wipe():
             GoogleIntegration.user_id.in_(ids)).delete(synchronize_session=False)
         LMSToken.query.filter(
             LMSToken.user_id.in_(ids)).delete(synchronize_session=False)
-    _doomed_ids = [u.id for u in User.query.filter(User.email.like("enc+%")).all()]
-    App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
+    delete_identities_for(User.query.filter(User.email.like("enc+%")))
     User.query.filter(User.email.like("enc+%")).delete(synchronize_session=False)
     db.session.commit()
 

@@ -6,6 +6,7 @@ from datetime import datetime
 import pytest
 
 import App
+from db_test_support import delete_identities_for
 import assignment_materials
 import chatbot_api
 from App import LinkedAccount, User, bcrypt, db
@@ -29,8 +30,7 @@ def _wipe():
     ids = [u.id for u in User.query.filter(User.email.like('tam+%')).all()]
     if ids:
         LinkedAccount.query.filter(LinkedAccount.user_id.in_(ids)).delete(synchronize_session=False)
-    _doomed_ids = [u.id for u in User.query.filter(User.email.like('tam+%')).all()]
-    App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
+    delete_identities_for(User.query.filter(User.email.like('tam+%')))
     User.query.filter(User.email.like('tam+%')).delete(synchronize_session=False)
     db.session.commit()
 

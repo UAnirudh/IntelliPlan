@@ -4,6 +4,7 @@ from types import SimpleNamespace
 import pytest
 
 import App
+from db_test_support import delete_identities_for
 import growth_glue
 from intelliplan.premium.readiness import check_launch, validate_checkout_offer
 
@@ -239,8 +240,7 @@ def checkout_harness(monkeypatch):
             sess['_fresh'] = True
         yield client, uid, token, state
         with App.app.app_context():
-            _doomed_ids = [u.id for u in App.User.query.filter_by(id=uid).all()]
-            App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
+            delete_identities_for(App.User.query.filter_by(id=uid))
             App.User.query.filter_by(id=uid).delete()
             App.db.session.commit()
     App.limiter.enabled = True

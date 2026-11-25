@@ -19,6 +19,7 @@ import json
 import pytest
 
 import App
+from db_test_support import delete_identities_for
 
 
 @pytest.fixture
@@ -99,8 +100,7 @@ def test_the_badge_has_a_display_name(client):
 def student(request):
     from App import PlaniPet, User, UserStreak, StudyPoints, db
     with App.app.app_context():
-        _doomed_ids = [u.id for u in User.query.filter(User.email.like("weekuser+%")).all()]
-        App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
+        delete_identities_for(User.query.filter(User.email.like("weekuser+%")))
         User.query.filter(User.email.like("weekuser+%")).delete(synchronize_session=False)
         db.session.commit()
         u = User(email="weekuser+a@example.com",
@@ -117,8 +117,7 @@ def student(request):
             PlaniPet.query.filter_by(user_id=uid).delete()
             StudyPoints.query.filter_by(user_id=uid).delete()
             UserStreak.query.filter_by(user_id=uid).delete()
-            _doomed_ids = [u.id for u in User.query.filter_by(id=uid).all()]
-            App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
+            delete_identities_for(User.query.filter_by(id=uid))
             User.query.filter_by(id=uid).delete()
             db.session.commit()
     request.addfinalizer(cleanup)

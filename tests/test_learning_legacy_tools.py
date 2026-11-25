@@ -9,6 +9,7 @@ from flask_login import login_user
 from sqlalchemy import update
 
 import App
+from db_test_support import delete_identities_for
 import breakdown_glue as breakdown
 import extra_features
 from intelliplan.learning import policy
@@ -39,8 +40,7 @@ def account():
             App.AssignmentStep.query.filter_by(user_id=uid).delete()
             policy.models()['Membership'].query.filter_by(user_id=uid).delete()
             policy.models()['Organization'].query.filter_by(id=oid).delete()
-            _doomed_ids = [u.id for u in App.User.query.filter_by(id=uid).all()]
-            App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
+            delete_identities_for(App.User.query.filter_by(id=uid))
             App.User.query.filter_by(id=uid).delete()
             App.db.session.commit()
         App.limiter.enabled = previous

@@ -13,6 +13,7 @@ from datetime import date, datetime, time, timedelta
 import pytest
 
 import App
+from db_test_support import delete_identities_for
 from App import FeatureFlag, ModelPrior, SavedSchedule, StudentSignal, User, db
 from intelliplan.intelligence.planner import PlannerTask, build_plan, capacities_from_minutes
 from intelliplan.services.scheduling import plan_to_schedule_data
@@ -49,8 +50,7 @@ def _clean():
     )
     FeatureFlag.query.filter_by(key="followthrough_engine").delete()
     ModelPrior.query.delete()
-    _doomed_ids = [u.id for u in User.query.filter(User.email.like("ft+%")).all()]
-    App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
+    delete_identities_for(User.query.filter(User.email.like("ft+%")))
     User.query.filter(User.email.like("ft+%")).delete(synchronize_session=False)
     db.session.commit()
 

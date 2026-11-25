@@ -7,6 +7,7 @@ import uuid
 from datetime import timedelta
 
 import App
+from db_test_support import delete_identities_for
 import notifications_glue as notifications
 from intelliplan.learning import policy
 from intelliplan.notifications.events import Channel, EventKind, NotificationEvent
@@ -30,8 +31,7 @@ def _cleanup(uid: int) -> None:
     App.SavedSchedule.query.filter_by(user_id=uid).delete(synchronize_session=False)
     App.DismissedAssignment.query.filter_by(user_id=uid).delete(synchronize_session=False)
     App.ManualTask.query.filter_by(user_id=uid).delete(synchronize_session=False)
-    _doomed_ids = [u.id for u in App.User.query.filter_by(id=uid).all()]
-    App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
+    delete_identities_for(App.User.query.filter_by(id=uid))
     App.User.query.filter_by(id=uid).delete(synchronize_session=False)
     App.db.session.commit()
 

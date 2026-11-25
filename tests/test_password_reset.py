@@ -12,6 +12,7 @@ from datetime import datetime, timedelta
 import pytest
 
 import App
+from db_test_support import delete_identities_for
 from App import PasswordResetToken, SecurityEvent, User, bcrypt, db
 
 OLD = "the-old-password"
@@ -40,8 +41,7 @@ def _wipe():
             PasswordResetToken.user_id.in_(ids)).delete(synchronize_session=False)
     SecurityEvent.query.filter(SecurityEvent.email.like("rst+%")).delete(
         synchronize_session=False)
-    _doomed_ids = [u.id for u in User.query.filter(User.email.like("rst+%")).all()]
-    App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
+    delete_identities_for(User.query.filter(User.email.like("rst+%")))
     User.query.filter(User.email.like("rst+%")).delete(synchronize_session=False)
     db.session.commit()
 

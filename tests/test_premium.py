@@ -15,6 +15,7 @@ import pytest
 
 import ai_provider
 import App
+from db_test_support import delete_identities_for
 import chatbot_api
 import premium_glue
 from App import AICreditGrant, AISpendEvent, LinkedAIAccount, User, db
@@ -255,8 +256,7 @@ def _wipe():
     if ids:
         for model in (AISpendEvent, AICreditGrant, LinkedAIAccount):
             model.query.filter(model.user_id.in_(ids)).delete(synchronize_session=False)
-        _doomed_ids = [u.id for u in User.query.filter(User.id.in_(ids)).all()]
-        App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
+        delete_identities_for(User.query.filter(User.id.in_(ids)))
         User.query.filter(User.id.in_(ids)).delete(synchronize_session=False)
     db.session.commit()
 

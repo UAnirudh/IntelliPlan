@@ -15,6 +15,7 @@ from datetime import date, timedelta
 import pytest
 
 import App
+from db_test_support import delete_identities_for
 from intelliplan.services.assignment_status import requires_student_action
 from App import CustomDescription, LinkedAccount, User, bcrypt, db, utcnow, _canvas_submission_done_or_pending_grade
 
@@ -99,8 +100,7 @@ def _wipe():
     if ids:
         CustomDescription.query.filter(CustomDescription.user_id.in_(ids)).delete(synchronize_session=False)
         LinkedAccount.query.filter(LinkedAccount.user_id.in_(ids)).delete(synchronize_session=False)
-    _doomed_ids = [u.id for u in User.query.filter(User.email.like("cog+%")).all()]
-    App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
+    delete_identities_for(User.query.filter(User.email.like("cog+%")))
     User.query.filter(User.email.like("cog+%")).delete(synchronize_session=False)
     db.session.commit()
 

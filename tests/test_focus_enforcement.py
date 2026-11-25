@@ -13,6 +13,7 @@ import uuid
 import pytest
 
 import App
+from db_test_support import delete_identities_for
 
 
 @pytest.fixture()
@@ -34,7 +35,7 @@ def user_id(tmp_path, monkeypatch):
         identity = user.id
     yield identity
     with App.app.app_context():
-        App.UserIdentity.query.filter_by(user_id=identity).delete(synchronize_session=False)
+        delete_identities_for(App.User.query.filter_by(id=identity))
         App.db.session.delete(App.db.session.get(App.User, identity))
         App.db.session.commit()
 

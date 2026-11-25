@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 import pytest
 
 import App
+from db_test_support import delete_identities_for
 from App import StudyGroup, StudyGroupMember, User, VoiceSeat, db
 from intelliplan.api import group_voice
 
@@ -33,8 +34,7 @@ def _wipe():
     StudyGroupMember.query.delete()
     StudyGroup.query.filter(StudyGroup.name.like("voicetest%")).delete(
         synchronize_session=False)
-    _doomed_ids = [u.id for u in User.query.filter(User.email.like("voice+%")).all()]
-    App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
+    delete_identities_for(User.query.filter(User.email.like("voice+%")))
     User.query.filter(User.email.like("voice+%")).delete(synchronize_session=False)
     db.session.commit()
 

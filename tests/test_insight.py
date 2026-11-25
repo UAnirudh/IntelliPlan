@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 import pytest
 
 import App
+from db_test_support import delete_identities_for
 import cookie_policy
 import insight_glue
 from App import InsightAnswer, ProductEvent, SavedSchedule, User, db
@@ -177,8 +178,7 @@ def _clean():
     ProductEvent.query.delete()
     InsightAnswer.query.delete()
     SavedSchedule.query.filter(SavedSchedule.user_id.isnot(None)).delete(synchronize_session=False)
-    _doomed_ids = [u.id for u in User.query.filter(User.email.like("insight+%")).all()]
-    App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
+    delete_identities_for(User.query.filter(User.email.like("insight+%")))
     User.query.filter(User.email.like("insight+%")).delete(synchronize_session=False)
     db.session.commit()
 

@@ -14,6 +14,7 @@ from __future__ import annotations
 import pytest
 
 import App
+from db_test_support import delete_identities_for
 import integrations_catalog as ic
 
 
@@ -196,8 +197,7 @@ def test_brightspace_is_marked_coming_soon_rather_than_offered(client):
 def student(request):
     from App import LinkedAccount, User, db
     with App.app.app_context():
-        _doomed_ids = [u.id for u in User.query.filter(User.email.like("intgtest+%")).all()]
-        App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
+        delete_identities_for(User.query.filter(User.email.like("intgtest+%")))
         User.query.filter(User.email.like("intgtest+%")).delete(synchronize_session=False)
         db.session.commit()
         u = User(email="intgtest+a@example.com", name="Integration Tester",
@@ -215,8 +215,7 @@ def student(request):
     def cleanup():
         with App.app.app_context():
             LinkedAccount.query.filter_by(user_id=uid).delete()
-            _doomed_ids = [u.id for u in User.query.filter_by(id=uid).all()]
-            App.UserIdentity.query.filter(App.UserIdentity.user_id.in_(_doomed_ids)).delete(synchronize_session=False)
+            delete_identities_for(User.query.filter_by(id=uid))
             User.query.filter_by(id=uid).delete()
             db.session.commit()
     request.addfinalizer(cleanup)
