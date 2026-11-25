@@ -2392,12 +2392,14 @@ function renderSchedule(data) {
   days.innerHTML = plannerDisplayDays(data.schedule).map(({ day }, di) => {
     const isToday = String(day.date || '').slice(0,10) === todayStr;
     const load = String(day.workload_level || '').toLowerCase().trim();
+    const capacity = schedStudyCapacity(day, todayStr);
     return `
     <section class="day-card ${isToday ? 'is-today' : ''}" style="animation-delay:${di * 0.07}s" aria-label="${escapeText(day.day_name || '')} ${escapeText(schedFmtDate(day.date))}">
       <div class="day-header">
         <div>
           <h3 class="day-name">${escapeText(day.day_name || '')}<span class="day-date">${escapeText(schedFmtDate(day.date))}</span>${isToday ? '<span class="today-label">Today</span>' : ''}</h3>
-          ${load ? `<div class="day-load" data-load="${escapeText(load)}">${escapeText(load.charAt(0).toUpperCase() + load.slice(1))} day</div>` : ''}
+          ${capacity ? `<div class="day-load">${escapeText(capacity)}</div>` : ''}
+          ${!capacity && load ? `<div class="day-load" data-load="${escapeText(load)}">${escapeText(load.charAt(0).toUpperCase() + load.slice(1))} day</div>` : ''}
         </div>
         <div class="day-hours">${escapeText(schedFmtHours(day.total_hours))} planned</div>
       </div>
@@ -2460,6 +2462,17 @@ function schedFmtHours(hours) {
   return schedFmtMinutes((Number(hours) || 0) * 60);
 }
 
+function schedStudyCapacity(day, today) {
+  const { study_minutes: planned, study_capacity_minutes: available } = day;
+  // Older plans and manually added days may have no measured study capacity.
+  if (String(day.date || '').slice(0, 10) < today ||
+      !Number.isFinite(planned) || !Number.isFinite(available) || planned < 0 || available < 0) return '';
+  const difference = available - planned;
+  if (difference < 0) return `${schedFmtMinutes(-difference)} over study capacity`;
+  if (difference === 0) return 'Study capacity filled';
+  return `${schedFmtMinutes(difference)} unallocated study time`;
+}
+
 /* ════════════════════════════════════════════════════════
    INTERACTIVE VIEW
 ═════════════════════════════════════════════════════════ */
@@ -2515,12 +2528,13 @@ function renderInteractive() {
     const doneCount = work.filter(b => stateFor(b.block_id).done).length;
     const pct = work.length ? Math.round((doneCount / work.length) * 100) : 0;
     const isToday = String(day.date || '').slice(0, 10) === todayIso;
+    const capacity = schedStudyCapacity(day, todayIso);
     return `
       <div class="iv-day-card ${isToday ? 'is-today' : ''}" data-day-index="${index}">
         <div class="iv-day-head">
           <div>
             <div class="iv-day-name">${escapeText([day.day_name, schedFmtDate(day.date)].filter(Boolean).join(', '))}${isToday ? '<span class="today-label">Today</span>' : ''}</div>
-            <p class="iv-day-progress">${doneCount} of ${work.length} blocks done</p>
+            <p class="iv-day-progress">${doneCount} of ${work.length} blocks done${capacity ? ` · ${escapeText(capacity)}` : ''}</p>
           </div>
           <div class="iv-day-meta"><svg width="14" height="14" aria-hidden="true"><use href="#i-clock"/></svg> ${escapeText(String(day.total_hours || 0))}h</div>
         </div>

@@ -20,6 +20,23 @@ test('interactive summary never calls the first upcoming day today', () => {
   assert.doesNotMatch(template, /todayDay = sched\.find\([^\n]+\) \|\| sched\[0\]/);
 });
 
+test('daily study capacity shows spare time and overload without inventing availability', () => {
+  const start = template.indexOf('function schedFmtMinutes(');
+  const end = template.indexOf('\n}', template.indexOf('function schedStudyCapacity(')) + 2;
+  assert.ok(start > 0 && end > start);
+  const context = vm.createContext({});
+  vm.runInContext(template.slice(start, end), context);
+  const today = '2026-11-25';
+  const day = { date: today, study_minutes: 30, study_capacity_minutes: 90, total_minutes: 40 };
+  const capacity = context.schedStudyCapacity;
+  assert.equal(capacity(day, today), '1h unallocated study time');
+  assert.equal(capacity({ ...day, study_minutes: 90 }, today), 'Study capacity filled');
+  assert.equal(capacity({ ...day, study_minutes: 105 }, today), '15 min over study capacity');
+  assert.equal(capacity({ ...day, study_capacity_minutes: 0 }, today), '30 min over study capacity');
+  assert.equal(capacity({ ...day, study_capacity_minutes: null }, today), '');
+  assert.equal(capacity({ ...day, date: '2026-11-24' }, today), '');
+});
+
 test('checklist drawer exposes escaped per-session planner reasons and stage labels', () => {
   assert.match(template, /id="ckReasonPanel" aria-labelledby="ckReasonTitle" hidden/);
   assert.match(template, /if \(block\.stage_title\) meta\.push\(.*Stage:/);
