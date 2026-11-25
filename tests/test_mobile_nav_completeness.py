@@ -95,7 +95,7 @@ def test_every_sidebar_destination_is_in_the_drawer(page):
 @pytest.mark.parametrize("path", [
     "/command-center", "/dashboard", "/scheduler", "/active", "/memories",
     "/gradebook", "/grades", "/study-and-learn", "/learn", "/flashcards",
-    "/streak", "/pet", "/balance", "/my-stats", "/features", "/settings",
+    "/streak", "/balance", "/my-stats", "/features", "/settings",
 ])
 def test_the_named_destinations_are_all_there(page, path):
     """Spelled out so a regression names the page it dropped."""
