@@ -46,6 +46,10 @@ def _make_user(*, completed: bool, role: str = "student", **fields) -> int:
         )
         db.session.add(user)
         db.session.commit()
+        # SQLite hands a deleted account's id to the next user, and several
+        # test modules clean up users without their identity row, so drop any
+        # orphan left on this id before adding ours.
+        db.session.query(UserIdentity).filter_by(user_id=user.id).delete()
         db.session.add(UserIdentity(user_id=user.id, completed=completed))
         db.session.commit()
         return user.id
