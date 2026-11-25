@@ -46,3 +46,6 @@ output/playwright/
 release-artifacts/
 .venv/
 .verification-tests/
+
+# Local signing material and private notes; must never be committed.
+private/
