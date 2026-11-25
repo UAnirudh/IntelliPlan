@@ -13,6 +13,7 @@ the Command Center shows an account with nothing in it.
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from unittest.mock import patch
 
@@ -183,7 +184,8 @@ def _command_center(client, **user_fields) -> str:
 def test_an_account_with_no_work_is_offered_a_way_to_bring_some_in(client):
     html = _command_center(client)
 
-    assert "Connect your school" in html
+    assert re.search(r'<a[^>]+href="/connect"[^>]*>(?:(?!</a>).)*?connect', html,
+                     re.I | re.S), "no connect-a-school CTA on an empty account"
     assert "What should I focus on today?" not in html
 
 

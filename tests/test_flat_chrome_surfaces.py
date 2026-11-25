@@ -27,15 +27,8 @@ def test_global_reward_navigation_uses_plain_metadata():
     assert 'class="side-link-meta"' in source
     assert 'class="nav-link-meta"' in source
 
-    for selector in (
-        ".pet-xp-toast",
-        ".pet-evolve-flash",
-    ):
-        rule = _rule(source, selector)
-        assert "gradient(" not in rule, selector
-
-    assert "background: var(--ink);" in _rule(source, ".pet-xp-toast")
-    assert "color: var(--on-ink);" in _rule(source, ".pet-xp-toast")
+    # The Pet toast styles were removed from base.html when Pet was retired
+    # (5d20385); there is no reward surface left here to keep flat.
 
 
 def test_primer_and_secondary_surfaces_keep_flat_semantic_tints():

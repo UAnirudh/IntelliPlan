@@ -6,6 +6,7 @@ it can touch before it starts.
 
 from __future__ import annotations
 
+import re
 import uuid
 from datetime import date, datetime, timedelta
 
@@ -416,9 +417,24 @@ def test_portal_requires_login(client, stripe_stub):
     assert client.post("/api/billing/portal").status_code == 401
 
 
+def _says_the_planner_is_free(page: bytes) -> bool:
+    """Whether any sentence on the page calls the product free.
+
+    The copy changes with each marketing pass, so assert the claim rather than
+    a phrase: a sentence that mentions free and names the product or students.
+    """
+    for sentence in re.split(r"(?<=[.!?])\s+", page.decode("utf-8", "ignore")):
+        low = sentence.lower()
+        if "free" in low and ("intelliplan" in low or "planner" in low or "student" in low):
+            return True
+    return False
+
+
 def test_public_pages_only_mention_pro_once_billing_is_on(client, monkeypatch):
     for path in ("/pricing", "/faq", "/legal"):
-        assert b"completely free" in client.get(path).data or b"Free forever" in client.get(path).data
+        assert _says_the_planner_is_free(client.get(path).data), (
+            f"{path} no longer says the planner is free"
+        )
     assert b"$48" not in client.get("/pricing").data
     monkeypatch.setenv("BILLING_ENABLED", "1")
     pricing = client.get("/pricing").data
