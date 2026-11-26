@@ -50,7 +50,7 @@
 
   {% if plan == 'paid' %}
     <h1 class="upg-title">You're on IntelliPlan Pro.</h1>
-    <p class="upg-lede">Your plan includes AI tutoring, schedules and study sets with no monthly IntelliPlan cap{% if paid_until %}, through {{ paid_until.strftime('%B %d, %Y') }}{% endif %}.</p>
+    <p class="upg-lede">Your plan includes AI tutoring, schedules and study sets with no monthly IntelliPlan cap; shared provider limits still apply{% if paid_until %}, through {{ paid_until.strftime('%B %d, %Y') }}{% endif %}.</p>
     <p><a class="btn-secondary" href="/my-stats/weekly-review">Open your 12-week study review</a></p>
     {% if can_manage_billing %}
     <div class="upg-manage">
@@ -98,7 +98,7 @@
         <li>Compare 12 weeks of study time, sessions and task check-ins</li>
         <li>Compare task estimates with the time you actually spent</li>
         <li>Download your weekly review as a spreadsheet (CSV)</li>
-        <li>No monthly IntelliPlan cap on Plani tutor and AI study sets</li>
+        <li>No monthly IntelliPlan cap on Plani tutor and AI study sets; shared provider limits still apply</li>
         {% if pro_model_ready %}<li>Claude first in the model chain, for harder questions</li>{% endif %}
         <li>Cancel any time; you keep the free plan</li>
       </ul>
@@ -133,14 +133,25 @@
     </aside>
   </div>
 
-  {% if premium_offers %}
-  <section class="upg-offer" style="margin-top: var(--space-6);" aria-labelledby="upg-premium">
-    <p class="u-label" id="upg-premium">IntelliPlan Premium</p>
-    <h2 style="font-family: var(--font-display); font-weight: 600; margin: 0.2rem 0 0.4rem;">Claude as your tutor, from ${{ '%.0f'|format(premium_offers[-1].price['month']) }} a month.</h2>
-    <p class="upg-note">Plani picks the right Claude model for each question and asks a clarifying question when yours is vague. Premium includes ${{ '%.0f'|format(premium_offers[0].ai_budget_usd) }} of AI a month; link your own AI account for the lower price.</p>
-    <a class="btn-secondary" href="/settings/ai">See Premium</a>
+  {% if gift_link %}
+  <section class="upg-offer" aria-labelledby="upgGiftTitle">
+    <h2 id="upgGiftTitle">Give someone a link to gift you Pro</h2>
+    <p>An adult can pay for 1 to 12 months at a time. Gifts are one-time payments.</p>
+    <div class="upg-copy">
+      <input id="upgGiftLink" readonly value="{{ gift_link }}" aria-label="Your Pro gift link">
+      <button type="button" data-copy="upgGiftLink">Copy</button>
+    </div>
   </section>
   {% endif %}
+
+  {% for ultimate in premium_offers if not ultimate.byok and 'month' in ultimate.intervals %}
+  <section class="upg-offer" style="margin-top: var(--space-6);" aria-labelledby="upg-premium">
+    <p class="u-label" id="upg-premium">IntelliPlan Ultimate</p>
+    <h2 style="font-family: var(--font-display); font-weight: 600; margin: 0.2rem 0 0.4rem;">Advanced-model tutoring for ${{ '%.0f'|format(ultimate.price['month']) }} a month.</h2>
+    <p class="upg-note">Ultimate includes a dedicated ${{ '%.0f'|format(ultimate.ai_budget_usd) }} monthly advanced-model allowance with a usage meter. Pro has no monthly IntelliPlan cap on tutor and study sets; shared provider limits still apply.</p>
+    <a class="btn-secondary" href="/settings/ai">See Ultimate</a>
+  </section>
+  {% endfor %}
 </div>
 
 <script>

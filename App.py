@@ -2235,6 +2235,15 @@ class ProductEvent(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
 
 
+class ProGift(db.Model):
+    __tablename__ = "pro_gifts"
+    payment_ref = db.Column(db.String(64), primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    starts_at = db.Column(db.DateTime)
+    ends_at = db.Column(db.DateTime)
+    revoked = db.Column(db.Boolean, nullable=False, default=False)
+
+
 class BillingLifecycleEvent(db.Model):
     """Minimal daily Stripe entitlement-transition ledger for founder trends.
 
@@ -10593,6 +10602,7 @@ def _account_delete_impl():
         # SQLite installations without FK enforcement. A later reused user ID
         # must never inherit an orphaned administrator grant.
         ("account_admin_grants (recipient)", "DELETE FROM account_admin_grants WHERE user_id = :uid"),
+        ("pro_gifts", "DELETE FROM pro_gifts WHERE user_id = :uid"),
         # Preserve other accounts' grants and administrative events, clearing
         # each deleted identity reference independently in this transaction.
         ("account_admin_grants (issuer)", "UPDATE account_admin_grants SET granted_by_id = NULL WHERE granted_by_id = :uid"),

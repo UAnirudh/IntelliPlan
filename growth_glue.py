@@ -43,6 +43,7 @@ growth_bp = Blueprint("growth", __name__)
 #: How long a parent-pays link stays valid.
 PAY_LINK_MAX_AGE = 14 * 24 * 3600
 PAY_LINK_SALT = "growth-pay-link"
+GIFT_LINK_SALT = "pro-gift-link"
 #: A referred account counts as activated if it did one of these within
 #: this many days of signing up -- the definition the ambassador page
 #: already published.
@@ -306,7 +307,18 @@ def current_plan(user: Any = None, now: datetime | None = None) -> str:
             return plans.PAID
     except Exception as exc:
         logger.warning("school entitlement lookup failed closed: %s", exc)
-    return plans.plan_for(getattr(user, "paid_until", None), now or utcnow())
+    now = now or utcnow()
+    personal_plan = plans.plan_for(getattr(user, "paid_until", None), now)
+    return plans.PAID if personal_plan == plans.PAID or active_pro_gift_end(user.id, now) else plans.FREE
+
+
+def active_pro_gift_end(user_id: int, now: datetime) -> datetime | None:
+    from App import ProGift, db
+
+    return db.session.query(db.func.max(ProGift.ends_at)).filter(
+        ProGift.user_id == user_id, ProGift.revoked.is_(False),
+        ProGift.starts_at <= now, ProGift.ends_at > now,
+    ).scalar()
 
 
 def configured_trial_days() -> int:
@@ -628,23 +640,23 @@ def streak_email_off(token):
 # ── Checkout ────────────────────────────────────────────────────────────
 
 
-def _pay_serializer():
+def _pay_serializer(salt=PAY_LINK_SALT):
     from itsdangerous import URLSafeTimedSerializer
 
     from App import app
 
-    return URLSafeTimedSerializer(app.config["SECRET_KEY"], salt=PAY_LINK_SALT)
+    return URLSafeTimedSerializer(app.config["SECRET_KEY"], salt=salt)
 
 
 def make_pay_token(user_id: int) -> str:
     return _pay_serializer().dumps({"uid": int(user_id)})
 
 
-def read_pay_token(token: str) -> int | None:
+def read_pay_token(token: str, *, salt=PAY_LINK_SALT) -> int | None:
     from itsdangerous import BadSignature, SignatureExpired
 
     try:
-        payload = _pay_serializer().loads(token, max_age=PAY_LINK_MAX_AGE)
+        payload = _pay_serializer(salt).loads(token, max_age=PAY_LINK_MAX_AGE)
     except (BadSignature, SignatureExpired, Exception):
         return None
     try:
@@ -779,6 +791,9 @@ def upgrade_page():
     now = utcnow()
     plan = current_plan(now=now)
     offers = _offers()
+    individual_end = getattr(current_user, "paid_until", None)
+    access_end = max((value for value in (individual_end, active_pro_gift_end(current_user.id, now))
+                      if value and value > now), default=None)
     return render_template(
         "upgrade.html",
         active_page="pricing",
@@ -786,13 +801,15 @@ def upgrade_page():
         checkout_ready=bool(offers),
         offers=offers,
         premium_offers=_premium_offers(),
+        gift_link=(f"{_base_url()}/gift/{_pay_serializer(GIFT_LINK_SALT).dumps({'uid': current_user.id})}"
+                   if _gift_checkout_available() else None),
         yearly_saving=plans.yearly_saving_percent(),
         # Only promise the stronger model where it is actually wired up.
         pro_model_ready=_pro_model_ready(),
         can_manage_billing=billing_enabled() and bool(getattr(current_user, "stripe_customer_id", None)),
         plan=plan,
         allowance=plans.allowance_state(usage_for(current_user.id, now), plan),
-        paid_until=getattr(current_user, "paid_until", None),
+        paid_until=access_end,
         is_minor=_is_minor(current_user, now),
         referral_code=referral_code_for(current_user),
         reward_days=plans.REFERRAL_REWARD_DAYS,
@@ -836,6 +853,57 @@ def api_pay_link():
     if not billing_enabled():
         return jsonify({"status": "error", "message": "Checkout is not open yet."}), 503
     return jsonify({"status": "ok", "url": f"{_base_url()}/pay/{make_pay_token(current_user.id)}"})
+
+
+@growth_bp.route("/gift/<token>", methods=["GET", "POST"])
+def gift_pro(token):
+    from App import User, limiter
+    from intelliplan.growth.gifts import MAX_MONTHS, gift_months
+    from intelliplan.premium.readiness import validate_checkout_offer
+
+    price = os.getenv("STRIPE_PRICE_ID_PRO_GIFT", "").strip()
+    stripe = _stripe_module() if _gift_checkout_available() else None
+    uid = read_pay_token(token, salt=GIFT_LINK_SALT) if stripe else None
+    student = User.query.get(uid) if uid else None
+    private_headers = {"Cache-Control": "no-store", "Referrer-Policy": "no-referrer",
+                       "X-Robots-Tag": "noindex, nofollow"}
+    if student is None:
+        return render_template("gift_pro.html", unavailable=True), 404, private_headers
+
+    def page(error=None, status=200):
+        response = render_template("gift_pro.html", months=range(1, MAX_MONTHS + 1),
+                                   monthly_price=plans.PRO_PRICES_USD[plans.MONTHLY], error=error)
+        return response, status, private_headers
+    if request.method == "GET":
+        return page()
+    with limiter.limit("10 per minute"):
+        months = gift_months(request.form.get("months"))
+        if not months or request.form.get("adult_payer") != "yes":
+            return page("Choose a gift duration and confirm you’re an adult payer.", 400)
+        if current_user.is_authenticated and _is_minor(current_user, utcnow()):
+            return page("An adult can open this gift link and pay.", 403)
+        if not validate_checkout_offer(os.environ, stripe.Price.retrieve, plan="pro_gift", interval=None):
+            return page("Gift checkout is currently unavailable.", 503)
+        metadata = {"kind": "pro_gift", "user_id": str(student.id), "months": str(months)}
+        try:
+            checkout = stripe.checkout.Session.create(
+                mode="payment", line_items=[{"price": price, "quantity": months}], metadata=metadata,
+                payment_intent_data={"metadata": metadata}, payment_method_types=["card"],
+                success_url=f"{_base_url()}/pricing?gift=submitted",
+                cancel_url=f"{_base_url()}/pricing",
+            )
+        except Exception:
+            logger.warning("Could not create a Pro gift checkout")
+            return page("Gift checkout is currently unavailable.", 503)
+        response = redirect(checkout.url, code=303)
+        response.headers.update(private_headers)
+        return response
+
+
+def _gift_checkout_available():
+    return billing_enabled() and all(os.getenv(key, "").strip() for key in (
+        "STRIPE_PRICE_ID_PRO_GIFT", "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET",
+    ))
 
 
 @growth_bp.route("/pay/<token>", methods=["GET", "POST"])
@@ -914,6 +982,16 @@ def stripe_webhook():
     except Exception:
         return jsonify({"status": "error", "message": "bad signature"}), 400
     try:
+        if event["type"] in {"charge.dispute.created", "charge.dispute.funds_withdrawn"} and os.getenv("STRIPE_PRICE_ID_PRO_GIFT"):
+            if not isinstance(event, dict):
+                event = event.to_dict()
+            obj = event["data"]["object"]
+            payment = obj.get("payment_intent")
+            if isinstance(payment, str) and not (obj.get("metadata") or {}).get("kind"):
+                intent = stripe.PaymentIntent.retrieve(payment)
+                metadata = intent.get("metadata") or {}
+                if metadata.get("kind") == "pro_gift":
+                    event = {**event, "data": {"object": {**obj, "metadata": dict(metadata)}}}
         apply_billing_event(event)
     except Exception as exc:
         logger.exception("stripe webhook handling failed: %s", exc)
@@ -938,6 +1016,10 @@ def apply_billing_event(event: Any, now: datetime | None = None) -> bool:
     now = now or utcnow()
     kind = event["type"]
     obj = event["data"]["object"]
+    if (obj.get("metadata") or {}).get("kind") == "pro_gift":
+        from intelliplan.growth.gifts import apply_gift_event
+
+        return apply_gift_event(kind, obj, now)
     if kind in {
         "checkout.session.completed",
         "checkout.session.async_payment_succeeded",
@@ -1064,6 +1146,7 @@ def apply_billing_event(event: Any, now: datetime | None = None) -> bool:
 def install(app: Any) -> None:
     """Register the blueprint and the per-request hooks."""
     import ai_provider
+    from intelliplan.premium.catalog import premium
 
     app.register_blueprint(growth_bp)
     # Public pages word themselves differently once Pro is on sale.
@@ -1072,6 +1155,9 @@ def install(app: Any) -> None:
         "pro_prices": plans.PRO_PRICES_USD,
         "pro_yearly_saving": plans.yearly_saving_percent(),
         "free_ai_allowance": plans.free_monthly_allowance(),
+        "ultimate_monthly_price": f"{premium().price_usd['month']:g}",
+        "ultimate_checkout_available": billing_enabled() and bool(os.getenv("STRIPE_SECRET_KEY", "").strip())
+        and bool(_price_id("month", "premium")),
     })
     ai_provider.set_account_hooks(plan_resolver=_plan_resolver, usage_gate=_usage_gate)
     app.before_request(remember_referral_from_query)

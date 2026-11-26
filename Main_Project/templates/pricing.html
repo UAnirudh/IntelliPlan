@@ -332,6 +332,9 @@
   }
 </style>
 <div class="pricing-page">
+  {% if billing_enabled and request.args.get('gift') == 'submitted' %}
+  <p role="status">IntelliPlan adds gift time after Stripe confirms payment.</p>
+  {% endif %}
   <p class="page-kicker ipd-anim">Pricing</p>
   <h1 class="pricing-title ipd-anim" style="animation-delay:0.05s">A free planner for your school week.</h1>
   <p class="pricing-subtitle ipd-anim" style="animation-delay:0.1s">
@@ -381,6 +384,15 @@
       {% endif %}
     </div>
   </div>
+  <section class="pricing-rationale pricing-rationale--wide" aria-labelledby="pricing-ultimate">
+    <h2 id="pricing-ultimate">Ultimate · ${{ ultimate_monthly_price }}/month</h2>
+    <p>Everything in Pro, plus a dedicated monthly allowance for advanced AI models, controls for quick or deeper answers, and a live usage meter.</p>
+    {% if ultimate_checkout_available %}<a href="/settings/ai">See Ultimate</a>{% else %}<p>Ultimate checkout is currently closed.</p>{% endif %}
+  </section>
+  <section class="pricing-rationale pricing-rationale--wide" aria-labelledby="pricing-gift">
+    <h2 id="pricing-gift">Gift Pro</h2>
+    <p>Give 1 to 12 months of Pro through a link the recipient shares. Each month adds 30 days, with one payment and no renewal. Gift links appear under <a href="/upgrade">Your plan</a> when gift checkout is available.</p>
+  </section>
   <div class="pricing-rationale--wide">
 
     {# Not a second plan. This column answers the question a $0 price

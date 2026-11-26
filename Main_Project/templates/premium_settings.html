@@ -58,11 +58,11 @@
 
 {% set premium = state.tier in ('premium', 'premium_byok') %}
 <div class="pai">
-  <p class="u-label">AI &amp; Premium</p>
+  <p class="u-label">AI &amp; Ultimate</p>
   {% if paid %}<div class="pai-flash" role="status">Payment received. It can take a minute to show here.</div>{% endif %}
 
   {% if premium %}
-    <h1 class="pai-title">Your AI budget</h1>
+    <h1 class="pai-title">Your advanced-model allowance</h1>
     <p class="pai-lede">Plani picks the right Claude model for each question and charges what it actually costs. When the budget runs out, Plani keeps answering with the free model until the 1st.</p>
     <div class="pai-meter">
       <strong>${{ '%.2f'|format(state.remaining_usd) }}</strong>
@@ -80,7 +80,7 @@
     {% endif %}
   {% else %}
     <h1 class="pai-title">Claude as your tutor</h1>
-    <p class="pai-lede">Premium puts Claude behind Plani. A fast model reads each question first, asks what it needs to know if your question is vague, and sends it to the Claude model that fits: quick facts to a fast model, proofs and essays to the strongest one.</p>
+    <p class="pai-lede">Ultimate puts Claude behind Plani. A fast model reads each question first, asks what it needs to know if your question is vague, and sends it to the Claude model that fits: quick facts to a fast model, proofs and essays to the strongest one.</p>
   {% endif %}
 
   {% if premium or accounts %}
@@ -152,13 +152,14 @@
 
   {% if billing_enabled and not premium %}
   <section class="pai-section" aria-labelledby="paiPlansH">
-    <h2 id="paiPlansH">Premium plans</h2>
+    <h2 id="paiPlansH">Ultimate plans</h2>
+    <p>Pro has no monthly IntelliPlan cap on tutor and study sets. Ultimate adds a dedicated advanced-model allowance; shared provider limits still apply.</p>
     <div class="pai-plans">
       {% for p in plans %}
       <div class="pai-plan">
         <h3>{{ p.name }}</h3>
         <p class="pai-price">${{ '%.0f'|format(p.price_usd['month']) }}<small> / month</small></p>
-        <p class="pai-note">{% if p.byok %}Includes ${{ '%.0f'|format(p.ai_budget_usd) }} of backup AI. Answers run on your linked account.{% else %}Includes ${{ '%.0f'|format(p.ai_budget_usd) }} of AI each month.{% endif %}</p>
+        <p class="pai-note">{% if p.byok %}Includes ${{ '%.0f'|format(p.ai_budget_usd) }} of backup AI. Answers run on your linked account.{% else %}Includes a dedicated ${{ '%.0f'|format(p.ai_budget_usd) }} advanced-model allowance each month.{% endif %}</p>
         <ul>{% for f in p.features %}<li>{{ f }}</li>{% endfor %}</ul>
         <button type="button" class="pai-btn primary" data-checkout="{{ p.id }}">Choose {{ p.name }}</button>
       </div>
