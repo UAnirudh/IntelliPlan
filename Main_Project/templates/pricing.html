@@ -332,9 +332,8 @@
   }
 </style>
 <div class="pricing-page">
-  <p class="page-kicker ipd-anim">{% if billing_enabled %}Pricing{% else %}Free plan{% endif %}</p>
+  <p class="page-kicker ipd-anim">Pricing</p>
   <h1 class="pricing-title ipd-anim" style="animation-delay:0.05s">A free planner for your school week.</h1>
-  <p><a href="/pricing/study-review">Preview the Pro study review</a></p>
   <p class="pricing-subtitle ipd-anim" style="animation-delay:0.1s">
     {% if billing_enabled %}Connect your school tools, auto-prioritize every assignment and build a study schedule without paying anything. The free plan includes {{ free_ai_allowance }} AI generations a month. Pro adds a 12-week study review and AI generations without IntelliPlan's monthly cap.{% else %}IntelliPlan is free for students. Connect your school tools, auto-prioritize every assignment, and build a study schedule with AI today. Core study and planning tools are included.{% endif %}
   </p>
@@ -342,11 +341,10 @@
   <div class="pricing-cards">
     <div class="pricing-card ipd-anim" style="animation-delay:0.15s">
       <div class="pricing-card-header">
-        <h2 class="pricing-plan-name">{% if billing_enabled %}Free{% else %}Always free{% endif %}</h2>
-        <span class="pricing-badge">Student-first</span>
+        <h2 class="pricing-plan-name">Free</h2>
       </div>
       <div class="pricing-price">$0<span class="pricing-month-tag">/forever</span></div>
-      <p class="pricing-price-note">{% if billing_enabled %}No card. No time limit.{% else %}No barriers. No time limit.{% endif %}</p>
+      <p class="pricing-price-note">No card required.</p>
       <ul class="pricing-features">
         <li>Canvas / StudentVue / Schoology auto-import</li>
         <li>AI-generated study schedules + Google Calendar &amp; Notion export</li>
@@ -364,42 +362,36 @@
       <a href="/login" class="btn-primary pricing-cta u-sheen">Build my week, free</a>
     </div>
 
-    {% if billing_enabled %}
     <div class="pricing-card pricing-card--pro ipd-anim" style="animation-delay:0.2s">
       <div class="pricing-card-header">
         <h2 class="pricing-plan-name">Pro</h2>
-        <span class="pricing-badge">Optional</span>
+        {% if not billing_enabled %}<span class="pricing-badge">Preview</span>{% endif %}
       </div>
       <div class="pricing-price">${{ pro_prices['month'] }}<span class="pricing-month-tag">/month</span></div>
-      <p class="pricing-price-note">or ${{ pro_prices['year'] }} a year, {{ pro_yearly_saving }}% less.</p>
+      <p class="pricing-price-note">{% if billing_enabled %}or ${{ pro_prices['year'] }} a year, {{ pro_yearly_saving }}% less.{% else %}Checkout is currently closed.{% endif %}</p>
       <ul class="pricing-features">
         <li><strong>Everything in Free</strong></li>
         <li><span><strong>A 12-week study review</strong> to compare study time, sessions and task check-ins</span></li>
         <li>See how much time tasks usually take compared with your estimates</li>
         <li>Download your weekly review as a spreadsheet (CSV)</li>
         <li>No monthly IntelliPlan cap on AI generations for tutoring, schedules and study sets</li>
-        <li>A parent can pay through a link, no account needed</li>
-        <li>Invite a friend and you both get 30 days of Pro</li>
-        <li>Cancel any time and keep the free plan</li>
       </ul>
+      {% if billing_enabled %}
       <a href="/upgrade" class="btn-secondary pricing-cta">See Pro</a>
+      <p><a href="/pricing/study-review">Preview the study review</a></p>
+      {% else %}
+      <a href="/pricing/study-review" class="btn-secondary pricing-cta">Try the study review</a>
+      {% endif %}
     </div>
   </div>
   <div class="pricing-rationale--wide">
-    {% endif %}
 
     {# Not a second plan. This column answers the question a $0 price
        raises — "what is the catch" — which is the objection that has to
        clear before the one CTA on the page can work. #}
     <section class="pricing-rationale ipd-anim" style="animation-delay:0.2s" aria-labelledby="pricing-why">
-      <p class="u-label">What a free plan usually means</p>
-      <h2 id="pricing-why">And what it does not mean here.</h2>
+      <h2 id="pricing-why">Using IntelliPlan</h2>
       <ul class="pricing-rationale-list">
-        {% if billing_enabled %}
-        <li><strong>The planner is never the upsell.</strong> Imports, scheduling, grade modeling and reminders are free. <a href="/upgrade">Pro</a> (${{ pro_prices['month'] }} a month or ${{ pro_prices['year'] }} a year) adds a 12-week study review, spreadsheet exports and AI generations without a monthly IntelliPlan cap.</li>
-        {% else %}
-        <li><strong>Nothing is held back for a paid tier.</strong> There is no paid tier. AI scheduling, grade modeling and the tutor are the product, not the upsell.</li>
-        {% endif %}
         <li><strong>No trial clock.</strong> Accounts do not expire and features do not switch off after two weeks.</li>
         <li><strong>Your school data stays yours.</strong> IntelliPlan reads only what you authorize through official OAuth or a scoped login, and you can wipe it from Settings.</li>
         <li><strong>Signing up takes a minute.</strong> Email and a password, or one tap with Google, then straight into the planner. No card, no sales call.</li>
@@ -423,7 +415,7 @@
 
     <details class="pricing-faq-item">
       <summary>Is IntelliPlan really free forever?</summary>
-      <p>{% if billing_enabled %}The planner is, yes. Connecting Canvas, StudentVue or Schoology, building study schedules, modeling grades and getting reminders cost nothing and have no time limit. Pro adds longer activity history, spreadsheet exports and AI generations without a monthly IntelliPlan cap.{% else %}Yes. IntelliPlan is free forever with no sign-up barriers. You can connect Canvas, StudentVue, or Schoology, build AI study schedules, model your grades, and use the built-in study tools without any feature gates.{% endif %}</p>
+      <p>Yes. School connections, scheduling, grade modeling, reminders and the 30-day activity dashboard are included in Free. Pro adds the 12-week review, spreadsheet exports and AI generations without a monthly IntelliPlan cap.</p>
     </details>
 
     <details class="pricing-faq-item">

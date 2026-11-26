@@ -505,13 +505,17 @@ def test_portal_requires_login(client, stripe_stub):
 def test_public_pages_only_advertise_pro_checkout_once_billing_is_on(client, monkeypatch):
     pricing = client.get("/pricing").data
     assert b"A free planner for your school week." in pricing
-    assert b"$48" not in pricing and b"A 12-week study review" not in pricing
+    assert b"$48" not in pricing and b'A 12-week study review' in pricing
+    assert b'Checkout is currently closed.' in pricing
+    assert b'href="/pricing/study-review"' in pricing
+    assert b'href="/upgrade" class="btn-secondary pricing-cta"' not in pricing
     assert b"free plan" in client.get("/faq").data
     assert b'id="t-pro"' not in client.get("/legal").data
     monkeypatch.setenv("BILLING_ENABLED", "1")
     pricing = client.get("/pricing").data
     assert b"$5" in pricing and b"$48" in pricing and b"No tiers" not in pricing
     assert b"A 12-week study review" in pricing
+    assert b'href="/upgrade" class="btn-secondary pricing-cta"' in pricing
     assert b"no extra tiers" not in client.get("/faq").data
     assert b"There are no extra tiers" not in client.get("/legal").data
 
