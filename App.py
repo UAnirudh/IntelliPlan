@@ -15369,10 +15369,7 @@ def admin_bug_reports():
 def my_stats_page():
     if not current_user.is_authenticated:
         return flask.redirect("/login")
-    from growth_glue import current_plan
-
-    return flask.render_template("my_stats.html", active_page="my_stats", logged_in=True,
-                                 weekly_review_available=current_plan() == "paid")
+    return flask.render_template("my_stats.html", active_page="my_stats", logged_in=True)
 
 
 @app.route("/pricing/study-review")
@@ -15395,6 +15392,7 @@ def weekly_study_review_example():
 
 
 @app.route("/my-stats/weekly-review")
+@limiter.limit("30 per minute")
 def weekly_study_review():
     """A private, local-week view over the existing study and task logs."""
     from csv import writer
@@ -15408,7 +15406,9 @@ def weekly_study_review():
 
     if not current_user.is_authenticated:
         return redirect("/login?next=/my-stats/weekly-review")
-    if current_plan() != "paid":
+    has_pro_review = current_plan() == "paid"
+    wants_csv = request.args.get("format") == "csv"
+    if wants_csv and not has_pro_review:
         return redirect("/upgrade")
 
     uid = current_user.id
@@ -15416,6 +15416,14 @@ def weekly_study_review():
     zone, offset = timezone_for(uid)
     today = to_local(now, zone, offset).date()
     monday = today - timedelta(days=today.weekday())
+    next_monday = monday + timedelta(weeks=1)
+    if not has_pro_review:
+        workload = None
+        if policy.decision(current_user, "scheduler")[0]:
+            workload = next_week_workload(_scheduler_assignments_for_user(uid, use_cache=True), (), next_monday)
+        return _no_store(flask.make_response(render_template(
+            "weekly_study_review.html", workload=workload, basic=True,
+        )))
     first_week = monday - timedelta(weeks=11)
     comparison_start = monday - timedelta(weeks=4)
     since = to_utc(datetime.combine(first_week, datetime.min.time()), zone, offset)
@@ -15456,7 +15464,7 @@ def weekly_study_review():
 
     rows = [(start.isoformat(), tasks, sessions, seconds // 60)
             for start, (tasks, sessions, seconds) in reversed(weeks.items())]
-    if request.args.get("format") == "csv":
+    if wants_csv:
         content = StringIO()
         csv = writer(content)
         csv.writerow(("Week starting", "Task check-ins", "Study sessions", "Study minutes"))
@@ -15473,7 +15481,7 @@ def weekly_study_review():
     workload = None
     if policy.decision(current_user, "scheduler")[0]:
         workload = next_week_workload(
-            _scheduler_assignments_for_user(uid, use_cache=True), estimate_pairs, monday + timedelta(weeks=1),
+            _scheduler_assignments_for_user(uid, use_cache=True), estimate_pairs, next_monday,
         )
     return _no_store(flask.make_response(_render_weekly_study_review(
         rows, estimate_summary=estimate_summary, workload=workload,

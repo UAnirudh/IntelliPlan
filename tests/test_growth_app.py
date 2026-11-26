@@ -103,6 +103,10 @@ def test_study_review_csv_groups_local_weeks_and_requires_paid_access(client, mo
         assert client.get(url + "?format=csv").location.endswith("/upgrade")
         assert client.get("/api/my-stats").status_code == 200
         assert client.get("/api/scheduler/assignments").status_code == 200
+        free_review = client.get(url).get_data(as_text=True)
+        assert "<strong>40 minutes</strong> for 1 assignment" in free_review
+        assert "Study history" not in free_review
+        assert "Download spreadsheet" not in free_review
         preview = client.get("/pricing/study-review").get_data(as_text=True)
         assert "This preview uses sample data" in preview
         assert "136 study minutes" in preview
@@ -118,6 +122,8 @@ def test_study_review_csv_groups_local_weeks_and_requires_paid_access(client, mo
         assert "<strong>45 minutes</strong>" in review
         assert "try budgeting <strong>45 minutes</strong>" in review
         assert "Upcoming practice" in review and "<strong>60 minutes</strong> for 1 assignment" in review
+        assert "<strong>20 minutes more</strong>" in review
+        assert "Originally 40" in review
         assert "3 check-ins with both times" in review
         downloaded = client.get(url + "?format=csv")
         assert "no-store" in downloaded.headers["Cache-Control"]

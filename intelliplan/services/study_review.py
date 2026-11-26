@@ -44,6 +44,7 @@ def next_week_workload(assignments, check_ins, start: date):
         minutes = estimate if ratio is None else max(5, min(1440, round(estimate * ratio / 5) * 5))
         rows.append({
             "title": title, "course": course, "due": due.isoformat(), "minutes": minutes,
+            "original_minutes": estimate,
             "basis": ("Course check-ins" if course_ratio is not None else
                       "Recent check-ins" if baseline is not None else "Assignment estimate"),
         })
@@ -51,4 +52,5 @@ def next_week_workload(assignments, check_ins, start: date):
     return {
         "start": start.isoformat(), "end": (end - timedelta(days=1)).isoformat(),
         "rows": rows, "minutes": sum(row["minutes"] for row in rows),
+        "adjustment": sum(row["minutes"] - row["original_minutes"] for row in rows),
     }
