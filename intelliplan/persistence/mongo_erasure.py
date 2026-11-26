@@ -96,6 +96,7 @@ DIRECT_USER_COLLECTIONS = (
     'ai_usage',
     'ai_spend_events',
     'ai_credit_grants',
+    'pro_gifts',
     'linked_ai_accounts',
     'product_events',
     'insight_answers',
