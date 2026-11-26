@@ -419,6 +419,8 @@ def test_checkout_defaults_to_the_monthly_price(client, stripe_stub):
 
 
 def test_pro_gift_checkout_uses_recipient_link_and_one_time_price(client, stripe_stub, monkeypatch):
+    import re
+
     monkeypatch.setenv("STRIPE_PRICE_ID_PRO_GIFT", "price_gift")
     monkeypatch.setenv("STRIPE_WEBHOOK_SECRET", "whsec_synthetic_gift")
     stripe_stub.prices["price_gift"] = {
@@ -426,17 +428,27 @@ def test_pro_gift_checkout_uses_recipient_link_and_one_time_price(client, stripe
     }
     with App.app.app_context():
         uid = make_user()
+        other_uid = make_user()
         original = growth_glue.make_pay_token(uid)
         token = growth_glue._pay_serializer(growth_glue.GIFT_LINK_SALT).dumps({"uid": uid})
+        other_token = growth_glue._pay_serializer(growth_glue.GIFT_LINK_SALT).dumps({"uid": other_uid})
     url = f"/gift/{token}"
     assert client.get(f"/gift/{original}").status_code == 404
-    assert "no-store" in client.get(url).headers["Cache-Control"]
+    form = client.get(url)
+    assert "no-store" in form.headers["Cache-Control"]
+    attempt = re.search(r'name="attempt" value="([^"]+)"', form.get_data(as_text=True))[1]
     assert client.post(url, data={"months": "13", "adult_payer": "yes"}).status_code == 400
     assert client.post(url, data={"months": "3"}).status_code == 400
-    response = client.post(url, data={"months": "3", "adult_payer": "yes", "user_id": 999})
+    payload = {"months": "3", "adult_payer": "yes", "user_id": 999, "attempt": attempt}
+    assert client.post(f"/gift/{other_token}", data=payload).status_code == 400
+    assert not stripe_stub.checkouts
+    response = client.post(url, data=payload)
     assert response.status_code == 303
     assert response.headers["Referrer-Policy"] == "no-referrer"
-    checkout, = stripe_stub.checkouts
+    assert client.post(url, data=payload).status_code == 303
+    checkout, retry = stripe_stub.checkouts
+    assert checkout["idempotency_key"].startswith("pro-gift-")
+    assert retry == checkout
     assert checkout["mode"] == "payment"
     assert token not in checkout["success_url"] and token not in checkout["cancel_url"]
     assert checkout["line_items"] == [{"price": "price_gift", "quantity": 3}]

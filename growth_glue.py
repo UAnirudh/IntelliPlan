@@ -26,6 +26,7 @@ import json
 import hashlib
 import logging
 import os
+import secrets
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Iterable
 
@@ -44,6 +45,7 @@ growth_bp = Blueprint("growth", __name__)
 PAY_LINK_MAX_AGE = 14 * 24 * 3600
 PAY_LINK_SALT = "growth-pay-link"
 GIFT_LINK_SALT = "pro-gift-link"
+GIFT_ATTEMPT_MAX_AGE = 20 * 60
 #: A referred account counts as activated if it did one of these within
 #: this many days of signing up -- the definition the ambassador page
 #: already published.
@@ -857,6 +859,8 @@ def api_pay_link():
 
 @growth_bp.route("/gift/<token>", methods=["GET", "POST"])
 def gift_pro(token):
+    from itsdangerous import BadData
+
     from App import User, limiter
     from intelliplan.growth.gifts import MAX_MONTHS, gift_months
     from intelliplan.premium.readiness import validate_checkout_offer
@@ -870,9 +874,15 @@ def gift_pro(token):
     if student is None:
         return render_template("gift_pro.html", unavailable=True), 404, private_headers
 
-    def page(error=None, status=200):
+    attempts = _pay_serializer("pro-gift-checkout")
+    link_ref = hashlib.sha256(token.encode()).hexdigest()
+
+    def page(error=None, status=200, *, attempt=None, selected=1):
+        if not attempt:
+            attempt = attempts.dumps({"link": link_ref, "nonce": secrets.token_urlsafe(24)})
         response = render_template("gift_pro.html", months=range(1, MAX_MONTHS + 1),
-                                   monthly_price=plans.PRO_PRICES_USD[plans.MONTHLY], error=error)
+                                   monthly_price=plans.PRO_PRICES_USD[plans.MONTHLY], error=error,
+                                   attempt=attempt, selected=selected)
         return response, status, private_headers
     if request.method == "GET":
         return page()
@@ -882,6 +892,13 @@ def gift_pro(token):
             return page("Choose a gift duration and confirm you’re an adult payer.", 400)
         if current_user.is_authenticated and _is_minor(current_user, utcnow()):
             return page("An adult can open this gift link and pay.", 403)
+        attempt = request.form.get("attempt", "")
+        try:
+            details = attempts.loads(attempt, max_age=GIFT_ATTEMPT_MAX_AGE)
+        except BadData:
+            return page("This form expired. Please select a gift duration and try again.", 400, selected=months)
+        if details.get("link") != link_ref:
+            return page("Please submit the form from this gift link.", 400, selected=months)
         if not validate_checkout_offer(os.environ, stripe.Price.retrieve, plan="pro_gift", interval=None):
             return page("Gift checkout is currently unavailable.", 503)
         metadata = {"kind": "pro_gift", "user_id": str(student.id), "months": str(months)}
@@ -891,10 +908,12 @@ def gift_pro(token):
                 payment_intent_data={"metadata": metadata}, payment_method_types=["card"],
                 success_url=f"{_base_url()}/pricing?gift=submitted",
                 cancel_url=f"{_base_url()}/pricing",
+                idempotency_key=f"pro-gift-{details['nonce']}",
             )
         except Exception:
             logger.warning("Could not create a Pro gift checkout")
-            return page("Gift checkout is currently unavailable.", 503)
+            return page("Gift checkout is currently unavailable. You can retry this request.",
+                        503, attempt=attempt, selected=months)
         response = redirect(checkout.url, code=303)
         response.headers.update(private_headers)
         return response
