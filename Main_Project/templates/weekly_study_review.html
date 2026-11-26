@@ -37,17 +37,27 @@
     {% if not basic %}
     <p>Check-ins adjust estimates when there’s enough history.{% if workload.adjustment %} Your pace suggests setting aside <strong>{{ workload.adjustment|abs }} minutes {{ 'more' if workload.adjustment > 0 else 'less' }}</strong> than the original estimates combined.{% endif %}</p>
     {% endif %}
+    {% if not basic and workload.busiest_day %}
+    <p>Your busiest deadline day is <time datetime="{{ workload.busiest_day.due }}">{{ workload.busiest_day.due }}</time>, with about <strong>{{ workload.busiest_day.minutes }} minutes</strong> of work due. Consider starting early.</p>
+    {% endif %}
     <div class="review-table-wrap" role="region" aria-labelledby="reviewNextWeek" tabindex="0">
       <table>
         <thead><tr><th scope="col">Assignment</th><th scope="col">Due</th><th scope="col">Minutes</th>{% if not basic %}<th scope="col">Based on</th>{% endif %}</tr></thead>
         <tbody>
-        {% for assignment in workload.rows %}
+        {% for day in workload.rows|groupby('due') %}
+        {% if basic %}
+        <tr>
+          <th scope="row" colspan="3"><time datetime="{{ day.grouper }}">{{ day.grouper }}</time> · {{ day.list|sum(attribute='minutes') }} minutes</th>
+        </tr>
+        {% endif %}
+        {% for assignment in day.list %}
         <tr>
           <th scope="row">{{ assignment.title }}{% if assignment.course %}<br><span class="review-current">{{ assignment.course }}</span>{% endif %}</th>
           <td><time datetime="{{ assignment.due }}">{{ assignment.due }}</time></td>
           <td>{{ assignment.minutes }}{% if not basic and assignment.original_minutes != assignment.minutes %}<br><span class="review-current">Originally {{ assignment.original_minutes }}</span>{% endif %}</td>
           {% if not basic %}<td>{{ assignment.basis }}</td>{% endif %}
         </tr>
+        {% endfor %}
         {% endfor %}
         </tbody>
       </table>

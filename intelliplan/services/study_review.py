@@ -49,8 +49,14 @@ def next_week_workload(assignments, check_ins, start: date):
                       "Recent check-ins" if baseline is not None else "Assignment estimate"),
         })
     rows.sort(key=lambda row: (row["due"], row["course"].casefold(), row["title"].casefold()))
+    minutes_by_day = defaultdict(int)
+    for row in rows:
+        minutes_by_day[row["due"]] += row["minutes"]
+    busiest_due = min(minutes_by_day, key=lambda due: (-minutes_by_day[due], due)) if minutes_by_day else None
     return {
         "start": start.isoformat(), "end": (end - timedelta(days=1)).isoformat(),
         "rows": rows, "minutes": sum(row["minutes"] for row in rows),
         "adjustment": sum(row["minutes"] - row["original_minutes"] for row in rows),
+        "busiest_day": ({"due": busiest_due, "minutes": minutes_by_day[busiest_due]}
+                        if busiest_due else None),
     }

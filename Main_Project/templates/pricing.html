@@ -335,7 +335,7 @@
   <p class="page-kicker ipd-anim">Pricing</p>
   <h1 class="pricing-title ipd-anim" style="animation-delay:0.05s">A free planner for your school week.</h1>
   <p class="pricing-subtitle ipd-anim" style="animation-delay:0.1s">
-    {% if billing_enabled %}Connect your school tools, auto-prioritize every assignment and build a study schedule without paying anything. The free plan includes {{ free_ai_allowance }} AI generations a month. Pro adds a 12-week study review and AI generations without IntelliPlan's monthly cap.{% else %}IntelliPlan is free for students. Connect your school tools, auto-prioritize every assignment, and build a study schedule with AI today. Core study and planning tools are included.{% endif %}
+    {% if billing_enabled %}Plan your week for free, including an estimate of next week’s workload. Pro adds a 12-week study review, adjusts next week’s time budget using your recorded pace, and removes IntelliPlan’s monthly AI generation cap.{% else %}Plan your week for free, including an estimate of next week’s workload. Preview Pro’s 12-week study review and see how recorded pace can adjust next week’s time budget.{% endif %}
   </p>
 
   <div class="pricing-cards">
@@ -346,15 +346,10 @@
       <div class="pricing-price">$0<span class="pricing-month-tag">/forever</span></div>
       <p class="pricing-price-note">No card required.</p>
       <ul class="pricing-features">
-        <li>Canvas / StudentVue / Schoology auto-import</li>
-        <li>AI-generated study schedules + Google Calendar &amp; Notion export</li>
-        <li>Priority scoring across every class</li>
-        <li>See next week’s workload and estimated study time</li>
-        <li>Grade Modeler with simulate &amp; reset</li>
-        <li>Study &amp; Learn, flashcards, quizzes, lesson sessions</li>
-        <li>Writing Assistant, Math Explainer, Task Extractor</li>
-        <li>Lecture-to-flashcard AI, PDF notes, and practice quizzes</li>
-        <li>Study group planning, progress tracking, and reminders</li>
+        <li><span><strong>Next-week estimates</strong> for study time and workload grouped by due day</span></li>
+        <li>School assignment imports, priority scoring, and study schedules</li>
+        <li>Google Calendar &amp; Notion export, reminders, and progress tracking</li>
+        <li>Grade modeling, tutoring, flashcards, quizzes, and study tools</li>
         {% if billing_enabled %}<li><span><strong>{{ free_ai_allowance }} AI generations a month</strong> across the tutor, schedules and study sets</span></li>{% endif %}
       </ul>
       {# One CTA on the page. There were two, both primary and both
@@ -373,8 +368,8 @@
       <ul class="pricing-features">
         <li><strong>Everything in Free</strong></li>
         <li><span><strong>A 12-week study review</strong> to compare study time, sessions and task check-ins</span></li>
-        <li>See how much time tasks usually take compared with your estimates</li>
-        <li>Adjust next week’s time budget using your recorded pace</li>
+        <li><span><strong>Adjust next week’s time budget</strong> using your recorded pace and flag the busiest deadline day</span></li>
+        <li>Compare recorded task time with your estimates</li>
         <li>Download your weekly review as a spreadsheet (CSV)</li>
         <li>No monthly IntelliPlan cap on AI generations for tutoring, schedules and study sets</li>
       </ul>

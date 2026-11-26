@@ -29,3 +29,22 @@ def test_workload_keeps_base_estimate_with_sparse_history():
     ], [("English", 20, 90)], start)
     assert result["minutes"] == 45
     assert result["rows"][0]["basis"] == "Assignment estimate"
+
+
+def test_busiest_day_sums_adjusted_estimates_and_breaks_ties_earliest():
+    start = date(2026, 11, 30)
+    assignments = [
+        {"title": "A", "course": "Math", "due_date": "2026-12-02", "estimated_time": 30},
+        {"title": "B", "course": "Math", "due_date": "2026-12-01", "estimated_time": 10},
+        {"title": "C", "course": "Math", "due_date": "2026-12-01", "estimated_time": 20},
+    ]
+    result = next_week_workload(assignments, [("Math", 30, 60)] * 3, start)
+    assert result["busiest_day"] == {"due": "2026-12-01", "minutes": 60}
+
+
+def test_busiest_day_is_absent_without_open_dated_tasks():
+    result = next_week_workload([
+        {"title": "Done", "due_date": "2026-12-01", "submission_status": "submitted"},
+        {"title": "Undated"},
+    ], (), date(2026, 11, 30))
+    assert result["busiest_day"] is None
