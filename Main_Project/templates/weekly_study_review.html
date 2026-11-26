@@ -24,6 +24,34 @@
   {% endif %}
   <p>See your task check-ins and time recorded in Active Study and practice sessions. The current week is still in progress.</p>
   </header>
+  {% if workload %}
+  <section class="review-pacing" aria-labelledby="reviewNextWeek">
+    <h2 id="reviewNextWeek">Plan next week</h2>
+    <p><time datetime="{{ workload.start }}">{{ workload.start }}</time> to <time datetime="{{ workload.end }}">{{ workload.end }}</time></p>
+    {% if workload.rows %}
+    <p>Set aside about <strong>{{ workload.minutes }} minutes</strong> for {{ workload.rows|length }} {{ 'assignment' if workload.rows|length == 1 else 'assignments' }} due next week.</p>
+    <p>Use this budget when you make your plan. Check-ins adjust estimates when there’s enough history.</p>
+    <div class="review-table-wrap" role="region" aria-labelledby="reviewNextWeek" tabindex="0">
+      <table>
+        <thead><tr><th scope="col">Assignment</th><th scope="col">Due</th><th scope="col">Minutes</th><th scope="col">Based on</th></tr></thead>
+        <tbody>
+        {% for assignment in workload.rows %}
+        <tr>
+          <th scope="row">{{ assignment.title }}{% if assignment.course %}<br><span class="review-current">{{ assignment.course }}</span>{% endif %}</th>
+          <td><time datetime="{{ assignment.due }}">{{ assignment.due }}</time></td>
+          <td>{{ assignment.minutes }}</td>
+          <td>{{ assignment.basis }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p>No open assignments with a due date next week showed up in your planner.</p>
+    {% endif %}
+    {% if not example %}<p><a href="/scheduler" class="btn-secondary">Open your scheduler</a></p>{% endif %}
+  </section>
+  {% endif %}
   {% if has_activity %}
   <h2>Last full week</h2>
   <p><strong>{{ rows[1][3] }} study minutes</strong> across {{ rows[1][2] }} {{ 'session' if rows[1][2] == 1 else 'sessions' }}.
@@ -45,7 +73,6 @@
     {% else %}
     <p>Log your estimate and time spent on three tasks to see a comparison here. This review uses completed weeks.</p>
     {% endif %}
-    {% if not example %}<p><a href="/scheduler">Open your study plan</a></p>{% endif %}
   </section>
   {% if not example %}<p><a class="btn-secondary" href="/my-stats/weekly-review?format=csv">Download spreadsheet (CSV)</a></p>{% endif %}
   <section aria-labelledby="reviewHistory">

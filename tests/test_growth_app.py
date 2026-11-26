@@ -67,6 +67,9 @@ def test_study_review_csv_groups_local_weeks_and_requires_paid_access(client, mo
     monkeypatch.setattr(App, "utcnow", lambda: now)
     monkeypatch.setattr(growth_glue, "utcnow", lambda: now)
     monkeypatch.setattr(scheduler_clock, "timezone_for", lambda uid: ("America/Los_Angeles", 0))
+    monkeypatch.setattr(App, "collect_lms_assignments_for_user", lambda uid, **_: [{
+        "title": "Upcoming practice", "course": "Math", "due_date": "2026-12-01", "estimated_time": 40,
+    }])
     url = "/my-stats/weekly-review"
     assert client.get(url + "?format=csv").location.startswith("/login")
     with App.app.app_context():
@@ -99,6 +102,7 @@ def test_study_review_csv_groups_local_weeks_and_requires_paid_access(client, mo
         sign_in(client, free)
         assert client.get(url + "?format=csv").location.endswith("/upgrade")
         assert client.get("/api/my-stats").status_code == 200
+        assert client.get("/api/scheduler/assignments").status_code == 200
         preview = client.get("/pricing/study-review").get_data(as_text=True)
         assert "This preview uses sample data" in preview
         assert "136 study minutes" in preview
@@ -113,6 +117,7 @@ def test_study_review_csv_groups_local_weeks_and_requires_paid_access(client, mo
         assert "<strong>30 minutes</strong>" in review
         assert "<strong>45 minutes</strong>" in review
         assert "try budgeting <strong>45 minutes</strong>" in review
+        assert "Upcoming practice" in review and "<strong>60 minutes</strong> for 1 assignment" in review
         assert "3 check-ins with both times" in review
         downloaded = client.get(url + "?format=csv")
         assert "no-store" in downloaded.headers["Cache-Control"]
@@ -122,6 +127,7 @@ def test_study_review_csv_groups_local_weeks_and_requires_paid_access(client, mo
         assert len(lines) == 13
         assert "Private title" not in downloaded.get_data(as_text=True)
         assert "Private focus title" not in downloaded.get_data(as_text=True)
+        assert "Upcoming practice" not in downloaded.get_data(as_text=True)
     finally:
         with App.app.app_context():
             App.TaskFeedback.query.filter(App.TaskFeedback.user_id.in_([paid, free])).delete()
