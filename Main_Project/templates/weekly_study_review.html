@@ -20,6 +20,17 @@
   {% else %}
   <p>Your review will fill in as you finish study sessions and check in on tasks.</p>
   {% endif %}
+  <section aria-labelledby="reviewEstimates">
+    <h2 id="reviewEstimates">How much time should you set aside?</h2>
+    {% if estimate_summary %}
+    {% set count, estimated, actual = estimate_summary %}
+    <p>Over the last four full weeks, the typical estimate was <strong>{{ estimated }} minutes</strong>. The typical recorded time was <strong>{{ actual }} minutes</strong>, based on {{ count }} check-ins with both times.</p>
+    {% if actual > estimated %}<p>For work like these tasks, try leaving more room in your next plan.</p>{% endif %}
+    {% else %}
+    <p>Log your estimate and time spent on three tasks to see a comparison here. This review uses completed weeks.</p>
+    {% endif %}
+    {% if not example %}<p><a href="/scheduler">Open your study plan</a></p>{% endif %}
+  </section>
   {% if not example %}<p><a class="btn-secondary" href="/my-stats/weekly-review?format=csv">Download spreadsheet (CSV)</a></p>{% endif %}
   <div style="overflow-x:auto">
     <table style="width:100%;text-align:left;border-collapse:separate;border-spacing:0 .65rem;">

@@ -5093,7 +5093,8 @@ def founder_home_preview(asset=None):
     elif asset in {"design.css", "motion.js", "etched-glass.webp", "plani-ceramic.webp", "plani-notebook.webp"}:
         response = send_from_directory(
             os.path.join(app.root_path, "Main_Project", "private_preview"),
-            asset, conditional=False, max_age=0,
+            asset, mimetype="image/webp" if asset.endswith(".webp") else None,
+            conditional=False, max_age=0,
         )
     else:
         response = flask.make_response("", 404)
@@ -15380,7 +15381,7 @@ def weekly_study_review_example():
     monday = date(2026, 11, 23)
     rows = [((monday - timedelta(weeks=index)).isoformat(), *counts_for_week)
             for index, counts_for_week in enumerate(counts)]
-    return _render_weekly_study_review(rows, example=True)
+    return _render_weekly_study_review(rows, estimate_summary=(4, 30, 40), example=True)
 
 
 @app.route("/my-stats/weekly-review")
@@ -15404,21 +15405,26 @@ def weekly_study_review():
     today = to_local(now, zone, offset).date()
     monday = today - timedelta(days=today.weekday())
     first_week = monday - timedelta(weeks=11)
+    comparison_start = monday - timedelta(weeks=4)
     since = to_utc(datetime.combine(first_week, datetime.min.time()), zone, offset)
     weeks = {first_week + timedelta(weeks=i): [0, 0, 0] for i in range(12)}
+    estimate_pairs = []
 
     def week_for(timestamp):
         day = to_local(timestamp, zone, offset).date()
         return day - timedelta(days=day.weekday())
 
-    completions = db.session.query(TaskFeedback.completed_at).filter(
+    completions = db.session.query(TaskFeedback.completed_at, TaskFeedback.estimated_time, TaskFeedback.actual_time).filter(
         TaskFeedback.user_id == uid, TaskFeedback.completed_at >= since,
         TaskFeedback.completed_at <= now,
     )
-    for (completed_at,) in completions:
-        week = weeks.get(week_for(completed_at))
+    for completed_at, estimated, actual in completions:
+        start = week_for(completed_at)
+        week = weeks.get(start)
         if week is not None:
             week[0] += 1
+        if comparison_start <= start < monday and estimated and estimated > 0 and actual and actual > 0:
+            estimate_pairs.append((estimated, actual))
 
     practice_sessions = db.session.query(StudySession.created_at, StudySession.duration_seconds).filter(
         StudySession.user_id == uid, StudySession.completed.is_(True),
@@ -15445,17 +15451,23 @@ def weekly_study_review():
         response = flask.Response(content.getvalue(), mimetype="text/csv")
         response.headers["Content-Disposition"] = 'attachment; filename="intelliplan-weekly-review.csv"'
         return _no_store(response)
-    return _no_store(flask.make_response(_render_weekly_study_review(rows)))
+    estimate_summary = None
+    if len(estimate_pairs) >= 3:
+        from statistics import median
+
+        estimated, actual = zip(*estimate_pairs)
+        estimate_summary = (len(estimate_pairs), round(median(estimated)), round(median(actual)))
+    return _no_store(flask.make_response(_render_weekly_study_review(rows, estimate_summary=estimate_summary)))
 
 
-def _render_weekly_study_review(rows, *, example=False):
+def _render_weekly_study_review(rows, *, estimate_summary=None, example=False):
     completed = rows[1:5]
     tracked_weeks = sum(bool(tasks or sessions) for _, tasks, sessions, _ in completed)
     comparison = rows[1][3] - rows[2][3] if rows[1][2] and rows[2][2] else None
     return render_template(
         "weekly_study_review.html", rows=rows, tracked_weeks=tracked_weeks,
         comparison=comparison, has_activity=any(tasks or sessions for _, tasks, sessions, _ in rows),
-        example=example,
+        estimate_summary=estimate_summary, example=example,
     )
 
 

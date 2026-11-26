@@ -90,20 +90,24 @@
         {% endfor %}
       </fieldset>
       {% else %}
-      <p class="upg-price">${{ pro_prices['month'] }}<small> per month</small></p>
+      {% if offers %}
+      <p class="upg-price">${{ offers[0].price }}<small> per {{ offers[0].interval }}</small></p>
+      {% endif %}
       {% endif %}
       <ul>
         <li>Compare 12 weeks of study time, sessions and task check-ins</li>
+        <li>Compare task estimates with the time you actually spent</li>
         <li>Download your weekly review as a spreadsheet (CSV)</li>
         <li>No monthly IntelliPlan cap on Plani tutor and AI study sets</li>
         {% if pro_model_ready %}<li>Claude first in the model chain, for harder questions</li>{% endif %}
         <li>Cancel any time; you keep the free plan</li>
       </ul>
+      <p><a href="/pricing/study-review">Try the review with sample data</a></p>
       {% if not checkout_ready %}
         <p class="upg-note">Checkout isn't open yet. Invite a friend below and you'll both get {{ reward_days }} days of Pro now.</p>
       {% else %}
         {% if not is_minor %}
-          <button type="button" class="btn-primary" id="upgCheckout">Upgrade</button>
+          <button type="button" class="btn-primary" id="upgCheckout" data-interval="{{ offers[0].interval }}">Upgrade</button>
         {% endif %}
         <button type="button" class="{{ 'btn-primary' if is_minor else 'btn-secondary' }}" id="upgPayLink">Get a link for a parent to pay</button>
         <div class="upg-copy" id="upgPayLinkBox" hidden>
@@ -166,7 +170,7 @@
   if (checkout) checkout.addEventListener('click', function () {
     checkout.disabled = true;
     var chosen = document.querySelector('input[name="upgInterval"]:checked');
-    post('/api/billing/checkout', { interval: chosen ? chosen.value : 'month' }).then(function (res) {
+    post('/api/billing/checkout', { interval: chosen ? chosen.value : checkout.dataset.interval }).then(function (res) {
       if (res.ok && res.body.url) { window.location.href = res.body.url; return; }
       checkout.disabled = false;
       fail(res.body && res.body.message === 'use_parent_link' ? 'Use the parent link below.' : res.body && res.body.message);

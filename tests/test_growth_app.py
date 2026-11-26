@@ -74,6 +74,16 @@ def test_study_review_csv_groups_local_weeks_and_requires_paid_access(client, mo
         free = make_user()
         db.session.add_all([
             App.TaskFeedback(user_id=paid, title="Private title", completed_at=datetime(2026, 11, 23, 7, 59)),
+            App.TaskFeedback(user_id=paid, title="Lab", estimated_time=25, actual_time=40,
+                             completed_at=datetime(2026, 11, 20, 18)),
+            App.TaskFeedback(user_id=paid, title="Essay", estimated_time=30, actual_time=45,
+                             completed_at=datetime(2026, 11, 13, 18)),
+            App.TaskFeedback(user_id=paid, title="Review", estimated_time=35, actual_time=50,
+                             completed_at=datetime(2026, 11, 6, 18)),
+            App.TaskFeedback(user_id=paid, title="Current week", estimated_time=1000, actual_time=1,
+                             completed_at=now),
+            App.TaskFeedback(user_id=free, title="Other student", estimated_time=1000, actual_time=1,
+                             completed_at=datetime(2026, 11, 20, 18)),
             App.StudySession(user_id=paid, completed=True, duration_seconds=150, created_at=datetime(2026, 11, 23, 8)),
             App.StudySession(user_id=paid, completed=False, duration_seconds=900, created_at=now),
             App.StudySession(user_id=free, completed=True, duration_seconds=1800, created_at=now),
@@ -92,22 +102,26 @@ def test_study_review_csv_groups_local_weeks_and_requires_paid_access(client, mo
         preview = client.get("/pricing/study-review").get_data(as_text=True)
         assert "This preview uses sample data" in preview
         assert "136 study minutes" in preview
+        assert "40 minutes" in preview and "4 check-ins with both times" in preview
         assert "Download spreadsheet" not in preview
         sign_in(client, paid)
         review = client.get(url).get_data(as_text=True)
         assert "Weekly study review" in review
         assert "2 minutes less" in review
+        assert "<strong>30 minutes</strong>" in review
+        assert "<strong>45 minutes</strong>" in review
+        assert "3 check-ins with both times" in review
         downloaded = client.get(url + "?format=csv")
         assert "no-store" in downloaded.headers["Cache-Control"]
         assert "attachment" in downloaded.headers["Content-Disposition"]
         lines = downloaded.get_data(as_text=True).splitlines()
-        assert lines[1:4] == ["2026-11-23,0,1,2", "2026-11-16,1,1,3", "2026-11-09,0,1,5"]
+        assert lines[1:4] == ["2026-11-23,1,1,2", "2026-11-16,2,1,3", "2026-11-09,1,1,5"]
         assert len(lines) == 13
         assert "Private title" not in downloaded.get_data(as_text=True)
         assert "Private focus title" not in downloaded.get_data(as_text=True)
     finally:
         with App.app.app_context():
-            App.TaskFeedback.query.filter_by(user_id=paid).delete()
+            App.TaskFeedback.query.filter(App.TaskFeedback.user_id.in_([paid, free])).delete()
             App.StudySession.query.filter(App.StudySession.user_id.in_([paid, free])).delete()
             App.ActiveSession.query.filter(App.ActiveSession.user_id.in_([paid, free])).delete()
             db.session.commit()
@@ -406,6 +420,25 @@ def test_yearly_is_not_sold_until_its_price_is_configured(client, stripe_stub, m
     assert res.status_code == 503 and not stripe_stub.checkouts
     page = client.get("/upgrade")
     assert b"per year" not in page.data and b"per month" in page.data
+
+
+def test_yearly_only_checkout_shows_and_submits_the_yearly_offer(client, stripe_stub, monkeypatch):
+    monkeypatch.delenv("STRIPE_PRICE_ID")
+    with App.app.app_context():
+        uid = make_user()
+        token = growth_glue.make_pay_token(uid)
+    sign_in(client, uid)
+    upgrade = client.get("/upgrade").data
+    assert b'id="upgCheckout" data-interval="year"' in upgrade
+    assert b"$48<small> per year" in upgrade
+    assert client.post("/api/billing/checkout", json={"interval": "year"}).status_code == 200
+
+    parent = client.get(f"/pay/{token}").data
+    assert b'name="interval" value="year"' in parent
+    assert client.post(f"/pay/{token}", data={"interval": "year"}).status_code == 303
+    assert [checkout["line_items"][0]["price"] for checkout in stripe_stub.checkouts] == [
+        "price_year", "price_year",
+    ]
 
 
 def test_an_unknown_interval_falls_back_to_monthly(client, stripe_stub):

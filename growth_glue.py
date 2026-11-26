@@ -778,12 +778,13 @@ def upgrade_page():
     settle_referral_rewards(current_user)
     now = utcnow()
     plan = current_plan(now=now)
+    offers = _offers()
     return render_template(
         "upgrade.html",
         active_page="pricing",
         billing_enabled=billing_enabled(),
-        checkout_ready=_stripe()[0] is not None,
-        offers=_offers(),
+        checkout_ready=bool(offers),
+        offers=offers,
         premium_offers=_premium_offers(),
         yearly_saving=plans.yearly_saving_percent(),
         # Only promise the stronger model where it is actually wired up.
