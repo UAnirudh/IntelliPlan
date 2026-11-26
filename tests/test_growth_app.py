@@ -102,6 +102,8 @@ def test_study_review_csv_groups_local_weeks_and_requires_paid_access(client, mo
         preview = client.get("/pricing/study-review").get_data(as_text=True)
         assert "This preview uses sample data" in preview
         assert "136 study minutes" in preview
+        assert 'value="136" max="136"' in preview
+        assert 'class="review-current">In progress' in preview
         assert "40 minutes" in preview and "4 check-ins with both times" in preview
         assert "Download spreadsheet" not in preview
         sign_in(client, paid)
@@ -110,6 +112,7 @@ def test_study_review_csv_groups_local_weeks_and_requires_paid_access(client, mo
         assert "2 minutes less" in review
         assert "<strong>30 minutes</strong>" in review
         assert "<strong>45 minutes</strong>" in review
+        assert "try budgeting <strong>45 minutes</strong>" in review
         assert "3 check-ins with both times" in review
         downloaded = client.get(url + "?format=csv")
         assert "no-store" in downloaded.headers["Cache-Control"]

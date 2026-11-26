@@ -15467,6 +15467,7 @@ def _render_weekly_study_review(rows, *, estimate_summary=None, example=False):
     return render_template(
         "weekly_study_review.html", rows=rows, tracked_weeks=tracked_weeks,
         comparison=comparison, has_activity=any(tasks or sessions for _, tasks, sessions, _ in rows),
+        peak_minutes=max(1, *(minutes for _, _, _, minutes in rows)),
         estimate_summary=estimate_summary, example=example,
     )
 
