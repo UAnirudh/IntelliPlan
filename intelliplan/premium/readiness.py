@@ -31,6 +31,8 @@ def _offer_catalog(env):
         for interval, variable in plan.stripe_price_env.items():
             offers.append((f'{plan.id}_{interval}', variable, interval, plan.price_usd[interval]))
     offers.append(('topup', 'STRIPE_PRICE_ID_TOPUP', None, catalog.topup(env).price_usd))
+    if env.get('STRIPE_PRICE_ID_PRO_GIFT'):
+        offers.append(('pro_gift', 'STRIPE_PRICE_ID_PRO_GIFT', None, plans.PRO_PRICES_USD[plans.MONTHLY]))
     return offers
 
 
@@ -56,7 +58,7 @@ def _price_matches_offer(price, *, interval, amount):
 def validate_checkout_offer(env, retrieve_price, *, plan='pro', interval='month'):
     """Verify the selected offer's unique Price and live Stripe metadata before Checkout."""
     offers = _offer_catalog(env)
-    target_name = 'topup' if plan == 'topup' else f'pro_{interval}ly' if plan == 'pro' else f'{plan}_{interval}'
+    target_name = plan if plan in {'topup', 'pro_gift'} else f'pro_{interval}ly' if plan == 'pro' else f'{plan}_{interval}'
     target = next((row for row in offers if row[0] == target_name), None)
     if target is None:
         return False

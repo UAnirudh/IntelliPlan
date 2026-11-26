@@ -2235,6 +2235,15 @@ class ProductEvent(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
 
 
+class ProGift(db.Model):
+    __tablename__ = "pro_gifts"
+    payment_ref = db.Column(db.String(64), primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    starts_at = db.Column(db.DateTime)
+    ends_at = db.Column(db.DateTime)
+    revoked = db.Column(db.Boolean, nullable=False, default=False)
+
+
 class BillingLifecycleEvent(db.Model):
     """Minimal daily Stripe entitlement-transition ledger for founder trends.
 
@@ -10593,6 +10602,7 @@ def _account_delete_impl():
         # SQLite installations without FK enforcement. A later reused user ID
         # must never inherit an orphaned administrator grant.
         ("account_admin_grants (recipient)", "DELETE FROM account_admin_grants WHERE user_id = :uid"),
+        ("pro_gifts", "DELETE FROM pro_gifts WHERE user_id = :uid"),
         # Preserve other accounts' grants and administrative events, clearing
         # each deleted identity reference independently in this transaction.
         ("account_admin_grants (issuer)", "UPDATE account_admin_grants SET granted_by_id = NULL WHERE granted_by_id = :uid"),
@@ -13724,10 +13734,14 @@ def _filter_notion_planner_rows(user_id, rows):
 def scheduler_assignments():
     if not current_user.is_authenticated:
         return _no_store(flask.make_response(get_live_schedule()))
-    user_id = current_user.id
     waiting = request.args.get('include_waiting') == '1'
+    rows = _scheduler_assignments_for_user(current_user.id, include_waiting=waiting)
+    return _no_store(jsonify(rows))
+
+
+def _scheduler_assignments_for_user(user_id, *, include_waiting=False, use_cache=False):
     excluded_tests = get_test_titles()
-    rows = [row for row in collect_lms_assignments_for_user(user_id, use_cache=False, include_waiting=waiting)
+    rows = [row for row in collect_lms_assignments_for_user(user_id, use_cache=use_cache, include_waiting=include_waiting)
             if row.get('title') not in excluded_tests]
     prefs = _lms_preferences_payload(current_user.lms_preferences, allow_empty=True)
     if 'manual' in prefs['assignment_sources']:
@@ -13741,7 +13755,7 @@ def scheduler_assignments():
             for task in manual
         ], user_id=user_id))
     rows.sort(key=lambda row: (not row.get('due_date'), str(row.get('due_date') or '')))
-    return _no_store(jsonify(rows))
+    return rows
 
 
 def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True, include_waiting: bool = False) -> list[dict]:
@@ -15365,14 +15379,13 @@ def admin_bug_reports():
 def my_stats_page():
     if not current_user.is_authenticated:
         return flask.redirect("/login")
-    from growth_glue import current_plan
-
-    return flask.render_template("my_stats.html", active_page="my_stats", logged_in=True,
-                                 weekly_review_available=current_plan() == "paid")
+    return flask.render_template("my_stats.html", active_page="my_stats", logged_in=True)
 
 
 @app.route("/pricing/study-review")
 def weekly_study_review_example():
+    from intelliplan.services.study_review import next_week_workload
+
     counts = (
         (2, 2, 70), (5, 4, 136), (3, 3, 104), (2, 2, 80),
         (4, 3, 95), (2, 2, 65), (0, 0, 0), (3, 2, 78),
@@ -15381,22 +15394,31 @@ def weekly_study_review_example():
     monday = date(2026, 11, 23)
     rows = [((monday - timedelta(weeks=index)).isoformat(), *counts_for_week)
             for index, counts_for_week in enumerate(counts)]
-    return _render_weekly_study_review(rows, estimate_summary=(4, 30, 40), example=True)
+    workload = next_week_workload([
+        {"title": "Algebra problem set", "course": "Math", "due_date": "2026-12-01", "estimated_time": 30},
+        {"title": "Write the first draft", "course": "English", "due_date": "2026-12-03", "estimated_time": 45},
+    ], [("Math", 30, 40), ("Math", 30, 40), ("Math", 35, 45), ("English", 25, 35)], monday + timedelta(weeks=1))
+    return _render_weekly_study_review(rows, estimate_summary=(4, 30, 40), workload=workload, example=True)
 
 
 @app.route("/my-stats/weekly-review")
+@limiter.limit("30 per minute")
 def weekly_study_review():
     """A private, local-week view over the existing study and task logs."""
     from csv import writer
     from io import StringIO
 
     from growth_glue import current_plan
+    from intelliplan.learning import policy
     from intelliplan.scheduler_clock import timezone_for
+    from intelliplan.services.study_review import next_week_workload
     from time_utils import to_local, to_utc
 
     if not current_user.is_authenticated:
         return redirect("/login?next=/my-stats/weekly-review")
-    if current_plan() != "paid":
+    has_pro_review = current_plan() == "paid"
+    wants_csv = request.args.get("format") == "csv"
+    if wants_csv and not has_pro_review:
         return redirect("/upgrade")
 
     uid = current_user.id
@@ -15404,6 +15426,14 @@ def weekly_study_review():
     zone, offset = timezone_for(uid)
     today = to_local(now, zone, offset).date()
     monday = today - timedelta(days=today.weekday())
+    next_monday = monday + timedelta(weeks=1)
+    if not has_pro_review:
+        workload = None
+        if policy.decision(current_user, "scheduler")[0]:
+            workload = next_week_workload(_scheduler_assignments_for_user(uid, use_cache=True), (), next_monday)
+        return _no_store(flask.make_response(render_template(
+            "weekly_study_review.html", workload=workload, basic=True,
+        )))
     first_week = monday - timedelta(weeks=11)
     comparison_start = monday - timedelta(weeks=4)
     since = to_utc(datetime.combine(first_week, datetime.min.time()), zone, offset)
@@ -15414,17 +15444,18 @@ def weekly_study_review():
         day = to_local(timestamp, zone, offset).date()
         return day - timedelta(days=day.weekday())
 
-    completions = db.session.query(TaskFeedback.completed_at, TaskFeedback.estimated_time, TaskFeedback.actual_time).filter(
+    completions = db.session.query(TaskFeedback.completed_at, TaskFeedback.estimated_time,
+                                   TaskFeedback.actual_time, TaskFeedback.course).filter(
         TaskFeedback.user_id == uid, TaskFeedback.completed_at >= since,
         TaskFeedback.completed_at <= now,
     )
-    for completed_at, estimated, actual in completions:
+    for completed_at, estimated, actual, course in completions:
         start = week_for(completed_at)
         week = weeks.get(start)
         if week is not None:
             week[0] += 1
         if comparison_start <= start < monday and estimated and estimated > 0 and actual and actual > 0:
-            estimate_pairs.append((estimated, actual))
+            estimate_pairs.append((course, estimated, actual))
 
     practice_sessions = db.session.query(StudySession.created_at, StudySession.duration_seconds).filter(
         StudySession.user_id == uid, StudySession.completed.is_(True),
@@ -15443,7 +15474,7 @@ def weekly_study_review():
 
     rows = [(start.isoformat(), tasks, sessions, seconds // 60)
             for start, (tasks, sessions, seconds) in reversed(weeks.items())]
-    if request.args.get("format") == "csv":
+    if wants_csv:
         content = StringIO()
         csv = writer(content)
         csv.writerow(("Week starting", "Task check-ins", "Study sessions", "Study minutes"))
@@ -15455,12 +15486,19 @@ def weekly_study_review():
     if len(estimate_pairs) >= 3:
         from statistics import median
 
-        estimated, actual = zip(*estimate_pairs)
+        _, estimated, actual = zip(*estimate_pairs)
         estimate_summary = (len(estimate_pairs), round(median(estimated)), round(median(actual)))
-    return _no_store(flask.make_response(_render_weekly_study_review(rows, estimate_summary=estimate_summary)))
+    workload = None
+    if policy.decision(current_user, "scheduler")[0]:
+        workload = next_week_workload(
+            _scheduler_assignments_for_user(uid, use_cache=True), estimate_pairs, next_monday,
+        )
+    return _no_store(flask.make_response(_render_weekly_study_review(
+        rows, estimate_summary=estimate_summary, workload=workload,
+    )))
 
 
-def _render_weekly_study_review(rows, *, estimate_summary=None, example=False):
+def _render_weekly_study_review(rows, *, estimate_summary=None, workload=None, example=False):
     completed = rows[1:5]
     tracked_weeks = sum(bool(tasks or sessions) for _, tasks, sessions, _ in completed)
     comparison = rows[1][3] - rows[2][3] if rows[1][2] and rows[2][2] else None
@@ -15468,7 +15506,7 @@ def _render_weekly_study_review(rows, *, estimate_summary=None, example=False):
         "weekly_study_review.html", rows=rows, tracked_weeks=tracked_weeks,
         comparison=comparison, has_activity=any(tasks or sessions for _, tasks, sessions, _ in rows),
         peak_minutes=max(1, *(minutes for _, _, _, minutes in rows)),
-        estimate_summary=estimate_summary, example=example,
+        estimate_summary=estimate_summary, workload=workload, example=example,
     )
 
 
