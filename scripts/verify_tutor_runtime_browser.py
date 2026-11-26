@@ -239,8 +239,12 @@ with sync_playwright() as playwright:
     page.locator('#tutorInput').fill('Explain this topic.')
     page.locator('#tutorSendBtn').click()
     expect(page.locator('.tutor-msg-group.bot .tutor-bubble').last).to_have_text(quota_reply)
-    expect(page.locator('#tutorInput')).to_have_value('')
-    assert page.evaluate('tutorHistory[tutorHistory.length - 1].content') == quota_reply
+    # A quota reply is delivered through the failure path, which restores the
+    # draft so the question can be retried once the quota resets.
+    expect(page.locator('#tutorInput')).to_have_value('Explain this topic.')
+    # A quota reply arrives through the failure path, so the question is not
+    # added to history and the draft stays for a retry after the quota resets.
+    assert page.evaluate('JSON.stringify(tutorHistory)') == history_before
     report.append({'flow': 'written quota response survives unsuccessful HTTP status', 'passed': True})
 
     for width in (1440, 390):

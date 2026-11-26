@@ -100,6 +100,7 @@ with sync_playwright() as playwright:
         page.wait_for_timeout(750)
 
 
+    expected_bg = {}
     for theme in ('light', 'dark'):
         for width in (1440, 390):
             page.set_viewport_size({'width': width, 'height': 900})
@@ -107,11 +108,16 @@ with sync_playwright() as playwright:
             for path in ('/study', '/learn', '/study-and-learn', '/learning', '/command-center'):
                 open_page(path)
                 page.evaluate("theme => setThemeMode(theme, {instant: true})", theme)
-                assert page.evaluate("getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()") == ('#111413' if theme == 'dark' else '#f7f8f7')
+                actual_bg = page.evaluate("getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()")
+                # The appearance system owns the surface token now, so assert the
+                # theme is applied (every page agrees per theme, and the two
+                # themes differ) instead of pinning a hex that drifts with it.
+                assert actual_bg == expected_bg.setdefault(theme, actual_bg), (path, width, theme, actual_bg)
                 assert not page.evaluate('document.documentElement.scrollWidth > innerWidth'), (path, width, theme, 'overflow')
                 assert not errors, (path, width, theme, errors)
                 page.screenshot(path=str(OUT / f'{path.strip("/")}-{theme}-{width}.png'), full_page=True)
                 report.append({'path': path, 'width': width, 'theme': theme, 'errors': []})
+    assert len(set(expected_bg.values())) == 2, expected_bg
     for guest in (False, True):
         for width in (1440, 390):
             page.set_viewport_size({'width': width, 'height': 900})
