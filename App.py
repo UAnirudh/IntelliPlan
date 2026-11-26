@@ -15370,6 +15370,19 @@ def my_stats_page():
                                  weekly_review_available=current_plan() == "paid")
 
 
+@app.route("/pricing/study-review")
+def weekly_study_review_example():
+    counts = (
+        (2, 2, 70), (5, 4, 136), (3, 3, 104), (2, 2, 80),
+        (4, 3, 95), (2, 2, 65), (0, 0, 0), (3, 2, 78),
+        (2, 2, 60), (2, 1, 48), (1, 1, 30), (0, 0, 0),
+    )
+    monday = date(2026, 11, 23)
+    rows = [((monday - timedelta(weeks=index)).isoformat(), *counts_for_week)
+            for index, counts_for_week in enumerate(counts)]
+    return _render_weekly_study_review(rows, example=True)
+
+
 @app.route("/my-stats/weekly-review")
 def weekly_study_review():
     """A private, local-week view over the existing study and task logs."""
@@ -15407,15 +15420,20 @@ def weekly_study_review():
         if week is not None:
             week[0] += 1
 
-    sessions = db.session.query(StudySession.created_at, StudySession.duration_seconds).filter(
+    practice_sessions = db.session.query(StudySession.created_at, StudySession.duration_seconds).filter(
         StudySession.user_id == uid, StudySession.completed.is_(True),
         StudySession.created_at >= since, StudySession.created_at <= now,
     )
-    for started_at, duration in sessions:
-        week = weeks.get(week_for(started_at))
-        if week is not None:
-            week[1] += 1
-            week[2] += max(0, duration or 0)
+    focus_sessions = db.session.query(ActiveSession.ended_at, ActiveSession.active_seconds).filter(
+        ActiveSession.user_id == uid, ActiveSession.state == "completed",
+        ActiveSession.ended_at >= since, ActiveSession.ended_at <= now,
+    )
+    for sessions in (practice_sessions, focus_sessions):
+        for timestamp, duration in sessions:
+            week = weeks.get(week_for(timestamp))
+            if week is not None:
+                week[1] += 1
+                week[2] += max(0, duration or 0)
 
     rows = [(start.isoformat(), tasks, sessions, seconds // 60)
             for start, (tasks, sessions, seconds) in reversed(weeks.items())]
@@ -15427,7 +15445,18 @@ def weekly_study_review():
         response = flask.Response(content.getvalue(), mimetype="text/csv")
         response.headers["Content-Disposition"] = 'attachment; filename="intelliplan-weekly-review.csv"'
         return _no_store(response)
-    return _no_store(flask.make_response(render_template("weekly_study_review.html", rows=rows)))
+    return _no_store(flask.make_response(_render_weekly_study_review(rows)))
+
+
+def _render_weekly_study_review(rows, *, example=False):
+    completed = rows[1:5]
+    tracked_weeks = sum(bool(tasks or sessions) for _, tasks, sessions, _ in completed)
+    comparison = rows[1][3] - rows[2][3] if rows[1][2] and rows[2][2] else None
+    return render_template(
+        "weekly_study_review.html", rows=rows, tracked_weeks=tracked_weeks,
+        comparison=comparison, has_activity=any(tasks or sessions for _, tasks, sessions, _ in rows),
+        example=example,
+    )
 
 
 @app.route("/api/my-stats")

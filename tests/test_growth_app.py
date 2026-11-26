@@ -65,6 +65,7 @@ def test_study_review_csv_groups_local_weeks_and_requires_paid_access(client, mo
 
     now = datetime(2026, 11, 25, 20)
     monkeypatch.setattr(App, "utcnow", lambda: now)
+    monkeypatch.setattr(growth_glue, "utcnow", lambda: now)
     monkeypatch.setattr(scheduler_clock, "timezone_for", lambda uid: ("America/Los_Angeles", 0))
     url = "/my-stats/weekly-review"
     assert client.get(url + "?format=csv").location.startswith("/login")
@@ -76,25 +77,39 @@ def test_study_review_csv_groups_local_weeks_and_requires_paid_access(client, mo
             App.StudySession(user_id=paid, completed=True, duration_seconds=150, created_at=datetime(2026, 11, 23, 8)),
             App.StudySession(user_id=paid, completed=False, duration_seconds=900, created_at=now),
             App.StudySession(user_id=free, completed=True, duration_seconds=1800, created_at=now),
+            App.ActiveSession(user_id=paid, state="completed", active_seconds=185,
+                              title="Private focus title", ended_at=datetime(2026, 11, 20, 12)),
+            App.ActiveSession(user_id=paid, state="completed", active_seconds=300,
+                              ended_at=datetime(2026, 11, 13, 12)),
+            App.ActiveSession(user_id=paid, state="abandoned", active_seconds=1000, ended_at=now),
+            App.ActiveSession(user_id=free, state="completed", active_seconds=2000, ended_at=now),
         ])
         db.session.commit()
     try:
         sign_in(client, free)
         assert client.get(url + "?format=csv").location.endswith("/upgrade")
         assert client.get("/api/my-stats").status_code == 200
+        preview = client.get("/pricing/study-review").get_data(as_text=True)
+        assert "This preview uses sample data" in preview
+        assert "136 study minutes" in preview
+        assert "Download spreadsheet" not in preview
         sign_in(client, paid)
-        assert b"Weekly study review" in client.get(url).data
+        review = client.get(url).get_data(as_text=True)
+        assert "Weekly study review" in review
+        assert "2 minutes less" in review
         downloaded = client.get(url + "?format=csv")
         assert "no-store" in downloaded.headers["Cache-Control"]
         assert "attachment" in downloaded.headers["Content-Disposition"]
         lines = downloaded.get_data(as_text=True).splitlines()
-        assert lines[1:3] == ["2026-11-23,0,1,2", "2026-11-16,1,0,0"]
+        assert lines[1:4] == ["2026-11-23,0,1,2", "2026-11-16,1,1,3", "2026-11-09,0,1,5"]
         assert len(lines) == 13
         assert "Private title" not in downloaded.get_data(as_text=True)
+        assert "Private focus title" not in downloaded.get_data(as_text=True)
     finally:
         with App.app.app_context():
             App.TaskFeedback.query.filter_by(user_id=paid).delete()
             App.StudySession.query.filter(App.StudySession.user_id.in_([paid, free])).delete()
+            App.ActiveSession.query.filter(App.ActiveSession.user_id.in_([paid, free])).delete()
             db.session.commit()
 
 
@@ -454,7 +469,7 @@ def test_portal_requires_login(client, stripe_stub):
     assert client.post("/api/billing/portal").status_code == 401
 
 
-def test_public_pages_only_mention_pro_once_billing_is_on(client, monkeypatch):
+def test_public_pages_only_advertise_pro_checkout_once_billing_is_on(client, monkeypatch):
     pricing = client.get("/pricing").data
     assert b"A free planner for your school week." in pricing
     assert b"$48" not in pricing and b"A 12-week study review" not in pricing

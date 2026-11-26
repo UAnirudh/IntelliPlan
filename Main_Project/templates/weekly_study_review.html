@@ -2,10 +2,25 @@
 {% block page_title %}Weekly study review | IntelliPlan{% endblock %}
 {% block content %}
 <section style="max-width:52rem;margin:2rem auto;padding:0 1rem;" aria-labelledby="reviewTitle">
-  <a href="/my-stats">Back to My Stats</a>
+  <a href="{{ '/pricing' if example else '/my-stats' }}">{{ 'Back to pricing' if example else 'Back to My Stats' }}</a>
   <h1 id="reviewTitle">Weekly study review</h1>
-  <p>See how your study time and task check-ins changed over the last 12 weeks. The current week is still in progress.</p>
-  <p><a class="btn-secondary" href="/my-stats/weekly-review?format=csv">Download spreadsheet (CSV)</a></p>
+  {% if example %}
+  <p>This preview uses sample data. {% if billing_enabled %}<a href="/upgrade">See IntelliPlan Pro</a>.{% else %}Pro checkout is closed for now.{% endif %}</p>
+  {% endif %}
+  <p>See your task check-ins and time recorded in Active Study and practice sessions. The current week is still in progress.</p>
+  {% if has_activity %}
+  <h2>Last full week</h2>
+  <p><strong>{{ rows[1][3] }} study minutes</strong> across {{ rows[1][2] }} {{ 'session' if rows[1][2] == 1 else 'sessions' }}.
+    {% if comparison is not none %}
+      {% if comparison == 0 %}You recorded the same study time the week before.
+      {% else %}You recorded {{ comparison|abs }} minutes {{ 'more' if comparison > 0 else 'less' }} than the week before.{% endif %}
+    {% endif %}
+  </p>
+  <p>You logged study activity in {{ tracked_weeks }} of the last 4 full weeks.</p>
+  {% else %}
+  <p>Your review will fill in as you finish study sessions and check in on tasks.</p>
+  {% endif %}
+  {% if not example %}<p><a class="btn-secondary" href="/my-stats/weekly-review?format=csv">Download spreadsheet (CSV)</a></p>{% endif %}
   <div style="overflow-x:auto">
     <table style="width:100%;text-align:left;border-collapse:separate;border-spacing:0 .65rem;">
       <thead><tr><th scope="col">Week starting</th><th scope="col">Task check-ins</th><th scope="col">Study sessions</th><th scope="col">Study minutes</th></tr></thead>

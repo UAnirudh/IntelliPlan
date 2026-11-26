@@ -14,7 +14,13 @@
   <section class="founder-panel" aria-labelledby="growth-title">
     <div class="founder-section-heading">
       <div><h2 id="growth-title">Growth over time</h2><p>UTC windows compared with the immediately preceding window of the same length.</p></div>
-      <div class="founder-paid"><span>Paid customers now</span><strong>{% if report.billing_status != 'tracked' %}Not configured{% elif report.paid_customers_suppressed %}Fewer than 5{% else %}{{ report.paid_customers_now }}{% endif %}</strong></div>
+      <div class="founder-paid">
+        <span>Paid customers now</span><strong>{% if report.billing_status != 'tracked' %}Not configured{% elif report.paid_customers_suppressed %}Fewer than 5{% else %}{{ report.paid_customers_now }}{% endif %}</strong>
+        <span>Milestone: 50 paid customers across plans</span>
+        {% if report.paid_customers_now is not none %}
+        <progress value="{{ [report.paid_customers_now, 50]|min }}" max="50" aria-label="Progress toward 50 paid customers"></progress>
+        {% endif %}
+      </div>
     </div>
     <div class="founder-table-wrap" role="region" aria-labelledby="growth-title" tabindex="0">
       <table class="founder-table">
