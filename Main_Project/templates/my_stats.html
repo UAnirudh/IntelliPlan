@@ -7,6 +7,9 @@
     <p class="page-kicker">Your progress</p>
     <h1 class="ms-title">My stats</h1>
     <p class="ms-subtitle" id="msAccountAge">A snapshot of everything you've tracked so far.</p>
+    {% if weekly_review_available %}
+    <p><a href="/my-stats/weekly-review">View your 12-week study review</a></p>
+    {% endif %}
   </header>
 
   <div class="ms-skeleton" id="msSkeleton">

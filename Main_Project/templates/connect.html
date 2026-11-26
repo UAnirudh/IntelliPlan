@@ -128,24 +128,24 @@
         </div>
         <div style="margin-left:auto;color:var(--text-muted);">→</div>
       </button>
-      <button onclick="connectBlackboard()" style="display:flex;align-items:center;gap:14px;padding:16px 20px;border-radius:14px;border:1px solid var(--glass-border);box-shadow:var(--glass-btn-shadow);background:var(--glass-btn-bg);-webkit-backdrop-filter:blur(12px) saturate(1.5);backdrop-filter:blur(12px) saturate(1.5);color:var(--text-primary);transition:all 0.2s;cursor:pointer;width:100%;text-align:left;font-family:inherit;"
+      <a href="/login/calendar-feed"{% if blackboard_ready %} onclick="event.preventDefault(); connectBlackboard()"{% endif %} style="display:flex;align-items:center;gap:14px;padding:16px 20px;border-radius:14px;border:1px solid var(--glass-border);box-shadow:var(--glass-btn-shadow);background:var(--glass-btn-bg);-webkit-backdrop-filter:blur(12px) saturate(1.5);backdrop-filter:blur(12px) saturate(1.5);color:var(--text-primary);transition:all 0.2s;cursor:pointer;width:100%;text-align:left;font-family:inherit;text-decoration:none;"
         onmouseover="this.style.borderColor='#000000'" onmouseout="this.style.borderColor='var(--border)'">
         {{ lms_logo('blackboard', 42) }}
         <div>
           <div style="font-size:0.95rem;font-weight:600;margin-bottom:2px;">Blackboard Learn</div>
-          <div style="font-size:0.78rem;color:var(--text-muted);">North American higher ed, sign in with your school's Blackboard</div>
+          <div style="font-size:0.78rem;color:var(--text-muted);">{{ 'Sign in through your school or use a calendar link' if blackboard_ready else 'Import dates with a school calendar link' }}</div>
         </div>
         <div style="margin-left:auto;color:var(--text-muted);">→</div>
-      </button>
-      <button onclick="connectLms('brightspace')" style="display:flex;align-items:center;gap:14px;padding:16px 20px;border-radius:14px;border:1px solid var(--glass-border);box-shadow:var(--glass-btn-shadow);background:var(--glass-btn-bg);-webkit-backdrop-filter:blur(12px) saturate(1.5);backdrop-filter:blur(12px) saturate(1.5);color:var(--text-primary);transition:all 0.2s;cursor:pointer;width:100%;text-align:left;font-family:inherit;"
+      </a>
+      <a href="/login/calendar-feed" style="display:flex;align-items:center;gap:14px;padding:16px 20px;border-radius:14px;border:1px solid var(--glass-border);box-shadow:var(--glass-btn-shadow);background:var(--glass-btn-bg);-webkit-backdrop-filter:blur(12px) saturate(1.5);backdrop-filter:blur(12px) saturate(1.5);color:var(--text-primary);transition:all 0.2s;cursor:pointer;width:100%;text-align:left;font-family:inherit;text-decoration:none;"
         onmouseover="this.style.borderColor='#FF6F00'" onmouseout="this.style.borderColor='var(--border)'">
         <div style="width:42px;height:42px;border-radius:10px;background:#FF6F00;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:white;font-weight: 700;font-size:1rem;font-family:var(--font-ui);">D</div>
         <div>
           <div style="font-size:0.95rem;font-weight:600;margin-bottom:2px;">D2L Brightspace</div>
-          <div style="font-size:0.78rem;color:var(--text-muted);">Universities &amp; K-12, join the rollout waitlist</div>
+          <div style="font-size:0.78rem;color:var(--text-muted);">Import dates with a school calendar link</div>
         </div>
         <div style="margin-left:auto;color:var(--text-muted);">→</div>
-      </button>
+      </a>
       <button onclick="connectLms('moodle')" style="display:flex;align-items:center;gap:14px;padding:16px 20px;border-radius:14px;border:1px solid var(--glass-border);box-shadow:var(--glass-btn-shadow);background:var(--glass-btn-bg);-webkit-backdrop-filter:blur(12px) saturate(1.5);backdrop-filter:blur(12px) saturate(1.5);color:var(--text-primary);transition:all 0.2s;cursor:pointer;width:100%;text-align:left;font-family:inherit;"
         onmouseover="this.style.borderColor='#F98012'" onmouseout="this.style.borderColor='var(--border)'">
         {{ lms_logo('moodle', 42) }}
@@ -212,6 +212,7 @@
             style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--border-strong);background:var(--bg-secondary);color:var(--text-primary);font-family:inherit;font-size:0.9rem;margin-bottom:12px;"/>
           <button type="button" id="bbBtn" onclick="submitBlackboard()"
             style="width:100%;padding:11px;border-radius:10px;border:none;background:var(--accent);color:var(--on-accent, #fff);font-family:inherit;font-weight:700;cursor:pointer;font-size:0.9rem;">Continue to Blackboard</button>
+          <p><a href="/login/calendar-feed">Use a calendar link</a></p>
           <div id="bbMsg" style="margin-top:8px;font-size:0.8rem;display:none;"></div>
         `;
         formHost().appendChild(wrap);

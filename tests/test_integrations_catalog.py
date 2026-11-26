@@ -27,7 +27,7 @@ def client():
     App.limiter.enabled = True
 
 
-# ── The catalogue itself ─────────────────────────────────────────────
+# â”€â”€ The catalogue itself â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_every_integration_the_app_supports_is_listed():
@@ -64,7 +64,7 @@ def test_ids_are_unique():
     assert len(ids) == len(set(ids))
 
 
-# ── Ordering: the bug that sent students down the broken path ────────
+# â”€â”€ Ordering: the bug that sent students down the broken path â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_canvas_offers_the_calendar_link_before_oauth():
@@ -97,7 +97,7 @@ def test_the_methods_a_school_must_enable_are_flagged():
     broken' and 'my school hasn't done this yet'."""
     canvas_oauth = next(m for m in ic.CANVAS.methods if m.key == "oauth")
     assert canvas_oauth.needs_school_admin
-    assert all(m.needs_school_admin for m in ic.BLACKBOARD.methods)
+    assert next(m for m in ic.BLACKBOARD.methods if m.key == "oauth").needs_school_admin
 
 
 def test_the_paths_that_need_nobody_are_not_flagged():
@@ -111,7 +111,7 @@ def test_a_feed_says_it_carries_no_grades():
     assert ic.CALENDAR_FEED.no_grades
 
 
-# ── The endpoint ─────────────────────────────────────────────────────
+# â”€â”€ The endpoint â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_the_status_endpoint_returns_the_whole_catalogue(client):
@@ -166,9 +166,17 @@ def test_canvas_connections_remain_usable_without_school_oauth(client, monkeypat
     monkeypatch.setattr(App, "canvas_oauth_any_configured", lambda: False)
     response = client.get("/api/integrations/status")
     canvas = next(item for item in response.json["integrations"] if item["id"] == "canvas")
-    assert {method["key"] for method in canvas["methods"]} == {"calendar_feed", "token"}
+    assert {method["key"] for method in canvas["methods"]} == {"calendar_feed"}
     assert "no-store" in response.headers["Cache-Control"]
     assert b'href="/login/canvas"' in client.get("/connect").data
+
+
+def test_canvas_catalogue_shows_test_token_only_when_available(client, monkeypatch):
+    monkeypatch.setattr(App, "_canvas_token_testing_available", lambda: True)
+    response = client.get("/api/integrations/status")
+    canvas = next(item for item in response.json["integrations"] if item["id"] == "canvas")
+    assert "token" in {method["key"] for method in canvas["methods"]}
+    assert b'id="canvasTokenForm"' in client.get("/login/canvas").data
 
 
 def test_the_payload_carries_what_the_ui_needs(client):
@@ -182,15 +190,34 @@ def test_the_payload_carries_what_the_ui_needs(client):
                 assert key in m
 
 
-def test_brightspace_is_marked_coming_soon_rather_than_offered(client):
-    """It has no credentials configured, so a Connect button would just
-    fail. Saying 'coming soon' is the honest version."""
+def test_brightspace_offers_only_calendar_import(client):
     data = client.get("/api/integrations/status").get_json()
     bs = next(i for i in data["integrations"] if i["id"] == "brightspace")
-    assert bs["coming_soon"] is True
+    assert bs["no_grades"] is True
+    assert [method["key"] for method in bs["methods"]] == ["calendar_feed"]
+    assert bs["methods"][0]["start_url"] == "/login/calendar-feed"
+    form = client.get("/login/calendar-feed").get_data(as_text=True)
+    assert 'id="calendar-feed"' in form
+    assert 'id="canvasOauthForm"' not in form
+    connect = client.get("/connect").get_data(as_text=True)
+    assert "connectLms('brightspace')" not in connect
+    assert 'href="/login/calendar-feed"' in connect
 
 
-# ── A signed-in student ──────────────────────────────────────────────
+@pytest.mark.parametrize("configured", [False, True])
+def test_blackboard_offers_calendar_and_only_configured_oauth(client, monkeypatch, configured):
+    credentials = ("example-key", "example-secret") if configured else ("", "")
+    monkeypatch.setattr(App, "_blackboard_credentials", lambda: credentials)
+    items = client.get("/api/integrations/status").get_json()["integrations"]
+    methods = next(item for item in items if item["id"] == "blackboard")["methods"]
+    assert [method["key"] for method in methods] == (
+        ["calendar_feed", "oauth"] if configured else ["calendar_feed"]
+    )
+    html = client.get("/connect").get_data(as_text=True)
+    assert ('onclick="event.preventDefault(); connectBlackboard()"' in html) == configured
+
+
+# â”€â”€ A signed-in student â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 @pytest.fixture
@@ -268,7 +295,7 @@ def test_a_signed_in_student_still_gets_every_integration(client, student):
     assert len(data["integrations"]) == len(ic.CATALOG)
 
 
-# ── The surfaces that render it ──────────────────────────────────────
+# â”€â”€ The surfaces that render it â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_the_dashboard_modal_renders_from_the_catalogue(client, student):

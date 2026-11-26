@@ -424,6 +424,7 @@ def test_real_signed_webhook_retries_failed_credit_then_acknowledges_duplicate(o
 
 @pytest.mark.parametrize('modern', [False, True])
 def test_actual_sdk_parses_signed_invoice_and_persists_its_period(owner, monkeypatch, modern):
+    monkeypatch.setattr(growth_glue, "utcnow", lambda: NOW)
     monkeypatch.setenv('BILLING_ENABLED', '1')
     monkeypatch.setenv('STRIPE_SECRET_KEY', 'sk_test_synthetic_no_external_requests')
     secret = 'whsec_synthetic_invoice_only'

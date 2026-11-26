@@ -28,9 +28,10 @@
     <p>Nothing to pay right now. Thanks for checking.</p>
   {% else %}
     <h1>{{ student_first_name }} asked you to cover IntelliPlan Pro.</h1>
-    <p>IntelliPlan is a study planner: it pulls in assignments from school, builds a study schedule, and has an AI tutor. The planner is free. Pro removes the monthly limit on AI help.</p>
+    <p>The planner, school connections and study tools are free. Pro adds a 12-week study review, a spreadsheet download, and AI help without IntelliPlan's monthly cap.</p>
+    {% if offers %}
     <dl>
-      <dt>Price</dt><dd>{% for offer in offers %}${{ offer.price }} per {{ offer.interval }}{% if not loop.last %} or {% endif %}{% else %}${{ pro_prices['month'] }} per month{% endfor %}</dd>
+      <dt>Price</dt><dd>{% for offer in offers %}${{ offer.price }} per {{ offer.interval }}{% if not loop.last %} or {% endif %}{% endfor %}</dd>
       <dt>Cancel</dt><dd>Any time, from the receipt email</dd>
       <dt>Payment</dt><dd>Handled by Stripe; we never see the card</dd>
     </dl>
@@ -46,9 +47,14 @@
         </label>
         {% endfor %}
       </fieldset>
+      {% else %}
+      <input type="hidden" name="interval" value="{{ offers[0].interval }}">
       {% endif %}
       <button type="submit" class="btn-primary">Continue to secure checkout</button>
     </form>
+    {% else %}
+    <p>Pro checkout is currently unavailable.</p>
+    {% endif %}
     {% for p in premium_offers if not p.byok and 'month' in p.intervals %}
     <form method="post" style="margin-top: 0.75rem;">
       <input type="hidden" name="plan" value="{{ p.plan }}">

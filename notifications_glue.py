@@ -516,7 +516,7 @@ def sweep_user(user: Any, now: datetime | None = None) -> int:
     events = sources.events_for_plan(
         plan,
         user_id=user.id,
-        now=now,
+        now=prefs.to_local(now),
         lead_minutes=prefs.lead_minutes,
         started_block_ids=_started_block_ids(user.id),
     )

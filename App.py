@@ -5093,7 +5093,8 @@ def founder_home_preview(asset=None):
     elif asset in {"design.css", "motion.js", "etched-glass.webp", "plani-ceramic.webp", "plani-notebook.webp"}:
         response = send_from_directory(
             os.path.join(app.root_path, "Main_Project", "private_preview"),
-            asset, conditional=False, max_age=0,
+            asset, mimetype="image/webp" if asset.endswith(".webp") else None,
+            conditional=False, max_age=0,
         )
     else:
         response = flask.make_response("", 404)
@@ -6466,6 +6467,26 @@ def _classroom_get_userinfo(access_token):
         print(f"[classroom] userinfo error: {e}")
     return {}
 
+def _classroom_list_rows(url, headers, key, **filters):
+    """Follow Google's page tokens while retaining the original filters."""
+    rows = []
+    params = {"pageSize": 50, **filters}
+    seen_tokens = set()
+    for _ in range(40):
+        response = requests.get(url, headers=headers, params=params, timeout=20)
+        response.raise_for_status()
+        page = response.json()
+        rows.extend(page.get(key) or [])
+        token = page.get("nextPageToken")
+        if not token:
+            return rows
+        if token in seen_tokens:
+            raise ValueError("Google Classroom repeated a page token")
+        seen_tokens.add(token)
+        params = {**params, "pageToken": token}
+    raise ValueError("Google Classroom exceeded the page limit")
+
+
 def _classroom_fetch_assignments(access_token):
     """Fetch active courses and their pending (or overdue) coursework for the
     connected user. Returns a list of dicts shaped to match the unified-tasks
@@ -6473,14 +6494,10 @@ def _classroom_fetch_assignments(access_token):
     out = []
     headers = {"Authorization": f"Bearer {access_token}"}
     try:
-        cr = requests.get(
+        courses = _classroom_list_rows(
             "https://classroom.googleapis.com/v1/courses",
-            headers=headers, params={"courseStates": "ACTIVE", "pageSize": 50}, timeout=20,
+            headers, "courses", courseStates="ACTIVE",
         )
-        if cr.status_code != 200:
-            print(f"[classroom] courses HTTP {cr.status_code}: {cr.text[:200]}")
-            return out
-        courses = cr.json().get("courses", []) or []
     except Exception as e:
         print(f"[classroom] courses fetch failed: {e}")
         return out
@@ -6491,13 +6508,10 @@ def _classroom_fetch_assignments(access_token):
         if not cid:
             continue
         try:
-            wr = requests.get(
+            items = _classroom_list_rows(
                 f"https://classroom.googleapis.com/v1/courses/{cid}/courseWork",
-                headers=headers, params={"pageSize": 50}, timeout=20,
+                headers, "courseWork", courseWorkStates="PUBLISHED",
             )
-            if wr.status_code != 200:
-                continue
-            items = wr.json().get("courseWork", []) or []
         except Exception as e:
             print(f"[classroom] coursework error for {cid}: {e}")
             continue
@@ -6923,11 +6937,46 @@ def _moodle_call(moodle_url, ws_token, function, **params):
         raise RuntimeError(f"Moodle error: {j.get('message') or j.get('errorcode')}")
     return j
 
+def _moodle_fetch_action_events(moodle_url, ws_token, today):
+    """Read calendar tasks when the school does not expose assignments."""
+    out = []
+    try:
+        result = _moodle_call(
+            moodle_url, ws_token, "core_calendar_get_action_events_by_timesort",
+            timesortfrom=int(utcnow().replace(tzinfo=timezone.utc).timestamp()) - 14 * 86400,
+            limitnum=50,
+        )
+    except Exception as exc:
+        print(f"[moodle] events fetch failed: {type(exc).__name__}")
+        return out
+    for event in (result.get("events") or []) if isinstance(result, dict) else []:
+        title = (event.get("name") or "").strip()
+        try:
+            due = datetime.fromtimestamp(int(event.get("timesort") or event.get("timestart")), timezone.utc).date()
+        except (TypeError, ValueError, OverflowError, OSError):
+            continue
+        days = (due - today).days
+        if not title or days < -14:
+            continue
+        course = event.get("course") or {}
+        priority = compute_priority(days, 0, title)
+        out.append({
+            "id": f"mdl-{event.get('id', '')}",
+            "course_id": str(course.get("id") or ""),
+            "title": title,
+            "course": course.get("fullname") or "Moodle",
+            "due_date": due.isoformat(),
+            "priority": priority,
+            "source": "moodle",
+            "estimated_time": 60,
+            "difficulty": "Medium",
+            "color": PRIORITY_COLORS.get(priority, "#f59e0b"),
+        })
+    return out
+
+
 def _moodle_fetch_assignments(moodle_url, ws_token, moodle_user_id=None):
-    """Fetch upcoming Moodle assignments. Tries mod_assign_get_assignments first
-    (per-course assignment list); falls back to core_calendar_get_action_events
-    if not allowed. Both functions are normally exposed by the default Moodle
-    mobile/web service, but each site can restrict them."""
+    """Fetch Moodle assignments, using calendar tasks if permissions differ."""
     out = []
     today = date.today()
     # Step 1: list the user's courses so we can fetch their assignments.
@@ -6940,43 +6989,11 @@ def _moodle_fetch_assignments(moodle_url, ws_token, moodle_user_id=None):
             uid = site.get("userid")
             courses = _moodle_call(moodle_url, ws_token,
                                    "core_enrol_get_users_courses", userid=int(uid)) if uid else []
-    except Exception as e:
-        print(f"[moodle] courses fetch failed: {e}")
+    except Exception as exc:
+        print(f"[moodle] courses fetch failed: {type(exc).__name__}")
         courses = []
     if not isinstance(courses, list) or not courses:
-        # Fallback to action events if courses can't be listed.
-        try:
-            evs = _moodle_call(moodle_url, ws_token,
-                               "core_calendar_get_action_events_by_timesort",
-                               timesortfrom=int(utcnow().timestamp()) - 14 * 86400,
-                               limitnum=100)
-            for e in (evs.get("events", []) or []) if isinstance(evs, dict) else []:
-                ts = e.get("timesort") or e.get("timestart")
-                if not ts:
-                    continue
-                due = datetime.utcfromtimestamp(int(ts)).date()
-                days = (due - today).days
-                if days < -14:
-                    continue
-                title = (e.get("name") or "").strip()
-                if not title:
-                    continue
-                priority = compute_priority(days, 0, title)
-                out.append({
-                    "id": f"mdl-{e.get('id', '')}",
-                    "course_id": str(e.get("course", {}).get("id") or ""),
-                    "title": title,
-                    "course": (e.get("course") or {}).get("fullname") or "Moodle",
-                    "due_date": due.strftime("%Y-%m-%d"),
-                    "priority": priority,
-                    "source": "moodle",
-                    "estimated_time": 60,
-                    "difficulty": "Medium",
-                    "color": PRIORITY_COLORS.get(priority, "#f59e0b"),
-                })
-        except Exception as e:
-            print(f"[moodle] events fetch failed: {e}")
-        return out
+        return _moodle_fetch_action_events(moodle_url, ws_token, today)
 
     # Step 2: fetch assignments for the courses we found.
     course_ids = []
@@ -6991,11 +7008,11 @@ def _moodle_fetch_assignments(moodle_url, ws_token, moodle_user_id=None):
         for i, cid in enumerate(course_ids[:50]):
             params[f"courseids[{i}]"] = cid
         result = _moodle_call(moodle_url, ws_token, "mod_assign_get_assignments", **params)
-    except Exception as e:
-        print(f"[moodle] assignments fetch failed: {e}")
-        return out
+    except Exception as exc:
+        print(f"[moodle] assignments fetch failed: {type(exc).__name__}")
+        return _moodle_fetch_action_events(moodle_url, ws_token, today)
     if not isinstance(result, dict):
-        return out
+        return _moodle_fetch_action_events(moodle_url, ws_token, today)
     for course in result.get("courses", []) or []:
         cid = course.get("id")
         cname = course.get("fullname") or course_names.get(cid) or "Moodle"
@@ -7409,9 +7426,15 @@ def api_integrations_status():
             unavailable.add(provider)
 
     catalogue = integrations_catalog.catalog_payload(connected, details, unavailable)
+    if not all(_blackboard_credentials()):
+        blackboard = next(item for item in catalogue if item["id"] == "blackboard")
+        blackboard["methods"] = [method for method in blackboard["methods"] if method["key"] != "oauth"]
     if not (CANVAS_OAUTH_AVAILABLE and canvas_oauth_any_configured()):
         canvas = next(item for item in catalogue if item["id"] == "canvas")
         canvas["methods"] = [method for method in canvas["methods"] if method["key"] != "oauth"]
+    if not _canvas_token_testing_available():
+        canvas = next(item for item in catalogue if item["id"] == "canvas")
+        canvas["methods"] = [method for method in canvas["methods"] if method["key"] != "token"]
     return _no_store(flask.jsonify(status="ok", integrations=catalogue))
 
 
@@ -8669,13 +8692,17 @@ def connect_account():
     from intelliplan.api import todoist
 
     return render_template("connect.html", active_page="login",
+                           blackboard_ready=all(_blackboard_credentials()),
                            todoist_ready=todoist.configured() and todoist.allowed(current_user))
+
+def _canvas_token_testing_available():
+    return is_owner(current_user) and not school_pilot.enabled() and _lms_policy_allowed("canvas")
+
 
 @app.route("/login/canvas", methods=["GET", "POST"])
 @limiter.limit("12 per minute;60 per hour", methods=["POST"])
 def login_canvas():
-    token_testing = (is_owner(current_user) and not school_pilot.enabled()
-                     and _lms_policy_allowed("canvas"))
+    token_testing = _canvas_token_testing_available()
     error = None
     if request.method == "POST":
         if not token_testing:
@@ -8752,8 +8779,8 @@ def login_canvas():
         canvas_oauth_available=(CANVAS_OAUTH_AVAILABLE and canvas_oauth_any_configured()),
     )
 
-@app.route("/login/calendar-feed", methods=["POST"])
-@limiter.limit("12 per minute;60 per hour")
+@app.route("/login/calendar-feed", methods=["GET", "POST"])
+@limiter.limit("12 per minute;60 per hour", methods=["POST"])
 def login_calendar_feed():
     """Connect using the calendar feed URL every Canvas user already has.
 
@@ -8766,6 +8793,12 @@ def login_calendar_feed():
     It carries due dates, not grades. That is stated on the page rather than
     left for a student to discover when the gradebook is empty.
     """
+    def show_form(error=None):
+        return render_template("login_canvas.html", active_page="login", calendar_only=True, error=error)
+
+    if request.method == "GET":
+        return show_form()
+
     feed_url = (request.form.get("feed_url") or "").strip()
     profile_name = (request.form.get("profile_name") or "").strip() or "Calendar Feed"
 
@@ -8775,26 +8808,14 @@ def login_calendar_feed():
         assignments = ics_feed.import_assignments(feed_url)
         stored_url = ics_feed.normalize_feed_url(feed_url)
     except ics_feed.FeedError as e:
-        return render_template(
-            "login_canvas.html", active_page="login", error=str(e),
-            canvas_oauth_available=(CANVAS_OAUTH_AVAILABLE and canvas_oauth_any_configured()),
-        )
+        return show_form(str(e))
     except Exception as e:
         print(f"[calendar-feed] import failed: {e}")
-        return render_template(
-            "login_canvas.html", active_page="login",
-            error="Could not read that calendar feed. Copy the link again from Canvas.",
-            canvas_oauth_available=(CANVAS_OAUTH_AVAILABLE and canvas_oauth_any_configured()),
-        )
+        return show_form("Could not read that calendar feed. Copy the subscription link again from your school calendar.")
 
     if not assignments:
-        return render_template(
-            "login_canvas.html", active_page="login",
-            error=("That feed loaded but has no upcoming assignments in it. "
-                   "Check you copied the Calendar Feed link and that your "
-                   "courses are showing in the Canvas calendar."),
-            canvas_oauth_available=(CANVAS_OAUTH_AVAILABLE and canvas_oauth_any_configured()),
-        )
+        return show_form("That feed loaded but has no upcoming dates IntelliPlan can import. "
+                         "Check that your subscription includes a course calendar with upcoming dates.")
 
     creds = {"feed_url": stored_url}
     if current_user.is_authenticated:
@@ -15344,7 +15365,111 @@ def admin_bug_reports():
 def my_stats_page():
     if not current_user.is_authenticated:
         return flask.redirect("/login")
-    return flask.render_template("my_stats.html", active_page="my_stats", logged_in=True)
+    from growth_glue import current_plan
+
+    return flask.render_template("my_stats.html", active_page="my_stats", logged_in=True,
+                                 weekly_review_available=current_plan() == "paid")
+
+
+@app.route("/pricing/study-review")
+def weekly_study_review_example():
+    counts = (
+        (2, 2, 70), (5, 4, 136), (3, 3, 104), (2, 2, 80),
+        (4, 3, 95), (2, 2, 65), (0, 0, 0), (3, 2, 78),
+        (2, 2, 60), (2, 1, 48), (1, 1, 30), (0, 0, 0),
+    )
+    monday = date(2026, 11, 23)
+    rows = [((monday - timedelta(weeks=index)).isoformat(), *counts_for_week)
+            for index, counts_for_week in enumerate(counts)]
+    return _render_weekly_study_review(rows, estimate_summary=(4, 30, 40), example=True)
+
+
+@app.route("/my-stats/weekly-review")
+def weekly_study_review():
+    """A private, local-week view over the existing study and task logs."""
+    from csv import writer
+    from io import StringIO
+
+    from growth_glue import current_plan
+    from intelliplan.scheduler_clock import timezone_for
+    from time_utils import to_local, to_utc
+
+    if not current_user.is_authenticated:
+        return redirect("/login?next=/my-stats/weekly-review")
+    if current_plan() != "paid":
+        return redirect("/upgrade")
+
+    uid = current_user.id
+    now = utcnow()
+    zone, offset = timezone_for(uid)
+    today = to_local(now, zone, offset).date()
+    monday = today - timedelta(days=today.weekday())
+    first_week = monday - timedelta(weeks=11)
+    comparison_start = monday - timedelta(weeks=4)
+    since = to_utc(datetime.combine(first_week, datetime.min.time()), zone, offset)
+    weeks = {first_week + timedelta(weeks=i): [0, 0, 0] for i in range(12)}
+    estimate_pairs = []
+
+    def week_for(timestamp):
+        day = to_local(timestamp, zone, offset).date()
+        return day - timedelta(days=day.weekday())
+
+    completions = db.session.query(TaskFeedback.completed_at, TaskFeedback.estimated_time, TaskFeedback.actual_time).filter(
+        TaskFeedback.user_id == uid, TaskFeedback.completed_at >= since,
+        TaskFeedback.completed_at <= now,
+    )
+    for completed_at, estimated, actual in completions:
+        start = week_for(completed_at)
+        week = weeks.get(start)
+        if week is not None:
+            week[0] += 1
+        if comparison_start <= start < monday and estimated and estimated > 0 and actual and actual > 0:
+            estimate_pairs.append((estimated, actual))
+
+    practice_sessions = db.session.query(StudySession.created_at, StudySession.duration_seconds).filter(
+        StudySession.user_id == uid, StudySession.completed.is_(True),
+        StudySession.created_at >= since, StudySession.created_at <= now,
+    )
+    focus_sessions = db.session.query(ActiveSession.ended_at, ActiveSession.active_seconds).filter(
+        ActiveSession.user_id == uid, ActiveSession.state == "completed",
+        ActiveSession.ended_at >= since, ActiveSession.ended_at <= now,
+    )
+    for sessions in (practice_sessions, focus_sessions):
+        for timestamp, duration in sessions:
+            week = weeks.get(week_for(timestamp))
+            if week is not None:
+                week[1] += 1
+                week[2] += max(0, duration or 0)
+
+    rows = [(start.isoformat(), tasks, sessions, seconds // 60)
+            for start, (tasks, sessions, seconds) in reversed(weeks.items())]
+    if request.args.get("format") == "csv":
+        content = StringIO()
+        csv = writer(content)
+        csv.writerow(("Week starting", "Task check-ins", "Study sessions", "Study minutes"))
+        csv.writerows(rows)
+        response = flask.Response(content.getvalue(), mimetype="text/csv")
+        response.headers["Content-Disposition"] = 'attachment; filename="intelliplan-weekly-review.csv"'
+        return _no_store(response)
+    estimate_summary = None
+    if len(estimate_pairs) >= 3:
+        from statistics import median
+
+        estimated, actual = zip(*estimate_pairs)
+        estimate_summary = (len(estimate_pairs), round(median(estimated)), round(median(actual)))
+    return _no_store(flask.make_response(_render_weekly_study_review(rows, estimate_summary=estimate_summary)))
+
+
+def _render_weekly_study_review(rows, *, estimate_summary=None, example=False):
+    completed = rows[1:5]
+    tracked_weeks = sum(bool(tasks or sessions) for _, tasks, sessions, _ in completed)
+    comparison = rows[1][3] - rows[2][3] if rows[1][2] and rows[2][2] else None
+    return render_template(
+        "weekly_study_review.html", rows=rows, tracked_weeks=tracked_weeks,
+        comparison=comparison, has_activity=any(tasks or sessions for _, tasks, sessions, _ in rows),
+        peak_minutes=max(1, *(minutes for _, _, _, minutes in rows)),
+        estimate_summary=estimate_summary, example=example,
+    )
 
 
 @app.route("/api/my-stats")

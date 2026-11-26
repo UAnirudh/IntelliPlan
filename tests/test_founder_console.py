@@ -205,6 +205,7 @@ def test_founder_mode_unlocks_aggregate_growth_console_only_for_verified_owner(c
     assert response.headers["Location"].endswith("/founder")
     dashboard = client.get("/founder").data
     assert b"Growth and engagement" in dashboard
+    assert b"50 paid customers across plans" in dashboard
     assert b"Signup cohort retention" in dashboard
     assert b"Product improvement opportunities" in dashboard
     assert b"Paid access started" in dashboard and b"Paid access ended" in dashboard

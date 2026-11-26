@@ -12,6 +12,8 @@ import html
 import json
 from datetime import date
 
+import pytest
+
 from intelliplan.integrations.timetable_import import (
     build_studentvue_timetable,
     fetch_schoology_timetable,
@@ -259,3 +261,42 @@ def test_class_list_refuses_entity_expansion_and_still_parses_safely():
     parsed = parse_studentvue_class_list(bomb)
     titles = [row.get("course") or row.get("name") or row.get("title") for row in parsed["listing"]]
     assert all("aaaaaaaaaa" not in (t or "") for t in titles)
+
+
+@pytest.mark.parametrize("first_portal_unavailable", [False, True])
+def test_automatic_timetable_import_checks_second_portal(monkeypatch, first_portal_unavailable):
+    from flask import Flask
+    from intelliplan.api import timetable
+
+    app = Flask(__name__)
+    app.register_blueprint(timetable.bp)
+    monkeypatch.setattr(timetable, "_guard", lambda: (7, None))
+    monkeypatch.setattr(timetable, "_linked_account", lambda kind: {"source": kind})
+    monkeypatch.setattr(timetable, "_state", lambda uid: {"status": "ok"})
+    monkeypatch.setattr(timetable, "_after_change", lambda uid: None)
+    monkeypatch.setattr(timetable, "_rows_for_upsert", lambda classes, length: classes)
+    calls = []
+
+    def fetch(kind, account):
+        calls.append(kind)
+        if kind == "studentvue" and first_portal_unavailable:
+            raise TimeoutError("Synthetic provider timeout")
+        return {"classes": [{"course": "Math", "start": "09:00"}] if kind == "schoology" else []}
+
+    monkeypatch.setattr(timetable, "fetch_timetable", fetch)
+    monkeypatch.setattr(timetable, "_upsert", lambda uid, rows, source, result: len(rows))
+
+    client = app.test_client()
+    assert client.post("/api/timetable/import", json=["auto"]).status_code == 400
+    assert calls == []
+    response = client.post("/api/timetable/import", json={"source": "auto"})
+    assert response.status_code == 200
+    assert (response.json["imported"], response.json["source"]) == (1, "schoology")
+    assert calls == ["studentvue", "schoology"]
+    calls.clear()
+    explicit = client.post("/api/timetable/import", json={"source": "studentvue"})
+    if first_portal_unavailable:
+        assert explicit.status_code == 502
+    else:
+        assert explicit.json["imported"] == 0
+    assert calls == ["studentvue"]

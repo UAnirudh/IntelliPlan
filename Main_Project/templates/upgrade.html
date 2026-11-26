@@ -46,11 +46,12 @@
 
 <div class="upg">
   <p class="u-label">Your plan</p>
-  {% if paid %}<div class="upg-flash" role="status">Payment received. Unlimited AI is on. It can take a minute to show here.</div>{% endif %}
+  {% if paid and plan == 'paid' %}<div class="upg-flash" role="status">Your paid plan is active.</div>{% endif %}
 
   {% if plan == 'paid' %}
     <h1 class="upg-title">You're on IntelliPlan Pro.</h1>
-    <p class="upg-lede">Unlimited AI tutor, schedules and study sets{% if paid_until %}, through {{ paid_until.strftime('%B %d, %Y') }}{% endif %}. Invite a classmate and you both get another {{ reward_days }} days.</p>
+    <p class="upg-lede">Your plan includes AI tutoring, schedules and study sets with no monthly IntelliPlan cap{% if paid_until %}, through {{ paid_until.strftime('%B %d, %Y') }}{% endif %}.</p>
+    <p><a class="btn-secondary" href="/my-stats/weekly-review">Open your 12-week study review</a></p>
     {% if can_manage_billing %}
     <div class="upg-manage">
       <button type="button" id="upgPortal">Manage or cancel subscription</button>
@@ -63,7 +64,7 @@
     <p class="upg-lede">There's no paid plan yet, and nothing is metered. Referral months you earn now are banked and apply the day Pro launches.</p>
   {% else %}
     <h1 class="upg-title">{% if allowance.exhausted %}You've used this month's free AI.{% else %}Free plan{% endif %}</h1>
-    <p class="upg-lede">The planner, imports, grades and reminders stay free. Pro removes the monthly cap on AI generations.</p>
+    <p class="upg-lede">The planner, school imports, grades and reminders are free. Pro adds a 12-week study review and removes IntelliPlan's monthly AI cap.</p>
     <div class="upg-meter">
       <strong>{{ allowance.remaining }}</strong>
       <span>of {{ allowance.limit }} AI generations left this month</span>
@@ -89,18 +90,24 @@
         {% endfor %}
       </fieldset>
       {% else %}
-      <p class="upg-price">${{ pro_prices['month'] }}<small> per month</small></p>
+      {% if offers %}
+      <p class="upg-price">${{ offers[0].price }}<small> per {{ offers[0].interval }}</small></p>
+      {% endif %}
       {% endif %}
       <ul>
-        <li>Unlimited Plani tutor and AI study sets</li>
+        <li>Compare 12 weeks of study time, sessions and task check-ins</li>
+        <li>Compare task estimates with the time you actually spent</li>
+        <li>Download your weekly review as a spreadsheet (CSV)</li>
+        <li>No monthly IntelliPlan cap on Plani tutor and AI study sets</li>
         {% if pro_model_ready %}<li>Claude first in the model chain, for harder questions</li>{% endif %}
         <li>Cancel any time; you keep the free plan</li>
       </ul>
+      <p><a href="/pricing/study-review">Try the review with sample data</a></p>
       {% if not checkout_ready %}
         <p class="upg-note">Checkout isn't open yet. Invite a friend below and you'll both get {{ reward_days }} days of Pro now.</p>
       {% else %}
         {% if not is_minor %}
-          <button type="button" class="btn-primary" id="upgCheckout">Upgrade</button>
+          <button type="button" class="btn-primary" id="upgCheckout" data-interval="{{ offers[0].interval }}">Upgrade</button>
         {% endif %}
         <button type="button" class="{{ 'btn-primary' if is_minor else 'btn-secondary' }}" id="upgPayLink">Get a link for a parent to pay</button>
         <div class="upg-copy" id="upgPayLinkBox" hidden>
@@ -163,7 +170,7 @@
   if (checkout) checkout.addEventListener('click', function () {
     checkout.disabled = true;
     var chosen = document.querySelector('input[name="upgInterval"]:checked');
-    post('/api/billing/checkout', { interval: chosen ? chosen.value : 'month' }).then(function (res) {
+    post('/api/billing/checkout', { interval: chosen ? chosen.value : checkout.dataset.interval }).then(function (res) {
       if (res.ok && res.body.url) { window.location.href = res.body.url; return; }
       checkout.disabled = false;
       fail(res.body && res.body.message === 'use_parent_link' ? 'Use the parent link below.' : res.body && res.body.message);

@@ -1,25 +1,25 @@
 {% extends "base.html" %}
 
 {% block page_title %}IntelliPlan vs MyStudyLife | Planner Comparison{% endblock %}
-{% block meta_description %}IntelliPlan vs MyStudyLife. Manual class planner vs automatic LMS import from Canvas, StudentVue, and Schoology plus AI scheduling. Compared.{% endblock %}
+{% block meta_description %}Compare MyStudyLife's rotating timetables and Scout revision plans with IntelliPlan's school assignment sync, study scheduling and grade what-if tools.{% endblock %}
 {% block og_type %}article{% endblock %}
 {% block og_title %}IntelliPlan vs MyStudyLife{% endblock %}
-{% block og_description %}Manual class schedule vs. automatic LMS import plus AI scheduling. The honest comparison.{% endblock %}
+{% block og_description %}Compare rotating timetables, school assignment sync, study scheduling and grade tools.{% endblock %}
 {% block twitter_title %}IntelliPlan vs MyStudyLife{% endblock %}
-{% block twitter_description %}Manual planner vs. automatic AI planner. Compared.{% endblock %}
+{% block twitter_description %}Compare rotating timetables, school assignment sync, study scheduling and grade tools.{% endblock %}
 
 {% block head_extra %}
 <script type="application/ld+json">
 {
   "@context": "https://schema.org", "@type": "Article",
   "headline": "IntelliPlan vs MyStudyLife",
-  "description": "A fair comparison of IntelliPlan and MyStudyLife as student planners: manual class schedules vs. automatic LMS import and AI scheduling.",
+  "description": "Compare MyStudyLife and IntelliPlan on rotating timetables, school assignment sync, study scheduling and grade tools.",
   "url": "https://intelliplan.tech/compare/intelliplan-vs-mystudylife",
   "about": ["MyStudyLife alternative", "free student planner", "AI study planner"],
   "author": { "@type": "Organization", "name": "IntelliPlan", "url": "https://intelliplan.tech" },
   "publisher": { "@id": "https://intelliplan.tech/#organization" },
   "datePublished": "2026-06-08",
-  "dateModified": "2026-06-22"
+  "dateModified": "2026-11-25"
 }
 </script>
 {% endblock %}
@@ -40,8 +40,6 @@
   .cmp-table th, .cmp-table td { text-align:left; padding:0.7rem 0.8rem; border-bottom:1px solid var(--border); vertical-align:top; }
   .cmp-table thead th { color:var(--text-primary); font-weight:700; border-bottom:1px solid var(--border-strong); }
   .cmp-table th.feat { color:var(--text-secondary); font-weight:600; }
-  .cmp-yes { color:var(--low); font-weight:700; }
-  .cmp-no { color:var(--text-muted); }
   .blog-cta { margin-top:2.5rem; padding:1.75rem; background:var(--glass-bg); -webkit-backdrop-filter:blur(16px) saturate(1.6); backdrop-filter:blur(16px) saturate(1.6); border:1px solid var(--border-accent); border-radius:var(--r-xl); box-shadow:var(--accent-glow); text-align:center; }
   .blog-cta h3 { font-family:var(--font-display); font-size:1.3rem; color:var(--text-primary); margin:0 0 0.5rem; }
   .blog-cta p { font-family:var(--font-ui); color:var(--text-secondary); margin:0 0 1rem; font-size:0.95rem; }
@@ -51,49 +49,41 @@
   <span class="blog-kicker">Comparison</span>
   <h1 class="blog-title">IntelliPlan vs MyStudyLife</h1>
   <p class="blog-lede">
-    MyStudyLife is a free, clean manual planner that students have used for years to track their class schedule and homework. IntelliPlan takes a different approach: instead of typing everything in, it imports your real assignments from your school's LMS and plans your week with AI.
+    MyStudyLife helps you manage a rotating school timetable and plan revision with Scout. IntelliPlan imports school assignments, estimates the work ahead, and schedules study sessions around your availability.
   </p>
 
   <div class="blog-body">
     <h2>The core difference</h2>
     <p>
-      <strong>MyStudyLife</strong> is a manual planner. You enter your timetable, your classes, and your homework, and it shows them back to you in a clean dashboard. It's simple, free, and works across devices.
+      <strong>MyStudyLife</strong> is built around a school timetable. It supports rotating and block schedules, and its Scout coach can create a timetable from a photo and plan revision around exams. MyStudyLife also lists course timetable sync from Canvas and Blackboard. <a href="https://mystudylife.com/">MyStudyLife feature guide</a>
     </p>
     <p>
-      <strong>IntelliPlan</strong> connects directly to <a href="/blog/how-to-use-canvas-with-a-study-planner">Canvas</a>, Google Classroom, <a href="/blog/studentvue-study-planner">StudentVue</a>, and Schoology, pulls every assignment automatically, ranks them <a href="/blog/how-to-prioritize-assignments">by deadline and effort</a>, and builds a weekly study schedule.
+      <strong>IntelliPlan</strong> connects directly to <a href="/blog/how-to-use-canvas-with-a-study-planner">Canvas</a>, Google Classroom, <a href="/blog/studentvue-study-planner">StudentVUE</a>, and Schoology, imports available assignments, ranks them <a href="/blog/how-to-prioritize-assignments">by deadline and effort</a>, and builds a weekly study schedule.
     </p>
 
     <h2>Feature comparison</h2>
     <table class="cmp-table">
       <thead><tr><th class="feat">Feature</th><th>IntelliPlan</th><th>MyStudyLife</th></tr></thead>
       <tbody>
-        <tr><th class="feat">Auto-imports assignments from Canvas / Google Classroom / StudentVue / Schoology</th><td class="cmp-yes">Yes</td><td class="cmp-no">Manual entry</td></tr>
-        <tr><th class="feat">AI assignment prioritisation</th><td class="cmp-yes">Yes</td><td class="cmp-no">No</td></tr>
-        <tr><th class="feat">AI weekly study schedule</th><td class="cmp-yes">Yes</td><td class="cmp-no">No</td></tr>
-        <tr><th class="feat">Class timetable view</th><td class="cmp-yes">Yes</td><td class="cmp-yes">Yes</td></tr>
-        <tr><th class="feat">Google Calendar export</th><td class="cmp-yes">Yes</td><td class="cmp-no">Limited</td></tr>
-        <tr><th class="feat">Grade tracking &amp; what-if modelling</th><td class="cmp-yes">Yes</td><td class="cmp-no">No</td></tr>
-        <tr><th class="feat">Built-in AI tutor</th><td class="cmp-yes">Yes</td><td class="cmp-no">No</td></tr>
-        <tr><th class="feat">Flashcard &amp; quiz generator</th><td class="cmp-yes">Yes</td><td class="cmp-no">No</td></tr>
-        <tr><th class="feat">Free for students</th><td class="cmp-yes">Yes</td><td class="cmp-yes">Yes</td></tr>
+        <tr><th class="feat" scope="row">School sync</th><td>Assignment import from Canvas, Google Classroom, StudentVUE and Schoology</td><td>Course timetable sync from Canvas or Blackboard</td></tr>
+        <tr><th class="feat" scope="row">Study planning</th><td>Prioritizes assignments and makes a weekly study plan around available time</td><td>Scout creates revision plans based on exam dates</td></tr>
+        <tr><th class="feat" scope="row">Class schedules</th><td>Class and calendar views</td><td>Weekly, rotating, block and alternating-week timetables</td></tr>
+        <tr><th class="feat" scope="row">Grades</th><td>Grade tracking and what-if modeling</td><td>Grade tracking</td></tr>
+        <tr><th class="feat" scope="row">Getting started</th><td>Free plan available</td><td>Free plan available with optional upgrades</td></tr>
       </tbody>
     </table>
 
     <h2>When MyStudyLife is the better pick</h2>
     <p>
-      If your school doesn't use a supported LMS (or you genuinely prefer typing your own assignments in), MyStudyLife is clean, free, and reliable. It's good at what it does: a digital paper planner.
+      Choose MyStudyLife if your biggest concern is keeping classes straight across rotating days or alternating weeks. Scout also gives you an exam revision plan based on the dates you enter.
     </p>
 
     <h2>When IntelliPlan is the better pick</h2>
     <p>
-      If your school uses Canvas, Google Classroom, StudentVue, Schoology, Blackboard, or Moodle, IntelliPlan saves you the manual entry and adds AI scheduling, grade tracking, and an AI tutor. All free. It's a planner that updates itself when teachers change due dates, which is the whole reason students stop using manual planners by week three.
+      Choose IntelliPlan if your first question is what to start after school. It brings in assignments and deadlines, fits study blocks into your available time, and shows how much study time is still unallocated each day. The grade modeler helps you decide which assignments deserve more attention.
     </p>
     <p>
-      {# Was "IntelliPlan vs Todoist", which has no route and no template —
-         a dead link in published copy. Replaced with myHomework, the
-         closest real sibling to MyStudyLife: both are manual planners a
-         student types their own assignments into. #}
-      See also: <a href="/compare/intelliplan-vs-myhomework">IntelliPlan vs myHomework</a> · <a href="/compare/intelliplan-vs-notion">IntelliPlan vs Notion</a> · <a href="/blog/best-student-planner-app">Best student planner app</a>
+      Related comparisons include <a href="/compare/intelliplan-vs-myhomework">IntelliPlan vs myHomework</a> · <a href="/compare/intelliplan-vs-notion">IntelliPlan vs Notion</a> · <a href="/blog/best-student-planner-app">Best student planner app</a>
     </p>
   </div>
 
