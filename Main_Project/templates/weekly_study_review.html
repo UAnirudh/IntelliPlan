@@ -40,6 +40,11 @@
     {% if not basic and workload.busiest_day %}
     <p>Your busiest deadline day is <time datetime="{{ workload.busiest_day.due }}">{{ workload.busiest_day.due }}</time>, with <strong>{{ workload.busiest_day.count }} {{ 'assignment' if workload.busiest_day.count == 1 else 'assignments' }}</strong> and about <strong>{{ workload.busiest_day.minutes }} minutes</strong> of work due. Try scheduling some of that work on earlier days, leaving time to review before the deadline.</p>
     {% endif %}
+    {% if not basic and workload.first_assignment %}
+    {% set first = workload.first_assignment %}
+    <h3>What to start first</h3>
+    <p>Set aside <strong>{{ [first.minutes, 25]|min }} minutes</strong> to start <strong>{{ first.title }}</strong>. It’s due on <time datetime="{{ first.due }}">{{ first.due }}</time> and has the largest time estimate among assignments due that day.</p>
+    {% endif %}
     <div class="review-table-wrap" role="region" aria-labelledby="reviewNextWeek" tabindex="0">
       <table>
         <thead><tr><th scope="col">Assignment</th><th scope="col">Due</th><th scope="col">Minutes</th>{% if not basic %}<th scope="col">Based on</th>{% endif %}</tr></thead>

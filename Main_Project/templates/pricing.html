@@ -373,7 +373,7 @@
         <li><span><strong>A 12-week study review</strong> to compare study time, sessions and task check-ins</span></li>
         <li><span><strong>Adjust next week’s time budget</strong> using your recorded pace and flag the busiest deadline day</span></li>
         <li>Compare recorded task time with your estimates</li>
-        <li>See your next-week study budget by course</li>
+        <li>See your time budget by course and which assignment to start first</li>
         <li>Download your weekly review as a spreadsheet (CSV)</li>
         <li>No monthly IntelliPlan cap on AI generations for tutoring, schedules and study sets</li>
       </ul>
@@ -388,6 +388,15 @@
   <section class="pricing-rationale pricing-rationale--wide" aria-labelledby="pricing-ultimate">
     <h2 id="pricing-ultimate">Ultimate · ${{ ultimate_monthly_price }}/month</h2>
     <p>Everything in Pro, plus Claude tutoring with Fast, Balanced, and Deep answer modes. The monthly advanced-model allowance includes ${{ ultimate_monthly_allowance }} in usage, with a live meter so you can see what’s left.</p>
+    <details>
+      <summary>Which Claude mode should I use?</summary>
+      <ul>
+        <li><strong>Fast:</strong> Check a definition or ask for a quick hint.</li>
+        <li><strong>Balanced:</strong> Work through a multi-step practice problem.</li>
+        <li><strong>Deep:</strong> Examine a difficult proof or compare approaches. Longer answers can use more of your allowance.</li>
+      </ul>
+      <p>Auto chooses a mode for you. Plani can use another model when advanced-model usage is exhausted or Claude is unavailable.</p>
+    </details>
     {% if ultimate_checkout_available %}<a href="/settings/ai">See Ultimate</a>{% else %}<p>Ultimate checkout is currently closed.</p>{% endif %}
   </section>
   <section class="pricing-rationale pricing-rationale--wide" aria-labelledby="pricing-referral">

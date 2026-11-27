@@ -62,10 +62,12 @@ def next_week_workload(assignments, check_ins, start: date):
         summary["minutes"] += row["minutes"]
         summary["count"] += 1
     busiest_due = min(minutes_by_day, key=lambda due: (-minutes_by_day[due], due)) if minutes_by_day else None
+    first_assignment = min(rows, key=lambda row: (row["due"], -row["minutes"]), default=None)
     return {
         "start": start.isoformat(), "end": (end - timedelta(days=1)).isoformat(),
         "rows": rows, "minutes": sum(row["minutes"] for row in rows),
         "adjustment": sum(row["minutes"] - row["original_minutes"] for row in rows),
+        "first_assignment": first_assignment,
         "courses": sorted(courses.values(), key=lambda item: (-item["minutes"], item["first_due"], item["course"].casefold())),
         "busiest_day": ({"due": busiest_due, "minutes": minutes_by_day[busiest_due],
                          "count": count_by_day[busiest_due]}

@@ -44,6 +44,7 @@ def test_busiest_day_sums_adjusted_estimates_and_breaks_ties_earliest():
     ]
     result = next_week_workload(assignments, [("Math", 30, 60)] * 3, start)
     assert result["busiest_day"] == {"due": "2026-12-01", "minutes": 60, "count": 2}
+    assert result["first_assignment"]["title"] == "C"
     assert result["courses"] == [{"course": "Math", "minutes": 120, "count": 3, "first_due": "2026-12-01"}]
 
 
@@ -64,3 +65,4 @@ def test_busiest_day_is_absent_without_open_dated_tasks():
         {"title": "Undated"},
     ], (), date(2026, 11, 30))
     assert result["busiest_day"] is None
+    assert result["first_assignment"] is None
