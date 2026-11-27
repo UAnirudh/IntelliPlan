@@ -58,6 +58,7 @@
   }
   .blog-cta h3 { font-family: var(--font-display); font-size: 1.3rem; color: var(--text-primary); margin: 0 0 0.5rem; }
   .blog-cta p { font-family: var(--font-ui); color: var(--text-secondary); margin: 0 0 1rem; font-size: 0.95rem; }
+  .blog-cta-actions { display:flex; flex-wrap:wrap; gap:0.6rem; justify-content:center; }
 </style>
 
 <div class="blog-page">
@@ -122,7 +123,10 @@
   <div class="blog-cta">
     <h3>Notes and a plan, in one free app</h3>
     <p>Turn lectures, PDFs, and videos into study material, then let IntelliPlan schedule your week. Free for students.</p>
-    <a href="/login" class="btn-primary" style="text-decoration:none">Try IntelliPlan Free <span class="ip-arrow" aria-hidden="true"></span></a>
+    <div class="blog-cta-actions">
+      <a href="/register" class="btn-primary" style="text-decoration:none">Get started free <span class="ip-arrow" aria-hidden="true"></span></a>
+      <a href="/login" class="btn-secondary" style="text-decoration:none">Log in</a>
+    </div>
   </div>
 </div>
 

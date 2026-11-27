@@ -5089,7 +5089,15 @@ def public_stats():
 
 @app.route("/")
 def landing():
-    return render_template("landing.html", active_page="landing")
+    # Newest guides straight from the registry, so the landing page keeps
+    # showing fresh posts without a second list to keep in sync.
+    return render_template("landing.html",
+                           active_page="landing",
+                           article_path=blog_articles.article_path,
+                           # Guides only: comparisons have their own /compare path
+                           # and would otherwise take the newest slots here.
+                           blog_picks=[article for article in blog_articles.all_articles()
+                                       if not article.get("path")][:3])
 
 
 @app.get("/test")
@@ -5742,6 +5750,11 @@ def _render_registry_article(article, active_page):
                            article_path=blog_articles.article_path,
                            related_articles=related,
                            article_json_ld=article_json_ld,
+                           # Counted from the body, and formatted here, so the
+                           # byline cannot disagree with the article it sits on.
+                           display_date=blog_articles.display_date(
+                               article.get("updated") or article["date"]),
+                           reading_time=blog_articles.reading_minutes(article),
                            active_page=active_page)
 
 @app.route("/olympiad")
