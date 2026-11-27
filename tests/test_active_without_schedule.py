@@ -213,23 +213,14 @@ def test_the_ad_hoc_form_is_present_on_the_page(client, student, url):
 
 
 @pytest.mark.parametrize("url", LAYOUTS)
-def test_the_duration_choices_are_buttons_not_a_number_field(client, student, url):
-    """Picking beats typing, and it removes any chance of entering a
-    duration the server will reject."""
-    html = client.get(url).data.decode("utf-8", "ignore")
-    for minutes in (15, 25, 45, 60):
-        assert f'data-minutes="{minutes}"' in html
-    assert 'type="number"' not in html
-
-
-@pytest.mark.parametrize("url", LAYOUTS)
-def test_the_start_button_begins_disabled(client, student, url):
-    """Gate the action on the required field rather than explaining what was
-    missing after they press it."""
-    html = client.get(url).data.decode("utf-8", "ignore")
-    assert 'id="ipaAdhocStart"' in html
-    start = html[html.find('id="ipaAdhocStart"'):]
-    assert "disabled" in start[:start.find(">")]
+def test_a_focus_session_can_start_without_typing(client, student, url):
+    html = client.get(url).get_data(as_text=True)
+    assert 'id="ipaAdhocOptions"' in html
+    assert 'id="ipaAdhocDuration"' in html
+    assert '<option value="25" selected>25 minutes</option>' in html
+    assert 'Start 25-minute session' in html
+    start = html.split('id="ipaAdhocStart"', 1)[1].split('>', 1)[0]
+    assert "disabled" not in start
 
 
 @pytest.mark.parametrize("url", LAYOUTS)

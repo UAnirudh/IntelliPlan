@@ -763,6 +763,15 @@
   .daily-tip { background: color-mix(in srgb, var(--bg-elevated) 44%, var(--bg-card)); }
   .saved-notice { background: color-mix(in srgb, var(--accent-soft) 56%, var(--bg-card)); }
   .saved-notice button { border: 0; background: color-mix(in srgb, var(--bg-elevated) 55%, transparent); }
+  .scheduler-primary { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-bottom: .85rem; }
+  .scheduler-primary span, #weekPlanStatus { color: var(--text-secondary); font-size: .86rem; }
+  #weekPlanStatus { width: 100%; margin: 0; }
+  #weekPlanStatus:empty { display: none; }
+  #calExportWrap { align-items: center; margin-bottom: 1rem; }
+  #calExportWrap[hidden], #calExportStatus:empty { display: none; }
+  .scheduler-habit-note { color: var(--text-secondary); font-size: .84rem; margin: .35rem 0; }
+  #calExportStatus { color: var(--text-secondary); margin: 0; }
+  .calendar-more summary { cursor: pointer; padding: 10px 4px; color: var(--text-secondary); }
   #savePanel > button { border: 0 !important; border-radius: 10px !important; box-shadow: none !important; }
   .sched-tabs { background: color-mix(in srgb, var(--bg-card) 58%, var(--bg)); }
   :is(.scheduler-panel, #scheduleResults, #scheduleOverview, #scheduleDays, .saved-notice) :focus-visible {
@@ -995,13 +1004,22 @@
       <p class="ipd-page-subtitle">I’m {{ assistant_name }}. Let’s find time for what’s due.</p>
     </div>
   </div>
-  <!-- The plan is only half of it. This is the other half, and it was
-       previously reachable only by typing the URL. -->
-  {% if not review_week %}<a href="/active" class="ip-action scheduler-study-link">Start studying <span class="ip-arrow" aria-hidden="true"></span></a>{% endif %}
 </div>
 
 <!-- ── TAB BAR ───────────────────────────────────────── -->
 {% if not review_week %}{% include "scheduler_tabs.html" %}{% endif %}
+{% if not review_week %}
+<div id="calExportWrap" class="exp-row" hidden>
+  <button type="button" id="calExportBtn" class="exp-btn exp-gcal" onclick="addToCalendar()"><svg aria-hidden="true"><use href="#i-scheduler"/></svg> Add to calendar</button>
+  <details class="calendar-more">
+    <summary>Other export options</summary>
+    <button type="button" id="icsBtn" class="exp-btn" onclick="downloadIcs()">Download calendar file</button>
+    <button type="button" class="exp-btn" onclick="printSchedule()">Print or save PDF</button>
+  </details>
+  <p id="calExportStatus" role="status"></p>
+</div>
+{% endif %}
+
 
 <!-- ══════════════════════════════════════════════════
      TAB 1, CREATOR
@@ -1009,6 +1027,13 @@
 <div class="sched-pane active" id="pane-creator"{% if not review_week %} role="tabpanel" aria-labelledby="tab-creator"{% endif %}>
 
   <div class="scheduler-panel" id="inputPanel">
+    {% if not review_week %}
+    <div class="scheduler-primary">
+      <button class="btn-primary" id="generateBtn" type="button" onclick="generateSchedule({skip_clarify: true})" disabled>Plan my week</button>
+      <span>Uses your assignments, availability, and connected calendars.</span>
+      <p id="weekPlanStatus" role="status"></p>
+    </div>
+    {% endif %}
     {% if current_user.is_authenticated %}
     <details class="ip-disclosure assignment-queue planner-capture" id="plannerCapture"{% if review_week %} style="display:none"{% endif %}>
       <summary><span>Add work</span><span class="ip-arrow" data-direction="down" data-arrow-kind="chevron" aria-hidden="true"></span></summary>
@@ -1040,47 +1065,44 @@
       </form>
     </details>
     {% endif %}
-    <div class="scheduler-inputs"{% if review_week %} style="display:none"{% endif %}>
-      <div class="input-group scheduler-availability">
-        <label class="form-label" for="hoursPerDay">Hours available per day</label>
-        <input type="number" id="hoursPerDay" class="form-input" value="2" min="0.5" max="12" step="0.5" style="max-width:120px;" />
-      </div>
-      <details class="ip-disclosure scheduler-options">
-        <summary><span>Study window and task options</span><span class="ip-arrow" data-direction="down" data-arrow-kind="chevron" aria-hidden="true"></span></summary>
-        <div class="scheduler-inputs">
-          <div class="input-group">
-            <label class="form-label" for="studyStartTime">Daily study window <span style="font-weight:400;">(optional)</span></label>
-            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-              <input type="time" id="studyStartTime" class="form-input" aria-label="Daily study start time" style="max-width:132px;" />
-              <span aria-hidden="true" style="color:var(--text-muted);">to</span>
-              <input type="time" id="studyEndTime" class="form-input" aria-label="Daily study end time" style="max-width:132px;" />
-            </div>
-            <span class="form-hint">Use exact times to place work inside this window each day.</span>
-          </div>
-          <div class="input-group">
-            <label class="form-label" for="preferredTime">Preferred study time</label>
-            <div style="display:flex; gap:6px; flex-wrap:wrap;">
-              <select id="preferredTime" class="form-input" style="max-width:150px;">
-                <option value="morning">Morning</option>
-                <option value="afternoon">Afternoon</option>
-                <option value="evening" selected>Evening</option>
-              </select>
-              <button id="autoTimeBtn" class="btn-control" onclick="autoDetectTime()" type="button" style="padding:0 16px; border-radius:10px; border:1px solid var(--accent); background:var(--accent-soft); color:var(--accent); cursor:pointer; font-family:var(--font-ui); font-size:0.85rem; font-weight:600; display:inline-flex; align-items:center; gap:5px;"><svg width="13" height="13"><use href="#i-sparkle"/></svg> Auto</button>
-            </div>
-            <span class="form-hint" id="autoTimeHint"></span>
-          </div>
-          <label class="agenda-pack-option"><input type="checkbox" id="schedPackDays"> Allow more sessions on busy days</label>
-          <div class="input-group" style="flex:1;">
-            <label class="form-label">Add custom tasks (optional)</label>
-            <div class="custom-tasks-wrap">
-              <input type="text" id="customTaskInput" class="form-input" aria-label="Add a task of your own" placeholder="e.g. Study for math test" />
-              <button class="btn-secondary btn-control" type="button" onclick="addCustomTask()" style="padding:0 16px; white-space:nowrap;">+ Add</button>
-            </div>
-            <div id="customTasksList" class="custom-tasks-list"></div>
-          </div>
+    <details class="ip-disclosure scheduler-options"{% if review_week %} style="display:none"{% endif %}>
+      <summary><span>Planning preferences</span><span class="ip-arrow" data-direction="down" aria-hidden="true"></span></summary>
+      <div class="scheduler-inputs">
+        <div class="input-group scheduler-availability">
+          <label class="form-label" for="hoursPerDay">Hours available per day</label>
+          <input type="number" id="hoursPerDay" class="form-input" value="2" min="0.5" max="12" step="0.5" style="max-width:120px;" />
         </div>
-      </details>
-    </div>
+
+        <div class="input-group">
+          <label class="form-label" for="studyStartTime">Daily study window <span style="font-weight:400;">(optional)</span></label>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+            <input type="time" id="studyStartTime" class="form-input" aria-label="Daily study start time" style="max-width:132px;" />
+            <span aria-hidden="true" style="color:var(--text-muted);">to</span>
+            <input type="time" id="studyEndTime" class="form-input" aria-label="Daily study end time" style="max-width:132px;" />
+          </div>
+          <span class="form-hint">Use exact times to place work inside this window each day.</span>
+        </div>
+        <div class="input-group">
+          <label class="form-label" for="preferredTime">Preferred study time</label>
+          <select id="preferredTime" class="form-input">
+            <option value="auto">Automatic</option>
+            <option value="morning">Morning</option>
+            <option value="afternoon">Afternoon</option>
+            <option value="evening">Evening</option>
+          </select>
+          <span class="form-hint">Automatic uses recent sessions when there’s enough history. Your availability and calendar come first.</span>
+        </div>
+        <label class="agenda-pack-option"><input type="checkbox" id="schedPackDays"> Allow more sessions on busy days</label>
+        <div class="input-group" style="flex:1;">
+          <label class="form-label">Add custom tasks (optional)</label>
+          <div class="custom-tasks-wrap">
+            <input type="text" id="customTaskInput" class="form-input" aria-label="Add a task of your own" placeholder="e.g. Study for math test" />
+            <button class="btn-secondary btn-control" type="button" onclick="addCustomTask()" style="padding:0 16px; white-space:nowrap;">+ Add</button>
+          </div>
+          <div id="customTasksList" class="custom-tasks-list"></div>
+        </div>
+      </div>
+    </details>
     <details class="ip-disclosure assignment-queue" id="assignmentQueue"{% if review_week %} style="display:none"{% endif %}>
       <summary><span>Assignments <span id="assignmentQueueCount" class="assignment-queue-hint">Loading…</span></span><span class="ip-arrow" data-direction="down" data-arrow-kind="chevron" aria-hidden="true"></span></summary>
       <div class="assignment-queue-controls" role="group" aria-label="Filter assignments">
@@ -1096,13 +1118,16 @@
       <a href="/scheduler">Back to your scheduler</a>
       <p role="status" id="reviewDraftStatus">Checking assignments due {{ review_week.start }} to {{ review_week.end }}. Your saved plan stays active until you save this draft.</p>
       {% endif %}
-      {% if not review_week %}<button class="btn-primary" id="generateBtn" type="button" onclick="generateSchedule()">Build study plan</button>{% endif %}
       <div id="savePanel" style="display:none; gap:8px; align-items:center; flex-wrap:wrap;">
+        {% if not review_week %}<details class="ip-disclosure scheduler-options" id="planManage">
+          <summary>Manage plan</summary>
+        {% endif %}
         <input type="{{ "hidden" if review_week else "text" }}" id="scheduleName" class="form-input" aria-label="Name for this schedule" placeholder="Schedule name..." style="max-width:200px;" />
         <button type="button" id="saveScheduleBtn" onclick="saveSchedule()" style="padding:12px 20px; border-radius:10px; border:1px solid var(--low); background:var(--low-bg); color:var(--low); cursor:pointer; font-family:var(--font-ui); font-size:0.88rem; font-weight:600; display:inline-flex; align-items:center; gap:6px;"><svg width="14" height="14"><use href="#i-save"/></svg> {{ "Use this plan" if review_week else "Save to dashboard" }}</button>
-        {% if not review_week %}<details class="ip-disclosure scheduler-options"><summary><span>More plan actions</span><span class="ip-arrow" data-direction="down" data-arrow-kind="chevron" aria-hidden="true"></span></summary>
+        {% if not review_week %}
         <button type="button" onclick="saveToMemories()" style="padding:12px 20px; border-radius:10px; border:1px solid var(--accent); background:var(--accent-soft); color:var(--accent); cursor:pointer; font-family:var(--font-ui); font-size:0.88rem; font-weight:600; display:inline-flex; align-items:center; gap:6px;"><svg width="14" height="14"><use href="#i-save"/></svg> Save to memories</button>
-        <button type="button" onclick="openInteractive()" style="padding:12px 20px; border-radius:10px; border:1px solid var(--accent); background:var(--accent); color:var(--on-accent, #fff); cursor:pointer; font-family:var(--font-ui); font-size:0.88rem; font-weight:600; display:inline-flex; align-items:center; gap:6px;"><span class="ip-arrow" style="--ip-arrow-size:14px" aria-hidden="true"></span> Open interactive view</button></details>{% endif %}
+        <a href="/active" class="ip-action scheduler-study-link">Start studying <span class="ip-arrow" aria-hidden="true"></span></a>
+        </details>{% endif %}
       </div>
     </div>
     {# role="alert" is on the message span, not here: this container also
@@ -1111,7 +1136,7 @@
     <div class="gen-error" id="genError">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:2px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
       <span id="genErrorMsg" role="alert"></span>
-      <button type="button" class="ge-retry" id="genErrorRetry" onclick="generateSchedule()" style="display:none;">Try again</button>
+      <button type="button" class="ge-retry" id="genErrorRetry" onclick="generateSchedule({skip_clarify: true})" style="display:none;">Try again</button>
     </div>
 
     <!-- ── Build it yourself ───────────────────────────────────────────
@@ -1195,7 +1220,6 @@
   </div>
 
   <div id="scheduleResults" style="display:none;">
-    <div id="calExportWrap" style="margin-bottom:1rem;"></div>
     <!-- "Used your saved answers for Study" — so a preset is never applied
          behind the student's back. -->
     <div id="usedPresets" style="display:none;margin-bottom:1rem;"></div>
@@ -1541,7 +1565,6 @@ function reviewWeekAssignments(rows, week) {
 let _assignmentQueueRows = [];
 let _assignmentQueueFilter = 'actionable';
 let _lastScheduleData = null;
-let _gcalConnected = false;
 let _activeBlockId = null;
 let _currentTab = 'creator';
 
@@ -1725,8 +1748,11 @@ loadSchedulerAssignments().then(loaded => {
   document.getElementById('assignmentQueueCount').textContent = '· unavailable';
   document.getElementById('assignmentQueueStatus').textContent = error.message;
   if (reviewWeek) document.getElementById('reviewDraftStatus').textContent = error.message;
-}).finally(() => { if (window.FT) FT.assignmentsLoaded(); });
-fetch('/calendar/events').then(r => r.json()).then(res => { _gcalConnected = res.connected; }).catch(() => {});
+}).finally(() => {
+  const button = document.getElementById('generateBtn');
+  if (button) button.disabled = false;
+  if (window.FT) FT.assignmentsLoaded();
+});
 
 /* ────────── TAB BAR ────────── */
 function switchTab(name) {
@@ -1979,66 +2005,13 @@ function forgetPresetAndReplan(key) {
     .finally(() => { _clarifyAnswers = {}; generateSchedule(); });
 }
 
-async function autoDetectTime() {
-  const btn = document.getElementById('autoTimeBtn');
-  const hint = document.getElementById('autoTimeHint');
-  btn.innerHTML = '<span class="btn-spin" style="display:inline-block;width:13px;height:13px;border:2px solid rgba(79,70,229,0.3);border-top-color:var(--accent);border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:middle;margin-right:4px;"></span> Scanning...';
-  btn.disabled = true;
-  hint.textContent = '';
-  try {
-    const today = new Date();
-    const localDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-    const query = new URLSearchParams({date: localDate, days: '3', tz: Intl.DateTimeFormat().resolvedOptions().timeZone});
-    const response = await fetch(`/calendar/free-slot?${query}`);
-    const data = await response.json();
-    if (!response.ok) throw new Error('Calendar availability is temporarily unavailable. Your settings were not changed.');
-    btn.innerHTML = '<svg width="13" height="13"><use href="#i-sparkle"/></svg> Auto';
-    btn.disabled = false;
-    if (!data.connected) {
-      hint.innerHTML = '<span style="color:var(--text-muted);">Connect <a href="/oauth/google" style="color:var(--accent);font-weight:600;">Google Calendar</a> or <a href="/oauth/outlook" style="color:var(--accent);font-weight:600;">Outlook</a> to use Auto.</span>';
-      return;
-    }
-    const todaySlot = data.suggestions?.[0] || data;
-    if (!todaySlot.available) {
-      hint.textContent = 'Your calendars have no 30-minute opening today. Choose another day or set your availability.';
-      return;
-    }
-    const slot = todaySlot.slot || '';
-    let totalFreeHours = todaySlot.free_hours || 0;
-    let preference = 'evening', prefLabel = 'Evening';
-    if (slot) {
-      const hourMatch = slot.match(/(\d+)(?::(\d+))?\s*(AM|PM)?/i);
-      if (hourMatch) {
-        let h = parseInt(hourMatch[1]);
-        const isPM = hourMatch[3] && hourMatch[3].toUpperCase() === 'PM';
-        if (isPM && h !== 12) h += 12;
-        if (!isPM && h === 12) h = 0;
-        if (h < 12) { preference = 'morning'; prefLabel = 'Morning'; }
-        else if (h < 17) { preference = 'afternoon'; prefLabel = 'Afternoon'; }
-      }
-    }
-    document.getElementById('preferredTime').value = preference;
-    if (totalFreeHours > 0) {
-      const cappedHours = Math.min(Math.round(totalFreeHours * 2) / 2, 6);
-      document.getElementById('hoursPerDay').value = cappedHours || 2;
-    }
-    const summaryParts = [];
-    if (slot) summaryParts.push(`First free: ${escapeText(slot)}`);
-    if (totalFreeHours > 0) summaryParts.push(`~${totalFreeHours}h free today`);
-    summaryParts.push(`→ ${prefLabel} sessions recommended`);
-    hint.innerHTML = `<span style="color:var(--low);font-weight:600;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px"><use href="#i-check"/></svg></span> ${summaryParts.join(' · ')}`;
-  } catch(e) {
-    btn.innerHTML = '<svg width="13" height="13"><use href="#i-sparkle"/></svg> Auto';
-    btn.disabled = false;
-    hint.textContent = 'Calendar availability is temporarily unavailable. Your settings were not changed.';
-  }
-}
-
 /* ────────── CREATOR: generate + save + export ────────── */
 /* Answers gathered from the clarification card, carried into the retry. */
 let _clarifyAnswers = {};
 
 function generateSchedule(extra) {
+  const button = document.getElementById('generateBtn');
+  if (button?.disabled) return;
   const assignments = reviewWeek ? reviewWeekAssignments(allAssignments, reviewWeek) : allAssignments;
   const tasks = reviewWeek ? [] : customTasks;
   if (!assignments.length && !tasks.length) {
@@ -2057,8 +2030,10 @@ function generateSchedule(extra) {
     showGenError('Your study end time must be after the start time.', false);
     return;
   }
+  if (button) button.disabled = true;
   hideGenError();
   hideClarify();
+  if (button) document.getElementById('weekPlanStatus').textContent = '';
   document.getElementById('savedNotice').style.display = 'none';
   document.getElementById('inputPanel').style.opacity = '0.5';
   document.getElementById('inputPanel').style.pointerEvents = 'none';
@@ -2066,8 +2041,11 @@ function generateSchedule(extra) {
   document.getElementById('scheduleResults').style.display = 'none';
   document.getElementById('savePanel').style.display = 'none';
   document.getElementById('emptyState').style.display = 'none';
+  const exportBar = document.getElementById('calExportWrap');
+  if (exportBar) exportBar.hidden = true;
 
   function done() {
+    if (button) button.disabled = false;
     document.getElementById('schedulerLoading').style.display = 'none';
     document.getElementById('inputPanel').style.opacity = '1';
     document.getElementById('inputPanel').style.pointerEvents = 'auto';
@@ -2092,13 +2070,17 @@ function generateSchedule(extra) {
     }
     return response;
   })
-  .then(response => {
+  .then(async response => {
     done();
     if (response.status === 'needs_clarification') {
       showClarify(response);
       return;
     }
     if (response.status === 'error') {
+      if (!reviewWeek && _lastScheduleData) {
+        document.getElementById('scheduleResults').style.display = 'block';
+        updateCalExportButton();
+      }
       showGenError(response.message || 'We could not build this plan yet. Check your assignments and available study time, then try again.', !!response.retryable);
       return;
     }
@@ -2121,7 +2103,6 @@ function generateSchedule(extra) {
        progress sync — so a student who generated a plan and did not notice
        the Save button was told by Active that they had no schedule. Nobody
        thinks of generating a plan as a draft, so stop treating it as one. */
-    if (!reviewWeek) autoSaveSchedule();
     const hasStudyBlocks = (response.data.schedule || []).some(day =>
       (day.blocks || []).some(block => !block.is_break && !block.unplaced));
     if (reviewWeek) {
@@ -2130,45 +2111,66 @@ function generateSchedule(extra) {
         : 'No study sessions fit before these deadlines. Your active plan is still available.';
     }
     document.getElementById('scheduleResults').style.display = 'block';
-    document.getElementById('savePanel').style.display = !reviewWeek || hasStudyBlocks ? 'flex' : 'none';
-    if (!reviewWeek) updateCalExportButton();
+    document.getElementById('savePanel').style.display = hasStudyBlocks ? 'flex' : 'none';
+    if (!reviewWeek) {
+      updateCalExportButton();
+      const status = document.getElementById('weekPlanStatus');
+      if (hasStudyBlocks) {
+        if (button) button.disabled = true;
+        const saved = await autoSaveSchedule();
+        status.textContent = saved ? 'Plan saved.' : 'Plan ready. Save it to use it across IntelliPlan.';
+        if (!saved) document.getElementById('planManage').open = true;
+        if (button) button.disabled = false;
+      } else {
+        status.textContent = 'No study sessions fit. Your saved plan is still available.';
+      }
+    }
     updateBadge();
   })
   .catch(error => {
     done();
+    if (!reviewWeek && _lastScheduleData) {
+      document.getElementById('scheduleResults').style.display = 'block';
+      updateCalExportButton();
+    }
     showGenError(error && error.message || 'Something went wrong while generating your plan. Check your connection and try again.', true);
   });
 }
 
 function updateCalExportButton() {
-  const universal = `
-    <button type="button" id="icsBtn" class="exp-btn" onclick="downloadIcs()">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-      Download .ics
-    </button>
-    <button type="button" class="exp-btn" onclick="printSchedule()">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-      Print / PDF
-    </button>`;
-  const wrap = document.getElementById('calExportWrap');
-  fetch('/calendar/events').then(r => r.json()).then(calRes => {
-    _gcalConnected = calRes.connected;
-    const gcal = calRes.connected
-      ? `<button type="button" id="calExportBtn" onclick="exportToCalendar()" class="exp-btn exp-gcal">
-           <svg><use href="#i-scheduler"/></svg> Export to calendar
-         </button>`
-      : `<a href="/oauth/google" class="exp-btn">
-           <svg><use href="#i-link"/></svg> Connect Google Calendar
-         </a>`;
-    wrap.innerHTML = `<div class="exp-row">${gcal}${universal}</div>`;
-  }).catch(() => {
-    // Calendar status unavailable — still offer the universal exports.
-    wrap.innerHTML = `<div class="exp-row">${universal}</div>`;
-  });
+  const days = _lastScheduleData?.schedule || [];
+  document.getElementById('calExportWrap').hidden = !days.some(day =>
+    (day.blocks || []).some(block => !block.is_break && !block.unplaced));
+  document.getElementById('calExportStatus').textContent = '';
 }
 
-async function downloadIcs() {
+async function addToCalendar() {
   if (!_lastScheduleData) return;
+  const btn = document.getElementById('calExportBtn');
+  if (btn.disabled) return;
+  const status = document.getElementById('calExportStatus');
+  const plan = _lastScheduleData;
+  btn.disabled = true;
+  status.textContent = 'Preparing your calendar…';
+  try {
+    const connections = await fetch('/calendar/connections', {cache: 'no-store'})
+      .then(r => r.ok ? r.json() : {}).catch(() => ({}));
+    if (plan !== _lastScheduleData) return;
+    if (connections?.google || connections?.outlook) {
+      await exportToCalendar(plan, status);
+    } else {
+      const downloaded = await downloadIcs(plan);
+      status.textContent = downloaded
+        ? 'Calendar file downloaded. Open it in your calendar app to add the study sessions.'
+        : 'The calendar file could not be prepared. Try again.';
+    }
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function downloadIcs(plan = _lastScheduleData) {
+  if (!plan) return false;
   const btn = document.getElementById('icsBtn');
   const orig = btn ? btn.innerHTML : '';
   if (btn) { btn.disabled = true; btn.textContent = 'Preparing…'; }
@@ -2176,7 +2178,7 @@ async function downloadIcs() {
     const name = (document.getElementById('scheduleName').value || '').trim() || 'IntelliPlan Study Plan';
     const res = await fetch('/schedule/export.ics', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ schedule_data: _lastScheduleData, name })
+      body: JSON.stringify({ schedule_data: plan, name })
     });
     if (!res.ok) throw new Error('export failed');
     const blob = await res.blob();
@@ -2186,9 +2188,11 @@ async function downloadIcs() {
     a.download = name.replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '') + '.ics';
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 4000);
-    if (btn) btn.innerHTML = '<svg width="14" height="14"><use href="#i-check-circle"/></svg> Downloaded';
+    if (btn) btn.textContent = 'Downloaded';
+    return true;
   } catch (e) {
     if (btn) btn.textContent = 'Export failed. Try again';
+    return false;
   } finally {
     if (btn) setTimeout(() => { btn.disabled = false; btn.innerHTML = orig; }, 2200);
   }
@@ -2219,8 +2223,10 @@ async function autoSaveSchedule() {
       pushProgress();
       if (window.FT) FT.refresh();
       if (_currentTab === 'calendar') document.dispatchEvent(new Event('scheduler:calendar'));
+      return true;
     }
   } catch (e) { /* the manual save button remains */ }
+  return false;
 }
 
 async function saveSchedule() {
@@ -2292,37 +2298,29 @@ async function saveToMemories() {
   }
 }
 
-async function exportToCalendar() {
-  if (!_lastScheduleData) return;
-  const btn = document.getElementById('calExportBtn');
-  btn.innerHTML = '<svg width="14" height="14" class="spin"><use href="#i-spinner"/></svg> Exporting...';
-  btn.disabled = true;
-  async function callExport() {
-    try {
-      const r = await fetch('/calendar/export', {
-        method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({schedule_data: _lastScheduleData, skip_overlaps: true,
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone})
-      });
-      return await r.json();
-    } catch(e) { return {status: 'error', message: 'Calendar export could not be confirmed. Check your calendar before retrying.'}; }
+async function exportToCalendar(plan, status) {
+  let result;
+  try {
+    const response = await fetch('/calendar/export', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({schedule_data: plan, skip_overlaps: true,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone})
+    });
+    result = await response.json();
+  } catch (error) {
+    status.textContent = 'Could not confirm export. Check your calendar before trying again.';
+    return;
   }
-  const res = await callExport();
-  btn.disabled = false;
-  if (res.status === 'ok') {
-    btn.innerHTML = `<svg width="14" height="14"><use href="#i-check-circle"/></svg> Added ${res.created} events`;
-    const failed = Object.entries(res.providers || {}).filter(([, result]) => result.error)
-      .map(([provider]) => provider === 'outlook' ? 'Outlook' : 'Google Calendar');
-    if (failed.length) IP.alert(`Some calendars could not be updated: ${failed.join(', ')}. The other calendar exports succeeded. Check the failed connection in Settings before retrying.`);
-    btn.style.background = 'var(--low)';
-    setTimeout(() => {
-      btn.innerHTML = '<svg width="15" height="15"><use href="#i-scheduler"/></svg> Export to calendar';
-      btn.style.background = '';
-    }, 3000);
-  } else {
-    btn.innerHTML = '<svg width="15" height="15"><use href="#i-scheduler"/></svg> Export to calendar';
-    IP.alert('Export failed: ' + (res.message || 'Unknown error'));
+  if (result.status !== 'ok') {
+    status.textContent = result.message || 'Could not add sessions to your calendar.';
+    return;
   }
+  const problems = Object.entries(result.providers || {}).filter(([, provider]) => provider.error)
+    .map(([provider]) => provider === 'outlook' ? 'Outlook' : 'Google Calendar');
+  const added = result.created ? 'Added ' + result.created + (result.created === 1 ? ' event.' : ' events.') : 'No new events added.';
+  const skipped = result.skipped ? ' ' + result.skipped + ' overlapping or existing sessions skipped.' : '';
+  const failed = problems.length ? ' Could not update ' + problems.join(' or ') + '.' : '';
+  status.textContent = added + skipped + failed;
 }
 
 /* Explain any work the planner had to move because the student's own
@@ -2440,6 +2438,8 @@ function renderSchedule(data) {
     <div class="overview-card">
       <div class="overview-text">${escapeText(data.overview || '')}</div>
       <div class="overview-stat"><svg width="12" height="12"><use href="#i-clock"/></svg> Total study time: <strong>${escapeText(data.total_study_time || '')}</strong></div>
+      ${['morning', 'afternoon', 'evening'].includes(data.learned_study_time)
+        ? '<p class="scheduler-habit-note">Your recent sessions helped pick ' + data.learned_study_time + ' study time.</p>' : ''}
       ${renderCapacitySummary(data)}
       ${renderPlacementNotes(notes)}
     </div>`;
@@ -3389,14 +3389,6 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') closeChecklist();
 });
 
-/* ────────── LOAD CALENDAR HINT + saved schedule ────────── */
-fetch('/calendar/events').then(r => r.json()).then(res => {
-  _gcalConnected = res.connected;
-  if (res.connected) {
-    document.getElementById('autoTimeHint').textContent = 'Calendar connected, export button appears after generating';
-  }
-}).catch(() => {});
-
 fetch('/archive/context').then(r => r.json()).then(ctx => {
   if (ctx.custom_tasks && Array.isArray(ctx.custom_tasks) && ctx.custom_tasks.length) {
     customTasks = ctx.custom_tasks.map(t => typeof t === 'string' ? t : (t.title || t.name || String(t)));
@@ -3407,6 +3399,7 @@ fetch('/archive/context').then(r => r.json()).then(ctx => {
 /* ────────── SAVED PLAN: always resume where you left off ────────── */
 function dismissSavedPlan() {
   _lastScheduleData = null;
+  updateCalExportButton();
   _progressSyncEnabled = false;
   clearTimeout(_progressPushTimer);
   document.getElementById('savedNotice').style.display = 'none';

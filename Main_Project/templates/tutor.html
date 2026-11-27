@@ -207,6 +207,8 @@ main {
 }
 
 /* Suggested questions */
+.tutor-suggestions-menu { width: min(520px, 100%); text-align: left; }
+.tutor-suggestions-menu > summary { min-height: 44px; padding: 10px 0; color: var(--text-secondary); cursor: pointer; }
 .tutor-suggestions { display: flex; flex-direction: column; gap: 7px; max-width: 520px; width: 100%; }
 .tutor-sug-label {
   font-family: var(--ipd-font-mono); font-size: 0.68rem; font-weight: 700;
@@ -758,7 +760,10 @@ main {
 
       <h2 class="tutor-empty-title">Study with {{ assistant_name }}</h2>
       <p class="tutor-empty-sub">Get a hint, work through a problem, or test what you know.</p>
-      <div class="tutor-suggestions" id="tutorSuggestions"></div>
+      <details class="tutor-suggestions-menu">
+        <summary>Need a question to start?</summary>
+        <div class="tutor-suggestions" id="tutorSuggestions"></div>
+      </details>
     </div><!-- /tutor-empty -->
 
     <!-- Message thread -->
@@ -1621,7 +1626,6 @@ function resetToEmpty() {
 function renderSuggestions(subject) {
   const items = SUGGESTIONS[subject] || SUGGESTIONS.General;
   document.getElementById('tutorSuggestions').innerHTML =
-    `<div class="tutor-sug-label">Suggested questions</div>` +
     items.map(s =>
       `<button class="tutor-sug-card" onclick="useSuggestion(this)">
          <span class="tutor-sug-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><use href="#i-sparkle"/></svg></span>
@@ -1631,8 +1635,12 @@ function renderSuggestions(subject) {
 }
 
 function useSuggestion(el) {
+  const inp = document.getElementById('tutorInput');
+  if (inp.value.trim()) {
+    inp.focus();
+    return;
+  }
   const text = el.querySelector('span:last-child').textContent;
-  const inp  = document.getElementById('tutorInput');
   inp.value  = text;
   autoResizeTutor(inp);
   sendTutorMessage();

@@ -1091,8 +1091,8 @@ def _execute_tool(name: str, args: dict, user_id: int) -> dict[str, Any]:
                 raise ValueError
         except (TypeError, ValueError):
             return {"error": "Choose study hours greater than zero and at most 12 per day."}
-        pref = args.get("preferred_time", "evening")
-        if pref not in {"morning", "afternoon", "evening"}:
+        pref = args.get("preferred_time", "auto")
+        if pref not in {"auto", "morning", "afternoon", "evening"}:
             return {"error": "Choose morning, afternoon, or evening for your study time."}
         assignments = []
         for t in tasks:

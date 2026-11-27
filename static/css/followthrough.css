@@ -26,6 +26,9 @@
 }
 .ft-sub { font-size: 0.78rem; color: var(--text-muted); }
 
+.ft-adjust > summary { cursor: pointer; padding: 8px 0; min-height: 44px; font-weight: 600; }
+.ft-adjust > summary .ft-inline-meta { margin-inline-start: 8px; }
+.ft-adjust[open] .ft-actions { margin-block: 4px 8px; }
 .ft-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .ft-btn {
   display: inline-flex; align-items: center; gap: 6px;

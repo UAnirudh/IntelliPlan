@@ -155,6 +155,35 @@ class StudentContext:
     #: Population prior for the Follow-Through model; ``None`` → built-in.
     followthrough_prior: Any = None
 
+    def resolve_study_time(self, now: datetime) -> StudentContext:
+        """Choose a fallback for days without explicit availability."""
+        if self.preferred_time != "auto":
+            return self
+
+        from intelliplan.intelligence.behavior import build_behavior_model, slot_for_hour
+        from time_utils import to_local, to_utc
+
+        # Use timed sittings with real outcomes. An unchecked block can steer
+        # the fallback away from a slot but never marks that time unavailable.
+        unchecked = recurring_unchecked_slot(self.outcome_rows, now.date())
+        local_slots = []
+        for row in self.session_rows:
+            started = row.get("started_at")
+            if not isinstance(started, datetime):
+                continue
+            local = to_local(started, self.timezone_name, self.timezone_offset_minutes)
+            slot = slot_for_hour(local.hour)
+            if slot != unchecked:
+                local_slots.append({**row, "slot": slot})
+        model = build_behavior_model(
+            local_slots, now=to_utc(now, self.timezone_name, self.timezone_offset_minutes),
+        )
+        best = model.best_slot()
+        # A bucket with only abandoned sessions is evidence against using it.
+        if best and not any(row["slot"] == best and row.get("completed") for row in local_slots):
+            best = None
+        return replace(self, preferred_time=best or "evening")
+
 
 class SchedulingService:
     """Builds plans for one student. Stateless between calls."""

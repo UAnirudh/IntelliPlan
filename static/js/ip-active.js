@@ -246,9 +246,10 @@
         IPA.plan = null;
         $('ipaCard').hidden = true;
         $('ipaEmpty').hidden = false;
-        $('ipaEmptyMsg').textContent = 'Choose a name and length for this session.';
+        $('ipaEmptyMsg').textContent = 'Start now, or adjust the session below.';
         showAdhoc(false);
         setControls('none');
+        $('ipaAdhocOptions').open = true;
         $('ipaAdhocTitle').focus();
         return;
       }
@@ -321,8 +322,6 @@
   // Active was unusable without a generated plan. Studying for twenty
   // minutes is not a thing that should require a schedule first.
 
-  var adhocMinutes = 25;
-
   function showAdhoc(offerScheduleLink) {
     var form = $('ipaAdhoc');
     if (form) form.hidden = false;
@@ -330,26 +329,8 @@
     if (cta) cta.hidden = !offerScheduleLink;
   }
 
-  function adhocValidate() {
-    var field = $('ipaAdhocTitle');
-    var start = $('ipaAdhocStart');
-    if (!field || !start) return false;
-    var ok = field.value.trim().length > 0;
-    // Gate the action on the one field that is required, rather than letting
-    // them press Start and then explaining what was missing.
-    start.disabled = !ok;
-    return ok;
-  }
-
-  function adhocPick(button) {
-    var group = button.parentNode;
-    Array.prototype.forEach.call(group.querySelectorAll('.ipa-chip'), function (chip) {
-      chip.classList.remove('is-selected');
-      chip.setAttribute('aria-pressed', 'false');
-    });
-    button.classList.add('is-selected');
-    button.setAttribute('aria-pressed', 'true');
-    adhocMinutes = parseInt(button.getAttribute('data-minutes'), 10) || 25;
+  function adhocUpdateLabel() {
+    $('ipaAdhocStart').textContent = 'Start ' + $('ipaAdhocDuration').value + '-minute session';
   }
 
   function adhocError(message) {
@@ -360,10 +341,11 @@
   }
 
   function adhocStart() {
-    if (!adhocValidate()) return;
-    if ($('ipaAssignmentSelect')) $('ipaAssignmentSelect').disabled = true;
     var start = $('ipaAdhocStart');
-    var title = $('ipaAdhocTitle').value.trim();
+    if (start.disabled) return;
+    if ($('ipaAssignmentSelect')) $('ipaAssignmentSelect').disabled = true;
+    var title = $('ipaAdhocTitle').value.trim() || 'Focus session';
+    var minutes = Number($('ipaAdhocDuration').value);
     start.disabled = true;
     start.textContent = 'Starting…';
     adhocError('');
@@ -373,7 +355,7 @@
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         title: title,
-        planned_minutes: adhocMinutes,
+        planned_minutes: minutes,
         course: '',
         kind: 'study',
       }),
@@ -386,15 +368,14 @@
       adhocError('Could not start that session: ' + err.message);
       if ($('ipaAssignmentSelect')) $('ipaAssignmentSelect').disabled = false;
       start.disabled = false;
-      start.textContent = 'Start session';
+      adhocUpdateLabel();
     });
   }
 
   // The markup calls these from inline handlers, so they need a home on the
   // window rather than staying private to the IIFE.
   window.IPActive = {
-    adhocValidate: adhocValidate,
-    adhocPick: adhocPick,
+    adhocUpdateLabel: adhocUpdateLabel,
     adhocStart: adhocStart,
   };
 
@@ -576,8 +557,8 @@
       IPA.accrued = 0;
       IPA.overNoted = false;
       $('ipaAdhocTitle').value = '';
-      $('ipaAdhocStart').textContent = 'Start session';
-      adhocValidate();
+      $('ipaAdhocStart').disabled = false;
+      adhocUpdateLabel();
       loadNext();
     }).catch(function (err) {
       if (wasRunning) beginTicking();

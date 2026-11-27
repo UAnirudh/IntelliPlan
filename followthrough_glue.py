@@ -402,7 +402,7 @@ def load_prior() -> Prior:
 def student_context_extras(user_id: int | None, guest_id: str | None) -> dict[str, Any]:
     """The Follow-Through inputs for a ``StudentContext``."""
     return {
-        "outcome_rows": tuple(_outcome_rows(user_id, guest_id, date.today())),
+        "outcome_rows": tuple(_outcome_rows(user_id, guest_id, now_for(user_id).date())),
         "followthrough_prior": load_prior(),
     }
 
@@ -437,7 +437,7 @@ def _build_service(user_id: int | None, guest_id: str | None, payload: Mapping[s
         **_planner_timezone_context(user_id),
         availability=availability,
         commitments=commitments,
-        preferred_time=str(payload.get("preferred_time") or "evening"),
+        preferred_time=str(payload.get("preferred_time") or "auto"),
         feedback_rows=_planner_feedback_rows(user_id, guest_id),
         session_rows=_planner_session_rows(user_id, guest_id),
         concept_mastery=_planner_concept_mastery(user_id),
@@ -445,7 +445,7 @@ def _build_service(user_id: int | None, guest_id: str | None, payload: Mapping[s
         daily_target_minutes=comfort,
         busy_by_date=busy,
         **student_context_extras(user_id, guest_id),
-    )
+    ).resolve_study_time(now_for(user_id))
     return SchedulingService(context, PlannerConfig(), follow_through=True)
 
 

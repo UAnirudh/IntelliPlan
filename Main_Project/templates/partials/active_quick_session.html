@@ -1,0 +1,21 @@
+<form class="ipa-adhoc" id="ipaAdhoc" hidden onsubmit="IPActive.adhocStart(); return false;">
+  <h2 class="ipa-adhoc-title">Start a session now</h2>
+  <p class="ipa-adhoc-error" id="ipaAdhocError" role="alert" hidden></p>
+  <div class="ipa-adhoc-actions">
+    <button type="submit" class="ipa-btn ipa-btn--primary" id="ipaAdhocStart">Start 25-minute session</button>
+    <a class="ipa-btn" href="/scheduler" id="ipaEmptyCta" hidden>Build a schedule</a>
+  </div>
+  <details id="ipaAdhocOptions" class="ipa-session-options">
+    <summary>Session options</summary>
+    <label class="ipa-adhoc-label" for="ipaAdhocTitle">What are you working on? (optional)</label>
+    <input class="ipa-adhoc-input" id="ipaAdhocTitle" type="text" maxlength="120"
+           placeholder="e.g. Biology reading" autocomplete="off">
+    <label class="ipa-adhoc-label" for="ipaAdhocDuration">Duration</label>
+    <select id="ipaAdhocDuration" class="ipa-adhoc-input" onchange="IPActive.adhocUpdateLabel()">
+      <option value="15">15 minutes</option>
+      <option value="25" selected>25 minutes</option>
+      <option value="45">45 minutes</option>
+      <option value="60">60 minutes</option>
+    </select>
+  </details>
+</form>

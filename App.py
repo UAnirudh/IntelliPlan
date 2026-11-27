@@ -12707,7 +12707,7 @@ def _build_planner_schedule(normalized_assignments, custom_tasks, uid, gid,
             # appointment is a plan the student cannot follow.
             busy_by_date=_planner_busy_by_date(require_complete=True),
             **_followthrough_extras(uid, gid),
-        )
+        ).resolve_study_time(planning_now)
         config = PlannerConfig(weights=PlannerWeights(crowding=0)) if pack_days else PlannerConfig()
         service = SchedulingService(
             context, config, follow_through=_followthrough_on(uid),
@@ -12719,7 +12719,7 @@ def _build_planner_schedule(normalized_assignments, custom_tasks, uid, gid,
         # and redirects keep working exactly as they do on the AI path.
         try:
             data = enrich_schedule_data(
-                data, normalized_assignments, preferred_time, hours_per_day
+                data, normalized_assignments, context.preferred_time, hours_per_day
             )
         except Exception as ee:
             print(f"[planner] enrich_schedule_data failed (non-fatal): {ee}")
@@ -12729,6 +12729,8 @@ def _build_planner_schedule(normalized_assignments, custom_tasks, uid, gid,
             app.logger.warning('Planner produced a plan that failed feasibility checks')
             return None
         data['feasibility'] = validation.to_dict()
+        if preferred_time == "auto" and context.preferred_time != "evening" and not availability:
+            data["learned_study_time"] = context.preferred_time
         data['planned_at_local'] = planning_now.isoformat(timespec='seconds')
         if uid and record_version:
             _record_plan_version(uid, plan, chosen, data)
@@ -13151,6 +13153,9 @@ def generate_schedule():
             'status': 'error', 'error': 'schedule_unverified',
             'message': 'We could not verify a plan against your free time. Please try again.',
         }), 503
+
+    if preferred_time == "auto":
+        preferred_time = "evening"
 
     # Re-baseline estimates against how long work actually takes THIS student,
     # before they reach the prompt — a plan built on "60 min" for someone who
@@ -16575,7 +16580,7 @@ def _schedule_to_ics(schedule_data, name="IntelliPlan Study Plan"):
         except ValueError:
             continue
         for block in (day.get("blocks") or []):
-            if block.get("is_break"):
+            if block.get("is_break") or block.get("unplaced"):
                 continue
             start_t = end_t = None
             for key, target in (("start_iso", "start"), ("end_iso", "end")):

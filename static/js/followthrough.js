@@ -203,16 +203,14 @@
       ? '<span class="ft-inline-meta" title="Planned on earlier days and not ticked off">' + esc(missed) + ' min</span>'
       : '';
     return '<div class="ft-bar">' +
-      '<div class="ft-bar-head">' +
-        '<div class="ft-title">Life happened?</div>' +
-        '<div class="ft-sub">Adjust in one tap. Only what has to move moves, and you see the effect first.</div>' +
-      '</div>' +
+      '<details class="ft-adjust">' +
+      '<summary>Adjust my plan' + behind + '</summary>' +
       '<div class="ft-actions" role="group" aria-label="Adjust your plan">' +
         '<button type="button" class="ft-btn" data-ft-intent="skip_day">Can\'t study today</button>' +
         '<button type="button" class="ft-btn" data-ft-intent="limit_day">Less time today</button>' +
         '<button type="button" class="ft-btn" data-ft-intent="add_time">I have extra time</button>' +
-        '<button type="button" class="ft-btn' + (missed > 0 ? ' ft-btn--accent' : '') + '" data-ft-intent="catch_up">I\'m behind ' + behind + '</button>' +
-      '</div>' +
+        '<button type="button" class="ft-btn' + (missed > 0 ? ' ft-btn--accent' : '') + '" data-ft-intent="catch_up">Catch up</button>' +
+      '</div></details>' +
       '<div class="ft-forecast" aria-live="polite">' + forecastMarkup() + checkIn + '</div>' +
       (state.calendarWarning ? '<p class="ft-calendar-warning" role="status">' + esc(state.calendarWarning) + '</p>' : '') +
       autopilotMarkup() +

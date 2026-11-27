@@ -77,9 +77,9 @@ def run_width(browser, width):
     context.add_init_script("localStorage.setItem('ip_tour_done','1');")
     page = context.new_page()
     page.clock.install(time=datetime(2026, 11, 1, 23, 30, tzinfo=timezone.utc))
-    errors, availability, exports, generated, requests, hostile_requests = [], [], [], [], [], []
+    errors, exports, generated, requests, hostile_requests = [], [], [], [], []
     submission_writes = []
-    state = {'auto': 'outlook', 'export': 'partial', 'submitted': False}
+    state = {'outlook': True, 'export': 'partial', 'submitted': False}
     page.on('pageerror', lambda error: errors.append(str(error)))
 
     def route(handler):
@@ -99,18 +99,12 @@ def run_width(browser, width):
                                        content_type=mimetypes.guess_type(path)[0]
                                        or 'application/octet-stream')
             return handler.fulfill(status=404)
-        if parsed.path == '/calendar/free-slot':
-            availability.append({'method': req.method, 'query': parse_qs(parsed.query)})
-            mode = state['auto']
-            if mode == 'outage':
-                return handler.fulfill(status=503, json={'error': MARKUP})
-            if mode == 'disconnected':
-                return handler.fulfill(json={'connected': False})
-            slot = {'date': '2026-11-02', 'available': mode != 'full',
-                    'slot': MARKUP if mode == 'markup' else '2:00 PM',
-                    'free_hours': 3.5}
-            return handler.fulfill(json={'connected': True, 'providers': ['outlook'],
-                                         'suggestions': [slot], **slot})
+        if parsed.path == '/calendar/connections':
+            return handler.fulfill(json={'google': False, 'outlook': state['outlook']})
+        if parsed.path == '/schedule/export.ics':
+            response = client.post(parsed.path, json=req.post_data_json)
+            return handler.fulfill(status=response.status_code, body=response.get_data(),
+                                   content_type='text/calendar')
         if parsed.path == '/calendar/events':
             return handler.fulfill(json={'connected': True, 'events': [],
                                          'providers': {'outlook': {'connected': True}}})
@@ -175,22 +169,13 @@ def run_width(browser, width):
         assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), name
         page.screenshot(path=str(OUT / f'{name}-{width}.png'), full_page=True)
 
-    def auto(mode):
-        state['auto'] = mode
-        before = len(availability)
-        with page.expect_response(lambda res: urlsplit(res.url).path == '/calendar/free-slot'):
-            page.locator('#autoTimeBtn').click()
-        expect(page.locator('#autoTimeBtn')).to_be_enabled()
-        assert len(availability) == before + 1
-        assert availability[-1] == {'method': 'GET', 'query': {
-            'date': ['2026-11-02'], 'days': ['3'], 'tz': ['Asia/Tokyo']}}, availability[-1]
-
     try:
         page.goto('https://scheduler.test/scheduler', wait_until='networkidle')
         cookie = page.get_by_role('button', name='Essential only', exact=True)
         if cookie.is_visible():
             cookie.click()
-        expect(page.locator('#hoursPerDay')).to_be_visible()
+        expect(page.locator('#generateBtn')).to_be_visible()
+        expect(page.locator('#hoursPerDay')).to_be_hidden()
         views = page.get_by_role('tablist', name='Study scheduler views')
         expect(views.get_by_role('tab', name='Build a plan')).to_have_attribute('aria-selected', 'true')
         expect(views.get_by_role('tab', name='My plan')).to_be_visible()
@@ -212,36 +197,13 @@ def run_width(browser, width):
         expect(page.locator('.assignment-queue-row')).to_have_count(2)
         checks.append('Waiting-grade filter and manual submission preserve submitted work without scheduling it')
         capture('waiting-for-grade-filter')
-        page.get_by_text('Study window and task options', exact=True).click()
-        auto('outlook')
-        expect(page.locator('#preferredTime')).to_have_value('afternoon')
-        expect(page.locator('#hoursPerDay')).to_have_value('3.5')
-        expect(page.locator('#autoTimeHint')).to_contain_text('2:00 PM')
-        checks.append('Outlook-only confirmed slot updates preferences in browser local date/timezone')
-        capture('outlook-confirmed-slot')
-
-        for mode, message in [('full', 'no 30-minute opening'),
-                              ('outage', 'temporarily unavailable')]:
-            page.locator('#hoursPerDay').fill('4.5')
-            page.locator('#preferredTime').select_option('morning')
-            auto(mode)
-            expect(page.locator('#autoTimeHint')).to_contain_text(message)
-            expect(page.locator('#hoursPerDay')).to_have_value('4.5')
-            expect(page.locator('#preferredTime')).to_have_value('morning')
-            checks.append(f'{mode} preserves both existing preferences and shows truthful message')
-            capture('availability-' + mode)
-
-        auto('disconnected')
-        expect(page.locator('#autoTimeHint a[href="/oauth/google"]')).to_be_visible()
-        expect(page.locator('#autoTimeHint a[href="/oauth/outlook"]')).to_be_visible()
-        checks.append('No connection offers both Google and Outlook')
-        auto('markup')
-        expect(page.locator('#autoTimeHint')).to_contain_text(MARKUP)
-        assert page.locator('#autoTimeHint img').count() == 0
-        checks.append('Availability server markup is escaped and inert')
-
-        with page.expect_response(lambda res: urlsplit(res.url).path == '/generate_schedule'):
+        with page.expect_response(lambda res: urlsplit(res.url).path == '/schedule/save') as saved:
             page.locator('#generateBtn').click()
+        assert saved.value.status == 200 and saved.value.json()['status'] == 'ok'
+        expect(page.locator('#weekPlanStatus')).to_have_text('Plan saved.')
+        expect(page.locator('#saveScheduleBtn')).to_be_hidden()
+        assert generated[0]['preferred_time'] == 'auto'
+        assert generated[0]['skip_clarify'] is True
         expect(page.locator('#scheduleResults')).to_be_visible()
         expect(page.locator('.day-card .block-title').first).to_have_text('Algebra practice')
         expect(page.locator('.day-card .time-slot').first).to_contain_text('2:00 PM')
@@ -250,29 +212,23 @@ def run_width(browser, width):
         assert page.locator('.block-swatch[onpointerenter]').count() == 0
         assert page.locator('.day-blocks img').count() == 0
         assert not page.evaluate('Boolean(window.injected)'), 'Imported schedule color executed markup'
-        expect(page.locator('#calExportBtn')).to_have_text('Export to calendar')
+        expect(page.locator('#calExportBtn')).to_have_text('Add to calendar')
         assert len(generated) == 1
         assert [row['id'] for row in generated[0]['assignments']] == ['11'], generated
         capture('generated-study-plan')
         checks.append('Real Generate and renderSchedule render timed study block and export action')
-        with page.expect_response(lambda res: urlsplit(res.url).path == '/schedule/save') as saved:
-            page.get_by_role('button', name='Save to dashboard', exact=True).click()
-        assert saved.value.status == 200 and saved.value.json()['status'] == 'ok'
-        expect(page.locator('[onclick="saveSchedule()"]')).to_contain_text('Saved!')
         with App.app.app_context():
             active = App.SavedSchedule.query.filter_by(user_id=uid, is_active=True).one()
             assert json.loads(active.schedule_data)['schedule'][0]['blocks'][0]['assignment'] == 'Algebra practice'
         stored = client.get('/schedule/saved').get_json()
         assert stored['status'] == 'ok'
         assert stored['data']['schedule'][0]['blocks'][0]['assignment'] == 'Algebra practice'
-        checks.append('Save to dashboard persists the rendered plan through real save and read endpoints')
+        checks.append('One click generates and persists the plan through the real save and read endpoints')
 
         with page.expect_response(lambda res: urlsplit(res.url).path == '/calendar/export'):
             page.locator('#calExportBtn').click()
-        notice = page.locator('.ip-toast__text').filter(has_text='Some calendars could not be updated')
-        expect(notice).to_be_visible()
-        expect(notice).to_contain_text('Some calendars could not be updated: Google Calendar')
-        expect(notice).to_contain_text('other calendar exports succeeded')
+        notice = page.locator('#calExportStatus')
+        expect(notice).to_contain_text('Added 1 event. Could not update Google Calendar.')
         assert len(exports) == 1
         assert exports[0]['method'] == 'POST'
         assert exports[0]['body']['skip_overlaps'] is True
@@ -283,15 +239,12 @@ def run_width(browser, width):
 
         state['export'] = 'error'
         page.locator('#calExportBtn').click()
-        notice = page.locator('.ip-toast__text').filter(has_text='Export failed: ' + MARKUP)
-        expect(notice).to_be_visible()
-        assert page.locator('.ip-toast img').count() == 0
+        expect(notice).to_have_text(MARKUP)
+        assert notice.locator('img').count() == 0
         capture('export-provider-error')
         state['export'] = 'network'
         page.locator('#calExportBtn').click()
-        notice = page.locator('.ip-toast__text').filter(has_text='could not be confirmed.')
-        expect(notice).to_be_visible()
-        expect(notice).to_contain_text('could not be confirmed. Check your calendar before retrying.')
+        expect(notice).to_contain_text('Could not confirm export. Check your calendar before trying again.')
         # Advance retry timers without a wall-clock sleep: neither failure may
         # schedule a silent second POST to an endpoint that creates events.
         page.clock.fast_forward(30000)
@@ -299,6 +252,15 @@ def run_width(browser, width):
         assert len(exports) == 3, exports
         checks.append('Provider/network export failures stay visible, inert, and never auto-retry POST')
         capture('export-network-failure')
+        state['outlook'] = False
+        with page.expect_download() as downloaded:
+            page.locator('#calExportBtn').click()
+        downloaded_file = downloaded.value.path().read_text(encoding='utf-8')
+        assert downloaded.value.suggested_filename.endswith('.ics')
+        assert 'BEGIN:VCALENDAR' in downloaded_file and 'SUMMARY:Algebra practice (Math)' in downloaded_file
+        expect(notice).to_contain_text('Calendar file downloaded.')
+        assert len(exports) == 3
+        checks.append('The same button downloads a real calendar file with no connected provider')
         page.get_by_role('button', name='Undo submitted: History essay', exact=True).click()
         expect(page.locator('#assignmentQueueStatus')).to_contain_text('Moved back to work that needs attention')
         expect(page.locator('#assignmentActionableFilter')).to_have_attribute('aria-pressed', 'true')
@@ -309,7 +271,7 @@ def run_width(browser, width):
         checks.append('Undo submitted restores assignment to actionable work without changing LMS')
         capture('submission-undo-restored')
         return {'width': width, 'passed': True, 'checks': checks,
-                'availability_calls': availability, 'export_posts': len(exports),
+                'export_posts': len(exports),
                 'browser_errors': errors, 'horizontal_overflow': False}
     finally:
         context.tracing.stop(path=str(OUT / f'trace-{width}.zip'))

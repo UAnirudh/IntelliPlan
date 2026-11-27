@@ -37,6 +37,45 @@ def service(**ctx):
     return SchedulingService(StudentContext(availability=FULL_WEEK, **ctx))
 
 
+def test_automatic_preference_uses_local_successes_and_respects_class_time():
+    local_now = datetime(2026, 3, 2, 10)
+    starting = datetime(2026, 3, 1, 21)  # 1 p.m. in Los Angeles
+    history = [
+        {"started_at": starting - timedelta(days=i), "actual": 35, "completed": True}
+        for i in range(6)
+    ] + [
+        {"started_at": starting + timedelta(hours=5) - timedelta(days=i+1),
+         "actual": 15, "completed": False}
+        for i in range(7)
+    ]
+    class_day = local_now.date() + timedelta(days=1)
+    context = StudentContext(
+        preferred_time="auto", timezone_name="America/Los_Angeles",
+        session_rows=history, busy_by_date={class_day: [(12 * 60, 15 * 60)]},
+        availability={"Wed": {"start": "18:00", "end": "20:00"}},
+    ).resolve_study_time(local_now)
+    assert context.preferred_time == "afternoon"
+    scheduler = SchedulingService(context)
+    assert scheduler.windows_for(class_day, now=local_now)[0].start.hour == 15
+    assert scheduler.windows_for(class_day + timedelta(days=1), now=local_now)[0].start.hour == 18
+    assert StudentContext(preferred_time="morning", session_rows=history).resolve_study_time(local_now).preferred_time == "morning"
+    assert StudentContext(preferred_time="auto", session_rows=history[:2]).resolve_study_time(local_now).preferred_time == "evening"
+
+    unchecked = [
+        {"date": (class_day - timedelta(days=i)).isoformat(), "slot": "afternoon",
+         "minutes": 30, "done": False} for i in (2, 3, 4)
+    ]
+    completed_mornings = [
+        {"started_at": starting - timedelta(hours=4, days=i), "actual": 30, "completed": True}
+        for i in range(6)
+    ]
+    with_misses = StudentContext(
+        preferred_time="auto", timezone_name="America/Los_Angeles",
+        session_rows=history + completed_mornings, outcome_rows=unchecked,
+    ).resolve_study_time(local_now)
+    assert with_misses.preferred_time == "morning"
+
+
 def fragmented_plan(*, preserve=False):
     from intelliplan.intelligence.planner import DayPlan, Plan, Session
     sittings = tuple(Session(
