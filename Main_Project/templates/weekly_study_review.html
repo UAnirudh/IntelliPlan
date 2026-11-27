@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block page_title %}{{ "Next week's workload" if basic else "Weekly study review" }} | IntelliPlan{% endblock %}
+{% block head_extra %}
+<style>
+  .weekly-review { max-width: 52rem; margin: 2rem auto 4rem; padding: 0 1rem; }
+  .weekly-review > header, .weekly-review > section { margin-block: 1.5rem; }
+  .weekly-review h2 { margin-bottom: .45rem; }
+  .weekly-review .review-pacing { padding: 1.2rem 1.35rem; border-radius: 1rem; background: var(--bg-secondary); }
+  .weekly-review .review-table-wrap { overflow-x: auto; }
+  .weekly-review table { width: 100%; min-width: 28rem; text-align: left; border-collapse: collapse; }
+  .weekly-review th, .weekly-review td { padding: .65rem .5rem; border-bottom: 1px solid var(--border); }
+  .weekly-review tbody th { font-weight: 500; white-space: nowrap; }
+  .weekly-review .review-bar { display: block; width: 100%; min-width: 4rem; height: .45rem; margin-top: .28rem; border: 0; border-radius: 1rem; accent-color: var(--accent); }
+  .weekly-review .review-current { color: var(--text-secondary); font-size: .82rem; }
+</style>
+{% endblock %}
+{% block content %}
+<section class="weekly-review" aria-labelledby="reviewTitle">
+  <a href="{{ '/pricing' if example else '/my-stats' }}">{{ 'Back to pricing' if example else 'Back to My Stats' }}</a>
+  <header>
+  <h1 id="reviewTitle">{{ "Next week's workload" if basic else "Weekly study review" }}</h1>
+  {% if example %}
+  <p>This preview uses sample data. {% if billing_enabled %}<a href="/upgrade">See IntelliPlan Pro</a>.{% else %}Pro checkout is closed for now.{% endif %}</p>
+  {% endif %}
+  {% if basic %}
+  <p>See which assignments are due next week and how much time the planner estimates you’ll need.</p>
+  {% else %}
+  <p>See your task check-ins and time recorded in Active Study and practice sessions. The current week is still in progress.</p>
+  {% endif %}
+  </header>
+  {% if workload %}
+  <section class="review-pacing" aria-labelledby="reviewNextWeek">
+    <h2 id="reviewNextWeek">Plan next week</h2>
+    <p><time datetime="{{ workload.start }}">{{ workload.start }}</time> to <time datetime="{{ workload.end }}">{{ workload.end }}</time></p>
+    {% if workload.rows %}
+    <p>Set aside about <strong>{{ workload.minutes }} minutes</strong> for {{ workload.rows|length }} {{ 'assignment' if workload.rows|length == 1 else 'assignments' }} due next week.</p>
+    {% if not basic %}
+    <p>Check-ins adjust estimates when there’s enough history.{% if workload.adjustment %} Your pace suggests setting aside <strong>{{ workload.adjustment|abs }} minutes {{ 'more' if workload.adjustment > 0 else 'less' }}</strong> than the original estimates combined.{% endif %}</p>
+    {% endif %}
+    {% if not basic and workload.busiest_day %}
+    <p>Your busiest deadline day is <time datetime="{{ workload.busiest_day.due }}">{{ workload.busiest_day.due }}</time>, with <strong>{{ workload.busiest_day.count }} {{ 'assignment' if workload.busiest_day.count == 1 else 'assignments' }}</strong> and about <strong>{{ workload.busiest_day.minutes }} minutes</strong> of work due. Try scheduling some of that work on earlier days, leaving time to review before the deadline.</p>
+    {% endif %}
+    {% if not basic and workload.first_assignment %}
+    {% set first = workload.first_assignment %}
+    <h3>What to start first</h3>
+    <p>Set aside <strong>{{ [first.minutes, 25]|min }} minutes</strong> to start <strong>{{ first.title }}</strong>. It’s due on <time datetime="{{ first.due }}">{{ first.due }}</time> and has the largest time estimate among assignments due that day.</p>
+    {% endif %}
+    <div class="review-table-wrap" role="region" aria-labelledby="reviewNextWeek" tabindex="0">
+      <table>
+        <thead><tr><th scope="col">Assignment</th><th scope="col">Due</th><th scope="col">Minutes</th>{% if not basic %}<th scope="col">Based on</th>{% endif %}</tr></thead>
+        <tbody>
+        {% for day in workload.rows|groupby('due') %}
+        {% if basic %}
+        <tr>
+          <th scope="row" colspan="3"><time datetime="{{ day.grouper }}">{{ day.grouper }}</time> · {{ day.list|length }} {{ 'assignment' if day.list|length == 1 else 'assignments' }} due · {{ day.list|sum(attribute='minutes') }} minutes</th>
+        </tr>
+        {% endif %}
+        {% for assignment in day.list %}
+        <tr>
+          <th scope="row">{{ assignment.title }}{% if assignment.course %}<br><span class="review-current">{{ assignment.course }}</span>{% endif %}</th>
+          <td><time datetime="{{ assignment.due }}">{{ assignment.due }}</time></td>
+          <td>{{ assignment.minutes }}{% if not basic and assignment.original_minutes != assignment.minutes %}<br><span class="review-current">Originally {{ assignment.original_minutes }}</span>{% endif %}</td>
+          {% if not basic %}<td>{{ assignment.basis }}</td>{% endif %}
+        </tr>
+        {% endfor %}
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if not basic and workload.courses|length > 1 %}
+    <details>
+      <summary>See study time by course</summary>
+      <div class="review-table-wrap" role="region" aria-label="Study time by course" tabindex="0">
+        <table>
+          <thead><tr><th scope="col">Course</th><th scope="col">Assignments</th><th scope="col">Minutes</th><th scope="col">First due</th></tr></thead>
+          <tbody>
+          {% for course in workload.courses %}
+          <tr><th scope="row">{{ course.course or 'No course' }}</th><td>{{ course.count }}</td><td>{{ course.minutes }}</td><td><time datetime="{{ course.first_due }}">{{ course.first_due }}</time></td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </details>
+    {% endif %}
+    {% else %}
+    <p>No open assignments with a due date next week showed up in your planner.</p>
+    {% endif %}
+    {% if not example %}
+    <p><a href="{{ '/scheduler?review=next-week' if workload.rows else '/scheduler' }}" class="btn-secondary">{{ "Draft next week’s plan" if workload.rows else "Open your scheduler" }}</a></p>
+    {% endif %}
+  </section>
+  {% endif %}
+  {% if basic %}
+  <section aria-labelledby="reviewPro">
+    <h2 id="reviewPro">Plan with your own pace</h2>
+    <p>Pro uses your recorded task times to refine next week’s budget. It also includes 12 weeks of study history and a spreadsheet export.</p>
+    <a href="/pricing/study-review">Try the Pro review with sample data</a>
+    <p><a href="/upgrade#pro-referral">Earn {{ referral_month_days }} days of Pro with a qualifying invite</a></p>
+  </section>
+  {% else %}
+  {% if has_activity %}
+  <h2>Last full week</h2>
+  <p><strong>{{ rows[1][3] }} study minutes</strong> across {{ rows[1][2] }} {{ 'session' if rows[1][2] == 1 else 'sessions' }}.
+    {% if comparison is not none %}
+      {% if comparison == 0 %}You recorded the same study time the week before.
+      {% else %}You recorded {{ comparison|abs }} minutes {{ 'more' if comparison > 0 else 'less' }} than the week before.{% endif %}
+    {% endif %}
+  </p>
+  <p>You logged study activity in {{ tracked_weeks }} of the last 4 full weeks.</p>
+  {% else %}
+  <p>Your review will fill in as you finish study sessions and check in on tasks.</p>
+  {% endif %}
+  <section class="review-pacing" aria-labelledby="reviewEstimates">
+    <h2 id="reviewEstimates">How much time should you set aside?</h2>
+    {% if estimate_summary %}
+    {% set count, estimated, actual = estimate_summary %}
+    <p>Over the last four full weeks, the typical estimate was <strong>{{ estimated }} minutes</strong>. The typical recorded time was <strong>{{ actual }} minutes</strong>, based on {{ count }} check-ins with both times.</p>
+    <p>For a similar task, try budgeting <strong>{{ actual }} minutes</strong> as a starting point and adjust for the work involved.</p>
+    {% else %}
+    <p>Log your estimate and time spent on three tasks to see a comparison here. This review uses completed weeks.</p>
+    {% endif %}
+  </section>
+  {% if not example %}<p><a class="btn-secondary" href="/my-stats/weekly-review?format=csv">Download spreadsheet (CSV)</a></p>{% endif %}
+  <section aria-labelledby="reviewHistory">
+  <h2 id="reviewHistory">Study history</h2>
+  <div class="review-table-wrap" role="region" aria-labelledby="reviewHistory" tabindex="0">
+    <table>
+      <thead><tr><th scope="col">Week starting</th><th scope="col">Task check-ins</th><th scope="col">Study sessions</th><th scope="col">Study minutes</th></tr></thead>
+      <tbody>
+      {% for start, tasks, sessions, minutes in rows %}
+      <tr>
+        <th scope="row"><time datetime="{{ start }}">{{ start }}</time>{% if loop.first %}<br><span class="review-current">In progress</span>{% endif %}</th>
+        <td>{{ tasks }}</td><td>{{ sessions }}</td>
+        <td>{{ minutes }}{% if has_activity %}<progress class="review-bar" aria-hidden="true" value="{{ minutes }}" max="{{ peak_minutes }}"></progress>{% endif %}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  </section>
+  {% endif %}
+</section>
+{% endblock %}

@@ -449,11 +449,17 @@ def timetable_import_route():
     uid, err = _guard()
     if err:
         return err
-    body = request.get_json(silent=True) or {}
+    body = request.get_json(silent=True)
+    if body is None:
+        body = {}
+    if not isinstance(body, dict):
+        return _fail("Send a JSON object with the timetable source.")
     wanted = str(body.get("source") or "auto").lower()
     if wanted not in ("auto", "studentvue", "schoology"):
         return _fail("source must be auto, studentvue or schoology.")
     kinds = ["studentvue", "schoology"] if wanted == "auto" else [wanted]
+    empty_source = None
+    unavailable_source = None
     for kind in kinds:
         acct = _linked_account(kind)
         if not acct:
@@ -462,15 +468,12 @@ def timetable_import_route():
             result = fetch_timetable(kind, acct)
         except Exception as exc:
             logger.warning("timetable import from %s failed: %s", kind, exc)
-            return _fail(
-                "Your school's system didn't send a class schedule just now. "
-                "Try again later, or add your classes by hand.",
-                502, source=kind,
-            )
+            unavailable_source = unavailable_source or kind
+            continue
         classes = result.get("classes") or []
         if not classes:
-            return jsonify({**_state(uid), "imported": 0, "source": kind,
-                            "message": "Your school didn't share a class schedule. Add your classes by hand below."})
+            empty_source = empty_source or kind
+            continue
         hint = result.get("rotation_hint") or {}
         max_rotation = int(hint.get("length") or MAX_CYCLE_LENGTH)
         saved = _upsert(uid, _rows_for_upsert(classes, max_rotation), kind, result)
@@ -484,6 +487,15 @@ def timetable_import_route():
             "untimed": untimed, "needs_days": needs_days,
             "rotation_hint": result.get("rotation_hint"),
         })
+    if unavailable_source:
+        return _fail(
+            "Your school's system didn't send a class schedule just now. "
+            "Try again later, or add your classes by hand.",
+            502, source=unavailable_source,
+        )
+    if empty_source:
+        return jsonify({**_state(uid), "imported": 0, "source": empty_source,
+                        "message": "Your school didn't share a class schedule. Add your classes by hand below."})
     return _fail("Connect StudentVUE or Schoology to import your schedule, or add classes by hand.",
                  409, needs_connection=True)
 

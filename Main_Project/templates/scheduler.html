@@ -5,7 +5,7 @@
 {% block head_extra %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/scheduler-agenda.css') }}?v={{ asset_v }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/followthrough.css') }}?v={{ asset_v }}">
-<script defer src="{{ url_for('static', filename='js/followthrough.js') }}?v={{ asset_v }}"></script>
+{% if not review_week %}<script defer src="{{ url_for('static', filename='js/followthrough.js') }}?v={{ asset_v }}"></script>{% endif %}
 <script src="{{ url_for('static', filename='js/plan-coverage.js') }}?v={{ asset_v }}"></script>
 <script defer src="{{ url_for('static', filename='js/planner-draft.js') }}?v={{ asset_v }}"></script>
 <script defer src="{{ url_for('static', filename='js/planner-capture.js') }}?v={{ asset_v }}"></script>
@@ -991,26 +991,26 @@
   <div class="plani-scheduler-heading">
     {{ plani_avatar(94, 'plani-workspace-portrait') }}
     <div>
-      <h1 class="ipd-page-title">Study scheduler</h1>
+      <h1 class="ipd-page-title">{{ "Next week’s study plan" if review_week else "Study scheduler" }}</h1>
       <p class="ipd-page-subtitle">I’m {{ assistant_name }}. Let’s find time for what’s due.</p>
     </div>
   </div>
   <!-- The plan is only half of it. This is the other half, and it was
        previously reachable only by typing the URL. -->
-  <a href="/active" class="ip-action scheduler-study-link">Start studying <span class="ip-arrow" aria-hidden="true"></span></a>
+  {% if not review_week %}<a href="/active" class="ip-action scheduler-study-link">Start studying <span class="ip-arrow" aria-hidden="true"></span></a>{% endif %}
 </div>
 
 <!-- ── TAB BAR ───────────────────────────────────────── -->
-{% include "scheduler_tabs.html" %}
+{% if not review_week %}{% include "scheduler_tabs.html" %}{% endif %}
 
 <!-- ══════════════════════════════════════════════════
      TAB 1, CREATOR
 ══════════════════════════════════════════════════ -->
-<div class="sched-pane active" id="pane-creator" role="tabpanel" aria-labelledby="tab-creator">
+<div class="sched-pane active" id="pane-creator"{% if not review_week %} role="tabpanel" aria-labelledby="tab-creator"{% endif %}>
 
   <div class="scheduler-panel" id="inputPanel">
     {% if current_user.is_authenticated %}
-    <details class="ip-disclosure assignment-queue planner-capture" id="plannerCapture">
+    <details class="ip-disclosure assignment-queue planner-capture" id="plannerCapture"{% if review_week %} style="display:none"{% endif %}>
       <summary><span>Add work</span><span class="ip-arrow" data-direction="down" data-arrow-kind="chevron" aria-hidden="true"></span></summary>
       <p><a href="/connect">Connect a school portal, calendar or Notion</a> · <a href="/flashcards/photo">Read a photo</a> · <a href="/classes#timetable">Set up a class timetable</a></p>
       <details id="plannerTodoist">
@@ -1040,7 +1040,7 @@
       </form>
     </details>
     {% endif %}
-    <div class="scheduler-inputs">
+    <div class="scheduler-inputs"{% if review_week %} style="display:none"{% endif %}>
       <div class="input-group scheduler-availability">
         <label class="form-label" for="hoursPerDay">Hours available per day</label>
         <input type="number" id="hoursPerDay" class="form-input" value="2" min="0.5" max="12" step="0.5" style="max-width:120px;" />
@@ -1081,7 +1081,7 @@
         </div>
       </details>
     </div>
-    <details class="ip-disclosure assignment-queue" id="assignmentQueue">
+    <details class="ip-disclosure assignment-queue" id="assignmentQueue"{% if review_week %} style="display:none"{% endif %}>
       <summary><span>Assignments <span id="assignmentQueueCount" class="assignment-queue-hint">Loading…</span></span><span class="ip-arrow" data-direction="down" data-arrow-kind="chevron" aria-hidden="true"></span></summary>
       <div class="assignment-queue-controls" role="group" aria-label="Filter assignments">
         <button class="btn-secondary btn-control" id="assignmentActionableFilter" type="button" aria-pressed="true">Needs attention</button>
@@ -1092,13 +1092,17 @@
       <p class="assignment-queue-hint" id="assignmentQueueStatus" role="status" aria-live="polite"></p>
     </details>
     <div class="scheduler-plan-actions">
-      <button class="btn-primary" id="generateBtn" type="button" onclick="generateSchedule()">Build study plan</button>
+      {% if review_week %}
+      <a href="/scheduler">Back to your scheduler</a>
+      <p role="status" id="reviewDraftStatus">Checking assignments due {{ review_week.start }} to {{ review_week.end }}. Your saved plan stays active until you save this draft.</p>
+      {% endif %}
+      {% if not review_week %}<button class="btn-primary" id="generateBtn" type="button" onclick="generateSchedule()">Build study plan</button>{% endif %}
       <div id="savePanel" style="display:none; gap:8px; align-items:center; flex-wrap:wrap;">
-        <input type="text" id="scheduleName" class="form-input" aria-label="Name for this schedule" placeholder="Schedule name..." style="max-width:200px;" />
-        <button type="button" onclick="saveSchedule()" style="padding:12px 20px; border-radius:10px; border:1px solid var(--low); background:var(--low-bg); color:var(--low); cursor:pointer; font-family:var(--font-ui); font-size:0.88rem; font-weight:600; display:inline-flex; align-items:center; gap:6px;"><svg width="14" height="14"><use href="#i-save"/></svg> Save to dashboard</button>
-        <details class="ip-disclosure scheduler-options"><summary><span>More plan actions</span><span class="ip-arrow" data-direction="down" data-arrow-kind="chevron" aria-hidden="true"></span></summary>
+        <input type="{{ "hidden" if review_week else "text" }}" id="scheduleName" class="form-input" aria-label="Name for this schedule" placeholder="Schedule name..." style="max-width:200px;" />
+        <button type="button" id="saveScheduleBtn" onclick="saveSchedule()" style="padding:12px 20px; border-radius:10px; border:1px solid var(--low); background:var(--low-bg); color:var(--low); cursor:pointer; font-family:var(--font-ui); font-size:0.88rem; font-weight:600; display:inline-flex; align-items:center; gap:6px;"><svg width="14" height="14"><use href="#i-save"/></svg> {{ "Use this plan" if review_week else "Save to dashboard" }}</button>
+        {% if not review_week %}<details class="ip-disclosure scheduler-options"><summary><span>More plan actions</span><span class="ip-arrow" data-direction="down" data-arrow-kind="chevron" aria-hidden="true"></span></summary>
         <button type="button" onclick="saveToMemories()" style="padding:12px 20px; border-radius:10px; border:1px solid var(--accent); background:var(--accent-soft); color:var(--accent); cursor:pointer; font-family:var(--font-ui); font-size:0.88rem; font-weight:600; display:inline-flex; align-items:center; gap:6px;"><svg width="14" height="14"><use href="#i-save"/></svg> Save to memories</button>
-        <button type="button" onclick="openInteractive()" style="padding:12px 20px; border-radius:10px; border:1px solid var(--accent); background:var(--accent); color:var(--on-accent, #fff); cursor:pointer; font-family:var(--font-ui); font-size:0.88rem; font-weight:600; display:inline-flex; align-items:center; gap:6px;"><span class="ip-arrow" style="--ip-arrow-size:14px" aria-hidden="true"></span> Open interactive view</button></details>
+        <button type="button" onclick="openInteractive()" style="padding:12px 20px; border-radius:10px; border:1px solid var(--accent); background:var(--accent); color:var(--on-accent, #fff); cursor:pointer; font-family:var(--font-ui); font-size:0.88rem; font-weight:600; display:inline-flex; align-items:center; gap:6px;"><span class="ip-arrow" style="--ip-arrow-size:14px" aria-hidden="true"></span> Open interactive view</button></details>{% endif %}
       </div>
     </div>
     {# role="alert" is on the message span, not here: this container also
@@ -1116,7 +1120,7 @@
          doesn't know about, or simply wanting Chemistry before dinner
          because that's when you think best. This is the way to say so.
          Collapsed by default so it never competes with the generator. -->
-    <details class="mb-panel" id="manualPanel">
+    <details class="mb-panel" id="manualPanel"{% if review_week %} style="display:none"{% endif %}>
       <summary class="mb-summary">
         <span>
           <strong>Build it yourself</strong>
@@ -1289,6 +1293,7 @@
   <div class="ck-foot">
     <div class="ck-progress"><div class="ck-progress-bar" id="ckProgressBar"></div></div>
     <div class="ck-progress-text" id="ckProgressText">0 / 0</div>
+    <a class="ck-redirect" id="ckActive" href="/active" hidden>Open in Active Study</a>
     <a class="ck-redirect" id="ckFocus" href="/focus" hidden>Start focus timer</a>
     <a class="ck-redirect" id="ckRedirect" href="#" target="_self" style="display:none;">
       <span class="ip-arrow" aria-hidden="true"></span> <span id="ckRedirectLabel">Open</span>
@@ -1524,6 +1529,15 @@ window.IPManual = (function () {
 ═════════════════════════════════════════════════════════ */
 let customTasks = [];
 let allAssignments = [];
+const reviewWeek = {{ review_week|default(none)|tojson }};
+
+function reviewWeekAssignments(rows, week) {
+  return rows.filter(row => {
+    const date = String(row.due_date || '').slice(0, 10);
+    return row.requires_action !== false && /^\d{4}-\d{2}-\d{2}$/.test(date)
+      && date >= week.start && date <= week.end;
+  });
+}
 let _assignmentQueueRows = [];
 let _assignmentQueueFilter = 'actionable';
 let _lastScheduleData = null;
@@ -1538,10 +1552,12 @@ function loadChecklistState() {
   catch(e) { return {}; }
 }
 function saveChecklistState(state) {
-  try { localStorage.setItem(CK_STATE_KEY, JSON.stringify(state)); } catch(e) {}
+  if (!reviewWeek || _progressSyncEnabled) {
+    try { localStorage.setItem(CK_STATE_KEY, JSON.stringify(state)); } catch(e) {}
+  }
   scheduleProgressPush();
 }
-let _checklistState = loadChecklistState();
+let _checklistState = reviewWeek ? {} : loadChecklistState();
 
 /* ────────── CROSS-DEVICE PROGRESS SYNC ──────────
    Progress lives in localStorage for instant UI, and is debounce-pushed
@@ -1698,9 +1714,17 @@ async function loadSchedulerAssignments() {
 }
 document.getElementById('assignmentActionableFilter').addEventListener('click', () => { _assignmentQueueFilter = 'actionable'; renderAssignmentQueue(); });
 document.getElementById('assignmentWaitingFilter').addEventListener('click', () => { _assignmentQueueFilter = 'waiting'; renderAssignmentQueue(); });
-loadSchedulerAssignments().catch(error => {
+loadSchedulerAssignments().then(loaded => {
+  if (!reviewWeek || !loaded) return;
+  if (reviewWeekAssignments(allAssignments, reviewWeek).length) {
+    generateSchedule();
+  } else {
+    document.getElementById('reviewDraftStatus').textContent = 'No open assignments are due in that week.';
+  }
+}).catch(error => {
   document.getElementById('assignmentQueueCount').textContent = '· unavailable';
   document.getElementById('assignmentQueueStatus').textContent = error.message;
+  if (reviewWeek) document.getElementById('reviewDraftStatus').textContent = error.message;
 }).finally(() => { if (window.FT) FT.assignmentsLoaded(); });
 fetch('/calendar/events').then(r => r.json()).then(res => { _gcalConnected = res.connected; }).catch(() => {});
 
@@ -1741,7 +1765,7 @@ schedulerTabs.forEach((btn, index) => {
 const captureViewRequested = new URLSearchParams(location.search).get('capture') === '1';
 try {
   const lastTab = localStorage.getItem('ip_scheduler_tab');
-  if (!captureViewRequested && lastTab === 'interactive') {
+  if (!reviewWeek && !captureViewRequested && lastTab === 'interactive') {
     // We only restore to interactive if a saved schedule will load (handled below).
     setTimeout(() => { if (_lastScheduleData) switchTab('interactive'); }, 50);
   }
@@ -2015,7 +2039,9 @@ async function autoDetectTime() {
 let _clarifyAnswers = {};
 
 function generateSchedule(extra) {
-  if (!allAssignments.length && !customTasks.length) {
+  const assignments = reviewWeek ? reviewWeekAssignments(allAssignments, reviewWeek) : allAssignments;
+  const tasks = reviewWeek ? [] : customTasks;
+  if (!assignments.length && !tasks.length) {
     document.getElementById('emptyState').style.display = 'block';
     return;
   }
@@ -2047,11 +2073,12 @@ function generateSchedule(extra) {
     document.getElementById('inputPanel').style.pointerEvents = 'auto';
   }
 
-  fetch('/generate_schedule', {
+  return fetch('/generate_schedule', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(Object.assign({
-      assignments: allAssignments, hours_per_day: hours, preferred_time: time,
-      custom_tasks: customTasks, clarifications: _clarifyAnswers,
+      assignments, hours_per_day: hours, preferred_time: time,
+      review_draft: Boolean(reviewWeek), skip_clarify: Boolean(reviewWeek),
+      custom_tasks: tasks, clarifications: _clarifyAnswers,
       study_start_time: studyStartTime, study_end_time: studyEndTime,
       pack_days: document.getElementById('schedPackDays').checked,
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
@@ -2085,19 +2112,26 @@ function generateSchedule(extra) {
     (response.data.schedule || []).forEach(d => (d.blocks || []).forEach(b => {
       if (b.block_id && _checklistState[b.block_id]) delete _checklistState[b.block_id];
     }));
-    try { localStorage.setItem(CK_STATE_KEY, JSON.stringify(_checklistState)); } catch(e) {}
+    if (!reviewWeek) saveChecklistState(_checklistState);
     renderSchedule(response.data);
     const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    document.getElementById('scheduleName').value = `Study Plan ${today}`;
+    document.getElementById('scheduleName').value = reviewWeek ? 'Next week’s study plan' : `Study Plan ${today}`;
     /* Persist it immediately. "Generated" and "saved" were two different
        states, and only saved plans are visible to Active, the dashboard and
        progress sync — so a student who generated a plan and did not notice
        the Save button was told by Active that they had no schedule. Nobody
        thinks of generating a plan as a draft, so stop treating it as one. */
-    autoSaveSchedule();
+    if (!reviewWeek) autoSaveSchedule();
+    const hasStudyBlocks = (response.data.schedule || []).some(day =>
+      (day.blocks || []).some(block => !block.is_break && !block.unplaced));
+    if (reviewWeek) {
+      document.getElementById('reviewDraftStatus').textContent = hasStudyBlocks
+        ? 'Draft ready. Using it will replace your active study plan.'
+        : 'No study sessions fit before these deadlines. Your active plan is still available.';
+    }
     document.getElementById('scheduleResults').style.display = 'block';
-    document.getElementById('savePanel').style.display = 'flex';
-    updateCalExportButton();
+    document.getElementById('savePanel').style.display = !reviewWeek || hasStudyBlocks ? 'flex' : 'none';
+    if (!reviewWeek) updateCalExportButton();
     updateBadge();
   })
   .catch(error => {
@@ -2191,18 +2225,40 @@ async function autoSaveSchedule() {
 
 async function saveSchedule() {
   if (!_lastScheduleData) return;
+  const btn = document.getElementById('saveScheduleBtn');
+  if (!btn || btn.disabled) return;
+  btn.disabled = true;
   const name = (document.getElementById('scheduleName').value || '').trim() || 'My Schedule';
   const res = await fetch('/schedule/save', {
     method: 'POST', headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({ schedule_data: _lastScheduleData, name })
   }).then(r => r.json()).catch(() => ({ status: 'error' }));
+  if (reviewWeek) {
+    const status = document.getElementById('reviewDraftStatus');
+    if (res.status === 'ok') {
+      const savedState = loadChecklistState();
+      for (const day of _lastScheduleData.schedule || []) {
+        for (const block of day.blocks || []) {
+          delete savedState[block.block_id];
+        }
+      }
+      _checklistState = Object.assign(savedState, _checklistState);
+      _progressSyncEnabled = true;
+      saveChecklistState(_checklistState);
+      status.textContent = 'Saved as your active study plan.';
+      btn.textContent = 'Plan saved';
+    } else {
+      status.textContent = 'Your plan could not be saved. Try again.';
+      btn.disabled = false;
+    }
+    return;
+  }
+  btn.disabled = false;
   if (res.status === 'ok') {
     // The plan is now the active saved schedule — progress can sync to it.
     _progressSyncEnabled = true;
     pushProgress();
     if (window.FT) FT.refresh();
-    const btn = document.querySelector('[onclick="saveSchedule()"]');
-    if (!btn) return;
     const orig = btn.innerHTML;
     btn.innerHTML = '<svg width="14" height="14"><use href="#i-check-circle"/></svg> Saved!';
     btn.style.background = 'var(--low)'; btn.style.color = 'white';
@@ -2392,12 +2448,14 @@ function renderSchedule(data) {
   days.innerHTML = plannerDisplayDays(data.schedule).map(({ day }, di) => {
     const isToday = String(day.date || '').slice(0,10) === todayStr;
     const load = String(day.workload_level || '').toLowerCase().trim();
+    const capacity = schedStudyCapacity(day, todayStr);
     return `
     <section class="day-card ${isToday ? 'is-today' : ''}" style="animation-delay:${di * 0.07}s" aria-label="${escapeText(day.day_name || '')} ${escapeText(schedFmtDate(day.date))}">
       <div class="day-header">
         <div>
           <h3 class="day-name">${escapeText(day.day_name || '')}<span class="day-date">${escapeText(schedFmtDate(day.date))}</span>${isToday ? '<span class="today-label">Today</span>' : ''}</h3>
-          ${load ? `<div class="day-load" data-load="${escapeText(load)}">${escapeText(load.charAt(0).toUpperCase() + load.slice(1))} day</div>` : ''}
+          ${capacity ? `<div class="day-load">${escapeText(capacity)}</div>` : ''}
+          ${!capacity && load ? `<div class="day-load" data-load="${escapeText(load)}">${escapeText(load.charAt(0).toUpperCase() + load.slice(1))} day</div>` : ''}
         </div>
         <div class="day-hours">${escapeText(schedFmtHours(day.total_hours))} planned</div>
       </div>
@@ -2460,6 +2518,17 @@ function schedFmtHours(hours) {
   return schedFmtMinutes((Number(hours) || 0) * 60);
 }
 
+function schedStudyCapacity(day, today) {
+  const { study_minutes: planned, study_capacity_minutes: available } = day;
+  // Older plans and manually added days may have no measured study capacity.
+  if (String(day.date || '').slice(0, 10) < today ||
+      !Number.isFinite(planned) || !Number.isFinite(available) || planned < 0 || available < 0) return '';
+  const difference = available - planned;
+  if (difference < 0) return `${schedFmtMinutes(-difference)} over study capacity`;
+  if (difference === 0) return 'Study capacity filled';
+  return `${schedFmtMinutes(difference)} unallocated study time`;
+}
+
 /* ════════════════════════════════════════════════════════
    INTERACTIVE VIEW
 ═════════════════════════════════════════════════════════ */
@@ -2515,12 +2584,13 @@ function renderInteractive() {
     const doneCount = work.filter(b => stateFor(b.block_id).done).length;
     const pct = work.length ? Math.round((doneCount / work.length) * 100) : 0;
     const isToday = String(day.date || '').slice(0, 10) === todayIso;
+    const capacity = schedStudyCapacity(day, todayIso);
     return `
       <div class="iv-day-card ${isToday ? 'is-today' : ''}" data-day-index="${index}">
         <div class="iv-day-head">
           <div>
             <div class="iv-day-name">${escapeText([day.day_name, schedFmtDate(day.date)].filter(Boolean).join(', '))}${isToday ? '<span class="today-label">Today</span>' : ''}</div>
-            <p class="iv-day-progress">${doneCount} of ${work.length} blocks done</p>
+            <p class="iv-day-progress">${doneCount} of ${work.length} blocks done${capacity ? ` · ${escapeText(capacity)}` : ''}</p>
           </div>
           <div class="iv-day-meta"><svg width="14" height="14" aria-hidden="true"><use href="#i-clock"/></svg> ${escapeText(String(day.total_hours || 0))}h</div>
         </div>
@@ -3199,6 +3269,11 @@ function openChecklist(blockId) {
   focusLink.hidden = !Number.isInteger(focusMinutes) || focusMinutes < 1 || focusMinutes > 180;
   focusLink.dataset.minutes = focusMinutes;
   focusLink.dataset.title = String(block.assignment || '').slice(0, 200);
+  const activeLink = document.getElementById('ckActive');
+  const day = (_lastScheduleData.schedule || []).find(d => (d.blocks || []).includes(block));
+  activeLink.hidden = !_progressSyncEnabled || !day?.date || block.is_break || s.done;
+  activeLink.href = activeLink.hidden ? '/active' :
+    '/active?' + new URLSearchParams({ block: blockId, date: day.date });
   const redirect = block.redirect;
   const link = document.getElementById('ckRedirect');
   if (redirect && redirect.href) {
@@ -3349,7 +3424,7 @@ function dismissSavedPlan() {
    4pm" is the exact question a student has on a train. Ticking blocks off
    still works offline too — those writes park in IP.queue and replay on
    reconnect. */
-(window.IP && IP.offline
+(reviewWeek ? Promise.resolve({ data: {} }) : window.IP && IP.offline
   ? IP.offline.read('/schedule/saved')
   : fetch('/schedule/saved').then(r => r.json())
       .then(data => ({ data: data, fromCache: false, cachedAt: null }))

@@ -20,6 +20,7 @@ from datetime import date, datetime, timedelta
 import pytest
 
 import App
+from db_test_support import delete_identities_for
 import plan_insert_glue
 import scheduler_engine
 from App import (ActiveSession, AssignmentStep, SavedSchedule, TaskFeedback,
@@ -291,6 +292,7 @@ def _wipe():
     if ids:
         for model in (AssignmentStep, SavedSchedule, ActiveSession, TaskFeedback):
             model.query.filter(model.user_id.in_(ids)).delete(synchronize_session=False)
+    delete_identities_for(User.query.filter(User.email.like("brk+%")))
     User.query.filter(User.email.like("brk+%")).delete(synchronize_session=False)
     db.session.commit()
 

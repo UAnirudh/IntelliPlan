@@ -1,5 +1,7 @@
-from requests_oauthlib import OAuth1
+from math import isfinite
+
 import requests
+from requests_oauthlib import OAuth1
 
 SCHOOLOGY_BASE = "https://api.schoology.com/v1"
 
@@ -48,8 +50,14 @@ def get_schoology_assignments(key, secret):
             if days < -14:
                 continue
             priority = "High" if days <= 3 else "Medium" if days <= 7 else "Low"
-            points = float(a.get("max_points", 60) or 60)
-            rounded = max(30, round(points * 1.5 / 30) * 30)
+            try:
+                points = float(a.get("max_points"))
+                if not isfinite(points) or points < 0:
+                    points = None
+            except (TypeError, ValueError):
+                points = None
+            sizing_points = points if points is not None else 60
+            rounded = max(30, round(sizing_points * 1.5 / 30) * 30)
             assignments.append({
                 "id": str(a.get("id", "")),
                 "course_id": str(sid),
@@ -79,12 +87,17 @@ def get_schoology_grades(key, secret):
             continue
         letter = grade.get("grade", "")
         percentage = grade.get("score", None)
-        if not letter:
+        try:
+            percentage = float(percentage)
+            percentage = round(percentage, 1) if isfinite(percentage) else None
+        except (TypeError, ValueError):
+            percentage = None
+        if not letter and percentage is None:
             continue
         result.append({
             "course": section.get("course_title", "Unknown"),
             "teacher": "",
             "letter": letter,
-            "percentage": round(float(percentage), 1) if percentage else None,
+            "percentage": percentage,
         })
     return result

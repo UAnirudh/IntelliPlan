@@ -53,6 +53,7 @@ from intelliplan.intelligence.followthrough import (
     fit_followthrough,
     observations_from_outcomes,
     observations_from_sessions,
+    recurring_unchecked_slot,
     slot_mix_for_windows,
 )
 from intelliplan.intelligence.planner import (
@@ -787,6 +788,7 @@ class SchedulingService:
             "risk": report.to_dict() if report is not None else None,
             "missed_minutes": sum(snapshot.missed.values()),
             "insights": [i.to_dict() for i in ft.insights()],
+            "unchecked_study_slot": recurring_unchecked_slot(self._ctx.outcome_rows, today),
             "model": summary,
             "evaluation": evaluation.to_dict() if evaluation else None,
         }

@@ -7,6 +7,7 @@ import pytest
 from sqlalchemy import event
 
 import App
+from db_test_support import delete_identities_for
 import notifications_glue as notifications
 from intelliplan.learning import policy
 
@@ -37,6 +38,7 @@ def cohort(monkeypatch):
         App.SavedSchedule.query.filter(App.SavedSchedule.user_id.in_(ids)).delete(synchronize_session=False)
         App.UserStreak.query.filter(App.UserStreak.user_id.in_(ids)).delete(synchronize_session=False)
         App.PushSubscription.query.filter(App.PushSubscription.user_id.in_(ids)).delete(synchronize_session=False)
+        delete_identities_for(App.User.query.filter(App.User.id.in_(ids)))
         App.User.query.filter(App.User.id.in_(ids)).delete(synchronize_session=False)
         App.db.session.commit()
         if hasattr(notifications, '_clear_plan_payload_cache'):
@@ -105,6 +107,7 @@ def test_cache_drops_deleted_accounts_even_if_an_orphan_plan_remains(cohort, mon
         assert notifications._plan_for(uid) is not None
         # SQLite does not enforce these foreign keys. The live deletion path
         # deletes plans too; the header still must never trust an orphan.
+        delete_identities_for(App.User.query.filter_by(id=uid))
         App.User.query.filter_by(id=uid).delete(synchronize_session=False)
         App.db.session.commit()
         assert notifications._plan_for(uid) is None

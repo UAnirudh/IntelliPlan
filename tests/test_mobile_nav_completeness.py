@@ -18,6 +18,7 @@ import re
 import pytest
 
 import App
+from db_test_support import delete_identities_for
 from App import User, db
 
 
@@ -28,11 +29,13 @@ def client():
     with App.app.test_client() as c:
         with App.app.app_context():
             db.create_all()
+            delete_identities_for(User.query.filter(User.email.like("drawer+%")))
             User.query.filter(User.email.like("drawer+%")).delete(
                 synchronize_session=False)
             db.session.commit()
         yield c
         with App.app.app_context():
+            delete_identities_for(User.query.filter(User.email.like("drawer+%")))
             User.query.filter(User.email.like("drawer+%")).delete(
                 synchronize_session=False)
             db.session.commit()
@@ -92,7 +95,7 @@ def test_every_sidebar_destination_is_in_the_drawer(page):
 @pytest.mark.parametrize("path", [
     "/command-center", "/dashboard", "/scheduler", "/active", "/memories",
     "/gradebook", "/grades", "/study-and-learn", "/learn", "/flashcards",
-    "/streak", "/pet", "/balance", "/my-stats", "/features", "/settings",
+    "/streak", "/balance", "/my-stats", "/features", "/settings",
 ])
 def test_the_named_destinations_are_all_there(page, path):
     """Spelled out so a regression names the page it dropped."""

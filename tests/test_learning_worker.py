@@ -9,6 +9,7 @@ from uuid import uuid4
 import pytest
 
 import App
+from db_test_support import delete_identities_for
 from intelliplan.learning import courses, policy, worker
 
 
@@ -45,6 +46,7 @@ def queued_course(monkeypatch):
         for name in ('Lesson', 'Job'):
             policy.models()[name].query.filter_by(course_id=cid).delete()
         policy.models()['Course'].query.filter_by(id=cid).delete()
+        delete_identities_for(App.User.query.filter_by(id=uid))
         App.User.query.filter_by(id=uid).delete()
         flag = App.FeatureFlag.query.filter_by(key='school_course_generator').one()
         if created_flag:

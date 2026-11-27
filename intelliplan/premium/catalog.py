@@ -65,19 +65,19 @@ class Plan:
 def premium(env=None) -> Plan:
     return Plan(
         id=PREMIUM,
-        name="Premium",
+        name="Ultimate",
         price_usd={
             MONTHLY: _env_float("PREMIUM_PRICE_USD", 20.0, env),
             YEARLY: _env_float("PREMIUM_PRICE_USD_YEARLY", 192.0, env),
         },
-        ai_budget_usd=_env_float("PREMIUM_AI_BUDGET_USD", 20.0, env),
+        ai_budget_usd=_env_float("PREMIUM_AI_BUDGET_USD", 12.0, env),
         byok=False,
         stripe_price_env={MONTHLY: "STRIPE_PRICE_ID_PREMIUM",
                           YEARLY: "STRIPE_PRICE_ID_PREMIUM_YEARLY"},
         features=(
             "Claude as your tutor, with the right model picked for each question",
             "Clarifying questions before long answers, so you get the one you need",
-            "A monthly AI budget with a live meter, and top-ups if you run out",
+            "A dedicated monthly advanced-model allowance with a live meter",
             "Choose Fast, Balanced or Deep answers, or let IntelliPlan decide",
             "Link your own AI account to stretch your budget",
             "Everything in the free plan",
@@ -98,7 +98,7 @@ def premium_byok(env=None) -> Plan:
         stripe_price_env={MONTHLY: "STRIPE_PRICE_ID_PREMIUM_BYOK",
                           YEARLY: "STRIPE_PRICE_ID_PREMIUM_BYOK_YEARLY"},
         features=(
-            "Everything in Premium",
+            "Everything in Ultimate",
             "Answers run on the AI account you link, so the plan costs less",
             "A small included budget for when your account is unavailable",
         ),

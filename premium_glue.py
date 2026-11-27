@@ -91,8 +91,13 @@ def current_tier(user: Any = None, now: datetime | None = None) -> str:
     except Exception as exc:
         logger.warning("school tier lookup failed; using individual plan: %s", exc)
     if growth_plans.plan_for(getattr(user, "paid_until", None), now) != growth_plans.PAID:
-        return FREE
+        from growth_glue import active_pro_gift_end
+
+        return PRO if active_pro_gift_end(user.id, now) else FREE
     tier = getattr(user, "plan_tier", None) or PRO
+    stripe_end = getattr(user, "stripe_paid_until", None)
+    if stripe_end is not None and stripe_end <= now:
+        return PRO  # Remaining individual time comes from rewards, not the paid model allowance.
     return tier if catalog.is_premium(tier) else PRO
 
 

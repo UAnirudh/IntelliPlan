@@ -5,6 +5,7 @@ from uuid import uuid4
 import pytest
 
 import App
+from db_test_support import delete_identities_for
 
 
 @pytest.fixture
@@ -25,6 +26,7 @@ def saved_client():
         yield client, uid, original_id
     with App.app.app_context():
         App.SavedSchedule.query.filter_by(user_id=uid).delete()
+        delete_identities_for(App.User.query.filter_by(id=uid))
         App.User.query.filter_by(id=uid).delete()
         App.db.session.commit()
 

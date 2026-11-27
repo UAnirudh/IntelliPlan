@@ -65,7 +65,7 @@ Plan numbers (all optional, defaults shown):
 | Variable | Default |
 |---|---|
 | `PREMIUM_PRICE_USD` / `_YEARLY` | 20 / 192 |
-| `PREMIUM_AI_BUDGET_USD` | 20 |
+| `PREMIUM_AI_BUDGET_USD` | 12 |
 | `PREMIUM_BYOK_PRICE_USD` / `_YEARLY` | 8 / 76 |
 | `PREMIUM_BYOK_AI_BUDGET_USD` | 1 |
 | `PREMIUM_TOPUP_PRICE_USD` / `PREMIUM_TOPUP_CREDIT_USD` | 5 / 4 |
@@ -78,10 +78,9 @@ The Stripe webhook must send `checkout.session.completed` and `invoice.paid`. Ch
 
 ## Before selling it
 
-- **Margin.** A $20 plan with a $20 budget loses money on every student who uses it all:
-  Stripe takes about $0.88 of the $20, and hosting and the router are on top. Most students
-  won't spend the whole budget, but price for the ones who do. `PREMIUM_AI_BUDGET_USD=12`
-  is a safer start, and can be raised later without a deploy.
+- **Margin.** The default $12 allowance on the $20 monthly plan leaves $8 before
+  payment fees, hosting, routing, fallback models, and other costs. Verify usage
+  and costs before changing `PREMIUM_AI_BUDGET_USD` or opening checkout.
 - **Policies.** The Terms (§6a) describe only Pro. The Privacy Policy doesn't describe
   linked accounts (prompts sent to a provider the student picks, under their key). Ship a
   Terms and Privacy version through `policy_versions.py` before `BILLING_ENABLED` sells

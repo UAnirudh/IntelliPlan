@@ -21,6 +21,7 @@ from datetime import date, datetime, timedelta
 import pytest
 
 import App
+from db_test_support import delete_identities_for
 import focus_shield_glue
 from App import (ActiveSession, ExtensionToken, FocusShieldSettings, SavedSchedule,
                  User, UserStreak, bcrypt, db)
@@ -59,6 +60,7 @@ def _wipe():
     if ids:
         for model in (ExtensionToken, FocusShieldSettings, SavedSchedule, UserStreak, ActiveSession):
             model.query.filter(model.user_id.in_(ids)).delete(synchronize_session=False)
+        delete_identities_for(User.query.filter(User.id.in_(ids)))
         User.query.filter(User.id.in_(ids)).delete(synchronize_session=False)
     db.session.commit()
 

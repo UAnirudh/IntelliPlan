@@ -10,6 +10,7 @@ from PIL import Image
 from sqlalchemy import delete, select, text
 
 import App
+from db_test_support import delete_identities_for
 from App import User, db
 import ai_provider
 import ai_firewall
@@ -86,6 +87,7 @@ def client(monkeypatch):
     with App.app.app_context():
         for table in (store.REVIEWS, store.CARDS, store.DECKS):
             db.session.execute(delete(table).where(table.c.user_id.in_(uid_list)))
+        delete_identities_for(User.query.filter(User.id.in_(uid_list)))
         User.query.filter(User.id.in_(uid_list)).delete(synchronize_session=False)
         for uid in uid_list:
             db.session.execute(

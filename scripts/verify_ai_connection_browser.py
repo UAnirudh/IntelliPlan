@@ -83,7 +83,7 @@ with sync_playwright() as playwright:
         page.set_viewport_size({'width':width,'height':1000})
         open_page(student,'/settings/ai')
         page.get_by_role('heading',name='Use your ChatGPT plan',exact=True).wait_for()
-        assert 'OpenAI must approve this hosted app' in page.locator('.pai').inner_text()
+        assert 'requires OpenAI partner approval' in page.locator('.pai').inner_text()
         assert page.locator('#paiOpenAIRedirect').inner_text() == 'https://intelliplan.tech/auth/openai/callback'
         redirect_status = page.locator('#paiOpenAIRedirectStatus').inner_text().lower()
         assert 'identity linking stays hidden until the hosted integration is approved and configured' in redirect_status

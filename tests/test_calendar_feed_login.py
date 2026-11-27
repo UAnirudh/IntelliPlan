@@ -13,6 +13,7 @@ from __future__ import annotations
 import pytest
 
 import App
+from db_test_support import delete_identities_for
 import ics_feed
 
 
@@ -84,7 +85,7 @@ def future_feed(monkeypatch):
     return body
 
 
-# ── Connecting ───────────────────────────────────────────────────────
+# â”€â”€ Connecting â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_a_pasted_feed_link_connects(client, future_feed):
@@ -120,6 +121,32 @@ def test_the_connected_feed_actually_produces_tasks(client, future_feed):
     assert "Lab report" in titles
 
 
+@pytest.mark.parametrize(("vendor", "feed_path"), [
+    ("Brightspace", "/d2l/le/calendar/feed/synthetic/calendar.ics"),
+    ("Blackboard", "/learn/api/v1/calendar/synthetic/calendar.ics"),
+])
+def test_school_calendar_subscription_produces_tasks(client, monkeypatch, vendor, feed_path):
+    from datetime import date, timedelta
+
+    due = date.today() + timedelta(days=3)
+    body = (
+        f"BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//{vendor}//Calendar//EN\r\n"
+        "BEGIN:VEVENT\r\nUID:synthetic-school-event\r\n"
+        f"DTSTART:{due:%Y%m%d}T200000Z\r\n"
+        "SUMMARY:Geometry problem set\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n"
+    ).encode()
+    serve(monkeypatch, body)
+    response = client.post("/login/calendar-feed", data={
+        "feed_url": f"https://school.example.invalid{feed_path}",
+    })
+    assert response.status_code == 302
+    tasks = _all_tasks(client.get("/tasks/unified").get_json())
+    assert [(task["title"], task["due_date"]) for task in tasks] == [
+        ("Geometry problem set", due.isoformat())
+    ]
+    assert client.get("/grades/data").get_json() == []
+
+
 def test_the_course_name_survives_into_the_planner(client, future_feed):
     client.post("/login/calendar-feed", data={"feed_url": FEED_URL})
     tasks = _all_tasks(client.get("/tasks/unified").get_json())
@@ -128,7 +155,7 @@ def test_the_course_name_survives_into_the_planner(client, future_feed):
     assert essay["due_date"]
 
 
-# ── Failing usefully ─────────────────────────────────────────────────
+# â”€â”€ Failing usefully â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_an_unreachable_feed_explains_rather_than_crashing(client, monkeypatch):
@@ -165,7 +192,7 @@ def test_an_empty_feed_is_rejected_at_connect_time(client, monkeypatch):
     serve(monkeypatch, canvas_feed())
     r = client.post("/login/calendar-feed", data={"feed_url": FEED_URL})
     assert r.status_code == 200
-    assert "no upcoming assignments" in r.get_data(as_text=True)
+    assert "no upcoming dates IntelliPlan can import" in r.get_data(as_text=True)
     with client.session_transaction() as sess:
         assert sess.get("login_type") != "calendar_feed", "must not connect an empty feed"
 
@@ -176,7 +203,7 @@ def test_a_blank_url_asks_for_one(client):
     assert "Paste your calendar feed URL" in r.get_data(as_text=True)
 
 
-# ── The page offers it ───────────────────────────────────────────────
+# â”€â”€ The page offers it â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_the_login_page_offers_the_feed_option(client):
@@ -198,7 +225,7 @@ def test_token_walkthrough_does_not_require_credentials(client):
     assert 'name="canvas_token"' not in body
 
 
-# ── Signed in, where credentials take a different route ──────────────
+# â”€â”€ Signed in, where credentials take a different route â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 @pytest.fixture
@@ -208,6 +235,7 @@ def student(request):
     one was covered when this feature landed."""
     from App import LinkedAccount, User, db
     with App.app.app_context():
+        delete_identities_for(User.query.filter(User.email.like("feeduser+%")))
         User.query.filter(User.email.like("feeduser+%")).delete(synchronize_session=False)
         db.session.commit()
         u = User(email="feeduser+a@example.com",
@@ -220,6 +248,7 @@ def student(request):
     def cleanup():
         with App.app.app_context():
             LinkedAccount.query.filter_by(user_id=uid).delete()
+            delete_identities_for(User.query.filter_by(id=uid))
             User.query.filter_by(id=uid).delete()
             db.session.commit()
     request.addfinalizer(cleanup)
@@ -252,7 +281,7 @@ def test_a_signed_in_students_feed_reaches_the_planner(client, student, future_f
     assert "Essay 3" in titles
 
 
-# ── A new login type must not break the surfaces it does not serve ───
+# â”€â”€ A new login type must not break the surfaces it does not serve â”€â”€â”€
 
 
 @pytest.mark.parametrize("path", [
@@ -276,7 +305,7 @@ def test_the_gradebook_is_empty_rather_than_wrong(client, future_feed):
     assert client.get("/missing/data").get_json() == []
 
 
-# ── The form is unauthenticated and the fetch is server-side ─────────
+# â”€â”€ The form is unauthenticated and the fetch is server-side â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 @pytest.mark.parametrize("url", [

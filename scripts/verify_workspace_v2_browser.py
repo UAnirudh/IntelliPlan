@@ -116,7 +116,9 @@ with sync_playwright() as playwright:
     page.locator('.tutor-practice-drawer > summary').click()
     assert page.locator('.tutor-assignment-bar').is_visible()
     page.locator('.tutor-practice-drawer > summary').click()
-    page.locator('[data-appearance-open]').first.click()
+    # Appearance lives in the sidebar's Extra tools disclosure.
+    page.locator('#sideTools > summary').click()
+    page.locator('[data-appearance-open]:visible').first.click()
     assert page.locator('#workspaceAppearance').is_visible()
     for name, value in {'Width': 'wide', 'Text': 'larger', 'Density': 'compact', 'Surface': 'solid', 'Accent': 'emerald', 'Motion': 'reduce', 'Mascot': 'hidden'}.items():
         page.locator('#appearance' + name).select_option(value)
@@ -126,7 +128,8 @@ with sync_playwright() as playwright:
     open_page('/tutor')
     assert page.evaluate("document.documentElement.dataset.uiWidth === 'wide' && document.documentElement.dataset.uiMotion === 'reduce' && document.documentElement.dataset.uiText === 'larger'")
     assert page.locator('#tutorPlaniWrap').is_hidden()
-    page.locator('[data-appearance-open]').first.click()
+    page.locator('#sideTools > summary').click()
+    page.locator('[data-appearance-open]:visible').first.click()
     page.locator('#appearanceReset').click()
     page.locator('[data-appearance-close]').click()
     assert page.evaluate("document.documentElement.dataset.uiWidth === 'focused'")

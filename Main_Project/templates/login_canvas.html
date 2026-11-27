@@ -1,15 +1,16 @@
 {% extends "base.html" %}
-{% block page_title %}Connect Canvas | IntelliPlan{% endblock %}
+{% block page_title %}{{ 'Connect a school calendar' if calendar_only else 'Connect Canvas' }} | IntelliPlan{% endblock %}
 {% block content %}
 <div class="login-wrap">
   <section class="login-card canvas-connect" aria-labelledby="canvasConnectTitle">
     <header class="login-header">
-      <img class="canvas-connect__logo" src="/static/logos/canvas.svg" width="44" height="44" alt="">
-      <h1 class="login-title" id="canvasConnectTitle">Connect Canvas</h1>
-      <p class="login-subtitle">Bring your assignments into IntelliPlan.</p>
+      {% if not calendar_only %}<img class="canvas-connect__logo" src="/static/logos/canvas.svg" width="44" height="44" alt="">{% endif %}
+      <h1 class="login-title" id="canvasConnectTitle">{{ 'Connect a school calendar' if calendar_only else 'Connect Canvas' }}</h1>
+      <p class="login-subtitle">{{ 'Bring upcoming course dates into your planner.' if calendar_only else 'Bring your assignments into IntelliPlan.' }}</p>
     </header>
 
     {% if error %}<p class="login-error" role="alert">{{ error }}</p>{% endif %}
+    {% if not calendar_only %}
     {% if request.args.get('reason') in ['oauth_not_registered', 'oauth_unavailable'] %}
     <p class="login-error" role="status">Your school has not enabled IntelliPlan’s Canvas sign-in. You can still import due dates with a calendar link.</p>
     {% endif %}
@@ -72,13 +73,14 @@
       <p><a href="https://developerdocs.instructure.com/services/canvas/oauth2/file.developer_keys" target="_blank" rel="noopener noreferrer">Canvas Developer Key setup</a></p>
     </details>
 
-    <form class="login-form canvas-connect__section" method="POST" action="/login/calendar-feed">
+    {% endif %}
+    <form id="calendar-feed" class="login-form canvas-connect__section" method="POST" action="/login/calendar-feed">
       <h2>Connect a calendar link</h2>
-      <p>In Canvas, open <strong>Calendar → Calendar Feed</strong> and copy the link. This imports due dates. Grades require school sign-in.</p>
+      <p>Copy your school calendar's subscription link. In Canvas, use <strong>Calendar → Calendar Feed</strong>. In Brightspace, enable feeds in <strong>Calendar → Settings</strong>, then choose <strong>Subscribe</strong>. In Blackboard Ultra, open <strong>Calendar → Settings → Share Calendar</strong> if your school offers it. Calendar links import dates and events only.</p>
       <div class="form-group">
         <label class="form-label" for="canvasFeedUrl">Calendar feed link</label>
         <input id="canvasFeedUrl" name="feed_url" class="form-input" type="text" autocomplete="off"
-               placeholder="https://school.instructure.com/feeds/calendars/…" required>
+               placeholder="Paste your school calendar link" required>
       </div>
       <button type="submit" class="ip-action">Connect calendar link</button>
     </form>
@@ -90,7 +92,7 @@
 <script>
 (function () {
   const sample = document.getElementById('canvasDemoConnect');
-  sample.addEventListener('click', () => {
+  sample?.addEventListener('click', () => {
     const result = document.getElementById('canvasDemoResult');
     result.hidden = false;
     result.textContent = 'Sample account connected. 2 example assignments found: Biology reading and Algebra practice.';

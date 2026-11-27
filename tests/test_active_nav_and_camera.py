@@ -12,6 +12,7 @@ in Chrome. The switch could be flipped and nothing behind it ever ran.
 import pytest
 
 import App
+from db_test_support import delete_identities_for
 from App import User, db, bcrypt
 
 FOCUS_JS = "static/js/ip-focus.js"
@@ -25,11 +26,13 @@ def client():
     with App.app.test_client() as c:
         with App.app.app_context():
             db.create_all()
+            delete_identities_for(User.query.filter(User.email.like("nav+%")))
             User.query.filter(User.email.like("nav+%")).delete(
                 synchronize_session=False)
             db.session.commit()
         yield c
         with App.app.app_context():
+            delete_identities_for(User.query.filter(User.email.like("nav+%")))
             User.query.filter(User.email.like("nav+%")).delete(
                 synchronize_session=False)
             db.session.commit()

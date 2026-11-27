@@ -195,6 +195,10 @@
 
   function barMarkup() {
     var missed = state.forecast && state.forecast.missed_minutes;
+    var slot = state.forecast && state.forecast.unchecked_study_slot;
+    var checkIn = ['morning', 'afternoon', 'evening'].includes(slot)
+      ? '<p class="ft-calendar-warning">Several ' + esc(slot) + ' study sessions went unchecked. Is a class or another commitment making that time hard to use? <a href="/classes#timetable">Update your timetable</a> or <a href="/settings#pane-schedule">change your study hours</a>.</p>'
+      : '';
     var behind = missed > 0
       ? '<span class="ft-inline-meta" title="Planned on earlier days and not ticked off">' + esc(missed) + ' min</span>'
       : '';
@@ -209,7 +213,7 @@
         '<button type="button" class="ft-btn" data-ft-intent="add_time">I have extra time</button>' +
         '<button type="button" class="ft-btn' + (missed > 0 ? ' ft-btn--accent' : '') + '" data-ft-intent="catch_up">I\'m behind ' + behind + '</button>' +
       '</div>' +
-      '<div class="ft-forecast" aria-live="polite">' + forecastMarkup() + '</div>' +
+      '<div class="ft-forecast" aria-live="polite">' + forecastMarkup() + checkIn + '</div>' +
       (state.calendarWarning ? '<p class="ft-calendar-warning" role="status">' + esc(state.calendarWarning) + '</p>' : '') +
       autopilotMarkup() +
     '</div>';

@@ -55,6 +55,7 @@ from __future__ import annotations
 
 import heapq
 import math
+from collections import Counter
 from dataclasses import dataclass, field, replace
 from datetime import date, datetime, timedelta
 from typing import Any, Callable, Iterable, Mapping, Sequence
@@ -837,6 +838,7 @@ def build_plan(
     # Local search frees space the greedy pass did not have. Retry anything
     # it gave up on before telling the student it will not fit.
     _retry_deferred(items, days, state, config, ctx)
+    _recover_by_relocating_sessions(items, days, state, config, ctx)
     # When the week genuinely does not hold everything, decide *what* gets
     # dropped on value rather than on whatever the greedy order happened to
     # place first.
@@ -1220,8 +1222,9 @@ def _place_best(
     # Price days cheaply first, then replay the clock in preference order.
     # The first feasible day is exactly the minimum the exhaustive scan
     # would choose, including the original chronological tie ordering.
+    horizon = ctx.horizon if ctx else len(days)
     priced = sorted((
-        (_placement_cost(item, d, state[d], len(days), config.weights, ctx,
+        (_placement_cost(item, d, state[d], horizon, config.weights, ctx,
                          check_clock=False), d) for d in candidates
     ))
     best_day = next((d for cost, d in priced if cost != math.inf
@@ -1265,6 +1268,80 @@ def _retry_deferred(
     unplaced = _allocation_order([it for it in items if it.day is None])
     for item in unplaced:
         _place_best(item, days, state, config, by_task, ctx)
+
+
+# Each attempt may replay exact clock windows on multiple days.
+_MAX_RECOVERY_ATTEMPTS = 64
+
+
+def _recover_by_relocating_sessions(
+    items: list[_Item],
+    days: Sequence[date],
+    state: dict[date, _DayState],
+    config: PlannerConfig,
+    ctx: _Context,
+) -> None:
+    """Make room for deferred work by relocating up to two movable sessions."""
+    unplaced = _allocation_order([it for it in items if it.day is None])
+    if not unplaced or len(days) < 2:
+        return
+    by_task = _index_by_task(items)
+    attempts = 0
+    moves: list[tuple[_Item, date, str]] = []
+
+    def restore(checkpoint):
+        while len(moves) > checkpoint:
+            other, original_day, reason = moves.pop()
+            if other.day is not None:
+                state[other.day].remove(other)
+            other.day = original_day
+            other.defer_reason = reason
+            state[original_day].add(other)
+
+    def try_place(item, allowed, moves_left):
+        nonlocal attempts
+        if _place_best(item, allowed, state, config, by_task, ctx):
+            return True
+        if not moves_left or any(p.day is None for dep in item.task.depends_on
+                                 for p in by_task.get(dep, ())):
+            return False
+
+        reason = item.defer_reason
+        lo, hi = _dep_bounds(item, by_task)
+        for day in allowed:
+            if not item.earliest <= day <= item.hard_latest:
+                continue
+            if (lo is not None and day < lo) or (hi is not None and day > hi):
+                continue
+            current = state[day]
+            need = current.minutes + item.minutes - current.capacity
+            movable = sorted(
+                (other for other in current.sittings.values()
+                 if not other.fixed and other.minutes >= need
+                 and other.earliest < other.hard_latest),
+                key=lambda other: (other.anchor == day, _value(other), other.task.id, other.part_index),
+            )
+            alternatives = tuple(d for d in allowed if d != day)
+            for other in movable:
+                if attempts >= _MAX_RECOVERY_ATTEMPTS:
+                    return False
+                attempts += 1
+                checkpoint = len(moves)
+                moves.append((other, day, other.defer_reason))
+                current.remove(other)
+                other.day = None
+                if (try_place(other, alternatives, moves_left - 1)
+                        and _place_best(item, (day,), state, config, by_task, ctx)):
+                    return True
+                restore(checkpoint)
+                item.defer_reason = reason
+        return False
+
+    for item in unplaced:
+        if attempts >= _MAX_RECOVERY_ATTEMPTS:
+            break
+        try_place(item, days, 2)
+        moves.clear()
 
 
 def _optimise(
@@ -1386,66 +1463,66 @@ def _triage(
     if not unplaced:
         return items
 
-    # Index placed work by day once. Rebuilding this by scanning every item
-    # for every candidate day made triage quadratic in the workload, which a
-    # student with a few hundred open assignments felt as a multi-second
-    # wait — and they are exactly the student who most needs this pass.
-    by_day: dict[date, list[_Item]] = {d: [] for d in days}
-    for it in items:
-        if it.day is not None:
-            by_day.setdefault(it.day, []).append(it)
-
-    # Values are stable during triage and each is computed many times.
+    by_task = _index_by_task(items)
+    required = Counter(dep for placed in items if placed.day is not None
+                       for dep in placed.task.depends_on)
     values = {id(it): _value(it) for it in items}
 
-    unplaced.sort(key=lambda it: values[id(it)], reverse=True)
+    unplaced.sort(key=lambda it: (-values[id(it)], it.task.id, it.part_index))
     for item in unplaced:
-        if item.day is not None:
+        if item.day is not None or any(
+            parent.day is None for dep in item.task.depends_on for parent in by_task.get(dep, ())
+        ):
             continue
         item_value = values[id(item)]
-        candidates = [d for d in days if item.earliest <= d <= item.hard_latest]
-        best: tuple[float, date, list[_Item]] | None = None
-        for d in candidates:
-            st = state[d]
-            need = item.minutes - (st.capacity - st.minutes)
-            if need <= 0:
-                continue  # _place_best already had its chance; it fits nowhere else
-            # Cheapest set of strictly-less-valuable sittings that frees room.
-            evictable = sorted(
-                (o for o in by_day.get(d, ()) if not o.fixed and values[id(o)] < item_value),
-                key=lambda o: values[id(o)],
-            )
-            freed, chosen = 0, []
-            for victim in evictable:
-                chosen.append(victim)
-                freed += victim.minutes
-                if freed >= need:
-                    break
-            if freed < need:
+        lo, hi = _dep_bounds(item, by_task)
+        choices: list[tuple[float, date, list[_Item]]] = []
+        for day in days:
+            if not item.earliest <= day <= item.hard_latest:
                 continue
-            sacrifice = sum(values[id(v)] for v in chosen)
-            if best is None or sacrifice < best[0]:
-                best = (sacrifice, d, chosen)
-
-        if best is None:
-            continue
-        _, day, victims = best
-        for victim in victims:
-            state[day].remove(victim)
-            by_day[day].remove(victim)
-            victim.day = None
-            victim.defer_reason = (
-                f"Displaced by higher-priority work ({item.task.title})."
+            if (lo is not None and day < lo) or (hi is not None and day > hi):
+                continue
+            current = state[day]
+            if item.minutes > current.capacity:
+                continue
+            # Enough minutes in total can still be split across clock gaps.
+            # Consider a swap even then and let exact clock placement judge it.
+            need = max(1, current.minutes + item.minutes - current.capacity)
+            evictable = sorted(
+                (other for other in current.sittings.values()
+                 if not other.fixed and not required[other.task.id]
+                 and other.task.id not in item.task.depends_on
+                 and values[id(other)] < item_value),
+                key=lambda other: (values[id(other)], other.task.id, other.part_index),
             )
-        if not _place_best(item, days, state, config, None, ctx):
-            # Undo — never leave the plan worse than we found it.
+            freed, sacrifice = 0, 0.0
+            victims = []
+            for other in evictable:
+                sacrifice += values[id(other)]
+                if sacrifice >= item_value:
+                    break
+                victims.append(other)
+                freed += other.minutes
+                if freed >= need:
+                    choices.append((sacrifice, day, victims))
+                    break
+
+        for _, day, victims in sorted(choices, key=lambda choice: choice[:2]):
+            current = state[day]
+            for victim in victims:
+                current.remove(victim)
+                victim.day = None
+            reason = item.defer_reason
+            if _place_best(item, (day,), state, config, by_task, ctx):
+                required.update(item.task.depends_on)
+                for victim in victims:
+                    required.subtract(victim.task.depends_on)
+                    victim.defer_reason = f"Displaced by higher-priority work ({item.task.title})."
+                break
+            item.defer_reason = reason
             for victim in victims:
                 victim.day = day
-                victim.defer_reason = ""
-                state[day].add(victim)
-                by_day[day].append(victim)
-        elif item.day is not None:
-            by_day.setdefault(item.day, []).append(item)
+                current.add(victim)
 
     # Evicted work may fit elsewhere. This runs once, after every swap has
     # been decided — doing it inside the loop above re-scanned the whole

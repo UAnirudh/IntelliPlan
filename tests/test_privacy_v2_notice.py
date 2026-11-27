@@ -17,6 +17,7 @@ from datetime import datetime
 import pytest
 
 import App
+from db_test_support import delete_identities_for
 import policy_versions
 from App import User, db
 
@@ -50,6 +51,7 @@ def test_the_privacy_policy_is_past_its_baseline(client):
 
 def _sign_in(client, email, created_at):
     with App.app.app_context():
+        delete_identities_for(User.query.filter_by(email=email))
         User.query.filter_by(email=email).delete(synchronize_session=False)
         db.session.commit()
         user = User(email=email, password_hash="", created_at=created_at)

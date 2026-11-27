@@ -17,6 +17,7 @@ from datetime import date, timedelta
 import pytest
 
 import App
+from db_test_support import delete_identities_for
 import fallback_scheduler
 from App import User, bcrypt, db
 
@@ -38,6 +39,7 @@ def client():
 
 
 def _wipe():
+    delete_identities_for(User.query.filter(User.email.like("cont+%")))
     User.query.filter(User.email.like("cont+%")).delete(synchronize_session=False)
     db.session.commit()
 

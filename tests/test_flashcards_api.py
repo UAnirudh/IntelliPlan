@@ -13,6 +13,7 @@ import pytest
 from sqlalchemy import text
 
 import App
+from db_test_support import delete_identities_for
 from App import User, bcrypt, db
 from flashcards import store
 
@@ -37,6 +38,7 @@ def client():
 def _wipe():
     for table in ("fc_reviews", "fc_cards", "fc_decks"):
         db.session.execute(text(f"DELETE FROM {table}"))
+    delete_identities_for(User.query.filter(User.email.like("fc+%")))
     User.query.filter(User.email.like("fc+%")).delete(synchronize_session=False)
     db.session.commit()
 

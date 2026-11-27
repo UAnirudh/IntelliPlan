@@ -31,6 +31,7 @@ def client(monkeypatch):
 
 
 def _clean():
+    App.ProGift.query.delete()
     AIUsage.query.delete()
     SavedSchedule.query.filter(SavedSchedule.user_id.isnot(None)).delete(synchronize_session=False)
     UserStreak.query.delete()
@@ -58,6 +59,105 @@ def sign_in(client, uid):
         s["_user_id"] = str(uid)
         s["_fresh"] = True
         s["ip_founder_mode"] = True
+
+
+def test_study_review_csv_groups_local_weeks_and_requires_paid_access(client, monkeypatch):
+    from intelliplan import scheduler_clock
+
+    now = datetime(2026, 11, 25, 20)
+    monkeypatch.setattr(App, "utcnow", lambda: now)
+    monkeypatch.setattr(growth_glue, "utcnow", lambda: now)
+    monkeypatch.setattr(scheduler_clock, "utcnow", lambda: now)
+    monkeypatch.setattr(scheduler_clock, "timezone_for", lambda uid: ("America/Los_Angeles", 0))
+    monkeypatch.setattr(App, "collect_lms_assignments_for_user", lambda uid, **_: [{
+        "title": "Upcoming practice", "course": "Math", "due_date": "2026-12-01", "estimated_time": 40,
+    }])
+    url = "/my-stats/weekly-review"
+    assert client.get(url + "?format=csv").location.startswith("/login")
+    with App.app.app_context():
+        paid = make_user(paid_until=now + timedelta(days=31))
+        free = make_user()
+        db.session.add_all([
+            App.TaskFeedback(user_id=paid, title="Private title", completed_at=datetime(2026, 11, 23, 7, 59)),
+            App.TaskFeedback(user_id=paid, title="Lab", estimated_time=25, actual_time=40,
+                             completed_at=datetime(2026, 11, 20, 18)),
+            App.TaskFeedback(user_id=paid, title="Essay", estimated_time=30, actual_time=45,
+                             completed_at=datetime(2026, 11, 13, 18)),
+            App.TaskFeedback(user_id=paid, title="Review", estimated_time=35, actual_time=50,
+                             completed_at=datetime(2026, 11, 6, 18)),
+            App.TaskFeedback(user_id=paid, title="Current week", estimated_time=1000, actual_time=1,
+                             completed_at=now),
+            App.TaskFeedback(user_id=free, title="Other student", estimated_time=1000, actual_time=1,
+                             completed_at=datetime(2026, 11, 20, 18)),
+            App.StudySession(user_id=paid, completed=True, duration_seconds=150, created_at=datetime(2026, 11, 23, 8)),
+            App.StudySession(user_id=paid, completed=False, duration_seconds=900, created_at=now),
+            App.StudySession(user_id=free, completed=True, duration_seconds=1800, created_at=now),
+            App.ActiveSession(user_id=paid, state="completed", active_seconds=185,
+                              title="Private focus title", ended_at=datetime(2026, 11, 20, 12)),
+            App.ActiveSession(user_id=paid, state="completed", active_seconds=300,
+                              ended_at=datetime(2026, 11, 13, 12)),
+            App.ActiveSession(user_id=paid, state="abandoned", active_seconds=1000, ended_at=now),
+            App.ActiveSession(user_id=free, state="completed", active_seconds=2000, ended_at=now),
+        ])
+        db.session.commit()
+    try:
+        sign_in(client, free)
+        assert client.get(url + "?format=csv").location.endswith("/upgrade")
+        assert client.get("/api/my-stats").status_code == 200
+        assert client.get("/api/scheduler/assignments").status_code == 200
+        free_review = client.get(url).get_data(as_text=True)
+        assert "<strong>40 minutes</strong> for 1 assignment" in free_review
+        assert '<time datetime="2026-12-01">2026-12-01</time> · 1 assignment due · 40 minutes' in free_review
+        assert 'href="/scheduler?review=next-week"' in free_review
+        draft = client.get("/scheduler?review=next-week")
+        assert "no-store" in draft.headers["Cache-Control"]
+        draft_html = draft.get_data(as_text=True)
+        assert 'const reviewWeek = {"end": "2026-12-06", "start": "2026-11-30"};' in draft_html
+        assert "Use this plan" in draft_html
+        assert 'id="generateBtn"' not in draft_html
+        assert "Study history" not in free_review
+        assert 'href="/upgrade#pro-referral">Earn 30 days of Pro with a qualifying invite' in free_review
+        assert "See study time by course" not in free_review
+        assert "What to start first" not in free_review
+        assert "Download spreadsheet" not in free_review
+        preview = client.get("/pricing/study-review").get_data(as_text=True)
+        assert "This preview uses sample data" in preview
+        assert "136 study minutes" in preview
+        assert "See study time by course" in preview
+        assert "What to start first" in preview
+        assert "<strong>25 minutes</strong> to start <strong>Algebra problem set</strong>" in preview
+        assert 'value="136" max="136"' in preview
+        assert 'class="review-current">In progress' in preview
+        assert "40 minutes" in preview and "4 check-ins with both times" in preview
+        assert "Download spreadsheet" not in preview
+        sign_in(client, paid)
+        review = client.get(url).get_data(as_text=True)
+        assert "Weekly study review" in review
+        assert 'href="/scheduler?review=next-week"' in review
+        assert "2 minutes less" in review
+        assert "<strong>30 minutes</strong>" in review
+        assert "<strong>45 minutes</strong>" in review
+        assert "try budgeting <strong>45 minutes</strong>" in review
+        assert "Upcoming practice" in review and "<strong>60 minutes</strong> for 1 assignment" in review
+        assert "<strong>20 minutes more</strong>" in review
+        assert 'Your busiest deadline day is <time datetime="2026-12-01">2026-12-01</time>' in review
+        assert "Originally 40" in review
+        assert "3 check-ins with both times" in review
+        downloaded = client.get(url + "?format=csv")
+        assert "no-store" in downloaded.headers["Cache-Control"]
+        assert "attachment" in downloaded.headers["Content-Disposition"]
+        lines = downloaded.get_data(as_text=True).splitlines()
+        assert lines[1:4] == ["2026-11-23,1,1,2", "2026-11-16,2,1,3", "2026-11-09,1,1,5"]
+        assert len(lines) == 13
+        assert "Private title" not in downloaded.get_data(as_text=True)
+        assert "Private focus title" not in downloaded.get_data(as_text=True)
+        assert "Upcoming practice" not in downloaded.get_data(as_text=True)
+    finally:
+        with App.app.app_context():
+            App.TaskFeedback.query.filter(App.TaskFeedback.user_id.in_([paid, free])).delete()
+            App.StudySession.query.filter(App.StudySession.user_id.in_([paid, free])).delete()
+            App.ActiveSession.query.filter(App.ActiveSession.user_id.in_([paid, free])).delete()
+            db.session.commit()
 
 
 # ── Metering ─────────────────────────────────────────────────────────
@@ -333,6 +433,102 @@ def test_checkout_defaults_to_the_monthly_price(client, stripe_stub):
     assert stripe_stub.checkouts[0]["line_items"] == [{"price": "price_month", "quantity": 1}]
 
 
+def test_pro_gift_checkout_uses_recipient_link_and_one_time_price(client, stripe_stub, monkeypatch):
+    import re
+
+    monkeypatch.setenv("STRIPE_PRICE_ID_PRO_GIFT", "price_gift")
+    monkeypatch.setenv("STRIPE_WEBHOOK_SECRET", "whsec_synthetic_gift")
+    stripe_stub.prices["price_gift"] = {
+        **stripe_stub.prices["price_month"], "type": "one_time", "recurring": None,
+    }
+    with App.app.app_context():
+        uid = make_user()
+        other_uid = make_user()
+        original = growth_glue.make_pay_token(uid)
+        token = growth_glue._pay_serializer(growth_glue.GIFT_LINK_SALT).dumps({"uid": uid})
+        other_token = growth_glue._pay_serializer(growth_glue.GIFT_LINK_SALT).dumps({"uid": other_uid})
+    url = f"/gift/{token}"
+    assert client.get(f"/gift/{original}").status_code == 404
+    form = client.get(url)
+    assert "no-store" in form.headers["Cache-Control"]
+    attempt = re.search(r'name="attempt" value="([^"]+)"', form.get_data(as_text=True))[1]
+    assert client.post(url, data={"months": "13", "adult_payer": "yes"}).status_code == 400
+    assert client.post(url, data={"months": "3"}).status_code == 400
+    payload = {"months": "3", "adult_payer": "yes", "user_id": 999, "attempt": attempt}
+    assert client.post(f"/gift/{other_token}", data=payload).status_code == 400
+    assert not stripe_stub.checkouts
+    response = client.post(url, data=payload)
+    assert response.status_code == 303
+    assert response.headers["Referrer-Policy"] == "no-referrer"
+    assert client.post(url, data=payload).status_code == 303
+    checkout, retry = stripe_stub.checkouts
+    assert checkout["idempotency_key"].startswith("pro-gift-")
+    assert retry == checkout
+    create_checkout = stripe_stub.checkout.Session.create
+
+    def temporarily_unavailable(**params):
+        assert params == checkout
+        raise TimeoutError("Synthetic checkout timeout")
+
+    with monkeypatch.context() as failure:
+        failure.setattr(stripe_stub.checkout.Session, "create", temporarily_unavailable)
+        unavailable = client.post(url, data=payload)
+    assert unavailable.status_code == 503
+    assert b'Retry 3 months of Pro for $15.' in unavailable.data
+    assert re.search(r'name="attempt" value="([^"]+)"', unavailable.get_data(as_text=True))[1] == attempt
+    assert stripe_stub.checkout.Session.create == create_checkout
+    assert client.post(url, data=payload).status_code == 303
+    assert stripe_stub.checkouts[-1] == checkout
+    with monkeypatch.context() as expired:
+        expired.setattr(growth_glue, "GIFT_ATTEMPT_MAX_AGE", -1)
+        expired_response = client.post(url, data=payload)
+    assert expired_response.status_code == 400
+    assert b"This form expired." in expired_response.data
+    assert len(stripe_stub.checkouts) == 3
+    assert checkout["mode"] == "payment"
+    assert token not in checkout["success_url"] and token not in checkout["cancel_url"]
+    assert checkout["line_items"] == [{"price": "price_gift", "quantity": 3}]
+    assert checkout["metadata"] == checkout["payment_intent_data"]["metadata"] == {
+        "kind": "pro_gift", "user_id": str(uid), "months": "3",
+    }
+    monkeypatch.delenv("BILLING_ENABLED")
+    assert client.get(url).status_code == 404
+
+
+def test_gift_credits_confirmed_payments_once_and_handles_early_reversals(client):
+    now = datetime(2026, 11, 26)
+    with App.app.app_context():
+        uid = make_user(paid_until=now + timedelta(days=5), plan_tier="premium")
+        obj = {
+            "metadata": {"kind": "pro_gift", "user_id": str(uid), "months": "2"},
+            "payment_intent": "pi_test_gift", "mode": "payment", "currency": "usd",
+            "payment_status": "paid", "amount_total": 1000,
+        }
+
+        def apply(kind, payload):
+            return growth_glue.apply_billing_event({"type": kind, "data": {"object": payload}}, now=now)
+
+        assert not apply("checkout.session.completed", {**obj, "amount_total": 999})
+        assert not apply("checkout.session.completed", {**obj, "payment_status": "unpaid"})
+        assert apply("checkout.session.completed", obj)
+        assert apply("checkout.session.async_payment_succeeded", obj)
+        entry = App.ProGift.query.one()
+        assert entry.starts_at == now + timedelta(days=5)
+        assert entry.ends_at == now + timedelta(days=65)
+        user = db.session.get(User, uid)
+        assert user.paid_until == now + timedelta(days=5)
+        assert growth_glue.current_plan(user, now + timedelta(days=10)) == "paid"
+        import premium_glue
+
+        assert premium_glue.current_tier(user, now + timedelta(days=10)) == "pro"
+        assert apply("charge.refunded", {**obj, "amount_refunded": 1000})
+        assert growth_glue.current_plan(user, now + timedelta(days=10)) == "free"
+        other = {**obj, "payment_intent": "pi_reversed_before_checkout"}
+        assert apply("charge.dispute.created", other)
+        assert apply("checkout.session.completed", other)
+        assert growth_glue.current_plan(user, now + timedelta(days=10)) == "free"
+
+
 def test_checkout_uses_the_yearly_price_when_asked(client, stripe_stub):
     with App.app.app_context():
         uid = make_user()
@@ -353,6 +549,25 @@ def test_yearly_is_not_sold_until_its_price_is_configured(client, stripe_stub, m
     assert res.status_code == 503 and not stripe_stub.checkouts
     page = client.get("/upgrade")
     assert b"per year" not in page.data and b"per month" in page.data
+
+
+def test_yearly_only_checkout_shows_and_submits_the_yearly_offer(client, stripe_stub, monkeypatch):
+    monkeypatch.delenv("STRIPE_PRICE_ID")
+    with App.app.app_context():
+        uid = make_user()
+        token = growth_glue.make_pay_token(uid)
+    sign_in(client, uid)
+    upgrade = client.get("/upgrade").data
+    assert b'id="upgCheckout" data-interval="year"' in upgrade
+    assert b"$48<small> per year" in upgrade
+    assert client.post("/api/billing/checkout", json={"interval": "year"}).status_code == 200
+
+    parent = client.get(f"/pay/{token}").data
+    assert b'name="interval" value="year"' in parent
+    assert client.post(f"/pay/{token}", data={"interval": "year"}).status_code == 303
+    assert [checkout["line_items"][0]["price"] for checkout in stripe_stub.checkouts] == [
+        "price_year", "price_year",
+    ]
 
 
 def test_an_unknown_interval_falls_back_to_monthly(client, stripe_stub):
@@ -416,13 +631,20 @@ def test_portal_requires_login(client, stripe_stub):
     assert client.post("/api/billing/portal").status_code == 401
 
 
-def test_public_pages_only_mention_pro_once_billing_is_on(client, monkeypatch):
-    for path in ("/pricing", "/faq", "/legal"):
-        assert b"completely free" in client.get(path).data or b"Free forever" in client.get(path).data
-    assert b"$48" not in client.get("/pricing").data
+def test_public_pages_only_advertise_pro_checkout_once_billing_is_on(client, monkeypatch):
+    pricing = client.get("/pricing").data
+    assert b"A free planner for your school week." in pricing
+    assert b"$48" not in pricing and b'A 12-week study review' in pricing
+    assert b'Checkout is currently closed.' in pricing
+    assert b'href="/pricing/study-review"' in pricing
+    assert b'href="/upgrade" class="btn-secondary pricing-cta"' not in pricing
+    assert b"free plan" in client.get("/faq").data
+    assert b'id="t-pro"' not in client.get("/legal").data
     monkeypatch.setenv("BILLING_ENABLED", "1")
     pricing = client.get("/pricing").data
     assert b"$5" in pricing and b"$48" in pricing and b"No tiers" not in pricing
+    assert b"A 12-week study review" in pricing
+    assert b'href="/upgrade" class="btn-secondary pricing-cta"' in pricing
     assert b"no extra tiers" not in client.get("/faq").data
     assert b"There are no extra tiers" not in client.get("/legal").data
 

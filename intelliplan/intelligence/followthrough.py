@@ -1145,6 +1145,23 @@ def observations_from_outcomes(
     return out
 
 
+def recurring_unchecked_slot(rows: Iterable[Mapping[str, Any]], today: date) -> str | None:
+    """Find a time window left unchecked on at least three separate days."""
+    by_slot: dict[str, dict[date, bool]] = {slot: {} for slot in SLOTS}
+    for outcome in observations_from_outcomes(rows):
+        if not 0 < (today - outcome.day).days <= 21:
+            continue
+        slot = next(iter(outcome.slot_mix))
+        dates = by_slot[slot]
+        dates[outcome.day] = dates.get(outcome.day, False) or outcome.done
+    candidates = []
+    for slot, dates in by_slot.items():
+        unchecked = sum(not done for done in dates.values())
+        if unchecked >= 3 and unchecked * 4 >= len(dates) * 3:
+            candidates.append((unchecked, slot))
+    return max(candidates)[1] if candidates else None
+
+
 def _block_is_done(entry: Any) -> bool:
     if entry is True:
         return True
