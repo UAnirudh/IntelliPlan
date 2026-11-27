@@ -20,6 +20,7 @@ from datetime import date, timedelta
 import pytest
 
 import App
+from db_test_support import delete_identities_for
 from App import User, db
 
 
@@ -29,6 +30,7 @@ def client():
     App.limiter.enabled = False
     with App.app.test_client() as c:
         with App.app.app_context():
+            delete_identities_for(User.query.filter(User.email.like("clarify+%")))
             User.query.filter(User.email.like("clarify+%")).delete(
                 synchronize_session=False)
             db.session.commit()

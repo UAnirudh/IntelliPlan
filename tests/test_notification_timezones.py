@@ -27,6 +27,7 @@ from __future__ import annotations
 from datetime import datetime
 
 import pytest
+from db_test_support import delete_identities_for
 
 from intelliplan.notifications.events import EventKind
 from intelliplan.notifications.preferences import (
@@ -232,5 +233,6 @@ def test_the_glue_reads_the_timezone_off_the_streak_row():
             # up rather than poisoning the rest of the run.
             db.session.rollback()
             UserStreak.query.filter_by(user_id=user_id).delete()
+            delete_identities_for(User.query.filter_by(id=user_id))
             User.query.filter_by(id=user_id).delete()
             db.session.commit()

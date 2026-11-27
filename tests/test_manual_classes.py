@@ -12,6 +12,7 @@ that: the classes save, they survive a round trip, they show up in
 import pytest
 
 import App
+from db_test_support import delete_identities_for
 from App import ManualCourse, User, db
 
 
@@ -22,12 +23,14 @@ def client():
     with App.app.test_client() as c:
         with App.app.app_context():
             ManualCourse.query.delete()
+            delete_identities_for(User.query.filter(User.email.like("mclass+%")))
             User.query.filter(User.email.like("mclass+%")).delete(
                 synchronize_session=False)
             db.session.commit()
         yield c
         with App.app.app_context():
             ManualCourse.query.delete()
+            delete_identities_for(User.query.filter(User.email.like("mclass+%")))
             User.query.filter(User.email.like("mclass+%")).delete(
                 synchronize_session=False)
             db.session.commit()

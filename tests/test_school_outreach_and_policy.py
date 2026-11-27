@@ -15,6 +15,7 @@ from datetime import datetime
 import pytest
 
 import App
+from db_test_support import delete_identities_for
 import policy_versions
 from App import (ManualEntryReason, PolicyAcknowledgement, SchoolOutreachLead,
                  User, db)
@@ -30,6 +31,7 @@ def client(monkeypatch):
             SchoolOutreachLead.query.delete()
             ManualEntryReason.query.delete()
             PolicyAcknowledgement.query.delete()
+            delete_identities_for(User.query.filter(User.email.like("outreach+%")))
             User.query.filter(User.email.like("outreach+%")).delete(
                 synchronize_session=False)
             db.session.commit()
@@ -38,6 +40,7 @@ def client(monkeypatch):
             SchoolOutreachLead.query.delete()
             ManualEntryReason.query.delete()
             PolicyAcknowledgement.query.delete()
+            delete_identities_for(User.query.filter(User.email.like("outreach+%")))
             User.query.filter(User.email.like("outreach+%")).delete(
                 synchronize_session=False)
             db.session.commit()

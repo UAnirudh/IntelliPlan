@@ -4,6 +4,7 @@ from uuid import uuid4
 import pytest
 
 import App
+from db_test_support import delete_identities_for
 from intelliplan.learning import policy
 from intelliplan.learning.safety_terms import allowed_terms_for_student, validate_terms
 
@@ -46,6 +47,7 @@ def classroom(monkeypatch):
         M['Audit'].query.filter(M['Audit'].organization_id.in_([result['health'], result['other']])).delete(synchronize_session=False)
         M['Membership'].query.filter(M['Membership'].user_id.in_(users.values())).delete(synchronize_session=False)
         M['Organization'].query.filter(M['Organization'].id.in_([result['health'], result['other'], result['school'], result['district']])).delete(synchronize_session=False)
+        delete_identities_for(App.User.query.filter(App.User.id.in_(users.values())))
         App.User.query.filter(App.User.id.in_(users.values())).delete(synchronize_session=False)
         App.db.session.commit()
 

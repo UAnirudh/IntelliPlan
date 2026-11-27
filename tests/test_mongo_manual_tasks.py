@@ -66,7 +66,8 @@ def test_completion_rewards_only_on_false_to_true_transition(environment):
     client = sign_in(app)
     for _ in range(2):
         assert client.post('/update', json={'id': identity, 'done': True}).status_code == 200
-    assert rewards == ['streak', 'pet']
+    # Pet was retired, so completion awards the streak and nothing else.
+    assert rewards == ['streak']
     assert client.get('/list').json == []
     assert client.post('/update', json={'id': identity, 'done': 'false'}).status_code == 400
     assert repo.get(identity).done is True

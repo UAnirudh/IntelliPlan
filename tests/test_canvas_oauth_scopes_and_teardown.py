@@ -22,6 +22,7 @@ from datetime import timedelta
 import pytest
 
 import App
+from db_test_support import delete_identities_for
 import canvas_oauth
 from App import CanvasIntegration, LinkedAccount, User, bcrypt, db, utcnow
 
@@ -50,6 +51,7 @@ def _wipe():
             CanvasIntegration.user_id.in_(ids)).delete(synchronize_session=False)
         LinkedAccount.query.filter(
             LinkedAccount.user_id.in_(ids)).delete(synchronize_session=False)
+    delete_identities_for(User.query.filter(User.email.like("cs+%")))
     User.query.filter(User.email.like("cs+%")).delete(synchronize_session=False)
     db.session.commit()
 

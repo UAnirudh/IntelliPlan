@@ -23,6 +23,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 
 import pytest
+from db_test_support import delete_identities_for
 
 from intelliplan.notifications.events import (
     DEFAULT_ENABLED_KINDS,
@@ -435,6 +436,7 @@ def app_user():
 
     email = "pulse+alerts@example.com"
     with App.app.app_context():
+        delete_identities_for(User.query.filter_by(email=email))
         User.query.filter_by(email=email).delete(synchronize_session=False)
         db.session.commit()
         user = User(email=email, password_hash="x", name="Pulse Tester",
@@ -446,6 +448,7 @@ def app_user():
     with App.app.app_context():
         for model in (NotificationOutbox, GradePulseSnapshot, SavedSchedule):
             model.query.filter_by(user_id=uid).delete(synchronize_session=False)
+        delete_identities_for(User.query.filter_by(id=uid))
         User.query.filter_by(id=uid).delete(synchronize_session=False)
         db.session.commit()
 

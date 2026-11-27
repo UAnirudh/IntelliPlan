@@ -9,6 +9,7 @@ from flask import session
 from flask_login import login_user
 
 import App
+from db_test_support import delete_identities_for
 from intelliplan import scheduler_clock
 
 REAL_CALENDAR_POLICY = App._calendar_policy_allowed
@@ -39,6 +40,7 @@ def owners(monkeypatch):
         App.db.session.rollback()
         for model in (App.GoogleIntegration, App.OutlookIntegration, App.UserStreak):
             model.query.filter(model.user_id.in_(ids)).delete(synchronize_session=False)
+        delete_identities_for(App.User.query.filter(App.User.id.in_(ids)))
         App.User.query.filter(App.User.id.in_(ids)).delete(synchronize_session=False)
         App.db.session.commit()
 

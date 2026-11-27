@@ -277,6 +277,9 @@ try:
         essential = page.get_by_role('button', name='Essential only', exact=True)
         if essential.is_visible():
             essential.click()
+        # The camera source menu lives inside the collapsible check-in panel.
+        if not page.locator('#ipaFocusPanel').evaluate('element => element.open'):
+            page.locator('#ipaFocusPanel > summary').click()
         page.locator('#ipaCameraMenu summary').click()
         page.locator('#ipaCameraSource').select_option('network')
         page.locator('#ipaNetworkUrl').fill(GATEWAY + '/study/whep')

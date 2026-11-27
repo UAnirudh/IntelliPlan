@@ -9,6 +9,7 @@ from flask import Flask
 from flask_login import login_user
 
 import App
+from db_test_support import delete_identities_for
 from intelliplan import scheduler_clock as clock
 
 
@@ -26,6 +27,7 @@ def student():
         yield uid
         App.db.session.rollback()
         App.UserStreak.query.filter_by(user_id=uid).delete()
+        delete_identities_for(App.User.query.filter_by(id=uid))
         App.User.query.filter_by(id=uid).delete()
         App.db.session.commit()
 

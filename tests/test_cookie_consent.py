@@ -15,6 +15,7 @@ in place so anything added later has to be declared and gated first.
 import pytest
 
 import App
+from db_test_support import delete_identities_for
 import cookie_policy
 from App import User, db
 
@@ -26,11 +27,13 @@ def client():
     with App.app.test_client() as c:
         with App.app.app_context():
             db.create_all()
+            delete_identities_for(User.query.filter(User.email.like("cookie+%")))
             User.query.filter(User.email.like("cookie+%")).delete(
                 synchronize_session=False)
             db.session.commit()
         yield c
         with App.app.app_context():
+            delete_identities_for(User.query.filter(User.email.like("cookie+%")))
             User.query.filter(User.email.like("cookie+%")).delete(
                 synchronize_session=False)
             db.session.commit()
@@ -159,6 +162,7 @@ def _allowed_for_user(monkeypatch, **user_kwargs):
     """Run the gate for a signed-in user who has accepted analytics."""
     register_a_tracker(monkeypatch)
     with App.app.app_context():
+        delete_identities_for(User.query.filter(User.email.like("cookie+gate%")))
         User.query.filter(User.email.like("cookie+gate%")).delete(
             synchronize_session=False)
         db.session.commit()

@@ -8,6 +8,7 @@ import pytest
 from flask_login import login_user
 
 import App
+from db_test_support import delete_identities_for
 from intelliplan import scheduler_clock
 from intelliplan.services.calendar_slots import free_time_summary
 
@@ -33,6 +34,7 @@ def calendar_owner(monkeypatch):
         App.db.session.rollback()
         App.GoogleIntegration.query.filter_by(user_id=uid).delete()
         App.OutlookIntegration.query.filter_by(user_id=uid).delete()
+        delete_identities_for(App.User.query.filter_by(id=uid))
         App.User.query.filter_by(id=uid).delete()
         App.db.session.commit()
 

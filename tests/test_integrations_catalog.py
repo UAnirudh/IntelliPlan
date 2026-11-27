@@ -14,6 +14,7 @@ from __future__ import annotations
 import pytest
 
 import App
+from db_test_support import delete_identities_for
 import integrations_catalog as ic
 
 
@@ -26,7 +27,7 @@ def client():
     App.limiter.enabled = True
 
 
-# ── The catalogue itself ─────────────────────────────────────────────
+# â”€â”€ The catalogue itself â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_every_integration_the_app_supports_is_listed():
@@ -63,7 +64,7 @@ def test_ids_are_unique():
     assert len(ids) == len(set(ids))
 
 
-# ── Ordering: the bug that sent students down the broken path ────────
+# â”€â”€ Ordering: the bug that sent students down the broken path â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_canvas_offers_the_calendar_link_before_oauth():
@@ -110,7 +111,7 @@ def test_a_feed_says_it_carries_no_grades():
     assert ic.CALENDAR_FEED.no_grades
 
 
-# ── The endpoint ─────────────────────────────────────────────────────
+# â”€â”€ The endpoint â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_the_status_endpoint_returns_the_whole_catalogue(client):
@@ -216,13 +217,14 @@ def test_blackboard_offers_calendar_and_only_configured_oauth(client, monkeypatc
     assert ('onclick="event.preventDefault(); connectBlackboard()"' in html) == configured
 
 
-# ── A signed-in student ──────────────────────────────────────────────
+# â”€â”€ A signed-in student â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 @pytest.fixture
 def student(request):
     from App import LinkedAccount, User, db
     with App.app.app_context():
+        delete_identities_for(User.query.filter(User.email.like("intgtest+%")))
         User.query.filter(User.email.like("intgtest+%")).delete(synchronize_session=False)
         db.session.commit()
         u = User(email="intgtest+a@example.com", name="Integration Tester",
@@ -240,6 +242,7 @@ def student(request):
     def cleanup():
         with App.app.app_context():
             LinkedAccount.query.filter_by(user_id=uid).delete()
+            delete_identities_for(User.query.filter_by(id=uid))
             User.query.filter_by(id=uid).delete()
             db.session.commit()
     request.addfinalizer(cleanup)
@@ -292,7 +295,7 @@ def test_a_signed_in_student_still_gets_every_integration(client, student):
     assert len(data["integrations"]) == len(ic.CATALOG)
 
 
-# ── The surfaces that render it ──────────────────────────────────────
+# â”€â”€ The surfaces that render it â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def test_the_dashboard_modal_renders_from_the_catalogue(client, student):

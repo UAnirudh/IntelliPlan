@@ -131,10 +131,20 @@ with sync_playwright() as playwright:
             assert page.locator('#adultDeleteDialog').is_visible()
             page.locator('#adultDeleteCancel').click()
             assert page.locator('#adultDeleteDialog').is_hidden()
+            # The account page ships data-theme="dark", so the control's first
+            # press flips to light; assert the flip, then restore dark for the
+            # dark-mode capture instead of assuming which end it starts from.
+            before = page.locator('html').get_attribute('data-theme')
             page.locator('#adultTheme').click()
+            toggled = page.locator('html').get_attribute('data-theme')
+            assert {before, toggled} == {'light', 'dark'}, (before, toggled)
+            if toggled != 'dark':
+                page.locator('#adultTheme').click()
             assert page.locator('html').get_attribute('data-theme') == 'dark'
             capture(role + '-account-dark')
-            page.locator('#adultTheme').click()
+            if before != 'dark':
+                page.locator('#adultTheme').click()
+                assert page.locator('html').get_attribute('data-theme') == before
 
     # A failed deletion must keep the account page open and allow a retry.
     page.route('**/account/delete', lambda handler: handler.fulfill(

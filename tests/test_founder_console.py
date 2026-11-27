@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from uuid import uuid4
 
 import App
+from db_test_support import delete_identities_for
 import pytest
 from intelliplan.founder_metrics import feature_adoption, feature_optimization_actions
 
@@ -22,6 +23,7 @@ def client():
         App.ProductEvent.query.filter(App.ProductEvent.user_id.in_(user_ids)).delete(
             synchronize_session=False
         ) if user_ids else None
+        delete_identities_for(App.User.query.filter(App.User.id.in_(user_ids)))
         App.User.query.filter(App.User.id.in_(user_ids)).delete(synchronize_session=False) if user_ids else None
         App.db.session.commit()
     App.limiter.enabled = previous_limiter

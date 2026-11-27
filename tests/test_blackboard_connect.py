@@ -20,6 +20,7 @@ import json
 import pytest
 
 import App
+from db_test_support import delete_identities_for
 from App import User, BlackboardIntegration, db
 
 
@@ -34,12 +35,14 @@ def client(monkeypatch):
     with App.app.test_client() as c:
         with App.app.app_context():
             BlackboardIntegration.query.delete()
+            delete_identities_for(User.query.filter(User.email.like("bbtest+%")))
             User.query.filter(User.email.like("bbtest+%")).delete(
                 synchronize_session=False)
             db.session.commit()
         yield c
         with App.app.app_context():
             BlackboardIntegration.query.delete()
+            delete_identities_for(User.query.filter(User.email.like("bbtest+%")))
             User.query.filter(User.email.like("bbtest+%")).delete(
                 synchronize_session=False)
             db.session.commit()
