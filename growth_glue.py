@@ -877,12 +877,12 @@ def gift_pro(token):
     attempts = _pay_serializer("pro-gift-checkout")
     link_ref = hashlib.sha256(token.encode()).hexdigest()
 
-    def page(error=None, status=200, *, attempt=None, selected=1):
+    def page(error=None, status=200, *, attempt=None, selected=1, retry=False):
         if not attempt:
             attempt = attempts.dumps({"link": link_ref, "nonce": secrets.token_urlsafe(24)})
         response = render_template("gift_pro.html", months=range(1, MAX_MONTHS + 1),
                                    monthly_price=plans.PRO_PRICES_USD[plans.MONTHLY], error=error,
-                                   attempt=attempt, selected=selected)
+                                   attempt=attempt, selected=selected, retry=retry)
         return response, status, private_headers
     if request.method == "GET":
         return page()
@@ -900,7 +900,8 @@ def gift_pro(token):
         if details.get("link") != link_ref:
             return page("Please submit the form from this gift link.", 400, selected=months)
         if not validate_checkout_offer(os.environ, stripe.Price.retrieve, plan="pro_gift", interval=None):
-            return page("Gift checkout is currently unavailable.", 503)
+            return page("Gift checkout is currently unavailable. You can retry this request.",
+                        503, attempt=attempt, selected=months, retry=True)
         metadata = {"kind": "pro_gift", "user_id": str(student.id), "months": str(months)}
         try:
             checkout = stripe.checkout.Session.create(
@@ -913,7 +914,7 @@ def gift_pro(token):
         except Exception:
             logger.warning("Could not create a Pro gift checkout")
             return page("Gift checkout is currently unavailable. You can retry this request.",
-                        503, attempt=attempt, selected=months)
+                        503, attempt=attempt, selected=months, retry=True)
         response = redirect(checkout.url, code=303)
         response.headers.update(private_headers)
         return response

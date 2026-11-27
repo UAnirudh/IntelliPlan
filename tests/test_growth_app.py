@@ -449,6 +449,27 @@ def test_pro_gift_checkout_uses_recipient_link_and_one_time_price(client, stripe
     checkout, retry = stripe_stub.checkouts
     assert checkout["idempotency_key"].startswith("pro-gift-")
     assert retry == checkout
+    create_checkout = stripe_stub.checkout.Session.create
+
+    def temporarily_unavailable(**params):
+        assert params == checkout
+        raise TimeoutError("Synthetic checkout timeout")
+
+    with monkeypatch.context() as failure:
+        failure.setattr(stripe_stub.checkout.Session, "create", temporarily_unavailable)
+        unavailable = client.post(url, data=payload)
+    assert unavailable.status_code == 503
+    assert b'Retry 3 months of Pro for $15.' in unavailable.data
+    assert re.search(r'name="attempt" value="([^"]+)"', unavailable.get_data(as_text=True))[1] == attempt
+    assert stripe_stub.checkout.Session.create == create_checkout
+    assert client.post(url, data=payload).status_code == 303
+    assert stripe_stub.checkouts[-1] == checkout
+    with monkeypatch.context() as expired:
+        expired.setattr(growth_glue, "GIFT_ATTEMPT_MAX_AGE", -1)
+        expired_response = client.post(url, data=payload)
+    assert expired_response.status_code == 400
+    assert b"This form expired." in expired_response.data
+    assert len(stripe_stub.checkouts) == 3
     assert checkout["mode"] == "payment"
     assert token not in checkout["success_url"] and token not in checkout["cancel_url"]
     assert checkout["line_items"] == [{"price": "price_gift", "quantity": 3}]

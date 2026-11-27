@@ -22,12 +22,19 @@
   {% if error %}<p role="alert">{{ error }}</p>{% endif %}
   <form method="post" action="{{ request.path }}">
     <input type="hidden" name="attempt" value="{{ attempt }}">
+    {% if retry %}
+    <input type="hidden" name="months" value="{{ selected }}">
+    <input type="hidden" name="adult_payer" value="yes">
+    <p>Retry {{ selected }} {{ 'month' if selected == 1 else 'months' }} of Pro for ${{ selected * monthly_price }}.</p>
+    <button type="submit" class="btn-primary">Retry checkout</button>
+    {% else %}
     <label for="giftMonths">How many months?</label>
     <select name="months" id="giftMonths">
       {% for month in months %}<option value="{{ month }}"{% if month == selected %} selected{% endif %}>{{ month }} {{ 'month' if month == 1 else 'months' }} · ${{ month * monthly_price }}</option>{% endfor %}
     </select>
     <p><label><input type="checkbox" name="adult_payer" value="yes" required> I’m an adult paying for this gift.</label></p>
     <button type="submit" class="btn-primary">Continue to Stripe</button>
+    {% endif %}
   </form>
   {% endif %}
 </main>
