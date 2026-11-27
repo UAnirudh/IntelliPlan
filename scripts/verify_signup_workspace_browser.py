@@ -131,7 +131,7 @@ with sync_playwright() as playwright:
                 const css = getComputedStyle(row), rect = row.getBoundingClientRect(), i = icon.getBoundingClientRect();
                 return {fontFamily:css.fontFamily, fontSize:css.fontSize, lineHeight:css.lineHeight, height:rect.height, left:rect.left, width:rect.width, iconX:i.x, iconWidth:i.width};
             };
-            return [read('.side-foot a[href="/settings"]'),read('.side-foot .side-logout')];
+            return [read('.side-account a[href="/settings"]'),read('.side-account .side-logout')];
         }""")
         first, second = metrics
         for key in ('fontFamily','fontSize','lineHeight'):

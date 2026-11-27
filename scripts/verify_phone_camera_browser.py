@@ -97,6 +97,9 @@ with sync_playwright() as p:
     if essential.is_visible():
         essential.click()
     receiver.locator('#ipaStart').wait_for(state='visible')
+    # The camera source menu lives inside the collapsible check-in panel.
+    if not receiver.locator('#ipaFocusPanel').evaluate('element => element.open'):
+        receiver.locator('#ipaFocusPanel > summary').click()
     receiver.locator('#ipaCameraMenu summary').click()
     receiver.locator('#ipaCameraSource').select_option('phone')
     receiver.locator('label[for="ipaFocusToggle"]').click()

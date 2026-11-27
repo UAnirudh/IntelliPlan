@@ -101,7 +101,7 @@ class TestLandingPage:
         # hero and footer buttons had in common, and the footer comes second
         # only by DOM order.
         go(page, "/")
-        cta = page.locator(".hero-actions a.btn-primary[href='/login']").first
+        cta = page.locator(".plani-home-hero a[href='/login']").first
         expect(cta).to_be_visible()
         cta.click()
         assert_url_matches(page, "/login")
@@ -237,7 +237,7 @@ class TestRegisterPage:
 
     def test_back_to_login_link_works(self, page: Page):
         go(page, "/register")
-        page.get_by_text("← Back to login options").click()
+        page.get_by_role("link", name=re.compile("Back to login options")).click()
         assert_url_matches(page, "/login")
 
 
@@ -279,12 +279,17 @@ class TestInstallPage:
 
 class TestCanvasLoginPage:
     def test_canvas_login_loads(self, page: Page):
+        # Production offers the OAuth connect form; the token box below it is
+        # only rendered when canvas_token_testing is on.
         go(page, "/login/canvas")
-        expect(page.locator("input[name='canvas_token']")).to_be_visible()
+        expect(page.locator("#canvasOauthForm")).to_be_visible()
 
     def test_canvas_login_empty_submit_stays_on_page(self, page: Page):
         go(page, "/login/canvas")
-        page.locator("input[name='canvas_token']").fill("")
+        token = page.locator("input[name='canvas_token']")
+        if token.count() == 0:
+            pytest.skip("Token form is only rendered when canvas_token_testing is on.")
+        token.fill("")
         page.get_by_role("button", name="Connect Canvas →").click()
         assert_url_matches(page, "/login/canvas")
 
@@ -649,7 +654,11 @@ class TestAccessibility:
             const txt = (a.innerText || a.textContent || '').trim();
             const al  = (a.getAttribute('aria-label') || '').trim();
             const tt  = (a.getAttribute('title') || '').trim();
-            return !txt && !al && !tt;
+            // An image with alt text names the link for a screen reader even
+            // though the link itself has no text (the Built by Indies badge).
+            const imgAlt = Array.from(a.querySelectorAll('img'))
+              .some(img => (img.getAttribute('alt') || '').trim());
+            return !txt && !al && !tt && !imgAlt;
           }).length;
         }""")
         assert bad_links == 0, f"{bad_links} link(s) lack accessible text"
@@ -659,7 +668,7 @@ class TestAccessibility:
         # that it goes to /login with an accessible name — not what that name
         # currently says. Marketing copy changes; the conversion path does not.
         go(page, "/")
-        cta = page.locator(".hero-actions a.btn-primary[href='/login']")
+        cta = page.locator(".plani-home-hero a[href='/login']")
         assert cta.count() == 1, "Hero should have exactly one primary CTA"
         expect(cta).to_be_visible()
         assert (cta.inner_text() or "").strip(), "Hero CTA needs an accessible name"

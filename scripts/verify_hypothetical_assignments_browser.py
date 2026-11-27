@@ -201,15 +201,15 @@ with sync_playwright() as p:
         expect(page.locator('#newAsgnCategory')).to_have_value('Finals')
         submit()
         expect(page.locator('#modeledPct')).to_have_text('75%')
-        expect(page.locator('#currentPct')).to_have_text('—')
+        expect(page.locator('#currentPct')).to_have_text('N/A')
         select('Weighted Biology')
         select('Empty Canvas')
         expect(page.locator('#modeledPct')).to_have_text('75%')
-        expect(page.locator('#currentPct')).to_have_text('—')
+        expect(page.locator('#currentPct')).to_have_text('N/A')
         page.get_by_role('button', name='Reset', exact=True).click()
         expect(cards()).to_have_count(0)
-        expect(page.locator('#currentPct')).to_have_text('—')
-        expect(page.locator('#modeledPct')).to_have_text('—')
+        expect(page.locator('#currentPct')).to_have_text('N/A')
+        expect(page.locator('#modeledPct')).to_have_text('N/A')
         # AI prediction inputs retain real provider data, without hypothetical rows.
         assert page.evaluate('gradebookData.map(c => c.assignments.length)') == [2, 2, 0]
         assert not errors, errors

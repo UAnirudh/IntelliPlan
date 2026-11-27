@@ -24,6 +24,7 @@ import pytest
 import requests
 
 import App
+from db_test_support import delete_identities_for
 import cloud_token_client
 import google_drive_helper as gd
 import onedrive_helper as od
@@ -542,6 +543,7 @@ def _wipe():
         OneDriveIntegration.query.filter(OneDriveIntegration.user_id.in_(ids)).delete(synchronize_session=False)
         OutlookIntegration.query.filter(OutlookIntegration.user_id.in_(ids)).delete(synchronize_session=False)
         App.LinkedAccount.query.filter(App.LinkedAccount.user_id.in_(ids)).delete(synchronize_session=False)
+    delete_identities_for(User.query.filter(User.email.like("clouddocs+%")))
     User.query.filter(User.email.like("clouddocs+%")).delete(synchronize_session=False)
     db.session.commit()
 

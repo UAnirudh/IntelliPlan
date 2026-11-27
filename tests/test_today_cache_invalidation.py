@@ -18,6 +18,7 @@ from datetime import date, timedelta
 import pytest
 
 import App
+from db_test_support import delete_identities_for
 from App import ManualTask, User, db
 from intelliplan.api import command_center as cc
 
@@ -35,6 +36,7 @@ def client():
 def user_id():
     email = "cache+today@example.com"
     with App.app.app_context():
+        delete_identities_for(User.query.filter_by(email=email))
         User.query.filter_by(email=email).delete(synchronize_session=False)
         db.session.commit()
         user = User(email=email,
@@ -46,6 +48,7 @@ def user_id():
     yield uid
     with App.app.app_context():
         ManualTask.query.filter_by(user_id=uid).delete(synchronize_session=False)
+        delete_identities_for(User.query.filter_by(id=uid))
         User.query.filter_by(id=uid).delete(synchronize_session=False)
         db.session.commit()
     cc._TODAY_CACHE.pop(uid, None)

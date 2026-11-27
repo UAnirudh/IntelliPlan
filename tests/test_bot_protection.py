@@ -15,6 +15,7 @@ Nothing in this file touches the network: ``verify`` is stubbed throughout.
 import pytest
 
 import App
+from db_test_support import delete_identities_for
 import bot_protection
 from App import User, bcrypt, db
 
@@ -69,6 +70,7 @@ def _wipe():
         App.PasswordResetToken.query.filter(
             App.PasswordResetToken.user_id.in_(ids)).delete(
                 synchronize_session=False)
+    delete_identities_for(User.query.filter(User.email.like("cap+%")))
     User.query.filter(User.email.like("cap+%")).delete(synchronize_session=False)
     db.session.commit()
 

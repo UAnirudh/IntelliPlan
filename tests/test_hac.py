@@ -26,6 +26,7 @@ import pytest
 import requests
 
 import App
+from db_test_support import delete_identities_for
 import hac_helper
 from App import LinkedAccount, User, bcrypt, db
 
@@ -630,6 +631,7 @@ def _wipe():
     ids = [u.id for u in User.query.filter(User.email.like("hac+%")).all()]
     if ids:
         LinkedAccount.query.filter(LinkedAccount.user_id.in_(ids)).delete(synchronize_session=False)
+    delete_identities_for(User.query.filter(User.email.like("hac+%")))
     User.query.filter(User.email.like("hac+%")).delete(synchronize_session=False)
     db.session.commit()
 

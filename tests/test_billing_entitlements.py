@@ -10,6 +10,7 @@ from uuid import uuid4
 import pytest
 
 import App
+from db_test_support import delete_identities_for
 import growth_glue
 import premium_glue
 from intelliplan.premium.billing_events import paid_period
@@ -17,6 +18,13 @@ from time_utils import utcnow
 
 NOW = datetime(2026, 10, 19, 12)
 END = int(datetime(2026, 11, 19, 12, tzinfo=timezone.utc).timestamp())
+
+#: The webhook tests post a signed request, so the handler reads the wall clock
+#: and there is no ``now`` to inject. A fixed period end quietly expires: the
+#: handler correctly refuses to grant access for a window that has already
+#: closed, and the test then fails on the calendar rather than on the code.
+WEBHOOK_END = int((datetime.now(timezone.utc) + timedelta(days=30)).timestamp())
+WEBHOOK_END_DT = datetime.fromtimestamp(WEBHOOK_END, timezone.utc).replace(tzinfo=None)
 
 
 def test_additive_watermark_migration_preserves_existing_user_and_can_repeat(monkeypatch):
@@ -109,12 +117,13 @@ def owner(monkeypatch):
         else:
             lifecycle.delete(synchronize_session=False)
         App.AICreditGrant.query.filter_by(user_id=uid).delete()
+        delete_identities_for(App.User.query.filter_by(id=uid))
         App.User.query.filter_by(id=uid).delete()
         App.db.session.commit()
 
 
-def invoice(uid, modern=False):
-    line = {'period': {'end': END}, 'metadata': {'user_id': str(uid), 'plan': 'premium'}}
+def invoice(uid, modern=False, end=END):
+    line = {'period': {'end': end}, 'metadata': {'user_id': str(uid), 'plan': 'premium'}}
     meta = {'metadata': {'user_id': str(uid), 'plan': 'premium'}}
     obj = {'status': 'paid', 'customer': 'cus_synthetic', 'lines': {'data': [line], 'has_more': False}}
     if modern:
@@ -421,14 +430,14 @@ def test_actual_sdk_parses_signed_invoice_and_persists_its_period(owner, monkeyp
     secret = 'whsec_synthetic_invoice_only'
     monkeypatch.setenv('STRIPE_WEBHOOK_SECRET', secret)
     App.app.config['TESTING'] = True
-    body = json.dumps(invoice(owner, modern)).encode()
+    body = json.dumps(invoice(owner, modern, end=WEBHOOK_END)).encode()
     stamp = str(int(time.time()))
     signature = hmac.new(secret.encode(), stamp.encode() + b'.' + body, hashlib.sha256).hexdigest()
     with App.app.test_client() as client:
         response = client.post('/api/billing/webhook', data=body,
                                headers={'Stripe-Signature': f't={stamp},v1={signature}'})
     assert response.status_code == 200
-    assert App.db.session.get(App.User, owner).paid_until == datetime(2026, 11, 19, 12)
+    assert App.db.session.get(App.User, owner).paid_until == WEBHOOK_END_DT
 
 
 @pytest.mark.parametrize('kind', [
@@ -664,5 +673,6 @@ def test_referral_settlement_locks_and_preserves_concurrent_invoice_grant(owner)
         assert refreshed.paid_until == datetime(2026, 11, 19, 12) + timedelta(days=30)
     finally:
         App.SavedSchedule.query.filter_by(user_id=referee.id).delete()
+        delete_identities_for(App.User.query.filter_by(id=referee.id))
         App.User.query.filter_by(id=referee.id).delete()
         App.db.session.commit()

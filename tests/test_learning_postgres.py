@@ -17,6 +17,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.sql.dml import Update
 
 import App
+from db_test_support import delete_identities_for
 from intelliplan.learning import courses, governance, policy
 
 
@@ -58,6 +59,7 @@ def pg_scope():
         for name in ('Audit', 'Budget', 'Membership'):
             M[name].query.filter(M[name].organization_id.in_(oids)).delete(synchronize_session=False)
         M['Organization'].query.filter(M['Organization'].id.in_(oids)).delete(synchronize_session=False)
+        delete_identities_for(App.User.query.filter(App.User.id.in_(uids)))
         App.User.query.filter(App.User.id.in_(uids)).delete(synchronize_session=False)
         App.db.session.commit()
 

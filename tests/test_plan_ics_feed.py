@@ -17,6 +17,7 @@ import re
 from datetime import date, datetime, timedelta
 
 import pytest
+from db_test_support import delete_identities_for
 
 from intelliplan.services import plan_feed
 
@@ -159,6 +160,7 @@ def user_id():
 
     email = "feed+owner@example.com"
     with App.app.app_context():
+        delete_identities_for(User.query.filter_by(email=email))
         User.query.filter_by(email=email).delete(synchronize_session=False)
         db.session.commit()
         user = User(email=email, password_hash="x", name="Feed Owner Name")
@@ -177,6 +179,7 @@ def user_id():
     with App.app.app_context():
         for model in (CalendarFeedToken, ManualTask, SavedSchedule):
             model.query.filter_by(user_id=uid).delete(synchronize_session=False)
+        delete_identities_for(User.query.filter_by(id=uid))
         User.query.filter_by(id=uid).delete(synchronize_session=False)
         db.session.commit()
 

@@ -19,6 +19,7 @@ from datetime import date, timedelta
 import pytest
 
 import App
+from db_test_support import delete_identities_for
 from App import (ActiveSession, BuddyNudge, ImportedGrade, ManualTask, NotificationOutbox,
                  StudyBuddy, User, UserStreak, bcrypt, db)
 from intelliplan.services import buddies as rules
@@ -56,6 +57,7 @@ def _wipe():
         ).delete(synchronize_session=False)
         for model in (UserStreak, ActiveSession, ImportedGrade, ManualTask, NotificationOutbox):
             model.query.filter(model.user_id.in_(ids)).delete(synchronize_session=False)
+        delete_identities_for(User.query.filter(User.id.in_(ids)))
         User.query.filter(User.id.in_(ids)).delete(synchronize_session=False)
     db.session.commit()
 
@@ -460,11 +462,11 @@ def test_the_pages_render_with_the_card(client):
     for path in ("/buddies", "/settings"):
         r = client.get(path)
         assert r.status_code == 200, path
-    # The dashboard sends a fresh account to onboarding first, so check its
-    # template carries the card rather than following that redirect.
-    dashboard = (pathlib.Path(App.__file__).parent / "Main_Project" / "templates"
-                 / "dashboard.html").read_text(encoding="utf-8")
-    assert '{% include "partials/buddies_card.html" %}' in dashboard
+    # The card was taken off the dashboard and lives on /buddies, so check the
+    # template that renders it rather than following the onboarding redirect.
+    buddies = (pathlib.Path(App.__file__).parent / "Main_Project" / "templates"
+               / "buddies.html").read_text(encoding="utf-8")
+    assert '{% include "partials/buddies_card.html" %}' in buddies
     assert 'id="budCard"' in client.get("/buddies").get_data(as_text=True)
     assert 'id="focusShieldCard"' in client.get("/settings").get_data(as_text=True)
     assert "noindex" in client.get("/buddies").headers.get("X-Robots-Tag", "noindex")

@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 
 import App
+from db_test_support import delete_identities_for
 
 
 @pytest.fixture
@@ -34,6 +35,7 @@ def student(request):
             CourseNote.query.filter_by(user_id=user_id).delete()
             GoogleDriveIntegration.query.filter_by(user_id=user_id).delete()
             App.OneDriveIntegration.query.filter_by(user_id=user_id).delete()
+            delete_identities_for(User.query.filter_by(id=user_id))
             User.query.filter_by(id=user_id).delete()
             db.session.commit()
 
@@ -120,6 +122,7 @@ def test_another_students_imported_file_cannot_be_opened(client, student, reques
         with App.app.app_context():
             CloudDocumentLink.query.filter_by(user_id=other_id).delete()
             CourseNote.query.filter_by(user_id=other_id).delete()
+            delete_identities_for(App.User.query.filter_by(id=other_id))
             App.User.query.filter_by(id=other_id).delete()
             db.session.commit()
 

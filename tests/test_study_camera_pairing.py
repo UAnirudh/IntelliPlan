@@ -6,6 +6,7 @@ from cryptography.fernet import Fernet, MultiFernet
 import pytest
 
 import App
+from db_test_support import delete_identities_for
 import secret_box
 from intelliplan.learning import policy
 from time_utils import utcnow
@@ -44,7 +45,7 @@ def pair_owner(monkeypatch):
         if orgs:
             policy.models()['Organization'].query.filter(
                 policy.models()['Organization'].id.in_(orgs)).delete(synchronize_session=False)
-        App.UserIdentity.query.filter_by(user_id=uid).delete()
+        delete_identities_for(App.User.query.filter_by(id=uid))
         App.User.query.filter_by(id=uid).delete()
         App.db.session.commit()
     App.limiter.enabled = previous
@@ -106,7 +107,7 @@ def test_only_same_owner_and_correct_role_key_can_use_pair(pair_owner):
         assert claim(factory(oid), pair).status_code == 404
     finally:
         with App.app.app_context():
-            App.UserIdentity.query.filter_by(user_id=oid).delete()
+            delete_identities_for(App.User.query.filter_by(id=oid))
             App.User.query.filter_by(id=oid).delete()
             App.db.session.commit()
 

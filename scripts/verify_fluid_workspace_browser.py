@@ -113,10 +113,11 @@ with sync_playwright() as playwright:
 
     page.set_viewport_size({'width': 1440, 'height': 1000})
     open_page('/tutor')
-    page.get_by_role('button', name='Show more tools', exact=True).click()
-    assert page.locator('.app-side [data-nav-item="pet"]').is_visible()
-    page.get_by_role('button', name='Show fewer tools', exact=True).click()
-    assert page.locator('.app-side [data-nav-item="pet"]').is_hidden()
+    page.locator('#sideTools > summary').click()
+    assert page.locator('#sideTools').evaluate('element => element.open')
+    assert page.locator('.app-side [data-nav-item="flashcards"]').is_visible()
+    page.keyboard.press('Escape')
+    assert not page.locator('#sideTools').evaluate('element => element.open')
     toggle = page.get_by_role('button', name='Hide chat history', exact=True)
     toggle.click()
     assert page.locator('#tutorSide').is_hidden()
@@ -124,7 +125,7 @@ with sync_playwright() as playwright:
     open_page('/tutor')
     assert page.locator('#tutorSide').is_hidden(), 'Panel preference did not persist'
     page.get_by_role('button', name='Show chat history', exact=True).click()
-    page.locator('#sideCollapseBtn').click()
+    page.evaluate("IPSidebar.setMode('collapsed')")
     assert page.evaluate("document.documentElement.hasAttribute('data-side-rail')")
     page.mouse.move(1100, 500)
     page.screenshot(path=str(OUT / 'tutor-collapsed.png'))
@@ -150,16 +151,14 @@ with sync_playwright() as playwright:
     page.keyboard.press('Escape')
     assert mobile_nav.evaluate('(el) => el.inert')
     assert page.evaluate("document.activeElement.id === 'mobileMenuBtn'")
-    assert not mobile_nav.evaluate('(el) => el.classList.contains("mobile-open")')
     for width in (720, 768):
         page.set_viewport_size({'width': width, 'height': 900})
         open_page('/login')
         assert menu_button.is_visible(), f'hamburger hidden at mobile breakpoint {width}px'
         assert mobile_nav.evaluate('(el) => el.inert')
         menu_button.click()
-        assert mobile_nav.evaluate('(el) => el.classList.contains("mobile-open")')
+        assert not mobile_nav.evaluate('(el) => el.inert')
         page.set_viewport_size({'width': 769, 'height': 900})
-        assert not mobile_nav.evaluate('(el) => el.classList.contains("mobile-open")')
         assert not mobile_nav.evaluate('(el) => el.inert')
         assert mobile_nav.get_attribute('aria-hidden') is None
         assert menu_button.is_hidden()
@@ -169,11 +168,6 @@ with sync_playwright() as playwright:
     assert page.locator('#tutorSide').is_visible()
     assert not page.locator('#tutorSide').evaluate('(el) => el.inert')
     page.evaluate('closeTutorDrawer()')
-
-    open_page('/dashboard?classic=1')
-    page.get_by_role('button', name='Hide overview', exact=True).click()
-    assert page.locator('#dashboard-overview').is_hidden()
-    page.get_by_role('button', name='Show overview', exact=True).click()
 
     page.set_viewport_size({'width': 1440, 'height': 1000})
     open_page('/school-admin')

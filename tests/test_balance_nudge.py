@@ -15,6 +15,7 @@ from __future__ import annotations
 import pytest
 
 import App
+from db_test_support import delete_identities_for
 from App import MediaBalancePrefs, User, db
 
 
@@ -29,6 +30,7 @@ def client():
 
 def make_user(email: str) -> int:
     with App.app.app_context():
+        delete_identities_for(User.query.filter_by(email=email))
         User.query.filter_by(email=email).delete(synchronize_session=False)
         db.session.commit()
         user = User(email=email,
@@ -43,6 +45,7 @@ def cleanup(user_id: int) -> None:
     with App.app.app_context():
         MediaBalancePrefs.query.filter_by(user_id=user_id).delete(
             synchronize_session=False)
+        delete_identities_for(User.query.filter_by(id=user_id))
         User.query.filter_by(id=user_id).delete(synchronize_session=False)
         db.session.commit()
 

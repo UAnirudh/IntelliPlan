@@ -19,6 +19,7 @@ import json
 import pytest
 
 import App
+from db_test_support import delete_identities_for
 from App import SavedSchedule, User, db, bcrypt
 
 
@@ -30,12 +31,14 @@ def client():
         with App.app.app_context():
             db.create_all()
             SavedSchedule.query.delete()
+            delete_identities_for(User.query.filter(User.email.like("active+%")))
             User.query.filter(User.email.like("active+%")).delete(
                 synchronize_session=False)
             db.session.commit()
         yield c
         with App.app.app_context():
             SavedSchedule.query.delete()
+            delete_identities_for(User.query.filter(User.email.like("active+%")))
             User.query.filter(User.email.like("active+%")).delete(
                 synchronize_session=False)
             db.session.commit()

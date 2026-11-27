@@ -14,6 +14,7 @@ import pytest
 from flask_login import login_user
 
 import App
+from db_test_support import delete_identities_for
 from App import ClassMeeting, FeatureFlag, SavedSchedule, TimetableSettings, User, db
 from intelliplan.api import timetable as timetable_api
 import scheduler_engine
@@ -43,6 +44,7 @@ def _clean():
     TimetableSettings.query.delete()
     SavedSchedule.query.filter(SavedSchedule.user_id.isnot(None)).delete(synchronize_session=False)
     FeatureFlag.query.filter_by(key="timetable").delete()
+    delete_identities_for(User.query.filter(User.email.like("tt+%")))
     User.query.filter(User.email.like("tt+%")).delete(synchronize_session=False)
     db.session.commit()
 

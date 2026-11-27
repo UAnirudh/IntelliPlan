@@ -122,7 +122,7 @@ def run_width(browser, width):
                 return handler.fulfill(status=503, json={'status': 'error', 'message': MARKUP})
             return handler.fulfill(json={'status': 'ok', 'created': 1,
                 'providers': {'outlook': {'created': 1}, 'google': {'error': 'temporarily unavailable'}}})
-        if parsed.path == '/live':
+        if parsed.path == '/api/scheduler/assignments':
             actionable = {'source': 'canvas', 'course': 'Math', 'due_date': '2026-10-23',
                           'estimated_time': 30, 'submission_status': 'needs_action',
                           'requires_action': True, 'awaiting_grade': False,
@@ -195,7 +195,7 @@ def run_width(browser, width):
         expect(views.get_by_role('tab', name='Build a plan')).to_have_attribute('aria-selected', 'true')
         expect(views.get_by_role('tab', name='My plan')).to_be_visible()
         expect(page.locator('.scheduler-loading p')).to_have_text(
-            'Building a plan around your assignments and available study time…')
+            'Plani is finding study time around your week…')
         page.wait_for_function('allAssignments.length === 2')
         page.locator('#assignmentQueue summary').click()
         expect(page.locator('#assignmentQueueCount')).to_contain_text('2 to do · 1 waiting')
