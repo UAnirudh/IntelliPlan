@@ -85,7 +85,9 @@
     {% else %}
     <p>No open assignments with a due date next week showed up in your planner.</p>
     {% endif %}
-    {% if not example %}<p><a href="/scheduler" class="btn-secondary">Open your scheduler</a></p>{% endif %}
+    {% if not example %}
+    <p><a href="{{ '/scheduler?review=next-week' if workload.rows else '/scheduler' }}" class="btn-secondary">{{ "Draft next week’s plan" if workload.rows else "Open your scheduler" }}</a></p>
+    {% endif %}
   </section>
   {% endif %}
   {% if basic %}

@@ -5818,7 +5818,15 @@ def grades():
 
 @app.route("/scheduler")
 def scheduler():
-    return render_template("scheduler.html", active_page="scheduler", load_saved=False)
+    review_week = None
+    if request.args.get("review") == "next-week" and current_user.is_authenticated:
+        from intelliplan.scheduler_clock import now_for
+
+        today = now_for(current_user.id).date()
+        start = today + timedelta(days=7 - today.weekday())
+        review_week = {"start": start.isoformat(), "end": (start + timedelta(days=6)).isoformat()}
+    page = render_template("scheduler.html", active_page="scheduler", load_saved=False, review_week=review_week)
+    return _no_store(flask.make_response(page)) if review_week else page
 
 @app.route("/scheduler/calendar")
 def scheduler_calendar_page():
@@ -12960,6 +12968,7 @@ def generate_schedule():
         data = validate_schedule_request(request.get_json(silent=True))
     except ValueError as exc:
         return flask.jsonify(status='error', message=str(exc)), 400
+    review_draft = data.get("review_draft") is True
     assignments = _assignment_display_rows(data.get("assignments", []))
     hours_per_day = data.get("hours_per_day", 2)
     preferred_time = data.get("preferred_time", "evening")
@@ -13055,7 +13064,8 @@ def generate_schedule():
         assignments = applied[n_custom:]
         matched = {k for k in presets if any(
             scheduler_clarify.preset_key(t.get("title") or "") == k for t in task_views)}
-        _mark_presets_used(matched, uid, gid)
+        if not review_draft:
+            _mark_presets_used(matched, uid, gid)
         # Tell the student a saved answer was used. Silently reusing something
         # they typed weeks ago and never mentioning it is how a planner starts
         # feeling like it's ignoring them.
@@ -13109,6 +13119,7 @@ def generate_schedule():
                 normalized_assignments, custom_task_rows, uid, gid,
                 availability, commitments, preferred_time, hours_per_day,
                 dna=dna,
+                record_version=not review_draft,
                 pack_days=data.get("pack_days") is True,
             )
         except CalendarUnavailable as exc:

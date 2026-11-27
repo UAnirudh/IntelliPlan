@@ -14,7 +14,7 @@ function harness(owner, initial = {}, savedPlan) {
     return { children: [], style: { setProperty() {} }, value: '', events: {}, parentNode: null,
       addEventListener(name, handler) { this.events[name] = handler; },
       appendChild(child) { child.parentNode = this; this.children.push(child); },
-      setAttribute() {}, focus() {}, remove() {
+      setAttribute() {}, focus() {}, dispatchEvent(event) { this.events[event.type]?.(event); }, remove() {
         if (this.parentNode) this.parentNode.children = this.parentNode.children.filter(child => child !== this);
       } };
   }
@@ -28,7 +28,8 @@ function harness(owner, initial = {}, savedPlan) {
     window: { matchMedia: () => ({ matches: false }), addEventListener() {} },
     sessionStorage: { getItem: key => storage.get(key) || null,
       setItem: (key, value) => storage.set(key, value), removeItem: key => storage.delete(key) },
-    location, setTimeout: callback => timers.push(callback),
+    location, Event: class { constructor(type) { this.type = type; } },
+    setTimeout: callback => timers.push(callback),
     fetch: (url, options) => url === '/calendar/connections'
       ? Promise.resolve({ json: async () => ({}) })
       : url === '/schedule/saved' ? Promise.resolve({ ok: true, json: async () => savedPlan })
@@ -186,4 +187,28 @@ test('The opening view flags upcoming work from a saved plan without making a ch
   assert.match(h.ids.commandSavedCoverage.innerHTML, /&lt;Lab&gt;/);
   assert.doesNotMatch(h.ids.commandSavedCoverage.innerHTML, /Past homework|Future homework/);
   assert.equal(h.requests.length, 0);
+});
+
+test('read-only priority shortcut runs directly and preserves an unsent message', () => {
+  const h = harness('17');
+  const priority = {dataset: {prompt: 'Look at my upcoming assignments and help me choose what to do first.'},
+    hasAttribute: name => name === 'data-run-prompt'};
+  const click = button => h.ids.chatInner.events.click({target: {closest: () => button}});
+  h.ids.chatInput.value = 'My unfinished question';
+  click(priority);
+  assert.equal(h.requests.length, 0);
+  assert.equal(h.ids.chatInput.value, 'My unfinished question');
+
+  h.ids.chatInput.value = '';
+  const plan = {dataset: {prompt: 'Plan my week using my assignments and connected calendar.'},
+    hasAttribute: () => false};
+  click(plan);
+  assert.equal(h.requests.length, 0);
+  assert.equal(h.ids.chatInput.value, plan.dataset.prompt);
+
+  h.ids.chatInput.value = '';
+  click(priority);
+  assert.equal(h.requests.length, 1);
+  assert.equal(JSON.parse(h.requests[0].options.body).messages.at(-1).content, priority.dataset.prompt);
+  assert.equal(h.ids.chatInput.value, '');
 });

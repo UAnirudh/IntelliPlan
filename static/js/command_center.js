@@ -411,6 +411,10 @@
       var b = e.target.closest('[data-prompt]');
       if (!b || sending || input.value.trim()) return;
       if (guide && guide.open) guide.close();
+      if (b.hasAttribute('data-run-prompt')) {
+        submit(b.dataset.prompt);
+        return;
+      }
       input.value = b.dataset.prompt;
       input.dispatchEvent(new Event('input'));
       input.focus();

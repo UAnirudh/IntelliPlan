@@ -71,7 +71,7 @@
         <ul class="command-chat__prompts command-chat__shortcuts" aria-label="Planning shortcuts">
           {% if has_work_source %}
           <li><button type="button" aria-labelledby="planWeekLabel" aria-describedby="planWeekHint" data-prompt="Plan my week using my assignments and connected calendar."><span class="command-chat__shortcut-copy"><strong id="planWeekLabel">Plan my week</strong><small id="planWeekHint">Use assignments and calendar</small></span><span class="ip-arrow" aria-hidden="true"></span></button></li>
-          <li><button type="button" aria-labelledby="firstTaskLabel" aria-describedby="firstTaskHint" data-prompt="Look at my upcoming assignments and help me choose what to do first."><span class="command-chat__shortcut-copy"><strong id="firstTaskLabel">What should I do first?</strong><small id="firstTaskHint">Prioritize upcoming assignments</small></span><span class="ip-arrow" aria-hidden="true"></span></button></li>
+          <li><button type="button" aria-labelledby="firstTaskLabel" aria-describedby="firstTaskHint" data-run-prompt data-prompt="Look at my upcoming assignments and help me choose what to do first."><span class="command-chat__shortcut-copy"><strong id="firstTaskLabel">What should I do first?</strong><small id="firstTaskHint">Prioritize upcoming assignments</small></span><span class="ip-arrow" aria-hidden="true"></span></button></li>
           {% else %}
           <li><button type="button" data-prompt="Help me plan around a deadline."><strong>Plan around a deadline</strong><span class="ip-arrow" aria-hidden="true"></span></button></li>
           <li><a href="/connect"><strong>Connect my school</strong><span class="ip-arrow" aria-hidden="true"></span></a></li>

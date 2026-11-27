@@ -67,6 +67,7 @@ def test_study_review_csv_groups_local_weeks_and_requires_paid_access(client, mo
     now = datetime(2026, 11, 25, 20)
     monkeypatch.setattr(App, "utcnow", lambda: now)
     monkeypatch.setattr(growth_glue, "utcnow", lambda: now)
+    monkeypatch.setattr(scheduler_clock, "utcnow", lambda: now)
     monkeypatch.setattr(scheduler_clock, "timezone_for", lambda uid: ("America/Los_Angeles", 0))
     monkeypatch.setattr(App, "collect_lms_assignments_for_user", lambda uid, **_: [{
         "title": "Upcoming practice", "course": "Math", "due_date": "2026-12-01", "estimated_time": 40,
@@ -107,6 +108,13 @@ def test_study_review_csv_groups_local_weeks_and_requires_paid_access(client, mo
         free_review = client.get(url).get_data(as_text=True)
         assert "<strong>40 minutes</strong> for 1 assignment" in free_review
         assert '<time datetime="2026-12-01">2026-12-01</time> · 1 assignment due · 40 minutes' in free_review
+        assert 'href="/scheduler?review=next-week"' in free_review
+        draft = client.get("/scheduler?review=next-week")
+        assert "no-store" in draft.headers["Cache-Control"]
+        draft_html = draft.get_data(as_text=True)
+        assert 'const reviewWeek = {"end": "2026-12-06", "start": "2026-11-30"};' in draft_html
+        assert "Use this plan" in draft_html
+        assert 'id="generateBtn"' not in draft_html
         assert "Study history" not in free_review
         assert 'href="/upgrade#pro-referral">Earn 30 days of Pro with a qualifying invite' in free_review
         assert "See study time by course" not in free_review
@@ -125,6 +133,7 @@ def test_study_review_csv_groups_local_weeks_and_requires_paid_access(client, mo
         sign_in(client, paid)
         review = client.get(url).get_data(as_text=True)
         assert "Weekly study review" in review
+        assert 'href="/scheduler?review=next-week"' in review
         assert "2 minutes less" in review
         assert "<strong>30 minutes</strong>" in review
         assert "<strong>45 minutes</strong>" in review
