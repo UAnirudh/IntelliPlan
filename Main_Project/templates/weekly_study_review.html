@@ -62,6 +62,21 @@
         </tbody>
       </table>
     </div>
+    {% if not basic and workload.courses|length > 1 %}
+    <details>
+      <summary>See study time by course</summary>
+      <div class="review-table-wrap" role="region" aria-label="Study time by course" tabindex="0">
+        <table>
+          <thead><tr><th scope="col">Course</th><th scope="col">Assignments</th><th scope="col">Minutes</th><th scope="col">First due</th></tr></thead>
+          <tbody>
+          {% for course in workload.courses %}
+          <tr><th scope="row">{{ course.course or 'No course' }}</th><td>{{ course.count }}</td><td>{{ course.minutes }}</td><td><time datetime="{{ course.first_due }}">{{ course.first_due }}</time></td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </details>
+    {% endif %}
     {% else %}
     <p>No open assignments with a due date next week showed up in your planner.</p>
     {% endif %}

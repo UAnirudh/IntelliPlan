@@ -19,6 +19,10 @@ def test_workload_uses_course_pacing_then_account_history():
         ("Problem set", 60, "Course check-ins"),
         ("Essay", 60, "Recent check-ins"),
     ]
+    assert result["courses"] == [
+        {"course": "Math", "minutes": 60, "count": 1, "first_due": "2026-11-30"},
+        {"course": "English", "minutes": 60, "count": 1, "first_due": "2026-12-06"},
+    ]
 
 
 def test_workload_keeps_base_estimate_with_sparse_history():
@@ -40,6 +44,7 @@ def test_busiest_day_sums_adjusted_estimates_and_breaks_ties_earliest():
     ]
     result = next_week_workload(assignments, [("Math", 30, 60)] * 3, start)
     assert result["busiest_day"] == {"due": "2026-12-01", "minutes": 60, "count": 2}
+    assert result["courses"] == [{"course": "Math", "minutes": 120, "count": 3, "first_due": "2026-12-01"}]
 
 
 def test_busiest_day_counts_only_unique_open_assignments():
