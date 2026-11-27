@@ -108,6 +108,7 @@ def test_study_review_csv_groups_local_weeks_and_requires_paid_access(client, mo
         assert "<strong>40 minutes</strong> for 1 assignment" in free_review
         assert '<time datetime="2026-12-01">2026-12-01</time> · 1 assignment due · 40 minutes' in free_review
         assert "Study history" not in free_review
+        assert 'href="/upgrade#pro-referral">Earn 30 days of Pro with a qualifying invite' in free_review
         assert "See study time by course" not in free_review
         assert "Download spreadsheet" not in free_review
         preview = client.get("/pricing/study-review").get_data(as_text=True)

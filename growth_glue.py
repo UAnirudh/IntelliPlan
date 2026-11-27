@@ -1175,6 +1175,7 @@ def install(app: Any) -> None:
         "pro_prices": plans.PRO_PRICES_USD,
         "pro_yearly_saving": plans.yearly_saving_percent(),
         "free_ai_allowance": plans.free_monthly_allowance(),
+        "referral_month_days": plans.REFERRAL_REWARD_DAYS,
         "ultimate_monthly_price": f"{premium().price_usd['month']:g}",
         "ultimate_monthly_allowance": f"{premium().ai_budget_usd:g}",
         "ultimate_checkout_available": billing_enabled() and bool(os.getenv("STRIPE_SECRET_KEY", "").strip())

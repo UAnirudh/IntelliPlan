@@ -49,10 +49,10 @@ def test_prices_can_change_without_a_deploy(monkeypatch):
 # ── Plans ───────────────────────────────────────────────────────────────
 
 
-def test_premium_defaults_to_twenty_dollars_with_twenty_of_ai():
+def test_ultimate_defaults_to_twenty_dollars_with_twelve_of_ai():
     plan = catalog.premium()
     assert plan.price_usd[catalog.MONTHLY] == 20.0
-    assert plan.ai_budget_micro == 20_000_000
+    assert plan.ai_budget_micro == 12_000_000
 
 
 def test_linking_your_own_account_costs_less():
@@ -323,7 +323,7 @@ def test_a_premium_question_is_answered_by_claude_and_charged(client, tutor_env)
         assert row.cost_micro == pricing.cost_micro("claude-sonnet-5-5",
                                                     pricing.Usage(input_tokens=2000, output_tokens=500))
         state = premium_glue.budget_state(db.session.get(User, uid))
-    assert state["remaining_micro"] == 20_000_000 - row.cost_micro
+    assert state["remaining_micro"] == 12_000_000 - row.cost_micro
     assert tutor_env["free"] == []
 
 
@@ -380,7 +380,7 @@ def test_a_top_up_extends_the_budget(client, tutor_env):
     uid = _user(client)
     with App.app.app_context():
         premium_glue.record_spend(uid, provider="anthropic", model="claude-opus-5-5",
-                                  usage=pricing.Usage(output_tokens=1_000_000),
+                                  usage=pricing.Usage(output_tokens=600_000),
                                   source="platform", purpose="tutor")
         assert premium_glue.grant_credit(uid, 4_000_000, stripe_ref="cs:test-topup")
         assert not premium_glue.grant_credit(uid, 4_000_000, stripe_ref="cs:test-topup")
@@ -492,7 +492,7 @@ def test_a_verified_key_is_saved_and_shown_only_as_a_hint(client, monkeypatch):
 def test_the_ai_settings_page_shows_the_budget(client):
     _user(client)
     page = client.get("/settings/ai").get_data(as_text=True)
-    assert "$20.00" in page and "Linked AI accounts" in page
+    assert "$12.00" in page and "Linked AI accounts" in page
 
 
 def test_chatgpt_plan_callback_is_application_ready_but_not_claimed_live(client):
@@ -516,7 +516,18 @@ def test_preferences_are_validated_and_saved(client):
 def test_status_reports_the_meter(client):
     _user(client)
     data = client.get("/api/premium/status").json
-    assert data["tier"] == "premium" and data["budget_usd"] == 20.0
+    assert data["tier"] == "premium" and data["budget_usd"] == 12.0
+
+
+def test_referral_time_does_not_extend_ultimate_usage_after_stripe_period(client):
+    import premium_glue
+
+    uid = _user(client)
+    with App.app.app_context():
+        user = App.db.session.get(App.User, uid)
+        user.stripe_paid_until = user.paid_until - timedelta(days=1)
+        assert premium_glue.current_tier(user, user.stripe_paid_until - timedelta(seconds=1)) == "premium"
+        assert premium_glue.current_tier(user, user.stripe_paid_until) == "pro"
 
 
 def test_a_paid_invoice_sets_the_premium_tier(client, monkeypatch):

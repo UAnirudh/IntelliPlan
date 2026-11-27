@@ -387,8 +387,13 @@
   </div>
   <section class="pricing-rationale pricing-rationale--wide" aria-labelledby="pricing-ultimate">
     <h2 id="pricing-ultimate">Ultimate · ${{ ultimate_monthly_price }}/month</h2>
-    <p>Everything in Pro, plus controls for quick or deeper answers and a live usage meter. Ultimate includes a dedicated monthly advanced-model allowance of ${{ ultimate_monthly_allowance }} in usage.</p>
+    <p>Everything in Pro, plus Claude tutoring with Fast, Balanced, and Deep answer modes. The monthly advanced-model allowance includes ${{ ultimate_monthly_allowance }} in usage, with a live meter so you can see what’s left.</p>
     {% if ultimate_checkout_available %}<a href="/settings/ai">See Ultimate</a>{% else %}<p>Ultimate checkout is currently closed.</p>{% endif %}
+  </section>
+  <section class="pricing-rationale pricing-rationale--wide" aria-labelledby="pricing-referral">
+    <h2 id="pricing-referral">Earn {{ referral_month_days }} days of Pro</h2>
+    <p>Invite a friend using your personal link. They earn Pro when they sign up, and you earn it when they connect a school tool or build their first plan as a qualifying referral. Referral access needs no card and does not renew automatically.</p>
+    <a href="/upgrade#pro-referral">Find your invite link</a>
   </section>
   <section class="pricing-rationale pricing-rationale--wide" aria-labelledby="pricing-gift">
     <h2 id="pricing-gift">Gift Pro</h2>

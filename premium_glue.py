@@ -95,6 +95,9 @@ def current_tier(user: Any = None, now: datetime | None = None) -> str:
 
         return PRO if active_pro_gift_end(user.id, now) else FREE
     tier = getattr(user, "plan_tier", None) or PRO
+    stripe_end = getattr(user, "stripe_paid_until", None)
+    if stripe_end is not None and stripe_end <= now:
+        return PRO  # Remaining individual time comes from rewards, not the paid model allowance.
     return tier if catalog.is_premium(tier) else PRO
 
 

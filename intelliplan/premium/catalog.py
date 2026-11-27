@@ -70,7 +70,7 @@ def premium(env=None) -> Plan:
             MONTHLY: _env_float("PREMIUM_PRICE_USD", 20.0, env),
             YEARLY: _env_float("PREMIUM_PRICE_USD_YEARLY", 192.0, env),
         },
-        ai_budget_usd=_env_float("PREMIUM_AI_BUDGET_USD", 20.0, env),
+        ai_budget_usd=_env_float("PREMIUM_AI_BUDGET_USD", 12.0, env),
         byok=False,
         stripe_price_env={MONTHLY: "STRIPE_PRICE_ID_PREMIUM",
                           YEARLY: "STRIPE_PRICE_ID_PREMIUM_YEARLY"},
