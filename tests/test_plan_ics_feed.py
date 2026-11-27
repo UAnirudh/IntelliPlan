@@ -270,6 +270,35 @@ def test_the_feed_follows_plan_changes(client, user_id):
     assert "Bio quiz prep" in second.get_data(as_text=True)
 
 
+def test_private_subscription_revalidates_a_moved_study_session(client, user_id, monkeypatch):
+    from App import SavedSchedule, app
+    import notifications_glue
+
+    monkeypatch.setattr(notifications_glue, "_timezone_for", lambda uid: "")
+    login(client, user_id)
+    path = feed_path(create(client, detail="private")["urls"])
+    before = client.get(path)
+    assert "no-store" in before.headers["Cache-Control"]
+    assert "SUMMARY:Study block" in before.get_data(as_text=True)
+
+    with app.app_context():
+        plan_data = json.loads(SavedSchedule.query.filter_by(user_id=user_id, is_active=True).one().schedule_data)
+    session = plan_data["schedule"][0]["blocks"][0]
+    session.update(start_iso="2026-10-01T18:00:00", end_iso="2026-10-01T18:45:00")
+    saved = client.post("/schedule/save", json={"schedule_data": plan_data, "name": "Moved study session"})
+    assert saved.status_code == 200 and saved.get_json()["status"] == "ok"
+
+    after = client.get(path, headers={"If-None-Match": before.headers["ETag"]})
+    assert after.status_code == 200
+    text = after.get_data(as_text=True)
+    assert "SUMMARY:Bio reading" not in text
+    day = plan_data["schedule"][0]["date"].replace("-", "")
+    assert f"DTSTART:{day}T180000" in text
+    assert f"DTSTART:{day}T160000" not in text
+    unchanged = client.get(path, headers={"If-None-Match": after.headers["ETag"]})
+    assert unchanged.status_code == 304 and "no-store" in unchanged.headers["Cache-Control"]
+
+
 @pytest.mark.parametrize("token", [
     "A" * 43,                       # well formed, never issued
     "short",                        # malformed

@@ -669,23 +669,24 @@
       $('ipaFocusToggle').checked = false;
       stopTracker();
     }
+    var url = canvasLink();
+    var canShare = Boolean(mediaAllowed && url && navigator.mediaDevices?.getDisplayMedia);
     var note = $('ipaAssignmentMedia');
     if (note) note.textContent = !IPA.plan ? '' : timerOnly
       ? 'Quiz session. The timer works without camera or tab access.' : medium === 'online'
-      ? (canvasLink() ? 'Online assignment. The timer works by itself. You can choose to share a browser tab.'
+      ? (canShare ? 'Online assignment. You can share a browser tab after starting the timer.'
         : 'Online assignment. The study timer needs no camera or tab access.')
       : medium === 'paper' ? 'Paper assignment. Use the timer with an optional camera check-in.'
         : 'The study timer needs no camera or screen access.';
     var tools = $('ipaCanvasTools');
     if (!tools) return;
     var link = $('ipaCanvasLink');
-    var url = canvasLink();
     tools.hidden = !url;
     if (url) link.href = url;
     else link.removeAttribute('href');
     var button = $('ipaScreenShare');
     if (!button) return;
-    button.hidden = !mediaAllowed || !url || medium === 'paper' || timerOnly || !IPA.running || IPA.saving || !navigator.mediaDevices?.getDisplayMedia;
+    button.hidden = !canShare || medium === 'paper' || timerOnly || !IPA.running || IPA.saving;
     button.textContent = sharedScreen ? 'Stop sharing' : 'Share Canvas tab';
     paintRecording();
   }
