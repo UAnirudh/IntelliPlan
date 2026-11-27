@@ -4,7 +4,7 @@ import mimetypes
 import os
 from pathlib import Path
 import sys
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -60,6 +60,16 @@ with sync_playwright() as playwright:
         response = active.open(parsed.path + ('?' + parsed.query if parsed.query else ''),
             method=req.method, data=req.post_data, content_type=req.headers.get('content-type'),
             follow_redirects=not (parsed.path == '/onboarding' and req.method == 'POST'))
+        target = response.headers.get('Location')
+        if target and response.status_code in (301,302,303,307,308):
+            # Playwright calls a route handler only for the first URL of a
+            # redirect chain, so a redirect this mock answers can never be
+            # followed: the browser would look up https://ui.test itself and
+            # fail with ERR_NAME_NOT_RESOLVED. Answer with a navigation to the
+            # app's own target instead -- that is a fresh request, so it comes
+            # back through this handler like any other page.
+            return handler.fulfill(status=200,headers={'Content-Type':'text/html; charset=utf-8'},
+                body=f'<script>location.replace({json.dumps(urljoin(req.url,target))})</script>'.encode())
         headers = {k:v for k,v in response.headers.items() if k.lower() not in {'set-cookie','content-length','content-encoding'}}
         handler.fulfill(status=response.status_code,headers=headers,body=response.data)
     page.route('**/*',route)
