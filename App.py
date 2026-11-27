@@ -12298,6 +12298,18 @@ def _submission_evidence_key(row):
     return hashlib.sha256(json.dumps({k: evidence.get(k) for k in fields}, sort_keys=True).encode()).hexdigest()
 
 
+def _canvas_study_medium(assignment):
+    raw = assignment.get("submission_types")
+    types = {item for item in raw if isinstance(item, str)} if isinstance(raw, list) else set()
+    if "online_quiz" in types or assignment.get("is_quiz_assignment") is True:
+        return "assessment"
+    if types & {"external_tool", "online_text_entry", "online_url", "discussion_topic", "student_annotation"}:
+        return "online"
+    if types == {"on_paper"}:
+        return "paper"
+    return "unspecified"
+
+
 def canvas_assignment_url(canvas_base, course_id, assignment_id):
     """Build a link to the assignment in the already connected Canvas school."""
     if not all(re.fullmatch(r"[0-9]+", str(value)) for value in (course_id, assignment_id)):
@@ -13772,8 +13784,8 @@ def scheduler_assignments():
     return _no_store(jsonify(rows))
 
 
-def _scheduler_assignments_for_user(user_id, *, include_waiting=False, use_cache=False):
-    excluded_tests = get_test_titles()
+def _scheduler_assignments_for_user(user_id, *, include_waiting=False, use_cache=False, include_tests=False):
+    excluded_tests = () if include_tests else get_test_titles()
     rows = [row for row in collect_lms_assignments_for_user(user_id, use_cache=use_cache, include_waiting=include_waiting)
             if row.get('title') not in excluded_tests]
     prefs = _lms_preferences_payload(current_user.lms_preferences, allow_empty=True)
@@ -13784,7 +13796,7 @@ def _scheduler_assignments_for_user(user_id, *, include_waiting=False, use_cache
         rows.extend(_assignment_display_rows([
             {'id': f'manual-{task.id}', 'title': task.title, 'course': task.course,
              'due_date': task.due_date or '', 'estimated_time': task.estimated_time,
-             'priority': task.priority, 'source': 'manual'}
+             'priority': task.priority, 'source': 'manual', 'description': task.notes or ''}
             for task in manual
         ], user_id=user_id))
     rows.sort(key=lambda row: (not row.get('due_date'), str(row.get('due_date') or '')))
@@ -13931,14 +13943,13 @@ def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True, in
                         if not isinstance(data, list):
                             continue
                         for a in data:
-                            if not isinstance(a, dict) or not a.get("due_at"):
+                            if not isinstance(a, dict) or not a.get("id"):
                                 continue
-                            due_str = a["due_at"][:10]
+                            due_str = str(a.get("due_at") or "")[:10]
                             try:
-                                due = datetime.strptime(due_str, "%Y-%m-%d").date()
-                            except Exception:
-                                continue
-                            days = (due - today).days
+                                days = (date_type.fromisoformat(due_str) - today).days
+                            except ValueError:
+                                days, due_str = 7, ""
                             title = a.get("name") or ""
                             if not title or title in dismissed:
                                 continue
@@ -13958,6 +13969,7 @@ def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True, in
                                 "priority": priority,
                                 "points_possible": points,
                                 "source": "canvas",
+                                "study_medium": _canvas_study_medium(a),
                                 "estimated_time": est_minutes,
                                 "description": description,
                                 "difficulty": infer_task_difficulty(points, priority, due_str),
@@ -14075,6 +14087,24 @@ def collect_lms_assignments_for_user(user_id: int, *, use_cache: bool = True, in
     except Exception as e:
         print(f"[grade-pulse] assignment observe failed: {e}")
     return _assignment_display_rows(deduped, include_waiting=include_waiting, user_id=user_id)
+
+
+@app.get("/api/active/assignments")
+@limiter.limit("30 per minute")
+def active_assignments():
+    if not current_user.is_authenticated:
+        return _no_store(flask.make_response(jsonify([])))
+    from intelliplan.learning import policy
+    allowed, _ = policy.decision(current_user, "study")
+    if not allowed:
+        return _no_store(flask.make_response(jsonify([])))
+    rows = _scheduler_assignments_for_user(current_user.id, use_cache=True, include_tests=True)
+    fields = ("id", "task_id", "title", "course", "source", "due_date", "estimated_time",
+              "difficulty", "kind", "description", "assignment_url", "study_medium")
+    return _no_store(flask.make_response(jsonify([
+        {key: row[key] for key in fields if key in row}
+        for row in rows if row.get("title") and row.get("requires_action") is not False
+    ])))
 
 
 @app.route("/tasks/unified")

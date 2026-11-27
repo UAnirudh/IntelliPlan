@@ -241,6 +241,13 @@ def _commit_and_report(row: Any):
     return jsonify(_status(row))
 
 
+@calendar_feed_bp.after_request
+def _keep_subscription_urls_out_of_caches(response):
+    if request.path.startswith("/api/calendar/feed"):
+        response.headers["Cache-Control"] = "private, no-store"
+    return response
+
+
 @calendar_feed_bp.route("/api/calendar/feed", methods=["GET", "POST"])
 def calendar_feed_settings():
     denied = _login_required()
@@ -250,12 +257,14 @@ def calendar_feed_settings():
     if request.method == "GET":
         return jsonify(_status(row))
     body = request.get_json(silent=True) or {}
+    if not isinstance(body, dict):
+        return jsonify(status="error", message="Expected calendar settings."), 400
     detail = body.get("detail")
     if row is not None and row.revoked_at is None and row.token:
         # Already live: only the privacy mode can change here. Changing the
         # link is what /rotate is for, and doing it implicitly would break a
         # subscription the student set up on another device.
-        if detail in DETAILS:
+        if body.get("create_only") is not True and detail in DETAILS:
             row.detail = detail
         return _commit_and_report(row)
     return _commit_and_report(_issue(row, detail))

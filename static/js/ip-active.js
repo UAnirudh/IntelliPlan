@@ -222,9 +222,10 @@
   function loadAssignments() {
     var select = $('ipaAssignmentSelect');
     if (!select) return;
-    api('/tasks/unified').then(function (data) {
-      if (!data || !Array.isArray(data.today) || !Array.isArray(data.upcoming) || !Array.isArray(data.overdue)) throw new Error('Invalid assignments');
-      var rows = data.overdue.concat(data.today, data.upcoming);
+    var signedIn = Boolean(document.body.dataset.userId);
+    api(signedIn ? '/api/active/assignments' : '/tasks/unified').then(function (data) {
+      var rows = Array.isArray(data) ? data : data?.overdue?.concat(data.today || [], data.upcoming || []);
+      if (!Array.isArray(rows)) throw new Error('Invalid assignments');
       assignmentChoices = rows.filter(function (row) { return row.title && row.requires_action !== false; });
       assignmentChoices.forEach(function (row, index) {
         var option = document.createElement('option');
@@ -257,7 +258,8 @@
       if (!row) return;
       renderPlan({ title: row.title, course: row.course || '', task_id: row.task_id || row.id,
         kind: row.kind || 'homework', difficulty: row.difficulty || 'medium', due_date: row.due_date,
-        description: row.description, assignment_url: row.source === 'canvas' ? row.assignment_url : null,
+        description: row.description, study_medium: row.study_medium,
+        assignment_url: row.source === 'canvas' ? row.assignment_url : null,
         planned_minutes: Math.max(1, Math.min(300, Number(row.estimated_time || row.est_minutes) || 25)) });
       setControls('idle');
     });
@@ -433,6 +435,7 @@
       resume(data.session);
       if (String(data.session.task_id || '') === String(plan.task_id || '') && data.session.title === plan.title) {
         IPA.plan.assignment_url = plan.assignment_url;
+        IPA.plan.study_medium = plan.study_medium;
         IPA.plan.description = plan.description;
         paintCanvasTools();
         paintInstructions();
@@ -652,7 +655,27 @@
     return null;
   }
 
+  function currentStudyMedium() {
+    return IPA.plan?.study_medium || linkedAssignment(IPA.plan)?.study_medium || 'unspecified';
+  }
+
   function paintCanvasTools() {
+    var medium = currentStudyMedium();
+    var panel = $('ipaFocusPanel');
+    var timerOnly = medium === 'assessment';
+    var hideCamera = timerOnly || medium === 'online';
+    if (panel) panel.hidden = hideCamera;
+    if (hideCamera && $('ipaFocusToggle').checked) {
+      $('ipaFocusToggle').checked = false;
+      stopTracker();
+    }
+    var note = $('ipaAssignmentMedia');
+    if (note) note.textContent = !IPA.plan ? '' : timerOnly
+      ? 'Quiz session. The timer works without camera or tab access.' : medium === 'online'
+      ? (canvasLink() ? 'Online assignment. The timer works by itself. You can choose to share a browser tab.'
+        : 'Online assignment. The study timer needs no camera or tab access.')
+      : medium === 'paper' ? 'Paper assignment. Use the timer with an optional camera check-in.'
+        : 'The study timer needs no camera or screen access.';
     var tools = $('ipaCanvasTools');
     if (!tools) return;
     var link = $('ipaCanvasLink');
@@ -662,7 +685,7 @@
     else link.removeAttribute('href');
     var button = $('ipaScreenShare');
     if (!button) return;
-    button.hidden = !mediaAllowed || !url || !IPA.running || IPA.saving || !navigator.mediaDevices?.getDisplayMedia;
+    button.hidden = !mediaAllowed || !url || medium === 'paper' || timerOnly || !IPA.running || IPA.saving || !navigator.mediaDevices?.getDisplayMedia;
     button.textContent = sharedScreen ? 'Stop sharing' : 'Share Canvas tab';
     paintRecording();
   }
@@ -689,7 +712,7 @@
 
   async function shareCanvas() {
     if (sharedScreen) { stopScreen('Tab sharing stopped. Your timer is still running.'); return; }
-    if (!mediaAllowed || !IPA.running || !canvasLink()) return;
+    if (!mediaAllowed || !IPA.running || !canvasLink() || ['paper', 'assessment'].includes(currentStudyMedium())) return;
     var request = ++screenRequest;
     var button = $('ipaScreenShare');
     button.disabled = true;
@@ -907,6 +930,7 @@
   }
 
   function startTracker() {
+    if (['online', 'assessment'].includes(currentStudyMedium())) return;
     var generation = ++cameraPolicyGeneration;
     var focusState = $('ipaFocusState');
     if (focusState) focusState.hidden = false;

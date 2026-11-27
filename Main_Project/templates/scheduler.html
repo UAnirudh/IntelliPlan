@@ -770,6 +770,7 @@
   #calExportWrap { align-items: center; margin-bottom: 1rem; }
   #calExportWrap[hidden], #calExportStatus:empty { display: none; }
   .scheduler-habit-note { color: var(--text-secondary); font-size: .84rem; margin: .35rem 0; }
+  #appleCalendarLink:not([hidden]) { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; }
   #calExportStatus { color: var(--text-secondary); margin: 0; }
   .calendar-more summary { cursor: pointer; padding: 10px 4px; color: var(--text-secondary); }
   #savePanel > button { border: 0 !important; border-radius: 10px !important; box-shadow: none !important; }
@@ -1011,12 +1012,16 @@
 {% if not review_week %}
 <div id="calExportWrap" class="exp-row" hidden>
   <button type="button" id="calExportBtn" class="exp-btn exp-gcal" onclick="addToCalendar()"><svg aria-hidden="true"><use href="#i-scheduler"/></svg> Add to calendar</button>
+  {% if current_user.is_authenticated %}
+  <button type="button" id="appleCalendarSetup" class="exp-btn" onclick="prepareAppleCalendar()">Apple Calendar sync</button>
+  {% endif %}
   <details class="calendar-more">
-    <summary>Other export options</summary>
+    <summary>Calendar options</summary>
     <button type="button" id="icsBtn" class="exp-btn" onclick="downloadIcs()">Download calendar file</button>
     <button type="button" class="exp-btn" onclick="printSchedule()">Print or save PDF</button>
   </details>
   <p id="calExportStatus" role="status"></p>
+  <div id="appleCalendarLink" hidden></div>
 </div>
 {% endif %}
 
@@ -2142,6 +2147,40 @@ function updateCalExportButton() {
   document.getElementById('calExportWrap').hidden = !days.some(day =>
     (day.blocks || []).some(block => !block.is_break && !block.unplaced));
   document.getElementById('calExportStatus').textContent = '';
+}
+
+async function prepareAppleCalendar() {
+  const button = document.getElementById('appleCalendarSetup');
+  const status = document.getElementById('calExportStatus');
+  const host = document.getElementById('appleCalendarLink');
+  if (button.disabled) return;
+  button.disabled = true;
+  status.textContent = 'Preparing your calendar subscription…';
+  try {
+    const response = await fetch('/api/calendar/feed', {
+      method: 'POST', credentials: 'same-origin',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({detail: 'private', create_only: true}),
+    });
+    const data = await response.json();
+    const url = new URL(data.urls?.webcal);
+    if (!response.ok || !data.active || url.protocol !== 'webcal:') throw new Error('Subscription unavailable');
+    const link = document.createElement('a');
+    link.href = url.href;
+    link.className = 'exp-btn exp-gcal';
+    link.textContent = 'Open Apple Calendar to subscribe';
+    const settings = document.createElement('a');
+    settings.href = '/settings#calendarFeedCard';
+    settings.textContent = 'Manage or copy subscription link';
+    host.replaceChildren(link, settings);
+    host.hidden = false;
+    status.textContent = 'Choose iCloud in Apple Calendar. Your study sessions update when Apple refreshes the subscription. Keep this link private.';
+    link.focus();
+  } catch (error) {
+    status.textContent = 'Calendar sync is unavailable for this account right now.';
+  } finally {
+    button.disabled = false;
+  }
 }
 
 async function addToCalendar() {

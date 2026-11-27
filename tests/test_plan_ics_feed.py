@@ -221,6 +221,18 @@ def test_create_gives_subscribe_links_for_every_calendar(client, user_id):
     assert create(client)["urls"] == urls
 
 
+def test_scheduler_subscription_defaults_private_and_keeps_an_existing_link(client, user_id):
+    login(client, user_id)
+    first = client.post("/api/calendar/feed", json={"detail": "private", "create_only": True})
+    assert first.status_code == 200 and "no-store" in first.headers["Cache-Control"]
+    subscription = first.get_json()
+    assert subscription["detail"] == "private"
+    assert create(client, detail="full")["urls"] == subscription["urls"]
+    second = create(client, detail="private", create_only=True)
+    assert second["detail"] == "full"
+    assert second["urls"] == subscription["urls"]
+
+
 def test_the_feed_serves_the_plan_without_a_cookie(client, user_id):
     login(client, user_id)
     urls = create(client)["urls"]

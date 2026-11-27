@@ -59,6 +59,52 @@ def student(client):
     return uid
 
 
+def test_active_assignments_use_linked_canvas_and_manual_work(client, student, monkeypatch):
+    from types import SimpleNamespace
+
+    with App.app.app_context():
+        App.linked_accounts_repository().create_active(
+            student, "Test course", "canvas",
+            {"canvas_url": "https://canvas.example.test", "canvas_token": "synthetic"},
+        )
+        db.session.add(App.ManualTask(user_id=student, title="Personal reading", notes="Read chapter two."))
+        db.session.commit()
+    import canvas_helper
+    monkeypatch.setattr(canvas_helper, "planner_completed_assignments", lambda *args: set())
+
+    def canvas_get(url, **kwargs):
+        assert url.startswith("https://canvas.example.test/api/v1/")
+        if url.endswith("/courses"):
+            return SimpleNamespace(json=lambda: [{"id": 7, "name": "Geometry"}])
+        return SimpleNamespace(json=lambda: [
+            {"id": 11, "name": "Write a proof", "due_at": None,
+             "description": "<p>Explain your proof.</p>", "submission_types": ["online_text_entry"]},
+            {"id": 12, "name": "Worksheet", "due_at": None, "submission_types": ["on_paper"]},
+            {"id": 13, "name": "Quiz", "due_at": None, "submission_types": ["online_quiz"]},
+        ])
+
+    monkeypatch.setattr(App.requests, "get", canvas_get)
+    App.invalidate_lms_cache_for_user(student)
+    response = client.get("/api/active/assignments")
+    assert response.status_code == 200
+    assert "no-store" in response.headers["Cache-Control"]
+    rows = {row["title"]: row for row in response.get_json()}
+    proof = rows["Write a proof"]
+    assert proof["description"] == "Explain your proof."
+    assert proof["assignment_url"] == "https://canvas.example.test/courses/7/assignments/11"
+    assert proof["due_date"] == ""
+    assert proof["study_medium"] == "online"
+    assert rows["Worksheet"]["study_medium"] == "paper"
+    assert rows["Quiz"]["study_medium"] == "assessment"
+    assert rows["Personal reading"]["description"] == "Read chapter two."
+    assert "canvas_token" not in response.get_data(as_text=True)
+    with App.app.app_context():
+        App.ManualTask.query.filter_by(user_id=student).delete()
+        App.LinkedAccount.query.filter_by(user_id=student).delete()
+        db.session.commit()
+    App.invalidate_lms_cache_for_user(student)
+
+
 def save_plan(client, days):
     return client.post("/schedule/save",
                        json={"schedule_data": {"schedule": days}, "name": "Test"})
