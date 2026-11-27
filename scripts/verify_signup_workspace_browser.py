@@ -41,7 +41,7 @@ OUT = ROOT / 'output/playwright/ui-cleanup'
 OUT.mkdir(parents=True, exist_ok=True)
 report = []
 with sync_playwright() as playwright:
-    browser = playwright.chromium.launch()
+    browser = playwright.chromium.launch(channel=os.getenv('PLAYWRIGHT_CHROMIUM_CHANNEL') or None)
     context = browser.new_context(viewport={'width':1440,'height':1000}, service_workers='block')
     context.add_init_script("localStorage.setItem('ip_tour_done','1');localStorage.setItem('ip_side_mode','expanded');")
     page = context.new_page()
@@ -58,7 +58,8 @@ with sync_playwright() as playwright:
                 return handler.fulfill(body=path.read_bytes(),content_type=mimetypes.guess_type(path)[0] or 'application/octet-stream')
             return handler.fulfill(status=404)
         response = active.open(parsed.path + ('?' + parsed.query if parsed.query else ''),
-            method=req.method, data=req.post_data, content_type=req.headers.get('content-type'), follow_redirects=True)
+            method=req.method, data=req.post_data, content_type=req.headers.get('content-type'),
+            follow_redirects=not (parsed.path == '/onboarding' and req.method == 'POST'))
         headers = {k:v for k,v in response.headers.items() if k.lower() not in {'set-cookie','content-length','content-encoding'}}
         handler.fulfill(status=response.status_code,headers=headers,body=response.data)
     page.route('**/*',route)
@@ -98,24 +99,42 @@ with sync_playwright() as playwright:
         page.locator('input[name=marketing_emails_opt_in]').uncheck()
         page.get_by_text('Optional email preferences',exact=True).click()
         capture('signup')
+        with App.app.app_context():
+            App.identities().save(uid, {"completed": False})
         open_page(student,'/onboarding')
-        page.evaluate("onbShow('intro')")
-        assert page.get_by_role('button',name='Quick start',exact=True).is_visible()
-        capture('setup-intro')
-        page.get_by_role('button',name='Quick start',exact=True).click()
-        assert page.locator('#qGrade').is_visible()
-        assert not page.locator('.onb-optional').evaluate('(details) => details.open')
-        page.get_by_text('Choose subjects (optional)',exact=True).click()
-        if not page.locator('#qFocus input').first.is_checked():
-            page.locator('#qFocus label').first.click()
-        assert page.locator('#qFocus input').first.is_checked()
-        capture('setup-subjects')
-        page.get_by_text('Choose subjects (optional)',exact=True).click()
-        page.locator('#onbQuickBtn').click()
-        page.locator('#onbImport').wait_for()
-        assert page.locator('#onbIntro').is_hidden()
-        assert page.locator('#installBanner').count() == 0
-        report.append({'flow':'signup age/consent, progressive setup, and explicit install at '+str(width),'passed':True})
+        assert page.get_by_role('heading', name='Your week starts here').is_visible()
+        assert page.locator('.onb-start form button').count() == 2
+        assert page.locator('#mainNav').count() == 0
+        assert page.locator('#planiBot').is_hidden()
+        assert page.get_by_role('button', name='Log out').is_visible()
+        capture('setup-start')
+        if width == 390:
+            page.get_by_role('button', name='I’ll do this later').click()
+            page.wait_for_url('**/command-center')
+            page.get_by_role('link', name='Paste assignments').wait_for()
+            assert page.locator('#newConversation').is_hidden()
+            page.get_by_role('link', name='Paste assignments').click()
+            page.wait_for_url('**/scheduler?capture=1')
+            assert page.locator('#plannerCapture').evaluate('(details) => details.open')
+            page.locator('#plannerCaptureText').fill('Read chapter six due tomorrow 30m')
+            page.get_by_role('button', name='Review tasks', exact=True).click()
+            page.locator('#plannerCapturePreview').get_by_text('Read chapter six', exact=False).wait_for()
+            page.get_by_role('button', name='Add these tasks', exact=True).click()
+            page.wait_for_function("document.getElementById('plannerCaptureStatus').textContent.includes('Added')")
+        else:
+            page.get_by_role('button', name='Connect my school').click()
+            page.wait_for_url('**/connect')
+            options = page.locator('#cxImportOptions')
+            assert not options.evaluate('(details) => details.open')
+            options.get_by_text('Other ways to import schoolwork', exact=True).click()
+            options.get_by_role('button', name='CSV template', exact=False).click()
+            assert options.locator('#ipCsvFile').is_visible()
+        with App.app.app_context():
+            assert App._get_or_create_identity(uid).completed
+            db_user = App.db.session.get(App.User, uid)
+            assert not db_user.email_reminders_opt_in and not db_user.push_reminders_opt_in
+        assert not page.evaluate('document.documentElement.scrollWidth > innerWidth')
+        report.append({'flow':'one-action onboarding and a direct route to assignments at '+str(width),'passed':True})
     page.set_viewport_size({'width':1440,'height':1000})
     open_page(student,'/settings')
     for mode in ('expanded','collapsed'):
@@ -131,7 +150,7 @@ with sync_playwright() as playwright:
                 const css = getComputedStyle(row), rect = row.getBoundingClientRect(), i = icon.getBoundingClientRect();
                 return {fontFamily:css.fontFamily, fontSize:css.fontSize, lineHeight:css.lineHeight, height:rect.height, left:rect.left, width:rect.width, iconX:i.x, iconWidth:i.width};
             };
-            return [read('.side-foot a[href="/settings"]'),read('.side-foot .side-logout')];
+            return [read('.side-account a[href="/settings"]'),read('.side-account .side-logout')];
         }""")
         first, second = metrics
         for key in ('fontFamily','fontSize','lineHeight'):

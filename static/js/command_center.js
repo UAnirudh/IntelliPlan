@@ -55,6 +55,8 @@
   function dropIntro() {
     var intro = document.getElementById('chatIntro');
     if (intro) intro.remove();
+    var newChat = document.getElementById('newConversation');
+    if (newChat) newChat.hidden = false;
   }
 
   function renderMsg(role, text) {

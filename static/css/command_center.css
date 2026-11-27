@@ -229,6 +229,25 @@ body .command-chat .command-chat__intro .command-chat__shortcuts li > :is(button
   padding: 16px 18px; border-radius: 16px;
   background: color-mix(in srgb, var(--bg) 88%, var(--accent)) !important;
 }
+.command-chat__connect { grid-column: 1 / -1; justify-self: center; }
+body .command-chat .command-chat__intro .command-chat__shortcuts .command-chat__connect a {
+  min-height: 48px;
+  gap: 14px;
+  padding: 10px 18px;
+  border-radius: 12px;
+}
+.command-chat__paste {
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-top: 2px;
+  font-size: .85rem;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.command-chat__paste:hover { color: var(--text-primary); }
+.command-chat__paste:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .command-chat__shortcut-copy { display: grid; gap: 5px; }
 .command-chat__shortcut-copy strong { font-size: .91rem; font-weight: 650; }
 .command-chat__shortcut-copy small { color: var(--text-secondary); font-size: .76rem; font-weight: 400; }

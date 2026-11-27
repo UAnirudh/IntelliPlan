@@ -52,6 +52,15 @@
   /* A display rule outranks the hidden attribute, so the shown state has to
      be selected explicitly rather than relying on [hidden] alone. */
   .cx-reconnect:not([hidden]) { display: block; }
+  .cx-import-options { border-block-start: 1px solid var(--border); margin-block-start: 1.25rem; }
+  .cx-import-options > summary {
+    min-height: 44px;
+    padding-block: 12px;
+    cursor: pointer;
+    color: var(--text-secondary);
+    font-weight: 600;
+  }
+  .cx-import-options > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   .cx-reconnect strong { display: block; color: var(--text-primary); margin-bottom: 2px; }
 
   @media (prefers-reduced-motion: reduce) {
@@ -350,12 +359,12 @@
     </script>
 
     <!-- ── Unsupported LMS fallback ───────────────────── -->
-    <div style="margin-top:1.5rem;padding-top:1.25rem;border-top:1px solid var(--border);">
+    <details class="cx-import-options" id="cxImportOptions">
+      <summary>Other ways to import schoolwork</summary>
       {# Headed "School not listed?" until a Blackboard user reported he could
          not add classes manually: his school *was* listed, so he had no reason
          to read a section addressed to people whose school is not. These
          options work for anyone whose connection failed, for any reason. #}
-      <div style="font-size:0.86rem;font-weight:700;color:var(--text-primary);margin-bottom:6px;">School not listed, or the connection did not work?</div>
       <p style="font-size:0.8rem;color:var(--text-muted);line-height:1.55;margin:0 0 12px;">
         IntelliPlan can still track your classes, assignments, and grades without connecting an LMS.
       </p>
@@ -402,7 +411,7 @@
         </button>
       </div>
       <div id="ipImportHost" style="margin-top:14px;"></div>
-    </div>
+    </details>
 
     {# ── School not registered ────────────────────────────────────
        Every OAuth-based LMS requires the school to approve IntelliPlan
@@ -434,6 +443,7 @@
 
     <script>
       function ipShowImport(kind) {
+        document.getElementById('cxImportOptions').open = true;
         const host = document.getElementById('ipImportHost');
         if (kind === 'csv') {
           host.innerHTML = `

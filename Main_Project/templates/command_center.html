@@ -14,7 +14,7 @@
       <span>Plan with {{ assistant_name }}</span>
     </h1>
     <div class="command-chat__actions">
-      <button type="button" id="newConversation" class="command-chat__btn">New chat</button>
+      <button type="button" id="newConversation" class="command-chat__btn" hidden>New chat</button>
       <details class="ip-action-menu" data-action-menu>
         <summary aria-label="Workspace actions" title="Workspace actions"><svg aria-hidden="true"><use href="#i-ellipsis"/></svg></summary>
         <div class="ip-action-menu__panel">
@@ -66,17 +66,22 @@
     <div class="command-chat__inner" id="chatInner">
       <div class="command-chat__intro" id="chatIntro">
         <div class="command-chat__halo">{{ plani_motion(112, 'hello', 'command-chat__portrait') }}</div>
+        {% if has_work_source %}
         <h2>What are we planning?</h2>
-        <p>Bring {{ assistant_name }} a deadline, a busy week, or a change of plans.</p>
+        <p>Ask {{ assistant_name }} about a deadline, your week, or a change of plans.</p>
+        {% else %}
+        <h2>What’s due next?</h2>
+        <p>Connect your school or tell {{ assistant_name }} what’s due to start a plan.</p>
+        {% endif %}
         <ul class="command-chat__prompts command-chat__shortcuts" aria-label="Planning shortcuts">
           {% if has_work_source %}
           <li><button type="button" aria-labelledby="planWeekLabel" aria-describedby="planWeekHint" data-prompt="Plan my week using my assignments and connected calendar."><span class="command-chat__shortcut-copy"><strong id="planWeekLabel">Plan my week</strong><small id="planWeekHint">Use assignments and calendar</small></span><span class="ip-arrow" aria-hidden="true"></span></button></li>
           <li><button type="button" aria-labelledby="firstTaskLabel" aria-describedby="firstTaskHint" data-run-prompt data-prompt="Look at my upcoming assignments and help me choose what to do first."><span class="command-chat__shortcut-copy"><strong id="firstTaskLabel">What should I do first?</strong><small id="firstTaskHint">Prioritize upcoming assignments</small></span><span class="ip-arrow" aria-hidden="true"></span></button></li>
           {% else %}
-          <li><button type="button" data-prompt="Help me plan around a deadline."><strong>Plan around a deadline</strong><span class="ip-arrow" aria-hidden="true"></span></button></li>
-          <li><a href="/connect"><strong>Connect my school</strong><span class="ip-arrow" aria-hidden="true"></span></a></li>
+          <li class="command-chat__connect"><a href="/connect"><strong>Connect your school</strong><span class="ip-arrow" aria-hidden="true"></span></a></li>
           {% endif %}
         </ul>
+        {% if not has_work_source %}<a class="command-chat__paste" href="/scheduler?capture=1">Paste assignments</a>{% endif %}
         <div id="commandSavedCoverage" aria-live="polite"></div>
       </div>
     </div>

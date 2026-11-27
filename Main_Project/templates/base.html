@@ -800,7 +800,7 @@ body {
   </a>
 
   <div class="header-right">
-    <nav class="nav-tabs" id="mainNav" aria-label="Main navigation">
+    {% if not first_run_setup %}<nav class="nav-tabs" id="mainNav" aria-label="Main navigation">
       {% if logged_in %}
       {# ── APP NAV: four everyday destinations stay visible. The mobile
            drawer keeps the rest under one disclosure; desktop users also
@@ -909,7 +909,7 @@ body {
           Discord
         </a> -->
       </div>
-    </nav>
+    </nav>{% endif %}
 
     <div class="header-actions">
       {% if _app_tabbar and current_user is defined and current_user.is_authenticated and current_user.role not in ['teacher', 'parent'] %}
@@ -921,13 +921,16 @@ body {
       {# Three bars that rotate into an X, rather than two SVGs swapped by
          innerHTML. The swap was instant and re-parsed markup on every tap;
          this animates and touches only a class. (Skiper 99's MenuIcon.) #}
-      <button id="mobileMenuBtn" type="button" aria-label="Open navigation" aria-expanded="false" aria-controls="mainNav">
+      {% if not first_run_setup %}<button id="mobileMenuBtn" type="button" aria-label="Open navigation" aria-expanded="false" aria-controls="mainNav">
         <span class="ip-burger" aria-hidden="true">
           <span></span><span></span><span></span>
         </span>
       </button>
       <div id="mobileNavBackdrop" aria-hidden="true"></div>
-      <time class="nav-date" id="dateBadge"></time>
+      <time class="nav-date" id="dateBadge"></time>{% endif %}
+      {% if first_run_setup %}
+      <form action="/logout" method="POST" class="setup-sign-out"><button type="submit" class="no-glass">Log out</button></form>
+      {% endif %}
       <label class="toggle" title="Toggle dark mode" aria-label="Toggle dark mode">
         <input type="checkbox" id="themeToggle" aria-label="Toggle dark mode" />
         <div class="toggle-track"></div>
@@ -1048,7 +1051,7 @@ body {
      PLANI ASSISTANT
 ══════════════════════════════════════ -->
 <template id="planiReplyPortrait">{{ plani_avatar(24) }}</template>
-<div id="planiBot" role="complementary" aria-label="{{ assistant_name }}, the IntelliPlan assistant">
+<div id="planiBot"{% if first_run_setup %} style="display:none !important"{% endif %} role="complementary" aria-label="{{ assistant_name }}, the IntelliPlan assistant">
 
   <!-- Chat window -->
   <div id="planiChat" role="dialog" aria-label="Chat with {{ assistant_name }}">
@@ -2467,7 +2470,11 @@ window.addEventListener('load',()=>{
 })();
 </script>
 
+{% if first_run_setup %}
+<footer class="setup-footer"><a href="/legal">Privacy &amp; Terms</a><a href="/cookies">Cookies</a></footer>
+{% else %}
 {% include "footer.html" %}
+{% endif %}
 
 <!-- ═══ APP TOUR ═══ -->
 <div id="tourOverlay" style="display:none;position:fixed;inset:0;z-index:9000;pointer-events:none;"></div>
@@ -2589,7 +2596,9 @@ window.addEventListener('load',()=>{
   const appPages = ['/dashboard','/tutor','/scheduler','/study','/streak','/settings','/grademodel','/groups'];
   const isAppPage = appPages.some(p => location.pathname.startsWith(p));
   const tourDone = localStorage.getItem('ip_tour_done');
-  if (isAppPage && !tourDone) {
+  const openingTaskCapture = location.pathname === '/scheduler'
+    && new URLSearchParams(location.search).get('capture') === '1';
+  if (isAppPage && !tourDone && !openingTaskCapture) {
     /* After any terms notice is dealt with: the tour's tooltip sits above
        the notice and offered "Next" over a dialog asking for agreement. */
     setTimeout(() => (window.ipPolicySettled || Promise.resolve()).then(() => startTour(0)), 1200);

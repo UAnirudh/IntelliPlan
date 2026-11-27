@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% from "partials/plani_avatar.html" import plani_motion with context %}
+{% block page_title %}Get started | IntelliPlan{% endblock %}
+{% block head_extra %}
+<style>
+.onb-start {
+  width: min(100% - 32px, 560px);
+  margin: clamp(36px, 10vh, 104px) auto 44px;
+  padding: clamp(24px, 6vw, 52px);
+  border: 1px solid var(--glass-border);
+  border-radius: 28px;
+  background: radial-gradient(ellipse at 50% 0%, color-mix(in srgb, var(--accent) 13%, transparent), transparent 63%), var(--bg-card);
+  text-align: center;
+}
+.onb-start__portrait {
+  display: grid;
+  place-items: center;
+  margin: 0 auto 22px;
+  width: 112px;
+  height: 112px;
+  border: 1px solid color-mix(in srgb, var(--accent) 26%, transparent);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--bg-card) 80%, var(--accent));
+}
+.onb-start h1 {
+  margin: 0 0 10px;
+  font-family: var(--font-display);
+  font-size: clamp(1.85rem, 5vw, 2.7rem);
+  line-height: 1.08;
+  letter-spacing: -.035em;
+  text-wrap: balance;
+}
+.onb-start p {
+  max-width: 34ch;
+  margin: 0 auto 24px;
+  color: var(--text-secondary);
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+.onb-start__actions {
+  display: grid;
+  gap: 5px;
+  justify-items: center;
+}
+.onb-start__actions .btn-primary { display: inline-flex; align-items: center; gap: 8px; min-height: 48px; padding: 12px 24px; }
+.onb-start__later {
+  min-height: 44px;
+  padding: 8px 16px;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  cursor: pointer;
+}
+.onb-start__later:hover { color: var(--text-primary); }
+.onb-start__actions :focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+.setup-footer { display: flex; justify-content: center; gap: 18px; padding: 20px; font-size: .82rem; }
+.setup-footer a { color: var(--text-secondary); }
+.setup-sign-out button {
+  min-height: 44px;
+  padding-inline: 10px;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: .85rem;
+  cursor: pointer;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="onb-start" aria-labelledby="onbStartTitle" data-no-motion>
+  <div class="onb-start__portrait" aria-hidden="true">{{ plani_motion(88, 'hello') }}</div>
+  <h1 id="onbStartTitle">Your week starts here</h1>
+  <p>{% if school_connected %}Open your workspace to see what’s due and decide what to start with {{ assistant_name }}.{% else %}Bring in your assignments and {{ assistant_name }} will help you decide what to do first.{% endif %}</p>
+  <form class="onb-start__actions" method="post" action="{{ url_for('onboarding') }}">
+    {% if school_connected %}
+    <button type="submit" class="btn-primary" name="setup_action" value="workspace">Open my workspace <span class="ip-arrow" aria-hidden="true"></span></button>
+    {% else %}
+    <button type="submit" class="btn-primary" name="setup_action" value="connect">Connect my school <span class="ip-arrow" aria-hidden="true"></span></button>
+    <button type="submit" class="onb-start__later no-glass" name="setup_action" value="workspace">I’ll do this later</button>
+    {% endif %}
+  </form>
+</section>
+{% endblock %}

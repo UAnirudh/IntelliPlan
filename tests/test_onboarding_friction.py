@@ -95,6 +95,54 @@ def test_onboarding_itself_does_not_bounce_back(client):
     assert response.status_code == 200
 
 
+@pytest.mark.parametrize(("action", "destination"), [
+    ("connect", "/connect"),
+    ("workspace", "/command-center"),
+])
+def test_first_run_finishes_in_one_action_and_preserves_profile_and_permissions(client, action, destination):
+    uid = _make_user(completed=False)
+    _sign_in(client, uid)
+    client.post("/identity", json={"grade_level": "10th", "assistant_name": "Atlas", "completed": False})
+    first = client.get("/onboarding")
+    html = first.get_data(as_text=True)
+    assert "no-store" in first.headers["Cache-Control"]
+    assert 'name="setup_action" value="connect"' in html
+    assert 'name="setup_action" value="workspace"' in html
+    assert 'id="onbRemind"' not in html
+
+    response = client.post("/onboarding?next=//example.test", data={"setup_action": action})
+    assert response.status_code == 303
+    assert response.location == destination
+    with App.app.app_context():
+        identity = UserIdentity.query.filter_by(user_id=uid).one()
+        assert identity.completed and identity.grade_level == "10th" and identity.assistant_name == "Atlas"
+        user = db.session.get(User, uid)
+        assert not user.email_reminders_opt_in and not user.push_reminders_opt_in
+    assert client.get("/command-center").status_code == 200
+
+
+def test_already_connected_student_only_sees_workspace_action(client, monkeypatch):
+    from intelliplan.email import onboarding
+
+    monkeypatch.setattr(onboarding, "_has_connected_account", lambda uid: True)
+    _sign_in(client, _make_user(completed=False))
+    html = client.get("/onboarding").get_data(as_text=True)
+    assert 'value="workspace"' in html
+    assert 'value="connect"' not in html
+
+
+def test_unknown_setup_action_leaves_profile_untouched(client):
+    uid = _make_user(completed=False)
+    _sign_in(client, uid)
+    assert client.post("/onboarding", data={"setup_action": "unknown"}).status_code == 400
+    assert not _identity_completed(uid)
+
+
+def _resume_setup(client, step):
+    with client.session_transaction() as session:
+        session["onb_step"] = step
+
+
 # ── Saving mid-flow ──────────────────────────────────────────
 
 
@@ -215,8 +263,9 @@ def test_reminders_are_not_offered_once_one_is_on(client):
     assert 'id="commandRemind"' not in _command_center(client, email_reminders_opt_in=True)
 
 
-def test_onboarding_has_a_reminders_step(client):
+def test_in_progress_onboarding_keeps_the_reminders_step(client):
     _sign_in(client, _make_user(completed=False))
+    _resume_setup(client, "remind")
 
     html = client.get("/onboarding").data.decode("utf-8", "ignore")
 
@@ -373,8 +422,9 @@ def test_markup_in_a_name_never_reaches_the_page(client):
     assert "<img src=x>" not in html
 
 
-def test_onboarding_asks_for_the_name(client):
+def test_in_progress_onboarding_keeps_the_assistant_name_step(client):
     _sign_in(client, _make_user(completed=False))
+    _resume_setup(client, "name")
 
     html = client.get("/onboarding").data.decode("utf-8", "ignore")
 

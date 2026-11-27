@@ -8061,6 +8061,18 @@ def onboarding():
             print(f"[onboarding] retry failed: {_e2}")
             return redirect("/command-center")
     if request.method == "POST":
+        destination = {
+            "connect": "/connect",
+            "workspace": "/command-center",
+        }.get(request.form.get("setup_action"))
+        if destination:
+            if not identity.completed:
+                identities().save(current_user.id, {"completed": True})
+            for key in ("onb_mode", "onb_step", "onb_messages"):
+                session.pop(key, None)
+            return redirect(destination, code=303)
+        if "setup_action" in request.form:
+            flask.abort(400)
         # Legacy form path — preserved so old browsers/users with cached JS
         # still complete onboarding even when the new SPA-style flow can't
         # run (e.g. JS disabled). Mirrors the new quick path.
@@ -8083,6 +8095,11 @@ def onboarding():
         school_connected = _has_connected_account(current_user.id)
     except Exception as _e:
         print(f"[onboarding] connection probe failed: {_e}")
+    if request.args.get("quick") != "unavailable" and session.get("onb_step") in (None, "intro"):
+        return _no_store(flask.make_response(render_template(
+            "onboarding_start.html", active_page="onboarding", school_connected=school_connected,
+            first_run_setup=True,
+        )))
     return render_template(
         "onboarding.html",
         active_page="onboarding",

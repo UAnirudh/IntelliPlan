@@ -51,15 +51,16 @@ def route(handler):
     handler.fulfill(status=response.status_code, headers=headers, body=response.data)
 
 with sync_playwright() as pw:
-    browser = pw.chromium.launch()
+    browser = pw.chromium.launch(channel=os.getenv('PLAYWRIGHT_CHROMIUM_CHANNEL') or None)
     for width in (1440, 390):
         page = browser.new_page(viewport={'width': width, 'height': 950})
         page.route('**/*', route)
         with client.session_transaction() as session:
             session['onb_messages'] = [{'role':'assistant','content':'What subjects?'},
                                        {'role':'user','content':'Chemistry'}]
-            session['onb_step'] = 'intro'
+            session['onb_step'] = 'custom'
         page.goto('https://onboarding.test/onboarding')
+        page.wait_for_function("ONB.step === 'custom'")
         page.evaluate("ONB.messages = []; onbPickMode('custom')")
         page.locator('#onbQuickNotice').wait_for(state='visible')
         assert page.locator('#onbQuick').is_visible()
