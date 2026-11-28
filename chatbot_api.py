@@ -132,7 +132,8 @@ def _ai_guest_cookie(response):
     """Hand a guest the signed device id the firewall minted for them, so the
     next call counts against the same subject instead of a fresh one."""
     try:
-        if request.path.startswith('/api/tutor/assignment'):
+        if (request.path.startswith('/api/tutor/assignment')
+                or request.path == '/api/tutor/test-prep'):
             response.headers['Cache-Control'] = 'no-store, private'
         return ai_firewall.attach_guest_cookie(response)
     except Exception:
@@ -1406,6 +1407,61 @@ def _load_assignment_ref(ref):
         print(f'[tutor/materials] assignment failed: {type(exc).__name__}')
         return None, (jsonify({'error': 'Canvas could not provide this assignment right now.'}), 502)
     return _with_student_documents(context, _clean_ref_text(ref.get('course'), 200)), None
+
+
+def _test_prep_calendar():
+    import App
+    if not App._calendar_policy_allowed():
+        return []
+    events = []
+    try:
+        events.extend(App._outlook_upcoming_events() or ())
+    except Exception as exc:
+        current_app.logger.info('Test prep Outlook calendar unavailable: %s', type(exc).__name__)
+    try:
+        token = App.get_google_token() if App.GCAL_AVAILABLE else None
+        if token and App.has_calendar_scope(token):
+            events.extend(App.get_upcoming_events(token))
+    except Exception as exc:
+        current_app.logger.info('Test prep Google calendar unavailable: %s', type(exc).__name__)
+    return events if App._calendar_policy_allowed() else []
+
+
+@chatbot_bp.get('/api/tutor/test-prep')
+def tutor_test_prep():
+    """Private upcoming-assessment suggestions; never invokes AI or writes a plan."""
+    from intelliplan.learning import policy
+    from intelliplan.persistence.manual_tasks import tasks
+    from intelliplan.scheduler_clock import timezone_for
+    from intelliplan.services.test_prep import prep_candidates
+    from time_utils import to_local
+
+    if not current_user.is_authenticated:
+        return jsonify({'error': 'sign_in_required'}), 401
+    if (not policy.decision(current_user, 'scheduler')[0]
+            or not policy.decision(current_user, 'tutor')[0]
+            or not policy.permitted_providers(current_user)):
+        return jsonify({'error': 'test_prep_unavailable'}), 403
+
+    uid = current_user.id
+    zone, offset = timezone_for(uid)
+    today = to_local(utcnow(), zone, offset).date()
+    source_access = {key: policy.decision(current_user, key)[0] for key in policy.SOURCE_CAPABILITIES}
+    rows = []
+    for task in tasks(user_id=uid).list():
+        source = (task.import_source or '').strip().lower()
+        capability = policy.source_capability(source.removeprefix('scraper:'))
+        if source in ('', 'quickadd', 'course') or source_access.get(capability):
+            rows.append(task)
+    plan = None
+    # Legacy saved plans aren't reliably source-labelled. Respect every source
+    # restriction before using them, just as the planning briefing does.
+    if all(source_access.values()):
+        from intelliplan.api.timetable import _active_plan
+        _row, plan, _progress = _active_plan(uid)
+    return jsonify({'assessments': prep_candidates(
+        today, tasks=rows, plan=plan, events=_test_prep_calendar(), tz_name=zone, offset=offset,
+    )})
 
 
 @chatbot_bp.route('/api/tutor/assignments', methods=['GET'])

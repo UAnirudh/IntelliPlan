@@ -83,6 +83,12 @@
         </ul>
         {% if not has_work_source %}<a class="command-chat__paste" href="/scheduler?capture=1">Paste assignments</a>{% endif %}
         <div id="commandSavedCoverage" aria-live="polite"></div>
+        {% if current_user.is_authenticated %}
+        <section id="commandTestPrep" class="command-chat__coverage" aria-labelledby="commandTestPrepTitle" hidden>
+          <h3 id="commandTestPrepTitle">Upcoming test prep</h3>
+          <ul id="commandTestPrepItems"></ul>
+        </section>
+        {% endif %}
       </div>
     </div>
   </div>
@@ -106,6 +112,7 @@
 </template>
 <script src="/static/js/plan-coverage.js?v={{ asset_v }}" defer></script>
 <script src="/static/js/command_center.js?v={{ asset_v }}" defer></script>
+{% if current_user.is_authenticated %}<script src="/static/js/test-prep.js?v={{ asset_v }}" defer></script>{% endif %}
 <script src="/static/js/command_family_note.js?v={{ asset_v }}" defer></script>
 <script src="/static/js/workspace_display.js?v={{ asset_v }}" defer></script>
 {% endblock %}

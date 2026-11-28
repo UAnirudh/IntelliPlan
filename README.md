@@ -81,6 +81,14 @@ GPA overview pulled live from your school platform. The **Grade Modeler** lets y
 ### 🤖 Plani — AI Tutor
 A dedicated AI tutor (separate from the assistant chatbot) that teaches subjects step by step — math, science, history, English, computer science, languages, economics, and test prep. It never just hands over answers; it builds understanding and checks comprehension with follow-up questions.
 
+**Upcoming test prep.** The Command Center suggests 20 minutes of practice 2–3 days
+before a test, quiz, or exam from your tasks, saved plan, or connected calendar.
+Open the suggestion in Tutor, or choose **20-minute test prep** in Study & Learn
+and enter a topic. Add the teacher’s format or rubric, then review and send the
+draft. Tutor can use permitted study materials and relevant practice history,
+grade attempts, and suggest a focused retry. Suggestions don't book sessions or
+send messages by themselves.
+
 Plani runs on an **adaptive student model** rather than a plain chat wrapper. Every reply is shaped by a persistent profile of the student:
 
 - **Learning profile** — grade level, subjects, goals, interests, and how they like explanations (style, length, difficulty). Editable from the tutor sidebar.

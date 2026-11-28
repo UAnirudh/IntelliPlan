@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const path = require('node:path');
 const source = fs.readFileSync(path.join(__dirname, '../../Main_Project/templates/tutor.html'), 'utf8');
-const history = source.slice(source.indexOf('async function loadConversations()'), source.indexOf('function openTutorDrawer()'));
+const history = source.slice(source.indexOf('async function loadConversations('), source.indexOf('function openTutorDrawer()'));
 const escaping = source.slice(source.indexOf('function escHtml(t)'), source.indexOf('function renderMd(raw)'));
 function deferred() { let resolve; const promise = new Promise(r => { resolve = r; }); return { promise, resolve }; }
 const reply = data => ({ ok: true, json: async () => data });
@@ -147,4 +147,19 @@ test('invalid conversation identifiers cannot enter inline click handlers', () =
   api.renderHistory();
   assert.ok(!elements.tutorHistoryList.innerHTML.includes('alert'));
   assert.ok(!elements.tutorHistoryList.innerHTML.includes('Untrusted record'));
+});
+
+
+test('test-prep handoff lists history without opening an old conversation', async () => {
+  const calls = [];
+  const { api } = harness(async url => {
+    calls.push(url);
+    return reply({ conversations: [{ id: 8, title: 'Previous' }] });
+  });
+  api.tutorHistory = [];
+  api.conversationId = null;
+  await api.loadConversations(false);
+  assert.deepEqual(calls, ['/api/tutor/conversations']);
+  assert.equal(api.conversationId, null);
+  assert.equal(api.conversationList[0].id, 8);
 });
