@@ -477,6 +477,19 @@ class SchedulingService:
         student_steps = _open_steps(row.get("steps"))
         if student_steps is not None:
             return _stepped(task, student_steps)
+        description = str(row.get("description") or "")
+        teacher_meeting = re.search(
+            r"\b(?:meet with|talk to|speak with|discuss (?:this|your .{1,45}) with|conference with)"
+            r"\s+(?:me|(?:your|the) (?:teacher|instructor))\b",
+            description, re.IGNORECASE,
+        )
+        independent_work = re.search(
+            r"\b(?:submit|upload|turn in|complete the|write a|finish the)\b", description, re.IGNORECASE,
+        )
+        if teacher_meeting and not independent_work:
+            return [replace(task, title=f"{task.title}: Prepare to talk with your teacher",
+                            parent_title=task.title, est_minutes=15, calibrated=True,
+                            subtask_count=0)]
         if not self._decompose:
             return [task]
         try:

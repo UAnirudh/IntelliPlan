@@ -242,7 +242,8 @@
     select.addEventListener('change', function () {
       if (IPA.session && !IPA.session.ended_at) return;
       assignmentGeneration++;
-      if (select.value === '') { loadNext(); return; }
+      if (select.value === '') { loadNext(null, requestedStudyDate); return; }
+      hideStudyBreak();
       if (select.value === 'custom') {
         IPA.plan = null;
         $('ipaCard').hidden = true;
@@ -265,7 +266,37 @@
     });
   }
 
-  function loadNext(blockId, blockDate) {
+  var requestedStudyDate = '';
+  var breakTimer = null;
+
+  function hideStudyBreak() {
+    window.clearInterval(breakTimer);
+    $('ipaBreak').hidden = true;
+  }
+
+  function showStudyBreak() {
+    var end = Date.now() + 5 * 60 * 1000;
+    $('ipaCard').hidden = true;
+    $('ipaBreak').hidden = false;
+    $('ipaBreakTime').textContent = '5:00';
+    setControls('none');
+    $('ipaSkipBreak').focus();
+    breakTimer = window.setInterval(function () {
+      var seconds = Math.ceil((end - Date.now()) / 1000);
+      if (seconds <= 0) return finishStudyBreak();
+      $('ipaBreakTime').textContent = fmt(seconds);
+    }, 1000);
+  }
+
+  function finishStudyBreak() {
+    hideStudyBreak();
+    $('ipaCard').hidden = false;
+    setControls('idle');
+    $('ipaStart').focus();
+  }
+
+  function loadNext(blockId, blockDate, offerBreak) {
+    hideStudyBreak();
     var generation = ++assignmentGeneration;
     if ($('ipaAssignmentSelect')) {
       $('ipaAssignmentSelect').value = '';
@@ -277,7 +308,10 @@
         if (generation !== assignmentGeneration) return;
         syncMediaPermission(data);
         if (data.session) return resume(data.session);
-        var query = blockId ? '?' + new URLSearchParams({ block_id: blockId, date: blockDate || '' }) : '';
+        var params = new URLSearchParams();
+        if (blockId) params.set('block_id', blockId);
+        if (blockDate) params.set('date', blockDate);
+        var query = params.size ? '?' + params : '';
         return api('/api/active/next' + query).then(function (next) {
           if (generation !== assignmentGeneration) return;
           if (!next.next) {
@@ -303,7 +337,10 @@
             return;
           }
           renderPlan(next.next);
-          setControls('idle');
+          var starts = Date.parse(next.next.start_iso || '');
+          if (offerBreak && next.next.date === offerBreak && starts - Date.now() >= 5 * 60 * 1000) {
+            showStudyBreak();
+          } else setControls('idle');
         });
       })
       .catch(function (err) {
@@ -382,6 +419,7 @@
   };
 
   function resume(session) {
+    var planContext = IPA.plan?.block_id && IPA.plan.block_id === session.block_id ? IPA.plan : null;
     IPA.session = session;
     IPA.accrued = session.active_seconds || 0;
     IPA.overNoted = false;
@@ -396,7 +434,8 @@
       due_date: session.due_date,
       reasons: [],
       task_id: session.task_id,
-      block_id: session.block_id
+      block_id: session.block_id,
+      date: planContext?.date
     });
     if (session.state === 'paused') {
       IPA.running = false;
@@ -556,13 +595,14 @@
       }
       $('ipaEmpty').hidden = false;
       $('ipaEmptyMsg').textContent = 'Session logged. Loading what\'s next…';
+      var finishedDay = IPA.finishing && IPA.session.block_id && IPA.plan?.date;
       IPA.session = null;
       IPA.accrued = 0;
       IPA.overNoted = false;
       $('ipaAdhocTitle').value = '';
       $('ipaAdhocStart').disabled = false;
       adhocUpdateLabel();
-      loadNext();
+      loadNext(null, requestedStudyDate, finishedDay);
     }).catch(function (err) {
       if (wasRunning) beginTicking();
       setControls(wasRunning ? 'running' : 'paused');
@@ -1123,6 +1163,7 @@
     $('ipaRecordTab')?.addEventListener('click', toggleRecording);
     $('ipaDiscardClip')?.addEventListener('click', discardRecording);
     $('ipaDownloadClip')?.addEventListener('click', downloadRecording);
+    $('ipaSkipBreak').addEventListener('click', finishStudyBreak);
     $('ipaStart').addEventListener('click', start);
     $('ipaPause').addEventListener('click', togglePause);
     $('ipaDone').addEventListener('click', function () { openFinish(true); });
@@ -1224,7 +1265,8 @@
     });
 
     var params = new URLSearchParams(location.search);
-    loadNext(params.get('block'), params.get('date'));
+    requestedStudyDate = params.get('date') || '';
+    loadNext(params.get('block'), requestedStudyDate);
   });
 
   /* ── Self-view ────────────────────────────────────────────────────────

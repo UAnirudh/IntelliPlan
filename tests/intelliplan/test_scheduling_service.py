@@ -76,6 +76,17 @@ def test_automatic_preference_uses_local_successes_and_respects_class_time():
     assert with_misses.preferred_time == "morning"
 
 
+def test_teacher_discussion_is_preparation_when_instructions_require_no_independent_work():
+    assignment = rows(title="Cosmology revisions", description="Meet with your teacher to review the revisions.")
+    preview = service().tasks_from([assignment], now=NOW)
+    assert len(preview) == 1
+    assert preview[0].parent_title == "Cosmology revisions"
+    assert preview[0].title.endswith("Prepare to talk with your teacher")
+    assert preview[0].est_minutes == 15
+    solo = service().tasks_from([dict(assignment, description="Meet with your teacher, then submit the revised report.")], now=NOW)
+    assert not any(task.title.endswith("Prepare to talk with your teacher") for task in solo)
+
+
 def fragmented_plan(*, preserve=False):
     from intelliplan.intelligence.planner import DayPlan, Plan, Session
     sittings = tuple(Session(

@@ -119,6 +119,31 @@ def block(**overrides):
 
 # ── Why there is no next block ───────────────────────────────
 
+def test_today_completion_is_shared_with_active_study(client, student, monkeypatch):
+    from datetime import datetime
+    from intelliplan import scheduler_clock
+
+    monkeypatch.setattr(scheduler_clock, "now_for", lambda uid: datetime(2026, 11, 27, 12))
+    result = save_plan(client, [
+        {"date": "2026-11-26", "blocks": [block(block_id="yesterday")]},
+        {"date": "2026-11-27", "blocks": [
+            block(block_id="today"), block(block_id="break", is_break=True),
+            block(block_id="unplaced", unplaced=True),
+        ]},
+        {"date": "2026-11-28", "blocks": [block(block_id="tomorrow")]},
+    ])
+    saved_id = result.get_json()["id"]
+    next_url = "/api/active/next?date=2026-11-27"
+    assert client.get(next_url).get_json()["next"]["block_id"] == "today"
+    endpoint = "/schedule/progress/today"
+    assert client.post(endpoint, json={"schedule_id": saved_id+1, "date": "2026-11-27"}).status_code == 409
+    assert client.post(endpoint, json={"schedule_id": saved_id, "date": "2026-11-28"}).status_code == 409
+    response = client.post(endpoint, json={"schedule_id": saved_id, "date": "2026-11-27"})
+    assert response.get_json()["progress"] == {"today": {"done": True}}
+    assert client.get(next_url).get_json()["next"] is None
+    assert client.get("/api/active/next?date=2026-11-28").get_json()["next"]["block_id"] == "tomorrow"
+
+
 def test_with_no_plan_at_all(client, student):
     body = client.get("/api/active/next").get_json()
     assert body["next"] is None

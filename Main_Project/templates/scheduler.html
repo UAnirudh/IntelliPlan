@@ -769,6 +769,8 @@
   #weekPlanStatus:empty { display: none; }
   #calExportWrap { align-items: center; margin-bottom: 1rem; }
   #calExportWrap[hidden], #calExportStatus:empty { display: none; }
+  .iv-day-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding-block: 8px; }
+  .iv-day-actions a { color: var(--text-primary); text-underline-offset: 3px; }
   .scheduler-habit-note { color: var(--text-secondary); font-size: .84rem; margin: .35rem 0; }
   #appleCalendarLink:not([hidden]) { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; }
   #calExportStatus { color: var(--text-secondary); margin: 0; }
@@ -1570,6 +1572,7 @@ function reviewWeekAssignments(rows, week) {
 let _assignmentQueueRows = [];
 let _assignmentQueueFilter = 'actionable';
 let _lastScheduleData = null;
+let _activeSavedScheduleId = null;
 let _activeBlockId = null;
 let _currentTab = 'creator';
 
@@ -2258,6 +2261,7 @@ async function autoSaveSchedule() {
       body: JSON.stringify({ schedule_data: _lastScheduleData, name })
     }).then(r => r.json());
     if (res.status === 'ok') {
+      _activeSavedScheduleId = res.id;
       _progressSyncEnabled = true;
       pushProgress();
       if (window.FT) FT.refresh();
@@ -2300,6 +2304,7 @@ async function saveSchedule() {
   }
   btn.disabled = false;
   if (res.status === 'ok') {
+    _activeSavedScheduleId = res.id;
     // The plan is now the active saved schedule — progress can sync to it.
     _progressSyncEnabled = true;
     pushProgress();
@@ -2581,6 +2586,38 @@ function updateBadge() {
   badge.style.display = n > 0 ? 'inline' : 'none';
 }
 
+async function completeToday(day, button) {
+  if (!navigator.onLine) {
+    IP.toast('Reconnect to mark today complete.', 'error');
+    return;
+  }
+  const scheduleId = _activeSavedScheduleId;
+  if (!await IP.confirm('Mark all scheduled study blocks for today complete in IntelliPlan?', {
+    title: 'Finish today’s study blocks?', confirmLabel: 'Mark complete'
+  })) return;
+  if (!button.isConnected || button.disabled || scheduleId !== _activeSavedScheduleId) return;
+  button.disabled = true;
+  try {
+    const response = await fetch('/schedule/progress/today', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({date: day, schedule_id: scheduleId,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone}),
+    });
+    const result = await response.json();
+    if (!response.ok || result.status !== 'ok') throw new Error(result.message || 'Could not save progress.');
+    if (_activeSavedScheduleId === scheduleId) {
+      mergeServerProgress(result.progress);
+      renderInteractive();
+      if (window.FT) FT.refresh();
+      IP.toast('Today’s study blocks are complete.');
+    }
+  } catch (error) {
+    IP.toast(error.message || 'Could not save progress. Try again.', 'error');
+  } finally {
+    button.disabled = false;
+  }
+}
+
 function renderInteractive() {
   const host = document.getElementById('ivDays');
   const empty = document.getElementById('ivEmpty');
@@ -2639,6 +2676,22 @@ function renderInteractive() {
       </div>`;
   }).join('');
 
+  const todayCard = host.querySelector('.iv-day-card.is-today .iv-day-head');
+  if (todayCard && _progressSyncEnabled && _activeSavedScheduleId && (todayDay.blocks || []).some(
+      block => !block.is_break && !block.unplaced && !stateFor(block.block_id).done)) {
+    const actions = document.createElement('div');
+    actions.className = 'iv-day-actions';
+    const study = document.createElement('a');
+    study.href = '/active?date=' + encodeURIComponent(todayIso);
+    study.textContent = 'Study today’s plan';
+    const complete = document.createElement('button');
+    complete.type = 'button';
+    complete.className = 'btn-secondary';
+    complete.textContent = 'Mark today complete';
+    complete.addEventListener('click', () => completeToday(todayIso, complete));
+    actions.append(study, complete);
+    todayCard.after(actions);
+  }
   host.dispatchEvent(new Event('planner-days-rendered'));
 
   // Wire click + keyboard handlers
@@ -3464,6 +3517,7 @@ function dismissSavedPlan() {
   const res = wrapped.data || {};
   if (res.status !== 'ok' || _lastScheduleData) return;
   _lastScheduleData = res.data;
+  _activeSavedScheduleId = res.id;
   mergeServerProgress(res.progress);
   // Progress pushes are queued while offline rather than dropped, so this
   // stays on: IP.queue owns the retry, and the op id keeps a replay from
@@ -3492,6 +3546,7 @@ function dismissSavedPlan() {
 
   updateCalExportButton();
   updateBadge();
+  if (_currentTab === 'interactive') renderInteractive();
   // Refreshes the forecast and lets Autopilot catch the plan up.
   if (window.FT) FT.planLoaded();
   try {

@@ -352,12 +352,12 @@ def create_active_blueprint(deps: ActiveDeps) -> Blueprint:
         saw_workable_block = False
 
         for day in days:
-            if requested and requested_day and day.get("date") != requested_day:
+            if requested_day and day.get("date") != requested_day:
                 continue
             for index, block in enumerate(day.get("blocks", []) or []):
                 if requested and block_key(block, index) != requested:
                     continue
-                if block.get("is_break"):
+                if block.get("is_break") or block.get("unplaced"):
                     continue
                 saw_workable_block = True
                 if block.get("done"):
@@ -379,6 +379,7 @@ def create_active_blueprint(deps: ActiveDeps) -> Blueprint:
                             "reasons": block.get("reasons") or [],
                             "time_slot": block.get("time_slot"),
                             "date": day.get("date"),
+                            "start_iso": block.get("start_iso"),
                         }
                     }
                 )

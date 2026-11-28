@@ -151,10 +151,53 @@ def _mark_done_blocks(data: dict[str, Any], progress_json: Any) -> None:
 
 def _on_session_finished(row: Any) -> None:
     """Fan a finished sitting out to everything that should react to it."""
+    _complete_saved_plan_block(row)
     _mirror_task_feedback(row)
     _tick_breakdown_step(row)
     _invalidate_plan_cache()
     _notify_session_finished(row)
+
+
+def _complete_saved_plan_block(session: Any) -> None:
+    """Record explicit completion only for the same block in the original plan."""
+    if not session.completed_work or not session.block_id:
+        return
+    import json
+
+    from App import SavedSchedule, db, safe_json_load
+    from intelliplan.services.timeline import block_key
+
+    query = SavedSchedule.query.filter_by(
+        user_id=session.user_id, guest_session_id=None if session.user_id else session.guest_session_id,
+        is_active=True,
+    )
+    try:
+        row = query.order_by(SavedSchedule.created_at.desc(), SavedSchedule.id.desc()).first()
+        if not row or row.created_at > session.started_at:
+            return
+        plan = safe_json_load(row.schedule_data, {})
+        matches = [
+            block for day in plan.get("schedule") or []
+            for index, block in enumerate(day.get("blocks") or [])
+            if not block.get("is_break") and not block.get("unplaced") and
+            block_key(block, index) == session.block_id and
+            str(block.get("parent_title") or block.get("assignment") or "")[:512] == session.title and
+            str(block.get("task_id") or "") == str(session.task_id or "")
+        ]
+        if len(matches) != 1:
+            return
+        progress = safe_json_load(row.progress_json, {})
+        if not isinstance(progress, dict):
+            progress = {}
+        current = progress.get(session.block_id)
+        progress[session.block_id] = {**(current if isinstance(current, dict) else {}), "done": True}
+        query.filter_by(id=row.id, progress_json=row.progress_json).update(
+            {"progress_json": json.dumps(progress)}, synchronize_session=False,
+        )
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        logger.warning("Could not update saved block progress", exc_info=True)
 
 
 def _tick_breakdown_step(row: Any) -> None:

@@ -1101,6 +1101,7 @@ def _execute_tool(name: str, args: dict, user_id: int) -> dict[str, Any]:
                 "title": t.title, "course": t.course or "Personal",
                 "due_date": t.due_date or "", "priority": t.priority or "Medium",
                 "estimated_time": t.estimated_time or 60,
+                "description": getattr(t, "notes", "") or "",
                 "difficulty": infer_task_difficulty(None, t.priority or "Medium", t.due_date),
                 "color": PRIORITY_COLORS.get(t.priority or "Medium", "#60a5fa"),
             })
@@ -1116,6 +1117,7 @@ def _execute_tool(name: str, args: dict, user_id: int) -> dict[str, Any]:
                 "due_date": t.get("due_date") or "", "priority": t.get("priority") or "Medium",
                 "due_at": t.get('due_at') or t.get('due_datetime'),
                 "deadline_at": t.get('deadline_at'),
+                "description": t.get("description") or "",
                 "estimated_time": t.get("estimated_time") or 60,
                 "difficulty": t.get("difficulty") or infer_task_difficulty(None, t.get("priority") or "Medium", t.get("due_date")),
                 "color": t.get("color") or PRIORITY_COLORS.get(t.get("priority") or "Medium", "#60a5fa"),

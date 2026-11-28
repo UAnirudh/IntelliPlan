@@ -16232,7 +16232,7 @@ def get_saved_schedule():
             progress = {}
     except Exception:
         progress = {}
-    return flask.jsonify({"status": "ok", "name": s.name, "created_at": s.created_at.strftime("%b %d, %Y"), "data": data, "progress": progress})
+    return flask.jsonify({"status": "ok", "id": s.id, "name": s.name, "created_at": s.created_at.strftime("%b %d, %Y"), "data": data, "progress": progress})
 
 
 @app.route("/schedule/progress", methods=["POST"])
@@ -16258,6 +16258,43 @@ def save_schedule_progress():
     s.progress_json = raw
     db.session.commit()
     return flask.jsonify({"status": "ok"})
+
+
+@app.post("/schedule/progress/today")
+def complete_today_schedule():
+    from intelliplan.scheduler_clock import now_for
+    from intelliplan.services.timeline import block_key
+
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict) or type(data.get("schedule_id")) is not int:
+        return jsonify(status="error", message="Reload your plan before marking today complete."), 400
+    row = _active_saved_schedule()
+    if not row or row.id != data["schedule_id"]:
+        return jsonify(status="error", message="Your active plan changed. Reload before marking it complete."), 409
+    uid = current_user.id if current_user.is_authenticated else None
+    today = now_for(uid).date().isoformat()
+    if data.get("date") != today:
+        return jsonify(status="error", message="The date changed. Reload your plan and try again."), 409
+    progress = safe_json_load(row.progress_json, {})
+    if not isinstance(progress, dict):
+        progress = {}
+    for day in json.loads(row.schedule_data).get("schedule", []):
+        if day.get("date") != today:
+            continue
+        for index, block in enumerate(day.get("blocks") or []):
+            if block.get("is_break") or block.get("unplaced"):
+                continue
+            key = block_key(block, index)
+            existing = progress.get(key)
+            progress[key] = {**(existing if isinstance(existing, dict) else {}), "done": True}
+    updated = SavedSchedule.query.filter_by(id=row.id, is_active=True, progress_json=row.progress_json).update(
+        {"progress_json": json.dumps(progress)}, synchronize_session=False,
+    )
+    if not updated:
+        db.session.rollback()
+        return jsonify(status="error", message="Plan progress changed. Try again."), 409
+    db.session.commit()
+    return jsonify(status="ok", progress=progress)
 
 
 def _active_saved_schedule():
