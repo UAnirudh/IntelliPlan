@@ -143,7 +143,12 @@
       <button type="button" class="pai-btn" id="paiCopyOpenAIRedirect" aria-describedby="paiOpenAIRedirectStatus">Copy redirect URI</button>
     </div>
       <p class="pai-note" id="paiOpenAIRedirectStatus" role="status" aria-live="polite">Submit this exact URI with your application. OpenAI requires the registered callback URL to match exactly. Identity linking stays hidden until the hosted integration is approved and configured. An identity link alone does not enable ChatGPT plan use.</p>
-      {% if siwc_identity_link_enabled %}
+      {% if siwc_identity_linked %}
+      <p><strong>ChatGPT identity connected</strong></p>
+      <form method="post" action="{{ url_for('openai_siwc.disconnect') }}">
+        <button type="submit" class="pai-btn">Disconnect ChatGPT identity</button>
+      </form>
+      {% elif siwc_identity_link_enabled %}
       <a class="pai-btn" href="/auth/openai" data-oai-siwc-button data-oai-siwc-button-client="{{ openai_client_id|e }}">Continue with ChatGPT</a>
       <p class="pai-note">This links your verified OpenAI identity to this account. ChatGPT plan use is not enabled by identity sign-in.</p>
       {% endif %}
@@ -202,6 +207,7 @@
 
   const identityResult = new URLSearchParams(location.search).get('openai_identity');
   const identityMessages = {
+    disconnected: ['ChatGPT identity disconnected.', false],
     linked: ['ChatGPT identity linked. Plan use remains unavailable until OpenAI approves and enables it.', false],
     cancelled: ['ChatGPT sign-in was cancelled. No account was linked.', false],
     failed: ['ChatGPT sign-in could not be completed. Try again later.', true]

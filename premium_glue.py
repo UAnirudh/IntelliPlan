@@ -643,8 +643,10 @@ def _login_required():
 def premium_settings_page():
     if not current_user.is_authenticated:
         return redirect("/login?next=/settings/ai")
+    from App import OpenAIIdentityLink
     from growth_glue import billing_enabled
 
+    identity_link = OpenAIIdentityLink.query.filter_by(user_id=current_user.id).first()
     plan_rows = list(catalog.plans().values())
     return render_template(
         "premium_settings.html",
@@ -662,6 +664,7 @@ def premium_settings_page():
         paid=request.args.get("paid") == "1",
         siwc_identity_link_enabled=(openai_siwc.enabled_config()[0] and secret_box.is_enabled()),
         openai_client_id=openai_siwc.enabled_config()[1],
+        siwc_identity_linked=identity_link is not None,
     )
 
 

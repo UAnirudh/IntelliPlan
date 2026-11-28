@@ -241,6 +241,17 @@ def install(app: Any, db: Any, transaction_model: type, identity_model: type) ->
             abort(503)
         return redirect(_build_authorization_url(metadata, client_id, state, nonce, verifier))
 
+    @bp.post("/auth/openai/disconnect")
+    def disconnect():
+        _authenticated_user()
+        # Use the same lock order as callback finalization. Removing a pending
+        # transaction also prevents another tab from finishing an old link.
+        transaction_model.query.filter_by(user_id=current_user.id).delete()
+        identity_model.query.filter_by(user_id=current_user.id).delete()
+        db.session.commit()
+        session.pop(_BROWSER_SESSION_KEY, None)
+        return redirect("/settings/ai?openai_identity=disconnected", code=303)
+
     @bp.get("/auth/openai/callback")
     def callback():
         client_id = _require_feature()
@@ -251,6 +262,7 @@ def install(app: Any, db: Any, transaction_model: type, identity_model: type) ->
             abort(400)
         # Compare-and-swap makes this transaction single-use across workers.
         now = _now()
+        claimed = None
         try:
             result = db.session.execute(
                 update(transaction_model)
@@ -264,7 +276,9 @@ def install(app: Any, db: Any, transaction_model: type, identity_model: type) ->
                 db.session.rollback()
                 abort(400)
             db.session.commit()
-            transaction = transaction_model.query.filter_by(browser_hash=_sha256(browser_id)).first()
+            transaction = transaction_model.query.filter_by(
+                browser_hash=_sha256(browser_id), user_id=current_user.id, consumed_at=now
+            ).first()
             returned_state = request.args.get("state", "")
             state_matches = bool(
                 transaction and hmac.compare_digest(transaction.state_hash, _sha256(returned_state))
@@ -272,10 +286,13 @@ def install(app: Any, db: Any, transaction_model: type, identity_model: type) ->
             nonce = transaction.nonce if transaction else None
             verifier = transaction.code_verifier if transaction else None
             if transaction:
-                # The state is one-use. Once its verifier and nonce are in
-                # local variables, remove the durable secret-bearing row
-                # before any network request or claim validation can fail.
-                db.session.delete(transaction)
+                claimed = transaction_model.query.filter_by(
+                    state_hash=transaction.state_hash, user_id=current_user.id, consumed_at=now
+                )
+                # Keep a cancellable marker through the provider exchange and
+                # clear its secrets before starting any network requests.
+                if claimed.update({"nonce": "", "code_verifier": ""}) != 1:
+                    abort(400)
                 db.session.commit()
             if not state_matches:
                 abort(400)
@@ -291,6 +308,8 @@ def install(app: Any, db: Any, transaction_model: type, identity_model: type) ->
             metadata = _discovery()
             id_token = _exchange_code(code, verifier, metadata, client_id)
             claims = _verify_id_token(id_token, nonce, client_id, metadata)
+            if claimed is None or claimed.delete() != 1:
+                abort(400)
             existing_subject = identity_model.query.filter_by(
                 issuer=ISSUER, client_id=client_id, subject=claims["sub"]
             ).first()
@@ -303,7 +322,8 @@ def install(app: Any, db: Any, transaction_model: type, identity_model: type) ->
             if not existing_user:
                 db.session.add(identity_model(user_id=current_user.id, issuer=ISSUER,
                                               client_id=client_id, subject=claims["sub"]))
-                db.session.commit()
+            db.session.commit()
+            claimed = None
         except Exception as exc:
             db.session.rollback()
             if getattr(exc, "code", None) in (400, 409):
@@ -311,6 +331,10 @@ def install(app: Any, db: Any, transaction_model: type, identity_model: type) ->
             # Never log response bodies, codes, tokens, claim contents or secrets.
             current_app.logger.warning("OpenAI identity link failed (%s)", type(exc).__name__)
             abort(400)
+        finally:
+            if claimed is not None:
+                claimed.delete()
+                db.session.commit()
         return redirect("/settings/ai?openai_identity=linked")
 
     app.register_blueprint(bp)

@@ -269,3 +269,58 @@ def test_identity_link_cannot_be_silently_reassigned_to_another_user(client, mon
         assert link.user_id == other_id
     secret_box.reset_cache()
 
+
+
+def test_linked_status_and_disconnect_work_when_new_links_are_disabled(client, monkeypatch):
+    site = "https://intelliplan.tech"
+    endpoint = "/auth/openai/disconnect"
+    assert client.post(endpoint, base_url=site).status_code == 401
+    other_id = _login(client, "siwc+other-disconnect@example.com")
+    user_id = _login(client, "siwc+disconnect@example.com")
+    for uid in (other_id, user_id):
+        with App.app.app_context():
+            App.db.session.add(App.OpenAIIdentityLink(
+                user_id=uid, issuer=siwc.ISSUER, client_id="oaiapp_test", subject=f"disconnect-{uid}"
+            ))
+            App.db.session.commit()
+
+    monkeypatch.setenv("OPENAI_SIWC_ENABLED", "false")
+    settings = client.get("/settings/ai", base_url=site)
+    assert b"ChatGPT identity connected" in settings.data
+    assert b"Disconnect ChatGPT identity" in settings.data
+    assert f"disconnect-{user_id}".encode() not in settings.data
+    assert client.post(endpoint, base_url=site, headers={"Origin": "https://external.example"}).status_code == 403
+    assert b"ChatGPT identity connected" in client.get("/settings/ai", base_url=site).data
+
+    result = client.post(endpoint, base_url=site, headers={"Origin": site}, follow_redirects=True)
+    assert result.status_code == 200
+    assert b"ChatGPT identity disconnected." in result.data
+    assert b"ChatGPT identity connected" not in result.data
+    assert client.post(endpoint, base_url=site, headers={"Origin": site}).status_code == 303
+    with App.app.app_context():
+        assert App.OpenAIIdentityLink.query.filter_by(user_id=other_id).count() == 1
+
+
+def test_disconnect_cancels_callback_during_provider_exchange(client, monkeypatch):
+    from urllib.parse import parse_qs, urlsplit
+
+    site = "https://intelliplan.tech"
+    user_id = _login(client, "siwc+exchange-disconnect@example.com")
+    _configure_routes(client, monkeypatch)
+    started = client.get("/auth/openai", base_url=site)
+    state = parse_qs(urlsplit(started.headers["Location"]).query)["state"][0]
+
+    def disconnect_during_exchange(*args, **kwargs):
+        with App.app.app_context():
+            marker = App.OpenAISignInTransaction.query.filter_by(user_id=user_id).one()
+            assert (marker.nonce, marker.code_verifier) == ("", "")
+        other_tab = App.app.test_client()
+        _login(other_tab, "siwc+exchange-disconnect@example.com")
+        assert other_tab.post("/auth/openai/disconnect", base_url=site, headers={"Origin": site}).status_code == 303
+        return "synthetic-id-token"
+
+    monkeypatch.setattr(siwc, "_exchange_code", disconnect_during_exchange)
+    assert client.get(f"/auth/openai/callback?state={state}&code=synthetic", base_url=site).status_code == 400
+    with App.app.app_context():
+        assert App.OpenAIIdentityLink.query.filter_by(user_id=user_id).count() == 0
+        assert App.OpenAISignInTransaction.query.filter_by(user_id=user_id).count() == 0
