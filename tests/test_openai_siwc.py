@@ -209,7 +209,7 @@ def test_successful_identity_link_is_single_use_and_stores_no_tokens(client, mon
     from urllib.parse import parse_qs, urlsplit
     state = parse_qs(urlsplit(started.headers["Location"]).query)["state"][0]
     auth_params = parse_qs(urlsplit(started.headers["Location"]).query)
-    assert auth_params["scope"] == ["openid profile email"]
+    assert auth_params["scope"] == ["openid"]
     assert auth_params["redirect_uri"] == [siwc.CALLBACK_URI]
     linked = client.get(f"/auth/openai/callback?state={state}&code=synthetic",
                         base_url="https://intelliplan.tech", follow_redirects=True)
@@ -324,3 +324,33 @@ def test_disconnect_cancels_callback_during_provider_exchange(client, monkeypatc
     with App.app.app_context():
         assert App.OpenAIIdentityLink.query.filter_by(user_id=user_id).count() == 0
         assert App.OpenAISignInTransaction.query.filter_by(user_id=user_id).count() == 0
+
+
+@pytest.mark.parametrize(("method", "secret"), [
+    ("none", "synthetic-secret"),
+    ("client_secret_basic", ""),
+    ("client_secret_basic", "   "),
+    ("unknown", ""),
+])
+def test_invalid_client_auth_hides_sign_in_before_redirect(client, monkeypatch, method, secret):
+    site = "https://intelliplan.tech"
+    _login(client, "siwc+invalid-auth@example.com")
+    _configure_routes(client, monkeypatch)
+    monkeypatch.setenv("OPENAI_TOKEN_AUTH_METHOD", method)
+    monkeypatch.setenv("OPENAI_CLIENT_SECRET", secret)
+
+    assert client.get("/auth/openai", base_url=site).status_code == 404
+    assert client.get("/auth/openai/callback", base_url=site).status_code == 404
+    assert b"data-oai-siwc-button" not in client.get("/settings/ai", base_url=site).data
+
+
+def test_configured_confidential_client_can_start_sign_in(client, monkeypatch):
+    site = "https://intelliplan.tech"
+    _login(client, "siwc+confidential@example.com")
+    _configure_routes(client, monkeypatch)
+    monkeypatch.setenv("OPENAI_TOKEN_AUTH_METHOD", "client_secret_basic")
+    monkeypatch.setenv("OPENAI_CLIENT_SECRET", "synthetic-secret")
+
+    result = client.get("/auth/openai", base_url=site)
+    assert result.status_code == 302
+    assert "synthetic-secret" not in result.headers["Location"]

@@ -30,7 +30,17 @@ ISSUER = "https://auth.openai.com"
 DISCOVERY_URI = f"{ISSUER}/.well-known/openid-configuration"
 TRANSACTION_TTL = timedelta(minutes=10)
 _BROWSER_SESSION_KEY = "openai_siwc_browser_id"
-_IDENTITY_SCOPES = "openid profile email"
+_IDENTITY_SCOPES = "openid"
+
+
+def _token_auth_config() -> tuple[str, str]:
+    method = (os.getenv("OPENAI_TOKEN_AUTH_METHOD") or "none").strip().lower()
+    secret = os.getenv("OPENAI_CLIENT_SECRET") or ""
+    if method == "none" and not secret:
+        return method, secret
+    if method == "client_secret_basic" and secret.strip():
+        return method, secret
+    raise ValueError("OpenAI token authentication configuration is invalid")
 
 
 def enabled_config() -> tuple[bool, str]:
@@ -40,6 +50,10 @@ def enabled_config() -> tuple[bool, str]:
     if not enabled or not client_id or len(client_id) > 255:
         return False, ""
     if any(char.isspace() for char in client_id):
+        return False, ""
+    try:
+        _token_auth_config()
+    except ValueError:
         return False, ""
     return True, client_id
 
@@ -138,19 +152,12 @@ def _exchange_code(code: str, verifier: str, metadata: dict[str, Any], client_id
         "code_verifier": verifier,
     }
     headers = {"Accept": "application/json"}
-    method = (os.getenv("OPENAI_TOKEN_AUTH_METHOD") or "none").strip().lower()
+    method, secret = _token_auth_config()
     if method == "client_secret_basic":
-        secret = os.getenv("OPENAI_CLIENT_SECRET")
-        if not secret:
-            raise ValueError("OpenAI confidential client is not configured")
         def encode(value: str) -> str:
             return urllib.parse.urlencode({"v": value})[2:]
         basic = base64.b64encode(f"{encode(client_id)}:{encode(secret)}".encode()).decode()
         headers["Authorization"] = f"Basic {basic}"
-    elif method != "none" or os.getenv("OPENAI_CLIENT_SECRET"):
-        # A configured secret without explicit confidential-client mode is an
-        # operator mistake; never silently send it using a public-client flow.
-        raise ValueError("OpenAI token authentication configuration is invalid")
     response = http.post(metadata["token_endpoint"], data=form, headers=headers,
                          timeout=10, allow_redirects=False)
     response.raise_for_status()

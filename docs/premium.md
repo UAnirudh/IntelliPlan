@@ -146,7 +146,7 @@ application's OAuth client registration.
 | Hosted website value | Current IntelliPlan state |
 |---|---|
 | Application callback URI: `https://intelliplan.tech/auth/openai/callback` | Displayed on `/settings/ai`; the implemented callback uses this exact URI. |
-| Sign-in start route: `GET /auth/openai` | Implemented, but returns 404 unless `OPENAI_SIWC_ENABLED=true` and `OPENAI_CLIENT_ID` is configured. Requires an authenticated IntelliPlan user and `DATA_ENCRYPTION_KEY`. |
+| Sign-in start route: `GET /auth/openai` | Implemented, but returns 404 unless `OPENAI_SIWC_ENABLED=true` and the OAuth client ID and authentication method are configured. Requires an authenticated IntelliPlan user and `DATA_ENCRYPTION_KEY`. |
 | Callback route: `GET /auth/openai/callback` | Implements identity-only linking with Authorization Code + PKCE and verified OIDC ID tokens. |
 | OAuth client ID, registered redirect URI, and client authentication method | Must come from OpenAI after the hosted application is accepted. Configure `OPENAI_CLIENT_ID`; set `OPENAI_TOKEN_AUTH_METHOD=none` for a public client or `client_secret_basic` plus `OPENAI_CLIENT_SECRET` for an explicitly provisioned confidential client. |
 
@@ -160,7 +160,7 @@ local/open-source plan-use guide shows a loopback callback such as
 and must not be substituted for IntelliPlan's hosted callback.
 
 The implemented flow links a verified OpenAI identity to the signed-in IntelliPlan
-account. It requests only `openid profile email`, ignores any access or refresh
+account. It requests only `openid`, skips profile and email scopes, ignores any access or refresh
 tokens returned, and stores only the verified issuer, configured client ID, and
 subject. This identity link does **not** connect ChatGPT plan usage. No plan-use
 scopes or tokens are requested or used. The plan adapter remains gated until
