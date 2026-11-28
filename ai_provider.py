@@ -398,7 +398,7 @@ def _openai_chat(
     r = requests.post("https://api.openai.com/v1/chat/completions", json=body, timeout=120,
                       headers={"Authorization": f"Bearer {api_key}"})
     if r.status_code >= 400:
-        raise RuntimeError(f"OpenAI returned {r.status_code}")
+        raise requests.HTTPError(f"OpenAI returned {r.status_code}", response=r)
     choice = (r.json().get("choices") or [{}])[0]
     content = ((choice.get("message") or {}).get("content") or "").strip()
     if choice.get("finish_reason") == "length":
@@ -600,7 +600,8 @@ def _groq_chat(
 
 def _is_quota_error(exc: Exception) -> bool:
     msg = str(exc).lower()
-    status = getattr(exc, "status_code", None) or getattr(exc, "code", None)
+    status = (getattr(exc, "status_code", None) or getattr(exc, "code", None)
+              or getattr(getattr(exc, "response", None), "status_code", None))
     return str(status) == "429" or bool(
         re.search(r"\b(?:quota|rate[-_ ]?limit\w*|resource[-_ ]exhausted)\b", msg)
     )
@@ -690,6 +691,7 @@ def chat(
     thinking_budget: int | None = None,
     plan: str | None = None,
     single_attempt: bool = False,
+    prefer_linked_openai: bool = False,
 ) -> str:
     """Chat completion, walking this tier's model chain until one answers.
 
@@ -710,6 +712,11 @@ def chat(
     """
     chain: list[tuple[str, str, str | None]] = _linked_steps(tier) + [
         (p, m, None) for p, m in model_chain(tier, _apply_account_hooks(plan))]
+    if prefer_linked_openai and any(provider == "openai" and key for provider, _, key in chain):
+        # Preserve the permitted provider list and move Groq directly behind
+        # the linked OpenAI key. Stable sort keeps each provider's tier order.
+        order = {"openai": 0, "groq": 1}
+        chain.sort(key=lambda step: order.get(step[0], 2))
     if single_attempt:
         chain = chain[:1]
     if not chain:

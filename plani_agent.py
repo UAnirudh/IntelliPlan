@@ -1953,7 +1953,7 @@ def plani_agent():
             reply = ai_chat([llm_messages[0]] + generation_window, tier="standard",
                 temperature=0.3,
                 max_tokens=min(1400, decision.max_output_tokens),
-                plan=decision.plan).strip()
+                plan=decision.plan, prefer_linked_openai=True).strip()
             ai_firewall.record_tokens(
                 decision,
                 sum(len(m.get("content", "")) for m in llm_messages),
@@ -2074,7 +2074,7 @@ def plani_agent():
         generation_window = context_window(llm_messages)
         final = ai_chat([llm_messages[0]] + generation_window, tier="standard",
             temperature=0.3, max_tokens=min(600, decision.max_output_tokens),
-            plan=decision.plan).strip()
+            plan=decision.plan, prefer_linked_openai=True).strip()
         ai_firewall.record_tokens(decision,
             sum(len(m.get('content', '')) for m in llm_messages), len(final))
         if _processing_state(user_id) != processing_state:

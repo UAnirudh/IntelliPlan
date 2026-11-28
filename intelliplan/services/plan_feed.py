@@ -162,7 +162,8 @@ def _label(title: Any, course: Any) -> str:
     return f"{title} ({course})" if course else title
 
 
-def _plan_events(schedule_data: Mapping[str, Any], zone, private: bool, link: str) -> list[list[str]]:
+def _plan_events(schedule_data: Mapping[str, Any], zone, private: bool, link: str,
+                 calendar_id: str) -> list[list[str]]:
     events = []
     for day in schedule_data.get("schedule") or []:
         if not isinstance(day, Mapping):
@@ -179,7 +180,14 @@ def _plan_events(schedule_data: Mapping[str, Any], zone, private: bool, link: st
                 continue
             start, end = times
             summary = "Study block" if private else _label(block.get("assignment"), block.get("course"))
-            ident = block.get("block_id") or block.get("assignment") or ""
+            block_id = block.get("block_id")
+            if block_id:
+                identity = block.get("task_id") or block.get("parent_title") or block.get("assignment")
+                uid = _uid("block", calendar_id, block_id, identity, block.get("course"))
+            else:
+                # Legacy entries without IDs cannot be followed across moves.
+                uid = _uid("legacy-block", calendar_id, day_date.isoformat(),
+                           block.get("assignment"), start.time().isoformat())
             desc = "Planned with IntelliPlan." + (f" Open your plan: {link}" if link else "")
             status = "CONFIRMED"
             if block.get("done"):
@@ -188,7 +196,7 @@ def _plan_events(schedule_data: Mapping[str, Any], zone, private: bool, link: st
                 summary = f"✓ {summary}"
             events.append([
                 "BEGIN:VEVENT",
-                f"UID:{_uid('block', day_date.isoformat(), ident, start.time().isoformat())}",
+                f"UID:{uid}",
                 f"DTSTART:{_fmt_dt(start, zone)}",
                 f"DTEND:{_fmt_dt(end, zone)}",
                 f"SUMMARY:{ics_escape(summary)}",
@@ -264,6 +272,7 @@ def build_plan_calendar(
     detail: str = "full",
     now: datetime,
     link: str = "",
+    calendar_id: str = "",
 ) -> str:
     """The whole VCALENDAR. ``now`` is naive UTC (time_utils convention)."""
     zone = _zone(tz_name)
@@ -284,7 +293,7 @@ def build_plan_calendar(
     ]
     if zone is not None:
         lines.append(f"X-WR-TIMEZONE:{tz_name}")
-    events = _plan_events(schedule_data or {}, zone, private, link)
+    events = _plan_events(schedule_data or {}, zone, private, link, calendar_id)
     events += _due_events(list(due_items or ()) + plan_due_items(schedule_data), today, private)
     for event in events:
         # DTSTAMP goes right after UID; it is required on every VEVENT.

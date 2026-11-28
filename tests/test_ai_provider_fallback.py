@@ -39,6 +39,52 @@ def test_linked_gemini_key_does_not_supply_minor_contract(monkeypatch):
     monkeypatch.delenv('GEMINI_MINORS_CONTRACT_APPROVED', raising=False)
     assert ai_provider._linked_steps('fast') == []
 
+@pytest.mark.parametrize("linked_openai", [True, False])
+def test_command_center_uses_linked_openai_then_allowed_groq(monkeypatch, linked_openai):
+    calls = []
+    linked = [("anthropic", "mock-claude", "linked-other")]
+    if linked_openai:
+        linked.append(("openai", "mock-gpt", "linked-openai"))
+
+    def openai(*args, **kwargs):
+        assert kwargs.get("api_key") == "linked-openai"
+        calls.append("openai")
+        raise ai_provider.AITruncatedError("fixture output limit")
+
+    def groq(*args, **kwargs):
+        assert not kwargs.get("api_key")
+        calls.append("groq")
+        return "Groq reply"
+
+    def claude(*args, **kwargs):
+        calls.append("claude")
+        return "Claude reply"
+
+    monkeypatch.setattr(ai_provider, "_linked_steps", lambda tier: linked)
+    monkeypatch.setattr(ai_provider, "model_chain", lambda tier, plan: [("gemini", "g"), ("groq", "q")])
+    monkeypatch.setattr(ai_provider, "_apply_account_hooks", lambda plan: "free")
+    monkeypatch.setattr(ai_provider, "_openai_chat", openai)
+    monkeypatch.setattr(ai_provider, "_groq_chat", groq)
+    monkeypatch.setattr(ai_provider, "_claude_chat", claude)
+    result = ai_provider.chat(MSGS, prefer_linked_openai=True)
+    assert result == ("Groq reply" if linked_openai else "Claude reply")
+    assert calls == (["openai", "groq"] if linked_openai else ["claude"])
+
+
+def test_openai_limit_preserves_status_without_logging_the_error_body(monkeypatch):
+    import requests
+
+    class Response:
+        status_code = 429
+        headers = {"Retry-After": "15"}
+
+    monkeypatch.setattr(requests, "post", lambda *args, **kwargs: Response())
+    with pytest.raises(requests.HTTPError, match="^OpenAI returned 429$") as caught:
+        ai_provider._openai_chat(MSGS, "standard", 0.3, 100, None, "fixture-model", "fixture-key")
+    assert ai_provider._is_quota_error(caught.value)
+    assert ai_provider._retry_after_seconds(caught.value) == 15
+
+
 class _FR:
     def __init__(self, name): self.name = name
 

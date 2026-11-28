@@ -853,14 +853,15 @@
     <div class="settings-section-title">Your plan in your calendar</div>
     <div style="font-size:0.86rem;color:var(--text-secondary);margin-bottom:1rem;line-height:1.55;">
       Subscribe once and your study blocks and due dates appear in Apple Calendar, Google Calendar
-      or Outlook and keep updating whenever your plan changes. Anyone with the link can see
-      your plan, so keep it to yourself; you can replace or turn off the link at any time.
+      or Outlook. Your plan updates when the calendar app refreshes its subscription.
+      Keep the link private. You can replace or turn it off at any time.
     </div>
     <div id="calFeedOff">
       <button type="button" class="btn-primary" id="calFeedCreateBtn" onclick="calFeedCreate()"
               style="padding:9px 18px;border:none;cursor:pointer;">Create my calendar link</button>
     </div>
     <div id="calFeedOn" hidden>
+      <p id="calFeedLastCheck" style="font-size:0.84rem;color:var(--text-secondary);margin:0 0 12px;"></p>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:0.75rem;">
         <a class="btn-primary" id="calFeedApple" href="#" style="padding:9px 16px;text-decoration:none;">Add to Apple Calendar</a>
         <a class="btn-secondary" id="calFeedGoogle" href="#" target="_blank" rel="noopener noreferrer"
@@ -2032,6 +2033,11 @@ function calFeedRender(d) {
   document.getElementById('calFeedOutlook').href = d.urls.outlook;
   document.getElementById('calFeedUrl').value = d.urls.https;
   document.getElementById('calFeedPrivate').checked = d.detail === 'private';
+  const lastCheck = document.getElementById('calFeedLastCheck');
+  const stamp = d.last_fetched_at ? new Date(d.last_fetched_at) : null;
+  lastCheck.textContent = stamp && Number.isFinite(stamp.getTime())
+    ? 'Last recorded calendar check: ' + stamp.toLocaleString()
+    : 'Waiting for a calendar app to check this subscription.';
 }
 function calFeedSay(text, ok) {
   const status = document.getElementById('calFeedStatus');
@@ -2057,7 +2063,7 @@ function calFeedLoad() {
 }
 function calFeedCreate() {
   calFeedSay('Creating your link...');
-  calFeedCall('/api/calendar/feed', {})
+  calFeedCall('/api/calendar/feed', { detail: 'private', create_only: true })
     .then(() => calFeedSay('Ready. Tap a button to subscribe, or copy the link.'))
     .catch(() => calFeedSay('Could not create the link. Try again.', false));
 }
@@ -2093,6 +2099,7 @@ function calFeedCopy() {
   }
 }
 document.addEventListener('DOMContentLoaded', calFeedLoad);
+window.addEventListener('focus', calFeedLoad);
 
 function savePhone() {
   const phone = document.getElementById('phoneInput').value.trim();

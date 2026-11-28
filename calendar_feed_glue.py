@@ -29,7 +29,7 @@ import hashlib
 import logging
 import re
 import secrets
-from datetime import timedelta
+from datetime import timedelta, timezone
 from typing import Any
 from urllib.parse import quote
 
@@ -105,7 +105,7 @@ def _status(row: Any) -> dict[str, Any]:
         "active": True,
         "detail": row.detail or "full",
         "created_at": row.created_at.isoformat() if row.created_at else None,
-        "last_fetched_at": row.last_fetched_at.isoformat() if row.last_fetched_at else None,
+        "last_fetched_at": row.last_fetched_at.replace(tzinfo=timezone.utc).isoformat() if row.last_fetched_at else None,
         "urls": feed_urls(row.token),
     }
 
@@ -168,6 +168,7 @@ def plan_feed_ics(token: str):
         detail=row.detail or "full",
         now=now,
         link=f"{_base_url()}/scheduler",
+        calendar_id=row.token_hash,
     )
     etag = plan_feed.content_etag(body)
 

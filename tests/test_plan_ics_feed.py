@@ -107,6 +107,16 @@ def test_uids_are_stable_across_fetches():
     assert plan_feed.content_etag(plan_feed.build_plan_calendar(changed, now=NOW)) != plan_feed.content_etag(a)
 
 
+def test_block_uid_survives_a_cross_day_move_and_is_unique_by_subscription():
+    original_plan = plan()
+    moved = plan()
+    moved["schedule"][0]["date"] = "2026-10-02"
+    uid = lambda data, scope: re.search(r"^UID:(.*)\r$", events(
+        plan_feed.build_plan_calendar(data, now=NOW, calendar_id=scope))[0], re.M)[1]
+    assert uid(original_plan, "first") == uid(moved, "first")
+    assert uid(original_plan, "first") != uid(original_plan, "second")
+
+
 def test_due_dates_are_all_day_transparent_and_deduped():
     items = [{"title": "Essay; draft, v2\nnotes", "course": "English", "due_date": "2026-10-03"},
              {"title": "Lab", "course": "Chem", "due_date": "2026-10-05"},
@@ -280,6 +290,7 @@ def test_private_subscription_revalidates_a_moved_study_session(client, user_id,
     before = client.get(path)
     assert "no-store" in before.headers["Cache-Control"]
     assert "SUMMARY:Study block" in before.get_data(as_text=True)
+    old_uid = re.search(r"^UID:(.*)\r$", events(before.get_data(as_text=True))[0], re.M)[1]
 
     with app.app_context():
         plan_data = json.loads(SavedSchedule.query.filter_by(user_id=user_id, is_active=True).one().schedule_data)
@@ -292,11 +303,14 @@ def test_private_subscription_revalidates_a_moved_study_session(client, user_id,
     assert after.status_code == 200
     text = after.get_data(as_text=True)
     assert "SUMMARY:Bio reading" not in text
+    assert re.search(r"^UID:(.*)\r$", events(text)[0], re.M)[1] == old_uid
     day = plan_data["schedule"][0]["date"].replace("-", "")
     assert f"DTSTART:{day}T180000" in text
     assert f"DTSTART:{day}T160000" not in text
     unchanged = client.get(path, headers={"If-None-Match": after.headers["ETag"]})
     assert unchanged.status_code == 304 and "no-store" in unchanged.headers["Cache-Control"]
+    refreshed = client.get("/api/calendar/feed").get_json()["last_fetched_at"]
+    assert datetime.fromisoformat(refreshed).utcoffset() == timedelta(0)
 
 
 @pytest.mark.parametrize("token", [
